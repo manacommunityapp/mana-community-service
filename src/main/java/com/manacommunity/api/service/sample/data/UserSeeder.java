@@ -3,10 +3,8 @@ package com.manacommunity.api.service.sample.data;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
-import com.manacommunity.api.model.User;
 import com.manacommunity.api.repository.AppUserRepository;
 import com.manacommunity.api.repository.RoleRepository;
-import com.manacommunity.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,7 +24,6 @@ public class UserSeeder {
 
     private final AppUserRepository userRepo;
     private final RoleRepository roleRepo;
-    private final UserRepository legacyUserRepo;
     private final PasswordEncoder passwordEncoder;
     private final CommunitySeeder communitySeeder;
 
@@ -207,20 +204,6 @@ public class UserSeeder {
             u.setFlatNo(flatNo);
             return userRepo.save(u);
         });
-
-        // Sync to legacy/Cognito users table
-        if (!legacyUserRepo.existsByEmail(email)) {
-            User legacyUser = new User();
-            legacyUser.setId(String.valueOf(savedAppUser.getId()));
-            legacyUser.setCognitoSub("mock-cognito-" + savedAppUser.getId());
-            legacyUser.setFullName(name);
-            legacyUser.setEmail(email);
-            legacyUser.setPhoneNumber(savedAppUser.getPhone());
-            legacyUser.setKycStatus("VERIFIED");
-            legacyUser.setPasswordHash(hash);
-            legacyUser.setRole(roleEntity);
-            legacyUserRepo.save(legacyUser);
-        }
 
         return savedAppUser;
     }

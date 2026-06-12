@@ -31,6 +31,14 @@ public class SampleDataService implements ApplicationRunner {
     private final TournamentSeeder tournamentSeeder;
     private final AuctionSeeder auctionSeeder;
 
+    // Dedicated per-table sample seeders
+    private final RolePermissionDataSeeder rolePermissionDataSeeder;
+    private final VenueDataSeeder venueDataSeeder;
+    private final CourtDataSeeder courtDataSeeder;
+    private final SportsEventDataSeeder sportsEventDataSeeder;
+    private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
+    private final TournamentDataSeeder tournamentDataSeeder;
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
@@ -103,6 +111,14 @@ public class SampleDataService implements ApplicationRunner {
             sportsEventSeeder.seed();
             tournamentSeeder.seed();
             auctionSeeder.seed();
+
+            // Dedicated per-table seeders (run after their dependencies above)
+            rolePermissionDataSeeder.seed();
+            venueDataSeeder.seed();
+            courtDataSeeder.seed();
+            sportsEventDataSeeder.seed();
+            sportsEventRegistrationDataSeeder.seed();
+            tournamentDataSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");

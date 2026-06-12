@@ -78,7 +78,7 @@ public class SportsEventSeeder {
                 LocalDate.of(2026, 6, 6),
                 null,
                 null,
-                2,
+                60,
                 19, 45,
                 "MALE",
                 LocalDate.of(1900, 1, 1),

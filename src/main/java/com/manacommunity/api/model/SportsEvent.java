@@ -101,15 +101,11 @@ public class SportsEvent {
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"event"})
-    private List<EventNotificationSchedule> notifications;
-
-    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties({"event"})
     private List<SportsNotificationScheduler> premiumNotifications;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties({"event"})
-    private List<EventSponsor> sponsors;
+    @JsonIgnoreProperties({"event", "tournament"})
+    private List<SportsEventSponsor> sponsors;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")

@@ -42,7 +42,7 @@ public class SportsMeta {
     @Column(name = "community_id")
     private Long communityId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", insertable = false, updatable = false)
     private Community community;
 

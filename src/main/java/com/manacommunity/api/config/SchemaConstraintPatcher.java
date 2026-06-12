@@ -176,6 +176,220 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher cascade-FK patch failed: {}", e.getMessage(), e);
             }
+
+            // Independent patch: add secondary indexes on foreign-key columns.
+            // PostgreSQL does NOT auto-index FK columns, so joins, filters and
+            // cascade-delete checks do full table scans without these. Idempotent
+            // (CREATE INDEX IF NOT EXISTS) and column-existence guarded, so any
+            // listed (table, column) that doesn't exist is simply skipped.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          fk record;
+                        BEGIN
+                          FOR fk IN
+                            SELECT * FROM (VALUES
+                              ('tournament_config','sport_id'),
+                              ('tournament_config','community_id'),
+                              ('tournament_config','event_id'),
+                              ('tournament_config','venue_id'),
+                              ('tournament_config','created_by'),
+                              ('tournament_match','config_id'),
+                              ('tournament_match','group_id'),
+                              ('tournament_match','team_a_id'),
+                              ('tournament_match','team_b_id'),
+                              ('tournament_match','venue_id'),
+                              ('tournament_match','court_id'),
+                              ('tournament_match','winner_team_id'),
+                              ('tournament_group','config_id'),
+                              ('group_team_standing','group_id'),
+                              ('group_team_standing','team_id'),
+                              ('sports_event','sport_id'),
+                              ('sports_event','community_id'),
+                              ('sports_event','venue_id'),
+                              ('sports_event','event_id'),
+                              ('sports_event','category_id'),
+                              ('sports_event','created_by'),
+                              ('sports_event','tournament_id'),
+                              ('event_registration','event_id'),
+                              ('event_registration','user_id'),
+                              ('event_registration','category_id'),
+                              ('event_registration','partner_user_id'),
+                              ('sports_event_registration','event_id'),
+                              ('sports_event_registration','user_id'),
+                              ('sports_event_registration','category_id'),
+                              ('sports_event_registration','partner_user_id'),
+                              ('app_user','role_id'),
+                              ('app_user','community_id'),
+                              ('roles','community_id'),
+                              ('court','venue_id'),
+                              ('event_sponsor','event_id'),
+                              ('sports_event_sponsor','event_id'),
+                              ('sports_event_sponsor','tournament_id'),
+                              ('auction_team','config_id'),
+                              ('auction_team','owner_user_id'),
+                              ('auction_team','captain_user_id'),
+                              ('auction_player','config_id'),
+                              ('auction_player','user_id'),
+                              ('auction_player','assigned_team_id'),
+                              ('auction_bid','config_id'),
+                              ('auction_bid','player_id'),
+                              ('auction_bid','team_id'),
+                              ('auction_bid','bid_by_user_id'),
+                              ('auction_session_log','config_id'),
+                              ('auction_session_log','player_id'),
+                              ('auction_session_log','team_id'),
+                              ('auction_session_log','performed_by_user_id')
+                            ) AS t(tbl, col)
+                          LOOP
+                            IF EXISTS (
+                              SELECT 1 FROM information_schema.columns
+                              WHERE table_schema = 'manacommunity'
+                                AND table_name = fk.tbl
+                                AND column_name = fk.col
+                            ) THEN
+                              EXECUTE format(
+                                'CREATE INDEX IF NOT EXISTS %I ON manacommunity.%I (%I)',
+                                'idx_' || fk.tbl || '_' || fk.col, fk.tbl, fk.col);
+                            END IF;
+                          END LOOP;
+                        END $$;
+                        """);
+
+                log.info("Foreign-key column indexes ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher FK-index patch failed: {}", e.getMessage(), e);
+            }
+
+            // Independent patch: enforce roles.community_id -> community(id) as a real FK.
+            // Added NOT VALID so it enforces new/updated rows without failing on any
+            // pre-existing orphan data; idempotent and guarded on table existence.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.roles') IS NOT NULL
+                             AND to_regclass('manacommunity.community') IS NOT NULL
+                             AND NOT EXISTS (
+                               SELECT 1 FROM pg_constraint con
+                               JOIN pg_class rel ON rel.oid = con.conrelid
+                               JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                               WHERE nsp.nspname = 'manacommunity'
+                                 AND rel.relname = 'roles'
+                                 AND con.conname = 'fk_roles_community'
+                                 AND con.contype = 'f'
+                             ) THEN
+                            ALTER TABLE manacommunity.roles
+                              ADD CONSTRAINT fk_roles_community
+                              FOREIGN KEY (community_id)
+                              REFERENCES manacommunity.community(id)
+                              NOT VALID;
+                          END IF;
+                        END $$;
+                        """);
+
+                // Validate the FK against existing rows once data is clean. If orphan
+                // community_id values exist, validation fails gracefully (NOTICE) and the
+                // FK stays NOT VALID — still enforcing new/updated rows. Idempotent: skips
+                // once the constraint is already validated.
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          is_valid boolean;
+                        BEGIN
+                          SELECT con.convalidated INTO is_valid
+                          FROM pg_constraint con
+                          JOIN pg_class rel ON rel.oid = con.conrelid
+                          JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                          WHERE nsp.nspname = 'manacommunity'
+                            AND rel.relname = 'roles'
+                            AND con.conname = 'fk_roles_community'
+                            AND con.contype = 'f';
+
+                          IF is_valid IS NOT NULL AND is_valid = false THEN
+                            BEGIN
+                              ALTER TABLE manacommunity.roles VALIDATE CONSTRAINT fk_roles_community;
+                            EXCEPTION WHEN others THEN
+                              RAISE NOTICE 'fk_roles_community left NOT VALID (orphan roles.community_id rows?): %', SQLERRM;
+                            END;
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("roles.community_id FK to community ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher roles-community FK patch failed: {}", e.getMessage(), e);
+            }
+
+            // One-time data migration (idempotent): copy legacy event_sponsor rows into
+            // the consolidated sports_event_sponsor table (tournament_id null). Guarded on
+            // the legacy table still existing (skipped on fresh DBs) and on NOT EXISTS so
+            // it never duplicates. The legacy event_sponsor rows are left untouched.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.event_sponsor') IS NOT NULL
+                             AND to_regclass('manacommunity.sports_event_sponsor') IS NOT NULL THEN
+                            INSERT INTO manacommunity.sports_event_sponsor
+                              (event_id, tournament_id, category, name, url, created_at)
+                            SELECT es.event_id, NULL, es.category, es.name, es.url, es.created_at
+                            FROM manacommunity.event_sponsor es
+                            WHERE NOT EXISTS (
+                              SELECT 1 FROM manacommunity.sports_event_sponsor s
+                              WHERE s.event_id = es.event_id
+                                AND s.name = es.name
+                                AND s.category = es.category);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("event_sponsor -> sports_event_sponsor backfill ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher sponsor-backfill failed: {}", e.getMessage(), e);
+            }
+
+            // One-time data migration (idempotent): copy PENDING (sent=false) legacy
+            // event_notification_schedule rows into sports_notification_scheduler so they
+            // still fire through the single remaining loop. Already-sent rows are skipped
+            // so nothing is re-sent. Guarded on the legacy table existing + NOT EXISTS.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.event_notification_schedule') IS NOT NULL
+                             AND to_regclass('manacommunity.sports_notification_scheduler') IS NOT NULL THEN
+                            INSERT INTO manacommunity.sports_notification_scheduler
+                              (event_id, tournament_id, trigger_key, label, offset_minutes, enabled,
+                               title, body, recipients, channels, priority, is_custom, sent, notify_at, created_at)
+                            SELECT e.event_id, NULL, e.type, COALESCE(e.type,'Reminder'), 0, true,
+                                   COALESCE(e.title,'Reminder'), COALESCE(e.body,''),
+                                   'Registered Players', 'push,email', 'NORMAL', true,
+                                   false, e.notify_at, e.created_at
+                            FROM manacommunity.event_notification_schedule e
+                            WHERE e.sent = false
+                              AND NOT EXISTS (
+                                SELECT 1 FROM manacommunity.sports_notification_scheduler s
+                                WHERE s.event_id = e.event_id
+                                  AND s.notify_at = e.notify_at
+                                  AND s.title = COALESCE(e.title,'Reminder'));
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("event_notification_schedule -> sports_notification_scheduler backfill ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher notification-backfill failed: {}", e.getMessage(), e);
+            }
         }
     }
 }

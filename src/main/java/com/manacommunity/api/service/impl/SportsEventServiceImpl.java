@@ -25,7 +25,6 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final SportsEventRegistrationRepository regRepo;
     private final SportMetaRepository sportMetaRepo;
     private final PlayerCategoryRepository categoryRepo;
-    private final EventNotificationScheduleRepository notifRepo;
     private final SportsNotificationSchedulerRepository schedulerRepo;
     private final AppUserRepository userRepo;
     private final CommunityRepository communityRepo;
@@ -85,9 +84,9 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
 
         if (req.getSponsors() != null) {
-            List<EventSponsor> sponsorsList = new java.util.ArrayList<>();
+            List<SportsEventSponsor> sponsorsList = new java.util.ArrayList<>();
             for (SponsorDto s : req.getSponsors()) {
-                sponsorsList.add(EventSponsor.builder()
+                sponsorsList.add(SportsEventSponsor.builder()
                         .event(event)
                         .category(s.getCategory())
                         .name(s.getName())
@@ -363,16 +362,28 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         for (NotificationScheduleDto cfg : configs) {
             if (cfg.getId() == null && cfg.getOffsetType() != null) {
-                // Legacy support for seeders and test mocks
+                // Legacy DTO shape (seeders / test mocks) — map onto the rich scheduler.
                 LocalDateTime notifyAt = switch (cfg.getOffsetType()) {
                     case "DAYS"    -> eventStart.minusDays(cfg.getOffsetValue());
                     case "HOURS"   -> eventStart.minusHours(cfg.getOffsetValue());
                     case "MINUTES" -> eventStart.minusMinutes(cfg.getOffsetValue());
                     default        -> eventStart;
                 };
-                notifRepo.save(EventNotificationSchedule.builder()
-                        .event(event).notifyAt(notifyAt).type(cfg.getType())
-                        .title(cfg.getTitle()).body(cfg.getBody()).sent(false).build());
+                schedulerRepo.save(SportsNotificationScheduler.builder()
+                        .event(event)
+                        .triggerKey(cfg.getType())
+                        .label(cfg.getType() != null ? cfg.getType() : "Reminder")
+                        .offsetMinutes(0)
+                        .enabled(true)
+                        .title(cfg.getTitle() != null ? cfg.getTitle() : "Reminder")
+                        .body(cfg.getBody() != null ? cfg.getBody() : "")
+                        .recipients("Registered Players")
+                        .channels("push,email")
+                        .priority("NORMAL")
+                        .isCustom(true)
+                        .sent(false)
+                        .notifyAt(notifyAt)
+                        .build());
             } else {
                 // Premium interactive multi-channel scheduler support
                 int offsetMinutes = cfg.getOffset();
@@ -563,7 +574,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
         if (req.getSponsors() != null) {
             for (SponsorDto s : req.getSponsors()) {
-                event.getSponsors().add(EventSponsor.builder()
+                event.getSponsors().add(SportsEventSponsor.builder()
                         .event(event)
                         .category(s.getCategory())
                         .name(s.getName())
@@ -576,7 +587,6 @@ public class SportsEventServiceImpl implements SportsEventService {
         
         // Clean and reschedule notification rules on tournament update
         if (req.getNotifications() != null) {
-            notifRepo.deleteByEventId(saved.getId());
             schedulerRepo.deleteByEventId(saved.getId());
             scheduleNotifications(saved, req.getNotifications());
         }

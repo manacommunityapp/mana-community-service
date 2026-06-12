@@ -17,7 +17,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"permissions", "users"})
+@ToString(exclude = {"permissions", "community"})
 @Table(name = "roles", uniqueConstraints = @UniqueConstraint(columnNames = {"name", "community_id"}))
 public class Role {
 
@@ -32,13 +32,18 @@ public class Role {
     @Column(name = "community_id")
     private Long communityId;
 
+    /**
+     * Read-only navigation to the owning community (null for global roles).
+     * Writes still go through {@link #communityId}; the DB FK on community_id is
+     * managed by SchemaConstraintPatcher, so Hibernate must not generate its own.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id", insertable = false, updatable = false,
+                foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Community community;
+
     // The core mapping linked directly by role_id to role_permissions.role_id
     @OneToMany(mappedBy = "roleEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private Set<RolePermission> permissions = new HashSet<>();
-
-    // --- NEW: Mapped back to the User table (One-to-Many) ---
-    // "mappedBy" tells Hibernate that the 'role' field in the User class owns this relationship.
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    private Set<User> users = new HashSet<>();
 }

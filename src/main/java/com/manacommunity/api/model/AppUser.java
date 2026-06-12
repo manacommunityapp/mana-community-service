@@ -55,7 +55,7 @@ public class AppUser {
     @Builder.Default
     private String role = "MEMBER"; // ADMIN, MEMBER, VENDOR
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private Role roleEntity;
 
