@@ -80,6 +80,7 @@ public final class PermissionConstants {
     public static final String BULK_UPLOAD        = "Bulk Upload";
     public static final String MANAGE_COMMUNITIES = "Manage Communities";
     public static final String MANAGE_ROLES       = "Manage Roles";
+    public static final String EDIT_VENUE_TIMING  = "Edit Venue Timing";
 
     // ──── SPORTS PERMISSION GROUPS ──────────────────────────────────
     /** All 8 View sports permissions */
@@ -112,7 +113,7 @@ public final class PermissionConstants {
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
-                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES)
+                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING)
             ).flatMap(List::stream).toList()
     );
 
@@ -123,7 +124,7 @@ public final class PermissionConstants {
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
-                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES)
+                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING)
             ).flatMap(List::stream).toList()
     );
 
@@ -134,7 +135,7 @@ public final class PermissionConstants {
                     List.of(VIEW_MARKETPLACE),
                     List.of(VIEW_JOBS),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
-                    List.of(VIEW_ADMIN)
+                    List.of(VIEW_ADMIN, EDIT_VENUE_TIMING)
             ).flatMap(List::stream).toList()
     );
 

@@ -24,6 +24,10 @@ public class Court {
     @Column(length = 20)
     private String color; // e.g., "#3b82f6"
 
+    private String openingTime;
+
+    private String closingTime;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id", nullable = false)
     @JsonIgnore

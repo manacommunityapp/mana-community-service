@@ -30,6 +30,12 @@ public class VenueServiceImpl implements VenueService {
     }
 
     @Override
+    public Venue getVenueById(Long id) {
+        return venueRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Venue", id));
+    }
+
+    @Override
     @Transactional
     public Venue createVenue(Long communityId, Venue venue) {
         if (communityId != null && communityId > 0) {
