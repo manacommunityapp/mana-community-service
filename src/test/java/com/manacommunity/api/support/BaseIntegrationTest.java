@@ -3,7 +3,7 @@ package com.manacommunity.api.support;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+//import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -59,8 +59,8 @@ public abstract class BaseIntegrationTest {
     @LocalServerPort
     protected int port;
 
-    @Autowired
-    protected TestRestTemplate restTemplate;
+    //@Autowired
+    //protected TestRestTemplate restTemplate;
 
     protected String baseUrl(String path) {
         return "http://localhost:" + port + path;
