@@ -36,6 +36,12 @@ public class SportsEventCsvImportService {
         int imported = 0;
         List<String> skippedReasons = new ArrayList<>();
 
+        // Pre-load dedup keys (name + email + flat number) for this event; also track keys added
+        // during this import so duplicates within the same file are caught too.
+        java.util.Set<String> seenKeys = new java.util.HashSet<>();
+        regRepo.findByEventId(eventId).forEach(r ->
+                seenKeys.add(dupKey(r.getPlayerName(), r.getEmail(), r.getFlatNumber())));
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean isHeader = true;
@@ -52,16 +58,19 @@ public class SportsEventCsvImportService {
                     continue;
                 }
 
+                // Column order: Player Name, Email, Category, Age, Flat Number, Relation, Primary Role
                 String playerName = cols[0].trim();
-                String categoryName = cols.length > 1 ? cols[1].trim() : "";
-                String ageStr = cols.length > 2 ? cols[2].trim() : "";
-                String flatNumber = cols.length > 3 ? cols[3].trim() : null;
-                String relation = cols.length > 4 ? cols[4].trim() : null;
-                String role = cols.length > 5 ? cols[5].trim() : null;
+                String email = cols.length > 1 ? cols[1].trim() : null;
+                String categoryName = cols.length > 2 ? cols[2].trim() : "";
+                String ageStr = cols.length > 3 ? cols[3].trim() : "";
+                String flatNumber = cols.length > 4 ? cols[4].trim() : null;
+                String relation = cols.length > 5 ? cols[5].trim() : null;
+                String role = cols.length > 6 ? cols[6].trim() : null;
 
-                // Duplicate check
-                if (regRepo.existsByEventIdAndUserIsNullAndPlayerName(eventId, playerName)) {
-                    skippedReasons.add("Row " + lineNum + ": '" + playerName + "' already registered");
+                // Duplicate check: name + email + flat number (case-insensitive, blank-safe)
+                String key = dupKey(playerName, email, flatNumber);
+                if (seenKeys.contains(key)) {
+                    skippedReasons.add("Row " + lineNum + ": '" + playerName + "' duplicate (name + email + flat number)");
                     continue;
                 }
 
@@ -96,6 +105,7 @@ public class SportsEventCsvImportService {
                         .category(category)
                         .matchType(matchType)
                         .playerName(playerName)
+                        .email(email)
                         .flatNumber(flatNumber)
                         .relation(relation)
                         .age(age)
@@ -105,6 +115,7 @@ public class SportsEventCsvImportService {
                         .build();
 
                 regRepo.save(reg);
+                seenKeys.add(key);
                 imported++;
             }
         } catch (Exception e) {
@@ -112,6 +123,15 @@ public class SportsEventCsvImportService {
         }
 
         return new ImportResult(imported, skippedReasons.size(), skippedReasons);
+    }
+
+    /** Normalized dedup key: name + email + flat number (case-insensitive, blank-safe). */
+    private static String dupKey(String name, String email, String flat) {
+        return norm(name) + "|" + norm(email) + "|" + norm(flat);
+    }
+
+    private static String norm(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
     }
 
     private SportsEvent.MatchFormat deriveMatchType(String categoryName) {

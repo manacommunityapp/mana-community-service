@@ -117,8 +117,20 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         // Allow multiple registrations if playerName is different (for family members)
         String pName = req.getPlayerName() != null ? req.getPlayerName() : user.getFullName();
-        if (regRepo.existsByEventIdAndUserIdAndPlayerName(req.getEventId(), userId, pName)) {
-            throw new AlreadyRegisteredException("Registration for " + pName + " already exists.");
+        String email = req.getEmail();
+        String flat = req.getFlatNumber();
+        // Duplicate guard: a registration is a duplicate when name + email + flat number all match
+        // an existing one for this event (case-insensitive, trimmed) — regardless of which user
+        // submitted it, so admin-imported and self-registered duplicates are both caught.
+        boolean duplicate = regRepo.findByEventId(req.getEventId()).stream().anyMatch(r ->
+                normEq(r.getPlayerName(), pName)
+                        && normEq(r.getEmail(), email)
+                        && normEq(r.getFlatNumber(), flat));
+        if (duplicate) {
+            throw new AlreadyRegisteredException(
+                    "Registration for " + pName
+                            + " (" + (email != null && !email.isBlank() ? email : "no email") + ", "
+                            + (flat != null && !flat.isBlank() ? flat : "no flat") + ") already exists.");
         }
 
         long currentCount = regRepo.countByEventId(req.getEventId());
@@ -141,6 +153,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .matchType(SportsEvent.MatchFormat.valueOf(req.getMatchType()))
                 .status(SportsEventRegistration.RegistrationStatus.REGISTERED)
                 .playerName(pName)
+                .email(email)
                 .relation(req.getRelation())
                 .flatNumber(req.getFlatNumber())
                 .age(req.getAge() != null ? req.getAge() : age)
@@ -152,6 +165,13 @@ public class SportsEventServiceImpl implements SportsEventService {
             reg.setPartner(userRepo.getReferenceById(req.getPartnerUserId()));
 
         return regRepo.save(reg);
+    }
+
+    /** Null-safe, case-insensitive, trimmed equality (treats null and blank as equal). */
+    private static boolean normEq(String a, String b) {
+        return java.util.Objects.equals(
+                a == null ? "" : a.trim().toLowerCase(),
+                b == null ? "" : b.trim().toLowerCase());
     }
 
     @Transactional

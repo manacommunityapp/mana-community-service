@@ -17,6 +17,7 @@ public class RegistrationRequest {
     @NotNull
     String matchType;
     String playerName;
+    String email;
     String relation;
     String flatNumber;
     Integer age;

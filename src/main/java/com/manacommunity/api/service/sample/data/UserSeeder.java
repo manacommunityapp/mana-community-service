@@ -88,6 +88,8 @@ public class UserSeeder {
         createUser("suresh.nair@gmail.com", "Suresh Nair", "MEMBER", hash, leCommunity, "A", "303", "MALE", LocalDate.of(1978, 1, 20));
         createUser("meera.iyer@gmail.com", "Meera Iyer", "MEMBER", hash, leCommunity, "A", "304", "FEMALE", LocalDate.of(1986, 10, 14));
 
+        createUser("Bhupal@gmail.com", "Bhupal", "MEMBER", hash, leCommunity, "B", "209", "MALE", LocalDate.of(1986, 11, 14));
+
         // 3. Block B Residents
         createUser("rajat.bhatia@gmail.com", "Rajat Bhatia", "MEMBER", hash, leCommunity, "B", "101", "MALE", LocalDate.of(1996, 8, 3));
         createUser("kavita.menon@gmail.com", "Kavita Menon", "MEMBER", hash, leCommunity, "B", "102", "FEMALE", LocalDate.of(1983, 5, 28));

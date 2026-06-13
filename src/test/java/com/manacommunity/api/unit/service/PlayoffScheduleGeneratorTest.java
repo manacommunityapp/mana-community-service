@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +21,20 @@ class PlayoffScheduleGeneratorTest {
                                            boolean thirdPlace) {
         return new PlayoffGenerateRequest(
                 numGroups, proceeders, seeding, thirdPlace,
-                "2026-06-20", "08:00 AM", 30, 10, 1L, 1L);
+                "2026-06-20", "08:00 AM", 30, 10, 1L, 1L, null, null);
+    }
+
+    // ── Player-aware knockout helpers ─────────────────────────────────
+
+    private static PlayoffGenerateRequest.ParticipantInput player(String id, String name, String flat) {
+        return new PlayoffGenerateRequest.ParticipantInput(id, name, flat);
+    }
+
+    private PlayoffGenerateRequest knockoutRequest(
+            List<PlayoffGenerateRequest.ParticipantInput> players, List<Long> courtIds) {
+        return new PlayoffGenerateRequest(
+                1, players.size(), "TRADITIONAL", false,
+                "2026-06-20", "09:00 AM", 30, 10, 1L, null, players, courtIds);
     }
 
     @Nested
@@ -157,6 +171,93 @@ class PlayoffScheduleGeneratorTest {
             assertThat(PlayoffScheduleGenerator.addMinutesToTime("08:00 AM", 40)).isEqualTo("08:40 AM");
             assertThat(PlayoffScheduleGenerator.addMinutesToTime("11:50 AM", 20)).isEqualTo("12:10 PM");
             assertThat(PlayoffScheduleGenerator.addMinutesToTime("11:30 PM", 40)).isEqualTo("12:10 AM");
+        }
+    }
+
+    @Nested
+    @DisplayName("player-aware knockout (BYEs / constraints / courts)")
+    class KnockoutFromPlayers {
+
+        /** n players, each with a distinct tower (A,B,C…) so there are no flat/tower clashes. */
+        private List<PlayoffGenerateRequest.ParticipantInput> players(int n) {
+            List<PlayoffGenerateRequest.ParticipantInput> list = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                char tower = (char) ('A' + i);
+                list.add(player("p" + i, "Player " + (i + 1), tower + "101"));
+            }
+            return list;
+        }
+
+        private String tower(String flat) {
+            return flat == null ? "" : flat.replaceAll("\\d.*$", "").toUpperCase();
+        }
+
+        @Test
+        @DisplayName("13 players → 3 BYEs to top seeds, all AUTO_ADVANCED, players auto-advance")
+        void thirteenPlayersThreeByes() {
+            List<PlayoffMatchDraftResponse> matches =
+                    generator.buildKnockoutFromPlayers(knockoutRequest(players(13), List.of(1L, 2L, 3L, 4L)));
+
+            List<PlayoffMatchDraftResponse> byes = matches.stream()
+                    .filter(m -> "AUTO_ADVANCED".equals(m.status())).toList();
+
+            assertThat(byes).hasSize(3); // nextPow2(13)=16, 16-13=3
+            assertThat(byes).allSatisfy(b -> {
+                assertThat(b.name()).contains("(BYE)");
+                assertThat(b.away().id()).isEqualTo("bye");
+                assertThat(b.courtId()).isNull();   // a bye isn't played on a court
+                assertThat(b.time()).isEmpty();      // …and carries no scheduled time
+            });
+            // BYEs go to the top 3 seeds (the first 3 in registration order)
+            assertThat(byes).extracting(b -> b.home().name())
+                    .containsExactlyInAnyOrder("Player 1", "Player 2", "Player 3");
+        }
+
+        @Test
+        @DisplayName("power-of-two player count → 0 BYEs")
+        void powerOfTwoNoByes() {
+            List<PlayoffMatchDraftResponse> matches =
+                    generator.buildKnockoutFromPlayers(knockoutRequest(players(8), List.of(1L, 2L)));
+            assertThat(matches.stream().filter(m -> "AUTO_ADVANCED".equals(m.status())).count()).isZero();
+        }
+
+        @Test
+        @DisplayName("Rule 1 + 2: first round avoids same flat and same tower")
+        void avoidsSameFlatAndTower() {
+            // Default seed pairing of [P1,P2,P3,P4] is (P1,P4),(P2,P3); P1 & P4 share tower A,
+            // so the constraint pass must swap to fix it.
+            List<PlayoffGenerateRequest.ParticipantInput> ps = List.of(
+                    player("p1", "P1", "A101"),
+                    player("p2", "P2", "B101"),
+                    player("p3", "P3", "C101"),
+                    player("p4", "P4", "A202"));
+
+            List<PlayoffMatchDraftResponse> round1 =
+                    generator.buildKnockoutFromPlayers(knockoutRequest(ps, List.of(1L))).stream()
+                            .filter(m -> m.roundIndex() == 0 && !"bye".equals(m.away().id())).toList();
+
+            assertThat(round1).isNotEmpty();
+            assertThat(round1).allSatisfy(m -> {
+                assertThat(m.home().flatNumber()).isNotEqualToIgnoringCase(m.away().flatNumber()); // Rule 1
+                assertThat(tower(m.home().flatNumber())).isNotEqualTo(tower(m.away().flatNumber())); // Rule 2
+            });
+        }
+
+        @Test
+        @DisplayName("Rule 4: parallel court allocation in waves")
+        void parallelCourtWaves() {
+            // 16 players (no BYEs) → 8 first-round matches across 4 courts.
+            List<PlayoffMatchDraftResponse> round1 =
+                    generator.buildKnockoutFromPlayers(knockoutRequest(players(16), List.of(10L, 11L, 12L, 13L)))
+                            .stream().filter(m -> m.roundIndex() == 0).toList();
+
+            assertThat(round1).hasSize(8);
+            // Wave 1: first 4 matches at 09:00 AM on courts 10,11,12,13
+            assertThat(round1.subList(0, 4)).allSatisfy(m -> assertThat(m.time()).isEqualTo("09:00 AM"));
+            assertThat(round1.subList(0, 4)).extracting(PlayoffMatchDraftResponse::courtId)
+                    .containsExactly(10L, 11L, 12L, 13L);
+            // Wave 2: next 4 matches at 09:40 AM (09:00 + 30 duration + 10 break)
+            assertThat(round1.subList(4, 8)).allSatisfy(m -> assertThat(m.time()).isEqualTo("09:40 AM"));
         }
     }
 }

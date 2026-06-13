@@ -251,13 +251,18 @@ public class MatchPersistenceService {
         TournamentConfig managed = configRepo.findById(configId).orElseThrow(
             () -> new IllegalArgumentException("Tournament config not found: " + configId));
 
-        // 5. Build + persist the new matches, forcing each to the requested status
-        //    so matches and config stay consistent.
+        // 5. Build + persist the new matches. The global DRAFT/PUBLISHED lifecycle status is
+        //    applied to ordinary matches, but match-type markers (auto-advanced BYEs) are
+        //    preserved so they aren't overwritten to DRAFT/PUBLISHED.
         List<BulkMatchSaveRequest.MatchData> matches =
             req.matches() != null ? req.matches() : List.of();
         List<TournamentMatch> entities = matches.stream()
             .map(m -> buildMatchEntity(managed, m))
-            .peek(e -> e.setStatus(matchStatus))
+            .peek(e -> {
+                if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
+                    e.setStatus(matchStatus);
+                }
+            })
             .toList();
         matchRepo.saveAll(entities);
 

@@ -101,7 +101,7 @@ public class SchemaConstraintPatcher {
                                 
                             ALTER TABLE manacommunity.tournament_match
                                 ADD CONSTRAINT tournament_match_status_check CHECK (status IN (
-                                    'DRAFT','PUBLISHED','SCHEDULED','LIVE','COMPLETED','POSTPONED','CANCELLED','BYE'
+                                    'DRAFT','PUBLISHED','SCHEDULED','LIVE','COMPLETED','POSTPONED','CANCELLED','BYE','AUTO_ADVANCED'
                                 ));
                           END IF;
                         END $$;
@@ -389,6 +389,26 @@ public class SchemaConstraintPatcher {
                 log.info("event_notification_schedule -> sports_notification_scheduler backfill ensured.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher notification-backfill failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure the sports_event_registration.email column exists before Hibernate
+            // validates (prod runs ddl-auto=validate). Idempotent + table-guarded.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_event_registration') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_event_registration
+                              ADD COLUMN IF NOT EXISTS email varchar(255);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("sports_event_registration.email column ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher email-column patch failed: {}", e.getMessage(), e);
             }
         }
     }

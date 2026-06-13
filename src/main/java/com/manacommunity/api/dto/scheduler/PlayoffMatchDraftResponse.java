@@ -16,7 +16,8 @@ public record PlayoffMatchDraftResponse(
     int           duration,
     Long          venueId,
     Long          courtId,
-    boolean       moveSubsMatches
+    boolean       moveSubsMatches,
+    String        status          // "AUTO_ADVANCED" for auto-advanced BYE matches, else null
 ) {
     public record ParticipantRef(String id, String name, String flatNumber) {
         public ParticipantRef(String id, String name) {

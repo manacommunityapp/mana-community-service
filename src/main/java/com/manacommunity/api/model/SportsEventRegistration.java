@@ -41,6 +41,7 @@ public class SportsEventRegistration {
     private RegistrationStatus status = RegistrationStatus.PENDING;
 
     private String playerName;
+    private String email;
     private String relation;
     private String flatNumber;
     private Integer age;
