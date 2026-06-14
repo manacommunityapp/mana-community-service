@@ -21,7 +21,7 @@ jobs:
           java-version: 21
 
       - name: Build Application
-        run: mvn clean package -DskipTests
+        run: mvn clean package -DskipTests=true
 
       - name: Copy JAR to Server
         uses: appleboy/scp-action@v0.1.7
