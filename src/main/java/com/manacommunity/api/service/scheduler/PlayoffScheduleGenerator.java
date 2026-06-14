@@ -9,8 +9,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -404,14 +407,29 @@ public class PlayoffScheduleGenerator {
         int n = players.size();
         if (n < 2) return new ArrayList<>();
 
-        // Seed by provided order (registration order; skill rating skipped for now).
+        // Round-1 seed list (carries flat number for Rule 1/2 clash checks).
         List<ParticipantRef> seeds = new ArrayList<>();
+        Map<String, Integer> ratingById = new HashMap<>();
+        boolean haveRatings = false;
         for (ParticipantInput p : players) {
             seeds.add(new ParticipantRef(p.id(), p.name(), p.flatNumber()));
+            if (p.rating() != null) {
+                ratingById.put(p.id(), p.rating());
+                haveRatings = true;
+            }
         }
 
-        int slotCount = nextPow2(n);   // nearest power of two
-        int byeCount  = slotCount - n; // BYEs needed
+        // Rule 6 — balance skill levels: order round-1 players by rating so that
+        // similar ratings meet (5 vs 4, not 5 vs 1); neighbours are then paired.
+        if (haveRatings) {
+            seeds.sort(Comparator.comparingInt(
+                    (ParticipantRef r) -> ratingById.getOrDefault(r.id(), Integer.MIN_VALUE)).reversed());
+        }
+
+        // Rule 3 — total rounds = ceil(log2(n)); exactly ONE bye is injected on
+        // each round whose participant count is odd (cascading down the bracket).
+        int totalRounds = 0;
+        for (int s = 1; s < n; s <<= 1) totalRounds++;
 
         List<Long> courtIds = new ArrayList<>();
         if (in.courtIds() != null) courtIds.addAll(in.courtIds());
@@ -421,61 +439,53 @@ public class PlayoffScheduleGenerator {
                 in.startDate(), in.startTime(), in.matchDurationMinutes(), in.breakMinutes(), courtIds);
 
         List<PlayoffMatchDraftResponse> matches = new ArrayList<>();
-        int totalRounds = 0;
-        for (int s = slotCount; s > 1; s >>= 1) totalRounds++;
+        Set<String> byeReceived = new HashSet<>();   // Rule 4 — avoid repeat byes
+        List<ParticipantRef> roundParticipants = new ArrayList<>(seeds);
+        int roundIndex = 0;
 
-        // ── Round 1 ──────────────────────────────────────────────────
-        // Top `byeCount` seeds get BYEs (auto-advanced); the rest are paired.
-        List<ParticipantRef> byePlayers = new ArrayList<>(seeds.subList(0, byeCount));
-        List<ParticipantRef> playing    = new ArrayList<>(seeds.subList(byeCount, n));
-
-        String r1Type = getRoundName(0, totalRounds);
-        List<ParticipantRef> roundParticipants = new ArrayList<>();
-
-        // BYE matches first: not played → no court, no time, AUTO_ADVANCED; player advances.
-        for (int k = 0; k < byePlayers.size(); k++) {
-            ParticipantRef p = byePlayers.get(k);
-            matches.add(new PlayoffMatchDraftResponse(
-                    "ko-r0-bye" + k, p.name() + " (BYE)", r1Type, 0,
-                    p, new ParticipantRef("bye", "BYE"),
-                    sched.currentDate(), "", in.matchDurationMinutes(),
-                    in.venueId(), null, false, "AUTO_ADVANCED"));
-            roundParticipants.add(p); // auto-progress to next round
-        }
-
-        // Real first-round matches: seed-pair then resolve flat/tower clashes.
-        List<ParticipantRef[]> pairs = seedPairs(playing);
-        applyConstraints(pairs);
-        for (int i = 0; i < pairs.size(); i++) {
-            String id = "ko-r0-m" + i;
-            String name = roundLabel(r1Type, i);
-            TimedSlot s = sched.nextSlot();
-            matches.add(new PlayoffMatchDraftResponse(id, name, r1Type, 0,
-                    pairs.get(i)[0], pairs.get(i)[1],
-                    s.date(), s.time(), in.matchDurationMinutes(),
-                    in.venueId(), s.courtId(), false, null));
-            roundParticipants.add(winnerRef(id, name));
-        }
-        sched.flushWave();
-
-        // ── Rounds 2..final (clean power-of-two bracket; no more BYEs) ──
-        int roundIndex = 1;
         while (roundParticipants.size() > 1) {
             String roundType = getRoundName(roundIndex, totalRounds);
+            List<ParticipantRef> active = new ArrayList<>(roundParticipants);
             List<ParticipantRef> next = new ArrayList<>();
-            int numMatches = roundParticipants.size() / 2;
-            for (int mIdx = 0; mIdx < numMatches; mIdx++) {
-                ParticipantRef home = roundParticipants.get(2 * mIdx);
-                ParticipantRef away = roundParticipants.get(2 * mIdx + 1);
+
+            // Rule 3 + 4: when the round has an odd count, pull exactly ONE bye,
+            // chosen randomly and preferring players who have not had a bye yet.
+            ParticipantRef byePlayer = null;
+            if (active.size() % 2 != 0) {
+                int byeIdx = pickByeIndex(active, byeReceived);
+                byePlayer = active.remove(byeIdx);
+                byeReceived.add(byePlayer.id());
+            }
+
+            // Pair the remaining (even) participants. Round 1 is skill-ordered, so
+            // neighbour pairing keeps ratings close; later rounds pair placeholders.
+            List<ParticipantRef[]> pairs = neighborPairs(active);
+            if (roundIndex == 0) applyConstraints(pairs);   // Rules 1 & 2 (first round only)
+
+            int mIdx = 0;
+            for (ParticipantRef[] pr : pairs) {
                 String id = "ko-r" + roundIndex + "-m" + mIdx;
                 String name = roundLabel(roundType, mIdx);
                 TimedSlot s = sched.nextSlot();
                 matches.add(new PlayoffMatchDraftResponse(id, name, roundType, roundIndex,
-                        home, away, s.date(), s.time(), in.matchDurationMinutes(),
+                        pr[0], pr[1], s.date(), s.time(), in.matchDurationMinutes(),
                         in.venueId(), s.courtId(), false, null));
                 next.add(winnerRef(id, name));
+                mIdx++;
             }
-            sched.flushWave();
+
+            // Rule 5: the BYE match is not played — no court, no time, AUTO_ADVANCED;
+            // the bye player advances directly to the next round.
+            if (byePlayer != null) {
+                String byeId = "ko-r" + roundIndex + "-bye";
+                matches.add(new PlayoffMatchDraftResponse(byeId, byePlayer.name() + " (BYE)",
+                        roundType, roundIndex, byePlayer, new ParticipantRef("bye", "BYE"),
+                        sched.currentDate(), "", in.matchDurationMinutes(),
+                        in.venueId(), null, false, "AUTO_ADVANCED"));
+                next.add(byePlayer);
+            }
+
+            sched.flushWave();   // Rules 7 & 8 — fresh time-slot wave per round boundary
             roundParticipants = next;
             roundIndex++;
         }
@@ -498,14 +508,11 @@ public class PlayoffScheduleGenerator {
         return matches;
     }
 
-    /** Standard seed pairing of an even-sized list: 1 vs N, 2 vs N-1, … */
-    private static List<ParticipantRef[]> seedPairs(List<ParticipantRef> players) {
+    /** Pair an even-sized list as neighbours: (0,1),(2,3),… (keeps Rule-6 skill order). */
+    private static List<ParticipantRef[]> neighborPairs(List<ParticipantRef> players) {
         List<ParticipantRef[]> pairs = new ArrayList<>();
-        int lo = 0, hi = players.size() - 1;
-        while (lo < hi) {
-            pairs.add(new ParticipantRef[]{players.get(lo), players.get(hi)});
-            lo++;
-            hi--;
+        for (int i = 0; i + 1 < players.size(); i += 2) {
+            pairs.add(new ParticipantRef[]{players.get(i), players.get(i + 1)});
         }
         return pairs;
     }
@@ -554,12 +561,6 @@ public class PlayoffScheduleGenerator {
 
     private static String norm(String s) {
         return s == null ? "" : s.trim().toLowerCase();
-    }
-
-    private static int nextPow2(int n) {
-        int p = 1;
-        while (p < n) p <<= 1;
-        return p;
     }
 
     private record TimedSlot(String date, String time, Long courtId) {}

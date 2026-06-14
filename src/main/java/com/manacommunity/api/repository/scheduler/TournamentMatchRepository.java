@@ -8,10 +8,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 public interface TournamentMatchRepository extends JpaRepository<TournamentMatch, Long> {
+
+    /**
+     * Published matches that start within the reminder window ({@code now..cutoff}) and
+     * have not yet had a reminder sent. Drives the per-player "match starts soon" email.
+     */
+    @Query("""
+           SELECT m FROM TournamentMatch m
+           WHERE m.status = com.manacommunity.api.model.scheduler.MatchStatus.PUBLISHED
+             AND m.reminderSent = false
+             AND m.scheduledAt IS NOT NULL
+             AND m.scheduledAt > :now
+             AND m.scheduledAt <= :cutoff
+           ORDER BY m.scheduledAt
+           """)
+    List<TournamentMatch> findDueForReminder(@Param("now") LocalDateTime now,
+                                             @Param("cutoff") LocalDateTime cutoff);
 
     List<TournamentMatch> findByConfigIdOrderByScheduledAt(Long configId);
 

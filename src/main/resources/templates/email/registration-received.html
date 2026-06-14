@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — Registration received'">Registration received</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2933;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#2563eb;padding:28px 32px;">
+              <span style="color:#ffffff;font-size:20px;font-weight:700;" th:text="${appName}">Mana Community</span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 8px;font-size:22px;color:#111827;">We've got your registration ✅</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">
+                Hi <strong th:text="${recipientName}">Player</strong>, thanks for registering for
+                <strong th:text="${eventName}">the event</strong>. Your spot is recorded — here are your details:
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Sport</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${sportName}">Badminton</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Category</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${categoryName}">Open</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Format</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${matchType}">Singles</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Event date</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${eventDate}">TBA</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Venue</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${venueName}">TBA</td></tr>
+                <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Status</td><td style="padding:8px 0;font-size:14px;text-align:right;"><span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;" th:text="${status}">Registered</span></td></tr>
+              </table>
+
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+                We'll email you again once your registration is <strong>confirmed</strong> by the organisers.
+              </p>
+
+              <a th:href="${actionUrl}" href="#" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">View my registrations</a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;background-color:#f9fafb;border-top:1px solid #eef0f2;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
+                You're receiving this because you registered for an event on <span th:text="${appName}">Mana Community</span>.<br/>
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>. This is an automated message — please do not reply.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

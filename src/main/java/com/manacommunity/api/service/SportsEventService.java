@@ -31,6 +31,7 @@ public interface SportsEventService {
     List<SportsEventRegistration> getEventRegistrations(Long eventId);
     List<SportsEventRegistration> getUserRegistrations(Long userId);
     SportsEventRegistration confirmRegistration(Long registrationId);
+    SportsEventRegistration rejectRegistration(Long registrationId, String reason);
     SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName);
     SportsEventRegistration confirmCaptain(Long registrationId, boolean confirm);
     

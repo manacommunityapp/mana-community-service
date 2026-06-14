@@ -26,6 +26,15 @@ public record PlayoffGenerateRequest(
     List<ParticipantInput> participants,  // seeded registered players (knockout-only); null/empty => slot path
     List<Long>             courtIds        // selected courts for parallel allocation (Rule 4)
 ) {
-    /** A seeded player participating directly in a knockout draw. */
-    public record ParticipantInput(String id, String name, String flatNumber) {}
+    /**
+     * A seeded player participating directly in a knockout draw.
+     * {@code rating} is the optional skill rating used for balanced pairing
+     * (Rule 6); null when the sport/registration carries no rating.
+     */
+    public record ParticipantInput(String id, String name, String flatNumber, Integer rating) {
+        /** Back-compat constructor for callers without a skill rating. */
+        public ParticipantInput(String id, String name, String flatNumber) {
+            this(id, name, flatNumber, null);
+        }
+    }
 }

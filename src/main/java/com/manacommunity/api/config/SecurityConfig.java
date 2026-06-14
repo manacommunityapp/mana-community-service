@@ -114,6 +114,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
                 .requestMatchers("/api/admin/seed/**").permitAll()
+                .requestMatchers("/api/admin/email/**").permitAll()
                 .requestMatchers("/api/tournament/**").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()

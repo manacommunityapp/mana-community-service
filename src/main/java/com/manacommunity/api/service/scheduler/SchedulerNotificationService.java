@@ -1,10 +1,12 @@
 package com.manacommunity.api.service.scheduler;
 
+import com.manacommunity.api.email.ScheduleEmailService;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.model.scheduler.TournamentConfig;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.scheduler.TournamentConfigRepository;
+import com.manacommunity.api.repository.scheduler.TournamentMatchRepository;
 import com.manacommunity.api.scheduler.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +28,9 @@ public class SchedulerNotificationService {
 
     private final TournamentConfigRepository        configRepo;
     private final SportsEventRegistrationRepository registrationRepo;
+    private final TournamentMatchRepository         matchRepo;
     private final PushNotificationService           pushService;
+    private final ScheduleEmailService              scheduleEmailService;
 
     /**
      * Notify a tournament's confirmed participants that its schedule was published.
@@ -60,6 +64,11 @@ public class SchedulerNotificationService {
         String body  = "The match schedule for " + config.getTournamentName()
             + " is now live. Check your fixtures.";
         pushService.sendBulk(recipients, title, body);
+
+        // Email the same audience an HTML "schedule is live" notification.
+        int matchCount = (int) matchRepo.countByConfigId(configId);
+        scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);
+
         log.info("Notified {} participants that schedule for '{}' was published",
             recipients.size(), config.getTournamentName());
     }

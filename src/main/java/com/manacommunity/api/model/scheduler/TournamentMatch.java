@@ -83,6 +83,15 @@ public class TournamentMatch {
     // ── Swiss round ───────────────────────────────────────────────
     private Integer swissRoundNumber;
 
+    // ── Self-match reminder bookkeeping ───────────────────────────
+    /** True once the "your match starts soon" reminder has been emailed (prevents duplicates). */
+    @Column(name = "reminder_sent", nullable = false)
+    @Builder.Default
+    private boolean reminderSent = false;
+
+    @Column(name = "reminder_sent_at")
+    private LocalDateTime reminderSentAt;
+
     private LocalDateTime createdAt;
 
     @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }

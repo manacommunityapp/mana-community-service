@@ -33,6 +33,7 @@ public class TournamentSchedulerService {
     private final BracketGenerator            bracketGenerator;
     private final MatchPersistenceService     matchPersistence;
     private final SchedulerNotificationService notificationService;
+    private final TournamentResultNotifier     resultNotifier;
 
     // ── Repositories used for read/response mapping only ──────────────
     private final TournamentConfigRepository  configRepo;
@@ -98,6 +99,8 @@ public class TournamentSchedulerService {
     @Transactional
     public TournamentScheduleResponse advanceBracket(MatchResultRequest req) {
         TournamentConfig config = bracketGenerator.applyResult(req);
+        // Winner notification (every result) + tournament-completion email (on the FINAL).
+        resultNotifier.notifyMatchResult(req.matchId());
         return buildResponse(config);
     }
 

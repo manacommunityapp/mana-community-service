@@ -2,6 +2,33 @@ spring:
   application:
     name: mana-community-service
 
+  # ── SMTP transport (used by JavaMailSender) ───────────────────────────
+  # Real delivery only happens when app.mail.enabled=true AND a host is set.
+  # Override these via env vars in prod (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD…).
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# ── Application-level email notification settings ───────────────────────
+app:
+  mail:
+    # When false (default), emails are rendered + logged but NOT sent — safe for dev.
+    enabled: ${APP_MAIL_ENABLED:false}
+    from: ${APP_MAIL_FROM:no-reply@manacommunity.app}
+    from-name: ${APP_MAIL_FROM_NAME:Mana Community}
+    # Public base URL of the React app — used to build action links in emails.
+    base-url: ${APP_MAIL_BASE_URL:http://localhost:5173}
+    # Lead time before a match's start at which the self-match reminder is sent.
+    match-reminder-lead-minutes: ${APP_MAIL_MATCH_REMINDER_LEAD:30}
+
 # CORS Configuration for React Frontend
 #cors:
 #  allowed-origins: "http://localhost:3000"

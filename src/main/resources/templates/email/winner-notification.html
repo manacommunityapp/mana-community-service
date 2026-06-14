@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — You won!'">You won!</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2933;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#059669;padding:28px 32px;">
+              <span style="color:#ffffff;font-size:20px;font-weight:700;" th:text="${appName}">Mana Community</span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <div style="font-size:40px;line-height:1;margin-bottom:8px;">🎉</div>
+              <h1 style="margin:0 0 8px;font-size:22px;color:#111827;">You won your match!</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">
+                Congratulations <strong th:text="${recipientName}">Player</strong> — you won your
+                <strong th:text="${roundName}">match</strong> in <strong th:text="${tournamentName}">the tournament</strong>
+                against <strong th:text="${opponentName}">your opponent</strong>. On to the next one! 🏆
+              </p>
+
+              <!-- Result card -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:18px 20px;text-align:center;">
+                    <div style="font-size:13px;color:#047857;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:6px;">Result</div>
+                    <div style="font-size:18px;font-weight:700;color:#065f46;" th:text="${score != null and !score.isEmpty()} ? ${score} : 'Won'">21-18, 21-15</div>
+                  </td>
+                </tr>
+              </table>
+
+              <div th:if="${nextRoundInfo != null and !nextRoundInfo.isEmpty()}" style="margin-bottom:24px;font-size:14px;line-height:1.6;color:#4b5563;">
+                <strong>What's next:</strong> <span th:text="${nextRoundInfo}">You play the winner of QF-2 in the Semi-Final.</span>
+              </div>
+
+              <a th:href="${actionUrl}" href="#" style="display:inline-block;background-color:#059669;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">View your next fixture</a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;background-color:#f9fafb;border-top:1px solid #eef0f2;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>. This is an automated message — please do not reply.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

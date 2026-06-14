@@ -5,6 +5,7 @@ import com.manacommunity.api.dto.NotificationScheduleDto;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.exception.*;
+import com.manacommunity.api.email.RegistrationEmailService;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.SportsEventService;
@@ -33,6 +34,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final AuctionTeamRepository auctionTeamRepo;
     private final AuctionPlayerRepository playerRepo;
     private final TournamentRepository tournamentRepo;
+    private final RegistrationEmailService registrationEmailService;
 
     @Transactional
     public SportsEvent createEvent(SportsEventRequest req, Long adminUserId) {
@@ -164,7 +166,12 @@ public class SportsEventServiceImpl implements SportsEventService {
         if (req.getPartnerUserId() != null)
             reg.setPartner(userRepo.getReferenceById(req.getPartnerUserId()));
 
-        return regRepo.save(reg);
+        SportsEventRegistration saved = regRepo.save(reg);
+
+        // Registration process — "we received your entry" email.
+        registrationEmailService.send(saved, RegistrationEmailService.Stage.RECEIVED);
+
+        return saved;
     }
 
     /** Null-safe, case-insensitive, trimmed equality (treats null and blank as equal). */
@@ -239,6 +246,24 @@ public class SportsEventServiceImpl implements SportsEventService {
         });
 
         hydrateCaptaincy(List.of(saved), saved.getEvent().getId());
+
+        // Registration process — the entry is now CONFIRMED.
+        registrationEmailService.send(saved, RegistrationEmailService.Stage.CONFIRMED);
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration rejectRegistration(Long registrationId, String reason) {
+        SportsEventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.REJECTED);
+        SportsEventRegistration saved = regRepo.save(reg);
+
+        // Registration process — the entry was not approved (optional reason).
+        registrationEmailService.send(saved, RegistrationEmailService.Stage.REJECTED, reason);
+
         return saved;
     }
 

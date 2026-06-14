@@ -65,5 +65,5 @@ public class SportsEventRegistration {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum RegistrationStatus { PENDING, REGISTERED, CONFIRMED, WITHDRAWN }
+    public enum RegistrationStatus { PENDING, REGISTERED, CONFIRMED, WITHDRAWN, REJECTED }
 }

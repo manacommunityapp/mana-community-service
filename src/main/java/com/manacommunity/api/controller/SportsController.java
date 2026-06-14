@@ -470,6 +470,16 @@ public class SportsController {
         return ResponseEntity.ok(eventService.confirmRegistration(id));
     }
 
+    @PutMapping("/registrations/{id}/reject")
+    public ResponseEntity<SportsEventRegistration> rejectRegistration(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(eventService.rejectRegistration(id, reason));
+    }
+
     @PutMapping("/registrations/{id}/nominate")
     public ResponseEntity<SportsEventRegistration> nominateCaptain(
             @PathVariable Long id, 
