@@ -1,6 +1,7 @@
 package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.MatchResultRequest;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.Court;
 import com.manacommunity.api.model.scheduler.*;
@@ -148,8 +149,10 @@ public class BracketGenerator {
     /** After a result is entered, advance winner/loser and update standings. Returns the config. */
     @Transactional
     public TournamentConfig applyResult(MatchResultRequest req) {
-        TournamentMatch match = matchRepo.findById(req.matchId()).orElseThrow();
-        AuctionTeam     winner= teamRepo.findById(req.winnerTeamId()).orElseThrow();
+        TournamentMatch match = matchRepo.findById(req.matchId())
+            .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", req.matchId()));
+        AuctionTeam     winner= teamRepo.findById(req.winnerTeamId())
+            .orElseThrow(() -> new ResourceNotFoundException("Team", req.winnerTeamId()));
         AuctionTeam     loser = winner.getId().equals(match.getTeamA().getId())
             ? match.getTeamB() : match.getTeamA();
 
@@ -162,7 +165,8 @@ public class BracketGenerator {
 
         // Advance winner to next round match
         if (match.getWinnerAdvancesToMatchId() != null) {
-            TournamentMatch next = matchRepo.findById(match.getWinnerAdvancesToMatchId()).orElseThrow();
+            TournamentMatch next = matchRepo.findById(match.getWinnerAdvancesToMatchId())
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getWinnerAdvancesToMatchId()));
             if (next.getTeamA() == null) next.setTeamA(winner);
             else                          next.setTeamB(winner);
             matchRepo.save(next);
@@ -170,7 +174,8 @@ public class BracketGenerator {
 
         // For double elimination: send loser to losers bracket
         if (match.getLoserSentToMatchId() != null) {
-            TournamentMatch losersMatch = matchRepo.findById(match.getLoserSentToMatchId()).orElseThrow();
+            TournamentMatch losersMatch = matchRepo.findById(match.getLoserSentToMatchId())
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getLoserSentToMatchId()));
             if (losersMatch.getTeamA() == null) losersMatch.setTeamA(loser);
             else                                 losersMatch.setTeamB(loser);
             matchRepo.save(losersMatch);
@@ -257,7 +262,8 @@ public class BracketGenerator {
     /** Called when group stage is complete — seeds winners into knockout */
     @Transactional
     public void seedKnockoutFromGroups(Long configId) {
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+            .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
         int advPer = Objects.requireNonNullElse(config.getTeamsAdvancingPerGroup(), 2);
 
         List<TournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(configId);
@@ -450,7 +456,8 @@ public class BracketGenerator {
     /** Called after each Swiss round result to generate next round pairing */
     @Transactional
     public List<TournamentMatch> generateNextSwissRound(Long configId) {
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+            .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
 
         int lastRound = matchRepo.findMaxSwissRound(configId).orElse(0);
         int nextRound = lastRound + 1;

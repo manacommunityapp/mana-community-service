@@ -28,8 +28,43 @@ public class SportsEventCsvImportService {
 
     public record ImportResult(int imported, int skipped, List<String> skippedReasons) {}
 
+    /**
+     * Validates an uploaded CSV before parsing: non-empty, within the size cap, and a
+     * genuine .csv. The filename is reduced to its base name first so a crafted name
+     * like {@code ../../etc/passwd.csv} can never be used for path traversal (we never
+     * touch the filesystem, but this keeps the value safe if it is ever logged/echoed).
+     * Throws {@link IllegalArgumentException} → 400 on any violation.
+     */
+    private void validateCsvUpload(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("No file was uploaded, or the file is empty.");
+        }
+        if (file.getSize() > MAX_CSV_BYTES) {
+            throw new IllegalArgumentException("CSV file is too large (max 5 MB).");
+        }
+        String raw = file.getOriginalFilename();
+        String name = raw == null ? "" : raw.replace('\\', '/');
+        name = name.substring(name.lastIndexOf('/') + 1).trim().toLowerCase(); // strip any path
+        if (!name.endsWith(".csv")) {
+            throw new IllegalArgumentException("Only .csv files are accepted.");
+        }
+        String contentType = file.getContentType();
+        if (contentType != null
+                && !contentType.equals("text/csv")
+                && !contentType.equals("text/plain")
+                && !contentType.equals("application/vnd.ms-excel")
+                && !contentType.equals("application/octet-stream")) {
+            throw new IllegalArgumentException("Unsupported file type: " + contentType + " (expected CSV).");
+        }
+    }
+
+    /** Hard cap independent of the multipart limit (defence in depth). */
+    private static final long MAX_CSV_BYTES = 5L * 1024 * 1024;
+
     @Transactional
     public ImportResult importRegistrations(Long eventId, MultipartFile file) {
+        validateCsvUpload(file);
+
         SportsEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 

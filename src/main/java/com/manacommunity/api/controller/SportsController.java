@@ -4,6 +4,7 @@ import com.manacommunity.api.dto.PlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.dto.SportsEventRequest;
 import com.manacommunity.api.dto.TournamentRequest;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.PlayerCategoryRepository;
 import com.manacommunity.api.repository.SportMetaRepository;
@@ -89,24 +90,24 @@ public class SportsController {
         return sportMetaRepo.findById(id).map(sport -> {
             if (sport.getCommunityId() == null) {
                 if (principal == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<SportsMeta>build();
+                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
                 if (loggedInUser == null || !"SUPER_ADMIN".equals(loggedInUser.getRole())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<SportsMeta>build();
+                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
             } else {
                 if (principal == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<SportsMeta>build();
+                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
                 if (loggedInUser == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<SportsMeta>build();
+                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
                 if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
                     Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
                     if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).<SportsMeta>build();
+                        throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                     }
                 }
             }
@@ -130,24 +131,24 @@ public class SportsController {
         return sportMetaRepo.findById(id).map(sport -> {
             if (sport.getCommunityId() == null) {
                 if (principal == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
+                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
                 if (loggedInUser == null || !"SUPER_ADMIN".equals(loggedInUser.getRole())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
+                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
             } else {
                 if (principal == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
+                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
                 if (loggedInUser == null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
+                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
                 if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
                     Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
                     if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).<Void>build();
+                        throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                     }
                 }
             }
@@ -293,6 +294,18 @@ public class SportsController {
         return ResponseEntity.ok(eventService.getEventById(id));
     }
 
+    /**
+     * Public lookup of an event by its shareable UUID — backs the registration
+     * link {@code /sports/register/{uuid}} so the form can render event details
+     * (name, dates, age limits, whether admin approval is required) without
+     * exposing the sequential numeric id. Permitted unauthenticated in
+     * {@code SecurityConfig}; the registration POST still enforces verification.
+     */
+    @GetMapping("/events/by-uuid/{uuid}")
+    public ResponseEntity<SportsEvent> getEventByUuid(@PathVariable java.util.UUID uuid) {
+        return ResponseEntity.ok(eventService.getEventByUuid(uuid));
+    }
+
     @GetMapping({"/events/{eventId}/confirmed-count", "/tournaments/{eventId}/confirmed-count"})
     public ResponseEntity<Long> getConfirmedCount(
             @PathVariable Long eventId,
@@ -409,7 +422,7 @@ public class SportsController {
         if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                throw new UnauthorizedActionException("You can only access your own community's tournaments.");
             }
         }
         return ResponseEntity.ok(eventService.getCommunityEvents(targetCommunityId));

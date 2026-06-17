@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,7 +20,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import com.manacommunity.api.security.MockJwtFilter;
+import com.manacommunity.api.security.JwtAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -53,7 +56,7 @@ public class SecurityConfig { // BUG FIX: was package-private
     private AppUserRepository userRepository;
 
     @Autowired
-    private MockJwtFilter mockJwtFilter;
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -101,8 +104,31 @@ public class SecurityConfig { // BUG FIX: was package-private
         // BUG FIX: Updated to Spring Security 6 lambda DSL (non-deprecated)
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // CSRF is disabled because this is a stateless, token-authenticated API (no
+            // session cookies are used for auth), so CSRF tokens add no protection. If
+            // cookie-based auth is ever introduced, re-enable CSRF.
             .csrf(csrf -> csrf.disable())
-            .addFilterBefore(mockJwtFilter, UsernamePasswordAuthenticationFilter.class)
+            // Stateless: never create or rely on an HTTP session — mitigates session
+            // fixation / hijacking and keeps the API horizontally scalable.
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Security response headers.
+            .headers(headers -> headers
+                // Clickjacking: refuse to be framed (X-Frame-Options + CSP frame-ancestors).
+                .frameOptions(frame -> frame.deny())
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"))
+                // Force HTTPS for a year once served over TLS.
+                .httpStrictTransportSecurity(hsts -> hsts
+                        .includeSubDomains(true).maxAgeInSeconds(31_536_000))
+                // Don't leak full URLs in the Referer header cross-origin.
+                .referrerPolicy(rp -> rp.policy(
+                        ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                // Lock down powerful browser features by default.
+                .addHeaderWriter(new StaticHeadersWriter(
+                        "Permissions-Policy", "geolocation=(), microphone=(), camera=()"))
+                // (X-Content-Type-Options: nosniff is on by default.)
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/swagger-ui.html", 
@@ -112,6 +138,10 @@ public class SecurityConfig { // BUG FIX: was package-private
                     "/webjars/**"
                 ).permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
+                // Public email-OTP verification + shareable event lookup that back the
+                // secure registration form (the registration POST stays authenticated).
+                .requestMatchers("/api/otp/**").permitAll()
+                .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
                 .requestMatchers("/api/admin/seed/**").permitAll()
                 .requestMatchers("/api/admin/email/**").permitAll()

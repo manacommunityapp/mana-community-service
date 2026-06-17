@@ -4,8 +4,13 @@ import com.manacommunity.api.model.SportsEvent;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> {
+
+    /** Look up an event by its public, non-sequential UUID (used in shareable registration links). */
+    Optional<SportsEvent> findByUuid(UUID uuid);
 
     /**
      * BUG FIX: String literals like 'REGISTRATION_OPEN' are INVALID in JPQL

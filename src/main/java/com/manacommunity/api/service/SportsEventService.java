@@ -24,6 +24,7 @@ public interface SportsEventService {
     List<SportsEvent> getAllEvents();
     List<SportsEvent> getCommunityEvents(Long communityId);
     SportsEvent getEventById(Long id);
+    SportsEvent getEventByUuid(java.util.UUID uuid);
     SportsEvent saveEvent(SportsEvent event);
     void deleteEvent(Long eventId);
     SportsEvent updateEvent(Long eventId, SportsEventRequest req);

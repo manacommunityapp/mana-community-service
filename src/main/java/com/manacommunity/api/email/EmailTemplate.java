@@ -29,7 +29,10 @@ public enum EmailTemplate {
     TOURNAMENT_COMPLETION("tournament-completion", "Tournament results are in"),
 
     /** Prize distribution / closing ceremony details. */
-    PRIZE_DISTRIBUTION("prize-distribution", "Prize distribution details");
+    PRIZE_DISTRIBUTION("prize-distribution", "Prize distribution details"),
+
+    /** One-time passcode emailed to verify an address before registration. */
+    EMAIL_OTP("email-otp", "Your verification code");
 
     private final String templateName;
     private final String defaultSubject;

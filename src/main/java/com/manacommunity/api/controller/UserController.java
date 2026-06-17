@@ -102,7 +102,8 @@ public class UserController {
         if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+                throw new com.manacommunity.api.exception.UnauthorizedActionException(
+                        "You can only view users from your own community.");
             }
         }
         final Long finalCommId = targetCommunityId;

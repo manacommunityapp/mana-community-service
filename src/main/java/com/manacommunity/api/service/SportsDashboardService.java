@@ -88,6 +88,7 @@ public class SportsDashboardService {
     private EventCard toEventCard(SportsEvent e, SportsEventRegistration myReg) {
         return new EventCard(
                 e.getId(),
+                e.getUuid(),
                 e.getName(),
                 e.getEventDateStart(),
                 e.getEventDateEnd(),

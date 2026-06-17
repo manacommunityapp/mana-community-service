@@ -71,7 +71,8 @@ public class TournamentSchedulerController {
      */
     @GetMapping("/config/{id}")
     public ResponseEntity<TournamentConfigResponse> getConfig(@PathVariable Long id) {
-        TournamentConfig config = configRepo.findById(id).orElseThrow();
+        TournamentConfig config = configRepo.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("TournamentConfig", id));
         return ResponseEntity.ok(schedulerService.toConfigResponse(config));
     }
 

@@ -1,5 +1,7 @@
 package com.manacommunity.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,6 +41,8 @@ public class AppUser {
     @Column(nullable = false, unique = true, length = 15)
     private String phone;
 
+    // Sensitive: never serialise out (login/registration set it via DTOs, never via AppUser JSON).
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -66,6 +70,8 @@ public class AppUser {
     @Column(name = "govt_id_type", length = 20)
     private String govtIdType; // AADHAAR, VOTER_ID, DRIVING_LICENCE
 
+    // Sensitive PII — never expose in API responses.
+    @JsonIgnore
     @Column(name = "govt_id_number", length = 30)
     private String govtIdNumber; // stored encrypted
 
@@ -82,6 +88,16 @@ public class AppUser {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    // ── Brute-force lockout (stateless session security) ──────────────────
+    // Consecutive failed logins; reset to 0 on a successful login.
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    // When set and in the future, login is refused until this instant.
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

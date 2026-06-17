@@ -410,6 +410,136 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher email-column patch failed: {}", e.getMessage(), e);
             }
+
+            // Ensure the app_user brute-force lockout columns exist before Hibernate
+            // validates (prod runs ddl-auto=validate). Idempotent + table-guarded.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.app_user') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.app_user
+                              ADD COLUMN IF NOT EXISTS failed_login_attempts integer NOT NULL DEFAULT 0;
+                            ALTER TABLE manacommunity.app_user
+                              ADD COLUMN IF NOT EXISTS locked_until timestamp;
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("app_user lockout columns (failed_login_attempts, locked_until) ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher lockout-column patch failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure sports_event.uuid (public link id) and admin_approval_required exist
+            // before Hibernate validates (prod runs ddl-auto=validate). Backfills any
+            // pre-existing rows with a fresh UUID, then adds the unique index the entity
+            // declares. Requires pgcrypto's gen_random_uuid(); falls back gracefully.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_event') IS NOT NULL THEN
+                            CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+                            ALTER TABLE manacommunity.sports_event
+                              ADD COLUMN IF NOT EXISTS uuid uuid;
+                            ALTER TABLE manacommunity.sports_event
+                              ADD COLUMN IF NOT EXISTS admin_approval_required boolean NOT NULL DEFAULT true;
+
+                            UPDATE manacommunity.sports_event
+                              SET uuid = gen_random_uuid()
+                              WHERE uuid IS NULL;
+
+                            CREATE UNIQUE INDEX IF NOT EXISTS idx_sports_event_uuid
+                              ON manacommunity.sports_event (uuid);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("sports_event uuid + admin_approval_required columns ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher sports_event uuid/approval patch failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure the email_otp table exists before Hibernate validates (prod runs
+            // ddl-auto=validate, which won't create new entity tables). Idempotent.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_otp (
+                            id          BIGSERIAL PRIMARY KEY,
+                            email       VARCHAR(255) NOT NULL,
+                            code_hash   VARCHAR(100) NOT NULL,
+                            expires_at  TIMESTAMP NOT NULL,
+                            attempts    INTEGER NOT NULL DEFAULT 0,
+                            consumed    BOOLEAN NOT NULL DEFAULT false,
+                            verified    BOOLEAN NOT NULL DEFAULT false,
+                            verified_at TIMESTAMP,
+                            created_at  TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_otp_email ON manacommunity.email_otp (email)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_otp_created_at ON manacommunity.email_otp (created_at)");
+
+                log.info("email_otp table ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher email_otp table patch failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure the chat tables exist before Hibernate validates (prod runs
+            // ddl-auto=validate, which won't create new entity tables). Idempotent.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.chat_conversation (
+                            id              BIGSERIAL PRIMARY KEY,
+                            type            VARCHAR(20) NOT NULL DEFAULT 'DIRECT',
+                            title           VARCHAR(120),
+                            community_id    BIGINT,
+                            last_message    TEXT,
+                            last_message_at TIMESTAMP,
+                            created_at      TIMESTAMP NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.chat_participant (
+                            id              BIGSERIAL PRIMARY KEY,
+                            conversation_id BIGINT NOT NULL,
+                            user_id         BIGINT NOT NULL,
+                            last_read_at    TIMESTAMP,
+                            created_at      TIMESTAMP NOT NULL DEFAULT now(),
+                            CONSTRAINT uk_chat_participant_conv_user UNIQUE (conversation_id, user_id)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.chat_message (
+                            id              BIGSERIAL PRIMARY KEY,
+                            conversation_id BIGINT NOT NULL,
+                            sender_id       BIGINT,
+                            type            VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+                            content         TEXT NOT NULL,
+                            created_at      TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_chat_participant_user ON manacommunity.chat_participant (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_chat_participant_conv ON manacommunity.chat_participant (conversation_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_chat_message_conv ON manacommunity.chat_message (conversation_id)");
+
+                log.info("chat tables ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher chat table patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }

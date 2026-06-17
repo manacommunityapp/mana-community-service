@@ -3,8 +3,9 @@ package com.manacommunity.api.response;
 public class AuthResponse {
     private String userId;
     private String message;
-    private String token; // JWT token
-    
+    private String token; // short-lived JWT access token
+    private String refreshToken; // long-lived JWT refresh token (exchanged at /api/auth/refresh)
+
     // User details for frontend context
     private String fullName;
     private String email;
@@ -52,6 +53,9 @@ public class AuthResponse {
     public void setToken(String token) {
         this.token = token;
     }
+
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }

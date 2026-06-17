@@ -1,6 +1,7 @@
 package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.scheduler.*;
 import com.manacommunity.api.repository.*;
@@ -142,7 +143,8 @@ public class MatchPersistenceService {
     // ═══════════════════════════════════════════════════════════════
     @Transactional
     public void assignTeamsToGroups(Long configId, List<GroupAssignmentRequest> assignments) {
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
 
         // Clear existing group standings for manual mode override
         List<TournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(configId);
@@ -173,7 +175,8 @@ public class MatchPersistenceService {
             groupRepo.save(grp);
 
             for (GroupAssignmentRequest req : entry.getValue()) {
-                AuctionTeam team = teamRepo.findById(req.teamId()).orElseThrow();
+                AuctionTeam team = teamRepo.findById(req.teamId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Team", req.teamId()));
                 standingRepo.save(GroupTeamStanding.builder()
                     .group(grp)
                     .team(team)
@@ -185,7 +188,8 @@ public class MatchPersistenceService {
 
     @Transactional
     public void scheduleManualMatch(Long configId, MatchScheduleRequest req) {
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
 
         AuctionTeam home = req.homeTeamId() != null ? teamRepo.findById(req.homeTeamId()).orElse(null) : null;
         AuctionTeam away = req.awayTeamId() != null ? teamRepo.findById(req.awayTeamId()).orElse(null) : null;
@@ -301,7 +305,8 @@ public class MatchPersistenceService {
         int updated = matchRepo.updateStatusByConfigId(configId, status);
 
         // Mirror the publish state on the parent config so listings stay in sync
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
         if (status == MatchStatus.PUBLISHED) {
             config.setStatus(TournamentConfig.TournamentStatus.ACTIVE);
         } else if (status == MatchStatus.DRAFT) {

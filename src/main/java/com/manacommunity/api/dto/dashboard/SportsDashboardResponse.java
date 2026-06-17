@@ -29,6 +29,7 @@ public record SportsDashboardResponse(
     /** A row in "Open for Registration" / "Closed Registrations". */
     public record EventCard(
             Long id,
+            java.util.UUID uuid,
             String name,
             LocalDate eventDateStart,
             LocalDate eventDateEnd,

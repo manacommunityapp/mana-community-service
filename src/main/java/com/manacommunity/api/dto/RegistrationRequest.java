@@ -23,4 +23,11 @@ public class RegistrationRequest {
     Integer age;
     String role;
     Long partnerUserId;
+
+    /**
+     * Google reCAPTCHA token from the public registration form. Only verified
+     * when {@code app.security.registration.recaptcha.enabled=true}; ignored
+     * (may be null) for authenticated/admin add flows.
+     */
+    String recaptchaToken;
 }

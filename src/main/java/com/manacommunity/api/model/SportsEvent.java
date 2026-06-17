@@ -12,9 +12,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
-@Table(name = "sports_event")
+@Table(name = "sports_event",
+        indexes = @Index(name = "idx_sports_event_uuid", columnList = "uuid", unique = true))
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,6 +26,14 @@ public class SportsEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Public, non-sequential identifier used in shareable registration links
+     * (e.g. /sports/register/{uuid}) so numeric DB ids are never exposed in URLs.
+     * Auto-assigned on create; immutable thereafter.
+     */
+    @Column(name = "uuid", unique = true, updatable = false)
+    private UUID uuid;
 
     @Column(nullable = false, length = 50)
     private String name;
@@ -51,6 +61,15 @@ public class SportsEvent {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    /**
+     * When true, self-registrations land as PENDING and require an organiser to
+     * confirm them before they count. When false, registrations are auto-CONFIRMED.
+     * Defaults to true (apartment communities typically vet entries).
+     */
+    @Column(name = "admin_approval_required", nullable = false)
+    @Builder.Default
+    private Boolean adminApprovalRequired = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -137,6 +156,9 @@ public class SportsEvent {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (uuid == null) {
+            uuid = UUID.randomUUID();
+        }
     }
 
     @PreUpdate

@@ -4,18 +4,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 /**
@@ -119,6 +125,38 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
+    // ─── 1b. Common service-layer runtime exceptions ────────────────────────
+    // Services throw these directly (guards, state checks, bare orElseThrow()).
+    // Without these handlers they fall through to the generic 500 and the UI
+    // loses an otherwise meaningful message.
+
+    /** Bad input / failed precondition with a caller-meaningful message → 400. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Invalid argument at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+                messageOr(ex, "The request contained an invalid value."), request, null);
+    }
+
+    /** Action not allowed in the current state (e.g. "Auction is not LIVE") → 409. */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(
+            IllegalStateException ex, HttpServletRequest request) {
+        log.warn("Illegal state at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.CONFLICT, "OPERATION_NOT_ALLOWED",
+                messageOr(ex, "This action cannot be performed in the current state."), request, null);
+    }
+
+    /** Bare Optional.orElseThrow() / empty stream lookups → 404 (not a 500). */
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ErrorResponse> handleNoSuchElement(
+            NoSuchElementException ex, HttpServletRequest request) {
+        log.warn("Missing entity at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
+                "The requested item could not be found.", request, null);
+    }
+
     // ─── 2. Spring Security Exceptions ───────────────────────────────────────
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -197,6 +235,51 @@ public class GlobalExceptionHandler {
                 "Parameter '" + ex.getName() + "' must be of type " + expected + ".", request, null);
     }
 
+    /** Missing or malformed JSON request body. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadable(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+        log.warn("Unreadable request body at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
+                "Request body is missing or malformed.", request, null);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                "HTTP method '" + ex.getMethod() + "' is not supported for this endpoint.", request, null);
+    }
+
+    /** Unknown route — return JSON 404 instead of the default error page. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "NOT_FOUND",
+                "No endpoint found for " + request.getMethod() + " " + request.getRequestURI() + ".", request, null);
+    }
+
+    /** Upload exceeded the configured multipart limit (e.g. CSV import). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUpload(
+            MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE",
+                "The uploaded file is too large.", request, null);
+    }
+
+    // ─── 3b. Persistence Exceptions ──────────────────────────────────────────
+
+    /** DB constraint hit (unique/foreign-key). Never echo the raw SQL to the UI. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        log.error("Data integrity violation at {}: {}", request.getRequestURI(), cause);
+        return build(HttpStatus.CONFLICT, "DATA_CONFLICT",
+                "The operation conflicts with existing data — a referenced record is missing, "
+                        + "or a unique value is already in use.", request, null);
+    }
+
     // ─── 4. Generic Fallback ─────────────────────────────────────────────────
 
     @ExceptionHandler(Exception.class)
@@ -228,5 +311,10 @@ public class GlobalExceptionHandler {
         String path = cv.getPropertyPath().toString();
         int lastDot = path.lastIndexOf('.');
         return lastDot >= 0 ? path.substring(lastDot + 1) : path;
+    }
+
+    /** Uses the exception's own message when present, otherwise a safe default. */
+    private String messageOr(Exception ex, String fallback) {
+        return ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : fallback;
     }
 }

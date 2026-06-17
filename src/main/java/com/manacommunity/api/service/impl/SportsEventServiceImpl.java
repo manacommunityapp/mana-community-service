@@ -35,6 +35,8 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final AuctionPlayerRepository playerRepo;
     private final TournamentRepository tournamentRepo;
     private final RegistrationEmailService registrationEmailService;
+    private final com.manacommunity.api.service.RecaptchaService recaptchaService;
+    private final com.manacommunity.api.service.OtpService otpService;
 
     @Transactional
     public SportsEvent createEvent(SportsEventRequest req, Long adminUserId) {
@@ -80,6 +82,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .dueTime(req.getDueTime())
                 .minAge(req.getMinAge() != null ? req.getMinAge() : 0)
                 .maxAge(req.getMaxAge() != null ? req.getMaxAge() : 100)
+                .adminApprovalRequired(req.getAdminApprovalRequired() == null || req.getAdminApprovalRequired())
                 .build();
 
         if (req.getCategoryIds() != null)
@@ -113,6 +116,11 @@ public class SportsEventServiceImpl implements SportsEventService {
 
 //        if (event.getRegistrationStatus() != SportsEvent.EventStatus.REGISTRATION_OPEN)
 //            throw new RegistrationClosedException(event.getName(), event.getRegistrationStatus().name());
+
+        // Anti-abuse gates (both no-ops unless enabled in config): bot check then
+        // proof the registrant controls the email they're submitting.
+        recaptchaService.verify(req.getRecaptchaToken(), null);
+        otpService.assertEmailVerified(req.getEmail());
 
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -148,12 +156,19 @@ public class SportsEventServiceImpl implements SportsEventService {
         if (age < minAge || age > maxAge)
             throw new AgeMismatchException(age, minAge, maxAge, event.getSport().getName());
 
+        // Admin-approval toggle: when the event requires vetting, the entry lands
+        // PENDING and an organiser must confirm it; otherwise it auto-confirms.
+        boolean approvalRequired = event.getAdminApprovalRequired() == null || event.getAdminApprovalRequired();
+        SportsEventRegistration.RegistrationStatus initialStatus = approvalRequired
+                ? SportsEventRegistration.RegistrationStatus.PENDING
+                : SportsEventRegistration.RegistrationStatus.CONFIRMED;
+
         SportsEventRegistration reg = SportsEventRegistration.builder()
                 .event(event)
                 .user(user)
                 .category(category)
                 .matchType(SportsEvent.MatchFormat.valueOf(req.getMatchType()))
-                .status(SportsEventRegistration.RegistrationStatus.REGISTERED)
+                .status(initialStatus)
                 .playerName(pName)
                 .email(email)
                 .relation(req.getRelation())
@@ -168,8 +183,10 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         SportsEventRegistration saved = regRepo.save(reg);
 
-        // Registration process — "we received your entry" email.
-        registrationEmailService.send(saved, RegistrationEmailService.Stage.RECEIVED);
+        // Email the right stage: "we received your entry" (pending) vs. "you're confirmed".
+        registrationEmailService.send(saved, approvalRequired
+                ? RegistrationEmailService.Stage.RECEIVED
+                : RegistrationEmailService.Stage.CONFIRMED);
 
         return saved;
     }
@@ -534,6 +551,12 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Override
+    public SportsEvent getEventByUuid(java.util.UUID uuid) {
+        return eventRepo.findByUuid(uuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Event", "uuid", String.valueOf(uuid)));
+    }
+
+    @Override
     public SportsEvent saveEvent(SportsEvent event) {
         return eventRepo.save(event);
     }
@@ -608,6 +631,9 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
         if (req.getMaxAge() != null) {
             event.setMaxAge(req.getMaxAge());
+        }
+        if (req.getAdminApprovalRequired() != null) {
+            event.setAdminApprovalRequired(req.getAdminApprovalRequired());
         }
 
         event.setUpdatedAt(LocalDateTime.now());

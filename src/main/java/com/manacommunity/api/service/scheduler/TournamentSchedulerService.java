@@ -1,6 +1,7 @@
 package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.scheduler.*;
 import com.manacommunity.api.repository.*;
@@ -69,12 +70,14 @@ public class TournamentSchedulerService {
     }
 
     public TournamentScheduleResponse getSchedule(Long configId) {
-        TournamentConfig config = configRepo.findById(configId).orElseThrow();
+        TournamentConfig config = configRepo.findById(configId)
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentConfig", configId));
         return buildResponse(config);
     }
 
     public TournamentMatch rescheduleMatch(Long matchId, String scheduledAtStr, String venue) {
-        TournamentMatch match = matchRepo.findById(matchId).orElseThrow();
+        TournamentMatch match = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", matchId));
         LocalDateTime scheduledAt = LocalDateTime.parse(scheduledAtStr);
         match.setScheduledAt(scheduledAt);
         if (venue != null) {

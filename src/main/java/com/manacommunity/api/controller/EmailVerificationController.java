@@ -142,6 +142,10 @@ public class EmailVerificationController {
                 v.put("ceremonyDate", "Sun, 21 Jun 2026, 06:00 PM");
                 v.put("venueName", "Community Sports Arena");
             }
+            case EMAIL_OTP -> {
+                v.put("otpCode", "428913");
+                v.put("expiryMinutes", 10);
+            }
         }
         return v;
     }

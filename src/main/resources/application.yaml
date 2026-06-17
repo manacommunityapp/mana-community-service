@@ -17,6 +17,24 @@ spring:
           starttls:
             enable: true
 
+  # ── Upload limits (file-upload hardening / DoS) ───────────────────────
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:5MB}
+      max-request-size: ${MAX_REQUEST_SIZE:6MB}
+
+# ── HTTP server limits (mitigate large-payload DoS) ─────────────────────
+server:
+  tomcat:
+    max-http-form-post-size: 2MB
+    max-swallow-size: 2MB
+  # Don't advertise the server build in the Server response header.
+  server-header: ""
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+
 # ── Application-level email notification settings ───────────────────────
 app:
   mail:
@@ -28,6 +46,41 @@ app:
     base-url: ${APP_MAIL_BASE_URL:http://localhost:5173}
     # Lead time before a match's start at which the self-match reminder is sent.
     match-reminder-lead-minutes: ${APP_MAIL_MATCH_REMINDER_LEAD:30}
+
+  security:
+    # ── JWT signing/verification ────────────────────────────────────────
+    jwt:
+      # MUST be overridden in production via the JWT_SECRET env var (>= 32 chars).
+      # The default below is for local development ONLY — never ship it.
+      secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789abcdef}
+      # Short-lived access-token lifetime in ms (default 15 min). The React app
+      # auto-refreshes via /api/auth/refresh before this expires.
+      expiration-ms: ${JWT_EXPIRATION_MS:900000}
+      # Long-lived refresh-token lifetime in ms (default 7 days).
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+      issuer: ${JWT_ISSUER:mana-community}
+    # ── API rate limiting (DoS / brute-force protection) ──────────────────
+    rate-limit:
+      # Per client-IP fixed window of one minute. Generous by default so normal
+      # UI usage is unaffected; lower it if you see abuse.
+      enabled: ${RATE_LIMIT_ENABLED:true}
+      requests-per-minute: ${RATE_LIMIT_RPM:300}
+
+    # ── Public event-registration anti-abuse (off by default) ─────────────
+    # Both gates are no-ops unless enabled, so authenticated/admin add flows and
+    # tests are unaffected. Turn on (and supply the reCAPTCHA secret) in prod.
+    registration:
+      recaptcha:
+        enabled: ${RECAPTCHA_ENABLED:false}
+        secret: ${RECAPTCHA_SECRET:}
+        verify-url: ${RECAPTCHA_VERIFY_URL:https://www.google.com/recaptcha/api/siteverify}
+      otp:
+        enabled: ${REGISTRATION_OTP_ENABLED:false}
+        length: ${REGISTRATION_OTP_LENGTH:6}
+        ttl-minutes: ${REGISTRATION_OTP_TTL_MINUTES:10}
+        max-sends-per-hour: ${REGISTRATION_OTP_MAX_SENDS:3}
+        max-verify-attempts: ${REGISTRATION_OTP_MAX_ATTEMPTS:3}
+        verified-window-minutes: ${REGISTRATION_OTP_VERIFIED_WINDOW:30}
 
 # CORS Configuration for React Frontend
 #cors:
