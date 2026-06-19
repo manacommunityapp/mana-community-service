@@ -3,16 +3,16 @@ spring:
     name: mana-community-service
   datasource:
     # Replace with your AWS RDS MySQL endpoint once deployed
-    url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: mana@community@8008
+    url: jdbc:postgresql://3.109.145.130:5432/manacommunity
+    username: manauser
+    password: manacommunity
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       # 'update' automatically creates/modifies tables to match your @Entity classes
-      ddl-auto: create
-      #ddl-auto: update
+      #ddl-auto: create
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:

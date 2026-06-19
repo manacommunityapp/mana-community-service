@@ -73,12 +73,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             // An invalid/expired token simply leaves the request unauthenticated;
             // protected endpoints then return 401/403 via Spring Security.
-        } else if (mockAuthEnabled) {
+        } else if (mockAuthEnabled && !isDocsPath(request)) {
             // DEV ONLY — no token: authenticate a default admin for convenience.
+            // EXCEPT for the API-docs / Swagger UI paths: those are SUPER_ADMIN-only
+            // and a tokenless (e.g. plain browser) request must NOT be auto-elevated
+            // to the default super-admin, otherwise anyone could open Swagger in dev.
             authenticateDefaultUser(request);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /** API-docs / Swagger UI paths — excluded from the dev mock-auth default-user fallback. */
+    private boolean isDocsPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return uri.startsWith("/swagger-ui")
+                || uri.startsWith("/v3/api-docs")
+                || uri.startsWith("/swagger-resources")
+                || uri.startsWith("/webjars");
     }
 
     /** Builds the SecurityContext from a resolved user id. */

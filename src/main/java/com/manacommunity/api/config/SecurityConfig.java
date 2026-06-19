@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -99,7 +101,43 @@ public class SecurityConfig { // BUG FIX: was package-private
         return source;
     }
 
+    /**
+     * Dedicated security chain for the API docs / Swagger UI, scoped (via
+     * {@code securityMatcher}) to the docs paths ONLY. It is restricted to
+     * SUPER_ADMIN and accepts BOTH:
+     *   • a SUPER_ADMIN Bearer JWT (programmatic / curl), and
+     *   • HTTP Basic auth (the browser prompts for the super-admin's email +
+     *     password and resends them for the UI's follow-up requests).
+     *
+     * Basic auth is what makes Swagger reachable from a browser in EVERY
+     * environment (a plain navigation carries no JWT). It authenticates against
+     * the app's own users via the existing UserDetailsService + PasswordEncoder.
+     * The JSON/JWT API is untouched — Basic auth is confined to these paths.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain docsFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher(
+                "/swagger-ui.html",
+                "/swagger-ui/**",
+                "/v3/api-docs/**",
+                "/swagger-resources/**",
+                "/webjars/**"
+            )
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Bearer JWT path (super-admin token) — same filter as the main chain.
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("SUPER_ADMIN"))
+            // Browser path — prompts for the super-admin's app credentials.
+            .httpBasic(Customizer.withDefaults());
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // BUG FIX: Updated to Spring Security 6 lambda DSL (non-deprecated)
         http
@@ -130,20 +168,19 @@ public class SecurityConfig { // BUG FIX: was package-private
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/swagger-ui.html", 
-                    "/swagger-ui/**", 
-                    "/v3/api-docs/**", 
-                    "/swagger-resources/**", 
-                    "/webjars/**"
-                ).permitAll()
+                // Swagger / API-docs are handled by the dedicated docsFilterChain above.
+                // Seeding endpoints stay SUPER_ADMIN-only.
+                .requestMatchers("/api/admin/seed/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/auth/**").permitAll()
+                // STOMP/WebSocket handshake — the CONNECT frame is authenticated
+                // separately by WebSocketConfig's channel interceptor (JWT in the
+                // STOMP headers), so the HTTP upgrade itself is permitted.
+                .requestMatchers("/ws/**").permitAll()
                 // Public email-OTP verification + shareable event lookup that back the
                 // secure registration form (the registration POST stays authenticated).
                 .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
-                .requestMatchers("/api/admin/seed/**").permitAll()
                 .requestMatchers("/api/admin/email/**").permitAll()
                 .requestMatchers("/api/tournament/**").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()

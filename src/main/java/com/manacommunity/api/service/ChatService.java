@@ -14,6 +14,7 @@ import com.manacommunity.api.repository.ChatMessageRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class ChatService {
     private final ConversationParticipantRepository participantRepository;
     private final ChatMessageRepository messageRepository;
     private final AppUserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ── Conversations list ────────────────────────────────────────────────
 
@@ -114,8 +116,30 @@ public class ChatService {
         membership.setLastReadAt(message.getCreatedAt());
         participantRepository.save(membership);
 
-        return toMessageResponse(message);
+        ChatMessageResponse response = toMessageResponse(message);
+
+        // ── Real-time push ────────────────────────────────────────────────
+        // 1. Everyone viewing this thread gets the message instantly.
+        messagingTemplate.convertAndSend("/topic/conversation/" + conversation.getId(), response);
+        // 2. Each participant's client updates its conversation-list row in place
+        //    (last message + unread badge) — no refetch needed. The payload
+        //    carries everything the list needs; senderId lets each client decide
+        //    whether to bump its own unread badge.
+        ChatConversationEvent event = new ChatConversationEvent(
+                conversation.getId(),
+                message.getContent(),
+                message.getCreatedAt(),
+                currentUser.getId());
+        for (ConversationParticipant p : participantRepository.findByConversationId(conversation.getId())) {
+            messagingTemplate.convertAndSend("/topic/chat-user/" + p.getUser().getId(), event);
+        }
+
+        return response;
     }
+
+    /** Conversation-list update pushed to each participant (replaces a client-side refetch). */
+    public record ChatConversationEvent(Long conversationId, String lastMessage,
+                                        LocalDateTime lastMessageAt, Long senderId) {}
 
     @Transactional
     public void markRead(AppUser currentUser, Long conversationId) {

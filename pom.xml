@@ -85,6 +85,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- WebSocket + STOMP messaging (real-time chat / live push) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Bean Validation (@Valid, @NotNull, etc.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -182,6 +188,11 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.6</version>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+            <version>7.0.4</version>
         </dependency>
 
     </dependencies>

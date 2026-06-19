@@ -3,6 +3,7 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.service.sample.SampleDataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +22,7 @@ public class SampleDataController {
      * to SUPER_ADMIN or allow it openly for dev environments.
      */
     @PostMapping("/auction")
-    // @PreAuthorize("hasRole('SUPER_ADMIN')") // Uncomment in production
+    @PreAuthorize("hasRole('SUPER_ADMIN')") // Uncomment in production
     public ResponseEntity<String> seedAuctionData() {
         String resultMessage = sampleDataService.executeSampleDataSql();
         if (resultMessage.startsWith("Error") || resultMessage.startsWith("Failed")) {

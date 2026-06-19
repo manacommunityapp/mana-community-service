@@ -540,6 +540,79 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher chat table patch failed: {}", e.getMessage(), e);
             }
+
+            // Ensure the chat child-table FKs to chat_conversation cascade on delete,
+            // so removing a conversation also removes its messages + participants in
+            // one DB operation (Hibernate's generated FKs are NO ACTION). Idempotent:
+            // finds the existing FK on each column by name, drops it, and re-adds a
+            // named cascading FK; skips once our cascading FK is already in place.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          rec         record;
+                          existing_fk text;
+                          col_attnum  smallint;
+                        BEGIN
+                          FOR rec IN
+                            SELECT * FROM (VALUES
+                              ('chat_message','conversation_id','fk_chat_message_conversation'),
+                              ('chat_participant','conversation_id','fk_chat_participant_conversation')
+                            ) AS t(child, col, fkname)
+                          LOOP
+                            -- Skip on fresh databases where the table isn't created yet.
+                            CONTINUE WHEN to_regclass('manacommunity.' || rec.child) IS NULL;
+
+                            -- Already cascading under our name? Nothing to do.
+                            IF EXISTS (
+                              SELECT 1 FROM pg_constraint con
+                              JOIN pg_class rel ON rel.oid = con.conrelid
+                              JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                              WHERE nsp.nspname = 'manacommunity'
+                                AND rel.relname = rec.child
+                                AND con.conname = rec.fkname
+                                AND con.contype = 'f'
+                                AND con.confdeltype = 'c'
+                            ) THEN
+                              CONTINUE;
+                            END IF;
+
+                            SELECT a.attnum INTO col_attnum
+                            FROM pg_attribute a
+                            JOIN pg_class rel ON rel.oid = a.attrelid
+                            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                            WHERE nsp.nspname = 'manacommunity'
+                              AND rel.relname = rec.child
+                              AND a.attname = rec.col;
+
+                            -- Drop any existing FK defined on that column (non-cascading one).
+                            FOR existing_fk IN
+                              SELECT con.conname
+                              FROM pg_constraint con
+                              JOIN pg_class rel ON rel.oid = con.conrelid
+                              JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                              WHERE nsp.nspname = 'manacommunity'
+                                AND rel.relname = rec.child
+                                AND con.contype = 'f'
+                                AND con.conkey = ARRAY[col_attnum]
+                            LOOP
+                              EXECUTE format('ALTER TABLE manacommunity.%I DROP CONSTRAINT %I', rec.child, existing_fk);
+                            END LOOP;
+
+                            EXECUTE format(
+                              'ALTER TABLE manacommunity.%I ADD CONSTRAINT %I FOREIGN KEY (%I) '
+                              || 'REFERENCES manacommunity.chat_conversation(id) ON DELETE CASCADE',
+                              rec.child, rec.fkname, rec.col);
+                          END LOOP;
+                        END $$;
+                        """);
+
+                log.info("chat child-table FKs patched with ON DELETE CASCADE.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher chat cascade-FK patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }
