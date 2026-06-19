@@ -26,48 +26,59 @@ public class SystemLogServiceImpl implements SystemLogService {
 
     @Override
     public SystemLogResponse getLogTail(int lineCount, String levelFilter, String searchKeyword) {
-        File logFile = new File(logFilePath);
-        if (!logFile.exists() || !logFile.isFile()) {
+        try {
+            String path = (logFilePath != null && !logFilePath.isBlank()) ? logFilePath : "logs/mana-service.log";
+            File logFile = new File(path);
+            if (!logFile.exists() || !logFile.isFile()) {
+                return SystemLogResponse.builder()
+                        .lines(List.of("Log file not found: " + path))
+                        .logFilePath(path)
+                        .fileSizeKb(0)
+                        .totalLinesReturned(0)
+                        .build();
+            }
+
+            int requestedLines = Math.min(Math.max(lineCount, 10), 1000);
+            // Read more lines than requested to account for filtering
+            int readBuffer = (levelFilter != null || searchKeyword != null) ? requestedLines * 5 : requestedLines;
+
+            List<String> tailLines = tailFile(logFile, readBuffer);
+
+            // Apply filters
+            List<String> filtered = tailLines;
+            if (levelFilter != null && !levelFilter.isBlank()) {
+                String lvl = levelFilter.toUpperCase().trim();
+                filtered = filtered.stream()
+                        .filter(line -> line.toUpperCase().contains(lvl))
+                        .collect(Collectors.toList());
+            }
+            if (searchKeyword != null && !searchKeyword.isBlank()) {
+                String kw = searchKeyword.toLowerCase().trim();
+                filtered = filtered.stream()
+                        .filter(line -> line.toLowerCase().contains(kw))
+                        .collect(Collectors.toList());
+            }
+
+            // Take last N after filtering
+            if (filtered.size() > requestedLines) {
+                filtered = filtered.subList(filtered.size() - requestedLines, filtered.size());
+            }
+
             return SystemLogResponse.builder()
-                    .lines(List.of("Log file not found: " + logFilePath))
+                    .lines(filtered)
+                    .logFilePath(path)
+                    .fileSizeKb(logFile.length() / 1024)
+                    .totalLinesReturned(filtered.size())
+                    .build();
+        } catch (Exception e) {
+            log.error("Error in getLogTail: ", e);
+            return SystemLogResponse.builder()
+                    .lines(List.of("Internal error retrieving logs: " + e.getClass().getSimpleName() + " - " + e.getMessage()))
                     .logFilePath(logFilePath)
                     .fileSizeKb(0)
                     .totalLinesReturned(0)
                     .build();
         }
-
-        int requestedLines = Math.min(Math.max(lineCount, 10), 1000);
-        // Read more lines than requested to account for filtering
-        int readBuffer = (levelFilter != null || searchKeyword != null) ? requestedLines * 5 : requestedLines;
-
-        List<String> tailLines = tailFile(logFile, readBuffer);
-
-        // Apply filters
-        List<String> filtered = tailLines;
-        if (levelFilter != null && !levelFilter.isBlank()) {
-            String lvl = levelFilter.toUpperCase().trim();
-            filtered = filtered.stream()
-                    .filter(line -> line.toUpperCase().contains(lvl))
-                    .collect(Collectors.toList());
-        }
-        if (searchKeyword != null && !searchKeyword.isBlank()) {
-            String kw = searchKeyword.toLowerCase().trim();
-            filtered = filtered.stream()
-                    .filter(line -> line.toLowerCase().contains(kw))
-                    .collect(Collectors.toList());
-        }
-
-        // Take last N after filtering
-        if (filtered.size() > requestedLines) {
-            filtered = filtered.subList(filtered.size() - requestedLines, filtered.size());
-        }
-
-        return SystemLogResponse.builder()
-                .lines(filtered)
-                .logFilePath(logFilePath)
-                .fileSizeKb(logFile.length() / 1024)
-                .totalLinesReturned(filtered.size())
-                .build();
     }
 
     /**
@@ -112,52 +123,71 @@ public class SystemLogServiceImpl implements SystemLogService {
 
     @Override
     public SystemStatsResponse getSystemStats() {
-        com.sun.management.OperatingSystemMXBean osBean =
-                (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-        RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
-        Runtime runtime = Runtime.getRuntime();
+        try {
+            java.lang.management.OperatingSystemMXBean baseOsBean = ManagementFactory.getOperatingSystemMXBean();
+            double cpuLoad = -1.0;
+            long totalMemory = 0;
+            long freeMemory = 0;
 
-        double cpuLoad = osBean.getCpuLoad() * 100;
-        long totalMemory = osBean.getTotalMemorySize() / (1024 * 1024);
-        long freeMemory = osBean.getFreeMemorySize() / (1024 * 1024);
-        long usedMemory = totalMemory - freeMemory;
-        double memPercent = totalMemory > 0 ? ((double) usedMemory / totalMemory) * 100 : 0;
+            if (baseOsBean instanceof com.sun.management.OperatingSystemMXBean osBean) {
+                cpuLoad = osBean.getCpuLoad() * 100;
+                totalMemory = osBean.getTotalMemorySize() / (1024 * 1024);
+                freeMemory = osBean.getFreeMemorySize() / (1024 * 1024);
+            } else {
+                double loadAvg = baseOsBean.getSystemLoadAverage();
+                if (loadAvg >= 0) {
+                    cpuLoad = loadAvg * 100;
+                }
+            }
 
-        File root = new File("/");
-        // On Windows, use the drive where the app runs
-        String osName = System.getProperty("os.name", "").toLowerCase();
-        if (osName.contains("win")) {
-            String userDir = System.getProperty("user.dir", "C:\\");
-            root = new File(userDir.substring(0, 3)); // e.g. "D:\\"
+            long usedMemory = totalMemory - freeMemory;
+            double memPercent = totalMemory > 0 ? ((double) usedMemory / totalMemory) * 100 : 0;
+
+            File root = new File("/");
+            // On Windows, use the drive where the app runs
+            String osName = System.getProperty("os.name", "").toLowerCase();
+            if (osName.contains("win")) {
+                String userDir = System.getProperty("user.dir", "C:\\");
+                root = new File(userDir.substring(0, 3)); // e.g. "D:\\"
+            }
+            long totalDisk = root.getTotalSpace() / (1024L * 1024 * 1024);
+            long freeDisk = root.getUsableSpace() / (1024L * 1024 * 1024);
+            long usedDisk = totalDisk - freeDisk;
+            double diskPercent = totalDisk > 0 ? ((double) usedDisk / totalDisk) * 100 : 0;
+
+            Runtime runtime = Runtime.getRuntime();
+            long jvmFree = runtime.freeMemory() / (1024 * 1024);
+            long jvmTotal = runtime.totalMemory() / (1024 * 1024);
+            long jvmMax = runtime.maxMemory() / (1024 * 1024);
+            double jvmPercent = jvmMax > 0 ? ((double) (jvmTotal - jvmFree) / jvmMax) * 100 : 0;
+
+            RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
+            long uptimeMs = runtimeBean.getUptime();
+
+            return SystemStatsResponse.builder()
+                    .cpuLoad(cpuLoad >= 0 ? Math.round(cpuLoad * 10.0) / 10.0 : -1.0)
+                    .totalMemoryMb(totalMemory)
+                    .freeMemoryMb(freeMemory)
+                    .usedMemoryMb(usedMemory)
+                    .memoryUsagePercent(Math.round(memPercent * 10.0) / 10.0)
+                    .totalDiskGb(totalDisk)
+                    .freeDiskGb(freeDisk)
+                    .usedDiskGb(usedDisk)
+                    .diskUsagePercent(Math.round(diskPercent * 10.0) / 10.0)
+                    .jvmFreeMemoryMb(jvmFree)
+                    .jvmTotalMemoryMb(jvmTotal)
+                    .jvmMaxMemoryMb(jvmMax)
+                    .jvmUsagePercent(Math.round(jvmPercent * 10.0) / 10.0)
+                    .uptimeSeconds(uptimeMs / 1000)
+                    .activeThreads(Thread.activeCount())
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to gather system stats: ", e);
+            return SystemStatsResponse.builder()
+                    .cpuLoad(-1.0)
+                    .uptimeSeconds(0)
+                    .activeThreads(Thread.activeCount())
+                    .build();
         }
-        long totalDisk = root.getTotalSpace() / (1024L * 1024 * 1024);
-        long freeDisk = root.getUsableSpace() / (1024L * 1024 * 1024);
-        long usedDisk = totalDisk - freeDisk;
-        double diskPercent = totalDisk > 0 ? ((double) usedDisk / totalDisk) * 100 : 0;
-
-        long jvmFree = runtime.freeMemory() / (1024 * 1024);
-        long jvmTotal = runtime.totalMemory() / (1024 * 1024);
-        long jvmMax = runtime.maxMemory() / (1024 * 1024);
-        double jvmPercent = jvmMax > 0 ? ((double) (jvmTotal - jvmFree) / jvmMax) * 100 : 0;
-
-        long uptimeMs = runtimeBean.getUptime();
-
-        return SystemStatsResponse.builder()
-                .cpuLoad(Math.round(cpuLoad * 10.0) / 10.0)
-                .totalMemoryMb(totalMemory)
-                .freeMemoryMb(freeMemory)
-                .usedMemoryMb(usedMemory)
-                .memoryUsagePercent(Math.round(memPercent * 10.0) / 10.0)
-                .totalDiskGb(totalDisk)
-                .freeDiskGb(freeDisk)
-                .usedDiskGb(usedDisk)
-                .diskUsagePercent(Math.round(diskPercent * 10.0) / 10.0)
-                .jvmFreeMemoryMb(jvmFree)
-                .jvmTotalMemoryMb(jvmTotal)
-                .jvmMaxMemoryMb(jvmMax)
-                .jvmUsagePercent(Math.round(jvmPercent * 10.0) / 10.0)
-                .uptimeSeconds(uptimeMs / 1000)
-                .activeThreads(Thread.activeCount())
-                .build();
     }
 }
