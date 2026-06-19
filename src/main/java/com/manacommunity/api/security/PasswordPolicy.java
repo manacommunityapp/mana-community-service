@@ -3,12 +3,16 @@ package com.manacommunity.api.security;
 import com.manacommunity.api.exception.ManaCommunityException;
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
+
 /**
  * Centralised password-strength rules (no server-side state).
  *
  * <p>Requirements enforced: minimum 8 characters and at least one each of
- * uppercase, lowercase, digit and special character. 12+ characters is
- * recommended; {@link #strengthHint(String)} reports it but does not block.</p>
+ * uppercase, lowercase, digit and special character, <em>and</em> a
+ * guessability gate via {@link PasswordStrengthEvaluator} that blocks common
+ * passwords, keyboard walks, sequences and personal-data-based passwords
+ * (e.g. {@code Password123!}). 12+ characters is recommended.</p>
  */
 public final class PasswordPolicy {
 
@@ -21,9 +25,19 @@ public final class PasswordPolicy {
 
     /**
      * Throws {@link ManaCommunityException} (400 WEAK_PASSWORD) with a clear, UI-ready
-     * message when {@code raw} fails any hard requirement.
+     * message when {@code raw} fails any hard requirement or is too guessable.
      */
     public static void validate(String raw) {
+        validate(raw, List.of());
+    }
+
+    /**
+     * As {@link #validate(String)}, but also penalises passwords derived from the
+     * caller's own data (email, name, phone, community).
+     *
+     * @param userInputs personal tokens to reject if present; may be empty
+     */
+    public static void validate(String raw, List<String> userInputs) {
         if (raw == null || raw.isBlank()) {
             throw weak("Password is required.");
         }
@@ -47,14 +61,28 @@ public final class PasswordPolicy {
             missing.setLength(missing.length() - 2); // trim trailing ", "
             throw weak("Password must include " + missing + ".");
         }
+
+        // Guessability gate: blocks common/dictionary/keyboard/personal passwords
+        // that pass the composition rules above (e.g. "Password123!").
+        PasswordStrengthEvaluator.Result strength = PasswordStrengthEvaluator.evaluate(raw, userInputs);
+        if (!strength.isAcceptable()) {
+            String msg = strength.warning() != null ? strength.warning() : "This password is too easy to guess.";
+            if (!strength.suggestions().isEmpty()) {
+                msg = msg + " " + strength.suggestions().get(0);
+            }
+            throw weak(msg);
+        }
     }
 
-    /** Non-blocking advisory ("strong"/"good"/"acceptable") for UI display. */
+    /** Non-blocking advisory label ("weak"/"fair"/"good"/"strong"/"very strong") for UI display. */
     public static String strengthHint(String raw) {
-        if (raw == null) return "weak";
-        if (raw.length() >= RECOMMENDED_LENGTH) return "strong";
-        if (raw.length() >= MIN_LENGTH) return "acceptable";
-        return "weak";
+        return switch (PasswordStrengthEvaluator.evaluate(raw).score()) {
+            case 0 -> "weak";
+            case 1 -> "fair";
+            case 2 -> "good";
+            case 3 -> "strong";
+            default -> "very strong";
+        };
     }
 
     private static ManaCommunityException weak(String message) {

@@ -1,0 +1,153 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Mana Community Service — LEGACY / orphan tables (PostgreSQL schema: manacommunity)
+//
+// These 9 tables are NOT part of the live model (see schema.dbml). They carry
+// NO foreign-key constraints and several use string PKs from the original
+// Cognito-era design. Documented here purely for migration / cleanup planning —
+// confirm each is unused (no reads/writes) before dropping.
+//
+// Import separately at https://dbdiagram.io if you want to view them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+Project mana_community_legacy {
+  database_type: 'PostgreSQL'
+  Note: 'Deprecated tables. No FKs. Verify zero usage before DROP.'
+}
+
+// Superseded by: community (bigint PK)
+Table communities {
+  id varchar [pk, note: 'string PK (legacy)']
+  name varchar [not null]
+  type varchar [not null]
+  address text
+  invite_code varchar [not null]
+  created_at timestamp
+
+  Note: 'LEGACY → replaced by `community`.'
+}
+
+// Superseded by: app_user (bigint PK). cognito_sub = old AWS Cognito identity.
+Table users {
+  id varchar [pk, note: 'string PK (legacy)']
+  cognito_sub varchar
+  full_name varchar
+  email varchar
+  phone_number varchar
+  password_hash varchar
+  role_id bigint [not null]
+  kyc_status varchar
+  aadhar_number_masked varchar
+  profile_image_url varchar
+  created_at timestamp
+
+  Note: 'LEGACY → replaced by `app_user`.'
+}
+
+// Superseded by: app_user.community_id (membership is now a column, not a join table)
+Table user_community_mapping {
+  user_id varchar [not null, note: 'string FK (legacy)']
+  community_id varchar [not null, note: 'string FK (legacy)']
+  role varchar
+  join_status varchar
+  joined_at timestamp
+
+  Note: 'LEGACY → replaced by `app_user.community_id`.'
+}
+
+// Superseded by: sports_event_registration
+Table event_registration {
+  id bigint [pk]
+  event_id bigint
+  user_id bigint
+  partner_user_id bigint
+  category_id bigint
+  player_name varchar
+  relation varchar
+  flat_number varchar
+  match_type varchar
+  role varchar
+  age int
+  status varchar
+  registered_at timestamp
+
+  Note: 'LEGACY → replaced by `sports_event_registration`.'
+}
+
+// Superseded by: sports_event_sponsor
+Table event_sponsor {
+  id bigint [pk]
+  event_id bigint [not null]
+  category varchar [not null]
+  name varchar [not null]
+  url varchar
+  created_at timestamp [not null]
+
+  Note: 'LEGACY → replaced by `sports_event_sponsor` (data already back-filled by SchemaConstraintPatcher).'
+}
+
+// Superseded by: sports_notification_scheduler
+Table event_notification_schedule {
+  id bigint [pk]
+  event_id bigint [not null]
+  type varchar [not null]
+  title varchar
+  body varchar
+  notify_at timestamp [not null]
+  sent boolean [not null]
+  created_at timestamp [not null]
+
+  Note: 'LEGACY → replaced by `sports_notification_scheduler` (PENDING rows already back-filled by SchemaConstraintPatcher).'
+}
+
+// Superseded by: tournament_config — BUT still referenced by LIVE tables:
+//   sports_event.tournament_id, sports_event_sponsor.tournament_id,
+//   sports_notification_scheduler.tournament_id  (all FK to THIS table).
+// So this one is NOT safe to drop yet without repointing those columns.
+Table tournament {
+  id bigint [pk]
+  name varchar
+  description varchar
+  registration_status varchar
+  event_date_start date
+  event_date_end date
+  registration_date_start date
+  registration_date_end date
+  max_participants int
+  start_time varchar
+  due_time varchar
+  banner_image varchar
+  contact_number varchar
+  contact_email varchar
+  other_contacts varchar
+  allow_admin_chat boolean
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'LEGACY → superseded by `tournament_config`, but LIVE tables still FK here. Repoint before dropping.'
+}
+
+// Superseded by: auction_config
+Table auction_event {
+  id bigint [pk]
+  name varchar [not null]
+  sports_event_id bigint [not null]
+  created_by bigint [not null]
+  status varchar [not null]
+  budget_per_team int [not null]
+  bid_increment int [not null]
+  bid_timer_secs int [not null]
+  rtm_enabled boolean [not null]
+  starts_at timestamp
+  created_at timestamp [not null]
+
+  Note: 'LEGACY → replaced by `auction_config`.'
+}
+
+// Superseded by: role_permissions (note the trailing "s")
+Table role_permission {
+  id bigint [pk]
+  role varchar [not null]
+  permission_key varchar [not null]
+
+  Note: 'LEGACY → replaced by `role_permissions`.'
+}

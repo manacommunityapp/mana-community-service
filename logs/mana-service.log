@@ -1,0 +1,127 @@
+2026-06-20T00:36:52.839+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 23760 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-20T00:36:52.843+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : The following 1 profile is active: "local"
+2026-06-20T00:36:54.668+05:30  INFO 23760 --- [mana-community-service] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-20T00:36:55.056+05:30  INFO 23760 --- [mana-community-service] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 369 ms. Found 33 JPA repository interfaces.
+2026-06-20T00:36:55.666+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.config.TableDropperConfig        : BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-20T00:36:55.668+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.config.TableDropperConfig        : Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-20T00:36:57.759+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-06-20T00:36:57.823+05:30  INFO 23760 --- [mana-community-service] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-06-20T00:36:57.824+05:30  INFO 23760 --- [mana-community-service] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-20T00:36:58.027+05:30  INFO 23760 --- [mana-community-service] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5124 ms
+2026-06-20T00:36:58.216+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-06-20T00:36:58.898+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@85ab964
+2026-06-20T00:36:58.902+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-06-20T00:36:59.004+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_config tournament_type constraint patched with extended values.
+2026-06-20T00:36:59.020+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_match status constraint patched to support DRAFT.
+2026-06-20T00:36:59.040+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-20T00:36:59.102+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : Foreign-key column indexes ensured.
+2026-06-20T00:36:59.105+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : roles.community_id FK to community ensured.
+2026-06-20T00:36:59.116+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-20T00:36:59.123+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-20T00:36:59.124+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : sports_event_registration.email column ensured.
+2026-06-20T00:36:59.126+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-20T00:36:59.137+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : sports_event uuid + admin_approval_required columns ensured.
+2026-06-20T00:36:59.138+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : email_otp table ensured.
+2026-06-20T00:36:59.144+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : chat tables ensured.
+2026-06-20T00:36:59.148+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-20T00:36:59.158+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.c.TableDropperConfig$TableDropper  : Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-20T00:36:59.375+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-20T00:36:59.511+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-20T00:37:00.486+05:30  INFO 23760 --- [mana-community-service] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-20T00:37:00.600+05:30  WARN 23760 --- [mana-community-service] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-20T00:37:00.635+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-20T00:37:03.451+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-20T00:37:04.433+05:30  INFO 23760 --- [mana-community-service] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-20T00:37:04.587+05:30  INFO 23760 --- [mana-community-service] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-20T00:37:05.913+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.web.servlet.RegistrationBean    : Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-20T00:37:10.233+05:30  WARN 23760 --- [mana-community-service] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-20T00:37:10.276+05:30  INFO 23760 --- [mana-community-service] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-20T00:37:12.239+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-06-20T00:37:12.243+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@4fa4bb1b]]
+2026-06-20T00:37:12.244+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-06-20T00:37:12.292+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-06-20T00:37:12.318+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : Started ManaCommunityServiceApplication in 20.091 seconds (process running for 20.73)
+2026-06-20T00:37:12.490+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-20T00:37:12.578+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-20T00:37:12.579+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-06-20T00:37:12.579+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Roles sequence synchronized to next available value successfully.
+2026-06-20T00:37:12.580+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : DDL-Auto is 'create'. Running sample data seeding...
+2026-06-20T00:37:12.580+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : Starting Java-based database seeding...
+2026-06-20T00:37:12.582+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-20T00:37:12.582+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : Seeding role permissions...
+2026-06-20T00:37:12.583+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-06-20T00:37:13.017+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : ✓ Role permissions seeded successfully
+2026-06-20T00:37:13.017+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CommunitySeeder      : Seeding default communities...
+2026-06-20T00:37:13.028+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-20T00:37:13.039+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: MEMBER for community ID: 1
+2026-06-20T00:37:13.048+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: VENDOR for community ID: 1
+2026-06-20T00:37:13.051+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: ADMIN for community ID: 1
+2026-06-20T00:37:13.057+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-20T00:37:13.062+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: STAFF for community ID: 1
+2026-06-20T00:37:13.067+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: CASHIER for community ID: 1
+2026-06-20T00:37:13.068+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-20T00:37:13.103+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-20T00:37:13.108+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: MEMBER for community ID: 2
+2026-06-20T00:37:13.116+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: VENDOR for community ID: 2
+2026-06-20T00:37:13.123+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: ADMIN for community ID: 2
+2026-06-20T00:37:13.129+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-20T00:37:13.137+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: STAFF for community ID: 2
+2026-06-20T00:37:13.149+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: CASHIER for community ID: 2
+2026-06-20T00:37:13.149+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-20T00:37:13.180+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CommunitySeeder      : ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-20T00:37:13.181+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsMetaSeeder     : Starting sports meta database seeding...
+2026-06-20T00:37:13.378+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsMetaSeeder     : ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-20T00:37:13.378+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.UserSeeder   : Seeding system and gated community users...
+2026-06-20T00:37:13.946+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.UserSeeder   : ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-20T00:37:13.946+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : Seeding user-specific permissions for Sunil...
+2026-06-20T00:37:14.020+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-20T00:37:14.021+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.PlayerCategorySeeder      : Seeding player categories...
+2026-06-20T00:37:14.075+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.PlayerCategorySeeder      : ✓ Player categories seeded successfully.
+2026-06-20T00:37:14.075+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.VenueSeeder  : Seeding community venues...
+2026-06-20T00:37:14.141+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.VenueSeeder  : ✓ Venues seeded successfully.
+2026-06-20T00:37:14.141+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : Seeding community sports events...
+2026-06-20T00:37:14.300+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-20T00:37:14.344+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-20T00:37:14.612+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-20T00:37:14.612+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : Seeding tournament sample data...
+2026-06-20T00:37:14.634+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-20T00:37:14.636+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-20T00:37:14.636+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : Seeding auction configurations...
+2026-06-20T00:37:14.726+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-20T00:37:14.758+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-20T00:37:14.768+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Dispute committee seeded: 1 member
+2026-06-20T00:37:14.817+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction teams seeded: 5 active teams
+2026-06-20T00:37:15.005+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction players seeded from confirmed event registrations
+2026-06-20T00:37:15.006+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionDataSeeder  : Seeding role_permissions table sample data...
+2026-06-20T00:37:15.047+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionDataSeeder  : ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-20T00:37:15.048+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.VenueDataSeeder      : Seeding venue table sample data...
+2026-06-20T00:37:15.070+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.VenueDataSeeder      : ✓ Venue table seeded: Community Sports Arena
+2026-06-20T00:37:15.070+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CourtDataSeeder      : Seeding court table sample data...
+2026-06-20T00:37:15.092+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CourtDataSeeder      : ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-20T00:37:15.092+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.SportsEventDataSeeder     : Seeding sports_event table sample data...
+2026-06-20T00:37:15.138+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.SportsEventDataSeeder     : ✓ Sports event table seeded: Winter Football League
+2026-06-20T00:37:15.138+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : Seeding sports_event_registration table sample data...
+2026-06-20T00:37:15.199+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-20T00:37:15.343+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-20T00:37:15.344+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.TournamentDataSeeder      : Seeding tournament table sample data...
+2026-06-20T00:37:15.351+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.TournamentDataSeeder      : ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ═══════════════════════════════════════════════════════════
+2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   :   Java-based database seeding completed successfully!
+2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ═══════════════════════════════════════════════════════════
+2026-06-20T00:38:12.250+05:30  INFO 23760 --- [mana-community-service] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[2 current WS(2)-HttpStream(0)-HttpPoll(0), 4 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(4)-CONNECTED(4)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 30, active threads = 0, queued tasks = 0, completed tasks = 30], outboundChannel[pool size = 6, active threads = 0, queued tasks = 0, completed tasks = 6], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-20T00:42:38.086+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] SECURITY_AUDIT                           : action=LOGIN_SUCCESS userId=3 email=s***@gmail.com ip=0:0:0:0:0:0:0:1 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
+2026-06-20T00:42:38.681+05:30  WARN 23760 --- [mana-community-service] [http-nio-8080-exec-6] ration$PageModule$WarningLoggingModifier : Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
+

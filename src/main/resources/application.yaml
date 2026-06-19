@@ -1,3 +1,12 @@
+logging:
+  file:
+    name: logs/mana-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      total-size-cap: 100MB
+      max-history: 7
+
 spring:
   application:
     name: mana-community-service

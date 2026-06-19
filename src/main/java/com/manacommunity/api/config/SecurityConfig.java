@@ -5,6 +5,7 @@ import com.manacommunity.api.repository.AppUserRepository;
 import com.manacommunity.api.security.UserPrincipal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -20,8 +21,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
 import com.manacommunity.api.security.JwtAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -66,6 +69,23 @@ public class SecurityConfig { // BUG FIX: was package-private
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * A {@code @Component} Filter is auto-registered by Spring Boot as a GLOBAL
+     * servlet filter for every request — in addition to where the security chains
+     * place it via {@code addFilterBefore}. That duplicate run muddies the docs
+     * chain's auth handling (anonymous docs requests came back 403 instead of the
+     * 401 a browser needs to show its Basic-auth prompt). Disabling the auto
+     * registration makes the JWT filter run ONLY inside the security chains.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterAutoRegistrationDisabler(
+            JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration =
+                new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     /**
@@ -132,8 +152,19 @@ public class SecurityConfig { // BUG FIX: was package-private
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("SUPER_ADMIN"))
             // Browser path — prompts for the super-admin's app credentials.
-            .httpBasic(Customizer.withDefaults());
+            .httpBasic(basic -> basic.authenticationEntryPoint(docsAuthEntryPoint()))
+            // Send 401 (not 403) for an unauthenticated request so the browser shows
+            // its Basic-auth login dialog. Without this the anonymous access-denied
+            // path returns 403, which browsers do NOT prompt on.
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(docsAuthEntryPoint()));
         return http.build();
+    }
+
+    /** 401 entry point that triggers the browser's Basic-auth credential prompt. */
+    private AuthenticationEntryPoint docsAuthEntryPoint() {
+        BasicAuthenticationEntryPoint entryPoint = new BasicAuthenticationEntryPoint();
+        entryPoint.setRealmName("ManaCommunity API Docs");
+        return entryPoint;
     }
 
     @Bean
@@ -168,6 +199,10 @@ public class SecurityConfig { // BUG FIX: was package-private
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
+                // The container's ERROR dispatch (e.g. a 401 from the docs chain's
+                // sendError) re-enters the security filter; permit it so the original
+                // status is preserved instead of being flipped to 403.
+                .requestMatchers("/error").permitAll()
                 // Swagger / API-docs are handled by the dedicated docsFilterChain above.
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole("SUPER_ADMIN")

@@ -62,8 +62,15 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
 
-        // 2b. Enforce password strength before hashing.
-        PasswordPolicy.validate(request.getPassword());
+        // 2b. Enforce password strength before hashing — also reject passwords
+        // derived from the user's own data (email, name, phone, community).
+        // Arrays.asList permits nulls; the evaluator skips null/blank tokens.
+        PasswordPolicy.validate(request.getPassword(), java.util.Arrays.asList(
+                request.getEmail(),
+                request.getFullName(),
+                request.getPhone(),
+                community.getName()
+        ));
 
         // 3. Mock Aadhaar masking
         String maskedAadhar = maskAadharNumber(request.getAadharNumber());

@@ -1,0 +1,622 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Mana Community Service — live database schema (PostgreSQL schema: manacommunity)
+// Import at https://dbdiagram.io  ( File → Import → paste / .dbml )
+//
+// Only LIVE tables are modelled. Legacy/orphan tables (no FKs, string PKs) are
+// intentionally omitted: users, communities, user_community_mapping,
+// event_registration, event_sponsor, event_notification_schedule, tournament,
+// auction_event, role_permission.
+//
+// FK delete rules: all are NO ACTION except where marked [delete: cascade].
+// ─────────────────────────────────────────────────────────────────────────────
+
+Project mana_community {
+  database_type: 'PostgreSQL'
+  Note: 'Schema = manacommunity. Hubs: community.id and app_user.id.'
+}
+
+// ── Identity & access ────────────────────────────────────────────────────────
+
+Table community {
+  id bigint [pk]
+  name varchar [not null]
+  type varchar [not null]
+  invite_code varchar
+  city varchar
+  state varchar
+  area varchar
+  subtype varchar
+  created_at timestamp [not null]
+}
+
+Table roles {
+  id bigint [pk]
+  name varchar [not null]
+  community_id bigint
+}
+
+Table app_user {
+  id bigint [pk]
+  full_name varchar [not null]
+  email varchar [not null]
+  phone varchar [not null]
+  password_hash varchar [not null]
+  date_of_birth date [not null]
+  gender varchar [not null]
+  role varchar [not null]
+  role_id bigint
+  kyc_status varchar [not null]
+  govt_id_type varchar
+  govt_id_number varchar
+  flat_no varchar
+  block varchar
+  profile_pic_url varchar
+  community_id bigint
+  is_active boolean [not null]
+  failed_login_attempts int [not null]
+  locked_until timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table role_permissions {
+  id bigint [pk]
+  role varchar
+  role_id bigint
+  user_id bigint
+  permission_key varchar [not null]
+}
+
+Table user_profile {
+  id bigint [pk]
+  user_id bigint [not null]
+  bio varchar
+  skills varchar
+  cover_pic_url varchar
+  posts_count int
+  connections_count int
+  events_attended_count int
+  items_sold_count int
+  jobs_posted_count int
+  sports_played_count int
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table email_otp {
+  id bigint [pk]
+  email varchar [not null]
+  code_hash varchar [not null]
+  expires_at timestamp [not null]
+  attempts int [not null]
+  consumed boolean [not null]
+  verified boolean [not null]
+  verified_at timestamp
+  created_at timestamp [not null]
+}
+
+// ── Sports catalogue & venues ────────────────────────────────────────────────
+
+Table sports_meta {
+  id bigint [pk]
+  name varchar [not null]
+  icon text
+  icon_url text
+  format varchar
+  active boolean [not null]
+  community_id bigint
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table player_category {
+  id bigint [pk]
+  name varchar [not null]
+  category_type varchar [not null]
+  description varchar
+  gender varchar [not null]
+  type varchar [not null]
+  min_age int [not null]
+  max_age int [not null]
+  community_id bigint
+}
+
+Table venue {
+  id bigint [pk]
+  name varchar [not null]
+  address varchar
+  area varchar
+  city varchar
+  pin_code varchar
+  map_link varchar
+  capacity int
+  venue_type varchar
+  venue_category varchar
+  opening_time varchar
+  closing_time varchar
+  contact_name varchar
+  contact_number varchar
+  contact_email varchar
+  community_id bigint
+}
+
+Table court {
+  id bigint [pk]
+  venue_id bigint [not null]
+  name varchar [not null]
+  color varchar
+  opening_time varchar
+  closing_time varchar
+}
+
+// ── Events & registrations ───────────────────────────────────────────────────
+
+Table sports_event {
+  id bigint [pk]
+  uuid uuid
+  name varchar [not null]
+  sport_id bigint
+  community_id bigint
+  venue_id bigint
+  tournament_id bigint
+  created_by bigint
+  event_date_start date
+  event_date_end date
+  registration_date_start date
+  registration_date_end date
+  players_born date
+  start_time varchar
+  due_time varchar
+  format varchar
+  tournament_type varchar
+  tournament_level varchar
+  gender varchar
+  min_age int [not null]
+  max_age int [not null]
+  min_players int
+  max_players int
+  max_participants int
+  auction_status varchar
+  banner_image varchar
+  description varchar
+  contact_number varchar
+  contact_email varchar
+  other_contacts varchar
+  dispute_committee_ids varchar
+  icon varchar
+  admin_approval_required boolean [not null]
+  active boolean [not null]
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+Table event_category {
+  event_id bigint [not null]
+  category_id bigint [not null]
+}
+
+Table sports_event_registration {
+  id bigint [pk]
+  event_id bigint
+  user_id bigint
+  partner_user_id bigint
+  category_id bigint
+  player_name varchar
+  email varchar
+  relation varchar
+  flat_number varchar
+  match_type varchar
+  role varchar
+  age int
+  status varchar
+  proposed_team_name varchar
+  captain_nomination boolean
+  captain_confirmation boolean
+  registered_at timestamp
+  updated_at timestamp
+}
+
+Table sports_event_sponsor {
+  id bigint [pk]
+  event_id bigint
+  tournament_id bigint
+  category varchar [not null]
+  name varchar [not null]
+  url varchar
+  created_at timestamp [not null]
+}
+
+Table sports_notification_scheduler {
+  id bigint [pk]
+  event_id bigint [not null]
+  tournament_id bigint
+  trigger_key varchar
+  label varchar [not null]
+  offset_minutes int [not null]
+  enabled boolean [not null]
+  title varchar [not null]
+  body text [not null]
+  recipients varchar [not null]
+  channels varchar [not null]
+  priority varchar [not null]
+  is_custom boolean [not null]
+  sent boolean [not null]
+  notify_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+// ── Tournament engine ────────────────────────────────────────────────────────
+
+Table tournament_config {
+  id bigint [pk]
+  tournament_name varchar [not null]
+  tournament_type varchar [not null]
+  status varchar [not null]
+  community_id bigint
+  event_id bigint
+  sport_id bigint
+  venue_id bigint
+  created_by bigint
+  total_teams int [not null]
+  number_of_groups int
+  teams_per_group int
+  teams_advancing_per_group int
+  swiss_rounds int
+  match_duration_minutes int
+  break_between_matches_minutes int
+  points_for_win int
+  points_for_draw int
+  points_for_loss int
+  has_seeding boolean
+  third_place_match boolean
+  start_date date [not null]
+  end_date date
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table tournament_group {
+  id bigint [pk]
+  config_id bigint
+  group_name varchar [not null]
+  group_order int [not null]
+}
+
+Table tournament_match {
+  id bigint [pk]
+  config_id bigint [not null]
+  group_id bigint
+  round varchar
+  round_number int
+  swiss_round_number int
+  match_number int
+  bracket_slot int
+  team_a_id bigint
+  team_b_id bigint
+  winner_team_id bigint
+  winner_advances_to_match_id bigint
+  loser_sent_to_match_id bigint
+  winner_feed_from_matcha bigint
+  winner_feed_from_matchb bigint
+  score_teama varchar
+  score_teamb varchar
+  status varchar [not null]
+  match_notes varchar
+  venue_id bigint
+  court_id bigint
+  duration_minutes int
+  scheduled_at timestamp [not null]
+  started_at timestamp
+  completed_at timestamp
+  reminder_sent boolean [not null]
+  reminder_sent_at timestamp
+  created_at timestamp
+}
+
+Table group_team_standing {
+  id bigint [pk]
+  group_id bigint
+  team_id bigint
+  seed_rank int
+  played int
+  won int
+  drawn int
+  lost int
+  points int
+  runs_for int
+  runs_against int
+  overs_for int
+  overs_against int
+  net_run_rate double
+  qualified boolean
+  eliminated boolean
+}
+
+Table schedule_generation_log {
+  id bigint [pk]
+  config_id bigint
+  event_id bigint
+  community_id bigint
+  generated_by bigint
+  action varchar [not null]
+  status varchar [not null]
+  tournament_type varchar
+  total_teams int
+  total_matches int
+  total_groups int
+  duration_ms bigint
+  venues_used varchar
+  ip_address varchar
+  error_message text
+  request_snapshot text
+  response_snapshot text
+  created_at timestamp
+}
+
+// ── Auction ──────────────────────────────────────────────────────────────────
+
+Table auction_config {
+  id bigint [pk]
+  season_name varchar [not null]
+  auction_format varchar [not null]
+  status varchar [not null]
+  unsold_rule varchar [not null]
+  sport_id bigint [not null]
+  event_id bigint
+  created_by bigint
+  total_teams int [not null]
+  total_players int [not null]
+  budget_per_team bigint [not null]
+  base_price int [not null]
+  bid_increment_default int [not null]
+  bid_increment_threshold bigint [not null]
+  bid_increment_above int [not null]
+  bid_timer_seconds int [not null]
+  rtm_enabled boolean [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table auction_config_category {
+  id bigint [pk]
+  config_id bigint [not null]
+  category_name varchar [not null]
+}
+
+Table auction_dispute_committee {
+  id bigint [pk]
+  config_id bigint
+  user_id bigint
+  member_name varchar [not null]
+  role varchar
+  added_at timestamp
+}
+
+Table auction_player {
+  id bigint [pk]
+  config_id bigint
+  user_id bigint
+  assigned_team_id bigint
+  player_name varchar [not null]
+  player_role varchar
+  category varchar [not null]
+  age int
+  base_price int [not null]
+  sold_price bigint
+  queue_order int [not null]
+  rtm_used boolean
+  status varchar [not null]
+  stats_json jsonb
+  uploaded_at timestamp
+  sold_at timestamp
+}
+
+Table auction_team {
+  id bigint [pk]
+  event_id bigint [not null]
+  config_id bigint
+  owner_user_id bigint
+  captain_user_id bigint
+  team_name varchar [not null]
+  owner_name varchar
+  color_hex varchar
+  total_budget bigint [not null]
+  remaining_budget bigint [not null]
+  spent bigint [not null]
+  captain_nomination boolean
+  captain_confirmation boolean
+  created_at timestamp
+}
+
+Table auction_bid {
+  id bigint [pk]
+  config_id bigint
+  player_id bigint
+  team_id bigint
+  bid_by_user_id bigint
+  bid_amount bigint [not null]
+  increment_used int [not null]
+  is_rtm boolean
+  bid_at timestamp [not null]
+}
+
+Table auction_session_log {
+  id bigint [pk]
+  config_id bigint [not null]
+  player_id bigint
+  team_id bigint
+  performed_by_user_id bigint
+  action varchar [not null]
+  amount bigint
+  notes varchar
+  logged_at timestamp [not null]
+}
+
+// ── Community feed ───────────────────────────────────────────────────────────
+
+Table post {
+  id bigint [pk]
+  user_id bigint [not null]
+  community_id bigint [not null]
+  content text [not null]
+  image_url varchar
+  is_official boolean [not null]
+  likes_count int [not null]
+  comments_count int [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table post_comment {
+  id bigint [pk]
+  post_id bigint [not null]
+  user_id bigint [not null]
+  content text [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table post_like {
+  id bigint [pk]
+  post_id bigint [not null]
+  user_id bigint [not null]
+  created_at timestamp [not null]
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+
+Table notification {
+  id bigint [pk]
+  user_id bigint [not null]
+  community_id bigint
+  type varchar [not null]
+  category varchar
+  title varchar [not null]
+  body text
+  icon varchar
+  action_url varchar
+  reference_type varchar
+  reference_id bigint
+  priority varchar
+  channels varchar
+  metadata text
+  is_read boolean
+  is_dismissed boolean
+  read_at timestamp
+  expires_at timestamp
+  created_at timestamp
+}
+
+// ── Chat (real-time) ─────────────────────────────────────────────────────────
+
+Table chat_conversation {
+  id bigint [pk]
+  type varchar [not null]
+  title varchar
+  community_id bigint
+  last_message text
+  last_message_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table chat_participant {
+  id bigint [pk]
+  conversation_id bigint [not null]
+  user_id bigint [not null]
+  last_read_at timestamp
+  created_at timestamp [not null]
+
+  indexes {
+    (conversation_id, user_id) [unique, name: 'uk_chat_participant_conv_user']
+  }
+}
+
+Table chat_message {
+  id bigint [pk]
+  conversation_id bigint [not null]
+  sender_id bigint
+  type varchar [not null]
+  content text [not null]
+  created_at timestamp [not null]
+}
+
+// ── Relationships ────────────────────────────────────────────────────────────
+
+Ref: app_user.community_id > community.id
+Ref: app_user.role_id > roles.id
+Ref: role_permissions.role_id > roles.id
+Ref: role_permissions.user_id > app_user.id
+Ref: user_profile.user_id > app_user.id
+
+Ref: sports_meta.community_id > community.id
+Ref: player_category.community_id > community.id
+Ref: venue.community_id > community.id
+Ref: court.venue_id > venue.id
+
+Ref: sports_event.community_id > community.id
+Ref: sports_event.created_by > app_user.id
+Ref: sports_event.sport_id > sports_meta.id
+Ref: sports_event.venue_id > venue.id
+Ref: event_category.event_id > sports_event.id
+Ref: event_category.category_id > player_category.id
+Ref: sports_event_registration.event_id > sports_event.id
+Ref: sports_event_registration.user_id > app_user.id
+Ref: sports_event_registration.partner_user_id > app_user.id
+Ref: sports_event_registration.category_id > player_category.id
+Ref: sports_event_sponsor.event_id > sports_event.id
+Ref: sports_notification_scheduler.event_id > sports_event.id
+
+Ref: tournament_config.community_id > community.id
+Ref: tournament_config.event_id > sports_event.id
+Ref: tournament_config.sport_id > sports_meta.id
+Ref: tournament_config.venue_id > venue.id
+Ref: tournament_config.created_by > app_user.id
+Ref: tournament_group.config_id > tournament_config.id
+Ref: tournament_match.config_id > tournament_config.id [delete: cascade]
+Ref: tournament_match.group_id > tournament_group.id
+Ref: tournament_match.court_id > court.id
+Ref: tournament_match.venue_id > venue.id
+Ref: tournament_match.team_a_id > auction_team.id
+Ref: tournament_match.team_b_id > auction_team.id
+Ref: tournament_match.winner_team_id > auction_team.id
+Ref: group_team_standing.group_id > tournament_group.id
+Ref: group_team_standing.team_id > auction_team.id
+
+Ref: auction_config.event_id > sports_event.id
+Ref: auction_config.sport_id > sports_meta.id
+Ref: auction_config.created_by > app_user.id
+Ref: auction_config_category.config_id > auction_config.id
+Ref: auction_dispute_committee.config_id > auction_config.id
+Ref: auction_dispute_committee.user_id > app_user.id
+Ref: auction_player.config_id > auction_config.id
+Ref: auction_player.assigned_team_id > auction_team.id
+Ref: auction_player.user_id > app_user.id
+Ref: auction_team.config_id > auction_config.id
+Ref: auction_team.owner_user_id > app_user.id
+Ref: auction_team.captain_user_id > app_user.id
+Ref: auction_bid.config_id > auction_config.id
+Ref: auction_bid.player_id > auction_player.id
+Ref: auction_bid.team_id > auction_team.id
+Ref: auction_bid.bid_by_user_id > app_user.id
+Ref: auction_session_log.config_id > auction_config.id
+Ref: auction_session_log.player_id > auction_player.id
+Ref: auction_session_log.team_id > auction_team.id
+Ref: auction_session_log.performed_by_user_id > app_user.id
+
+Ref: post.community_id > community.id
+Ref: post.user_id > app_user.id
+Ref: post_comment.post_id > post.id
+Ref: post_comment.user_id > app_user.id
+Ref: post_like.post_id > post.id
+Ref: post_like.user_id > app_user.id
+
+Ref: notification.community_id > community.id
+Ref: notification.user_id > app_user.id
+
+Ref: chat_conversation.community_id > community.id
+Ref: chat_participant.conversation_id > chat_conversation.id [delete: cascade]
+Ref: chat_participant.user_id > app_user.id
+Ref: chat_message.conversation_id > chat_conversation.id [delete: cascade]
+Ref: chat_message.sender_id > app_user.id
