@@ -1,6 +1,7 @@
+# Dev profile — loaded when SPRING_PROFILES_ACTIVE=dev
 logging:
   file:
-    name: ${LOG_DIR:/var/log/mana-community}/mana-service.log
+    name: ${LOG_DIR:/var/log/mana-community-dev}/mana-service.log
   frontend:
     file: ${LOG_DIR:/var/log/mana-community}/frontend.log
   database:
