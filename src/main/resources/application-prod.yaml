@@ -11,9 +11,9 @@ spring:
     name: mana-community-service
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://3.109.145.130:5432/manacommunity}
+    username: ${DB_USERNAME:ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)}
+    password: ${DB_PASSWORD:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
     driver-class-name: org.postgresql.Driver
 
   jpa:

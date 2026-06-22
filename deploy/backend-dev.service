@@ -1,0 +1,30 @@
+[Unit]
+Description=Mana Community Backend Service (DEV)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mana-community/backend-dev
+
+Environment=LOG_DIR=/var/log/mana-community-dev
+Environment=SPRING_PROFILES_ACTIVE=dev
+
+EnvironmentFile=-/etc/mana-community/env-dev
+
+ExecStart=/bin/bash -c 'exec /usr/bin/java -Xms256m -Xmx512m \
+  -DLOG_DIR=/var/log/mana-community-dev \
+  -Djasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASSWORD} \
+  -jar manacommunity.jar'
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mana-backend-dev
+
+[Install]
+WantedBy=multi-user.target

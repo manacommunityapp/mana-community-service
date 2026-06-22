@@ -31,6 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
-logs/mana-service.log
-logs/security.log
+
+### Logs ###
 /logs/
+
+### Secrets — never commit real env/credentials ###
+deploy/env
+*.env
+!deploy/env.example

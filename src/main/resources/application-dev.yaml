@@ -10,16 +10,13 @@ spring:
   application:
     name: mana-community-service
   datasource:
-    # Replace with your AWS RDS MySQL endpoint once deployed
-    url: jdbc:postgresql://3.109.145.130:5432/manacommunity
-    username: manauser
-    password: manacommunity
+    url: ${DB_URL:jdbc:postgresql://3.109.145.130:5432/manacommunity}
+    username: ${DB_USERNAME:ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)}
+    password: ${DB_PASSWORD:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      # 'update' automatically creates/modifies tables to match your @Entity classes
-      #ddl-auto: create
       ddl-auto: update
     show-sql: true
     properties:
@@ -29,8 +26,16 @@ spring:
         format_sql: false
         use_sql_comments: false
 
+server:
+  port: 8081
+
 app:
   cors:
-    allowed-origins: "http://localhost:5173,http://localhost:3000"
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
   security:
-    mock-auth-enabled: true
+    mock-auth-enabled: false
+    jwt:
+      secret: ${JWT_SECRET:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
+      expiration-ms: ${JWT_EXPIRATION_MS:900000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+      issuer: ${JWT_ISSUER:mana-community}
