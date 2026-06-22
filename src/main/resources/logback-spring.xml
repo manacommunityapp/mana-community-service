@@ -119,7 +119,24 @@
         </rollingPolicy>
     </appender>
 
+    <!-- ── Frontend error log (received from browser) ────────────────── -->
+    <appender name="FRONTEND_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/frontend.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/frontend-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
     <!-- ── Dedicated loggers (additivity=false so they don't double-log) ── -->
+    <logger name="FRONTEND" level="INFO" additivity="false">
+        <appender-ref ref="FRONTEND_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
     <logger name="SECURITY_AUDIT" level="INFO" additivity="false">
         <appender-ref ref="SECURITY_FILE"/>
         <appender-ref ref="CONSOLE"/>

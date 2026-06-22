@@ -45,7 +45,7 @@ public class RequestResponseLoggingFilter extends OncePerRequestFilter {
     /** Endpoints excluded from access logging (infra, docs, streaming, log-polling). */
     private static final Set<String> SKIP_PREFIXES = Set.of(
             "/actuator", "/swagger-ui", "/v3/api-docs", "/swagger-resources", "/webjars",
-            "/ws", "/api/admin/logs", "/api/admin/system-stats"
+            "/ws", "/api/admin/logs", "/api/admin/system-stats", "/api/frontend-logs"
     );
 
     @Override

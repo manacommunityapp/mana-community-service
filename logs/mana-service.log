@@ -806,3 +806,58 @@ jakarta.mail.AuthenticationFailedException: failed to connect, no password speci
 2026-06-23 00:25:27.754 INFO  [cid=5539fb01-728d-4122-ada5-f11981162a3e uid=5] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
 2026-06-23 00:25:34.544 INFO  [cid=3b4e20ba-e45f-4bb3-ab85-b99f409db3d2 uid=-] API - --> GET /api/profile ip=0:0:0:0:0:0:0:1
 2026-06-23 00:25:34.616 INFO  [cid=3b4e20ba-e45f-4bb3-ab85-b99f409db3d2 uid=5] API - <-- GET /api/profile status=200 durationMs=71 size=-
+2026-06-23 00:33:33.581 INFO  [cid=9dbf11b0-5445-4c80-81ff-abfa005d9b5e uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:33.581 INFO  [cid=52d2421f-3e9c-43a4-ac31-ac5dfd753fc7 uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:33.581 INFO  [cid=b1e817f3-b11d-4c3c-8d81-f289e307e1cf uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:33.581 INFO  [cid=82cbcdfd-2a9d-47aa-b94d-a3b6125328a4 uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:33.597 INFO  [cid=9dbf11b0-5445-4c80-81ff-abfa005d9b5e uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=16 size=-
+2026-06-23 00:33:33.599 INFO  [cid=52d2421f-3e9c-43a4-ac31-ac5dfd753fc7 uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=17 size=-
+2026-06-23 00:33:33.602 INFO  [cid=82cbcdfd-2a9d-47aa-b94d-a3b6125328a4 uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=20 size=-
+2026-06-23 00:33:33.607 INFO  [cid=b1e817f3-b11d-4c3c-8d81-f289e307e1cf uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=26 size=-
+2026-06-23 00:33:46.399 INFO  [cid=e16c03f7-64ad-4be3-80e4-9dc848cf6d30 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:46.401 INFO  [cid=cb84c920-f77d-4a62-aeaf-9ce583153dbb uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:46.432 INFO  [cid=e16c03f7-64ad-4be3-80e4-9dc848cf6d30 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=32 size=-
+2026-06-23 00:33:46.438 INFO  [cid=cb84c920-f77d-4a62-aeaf-9ce583153dbb uid=1] API - <-- GET /api/users/me status=200 durationMs=36 size=-
+2026-06-23 00:33:46.441 INFO  [cid=ca0bf2b0-6fd9-496b-af91-d39ff3d6ddf6 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:46.451 INFO  [cid=27f0939d-a394-4e29-aa7a-d26dfe9428ef uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:33:46.460 INFO  [cid=ca0bf2b0-6fd9-496b-af91-d39ff3d6ddf6 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=18 size=-
+2026-06-23 00:33:46.472 INFO  [cid=27f0939d-a394-4e29-aa7a-d26dfe9428ef uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=20 size=-
+2026-06-23 00:48:24.518 INFO  [cid=a7f573f6-a225-4452-bf0a-dfb3cbf31233 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:24.615 INFO  [cid=a7f573f6-a225-4452-bf0a-dfb3cbf31233 uid=-] API - <-- GET /api/users/me status=403 durationMs=97 size=-
+2026-06-23 00:48:28.575 INFO  [cid=fd1c84ce-b19d-45f4-bac9-7a134b28ba03 uid=-] API - --> GET /api/profile ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:28.575 INFO  [cid=3a5ba9b5-5f24-4d70-83a8-beadeff6de22 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:28.579 INFO  [cid=65057a67-11c7-4b0f-81e5-fda3fc4551c5 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:28.585 INFO  [cid=fd1c84ce-b19d-45f4-bac9-7a134b28ba03 uid=-] API - <-- GET /api/profile status=403 durationMs=9 size=-
+2026-06-23 00:48:28.585 INFO  [cid=65057a67-11c7-4b0f-81e5-fda3fc4551c5 uid=-] API - <-- GET /api/users/me status=403 durationMs=6 size=-
+2026-06-23 00:48:28.587 INFO  [cid=3a5ba9b5-5f24-4d70-83a8-beadeff6de22 uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=12 size=-
+2026-06-23 00:48:28.789 INFO  [cid=bc8aa605-4a9d-4cad-aecd-fbb8750001e1 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:28.795 INFO  [cid=17f30b17-d5ec-490c-94ce-28f1b6bdf542 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:28.819 INFO  [cid=bc8aa605-4a9d-4cad-aecd-fbb8750001e1 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=30 size=-
+2026-06-23 00:48:28.827 INFO  [cid=17f30b17-d5ec-490c-94ce-28f1b6bdf542 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=32 size=-
+2026-06-23 00:48:29.478 INFO  [cid=3b952c23-ee5f-4855-836f-d9e47aceb408 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:29.480 INFO  [cid=f0a01f1d-04c0-4336-938c-cd2629718963 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:29.484 INFO  [cid=3b952c23-ee5f-4855-836f-d9e47aceb408 uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=4 size=-
+2026-06-23 00:48:29.484 INFO  [cid=f0a01f1d-04c0-4336-938c-cd2629718963 uid=-] API - <-- GET /api/users/me status=403 durationMs=4 size=-
+2026-06-23 00:48:29.546 INFO  [cid=ba3a215b-ec5a-4aae-874f-52798a49c35c uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:29.546 INFO  [cid=6fb18f47-186c-4d09-8705-41f7e5416486 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:48:29.566 INFO  [cid=6fb18f47-186c-4d09-8705-41f7e5416486 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=19 size=-
+2026-06-23 00:48:29.569 INFO  [cid=ba3a215b-ec5a-4aae-874f-52798a49c35c uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=22 size=-
+2026-06-23 00:53:54.737 INFO  [cid=344cb1b2-0492-4ec6-8b2e-5fc47217d57b uid=-] API - --> POST /api/auth/login ip=0:0:0:0:0:0:0:1
+2026-06-23 00:53:54.921 INFO  [cid=344cb1b2-0492-4ec6-8b2e-5fc47217d57b uid=1] API - <-- POST /api/auth/login status=200 durationMs=180 size=-
+2026-06-23 00:53:54.932 INFO  [cid=1c2b259b-5b1c-4bad-8983-fb22e223ee40 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:53:54.956 INFO  [cid=1c2b259b-5b1c-4bad-8983-fb22e223ee40 uid=1] API - <-- GET /api/users/me status=200 durationMs=29 size=-
+2026-06-23 00:53:55.009 INFO  [cid=6233ca3c-cc6e-4a4b-a11d-053d4944565f uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:53:55.036 INFO  [cid=6233ca3c-cc6e-4a4b-a11d-053d4944565f uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=26 size=-
+2026-06-23 00:53:55.042 INFO  [cid=e6c9d48d-d339-4fb4-8d9e-476757f3d074 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:53:55.048 INFO  [cid=745ce283-04eb-481b-8bcb-2003f10c1e7a uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:53:55.048 INFO  [cid=e6c9d48d-d339-4fb4-8d9e-476757f3d074 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=12 size=-
+2026-06-23 00:53:55.057 INFO  [cid=745ce283-04eb-481b-8bcb-2003f10c1e7a uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=13 size=-
+2026-06-23 00:54:00.029 INFO  [cid=eb17985e-e8c5-4f2c-b8d8-48e8c6d97b40 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:54:00.029 INFO  [cid=bacf118c-795f-4fa2-bc2f-614cc39063cd uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:54:00.044 INFO  [cid=eb17985e-e8c5-4f2c-b8d8-48e8c6d97b40 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=20 size=-
+2026-06-23 00:54:00.058 INFO  [cid=ae9c5e08-521a-46fe-a4bf-0da9b561bfb3 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:54:00.058 INFO  [cid=bacf118c-795f-4fa2-bc2f-614cc39063cd uid=1] API - <-- GET /api/users/me status=200 durationMs=35 size=-
+2026-06-23 00:54:00.074 INFO  [cid=20b45de0-0bbd-44c5-a82a-d87606602446 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:54:00.074 INFO  [cid=ae9c5e08-521a-46fe-a4bf-0da9b561bfb3 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=16 size=-
+2026-06-23 00:54:00.084 INFO  [cid=20b45de0-0bbd-44c5-a82a-d87606602446 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=12 size=-
+2026-06-23 00:54:28.244 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[1 current WS(1)-HttpStream(0)-HttpPoll(0), 9 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(9)-CONNECTED(9)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 15, active threads = 0, queued tasks = 0, completed tasks = 87], outboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 17], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 63]

@@ -40,7 +40,7 @@ public class SystemLogServiceImpl implements SystemLogService {
     @Value("${logging.file.name:logs/mana-service.log}")
     private String appLogFilePath;
 
-    @Value("${logging.frontend.file:logs/frontend-server.log}")
+    @Value("${logging.frontend.file:logs/frontend.log}")
     private String frontendLogFilePath;
 
     @Value("${logging.database.file:logs/database.log}")
