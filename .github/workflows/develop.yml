@@ -86,5 +86,11 @@ jobs:
             echo "=== Last 5 lines of mana-service.log ==="
             tail -5 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
 
+            echo ""
+            echo "=== Active profile check ==="
+            grep -m1 "active profile" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
+              || grep -m1 "profiles are active" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
+              || echo "Profile line not found yet — check journalctl -u backend-dev"
+
             # Cleanup temp files
             rm -rf /tmp/dev

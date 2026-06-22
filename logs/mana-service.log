@@ -1018,3 +1018,27 @@ jakarta.mail.AuthenticationFailedException: failed to connect, no password speci
 2026-06-23 01:09:14.460 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
 2026-06-23 01:10:10.833 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 1 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(1)-CONNECTED(1)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 9, active threads = 0, queued tasks = 0, completed tasks = 9], outboundChannel[pool size = 2, active threads = 0, queued tasks = 0, completed tasks = 2], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
 2026-06-23 01:40:10.871 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 1 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(1)-CONNECTED(1)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 9], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 2], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 63]
+2026-06-23 01:53:24.705 INFO  [cid=3ec2ae01-b727-4f0d-a120-a07401bfd542 uid=-] API - --> POST /api/auth/logout ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:24.705 INFO  [cid=2dd32f04-a97d-4db9-b9d3-685ddb8bad25 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:25.020 INFO  [cid=3ec2ae01-b727-4f0d-a120-a07401bfd542 uid=-] API - <-- POST /api/auth/logout status=200 durationMs=316 size=11
+2026-06-23 01:53:25.414 INFO  [cid=2dd32f04-a97d-4db9-b9d3-685ddb8bad25 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=711 size=-
+2026-06-23 01:53:26.317 INFO  [cid=60b80d07-370d-4e49-b36b-dadcb383381a uid=-] API - --> POST /api/auth/login ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.665 INFO  [cid=60b80d07-370d-4e49-b36b-dadcb383381a uid=1] API - <-- POST /api/auth/login status=200 durationMs=350 size=-
+2026-06-23 01:53:26.674 INFO  [cid=73a225ce-6c2e-44b1-af9d-09e6a4bf812a uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.716 INFO  [cid=73a225ce-6c2e-44b1-af9d-09e6a4bf812a uid=3] API - <-- GET /api/users/me status=200 durationMs=48 size=-
+2026-06-23 01:53:26.753 INFO  [cid=34cb69bf-b95c-4c79-81ad-8b1240428810 uid=-] API - --> GET /api/posts?page=0&size=10 ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.769 INFO  [cid=80c8025c-65ed-481b-92c6-7fa69f21e4a0 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.906 INFO  [cid=80c8025c-65ed-481b-92c6-7fa69f21e4a0 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=130 size=-
+2026-06-23 01:53:26.915 INFO  [cid=20d1a177-b784-44a7-84e4-e6985d3e6419 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.925 INFO  [cid=6729674b-e9cb-44af-89d8-9ec97bb346e6 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:26.933 WARN  [cid=34cb69bf-b95c-4c79-81ad-8b1240428810 uid=3] o.s.d.w.c.SpringDataJackson3Configuration$PageModule$WarningLoggingModifier - Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
+
+2026-06-23 01:53:26.962 INFO  [cid=6729674b-e9cb-44af-89d8-9ec97bb346e6 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=33 size=-
+2026-06-23 01:53:26.972 INFO  [cid=34cb69bf-b95c-4c79-81ad-8b1240428810 uid=3] API - <-- GET /api/posts status=200 durationMs=223 size=-
+2026-06-23 01:53:26.984 INFO  [cid=20d1a177-b784-44a7-84e4-e6985d3e6419 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=70 size=-
+2026-06-23 01:53:32.394 INFO  [cid=fc85975b-824f-4c54-ace0-79727c8f0a44 uid=-] API - --> GET /api/sports/dashboard ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:32.680 INFO  [cid=fc85975b-824f-4c54-ace0-79727c8f0a44 uid=3] API - <-- GET /api/sports/dashboard status=200 durationMs=285 size=-
+2026-06-23 01:53:32.691 INFO  [cid=3ee6b8a5-b709-409a-835d-c0699892e4f2 uid=-] API - --> GET /api/auction/teams/captain/mine ip=0:0:0:0:0:0:0:1
+2026-06-23 01:53:32.731 INFO  [cid=3ee6b8a5-b709-409a-835d-c0699892e4f2 uid=3] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=39 size=-

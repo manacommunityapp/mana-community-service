@@ -15,7 +15,8 @@ EnvironmentFile=-/etc/mana-community/env-dev
 ExecStart=/bin/bash -c 'exec /usr/bin/java -Xms256m -Xmx512m \
   -DLOG_DIR=/var/log/mana-community-dev \
   -Djasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASSWORD} \
-  -jar manacommunity.jar'
+  -Dspring.profiles.active=dev \
+  -jar manacommunity.jar --spring.profiles.active=dev'
 
 Restart=on-failure
 RestartSec=10
