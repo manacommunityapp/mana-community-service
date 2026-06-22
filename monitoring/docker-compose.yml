@@ -1,0 +1,60 @@
+# Self-hosted, free monitoring stack for the Mana Community backend.
+#   Prometheus  → scrapes /actuator/prometheus, evaluates alert rules
+#   Grafana     → dashboards + alerting UI (datasource + dashboard auto-provisioned)
+#
+# Usage:
+#   1. cp .env.example .env   and edit MANA_TARGET / MANA_SCHEME / MANA_ENV
+#   2. echo "<SUPER_ADMIN JWT>" > prometheus/token.txt   (option B in prometheus.yml)
+#   3. docker compose up -d
+#   4. Grafana → http://localhost:3000  (admin / ${GRAFANA_ADMIN_PASSWORD})
+#      Prometheus → http://localhost:9090  (Status → Targets should show the app UP)
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mana-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    environment:
+      MANA_TARGET: ${MANA_TARGET}
+      MANA_SCHEME: ${MANA_SCHEME}
+      MANA_ENV: ${MANA_ENV}
+    # Prometheus doesn't expand env vars in its config by itself; envsubst the
+    # template at boot, then exec prometheus with the rendered file.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache gettext >/dev/null 2>&1 || true;
+        envsubst < /etc/prometheus/prometheus.yml > /tmp/prometheus.yml;
+        exec /bin/prometheus --config.file=/tmp/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./prometheus/token.txt:/etc/prometheus/token.txt:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      # lets MANA_TARGET=host.docker.internal:8080 reach an app running on the host
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mana-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:

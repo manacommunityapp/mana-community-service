@@ -1,35 +1,37 @@
-2026-06-20T00:36:52.839+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 23760 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
-2026-06-20T00:36:52.843+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : The following 1 profile is active: "local"
-2026-06-20T00:36:54.668+05:30  INFO 23760 --- [mana-community-service] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-06-20T00:36:55.056+05:30  INFO 23760 --- [mana-community-service] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 369 ms. Found 33 JPA repository interfaces.
-2026-06-20T00:36:55.666+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.config.TableDropperConfig        : BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
-2026-06-20T00:36:55.668+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.config.TableDropperConfig        : Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
-2026-06-20T00:36:57.759+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
-2026-06-20T00:36:57.823+05:30  INFO 23760 --- [mana-community-service] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-06-20T00:36:57.824+05:30  INFO 23760 --- [mana-community-service] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.20]
-2026-06-20T00:36:58.027+05:30  INFO 23760 --- [mana-community-service] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5124 ms
-2026-06-20T00:36:58.216+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-06-20T00:36:58.898+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@85ab964
-2026-06-20T00:36:58.902+05:30  INFO 23760 --- [mana-community-service] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-06-20T00:36:59.004+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_config tournament_type constraint patched with extended values.
-2026-06-20T00:36:59.020+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_match status constraint patched to support DRAFT.
-2026-06-20T00:36:59.040+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : tournament_match.config_id FK patched with ON DELETE CASCADE.
-2026-06-20T00:36:59.102+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : Foreign-key column indexes ensured.
-2026-06-20T00:36:59.105+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : roles.community_id FK to community ensured.
-2026-06-20T00:36:59.116+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : event_sponsor -> sports_event_sponsor backfill ensured.
-2026-06-20T00:36:59.123+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : event_notification_schedule -> sports_notification_scheduler backfill ensured.
-2026-06-20T00:36:59.124+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : sports_event_registration.email column ensured.
-2026-06-20T00:36:59.126+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : app_user lockout columns (failed_login_attempts, locked_until) ensured.
-2026-06-20T00:36:59.137+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : sports_event uuid + admin_approval_required columns ensured.
-2026-06-20T00:36:59.138+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : email_otp table ensured.
-2026-06-20T00:36:59.144+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : chat tables ensured.
-2026-06-20T00:36:59.148+05:30  INFO 23760 --- [mana-community-service] [main] chemaConstraintPatcher$ConstraintPatcher : chat child-table FKs patched with ON DELETE CASCADE.
-2026-06-20T00:36:59.158+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.c.TableDropperConfig$TableDropper  : Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
-2026-06-20T00:36:59.375+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
-2026-06-20T00:36:59.511+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.7.Final
-2026-06-20T00:37:00.486+05:30  INFO 23760 --- [mana-community-service] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-06-20T00:37:00.600+05:30  WARN 23760 --- [mana-community-service] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-06-20T00:37:00.635+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+2026-06-23 00:09:15.502 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 33640 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-23 00:09:15.509 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-23 00:09:15.884 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-23 00:09:16.633 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-23 00:09:16.765 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 124 ms. Found 35 JPA repository interfaces.
+2026-06-23 00:09:17.000 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-23 00:09:17.000 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-23 00:09:17.414 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8081 (http)
+2026-06-23 00:09:17.432 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2026-06-23 00:09:17.435 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-23 00:09:17.435 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-23 00:09:17.503 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 1950 ms
+2026-06-23 00:09:17.555 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-23 00:09:18.101 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@19ac93d2
+2026-06-23 00:09:18.104 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-23 00:09:18.236 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-23 00:09:18.294 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-23 00:09:18.317 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-23 00:09:18.506 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-23 00:09:18.534 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-23 00:09:18.540 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-23 00:09:18.543 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-23 00:09:18.544 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-23 00:09:18.546 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-23 00:09:18.559 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-23 00:09:18.563 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-23 00:09:18.577 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-23 00:09:18.588 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-23 00:09:18.593 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-23 00:09:18.802 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-23 00:09:18.946 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-23 00:09:19.863 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-23 00:09:19.956 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-23 00:09:19.980 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
 	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
 	Database driver: PostgreSQL JDBC Driver
 	Database dialect: PostgreSQLDialect
@@ -41,87 +43,766 @@
 	Pool: DataSourceConnectionProvider
 	Minimum pool size: undefined/unknown
 	Maximum pool size: undefined/unknown
-2026-06-20T00:37:03.451+05:30  INFO 23760 --- [mana-community-service] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-06-20T00:37:04.433+05:30  INFO 23760 --- [mana-community-service] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-06-20T00:37:04.587+05:30  INFO 23760 --- [mana-community-service] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
-2026-06-20T00:37:05.913+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.web.servlet.RegistrationBean    : Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
-2026-06-20T00:37:10.233+05:30  WARN 23760 --- [mana-community-service] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-06-20T00:37:10.276+05:30  INFO 23760 --- [mana-community-service] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
-2026-06-20T00:37:12.239+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
-2026-06-20T00:37:12.243+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@4fa4bb1b]]
-2026-06-20T00:37:12.244+05:30  INFO 23760 --- [mana-community-service] [main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
-2026-06-20T00:37:12.292+05:30  INFO 23760 --- [mana-community-service] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
-2026-06-20T00:37:12.318+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.ManaCommunityServiceApplication  : Started ManaCommunityServiceApplication in 20.091 seconds (process running for 20.73)
-2026-06-20T00:37:12.490+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
-2026-06-20T00:37:12.578+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-06-20T00:37:12.579+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-06-20T00:37:12.579+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Roles sequence synchronized to next available value successfully.
-2026-06-20T00:37:12.580+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : DDL-Auto is 'create'. Running sample data seeding...
-2026-06-20T00:37:12.580+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : Starting Java-based database seeding...
-2026-06-20T00:37:12.582+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
-2026-06-20T00:37:12.582+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : Seeding role permissions...
-2026-06-20T00:37:12.583+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
-2026-06-20T00:37:13.017+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : ✓ Role permissions seeded successfully
-2026-06-20T00:37:13.017+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CommunitySeeder      : Seeding default communities...
-2026-06-20T00:37:13.028+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: GENERAL (ID: 1)
-2026-06-20T00:37:13.039+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: MEMBER for community ID: 1
-2026-06-20T00:37:13.048+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: VENDOR for community ID: 1
-2026-06-20T00:37:13.051+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: ADMIN for community ID: 1
-2026-06-20T00:37:13.057+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: SPORTS_ADMIN for community ID: 1
-2026-06-20T00:37:13.062+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: STAFF for community ID: 1
-2026-06-20T00:37:13.067+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: CASHIER for community ID: 1
-2026-06-20T00:37:13.068+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: GENERAL (ID: 1)
-2026-06-20T00:37:13.103+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
-2026-06-20T00:37:13.108+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: MEMBER for community ID: 2
-2026-06-20T00:37:13.116+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: VENDOR for community ID: 2
-2026-06-20T00:37:13.123+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: ADMIN for community ID: 2
-2026-06-20T00:37:13.129+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: SPORTS_ADMIN for community ID: 2
-2026-06-20T00:37:13.137+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: STAFF for community ID: 2
-2026-06-20T00:37:13.149+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Created community-scoped role: CASHIER for community ID: 2
-2026-06-20T00:37:13.149+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.impl.CommunityRoleInitializer    : Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
-2026-06-20T00:37:13.180+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CommunitySeeder      : ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
-2026-06-20T00:37:13.181+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsMetaSeeder     : Starting sports meta database seeding...
-2026-06-20T00:37:13.378+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsMetaSeeder     : ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
-2026-06-20T00:37:13.378+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.UserSeeder   : Seeding system and gated community users...
-2026-06-20T00:37:13.946+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.UserSeeder   : ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
-2026-06-20T00:37:13.946+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : Seeding user-specific permissions for Sunil...
-2026-06-20T00:37:14.020+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionSeeder      : ✓ User-specific permissions seeded for Sunil (ADMIN)
-2026-06-20T00:37:14.021+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.PlayerCategorySeeder      : Seeding player categories...
-2026-06-20T00:37:14.075+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.PlayerCategorySeeder      : ✓ Player categories seeded successfully.
-2026-06-20T00:37:14.075+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.VenueSeeder  : Seeding community venues...
-2026-06-20T00:37:14.141+05:30  INFO 23760 --- [mana-community-service] [main] c.m.api.service.sample.data.VenueSeeder  : ✓ Venues seeded successfully.
-2026-06-20T00:37:14.141+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : Seeding community sports events...
-2026-06-20T00:37:14.300+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
-2026-06-20T00:37:14.344+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
-2026-06-20T00:37:14.612+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.SportsEventSeeder    : ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
-2026-06-20T00:37:14.612+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : Seeding tournament sample data...
-2026-06-20T00:37:14.634+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
-2026-06-20T00:37:14.636+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.TournamentSeeder     : ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
-2026-06-20T00:37:14.636+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : Seeding auction configurations...
-2026-06-20T00:37:14.726+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction config seeded: Season 2026 (id=1)
-2026-06-20T00:37:14.758+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
-2026-06-20T00:37:14.768+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Dispute committee seeded: 1 member
-2026-06-20T00:37:14.817+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction teams seeded: 5 active teams
-2026-06-20T00:37:15.005+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.data.AuctionSeeder  : ✓ Auction players seeded from confirmed event registrations
-2026-06-20T00:37:15.006+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionDataSeeder  : Seeding role_permissions table sample data...
-2026-06-20T00:37:15.047+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.RolePermissionDataSeeder  : ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
-2026-06-20T00:37:15.048+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.VenueDataSeeder      : Seeding venue table sample data...
-2026-06-20T00:37:15.070+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.VenueDataSeeder      : ✓ Venue table seeded: Community Sports Arena
-2026-06-20T00:37:15.070+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CourtDataSeeder      : Seeding court table sample data...
-2026-06-20T00:37:15.092+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.sample.data.CourtDataSeeder      : ✓ Court table seeded: 3 new court(s) for Community Sports Arena
-2026-06-20T00:37:15.092+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.SportsEventDataSeeder     : Seeding sports_event table sample data...
-2026-06-20T00:37:15.138+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.SportsEventDataSeeder     : ✓ Sports event table seeded: Winter Football League
-2026-06-20T00:37:15.138+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : Seeding sports_event_registration table sample data...
-2026-06-20T00:37:15.199+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
-2026-06-20T00:37:15.343+05:30  INFO 23760 --- [mana-community-service] [main] .s.s.d.SportsEventRegistrationDataSeeder : ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
-2026-06-20T00:37:15.344+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.TournamentDataSeeder      : Seeding tournament table sample data...
-2026-06-20T00:37:15.351+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.s.s.data.TournamentDataSeeder      : ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
-2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ═══════════════════════════════════════════════════════════
-2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   :   Java-based database seeding completed successfully!
-2026-06-20T00:37:15.353+05:30  INFO 23760 --- [mana-community-service] [main] c.m.a.service.sample.SampleDataService   : ═══════════════════════════════════════════════════════════
-2026-06-20T00:38:12.250+05:30  INFO 23760 --- [mana-community-service] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[2 current WS(2)-HttpStream(0)-HttpPoll(0), 4 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(4)-CONNECTED(4)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 30, active threads = 0, queued tasks = 0, completed tasks = 30], outboundChannel[pool size = 6, active threads = 0, queued tasks = 0, completed tasks = 6], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
-2026-06-20T00:42:38.086+05:30  INFO 23760 --- [mana-community-service] [http-nio-8080-exec-1] SECURITY_AUDIT                           : action=LOGIN_SUCCESS userId=3 email=s***@gmail.com ip=0:0:0:0:0:0:0:1 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
-2026-06-20T00:42:38.681+05:30  WARN 23760 --- [mana-community-service] [http-nio-8080-exec-6] ration$PageModule$WarningLoggingModifier : Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+2026-06-23 00:09:23.058 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-23 00:09:24.349 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-23 00:09:24.463 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-23 00:09:25.210 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-23 00:09:27.749 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-23 00:09:27.782 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-23 00:09:28.617 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-23 00:09:28.690 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-23 00:09:28.690 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@a92a323]]
+2026-06-23 00:09:28.690 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-23 00:09:28.690 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2026-06-23 00:09:28.706 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path '/'
+2026-06-23 00:09:28.717 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 13.726 seconds (process running for 14.018)
+2026-06-23 00:09:28.790 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-23 00:09:28.806 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Roles sequence synchronized to next available value successfully.
+2026-06-23 00:09:28.807 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-23 00:09:28.808 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-23 00:09:28.810 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-23 00:09:28.810 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-23 00:09:28.990 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ? Role permissions seeded successfully
+2026-06-23 00:09:28.990 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-23 00:09:29.009 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:09:29.018 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-23 00:09:29.020 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-23 00:09:29.024 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-23 00:09:29.025 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-23 00:09:29.030 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-23 00:09:29.030 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-23 00:09:29.030 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:09:29.040 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:09:29.045 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-23 00:09:29.048 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-23 00:09:29.050 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-23 00:09:29.052 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-23 00:09:29.054 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-23 00:09:29.057 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-23 00:09:29.057 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:09:29.066 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ? Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-23 00:09:29.066 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-23 00:09:29.150 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ? Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-23 00:09:29.150 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-23 00:09:29.480 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ? Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-23 00:09:29.480 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-23 00:09:29.500 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ? User-specific permissions seeded for Sunil (ADMIN)
+2026-06-23 00:09:29.500 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-23 00:09:29.539 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ? Player categories seeded successfully.
+2026-06-23 00:09:29.539 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-23 00:09:29.560 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ? Venues seeded successfully.
+2026-06-23 00:09:29.560 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-23 00:09:29.580 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-23 00:09:29.595 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Sports events seeded: Badminton � Men's Above 19 (id=2)
+2026-06-23 00:09:29.710 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-23 00:09:29.710 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-23 00:09:29.720 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ? Linked sports event 'Badminton � Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-23 00:09:29.720 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ? Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-23 00:09:29.720 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-23 00:09:29.754 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction config seeded: Season 2026 (id=1)
+2026-06-23 00:09:29.768 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-23 00:09:29.773 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Dispute committee seeded: 1 member
+2026-06-23 00:09:29.792 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction teams seeded: 5 active teams
+2026-06-23 00:09:29.850 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction players seeded from confirmed event registrations
+2026-06-23 00:09:29.850 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-23 00:09:29.860 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ? Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-23 00:09:29.860 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-23 00:09:29.864 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ? Venue table seeded: Community Sports Arena
+2026-06-23 00:09:29.864 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-23 00:09:29.871 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ? Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-23 00:09:29.871 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-23 00:09:29.884 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ? Sports event table seeded: Winter Football League
+2026-06-23 00:09:29.884 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-23 00:09:29.911 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ? Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-23 00:09:29.986 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ? Badminton registration seeded: 17 new registration(s) for Badminton � Men's Above 19
+2026-06-23 00:09:29.986 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-23 00:09:29.989 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ? Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-23 00:09:29.989 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ???????????????????????????????????????????????????????????
+2026-06-23 00:09:29.989 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-23 00:09:29.989 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ???????????????????????????????????????????????????????????
+2026-06-23 00:09:59.400 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-23 00:09:59.400 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-23 00:09:59.402 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-06-23 00:09:59.519 WARN  [cid=7e8cdb92-94d2-4f63-9cdc-8a364b34c83e uid=1] o.s.b.m.health.MailHealthIndicator - Mail health check failed
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379)
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467)
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347)
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52)
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80)
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37)
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148)
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointWebExtension.health(HealthEndpointWebExtension.java:85)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointWebExtension.health(HealthEndpointWebExtension.java:73)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281)
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76)
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62)
+	at org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$ServletWebOperationAdapter.handle(AbstractWebMvcEndpointHandlerMapping.java:347)
+	at org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$OperationHandler.handle(AbstractWebMvcEndpointHandlerMapping.java:476)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:252)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:184)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:117)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:934)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:853)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:86)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:963)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:866)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1000)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:892)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:622)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:874)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:710)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:128)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:53)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:108)
+	at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:235)
+	at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:493)
+	at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:354)
+	at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:86)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:132)
+	at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:101)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126)
+	at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.session.SessionManagementFilter.doFilter(SessionManagementFilter.java:132)
+	at org.springframework.security.web.session.SessionManagementFilter.doFilter(SessionManagementFilter.java:86)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:181)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at com.manacommunity.api.security.JwtAuthenticationFilter.doFilterInternal(JwtAuthenticationFilter.java:84)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:110)
+	at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:96)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.web.filter.CorsFilter.doFilterInternal(CorsFilter.java:91)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90)
+	at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82)
+	at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:337)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:228)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:237)
+	at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:195)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:113)
+	at org.springframework.web.filter.ServletRequestPathFilter.doFilter(ServletRequestPathFilter.java:52)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:113)
+	at org.springframework.web.filter.CompositeFilter.doFilter(CompositeFilter.java:74)
+	at org.springframework.security.config.annotation.web.configuration.WebSecurityConfiguration$CompositeFilterChainProxy.doFilter(WebSecurityConfiguration.java:317)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:355)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:272)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:101)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:110)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:199)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at com.manacommunity.api.security.RateLimitFilter.doFilterInternal(RateLimitFilter.java:54)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at com.manacommunity.api.security.CorrelationIdFilter.doFilterInternal(CorrelationIdFilter.java:48)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:77)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:492)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:113)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:83)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:72)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:397)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:903)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1779)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:946)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:480)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:57)
+	at java.base/java.lang.Thread.run(Thread.java:842)
+2026-06-23 00:09:59.671 WARN  [cid=ac3b3b88-af03-431a-b75d-5accecfa965f uid=1] o.s.b.m.health.MailHealthIndicator - Mail health check failed
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379)
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467)
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347)
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52)
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80)
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37)
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148)
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointWebExtension.health(HealthEndpointWebExtension.java:85)
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointWebExtension.health(HealthEndpointWebExtension.java:73)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281)
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76)
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62)
+	at org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$ServletWebOperationAdapter.handle(AbstractWebMvcEndpointHandlerMapping.java:347)
+	at org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$OperationHandler.handle(AbstractWebMvcEndpointHandlerMapping.java:476)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:252)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:184)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:117)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:934)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:853)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:86)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:963)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:866)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1000)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:892)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:622)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:874)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:710)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:128)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:53)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:108)
+	at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:235)
+	at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:493)
+	at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:354)
+	at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:86)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:132)
+	at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:101)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126)
+	at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.session.SessionManagementFilter.doFilter(SessionManagementFilter.java:132)
+	at org.springframework.security.web.session.SessionManagementFilter.doFilter(SessionManagementFilter.java:86)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:181)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at com.manacommunity.api.security.JwtAuthenticationFilter.doFilterInternal(JwtAuthenticationFilter.java:84)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:110)
+	at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:96)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.web.filter.CorsFilter.doFilterInternal(CorsFilter.java:91)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90)
+	at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82)
+	at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:231)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:244)
+	at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:337)
+	at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:228)
+	at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:141)
+	at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:237)
+	at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:195)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:113)
+	at org.springframework.web.filter.ServletRequestPathFilter.doFilter(ServletRequestPathFilter.java:52)
+	at org.springframework.web.filter.CompositeFilter$VirtualFilterChain.doFilter(CompositeFilter.java:113)
+	at org.springframework.web.filter.CompositeFilter.doFilter(CompositeFilter.java:74)
+	at org.springframework.security.config.annotation.web.configuration.WebSecurityConfiguration$CompositeFilterChainProxy.doFilter(WebSecurityConfiguration.java:317)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:355)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:272)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:101)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:110)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:199)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at com.manacommunity.api.security.RateLimitFilter.doFilterInternal(RateLimitFilter.java:54)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at com.manacommunity.api.security.CorrelationIdFilter.doFilterInternal(CorrelationIdFilter.java:48)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:107)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:77)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:492)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:113)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:83)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:72)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:397)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:903)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1779)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:946)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:480)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:57)
+	at java.base/java.lang.Thread.run(Thread.java:842)
+2026-06-23 00:10:28.669 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-23 00:11:21.974 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 20052 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-23 00:11:21.976 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-23 00:11:22.230 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-23 00:11:22.845 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-23 00:11:22.960 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 108 ms. Found 35 JPA repository interfaces.
+2026-06-23 00:11:23.170 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-23 00:11:23.170 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-23 00:11:23.479 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8081 (http)
+2026-06-23 00:11:23.488 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2026-06-23 00:11:23.490 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-23 00:11:23.490 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-23 00:11:23.550 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 1546 ms
+2026-06-23 00:11:23.588 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-23 00:11:23.747 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@18513c23
+2026-06-23 00:11:23.748 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-23 00:11:23.759 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-23 00:11:23.762 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-23 00:11:23.766 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-23 00:11:23.821 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-23 00:11:23.826 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-23 00:11:23.828 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-23 00:11:23.830 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-23 00:11:23.830 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-23 00:11:23.831 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-23 00:11:23.835 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-23 00:11:23.835 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-23 00:11:23.840 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-23 00:11:23.846 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-23 00:11:23.847 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-23 00:11:23.915 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-23 00:11:23.966 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-23 00:11:24.402 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-23 00:11:24.517 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-23 00:11:24.560 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-23 00:11:27.220 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-23 00:11:27.760 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-23 00:11:27.809 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-23 00:11:28.326 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-23 00:11:30.313 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-23 00:11:30.338 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-23 00:11:31.810 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-23 00:11:31.880 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-23 00:11:31.880 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@507ffacc]]
+2026-06-23 00:11:31.880 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-23 00:11:31.880 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2026-06-23 00:11:31.893 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path '/'
+2026-06-23 00:11:31.911 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 10.355 seconds (process running for 10.621)
+2026-06-23 00:11:31.993 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-23 00:11:32.015 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Roles sequence synchronized to next available value successfully.
+2026-06-23 00:11:32.015 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-23 00:11:32.015 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-23 00:11:32.016 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ? Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-23 00:11:32.016 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-23 00:11:32.236 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ? Role permissions seeded successfully
+2026-06-23 00:11:32.236 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-23 00:11:32.245 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:11:32.256 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-23 00:11:32.263 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-23 00:11:32.265 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-23 00:11:32.268 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-23 00:11:32.272 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-23 00:11:32.275 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-23 00:11:32.275 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:11:32.287 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:11:32.293 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-23 00:11:32.297 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-23 00:11:32.301 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-23 00:11:32.304 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-23 00:11:32.306 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-23 00:11:32.312 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-23 00:11:32.313 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:11:32.327 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ? Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-23 00:11:32.327 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-23 00:11:32.407 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ? Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-23 00:11:32.408 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-23 00:11:32.661 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ? Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-23 00:11:32.661 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-23 00:11:32.680 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ? User-specific permissions seeded for Sunil (ADMIN)
+2026-06-23 00:11:32.680 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-23 00:11:32.703 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ? Player categories seeded successfully.
+2026-06-23 00:11:32.703 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-23 00:11:32.719 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ? Venues seeded successfully.
+2026-06-23 00:11:32.719 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-23 00:11:32.731 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-23 00:11:32.740 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Sports events seeded: Badminton � Men's Above 19 (id=2)
+2026-06-23 00:11:32.826 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ? Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-23 00:11:32.826 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-23 00:11:32.833 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ? Linked sports event 'Badminton � Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-23 00:11:32.833 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ? Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-23 00:11:32.833 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-23 00:11:32.856 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction config seeded: Season 2026 (id=1)
+2026-06-23 00:11:32.866 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-23 00:11:32.869 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Dispute committee seeded: 1 member
+2026-06-23 00:11:32.882 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction teams seeded: 5 active teams
+2026-06-23 00:11:32.940 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ? Auction players seeded from confirmed event registrations
+2026-06-23 00:11:32.940 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-23 00:11:32.951 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ? Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-23 00:11:32.951 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-23 00:11:32.951 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ? Venue table seeded: Community Sports Arena
+2026-06-23 00:11:32.951 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-23 00:11:32.960 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ? Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-23 00:11:32.960 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-23 00:11:32.970 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ? Sports event table seeded: Winter Football League
+2026-06-23 00:11:32.970 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-23 00:11:32.984 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ? Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-23 00:11:33.024 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ? Badminton registration seeded: 17 new registration(s) for Badminton � Men's Above 19
+2026-06-23 00:11:33.024 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-23 00:11:33.026 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ? Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-23 00:11:33.026 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ???????????????????????????????????????????????????????????
+2026-06-23 00:11:33.026 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-23 00:11:33.026 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ???????????????????????????????????????????????????????????
+2026-06-23 00:11:49.637 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-23 00:11:49.637 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-23 00:11:49.639 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-06-23 00:12:10.926 INFO  [cid=5635824e-6c86-4e00-9761-6eec92b00b7d uid=-] API - --> POST /api/chat/conversations/direct ip=0:0:0:0:0:0:0:1
+2026-06-23 00:12:11.035 WARN  [cid=5635824e-6c86-4e00-9761-6eec92b00b7d uid=2] c.m.a.e.GlobalExceptionHandler - Invalid argument at /api/chat/conversations/direct: A valid other user is required to start a conversation.
+2026-06-23 00:12:11.085 INFO  [cid=5635824e-6c86-4e00-9761-6eec92b00b7d uid=2] API - <-- POST /api/chat/conversations/direct status=400 durationMs=158 size=-
+2026-06-23 00:12:11.364 INFO  [cid=4b5be95d-be2f-4e6b-9b62-854010685182 uid=-] API - --> POST /api/chat/conversations//messages ip=0:0:0:0:0:0:0:1
+2026-06-23 00:12:11.367 INFO  [cid=4b5be95d-be2f-4e6b-9b62-854010685182 uid=-] API - <-- POST /api/chat/conversations//messages status=400 durationMs=2 size=-
+2026-06-23 00:12:31.864 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-23 00:12:40.510 INFO  [cid=9a86a4fe-b44a-49ea-af3d-f71b41bb1a6c uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:12:40.535 INFO  [cid=9a86a4fe-b44a-49ea-af3d-f71b41bb1a6c uid=2] API - <-- GET /api/chat/contacts status=200 durationMs=24 size=-
+2026-06-23 00:12:49.443 INFO  [cid=0d09d9a5-e5b5-42d5-9b83-5e4435b3b001 uid=-] API - --> POST /api/chat/conversations/direct ip=0:0:0:0:0:0:0:1
+2026-06-23 00:12:49.482 INFO  [cid=0d09d9a5-e5b5-42d5-9b83-5e4435b3b001 uid=2] API - <-- POST /api/chat/conversations/direct status=200 durationMs=39 size=-
+2026-06-23 00:12:49.700 INFO  [cid=c2bbf173-41a3-4f9b-9ad2-d285e45ffb44 uid=-] API - --> POST /api/chat/conversations/1/messages ip=0:0:0:0:0:0:0:1
+2026-06-23 00:12:49.722 INFO  [cid=c2bbf173-41a3-4f9b-9ad2-d285e45ffb44 uid=2] API - <-- POST /api/chat/conversations/1/messages status=200 durationMs=21 size=-
+2026-06-23 00:13:08.412 WARN  [cid=65919482-d087-4b7c-b8e8-d4079872dd49 uid=2] c.m.a.e.GlobalExceptionHandler - Access denied to /api/admin/logs: Insufficient permissions. Required any of: View Admin
+2026-06-23 00:23:09.026 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 36388 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-23 00:23:09.030 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-23 00:23:09.527 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-23 00:23:11.467 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-23 00:23:11.892 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 406 ms. Found 35 JPA repository interfaces.
+2026-06-23 00:23:12.640 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-23 00:23:12.641 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-23 00:23:13.584 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2026-06-23 00:23:13.607 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+2026-06-23 00:23:13.611 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-23 00:23:13.611 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-23 00:23:13.860 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 4762 ms
+2026-06-23 00:23:14.010 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-23 00:23:14.499 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@10d905c1
+2026-06-23 00:23:14.507 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-23 00:23:14.595 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-23 00:23:14.612 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-23 00:23:14.622 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-23 00:23:14.799 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-23 00:23:14.817 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-23 00:23:14.824 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-23 00:23:14.828 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-23 00:23:14.828 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-23 00:23:14.830 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-23 00:23:14.837 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-23 00:23:14.839 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-23 00:23:14.848 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-23 00:23:14.857 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-23 00:23:14.861 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-23 00:23:15.082 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-23 00:23:15.237 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-23 00:23:16.146 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-23 00:23:16.267 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-23 00:23:16.312 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-23 00:23:19.675 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-23 00:23:20.696 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-23 00:23:20.817 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-23 00:23:22.365 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-23 00:23:26.515 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-23 00:23:26.569 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-23 00:23:28.180 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-23 00:23:28.285 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-23 00:23:28.286 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@79f4a9d1]]
+2026-06-23 00:23:28.288 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-23 00:23:28.288 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+2026-06-23 00:23:28.332 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2026-06-23 00:23:28.358 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 20.034 seconds (process running for 21.396)
+2026-06-23 00:23:28.545 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-23 00:23:28.580 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Roles sequence synchronized to next available value successfully.
+2026-06-23 00:23:28.582 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-23 00:23:28.582 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-23 00:23:28.583 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-23 00:23:28.583 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-23 00:23:28.980 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ Role permissions seeded successfully
+2026-06-23 00:23:28.980 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-23 00:23:28.993 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:23:29.007 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-23 00:23:29.018 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-23 00:23:29.021 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-23 00:23:29.026 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-23 00:23:29.031 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-23 00:23:29.040 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-23 00:23:29.040 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 00:23:29.067 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:23:29.075 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-23 00:23:29.081 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-23 00:23:29.087 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-23 00:23:29.094 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-23 00:23:29.103 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-23 00:23:29.109 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-23 00:23:29.109 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 00:23:29.129 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-23 00:23:29.130 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-23 00:23:29.362 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-23 00:23:29.363 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-23 00:23:29.915 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-23 00:23:29.915 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-23 00:23:29.956 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-23 00:23:29.956 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-23 00:23:30.011 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ✓ Player categories seeded successfully.
+2026-06-23 00:23:30.011 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-23 00:23:30.047 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ✓ Venues seeded successfully.
+2026-06-23 00:23:30.047 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-23 00:23:30.123 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-23 00:23:30.145 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-23 00:23:30.408 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-23 00:23:30.408 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-23 00:23:30.426 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-23 00:23:30.426 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-23 00:23:30.426 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-23 00:23:30.495 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-23 00:23:30.521 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-23 00:23:30.532 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Dispute committee seeded: 1 member
+2026-06-23 00:23:30.571 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction teams seeded: 5 active teams
+2026-06-23 00:23:30.708 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction players seeded from confirmed event registrations
+2026-06-23 00:23:30.710 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-23 00:23:30.737 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-23 00:23:30.739 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-23 00:23:30.747 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ✓ Venue table seeded: Community Sports Arena
+2026-06-23 00:23:30.748 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-23 00:23:30.761 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-23 00:23:30.762 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-23 00:23:30.787 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ✓ Sports event table seeded: Winter Football League
+2026-06-23 00:23:30.787 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-23 00:23:30.833 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-23 00:23:30.960 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-23 00:23:30.961 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-23 00:23:30.971 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-23 00:23:30.971 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-23 00:23:30.971 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-23 00:23:30.972 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-23 00:24:15.232 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-23 00:24:15.232 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-23 00:24:15.237 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 5 ms
+2026-06-23 00:24:15.241 INFO  [cid=5a02634e-f18d-4e9c-b48b-a1920263fdea uid=-] API - --> POST /api/auth/login ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:15.858 INFO  [cid=5a02634e-f18d-4e9c-b48b-a1920263fdea uid=1] API - <-- POST /api/auth/login status=200 durationMs=612 size=-
+2026-06-23 00:24:15.868 INFO  [cid=056ce576-7264-4474-93d8-3ee191a8f4c7 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:15.984 INFO  [cid=056ce576-7264-4474-93d8-3ee191a8f4c7 uid=5] API - <-- GET /api/users/me status=200 durationMs=115 size=-
+2026-06-23 00:24:16.278 INFO  [cid=9f52629a-ca25-43bb-a9b8-03ffe400fa2e uid=-] API - --> GET /api/posts?page=0&size=10 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:16.278 INFO  [cid=efbdb0c6-6232-4cd3-8cd7-861d30da7ae3 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:16.335 INFO  [cid=efbdb0c6-6232-4cd3-8cd7-861d30da7ae3 uid=5] API - <-- GET /api/chat/conversations status=200 durationMs=57 size=-
+2026-06-23 00:24:16.339 WARN  [cid=9f52629a-ca25-43bb-a9b8-03ffe400fa2e uid=5] o.s.d.w.c.SpringDataJackson3Configuration$PageModule$WarningLoggingModifier - Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
 	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
 	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
 
+2026-06-23 00:24:16.339 INFO  [cid=63a6e0a8-eedd-4766-8826-b043c16a0e90 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:16.358 INFO  [cid=9f52629a-ca25-43bb-a9b8-03ffe400fa2e uid=5] API - <-- GET /api/posts status=200 durationMs=82 size=-
+2026-06-23 00:24:16.384 INFO  [cid=63a6e0a8-eedd-4766-8826-b043c16a0e90 uid=5] API - <-- GET /api/chat/contacts status=200 durationMs=39 size=-
+2026-06-23 00:24:16.438 INFO  [cid=870f158b-4309-4557-81ca-453e7f217c73 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:16.461 INFO  [cid=870f158b-4309-4557-81ca-453e7f217c73 uid=5] API - <-- GET /api/chat/conversations status=200 durationMs=21 size=-
+2026-06-23 00:24:19.409 INFO  [cid=4ab4919e-adb0-47fe-bc95-9070fd9877a4 uid=-] API - --> POST /api/auth/logout ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:19.448 INFO  [cid=4ab4919e-adb0-47fe-bc95-9070fd9877a4 uid=5] API - <-- POST /api/auth/logout status=200 durationMs=39 size=11
+2026-06-23 00:24:25.753 INFO  [cid=086cc92a-87c1-4898-bd59-8c25156076ca uid=-] API - --> POST /api/auth/login ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:25.886 INFO  [cid=086cc92a-87c1-4898-bd59-8c25156076ca uid=1] API - <-- POST /api/auth/login status=200 durationMs=133 size=-
+2026-06-23 00:24:25.896 INFO  [cid=16948cbc-fc63-49a3-a5a5-ba0840819351 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:25.934 INFO  [cid=16948cbc-fc63-49a3-a5a5-ba0840819351 uid=1] API - <-- GET /api/users/me status=200 durationMs=37 size=-
+2026-06-23 00:24:25.993 INFO  [cid=5a2a2f67-f409-4522-93ca-e4276271c040 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:26.028 INFO  [cid=5a2a2f67-f409-4522-93ca-e4276271c040 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=34 size=-
+2026-06-23 00:24:26.037 INFO  [cid=9d715625-9caa-4492-b42d-81d229862d3b uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:26.049 INFO  [cid=dd479b2e-c8e3-46cd-a3a8-47edaa9b0b6c uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:26.053 INFO  [cid=9d715625-9caa-4492-b42d-81d229862d3b uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=17 size=-
+2026-06-23 00:24:26.067 INFO  [cid=dd479b2e-c8e3-46cd-a3a8-47edaa9b0b6c uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=17 size=-
+2026-06-23 00:24:28.236 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[1 current WS(1)-HttpStream(0)-HttpPoll(0), 2 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(2)-CONNECTED(2)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 18, active threads = 0, queued tasks = 0, completed tasks = 18], outboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 3], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-23 00:24:34.235 INFO  [cid=dc37f8e2-6114-4364-9a1d-f1fe155a56b1 uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:34.235 INFO  [cid=dcbec22f-2fde-4330-9804-dd2b7feb1bcd uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:34.235 INFO  [cid=2d6942c1-6b52-42a2-90b8-fbfeac02116a uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:34.237 INFO  [cid=bc6e72ae-af8e-4206-936b-7c3f133e5fbe uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:34.292 INFO  [cid=dcbec22f-2fde-4330-9804-dd2b7feb1bcd uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=56 size=-
+2026-06-23 00:24:34.303 INFO  [cid=bc6e72ae-af8e-4206-936b-7c3f133e5fbe uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=65 size=-
+2026-06-23 00:24:34.305 INFO  [cid=2d6942c1-6b52-42a2-90b8-fbfeac02116a uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=68 size=-
+2026-06-23 00:24:34.308 INFO  [cid=dc37f8e2-6114-4364-9a1d-f1fe155a56b1 uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=72 size=-
+2026-06-23 00:24:46.271 INFO  [cid=956f28ff-3622-404e-b9dd-434463c9a5a1 uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50&module=COMMUNITY ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:46.271 INFO  [cid=ffb713c1-2c8b-4492-a898-2362509010ed uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:46.274 INFO  [cid=3c59dde4-8642-44df-b08e-88ffc1d4f1b5 uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:46.274 INFO  [cid=4ea36924-d1c1-4fd6-a0bf-94f400b694ae uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:46.292 INFO  [cid=3c59dde4-8642-44df-b08e-88ffc1d4f1b5 uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=18 size=-
+2026-06-23 00:24:46.294 INFO  [cid=4ea36924-d1c1-4fd6-a0bf-94f400b694ae uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=20 size=-
+2026-06-23 00:24:46.298 INFO  [cid=ffb713c1-2c8b-4492-a898-2362509010ed uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=26 size=-
+2026-06-23 00:24:46.304 INFO  [cid=956f28ff-3622-404e-b9dd-434463c9a5a1 uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=33 size=-
+2026-06-23 00:24:47.990 INFO  [cid=7501ca22-6c0b-44dc-8348-53c276ff57eb uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:47.990 INFO  [cid=83e3cb9d-d252-44aa-a348-9bdc0d97f7aa uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:47.990 INFO  [cid=e1b90fab-8a33-4fb3-ae69-ed9478b93543 uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:47.990 INFO  [cid=4a31972f-4f18-4d66-9c23-9382e01bdd7f uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:48.009 INFO  [cid=83e3cb9d-d252-44aa-a348-9bdc0d97f7aa uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=18 size=-
+2026-06-23 00:24:48.016 INFO  [cid=7501ca22-6c0b-44dc-8348-53c276ff57eb uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=25 size=-
+2026-06-23 00:24:48.017 INFO  [cid=e1b90fab-8a33-4fb3-ae69-ed9478b93543 uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=25 size=-
+2026-06-23 00:24:48.020 INFO  [cid=4a31972f-4f18-4d66-9c23-9382e01bdd7f uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=30 size=-
+2026-06-23 00:24:49.893 INFO  [cid=4a32fcd4-f1f6-442b-b0a3-6b610a2ac737 uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:49.893 INFO  [cid=810712a7-bcc1-420f-972d-ae3463eb39d1 uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50&module=USER_MANAGEMENT ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:49.894 INFO  [cid=42e81621-9629-4c37-bd6a-3f8b27b26cad uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:49.896 INFO  [cid=2ecd5e9a-8b51-4907-b290-73326f563c44 uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:49.911 INFO  [cid=810712a7-bcc1-420f-972d-ae3463eb39d1 uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=17 size=-
+2026-06-23 00:24:49.912 INFO  [cid=42e81621-9629-4c37-bd6a-3f8b27b26cad uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=17 size=-
+2026-06-23 00:24:49.915 INFO  [cid=4a32fcd4-f1f6-442b-b0a3-6b610a2ac737 uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=21 size=-
+2026-06-23 00:24:49.920 INFO  [cid=2ecd5e9a-8b51-4907-b290-73326f563c44 uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=23 size=-
+2026-06-23 00:24:54.024 INFO  [cid=026e87de-6db4-4a17-81d3-1e189816643c uid=-] API - --> GET /api/admin/audit-logs/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:54.024 INFO  [cid=689efd1e-207e-47c6-8f1c-2be2c7ac41b8 uid=-] API - --> GET /api/admin/audit-logs?page=0&size=50 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:54.027 INFO  [cid=daa5d18b-9303-4bf6-ab47-110647d080ef uid=-] API - --> GET /api/admin/sessions?limit=20 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:54.028 INFO  [cid=3dcfe5c9-9c64-4662-81b9-16337c63e849 uid=-] API - --> GET /api/admin/sessions/stats ip=0:0:0:0:0:0:0:1
+2026-06-23 00:24:54.053 INFO  [cid=3dcfe5c9-9c64-4662-81b9-16337c63e849 uid=1] API - <-- GET /api/admin/sessions/stats status=200 durationMs=24 size=-
+2026-06-23 00:24:54.053 INFO  [cid=026e87de-6db4-4a17-81d3-1e189816643c uid=1] API - <-- GET /api/admin/audit-logs/stats status=200 durationMs=29 size=-
+2026-06-23 00:24:54.058 INFO  [cid=689efd1e-207e-47c6-8f1c-2be2c7ac41b8 uid=1] API - <-- GET /api/admin/audit-logs status=200 durationMs=34 size=-
+2026-06-23 00:24:54.060 INFO  [cid=daa5d18b-9303-4bf6-ab47-110647d080ef uid=1] API - <-- GET /api/admin/sessions status=200 durationMs=33 size=-
+2026-06-23 00:25:12.379 INFO  [cid=c2c88dfb-e9b9-42b8-bcb3-fadbd3e6ee2e uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:12.379 INFO  [cid=85cb8e3d-d40c-4845-9b95-d7dd43a9eb44 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:12.399 INFO  [cid=c2c88dfb-e9b9-42b8-bcb3-fadbd3e6ee2e uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=21 size=-
+2026-06-23 00:25:12.407 INFO  [cid=3018e154-ddad-46f2-95bc-657ffdc39a95 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:12.414 INFO  [cid=85cb8e3d-d40c-4845-9b95-d7dd43a9eb44 uid=1] API - <-- GET /api/users/me status=200 durationMs=34 size=-
+2026-06-23 00:25:12.425 INFO  [cid=ea6c5569-38e2-4135-9592-3fce5e62d3d4 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:12.429 INFO  [cid=3018e154-ddad-46f2-95bc-657ffdc39a95 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=21 size=-
+2026-06-23 00:25:12.441 INFO  [cid=ea6c5569-38e2-4135-9592-3fce5e62d3d4 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
+2026-06-23 00:25:27.499 INFO  [cid=3aeb748b-756a-4bbb-b7d5-29e458a129ad uid=-] API - --> POST /api/auth/login ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.608 INFO  [cid=3aeb748b-756a-4bbb-b7d5-29e458a129ad uid=1] API - <-- POST /api/auth/login status=200 durationMs=110 size=-
+2026-06-23 00:25:27.617 INFO  [cid=5d78211d-d8df-4b18-a3ee-cb7bbc6b8353 uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.650 INFO  [cid=5d78211d-d8df-4b18-a3ee-cb7bbc6b8353 uid=5] API - <-- GET /api/users/me status=200 durationMs=32 size=-
+2026-06-23 00:25:27.698 INFO  [cid=ac64e5e4-26f1-489e-b299-485c831cc765 uid=-] API - --> GET /api/posts?page=0&size=10 ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.698 INFO  [cid=f8f3d82c-d74a-40d9-86d7-b2dd4523cc62 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.714 INFO  [cid=f8f3d82c-d74a-40d9-86d7-b2dd4523cc62 uid=5] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
+2026-06-23 00:25:27.714 INFO  [cid=ac64e5e4-26f1-489e-b299-485c831cc765 uid=5] API - <-- GET /api/posts status=200 durationMs=16 size=-
+2026-06-23 00:25:27.727 INFO  [cid=9bb46bce-7bcf-45ca-9786-4135f565f837 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.739 INFO  [cid=5539fb01-728d-4122-ada5-f11981162a3e uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:27.752 INFO  [cid=9bb46bce-7bcf-45ca-9786-4135f565f837 uid=5] API - <-- GET /api/chat/contacts status=200 durationMs=24 size=-
+2026-06-23 00:25:27.754 INFO  [cid=5539fb01-728d-4122-ada5-f11981162a3e uid=5] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
+2026-06-23 00:25:34.544 INFO  [cid=3b4e20ba-e45f-4bb3-ab85-b99f409db3d2 uid=-] API - --> GET /api/profile ip=0:0:0:0:0:0:0:1
+2026-06-23 00:25:34.616 INFO  [cid=3b4e20ba-e45f-4bb3-ab85-b99f409db3d2 uid=5] API - <-- GET /api/profile status=200 durationMs=71 size=-

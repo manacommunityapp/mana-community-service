@@ -301,6 +301,7 @@ public class GlobalExceptionHandler {
                 .error(errorCode)
                 .message(message)
                 .path(request.getRequestURI())
+                .correlationId(org.slf4j.MDC.get("correlationId"))
                 .fieldErrors(fieldErrors)
                 .build();
 

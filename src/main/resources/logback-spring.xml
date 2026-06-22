@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Enterprise log-file strategy for Mana Community.
+
+  - Primary application log stays at logs/mana-service.log so the existing
+    /admin/logs dashboard (SystemLogController) keeps working unchanged.
+  - Every line carries the per-request correlation id + user id from the MDC
+    (set by CorrelationIdFilter / JwtAuthenticationFilter).
+  - Dedicated loggers are routed to their own files with daily + size rolling,
+    30-day retention, gzip compression and a total size cap.
+  - Uses only standard Logback tags (no <springProperty>/<springProfile>) so the
+    config is portable and verifiable; per-environment log LEVELS are still driven
+    by Spring's `logging.level.*` in application*.yaml.
+-->
+<configuration>
+
+    <property name="LOG_DIR" value="logs"/>
+    <property name="ARCHIVE" value="logs/archive"/>
+    <property name="PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [cid=%X{correlationId:--} uid=%X{userId:--}] %logger{36} - %msg%n"/>
+
+    <!-- ── Console ──────────────────────────────────────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+    </appender>
+
+    <!-- ── Primary application log (path matches logging.file.name) ─────── -->
+    <appender name="APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/mana-service.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/mana-service-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ── Errors only ──────────────────────────────────────────────────── -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/error-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ── Security / audit trail ───────────────────────────────────────── -->
+    <appender name="SECURITY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/security.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/security-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/audit.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/audit-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ── Module logs ──────────────────────────────────────────────────── -->
+    <appender name="SCHEDULER_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/scheduler.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/scheduler-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="AUCTION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/auction.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/auction-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="CHAT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/chat.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/chat-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="NOTIFICATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/notification.log</file>
+        <encoder><pattern>${PATTERN}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/notification-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ── Dedicated loggers (additivity=false so they don't double-log) ── -->
+    <logger name="SECURITY_AUDIT" level="INFO" additivity="false">
+        <appender-ref ref="SECURITY_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="AUDIT" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_FILE"/>
+    </logger>
+
+    <logger name="AUCTION" level="INFO" additivity="false">
+        <appender-ref ref="AUCTION_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="CHAT" level="INFO" additivity="false">
+        <appender-ref ref="CHAT_FILE"/>
+    </logger>
+
+    <logger name="NOTIFICATION" level="INFO" additivity="false">
+        <appender-ref ref="NOTIFICATION_FILE"/>
+    </logger>
+
+    <!-- Tournament scheduler packages → scheduler.log (kept in main log too). -->
+    <logger name="com.manacommunity.api.scheduler" level="INFO" additivity="true">
+        <appender-ref ref="SCHEDULER_FILE"/>
+    </logger>
+    <logger name="com.manacommunity.api.service.scheduler" level="INFO" additivity="true">
+        <appender-ref ref="SCHEDULER_FILE"/>
+    </logger>
+
+    <!-- ── Root ─────────────────────────────────────────────────────────── -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+</configuration>

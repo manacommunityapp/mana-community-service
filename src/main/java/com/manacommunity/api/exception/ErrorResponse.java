@@ -37,6 +37,9 @@ public class ErrorResponse {
 
     private final String path;      // request URI that triggered the error
 
+    /** Request correlation id — lets a user quote it to support to find the exact log trail. */
+    private final String correlationId;
+
     /** Per-field validation errors (populated only for @Valid failures). */
     private final List<FieldError> fieldErrors;
 

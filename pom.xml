@@ -85,6 +85,19 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- Actuator — operational endpoints (/actuator/health, /metrics, /prometheus) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Micrometer → Prometheus registry. Exposes /actuator/prometheus for a
+             self-hosted Prometheus/Grafana to scrape. Free, no paid vendor backend. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- WebSocket + STOMP messaging (real-time chat / live push) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

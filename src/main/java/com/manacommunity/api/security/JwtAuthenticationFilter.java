@@ -121,6 +121,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authToken);
+
+        // Expose the authenticated user id to logs for this request. CorrelationIdFilter
+        // owns the MDC lifecycle and clears this key after the request completes.
+        org.slf4j.MDC.put(CorrelationIdFilter.MDC_USER_ID, String.valueOf(user.getId()));
     }
 
     private Long parseLegacyId(String token) {

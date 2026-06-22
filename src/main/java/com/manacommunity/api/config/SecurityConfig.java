@@ -203,6 +203,12 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // sendError) re-enters the security filter; permit it so the original
                 // status is preserved instead of being flipped to 403.
                 .requestMatchers("/error").permitAll()
+                // Actuator: health + info are public so the load balancer / EC2 health
+                // check can probe liveness; metrics, prometheus and any other actuator
+                // endpoint leak internals, so they are SUPER_ADMIN-only (a self-hosted
+                // Prometheus scrapes /actuator/prometheus with a SUPER_ADMIN bearer token).
+                .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                 // Swagger / API-docs are handled by the dedicated docsFilterChain above.
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole("SUPER_ADMIN")

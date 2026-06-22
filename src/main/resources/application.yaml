@@ -1,11 +1,10 @@
 logging:
+  # Patterns, appenders and rolling policy are defined in logback-spring.xml
+  # (enterprise multi-file strategy with correlation id / user id on every line).
+  # This path is kept so SystemLogController (/admin/logs dashboard) reads the
+  # primary application log; it must match the APP appender file in logback-spring.xml.
   file:
     name: logs/mana-service.log
-  logback:
-    rollingpolicy:
-      max-file-size: 10MB
-      total-size-cap: 100MB
-      max-history: 7
 
 spring:
   application:
@@ -43,6 +42,33 @@ server:
     include-message: never
     include-stacktrace: never
     include-exception: false
+
+# ── Actuator / Micrometer (observability) ───────────────────────────────
+# Endpoints are SECURED in SecurityConfig: /health + /info are public (for the
+# load balancer / EC2 health check); everything else (metrics, prometheus…) is
+# SUPER_ADMIN-only. A self-hosted Prometheus scrapes /actuator/prometheus
+# (send a SUPER_ADMIN bearer token in the scrape config).
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only surface what we actually use; keep the rest off the HTTP surface.
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      # Show component details (db, disk…) only to authenticated callers.
+      show-details: when-authorized
+  health:
+    # SMTP is optional (off by default in dev) — its being DOWN must NOT mark the
+    # whole app unhealthy and trip the load-balancer's 503. Liveness should reflect
+    # the app + db + disk, not mail deliverability.
+    mail:
+      enabled: false
+  metrics:
+    tags:
+      # Stamp every metric with the app name so multiple services are separable
+      # in one Prometheus/Grafana instance.
+      application: ${spring.application.name}
 
 # ── Application-level email notification settings ───────────────────────
 app:

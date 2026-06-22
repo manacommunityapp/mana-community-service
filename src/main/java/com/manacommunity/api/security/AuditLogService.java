@@ -24,7 +24,8 @@ public class AuditLogService {
 
     public enum Action {
         LOGIN_SUCCESS, LOGIN_FAILED, LOGIN_LOCKED, ACCOUNT_LOCKED,
-        LOGOUT, REGISTER, TOKEN_REFRESH, TOKEN_REFRESH_FAILED
+        LOGOUT, REGISTER, TOKEN_REFRESH, TOKEN_REFRESH_FAILED,
+        MULTIPLE_DEVICE_LOGIN, PASSWORD_CHANGED, SESSION_EXPIRED, ACCESS_DENIED, TOKEN_EXPIRED
     }
 
     /** Record an event tied to a known user. */
@@ -64,9 +65,6 @@ public class AuditLogService {
 
     /** Partially mask the email so the audit log doesn't store full addresses in clear. */
     private String mask(String email) {
-        if (email == null || email.isBlank()) return "-";
-        int at = email.indexOf('@');
-        if (at <= 1) return "***" + (at >= 0 ? email.substring(at) : "");
-        return email.charAt(0) + "***" + email.substring(at);
+        return MaskingUtil.maskEmail(email);
     }
 }

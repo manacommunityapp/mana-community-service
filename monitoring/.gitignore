@@ -1,0 +1,3 @@
+# Never commit the scrape token or local env — these are credentials.
+.env
+prometheus/token.txt

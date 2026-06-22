@@ -1,0 +1,54 @@
+# Prometheus scrape config for the Mana Community backend.
+#
+# Spring Boot exposes Micrometer metrics at /actuator/prometheus. That endpoint is
+# SUPER_ADMIN-only (see SecurityConfig), so the scrape must authenticate.
+#
+# ── AUTH (read carefully) ────────────────────────────────────────────────────
+# The app's JWTs are short-lived (15 min), and Prometheus cannot refresh a token,
+# so a normal login JWT will NOT work for continuous scraping. Pick ONE:
+#
+#   A) RECOMMENDED for prod — expose actuator on a separate management port bound
+#      to the internal network/VPC and scrape that over a trusted network (no token).
+#      Set in application-prod.yaml:  management.server.port: 9000  (+ firewall it)
+#      then point this job at <host>:9000 and DELETE the `authorization` block below.
+#
+#   B) Long-lived service token — issue a SUPER_ADMIN token with a long TTL and put
+#      it in token.txt (mounted at /etc/prometheus/token.txt). Simple, but the token
+#      is a standing credential — rotate it and keep token.txt out of git.
+#
+# The job below uses option (B). Switch to (A) by removing `authorization`.
+
+global:
+  scrape_interval: 30s          # 30s keeps metric cardinality/cost low; 15s if you need finer
+  scrape_timeout: 10s
+  external_labels:
+    monitor: mana-community
+
+# Alerting rules (the /api/admin/logs 500 alarm lives here).
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Wire Prometheus to Alertmanager (optional — uncomment if you run one).
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: mana-community-service
+    metrics_path: /actuator/prometheus
+    scheme: ${MANA_SCHEME}        # set by docker-compose env (http in dev, https in prod)
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/token.txt   # option (B); remove for option (A)
+    static_configs:
+      - targets:
+          - ${MANA_TARGET}        # e.g. host.docker.internal:8080  or  10.0.1.20:8080
+        labels:
+          application: mana-community-service
+          env: ${MANA_ENV}
+
+  # Prometheus scraping itself — useful for "is monitoring alive?".
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

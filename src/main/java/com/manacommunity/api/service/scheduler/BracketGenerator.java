@@ -34,6 +34,7 @@ public class BracketGenerator {
     private final SeedingService              seeding;
     private final TimeSlotAllocator           timeSlots;
     private final CourtAllocator              courts;
+    private final com.manacommunity.api.security.AuditService auditService;
 
     /** Dispatch to the right generator for the config's tournament type. */
     public List<TournamentMatch> generate(TournamentConfig config, List<AuctionTeam> teams) {
@@ -162,6 +163,13 @@ public class BracketGenerator {
         match.setStatus(MatchStatus.COMPLETED);
         match.setCompletedAt(LocalDateTime.now());
         matchRepo.save(match);
+
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
+            com.manacommunity.api.security.AuditModule.TOURNAMENT,
+            "TournamentMatch", String.valueOf(match.getId()),
+            null,
+            "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
 
         // Advance winner to next round match
         if (match.getWinnerAdvancesToMatchId() != null) {

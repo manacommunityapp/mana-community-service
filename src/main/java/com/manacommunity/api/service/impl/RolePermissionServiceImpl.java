@@ -23,6 +23,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     private final RoleRepository roleRepo;
     private final RolePermissionRepository rolePermissionRepo;
     private final AppUserRepository appUserRepo;
+    private final com.manacommunity.api.security.AuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -66,6 +67,12 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .toList();
 
         rolePermissionRepo.saveAll(entities);
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.PERMISSION_CHANGED,
+                com.manacommunity.api.security.AuditModule.ADMIN,
+                "Role", roleName,
+                null,
+                "permissions=" + entities.size() + " (role-level, community=" + communityId + ")");
     }
 
     @Override
@@ -88,6 +95,12 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .toList();
 
         rolePermissionRepo.saveAll(entities);
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.PERMISSION_CHANGED,
+                com.manacommunity.api.security.AuditModule.ADMIN,
+                "AppUser", String.valueOf(userId),
+                null,
+                "permissions=" + entities.size() + " (user-level override, role=" + role + ")");
     }
 
     @Override

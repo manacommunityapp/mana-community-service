@@ -11,4 +11,5 @@ public class SystemLogResponse {
     private String logFilePath;
     private long fileSizeKb;
     private int totalLinesReturned;
+    private String logType;
 }

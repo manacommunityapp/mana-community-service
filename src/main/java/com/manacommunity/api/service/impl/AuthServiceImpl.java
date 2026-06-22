@@ -46,6 +46,10 @@ public class AuthServiceImpl implements AuthService {
     private JwtTokenProvider jwtTokenProvider;
     @Autowired
     private AuditLogService auditLog;
+    @Autowired
+    private com.manacommunity.api.security.AuditService auditService;
+    @Autowired
+    private com.manacommunity.api.security.SessionService sessionService;
 
     @Override
     @Transactional
@@ -108,6 +112,12 @@ public class AuthServiceImpl implements AuthService {
 
         AppUser saved = userRepository.save(user);
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.USER_CREATED,
+                com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
+                "AppUser", String.valueOf(saved.getId()),
+                null,
+                "role=MEMBER, community=" + (community != null ? community.getId() : "none"));
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
 
@@ -145,6 +155,7 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(user);
         }
         auditLog.record(AuditLogService.Action.LOGIN_SUCCESS, user.getId(), user.getEmail());
+        sessionService.startSession(user.getId(), user.getEmail());
         return buildAuthResponse(user, "Login successful!");
     }
 
@@ -197,6 +208,7 @@ public class AuthServiceImpl implements AuthService {
         // Stateless tokens cannot be revoked server-side; the client discards them.
         // Short access-token lifetimes keep the post-logout exposure window small.
         auditLog.record(AuditLogService.Action.LOGOUT, userId, email);
+        sessionService.endSession(userId);
     }
 
     /** Builds the standard auth payload with a fresh access + refresh token pair. */

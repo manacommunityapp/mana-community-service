@@ -1,0 +1,79 @@
+# Prometheus alerting rules for the Mana Community backend.
+# Loaded by prometheus.yml (rule_files). Alerts fire to Alertmanager if configured;
+# otherwise they're visible under Prometheus → Alerts.
+groups:
+  - name: mana-community-availability
+    rules:
+      # The app stopped responding to scrapes (process down / unreachable).
+      - alert: AppDown
+        expr: up{job="mana-community-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Mana backend is DOWN ({{ $labels.instance }})"
+          description: "Prometheus has failed to scrape {{ $labels.instance }} for >1m."
+
+  - name: mana-community-errors
+    rules:
+      # THE headline alarm for your EC2 problem: any 5xx on /api/admin/logs.
+      # http_server_requests is the auto Micrometer metric; status is a tag.
+      - alert: AdminLogsServerError
+        expr: |
+          increase(http_server_requests_seconds_count{
+            uri="/api/admin/logs", status=~"5.."
+          }[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "/api/admin/logs is returning 5xx"
+          description: "{{ $value | printf \"%.0f\" }} server error(s) on /api/admin/logs in the last 5m. This is the endpoint that 500'd on EC2."
+
+      # Broad safety net: elevated 5xx rate across ALL endpoints (>5% for 5m).
+      - alert: High5xxRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+          sum(rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated 5xx error rate (>5%)"
+          description: "5xx responses are {{ $value | humanizePercentage }} of all requests over 5m."
+
+      # Our explicit business counter for the log-tail failure path.
+      - alert: AdminLogsFetchErrors
+        expr: increase(admin_logs_fetch_errors_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "admin log-tail threw an exception"
+          description: "{{ $value | printf \"%.0f\" }} admin_logs_fetch_errors in 10m (type={{ $labels.logType }}, exception={{ $labels.exception }})."
+
+  - name: mana-community-resources
+    rules:
+      # JVM heap sustained >90% of max — GC pressure / leak / undersized heap.
+      - alert: JvmHeapHigh
+        expr: |
+          sum(jvm_memory_used_bytes{area="heap"}) by (instance)
+            /
+          sum(jvm_memory_max_bytes{area="heap"}) by (instance) > 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM heap >90% ({{ $labels.instance }})"
+          description: "Heap has been above 90% of max for 10m. Check for a leak or raise -Xmx."
+
+      # HikariCP connection pool nearly exhausted — DB contention / slow queries.
+      - alert: DbPoolExhausted
+        expr: hikaricp_connections_pending > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection pool has pending waiters"
+          description: "Threads have been waiting for a DB connection for 5m on {{ $labels.pool }}."

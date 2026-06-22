@@ -13,6 +13,7 @@ import com.manacommunity.api.repository.AppUserRepository;
 import com.manacommunity.api.repository.ChatMessageRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.repository.ConversationRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class ChatService {
     private final ChatMessageRepository messageRepository;
     private final AppUserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MeterRegistry meterRegistry;
 
     // ── Conversations list ────────────────────────────────────────────────
 
@@ -117,6 +119,10 @@ public class ChatService {
         participantRepository.save(membership);
 
         ChatMessageResponse response = toMessageResponse(message);
+
+        // Metric: count every successfully-persisted chat message. Tagged by
+        // conversation type so DIRECT vs GROUP traffic is separable in Grafana.
+        meterRegistry.counter("chat.messages.sent", "type", conversation.getType()).increment();
 
         // ── Real-time push ────────────────────────────────────────────────
         // 1. Everyone viewing this thread gets the message instantly.

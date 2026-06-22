@@ -24,6 +24,7 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
     private final AuctionTeamRepository teamRepo;
     private final AuctionConfigRepository configRepo;
     private final AppUserRepository userRepo;
+    private final com.manacommunity.api.security.AuditService auditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,8 +61,15 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
             .captainNomination(false)
             .captainConfirmation(false)
             .build();
-            
-        return teamRepo.save(team);
+
+        AuctionTeam savedTeam = teamRepo.save(team);
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.TEAM_CREATED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "AuctionTeam", String.valueOf(savedTeam.getId()),
+            null,
+            "name=" + savedTeam.getTeamName() + ", budget=" + savedTeam.getTotalBudget());
+        return savedTeam;
     }
 
     @Override

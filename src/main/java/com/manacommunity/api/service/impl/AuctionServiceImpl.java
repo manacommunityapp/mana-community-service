@@ -4,6 +4,7 @@ import com.manacommunity.api.dto.*;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.AuctionService;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +31,8 @@ public class AuctionServiceImpl implements AuctionService {
     private final AuctionDisputeCommitteeRepository committeeRepo;
     private final com.manacommunity.api.repository.SportsEventRegistrationRepository registrationRepo;
     private final com.manacommunity.api.repository.SportsEventRepository eventRepo;
+    private final com.manacommunity.api.security.AuditService auditService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public List<AuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId) {
@@ -164,8 +167,27 @@ public class AuctionServiceImpl implements AuctionService {
             }
         }
 
+        AuctionConfig.AuctionStatus oldStatus = config.getStatus();
         config.setStatus(newStatus);
-        return configRepo.save(config);
+        AuctionConfig savedConfig = configRepo.save(config);
+
+        // Audit the lifecycle transitions only (start / end), not every save.
+        if (oldStatus != newStatus) {
+            if (newStatus == AuctionConfig.AuctionStatus.LIVE || newStatus == AuctionConfig.AuctionStatus.ACTIVE) {
+                auditService.record(
+                    com.manacommunity.api.security.AuditAction.AUCTION_STARTED,
+                    com.manacommunity.api.security.AuditModule.AUCTION,
+                    "AuctionConfig", String.valueOf(configId),
+                    String.valueOf(oldStatus), String.valueOf(newStatus));
+            } else if (newStatus == AuctionConfig.AuctionStatus.COMPLETED) {
+                auditService.record(
+                    com.manacommunity.api.security.AuditAction.AUCTION_ENDED,
+                    com.manacommunity.api.security.AuditModule.AUCTION,
+                    "AuctionConfig", String.valueOf(configId),
+                    String.valueOf(oldStatus), String.valueOf(newStatus));
+            }
+        }
+        return savedConfig;
     }
 
     // ── GET CURRENT PLAYER (with bid info) ────────────────────────
@@ -256,7 +278,18 @@ public class AuctionServiceImpl implements AuctionService {
 
         log.info("Bid placed: player={} team={} amount={}", player.getPlayerName(),
             team.getTeamName(), req.bidAmount());
-        return bidRepo.save(bid);
+        AuctionBid saved = bidRepo.save(bid);
+        // Metric: count every accepted bid (after all validation passed). Tagged with
+        // RTM vs normal so the live-auction bid rate is visible in Grafana / alarms.
+        meterRegistry.counter("auction.bids.placed",
+            "rtm", String.valueOf(Boolean.TRUE.equals(req.isRtm()))).increment();
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.BID_PLACED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "AuctionPlayer", String.valueOf(player.getId()),
+            null,
+            "team=" + team.getTeamName() + ", amount=" + req.bidAmount());
+        return saved;
     }
 
     // ── SOLD PLAYER ───────────────────────────────────────────────
@@ -295,7 +328,14 @@ public class AuctionServiceImpl implements AuctionService {
             .build());
 
         log.info("SOLD: {} → {} for ₹{}", player.getPlayerName(), team.getTeamName(), soldPrice);
-        return playerRepo.save(player);
+        AuctionPlayer savedPlayer = playerRepo.save(player);
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.PLAYER_SOLD,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "AuctionPlayer", String.valueOf(player.getId()),
+            null,
+            "soldTo=" + team.getTeamName() + ", price=" + soldPrice);
+        return savedPlayer;
     }
 
     // ── PASS PLAYER ───────────────────────────────────────────────
