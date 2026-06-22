@@ -14,8 +14,8 @@
 -->
 <configuration>
 
-    <property name="LOG_DIR" value="logs"/>
-    <property name="ARCHIVE" value="logs/archive"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
+    <property name="ARCHIVE" value="${LOG_DIR:-logs}/archive"/>
     <property name="PATTERN"
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [cid=%X{correlationId:--} uid=%X{userId:--}] %logger{36} - %msg%n"/>
 

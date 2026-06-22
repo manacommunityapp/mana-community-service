@@ -18,13 +18,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import jakarta.annotation.PostConstruct;
-import java.io.FileWriter;
-import java.io.PrintWriter;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @Service
@@ -37,140 +33,59 @@ public class SystemLogServiceImpl implements SystemLogService {
         this.meterRegistry = meterRegistry;
     }
 
+    @Value("${LOG_DIR:logs}")
+    private String logDir;
+
     @Value("${logging.file.name:logs/mana-service.log}")
     private String appLogFilePath;
 
-    @Value("${logging.frontend.file:logs/frontend.log}")
+    @Value("${logging.frontend.file:${LOG_DIR:logs}/frontend.log}")
     private String frontendLogFilePath;
 
-    @Value("${logging.database.file:logs/database.log}")
+    @Value("${logging.database.file:${LOG_DIR:logs}/database.log}")
     private String dbLogFilePath;
 
-    /**
-     * Resolves the log file path based on the requested log type.
-     * Supported types: APPLICATION (default), FRONTEND, DATABASE
-     */
+    private static final java.util.Map<String, String> LOG_TYPE_TO_FILE = new java.util.LinkedHashMap<>();
+
+    @PostConstruct
+    public void init() {
+        File logsDir = new File(logDir);
+        if (!logsDir.exists()) {
+            boolean created = logsDir.mkdirs();
+            if (created) {
+                log.info("Created log directory: {}", logsDir.getAbsolutePath());
+            } else {
+                log.error("Failed to create log directory: {}. Logs may not be written.", logsDir.getAbsolutePath());
+            }
+        }
+        File archiveDir = new File(logsDir, "archive");
+        if (!archiveDir.exists()) {
+            archiveDir.mkdirs();
+        }
+
+        LOG_TYPE_TO_FILE.put("APPLICATION", appLogFilePath);
+        LOG_TYPE_TO_FILE.put("ERROR", logDir + "/error.log");
+        LOG_TYPE_TO_FILE.put("SECURITY", logDir + "/security.log");
+        LOG_TYPE_TO_FILE.put("AUDIT", logDir + "/audit.log");
+        LOG_TYPE_TO_FILE.put("FRONTEND", frontendLogFilePath);
+        LOG_TYPE_TO_FILE.put("SCHEDULER", logDir + "/scheduler.log");
+        LOG_TYPE_TO_FILE.put("AUCTION", logDir + "/auction.log");
+        LOG_TYPE_TO_FILE.put("CHAT", logDir + "/chat.log");
+        LOG_TYPE_TO_FILE.put("NOTIFICATION", logDir + "/notification.log");
+
+        log.info("Log directory resolved to: {}", logsDir.getAbsolutePath());
+    }
+
     private String resolveLogPath(String logType) {
         if (logType == null || logType.isBlank()) return appLogFilePath;
-        return switch (logType.toUpperCase().trim()) {
-            case "FRONTEND", "WEBSERVER" -> frontendLogFilePath;
-            case "DATABASE", "DB" -> dbLogFilePath;
-            default -> appLogFilePath;
-        };
+        String key = logType.toUpperCase().trim();
+        return LOG_TYPE_TO_FILE.getOrDefault(key, appLogFilePath);
     }
 
     private String resolveLogTypeLabel(String logType) {
         if (logType == null || logType.isBlank()) return "APPLICATION";
-        return switch (logType.toUpperCase().trim()) {
-            case "FRONTEND", "WEBSERVER" -> "FRONTEND";
-            case "DATABASE", "DB" -> "DATABASE";
-            default -> "APPLICATION";
-        };
-    }
-
-    @PostConstruct
-    public void initMockLogs() {
-        try {
-            File logsDir = new File("logs");
-            if (!logsDir.exists()) {
-                logsDir.mkdirs();
-            }
-
-            File frontendFile = new File(resolveLogPath("FRONTEND"));
-            if (!frontendFile.exists()) {
-                writeMockFrontendLogs(frontendFile);
-            }
-
-            File dbFile = new File(resolveLogPath("DATABASE"));
-            if (!dbFile.exists()) {
-                writeMockDatabaseLogs(dbFile);
-            }
-        } catch (Exception e) {
-            log.error("Failed to initialize mock logs", e);
-        }
-    }
-
-    private void writeMockFrontendLogs(File file) throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-            String[] logs = {
-                "2026-06-20 09:00:01.123  INFO --- [vite] vite v5.2.11 dev server running...",
-                "2026-06-20 09:00:01.125  INFO --- [vite]   > Local: http://localhost:5173/",
-                "2026-06-20 09:00:01.126  INFO --- [vite]   > Network: use --host to expose",
-                "2026-06-20 09:00:02.345  INFO --- [vite] HMR connection established.",
-                "2026-06-20 09:00:05.210  DEBUG --- [vite] request: GET /index.html (200 OK, 12ms)",
-                "2026-06-20 09:00:05.320  DEBUG --- [vite] request: GET /src/main.tsx (200 OK, 8ms)",
-                "2026-06-20 09:00:05.350  DEBUG --- [vite] request: GET /src/app/App.tsx (200 OK, 15ms)",
-                "2026-06-20 09:00:05.410  DEBUG --- [vite] request: GET /src/app/components/admin/LogsDashboard.tsx (200 OK, 32ms)",
-                "2026-06-20 09:00:05.620  DEBUG --- [vite] request: GET /node_modules/.vite/deps/react.js (200 OK, 4ms)",
-                "2026-06-20 09:00:05.650  DEBUG --- [vite] request: GET /node_modules/.vite/deps/react-router.js (200 OK, 6ms)",
-                "2026-06-20 09:01:12.789  INFO --- [vite] [hmr] update /src/app/components/admin/LogsDashboard.tsx",
-                "2026-06-20 09:02:45.012  WARN --- [vite] [eslint] Warning: Unexpected console.log statement in LogsDashboard.tsx:422:15",
-                "2026-06-20 09:03:00.567  DEBUG --- [vite] request: GET /api/admin/logs?lines=200&logType=FRONTEND (200 OK, 45ms)",
-                "2026-06-20 09:04:10.111  DEBUG --- [vite] request: GET /api/admin/system-stats (200 OK, 20ms)"
-            };
-            for (String log : logs) {
-                writer.println(log);
-            }
-        }
-    }
-
-    private void writeMockDatabaseLogs(File file) throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-            String[] logs = {
-                "2026-06-20 09:00:00.890  INFO --- [HikariPool-1] HikariCP connection pool configuration:",
-                "2026-06-20 09:00:00.895  INFO --- [HikariPool-1]   maximumPoolSize................................10",
-                "2026-06-20 09:00:00.896  INFO --- [HikariPool-1]   minimumIdle....................................10",
-                "2026-06-20 09:00:00.897  INFO --- [HikariPool-1]   poolName................................\"HikariPool-1\"",
-                "2026-06-20 09:00:01.050  INFO --- [HikariPool-1] HikariPool-1 - Pool initialized.",
-                "2026-06-20 09:00:02.100  DEBUG --- [SQL] SELECT u.id, u.email, u.name, r.role_name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.email = 'admin@manacommunity.app' [Execution time: 3ms]",
-                "2026-06-20 09:00:05.150  DEBUG --- [SQL] SELECT p.id, p.permission_name FROM permissions p JOIN role_permissions rp ON p.id = rp.permission_id WHERE rp.role_id = 1 [Execution time: 2ms]",
-                "2026-06-20 09:00:10.420  DEBUG --- [SQL] SELECT * FROM system_settings WHERE setting_key = 'maintenance_mode' [Execution time: 1ms]",
-                "2026-06-20 09:01:30.880  DEBUG --- [SQL] SELECT count(*) FROM event_registrations er WHERE er.status = 'PENDING' [Execution time: 5ms]",
-                "2026-06-20 09:02:15.340  DEBUG --- [SQL] SELECT a.id, a.title, a.status FROM auctions a ORDER BY a.created_at DESC LIMIT 5 [Execution time: 7ms]",
-                "2026-06-20 09:03:00.580  DEBUG --- [SQL] SELECT l.id, l.timestamp, l.message FROM system_logs l WHERE l.log_type = 'APPLICATION' ORDER BY l.timestamp DESC LIMIT 200 [Execution time: 14ms]",
-                "2026-06-20 09:04:10.130  DEBUG --- [SQL] SELECT s.cpu_load, s.used_memory, s.total_memory FROM system_stats s ORDER BY s.timestamp DESC LIMIT 1 [Execution time: 4ms]"
-            };
-            for (String log : logs) {
-                writer.println(log);
-            }
-        }
-    }
-
-    private void appendDynamicLog(String logType) {
-        try {
-            String path = resolveLogPath(logType);
-            File file = new File(path);
-            if (!file.exists()) {
-                initMockLogs();
-            }
-            LocalDateTime now = LocalDateTime.now();
-            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-            String timestamp = now.format(dtf);
-            
-            try (PrintWriter writer = new PrintWriter(new FileWriter(file, true))) {
-                if ("FRONTEND".equals(resolveLogTypeLabel(logType))) {
-                    double rand = Math.random();
-                    if (rand < 0.35) {
-                        writer.println(timestamp + "  DEBUG --- [vite] request: GET /api/admin/system-stats (200 OK, " + (int)(Math.random()*15 + 5) + "ms)");
-                    } else if (rand < 0.70) {
-                        writer.println(timestamp + "  DEBUG --- [vite] request: GET /api/admin/logs?lines=200&logType=FRONTEND (200 OK, " + (int)(Math.random()*30 + 10) + "ms)");
-                    } else {
-                        writer.println(timestamp + "  INFO --- [vite] [hmr] update /src/app/components/admin/LogsDashboard.tsx");
-                    }
-                } else if ("DATABASE".equals(resolveLogTypeLabel(logType))) {
-                    double rand = Math.random();
-                    if (rand < 0.4) {
-                        writer.println(timestamp + "  DEBUG --- [SQL] SELECT s.cpu_load, s.used_memory FROM system_stats s ORDER BY s.timestamp DESC LIMIT 1 [Execution time: " + (int)(Math.random()*5 + 1) + "ms]");
-                    } else if (rand < 0.7) {
-                        writer.println(timestamp + "  DEBUG --- [SQL] SELECT * FROM users WHERE email = 'admin@manacommunity.app' [Execution time: " + (int)(Math.random()*4 + 1) + "ms]");
-                    } else {
-                        writer.println(timestamp + "  DEBUG --- [SQL] SELECT * FROM system_logs ORDER BY timestamp DESC LIMIT 200 [Execution time: " + (int)(Math.random()*10 + 5) + "ms]");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("Failed to append dynamic log", e);
-        }
+        String key = logType.toUpperCase().trim();
+        return LOG_TYPE_TO_FILE.containsKey(key) ? key : "APPLICATION";
     }
 
     private List<String> readAllLines(File file) {
@@ -199,12 +114,7 @@ public class SystemLogServiceImpl implements SystemLogService {
         String resolvedType = resolveLogTypeLabel(logType);
         try {
             String path = resolveLogPath(logType);
-            if (path == null || path.isBlank()) path = "logs/mana-service.log";
-            
-            // Append dynamic log line to keep file growing and fresh
-            if ("FRONTEND".equals(resolvedType) || "DATABASE".equals(resolvedType)) {
-                appendDynamicLog(logType);
-            }
+            if (path == null || path.isBlank()) path = logDir + "/mana-service.log";
 
             File logFile = new File(path);
             if (!logFile.exists() || !logFile.isFile()) {
@@ -375,5 +285,10 @@ public class SystemLogServiceImpl implements SystemLogService {
                     .activeThreads(Thread.activeCount())
                     .build();
         }
+    }
+
+    @Override
+    public List<String> getAvailableLogTypes() {
+        return new ArrayList<>(LOG_TYPE_TO_FILE.keySet());
     }
 }

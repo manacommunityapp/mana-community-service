@@ -861,3 +861,159 @@ jakarta.mail.AuthenticationFailedException: failed to connect, no password speci
 2026-06-23 00:54:00.074 INFO  [cid=ae9c5e08-521a-46fe-a4bf-0da9b561bfb3 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=16 size=-
 2026-06-23 00:54:00.084 INFO  [cid=20b45de0-0bbd-44c5-a82a-d87606602446 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=12 size=-
 2026-06-23 00:54:28.244 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[1 current WS(1)-HttpStream(0)-HttpPoll(0), 9 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(9)-CONNECTED(9)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 15, active threads = 0, queued tasks = 0, completed tasks = 87], outboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 17], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 63]
+2026-06-23 00:58:01.791 INFO  [cid=ff40ff40-5cb7-4141-9792-05d5c9667864 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:58:01.793 INFO  [cid=e97cc3ea-bf30-4133-a80f-fff308723b1d uid=-] API - --> GET /api/users/me ip=0:0:0:0:0:0:0:1
+2026-06-23 00:58:01.814 INFO  [cid=ff40ff40-5cb7-4141-9792-05d5c9667864 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=23 size=-
+2026-06-23 00:58:01.821 INFO  [cid=e97cc3ea-bf30-4133-a80f-fff308723b1d uid=1] API - <-- GET /api/users/me status=200 durationMs=27 size=-
+2026-06-23 00:58:01.825 INFO  [cid=ed669799-2414-4a7c-bc47-88ca672bdcad uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 00:58:01.832 INFO  [cid=ed669799-2414-4a7c-bc47-88ca672bdcad uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=12 size=-
+2026-06-23 00:58:01.832 INFO  [cid=ae698c52-7347-43ef-9c45-b466b0cf487a uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 00:58:01.846 INFO  [cid=ae698c52-7347-43ef-9c45-b466b0cf487a uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=11 size=-
+2026-06-23 01:08:26.149 INFO  [cid=54432e1e-df1b-44eb-9d85-9e22eb733d95 uid=-] API - --> GET /api/admin/log-types ip=0:0:0:0:0:0:0:1
+2026-06-23 01:08:30.730 INFO  [cid=54432e1e-df1b-44eb-9d85-9e22eb733d95 uid=1] API - <-- GET /api/admin/log-types status=404 durationMs=4580 size=-
+2026-06-23 01:08:30.730 WARN  [cid=54432e1e-df1b-44eb-9d85-9e22eb733d95 uid=1] PERFORMANCE - SLOW_API GET /api/admin/log-types took 4580ms (>2000ms)
+2026-06-23 01:08:46.180 INFO  [cid=86e779e6-884a-425d-8e98-da0d1b45624c uid=-] API - --> GET /api/admin/log-types ip=0:0:0:0:0:0:0:1
+2026-06-23 01:08:46.181 INFO  [cid=33c37f57-584d-4de1-b425-4fd7d9d7ac17 uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 01:08:48.689 INFO  [cid=33c37f57-584d-4de1-b425-4fd7d9d7ac17 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=2509 size=-
+2026-06-23 01:08:48.690 WARN  [cid=33c37f57-584d-4de1-b425-4fd7d9d7ac17 uid=1] PERFORMANCE - SLOW_API GET /api/chat/conversations took 2509ms (>2000ms)
+2026-06-23 01:08:48.698 INFO  [cid=bcc942d5-faac-4c42-8feb-a4a4fe6aabb7 uid=-] API - --> GET /api/chat/contacts ip=0:0:0:0:0:0:0:1
+2026-06-23 01:08:48.702 INFO  [cid=86e779e6-884a-425d-8e98-da0d1b45624c uid=1] API - <-- GET /api/admin/log-types status=404 durationMs=2522 size=-
+2026-06-23 01:08:48.702 WARN  [cid=86e779e6-884a-425d-8e98-da0d1b45624c uid=1] PERFORMANCE - SLOW_API GET /api/admin/log-types took 2522ms (>2000ms)
+2026-06-23 01:08:48.709 INFO  [cid=bcc942d5-faac-4c42-8feb-a4a4fe6aabb7 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=11 size=-
+2026-06-23 01:08:48.866 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-06-23 01:08:48.932 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-06-23 01:08:48.946 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopping...
+2026-06-23 01:08:48.947 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@79f4a9d1]]
+2026-06-23 01:08:48.947 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopped.
+2026-06-23 01:08:48.991 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-23 01:08:49.025 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-06-23 01:08:49.035 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-06-23 01:08:54.792 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 37240 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-23 01:08:54.798 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-23 01:08:55.192 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-23 01:08:56.237 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-23 01:08:56.414 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 161 ms. Found 35 JPA repository interfaces.
+2026-06-23 01:08:56.791 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-23 01:08:56.792 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-23 01:08:57.425 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2026-06-23 01:08:57.442 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+2026-06-23 01:08:57.446 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-23 01:08:57.446 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-23 01:08:57.546 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 2689 ms
+2026-06-23 01:08:57.630 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-23 01:08:57.966 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@38e7860c
+2026-06-23 01:08:57.967 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-23 01:08:58.034 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-23 01:08:58.055 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-23 01:08:58.063 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-23 01:08:58.233 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-23 01:08:58.285 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-23 01:08:58.285 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-23 01:08:58.292 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-23 01:08:58.294 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-23 01:08:58.296 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-23 01:08:58.301 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-23 01:08:58.306 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-23 01:08:58.314 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-23 01:08:58.324 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-23 01:08:58.328 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-23 01:08:58.559 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-23 01:08:58.694 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-23 01:08:59.609 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-23 01:08:59.699 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-23 01:08:59.741 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-23 01:09:02.519 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-23 01:09:03.631 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-23 01:09:03.762 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-23 01:09:05.206 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-23 01:09:08.508 INFO  [cid=- uid=-] c.m.a.s.impl.SystemLogServiceImpl - Log directory resolved to: D:\Application\applications\mana community\mana-community-service\logs
+2026-06-23 01:09:08.848 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-23 01:09:08.930 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-23 01:09:10.774 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-23 01:09:10.896 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-23 01:09:10.898 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@1b4ab4dc]]
+2026-06-23 01:09:10.898 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-23 01:09:10.898 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+2026-06-23 01:09:10.916 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2026-06-23 01:09:10.962 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 16.864 seconds (process running for 17.402)
+2026-06-23 01:09:11.154 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-23 01:09:11.178 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Roles sequence synchronized to next available value successfully.
+2026-06-23 01:09:11.178 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-23 01:09:11.178 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-23 01:09:11.183 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-23 01:09:11.183 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-23 01:09:11.587 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ Role permissions seeded successfully
+2026-06-23 01:09:11.587 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-23 01:09:11.606 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 01:09:11.621 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-23 01:09:11.629 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-23 01:09:11.637 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-23 01:09:11.640 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-23 01:09:11.648 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-23 01:09:11.656 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-23 01:09:11.656 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-23 01:09:11.694 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 01:09:11.702 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-23 01:09:11.706 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-23 01:09:11.713 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-23 01:09:11.723 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-23 01:09:11.729 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-23 01:09:11.736 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-23 01:09:11.736 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-23 01:09:11.761 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-23 01:09:11.761 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-23 01:09:11.972 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-23 01:09:11.972 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-23 01:09:12.286 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-23 01:09:12.288 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-23 01:09:12.293 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 4 ms
+2026-06-23 01:09:12.466 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-23 01:09:12.466 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-23 01:09:12.521 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-23 01:09:12.521 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-23 01:09:12.556 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ✓ Player categories seeded successfully.
+2026-06-23 01:09:12.556 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-23 01:09:12.629 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ✓ Venues seeded successfully.
+2026-06-23 01:09:12.629 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-23 01:09:12.732 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-23 01:09:12.756 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-23 01:09:12.922 INFO  [cid=52792833-5a89-43ef-84f8-9390d31bd8bf uid=-] API - --> GET /api/chat/conversations ip=0:0:0:0:0:0:0:1
+2026-06-23 01:09:12.932 INFO  [cid=52792833-5a89-43ef-84f8-9390d31bd8bf uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=9 size=-
+2026-06-23 01:09:12.993 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-23 01:09:12.993 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-23 01:09:13.011 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-23 01:09:13.011 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-23 01:09:13.013 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-23 01:09:13.082 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-23 01:09:13.124 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-23 01:09:13.182 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Dispute committee seeded: 1 member
+2026-06-23 01:09:13.284 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction teams seeded: 5 active teams
+2026-06-23 01:09:13.648 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction players seeded from confirmed event registrations
+2026-06-23 01:09:13.649 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-23 01:09:13.718 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-23 01:09:13.720 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-23 01:09:13.742 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ✓ Venue table seeded: Community Sports Arena
+2026-06-23 01:09:13.742 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-23 01:09:13.793 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-23 01:09:13.794 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-23 01:09:13.874 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ✓ Sports event table seeded: Winter Football League
+2026-06-23 01:09:13.875 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-23 01:09:14.176 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-23 01:09:14.448 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-23 01:09:14.448 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-23 01:09:14.459 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-23 01:09:14.460 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-23 01:09:14.460 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-23 01:09:14.460 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-23 01:10:10.833 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 1 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(1)-CONNECTED(1)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 9, active threads = 0, queued tasks = 0, completed tasks = 9], outboundChannel[pool size = 2, active threads = 0, queued tasks = 0, completed tasks = 2], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]

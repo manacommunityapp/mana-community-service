@@ -1,0 +1,30 @@
+[Unit]
+Description=Mana Community Backend Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mana-community/backend
+
+# Log directory — logback-spring.xml reads this via ${LOG_DIR:-logs}
+Environment=LOG_DIR=/var/log/mana-community
+Environment=SPRING_PROFILES_ACTIVE=prod
+
+# These MUST be set via systemctl edit backend --force (override file)
+# or in /etc/mana-community/env. Never commit real secrets to git.
+EnvironmentFile=-/etc/mana-community/env
+
+ExecStart=/usr/bin/java -Xms256m -Xmx512m -DLOG_DIR=/var/log/mana-community -jar manacommunity.jar
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mana-backend
+
+[Install]
+WantedBy=multi-user.target

@@ -32,6 +32,15 @@ jobs:
           source: "target/*.jar"
           target: "/tmp"
 
+      - name: Copy Service File to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "deploy/backend.service"
+          target: "/tmp"
+
       - name: Deploy Application
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -39,15 +48,43 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
+            # Create directories
             sudo mkdir -p /opt/mana-community/backend
+            sudo mkdir -p /var/log/mana-community/archive
+            sudo mkdir -p /etc/mana-community
 
+            # Deploy JAR
             sudo cp /tmp/target/*.jar \
-            /opt/mana-community/backend/manacommunity.jar
+              /opt/mana-community/backend/manacommunity.jar
 
+            # Deploy systemd service (only if changed or missing)
+            sudo cp /tmp/deploy/backend.service /etc/systemd/system/backend.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable backend
+
+            # Create env file if it doesn't exist (secrets stay on server)
+            if [ ! -f /etc/mana-community/env ]; then
+              echo "WARNING: /etc/mana-community/env not found!"
+              echo "Create it from deploy/env.example with real values."
+            fi
+
+            # Restart service
             sudo systemctl restart backend
 
             sleep 15
 
+            # Verify deployment
             sudo systemctl status backend --no-pager
-
             sudo systemctl is-active backend
+
+            # Verify log files are being written
+            echo ""
+            echo "=== Log directory ==="
+            ls -la /var/log/mana-community/
+
+            echo ""
+            echo "=== Last 5 lines of mana-service.log ==="
+            tail -5 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
+
+            # Cleanup temp files
+            rm -rf /tmp/target /tmp/deploy

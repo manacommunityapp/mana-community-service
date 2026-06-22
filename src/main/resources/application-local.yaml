@@ -1,3 +1,11 @@
+logging:
+  file:
+    name: ${LOG_DIR:/var/log/mana-community}/mana-service.log
+  frontend:
+    file: ${LOG_DIR:/var/log/mana-community}/frontend.log
+  database:
+    file: ${LOG_DIR:/var/log/mana-community}/database.log
+
 spring:
   datasource:
     # Replace with your AWS RDS MySQL endpoint once deployed

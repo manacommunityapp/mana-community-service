@@ -36,6 +36,13 @@ public class SystemLogController {
         return ResponseEntity.ok(systemLogService.getLogTail(lines, level, search, logType));
     }
 
+    @GetMapping("/log-types")
+    public ResponseEntity<java.util.List<String>> getLogTypes(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        return ResponseEntity.ok(systemLogService.getAvailableLogTypes());
+    }
+
     @GetMapping("/system-stats")
     public ResponseEntity<SystemStatsResponse> getSystemStats(
             @AuthenticationPrincipal UserPrincipal principal) {
