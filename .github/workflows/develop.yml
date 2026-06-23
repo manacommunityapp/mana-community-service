@@ -32,13 +32,13 @@ jobs:
           source: "target/*.jar"
           target: "/tmp/dev"
 
-      - name: Copy Deploy Files to Server
+      - name: Copy Service File to Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: "deploy/backend-dev.service,deploy/nginx-dev.conf"
+          source: "deploy/backend-dev.service"
           target: "/tmp/dev"
 
       - name: Deploy Dev Application
@@ -52,6 +52,7 @@ jobs:
             sudo mkdir -p /opt/mana-community/backend-dev
             sudo mkdir -p /var/log/mana-community-dev/archive
             sudo mkdir -p /etc/mana-community
+            sudo mkdir -p /etc/nginx/snippets
 
             # Deploy JAR
             sudo cp /tmp/dev/target/*.jar \
@@ -62,16 +63,34 @@ jobs:
             sudo systemctl daemon-reload
             sudo systemctl enable backend-dev
 
-            # Deploy nginx dev config (include snippet)
-            sudo cp /tmp/dev/deploy/nginx-dev.conf /etc/nginx/snippets/dev-api.conf
+            # Deploy nginx dev-api config
+            sudo tee /etc/nginx/snippets/dev-api.conf > /dev/null <<'NGINX'
+            location /dev-api/ {
+                proxy_pass http://localhost:8081/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
 
-            # Add include to main nginx config if not already present
+            location /dev-ws/ {
+                proxy_pass http://localhost:8081/ws/;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            NGINX
+
+            # Add include to nginx if not already present
             if ! grep -q 'snippets/dev-api.conf' /etc/nginx/sites-enabled/default; then
-              # Insert the include line before the existing /api/ location block
-              sudo sed -i '/location \/api\//i \    include snippets/dev-api.conf;\n' /etc/nginx/sites-enabled/default
+              sudo sed -i '/location \/api\//i \    include snippets\/dev-api.conf;' /etc/nginx/sites-enabled/default
             fi
 
-            # Test and reload nginx
             sudo nginx -t && sudo systemctl reload nginx
 
             # Create env file if it doesn't exist
@@ -98,13 +117,6 @@ jobs:
             echo "=== Last 5 lines of mana-service.log ==="
             tail -5 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
 
-            echo ""
-            echo "=== Active profile check ==="
-            grep -m1 "active profile" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
-              || grep -m1 "profiles are active" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
-              || echo "Profile line not found yet — check journalctl -u backend-dev"
-
-            # Verify nginx routes
             echo ""
             echo "=== Dev API health check ==="
             curl -s http://localhost:8081/actuator/health || echo "Backend not responding yet"
