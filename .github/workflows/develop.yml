@@ -32,13 +32,13 @@ jobs:
           source: "target/*.jar"
           target: "/tmp/dev"
 
-      - name: Copy Service File to Server
+      - name: Copy Deploy Files to Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: "deploy/backend-dev.service"
+          source: "deploy/backend-dev.service,deploy/nginx-dev.conf"
           target: "/tmp/dev"
 
       - name: Deploy Dev Application
@@ -61,6 +61,18 @@ jobs:
             sudo cp /tmp/dev/deploy/backend-dev.service /etc/systemd/system/backend-dev.service
             sudo systemctl daemon-reload
             sudo systemctl enable backend-dev
+
+            # Deploy nginx dev config (include snippet)
+            sudo cp /tmp/dev/deploy/nginx-dev.conf /etc/nginx/snippets/dev-api.conf
+
+            # Add include to main nginx config if not already present
+            if ! grep -q 'snippets/dev-api.conf' /etc/nginx/sites-enabled/default; then
+              # Insert the include line before the existing /api/ location block
+              sudo sed -i '/location \/api\//i \    include snippets/dev-api.conf;\n' /etc/nginx/sites-enabled/default
+            fi
+
+            # Test and reload nginx
+            sudo nginx -t && sudo systemctl reload nginx
 
             # Create env file if it doesn't exist
             if [ ! -f /etc/mana-community/env-dev ]; then
@@ -91,6 +103,11 @@ jobs:
             grep -m1 "active profile" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
               || grep -m1 "profiles are active" /var/log/mana-community-dev/mana-service.log 2>/dev/null \
               || echo "Profile line not found yet — check journalctl -u backend-dev"
+
+            # Verify nginx routes
+            echo ""
+            echo "=== Dev API health check ==="
+            curl -s http://localhost:8081/actuator/health || echo "Backend not responding yet"
 
             # Cleanup temp files
             rm -rf /tmp/dev
