@@ -36,7 +36,7 @@ app:
   security:
     mock-auth-enabled: false
     jwt:
-      secret: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
+      secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
       refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
       issuer: ${JWT_ISSUER:mana-community}
