@@ -52,7 +52,6 @@ jobs:
             sudo mkdir -p /opt/mana-community/backend-dev
             sudo mkdir -p /var/log/mana-community-dev/archive
             sudo mkdir -p /etc/mana-community
-            sudo mkdir -p /etc/nginx/snippets
 
             # Deploy JAR
             sudo cp /tmp/dev/target/*.jar \
@@ -63,35 +62,16 @@ jobs:
             sudo systemctl daemon-reload
             sudo systemctl enable backend-dev
 
-            # Deploy nginx dev-api config
-            sudo tee /etc/nginx/snippets/dev-api.conf > /dev/null <<'NGINX'
-            location /dev-api/ {
-                proxy_pass http://localhost:8081/;
-                proxy_http_version 1.1;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-            }
-
-            location /dev-ws/ {
-                proxy_pass http://localhost:8081/ws/;
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header Connection "upgrade";
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-            }
-            NGINX
-
-            # Add include to nginx if not already present
-            if ! grep -q 'snippets/dev-api.conf' /etc/nginx/sites-enabled/default; then
-              sudo sed -i '/location \/api\//i \    include snippets\/dev-api.conf;' /etc/nginx/sites-enabled/default
+            # Ensure nginx has dev-api route (skip if already configured)
+            if ! grep -q 'location /dev-api/' /etc/nginx/sites-enabled/default; then
+              # Remove any stale snippet includes
+              sudo sed -i '/snippets\/dev-api.conf/d' /etc/nginx/sites-enabled/default
+              # Add dev-api and dev-ws blocks before the prod /api/ block
+              sudo sed -i '/location \/api\//i \    location /dev-api/ {\n        proxy_pass http://localhost:8081/;\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    location /dev-ws/ {\n        proxy_pass http://localhost:8081/ws/;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n' /etc/nginx/sites-enabled/default
+              sudo nginx -t && sudo systemctl reload nginx
+            else
+              echo "nginx dev-api route already configured — skipping"
             fi
-
-            sudo nginx -t && sudo systemctl reload nginx
 
             # Create env file if it doesn't exist
             if [ ! -f /etc/mana-community/env-dev ]; then
