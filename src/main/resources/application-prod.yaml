@@ -1,7 +1,7 @@
-# Dev profile — loaded when SPRING_PROFILES_ACTIVE=dev
+# Prod profile — loaded when SPRING_PROFILES_ACTIVE=prod
 logging:
   file:
-    name: ${LOG_DIR:/var/log/mana-community-dev}/mana-service.log
+    name: ${LOG_DIR:/var/log/mana-community}/mana-service.log
   frontend:
     file: ${LOG_DIR:/var/log/mana-community}/frontend.log
   database:
@@ -11,15 +11,15 @@ spring:
   application:
     name: mana-community-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://3.109.145.130:5432/manacommunity}
-    username: ${DB_USERNAME:ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)}
-    password: ${DB_PASSWORD:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
+    url: jdbc:postgresql://3.109.145.130:5432/manacommunity
+    username: ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)
+    password: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         default_schema: manacommunity
@@ -28,15 +28,15 @@ spring:
         use_sql_comments: false
 
 server:
-  port: 8081
+  port: 8080
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
   security:
     mock-auth-enabled: false
     jwt:
-      secret: ${JWT_SECRET:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
+      secret: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
       refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
       issuer: ${JWT_ISSUER:mana-community}
