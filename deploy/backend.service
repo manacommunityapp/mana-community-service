@@ -15,7 +15,13 @@ Environment=SPRING_PROFILES_ACTIVE=prod
 # or in /etc/mana-community/env. Never commit real secrets to git.
 EnvironmentFile=-/etc/mana-community/env
 
-ExecStart=/usr/bin/java -Xms256m -Xmx512m -DLOG_DIR=/var/log/mana-community -jar manacommunity.jar
+# JASYPT_ENCRYPTOR_PASSWORD is read from /etc/mana-community/env
+# and used to decrypt ENC(...) values in config at startup.
+ExecStart=/bin/bash -c 'exec /usr/bin/java -Xms256m -Xmx512m \
+  -DLOG_DIR=/var/log/mana-community \
+  -Djasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASSWORD} \
+  -Dspring.profiles.active=prod \
+  -jar manacommunity.jar --spring.profiles.active=prod'
 
 Restart=on-failure
 RestartSec=10

@@ -1,0 +1,105 @@
+name: Dev Deployment
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build Application
+        run: mvn clean package -DskipTests=true
+
+      - name: Copy JAR to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "target/*.jar"
+          target: "/tmp/dev"
+
+      - name: Copy Service File to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "deploy/backend-dev.service"
+          target: "/tmp/dev"
+
+      - name: Deploy Dev Application
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            # Create directories
+            sudo mkdir -p /opt/mana-community/backend-dev
+            sudo mkdir -p /var/log/mana-community-dev/archive
+            sudo mkdir -p /etc/mana-community
+
+            # Deploy JAR
+            sudo cp /tmp/dev/target/*.jar \
+              /opt/mana-community/backend-dev/manacommunity.jar
+
+            # Deploy systemd service
+            sudo cp /tmp/dev/deploy/backend-dev.service /etc/systemd/system/backend-dev.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable backend-dev
+
+            # Ensure nginx has dev-api route (skip if already configured)
+            if ! grep -q 'location /dev-api/' /etc/nginx/sites-enabled/default; then
+              # Remove any stale snippet includes
+              sudo sed -i '/snippets\/dev-api.conf/d' /etc/nginx/sites-enabled/default
+              # Add dev-api and dev-ws blocks before the prod /api/ block
+              sudo sed -i '/location \/api\//i \    location /dev-api/ {\n        proxy_pass http://localhost:8081/;\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n\n    location /dev-ws/ {\n        proxy_pass http://localhost:8081/ws/;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n' /etc/nginx/sites-enabled/default
+              sudo nginx -t && sudo systemctl reload nginx
+            else
+              echo "nginx dev-api route already configured — skipping"
+            fi
+
+            # Create env file if it doesn't exist
+            if [ ! -f /etc/mana-community/env-dev ]; then
+              echo "WARNING: /etc/mana-community/env-dev not found!"
+              echo "Create it with at minimum: JASYPT_ENCRYPTOR_PASSWORD=<your-master-key>"
+            fi
+
+            # Restart service
+            sudo systemctl restart backend-dev
+
+            sleep 15
+
+            # Verify deployment
+            sudo systemctl status backend-dev --no-pager
+            sudo systemctl is-active backend-dev
+
+            # Verify log files
+            echo ""
+            echo "=== Dev log directory ==="
+            ls -la /var/log/mana-community-dev/
+
+            echo ""
+            echo "=== Last 5 lines of mana-service.log ==="
+            tail -5 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
+
+            echo ""
+            echo "=== Dev API health check ==="
+            curl -s http://localhost:8081/actuator/health || echo "Backend not responding yet"
+
+            # Cleanup temp files
+            rm -rf /tmp/dev
