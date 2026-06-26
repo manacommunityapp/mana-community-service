@@ -5,3 +5,7 @@
 
 ALTER TABLE sports_event
     ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);
+
+-- The full event editor stores its contact details on the tournament record.
+ALTER TABLE tournament
+    ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);

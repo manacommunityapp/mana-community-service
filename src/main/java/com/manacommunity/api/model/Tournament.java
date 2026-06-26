@@ -43,9 +43,10 @@ public class Tournament {
 
     private String bannerImage;
 
+    private String contactName;
     private String contactNumber;
     private String contactEmail;
-    
+
     @Column(length = 5000)
     private String otherContacts;
 

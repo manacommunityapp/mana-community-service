@@ -36,6 +36,7 @@ public class TournamentRequest {
     private List<Long> sportsEventIds;
     private List<SponsorDto> sponsors;
 
+    private String contactName;
     private String contactNumber;
     private String contactEmail;
     private String otherContacts;

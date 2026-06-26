@@ -70,6 +70,7 @@ public class TournamentServiceImpl implements TournamentService {
         tournament.setRegistrationDateEnd(req.getRegistrationDateEnd());
         tournament.setMaxParticipants(req.getMaxParticipants());
         
+        tournament.setContactName(req.getContactName());
         tournament.setContactNumber(req.getContactNumber());
         tournament.setContactEmail(req.getContactEmail());
         tournament.setOtherContacts(req.getOtherContacts());
