@@ -53,7 +53,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .name(req.getName())
                 .active(true)
                 .sport(sport)
-                .community(communityRepo.getReferenceById(req.getCommunityId()))
+                .community(communityRepo.findById(req.getCommunityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())))
                 .eventDateStart(req.getEventDateStart())
                 .eventDateEnd(req.getEventDateEnd())
                 .registrationDateStart(req.getRegistrationDateStart())
@@ -72,6 +72,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .maxPlayers(req.getMaxPlayers())
                 .gender(req.getGender())
                 .playersBorn(req.getPlayersBorn())
+                .contactName(req.getContactName())
                 .contactNumber(req.getContactNumber())
                 .contactEmail(req.getContactEmail())
                 .otherContacts(req.getOtherContacts())
@@ -180,7 +181,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .build();
 
         if (req.getPartnerUserId() != null)
-            reg.setPartner(userRepo.getReferenceById(req.getPartnerUserId()));
+            reg.setPartner(userRepo.findById(req.getPartnerUserId()).orElseThrow(() -> new ResourceNotFoundException("AppUser", req.getPartnerUserId())));
 
         SportsEventRegistration saved = regRepo.save(reg);
 
@@ -602,10 +603,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setRegistrationDateStart(req.getRegistrationDateStart());
         event.setRegistrationDateEnd(req.getRegistrationDateEnd());
         if (req.getVenueId() != null) {
-            event.setVenue(venueRepo.getReferenceById(req.getVenueId()));
+            event.setVenue(venueRepo.findById(req.getVenueId()).orElseThrow(() -> new ResourceNotFoundException("Venue", req.getVenueId())));
         }
         event.setMaxParticipants(req.getMaxParticipants());
-        
+
         if (req.getCategoryIds() != null) {
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
         }
@@ -619,6 +620,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setTournamentType(req.getTournamentType() != null
                 ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null);
         
+        event.setContactName(req.getContactName());
         event.setContactNumber(req.getContactNumber());
         event.setContactEmail(req.getContactEmail());
         event.setOtherContacts(req.getOtherContacts());
@@ -684,7 +686,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .type(req.getType())
                 .build();
         if (req.getCommunityId() != null) {
-            cat.setCommunity(communityRepo.getReferenceById(req.getCommunityId()));
+            cat.setCommunity(communityRepo.findById(req.getCommunityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())));
         }
         return categoryRepo.save(cat);
     }
@@ -701,7 +703,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         cat.setMaxAge(req.getMaxAge());
         cat.setGender(req.getGender());
         if (req.getCommunityId() != null) {
-            cat.setCommunity(communityRepo.getReferenceById(req.getCommunityId()));
+            cat.setCommunity(communityRepo.findById(req.getCommunityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())));
         } else {
             cat.setCommunity(null);
         }

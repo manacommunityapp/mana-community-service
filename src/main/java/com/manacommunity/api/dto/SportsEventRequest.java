@@ -48,6 +48,7 @@ public class SportsEventRequest {
     private LocalDate playersBorn;
     private List<SponsorDto> sponsors;
 
+    private String contactName;
     private String contactNumber;
     private String contactEmail;
     private String otherContacts;

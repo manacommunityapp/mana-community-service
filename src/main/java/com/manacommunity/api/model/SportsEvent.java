@@ -133,6 +133,7 @@ public class SportsEvent {
     @Column(name = "dispute_committee_ids", length = 1000)
     private String disputeCommitteeIds;
 
+    private String contactName;
     private String contactNumber;
     private String contactEmail;
     
