@@ -139,6 +139,12 @@ public class SportsEvent {
     @Column(name = "other_contacts", length = 1000)
     private String otherContacts;
 
+    // Intent flag: marks a (team-sport) event as auction-based. The actual
+    // AuctionConfig is still created separately on the Auction screen; this
+    // only records that the organiser intends to run a player auction.
+    @Column(name = "auction_enabled")
+    private Boolean auctionEnabled;
+
     private String bannerImage;
     private String tournamentLevel;
 

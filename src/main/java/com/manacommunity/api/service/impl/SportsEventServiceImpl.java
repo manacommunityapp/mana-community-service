@@ -75,6 +75,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .contactNumber(req.getContactNumber())
                 .contactEmail(req.getContactEmail())
                 .otherContacts(req.getOtherContacts())
+                .auctionEnabled(req.getAuctionEnabled() != null && req.getAuctionEnabled())
                 .bannerImage(req.getBannerImage())
                 .tournamentLevel(req.getTournamentLevel())
                 .description(req.getDescription())
@@ -621,6 +622,9 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setContactNumber(req.getContactNumber());
         event.setContactEmail(req.getContactEmail());
         event.setOtherContacts(req.getOtherContacts());
+        if (req.getAuctionEnabled() != null) {
+            event.setAuctionEnabled(req.getAuctionEnabled());
+        }
         event.setBannerImage(req.getBannerImage());
         event.setTournamentLevel(req.getTournamentLevel());
         event.setDescription(req.getDescription());
