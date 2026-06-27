@@ -10,6 +10,8 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.SportsEventService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -542,8 +544,18 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Override
+    public Page<SportsEvent> getAllEvents(Pageable pageable) {
+        return eventRepo.findByActiveTrue(pageable);
+    }
+
+    @Override
     public List<SportsEvent> getCommunityEvents(Long communityId) {
         return eventRepo.findByCommunityIdAndActiveTrueOrderByEventDateStartDesc(communityId);
+    }
+
+    @Override
+    public Page<SportsEvent> getCommunityEvents(Long communityId, Pageable pageable) {
+        return eventRepo.findByCommunityIdAndActiveTrue(communityId, pageable);
     }
 
     @Override

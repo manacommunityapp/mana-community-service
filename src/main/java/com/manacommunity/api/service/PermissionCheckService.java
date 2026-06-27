@@ -1,5 +1,6 @@
 package com.manacommunity.api.service;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.repository.RolePermissionRepository;
@@ -31,7 +32,7 @@ public class PermissionCheckService {
      */
     public boolean hasAnyPermission(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
-        if ("SUPER_ADMIN".equalsIgnoreCase(user.getRole())) {
+        if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);
@@ -53,7 +54,7 @@ public class PermissionCheckService {
      */
     public boolean hasAllPermissions(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
-        if ("SUPER_ADMIN".equalsIgnoreCase(user.getRole())) {
+        if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);

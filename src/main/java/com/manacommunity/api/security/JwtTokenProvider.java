@@ -49,16 +49,24 @@ public class JwtTokenProvider {
     private final long refreshExpirationMs;
     private final String issuer;
 
+    private static final String INSECURE_DEFAULT_PREFIX = "dev-only-insecure-secret";
+
     public JwtTokenProvider(
             @Value("${app.security.jwt.secret}") String secret,
             @Value("${app.security.jwt.expiration-ms:900000}") long expirationMs,
             @Value("${app.security.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs,
-            @Value("${app.security.jwt.issuer:mana-community}") String issuer) {
+            @Value("${app.security.jwt.issuer:mana-community}") String issuer,
+            @Value("${app.security.mock-auth-enabled:false}") boolean mockAuthEnabled) {
 
         byte[] keyBytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalStateException(
                     "app.security.jwt.secret must be at least 32 characters (256 bits) for HS256.");
+        }
+        if (!mockAuthEnabled && secret.startsWith(INSECURE_DEFAULT_PREFIX)) {
+            throw new IllegalStateException(
+                    "The default dev JWT secret must not be used outside of local development. "
+                    + "Set the JWT_SECRET environment variable to a unique, random value.");
         }
         this.key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(keyBytes);
         this.expirationMs = expirationMs;

@@ -21,7 +21,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "*") // TODO: restrict in production
 @RequiredArgsConstructor
 public class AuditLogController {
 

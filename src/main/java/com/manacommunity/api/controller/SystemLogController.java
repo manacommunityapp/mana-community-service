@@ -14,7 +14,6 @@ import static com.manacommunity.api.constants.PermissionConstants.VIEW_ADMIN;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class SystemLogController {
 

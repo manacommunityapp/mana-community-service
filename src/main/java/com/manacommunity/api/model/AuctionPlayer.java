@@ -47,6 +47,9 @@ public class AuctionPlayer {
     @Column(nullable = false)
     private PlayerStatus status;
 
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_team_id")
     private AuctionTeam assignedTeam;

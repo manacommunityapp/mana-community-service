@@ -8,10 +8,9 @@ logging:
 
 spring:
   datasource:
-    # Replace with your AWS RDS MySQL endpoint once deployed
-    url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
-    password: mana@community@8008
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:mana@community@8008}
     driver-class-name: org.postgresql.Driver
 
   jpa:

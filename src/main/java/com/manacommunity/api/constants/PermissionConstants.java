@@ -19,6 +19,16 @@ public final class PermissionConstants {
         // Non-instantiable utility class
     }
 
+    // ──── ROLE NAMES ────────────────────────────────────────────────
+    public static final String ROLE_SUPER_ADMIN    = "SUPER_ADMIN";
+    public static final String ROLE_ADMIN          = "ADMIN";
+    public static final String ROLE_COMMUNITY_ADMIN = "COMMUNITY_ADMIN";
+    public static final String ROLE_SPORTS_ADMIN   = "SPORTS_ADMIN";
+    public static final String ROLE_MEMBER         = "MEMBER";
+    public static final String ROLE_VENDOR         = "VENDOR";
+    public static final String ROLE_CASHIER        = "CASHIER";
+    public static final String ROLE_STAFF          = "STAFF";
+
     // ──── COMMUNITY FEED ────────────────────────────────────────────
     public static final String VIEW_FEED       = "View Feed";
     public static final String CREATE_POST     = "Create Post";

@@ -1,5 +1,6 @@
 package com.manacommunity.api.service.impl;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.response.AuthResponse;
 import com.manacommunity.api.dto.KycRequest;
 import com.manacommunity.api.dto.LoginRequest;
@@ -32,7 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private static final int MAX_ATTEMPTS_USER = 5;
     private static final int MAX_ATTEMPTS_ADMIN = 3;
     private static final Duration LOCK_DURATION = Duration.ofMinutes(15);
-    private static final Set<String> ADMIN_ROLES = Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN");
+    private static final Set<String> ADMIN_ROLES = Set.of(ROLE_ADMIN, ROLE_SUPER_ADMIN, ROLE_COMMUNITY_ADMIN);
 
     @Autowired
     private AppUserRepository userRepository;
@@ -50,6 +51,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.security.AuditService auditService;
     @Autowired
     private com.manacommunity.api.security.SessionService sessionService;
+    @Autowired
+    private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
 
     @Override
     @Transactional
@@ -90,18 +93,18 @@ public class AuthServiceImpl implements AuthService {
         user.setGovtIdNumber(maskedAadhar);
         user.setGovtIdType("AADHAAR");
         user.setKycStatus("VERIFIED");
-        user.setRole("MEMBER"); // Standard role for new users
+        user.setRole(ROLE_MEMBER); // Standard role for new users
         Role memberRole;
         if (community != null) {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityId("MEMBER", community.getId())
+            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityId(ROLE_MEMBER, community.getId())
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name("MEMBER")
+                            .name(ROLE_MEMBER)
                             .communityId(community.getId())
                             .build()));
         } else {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull("MEMBER")
+            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_MEMBER)
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name("MEMBER")
+                            .name(ROLE_MEMBER)
                             .build()));
         }
         user.setRoleEntity(memberRole);
@@ -237,7 +240,7 @@ public class AuthServiceImpl implements AuthService {
                     org.springframework.http.HttpStatus.BAD_REQUEST, "KYC_CONSENT_MISSING");
 
         user.setGovtIdType(req.getGovtIdType().name());
-        user.setGovtIdNumber(req.getGovtIdNumber()); // encrypt before storing in production
+        user.setGovtIdNumber(fieldEncryptionService.encrypt(req.getGovtIdNumber()));
         user.setKycStatus("PENDING");
         userRepository.save(user);
         return true;

@@ -154,14 +154,15 @@ public class TournamentServiceImpl implements TournamentService {
 
         Tournament tournament = tournamentRepo.findById(id).orElse(null);
         if (tournament == null) {
-            SportsEvent event = eventRepo.findById(id).orElse(null);
-            if (event != null) {
-                tournament = event.getTournament();
+            SportsEvent event = eventRepo.findById(id)
+                    .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException(
+                            "Tournament or Event", id));
+            tournament = event.getTournament();
+            if (tournament == null) {
+                throw new com.manacommunity.api.exception.ManaCommunityException(
+                        "Event " + id + " is not linked to a tournament.",
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "NO_TOURNAMENT");
             }
-        }
-
-        if (tournament == null) {
-            throw new com.manacommunity.api.exception.ResourceNotFoundException("Tournament or Event", id);
         }
 
         tournament.setRegistrationStatus(tournamentStatus);

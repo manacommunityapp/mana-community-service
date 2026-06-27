@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/profile")
-@CrossOrigin(origins = "*") // TODO: restrict in production
 @RequiredArgsConstructor
 public class UserProfileController {
 

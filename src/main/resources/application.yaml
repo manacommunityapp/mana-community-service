@@ -42,6 +42,9 @@ server:
     include-message: never
     include-stacktrace: never
     include-exception: false
+    include-binding-errors: never
+    whitelabel:
+      enabled: false
 
 # ── Actuator / Micrometer (observability) ───────────────────────────────
 # Endpoints are SECURED in SecurityConfig: /health + /info are public (for the
@@ -100,6 +103,9 @@ app:
       # UI usage is unaffected; lower it if you see abuse.
       enabled: ${RATE_LIMIT_ENABLED:true}
       requests-per-minute: ${RATE_LIMIT_RPM:300}
+      # Only enable when behind a trusted reverse proxy that sets X-Forwarded-For.
+      # When false (default), the filter uses the TCP source address directly.
+      trust-forwarded-header: ${RATE_LIMIT_TRUST_XFF:false}
 
     # ── Public event-registration anti-abuse (off by default) ─────────────
     # Both gates are no-ops unless enabled, so authenticated/admin add flows and

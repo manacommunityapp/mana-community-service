@@ -58,9 +58,9 @@ public class MatchPersistenceService {
             () -> new IllegalArgumentException("Tournament config not found: " + configId));
 
         config.setTournamentName(req.tournamentName());
-        config.setSport(sportMetaRepo.getReferenceById(req.sportId()));
-        config.setCommunity(communityRepo.getReferenceById(req.communityId()));
-        if (req.eventId() != null) config.setEvent(eventRepo.getReferenceById(req.eventId()));
+        config.setSport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())));
+        config.setCommunity(communityRepo.findById(req.communityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.communityId())));
+        if (req.eventId() != null) config.setEvent(eventRepo.findById(req.eventId()).orElseThrow(() -> new ResourceNotFoundException("SportsEvent", req.eventId())));
         config.setTournamentType(TournamentType.valueOf(req.tournamentType()));
         config.setTotalTeams(req.totalTeams());
         config.setNumberOfGroups(req.numberOfGroups());
@@ -72,7 +72,7 @@ public class MatchPersistenceService {
         config.setEndDate(req.endDate());
         config.setMatchDurationMinutes(Objects.requireNonNullElse(req.matchDurationMinutes(), 90));
         config.setBreakBetweenMatchesMinutes(Objects.requireNonNullElse(req.breakBetweenMatchesMinutes(), 30));
-        if (req.venueId() != null) config.setVenue(venueRepo.getReferenceById(req.venueId()));
+        if (req.venueId() != null) config.setVenue(venueRepo.findById(req.venueId()).orElseThrow(() -> new ResourceNotFoundException("Venue", req.venueId())));
         else config.setVenue(null);
         config.setPointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2));
         config.setPointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1));
@@ -112,8 +112,8 @@ public class MatchPersistenceService {
     private TournamentConfig buildConfig(TournamentConfigRequest req, Long adminUserId) {
         TournamentConfig.TournamentConfigBuilder builder = TournamentConfig.builder()
             .tournamentName(req.tournamentName())
-            .sport(sportMetaRepo.getReferenceById(req.sportId()))
-            .community(communityRepo.getReferenceById(req.communityId()))
+            .sport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())))
+            .community(communityRepo.findById(req.communityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.communityId())))
             .tournamentType(TournamentType.valueOf(req.tournamentType()))
             .totalTeams(req.totalTeams())
             .numberOfGroups(req.numberOfGroups())
@@ -125,15 +125,15 @@ public class MatchPersistenceService {
             .endDate(req.endDate())
             .matchDurationMinutes(Objects.requireNonNullElse(req.matchDurationMinutes(), 90))
             .breakBetweenMatchesMinutes(Objects.requireNonNullElse(req.breakBetweenMatchesMinutes(), 30))
-            .venue(req.venueId() != null ? venueRepo.getReferenceById(req.venueId()) : null)
+            .venue(req.venueId() != null ? venueRepo.findById(req.venueId()).orElseThrow(() -> new ResourceNotFoundException("Venue", req.venueId())) : null)
             .pointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2))
             .pointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1))
             .pointsForLoss(Objects.requireNonNullElse(req.pointsForLoss(), 0))
             .status(TournamentConfig.TournamentStatus.DRAFT)
-            .createdBy(userRepo.getReferenceById(adminUserId));
+            .createdBy(userRepo.findById(adminUserId).orElseThrow(() -> new ResourceNotFoundException("AppUser", adminUserId)));
 
         if (req.eventId() != null) {
-            builder.event(eventRepo.getReferenceById(req.eventId()));
+            builder.event(eventRepo.findById(req.eventId()).orElseThrow(() -> new ResourceNotFoundException("SportsEvent", req.eventId())));
         }
         return builder.build();
     }
@@ -352,8 +352,8 @@ public class MatchPersistenceService {
             .teamB(teamB)
             .scheduledAt(scheduledAt)
             .durationMinutes(m.duration() != null ? m.duration() : 60)
-            .venue(m.venueId() != null ? venueRepo.getReferenceById(m.venueId()) : config.getVenue())
-            .court(m.courtId() != null ? courtRepo.getReferenceById(m.courtId()) : null)
+            .venue(m.venueId() != null ? venueRepo.findById(m.venueId()).orElseThrow(() -> new ResourceNotFoundException("Venue", m.venueId())) : config.getVenue())
+            .court(m.courtId() != null ? courtRepo.findById(m.courtId()).orElseThrow(() -> new ResourceNotFoundException("Court", m.courtId())) : null)
             .status(parseStatus(m.status(), MatchStatus.SCHEDULED))
             .matchNotes(notes)
             .build();

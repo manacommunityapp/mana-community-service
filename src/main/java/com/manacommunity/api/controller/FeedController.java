@@ -15,7 +15,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/posts")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class FeedController {
 

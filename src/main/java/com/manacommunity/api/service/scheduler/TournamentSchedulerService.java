@@ -83,7 +83,7 @@ public class TournamentSchedulerService {
         if (venue != null) {
             try {
                 Long venueId = Long.parseLong(venue);
-                match.setVenue(venueRepo.getReferenceById(venueId));
+                match.setVenue(venueRepo.findById(venueId).orElseThrow(() -> new ResourceNotFoundException("Venue", venueId)));
             } catch (NumberFormatException e) {
                 // legacy string venue — ignore
             }

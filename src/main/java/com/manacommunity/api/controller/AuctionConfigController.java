@@ -38,8 +38,7 @@ public class AuctionConfigController {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        return ResponseEntity.ok(auctionService.getConfigsBySportAndCommunity(sportId, communityId)
-            .stream().map(c -> auctionService.getConfigResponse(c.getId())).toList());
+        return ResponseEntity.ok(auctionService.getConfigResponsesBySportAndCommunity(sportId, communityId));
     }
 
     /** GET all configs for the user's community across all sports */
@@ -49,8 +48,7 @@ public class AuctionConfigController {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        return ResponseEntity.ok(auctionService.getAllConfigsByCommunity(communityId)
-            .stream().map(c -> auctionService.getConfigResponse(c.getId())).toList());
+        return ResponseEntity.ok(auctionService.getConfigResponsesByCommunity(communityId));
     }
 
     /** GET check if auction config exists for the logged-in user's community */
@@ -123,16 +121,15 @@ public class AuctionConfigController {
         return ResponseEntity.ok(auctionService.updateStatus(id, status));
     }
 
-    /** POST upload players via CSV / Excel */
+    /** POST upload players via CSV */
     @PostMapping("/{id}/players/upload")
-    public ResponseEntity<String> uploadPlayers(
+    public ResponseEntity<AuctionCsvService.UploadResult> uploadPlayers(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        int count = csvService.uploadPlayersFromFile(id, file);
-        return ResponseEntity.ok("Uploaded " + count + " players to auction pool");
+        return ResponseEntity.ok(csvService.uploadPlayersFromFile(id, file));
     }
 
     /** POST create single player manually */
