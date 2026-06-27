@@ -1,6 +1,8 @@
 package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.SportsEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
@@ -51,4 +53,8 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     List<SportsEvent> findByActiveTrue();
 
     List<SportsEvent> findByCommunityIdAndActiveTrueOrderByEventDateStartDesc(Long communityId);
+
+    Page<SportsEvent> findByActiveTrue(Pageable pageable);
+
+    Page<SportsEvent> findByCommunityIdAndActiveTrue(Long communityId, Pageable pageable);
 }

@@ -46,14 +46,15 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
         AuctionConfig config = configRepo.findById(req.configId())
                 .orElseThrow(() -> new ResourceNotFoundException("AuctionConfig", req.configId()));
         
-        AppUser teamOwner = userRepo.getReferenceById(req.ownerUserId() != null ? req.ownerUserId() : adminUserId);
+        Long ownerUserId = req.ownerUserId() != null ? req.ownerUserId() : adminUserId;
+        AppUser teamOwner = userRepo.findById(ownerUserId).orElseThrow(() -> new ResourceNotFoundException("AppUser", ownerUserId));
         AuctionTeam team = AuctionTeam.builder()
             .config(config)
             .teamName(req.teamName())
             .ownerName(req.ownerName())
             .ownerUser(teamOwner)
             .captainUser(teamOwner)
-            .eventId(config.getEvent() != null ? config.getEvent().getId() : 1L)
+            .eventId(config.getEvent() != null ? config.getEvent().getId() : null)
             .colorHex(req.colorHex())
             .totalBudget(req.totalBudget())
             .remainingBudget(req.totalBudget())
@@ -74,9 +75,19 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
 
     @Override
     @Transactional
-    public AuctionTeam confirmCaptain(Long teamId, boolean confirm) {
+    public AuctionTeam confirmCaptain(Long teamId, boolean confirm, Long callerUserId, boolean isAdmin) {
         AuctionTeam team = teamRepo.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("AuctionTeam", teamId));
+
+        if (!isAdmin) {
+            boolean isOwner = team.getOwnerUser() != null && team.getOwnerUser().getId().equals(callerUserId);
+            boolean isCaptain = team.getCaptainUser() != null && team.getCaptainUser().getId().equals(callerUserId);
+            if (!isOwner && !isCaptain) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "You can only confirm captaincy for your own team");
+            }
+        }
+
         team.setCaptainConfirmation(confirm);
         return teamRepo.save(team);
     }

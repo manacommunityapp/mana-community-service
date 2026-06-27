@@ -1,5 +1,6 @@
 package com.manacommunity.api.controller;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.SportsEventRequest;
 import com.manacommunity.api.dto.TournamentRequest;
 import com.manacommunity.api.model.AppUser;
@@ -21,7 +22,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tournaments")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class TournamentController {
 
@@ -41,7 +41,7 @@ public class TournamentController {
         
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         

@@ -1,13 +1,21 @@
 package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.AuctionTeam;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
 public interface AuctionTeamRepository extends JpaRepository<AuctionTeam, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM AuctionTeam t WHERE t.id = :id")
+    java.util.Optional<AuctionTeam> findByIdForUpdate(@Param("id") Long id);
     List<AuctionTeam> findByConfigIdOrderByTeamName(Long configId);
     long countByConfigId(Long configId);
 

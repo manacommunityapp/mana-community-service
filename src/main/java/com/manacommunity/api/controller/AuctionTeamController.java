@@ -65,7 +65,9 @@ public class AuctionTeamController {
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
-        return ResponseEntity.ok(auctionTeamService.confirmCaptain(teamId, confirm));
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
+        return ResponseEntity.ok(auctionTeamService.confirmCaptain(teamId, confirm, loggedInUser.getId(), isAdmin));
     }
 
     @PostMapping("/nominate")

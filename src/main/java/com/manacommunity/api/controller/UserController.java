@@ -1,17 +1,21 @@
 package com.manacommunity.api.controller;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
+import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.response.UserResponse;
 import com.manacommunity.api.security.UserPrincipal;
 import com.manacommunity.api.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*") // TODO: restrict in production
 @RequiredArgsConstructor
 public class UserController {
 
@@ -73,7 +77,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         if (targetCommunityId == null) {
@@ -99,7 +103,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
                 throw new com.manacommunity.api.exception.UnauthorizedActionException(
@@ -121,22 +125,26 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<java.util.List<UserResponse>> getAllUsers(
+    public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(loggedInUser.getRole());
-        java.util.List<AppUser> users;
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
+
+        Page<AppUser> userPage;
         if (isSuperAdmin) {
-            users = appUserRepo.findAll();
+            userPage = appUserRepo.findAll(pageable);
         } else {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
-                return ResponseEntity.ok(java.util.Collections.emptyList());
+                return ResponseEntity.ok(PagedResponse.empty());
             }
-            users = appUserRepo.findByCommunityId(communityId);
+            userPage = appUserRepo.findByCommunityId(communityId, pageable);
         }
-        return ResponseEntity.ok(users
-                .stream().map(u -> UserResponse.builder()
+        return ResponseEntity.ok(PagedResponse.from(userPage, u -> UserResponse.builder()
                         .id(u.getId())
                         .fullName(u.getFullName())
                         .email(u.getEmail())
@@ -151,7 +159,7 @@ public class UserController {
                         .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
                         .isActive(u.getIsActive())
                         .permissions(getPermissionsForUser(u))
-                        .build()).toList());
+                        .build()));
     }
 
     @GetMapping("/{id}")
@@ -203,20 +211,24 @@ public class UserController {
         // Resolve and update roleEntity scoped to user's community
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         com.manacommunity.api.model.Role roleEntity = roleService.findOrCreateRole(normRole, communityId);
+        if (roleEntity == null) {
+            throw new IllegalStateException("Failed to resolve role: " + normRole);
+        }
         user.setRoleEntity(roleEntity);
         appUserRepo.save(user);
-        
+
         // Delete old user-specific permissions
         rolePermissionRepo.deleteByUserId(user.getId());
         rolePermissionRepo.flush();
-        
+
         // Drop legacy unique constraint if it still exists
         try {
             entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
         } catch (Exception ignored) {}
-        
+
         // Load standard role permission templates (where user is null) from the resolved roleEntity
-        java.util.Set<com.manacommunity.api.model.RolePermission> templates = roleEntity != null ? roleEntity.getPermissions() : java.util.Collections.emptySet();
+        java.util.Set<com.manacommunity.api.model.RolePermission> templates =
+                roleEntity.getPermissions() != null ? roleEntity.getPermissions() : java.util.Collections.emptySet();
         
         // Create and save user-specific role permissions
         java.util.List<com.manacommunity.api.model.RolePermission> userPermissions = templates.stream()

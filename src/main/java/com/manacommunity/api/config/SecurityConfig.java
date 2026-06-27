@@ -1,5 +1,6 @@
 package com.manacommunity.api.config;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.repository.AppUserRepository;
 import com.manacommunity.api.security.UserPrincipal;
@@ -150,7 +151,7 @@ public class SecurityConfig { // BUG FIX: was package-private
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // Bearer JWT path (super-admin token) — same filter as the main chain.
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("SUPER_ADMIN"))
+            .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(ROLE_SUPER_ADMIN))
             // Browser path — prompts for the super-admin's app credentials.
             .httpBasic(basic -> basic.authenticationEntryPoint(docsAuthEntryPoint()))
             // Send 401 (not 403) for an unauthenticated request so the browser shows
@@ -208,10 +209,10 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // endpoint leak internals, so they are SUPER_ADMIN-only (a self-hosted
                 // Prometheus scrapes /actuator/prometheus with a SUPER_ADMIN bearer token).
                 .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/actuator/**").hasRole(ROLE_SUPER_ADMIN)
                 // Swagger / API-docs are handled by the dedicated docsFilterChain above.
                 // Seeding endpoints stay SUPER_ADMIN-only.
-                .requestMatchers("/api/admin/seed/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the

@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 public class InvalidInviteCodeException extends ManaCommunityException {
 
     public InvalidInviteCodeException(String code) {
-        super("No community found for invite code: '" + code + "'. Please check and try again.",
+        super("The invite code is invalid or does not match any community. Please check and try again.",
                 HttpStatus.BAD_REQUEST, "INVALID_INVITE_CODE");
     }
 }

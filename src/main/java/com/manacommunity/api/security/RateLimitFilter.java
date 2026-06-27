@@ -36,14 +36,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final boolean enabled;
     private final int limit;
+    private final boolean trustForwardedHeader;
 
     private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
 
     public RateLimitFilter(
             @Value("${app.security.rate-limit.enabled:true}") boolean enabled,
-            @Value("${app.security.rate-limit.requests-per-minute:300}") int requestsPerMinute) {
+            @Value("${app.security.rate-limit.requests-per-minute:300}") int requestsPerMinute,
+            @Value("${app.security.rate-limit.trust-forwarded-header:false}") boolean trustForwardedHeader) {
         this.enabled = enabled;
         this.limit = requestsPerMinute;
+        this.trustForwardedHeader = trustForwardedHeader;
     }
 
     @Override
@@ -80,12 +83,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    /** Honours X-Forwarded-For (first hop) when behind a proxy/load balancer. */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+        if (trustForwardedHeader) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                int comma = forwarded.indexOf(',');
+                return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+            }
         }
         return request.getRemoteAddr();
     }

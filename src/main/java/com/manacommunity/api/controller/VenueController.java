@@ -1,5 +1,7 @@
 package com.manacommunity.api.controller;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
+
 import com.manacommunity.api.constants.PermissionConstants;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.Venue;
@@ -29,7 +31,7 @@ public class VenueController {
             @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(loggedInUser.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
         Long targetCommunityId = communityId;
         if (!isSuperAdmin) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
@@ -50,7 +52,7 @@ public class VenueController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         return ResponseEntity.ok(venueService.createVenue(targetCommunityId, venue));

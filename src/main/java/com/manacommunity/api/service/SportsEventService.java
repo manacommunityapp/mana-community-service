@@ -5,6 +5,8 @@ import com.manacommunity.api.dto.SportsEventRequest;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.model.SportsEvent;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 /**
@@ -22,7 +24,9 @@ public interface SportsEventService {
     List<SportsEvent> getClosedEvents(Long communityId);
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
     List<SportsEvent> getAllEvents();
+    Page<SportsEvent> getAllEvents(Pageable pageable);
     List<SportsEvent> getCommunityEvents(Long communityId);
+    Page<SportsEvent> getCommunityEvents(Long communityId, Pageable pageable);
     SportsEvent getEventById(Long id);
     SportsEvent getEventByUuid(java.util.UUID uuid);
     SportsEvent saveEvent(SportsEvent event);

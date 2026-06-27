@@ -1,5 +1,6 @@
 package com.manacommunity.api.service;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.dashboard.SportsAdminFormDataResponse;
 import com.manacommunity.api.dto.dashboard.SportsAdminFormDataResponse.CategoryOption;
 import com.manacommunity.api.dto.dashboard.SportsAdminFormDataResponse.SportOption;
@@ -15,6 +16,8 @@ import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.repository.PlayerCategoryRepository;
 import com.manacommunity.api.repository.SportMetaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,16 +43,17 @@ public class SportsAdminService {
 
     @Transactional(readOnly = true)
     public SportsAdminOverviewResponse getOverview(AppUser user) {
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(user.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<Tournament> tournaments = isSuperAdmin
                 ? tournamentService.getAllTournaments()
                 : (communityId != null ? tournamentService.getCommunityTournaments(communityId) : List.of());
 
+        PageRequest eventPage = PageRequest.of(0, 100, Sort.by("eventDateStart").descending());
         List<SportsEvent> events = isSuperAdmin
-                ? eventService.getAllEvents()
-                : (communityId != null ? eventService.getCommunityEvents(communityId) : List.of());
+                ? eventService.getAllEvents(eventPage).getContent()
+                : (communityId != null ? eventService.getCommunityEvents(communityId, eventPage).getContent() : List.of());
 
         List<TournamentRow> tournamentRows = tournaments.stream()
                 .map(this::toTournamentRow)
@@ -101,7 +105,7 @@ public class SportsAdminService {
 
     @Transactional(readOnly = true)
     public SportsAdminFormDataResponse getFormData(AppUser user) {
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(user.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportOption> sports = sportMetaRepo.findByActiveTrue().stream()

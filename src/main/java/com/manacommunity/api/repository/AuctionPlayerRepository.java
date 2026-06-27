@@ -1,7 +1,9 @@
 package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.AuctionPlayer;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,6 +13,10 @@ import java.util.Optional;
 
 @Repository
 public interface AuctionPlayerRepository extends JpaRepository<AuctionPlayer, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM AuctionPlayer p WHERE p.id = :id")
+    Optional<AuctionPlayer> findByIdForUpdate(@Param("id") Long id);
 
     /** Next player in queue for this auction, excluding team captains and owners */
     @Query("SELECT p FROM AuctionPlayer p WHERE p.config.id = :cid AND p.status = 'QUEUED' " +

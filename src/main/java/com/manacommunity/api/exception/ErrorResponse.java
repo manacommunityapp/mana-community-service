@@ -16,7 +16,7 @@ import java.util.List;
  *   "timestamp": "2026-04-24T11:45:00",
  *   "status": 409,
  *   "error": "DUPLICATE_RESOURCE",
- *   "message": "User already exists with email: john@example.com",
+ *   "message": "A User with that email already exists.",
  *   "path": "/api/auth/register",
  *   "fieldErrors": null
  * }

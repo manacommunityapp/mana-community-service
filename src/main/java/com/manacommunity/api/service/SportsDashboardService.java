@@ -1,5 +1,6 @@
 package com.manacommunity.api.service;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse.*;
 import com.manacommunity.api.model.AppUser;
@@ -31,7 +32,7 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public SportsDashboardResponse getDashboard(AppUser user) {
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(user.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportsEvent> openEvents = isSuperAdmin

@@ -51,6 +51,9 @@ public class AuctionTeam {
     @Column(nullable = false)
     private Long spent;
 
+    @Version
+    private Long version;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "assignedTeam")
     private List<AuctionPlayer> players;

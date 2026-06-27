@@ -20,12 +20,12 @@ public class CommunityRoleInitializer {
     private final RoleRepository roleRepo;
 
     private static final Map<String, List<String>> ROLE_PERMISSIONS_MAP = Map.of(
-            "ADMIN", PermissionConstants.ADMIN_PERMISSIONS,
-            "SPORTS_ADMIN", PermissionConstants.SPORTS_ADMIN_PERMISSIONS,
-            "MEMBER", PermissionConstants.MEMBER_PERMISSIONS,
-            "VENDOR", PermissionConstants.VENDOR_PERMISSIONS,
-            "CASHIER", PermissionConstants.CASHIER_PERMISSIONS,
-            "STAFF", PermissionConstants.STAFF_PERMISSIONS
+            PermissionConstants.ROLE_ADMIN, PermissionConstants.ADMIN_PERMISSIONS,
+            PermissionConstants.ROLE_SPORTS_ADMIN, PermissionConstants.SPORTS_ADMIN_PERMISSIONS,
+            PermissionConstants.ROLE_MEMBER, PermissionConstants.MEMBER_PERMISSIONS,
+            PermissionConstants.ROLE_VENDOR, PermissionConstants.VENDOR_PERMISSIONS,
+            PermissionConstants.ROLE_CASHIER, PermissionConstants.CASHIER_PERMISSIONS,
+            PermissionConstants.ROLE_STAFF, PermissionConstants.STAFF_PERMISSIONS
     );
 
     @Transactional

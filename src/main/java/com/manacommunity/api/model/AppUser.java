@@ -70,10 +70,9 @@ public class AppUser {
     @Column(name = "govt_id_type", length = 20)
     private String govtIdType; // AADHAAR, VOTER_ID, DRIVING_LICENCE
 
-    // Sensitive PII — never expose in API responses.
     @JsonIgnore
-    @Column(name = "govt_id_number", length = 30)
-    private String govtIdNumber; // stored encrypted
+    @Column(name = "govt_id_number", length = 255)
+    private String govtIdNumber;
 
     @Column(name = "flat_no", length = 20)
     private String flatNo;

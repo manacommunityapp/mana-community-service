@@ -1,5 +1,6 @@
 package com.manacommunity.api.controller;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.Role;
 import com.manacommunity.api.security.UserPrincipal;
@@ -16,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/roles")
-@CrossOrigin(origins = "*") // TODO: restrict in production
 @RequiredArgsConstructor
 public class RolePermissionController {
 
@@ -83,7 +83,7 @@ public class RolePermissionController {
         if (principal == null) return null;
         try {
             AppUser user = loggedInUserService.resolve(principal);
-            if ("SUPER_ADMIN".equalsIgnoreCase(user.getRole())) return null;
+            if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) return null;
             return user.getCommunity() != null ? user.getCommunity().getId() : null;
         } catch (Exception ignored) {
             return null;

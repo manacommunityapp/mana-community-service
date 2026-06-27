@@ -1,6 +1,8 @@
 package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.AppUser;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -23,4 +25,5 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     boolean existsByPhone(String phone);
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
     java.util.List<AppUser> findByCommunityId(Long communityId);
+    Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
 }

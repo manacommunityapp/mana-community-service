@@ -68,6 +68,9 @@ public class AuctionConfig {
     @Column(nullable = false)
     private AuctionStatus status;
 
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
@@ -78,10 +81,12 @@ public class AuctionConfig {
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<AuctionPlayer> players;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<AuctionDisputeCommittee> committeeMembers;
 
     private LocalDateTime createdAt;
@@ -106,6 +111,23 @@ public class AuctionConfig {
     }
 
     public enum AuctionFormat  { OPEN_AUCTION, SILENT_AUCTION, DRAFT_FORMAT }
-    public enum AuctionStatus  { DRAFT, ACTIVE, LIVE, COMPLETED, CANCELLED }
+
+    public enum AuctionStatus {
+        DRAFT, ACTIVE, LIVE, COMPLETED, CANCELLED;
+
+        private static final java.util.Map<AuctionStatus, java.util.Set<AuctionStatus>> ALLOWED =
+                java.util.Map.of(
+                        DRAFT,     java.util.Set.of(ACTIVE, CANCELLED),
+                        ACTIVE,    java.util.Set.of(LIVE, CANCELLED),
+                        LIVE,      java.util.Set.of(COMPLETED, CANCELLED),
+                        COMPLETED, java.util.Set.of(),
+                        CANCELLED, java.util.Set.of()
+                );
+
+        public boolean canTransitionTo(AuctionStatus target) {
+            return ALLOWED.getOrDefault(this, java.util.Set.of()).contains(target);
+        }
+    }
+
     public enum UnsoldRule     { ROTATION_AUCTION, RESERVE_POOL, RE_AUCTION_BASE }
 }

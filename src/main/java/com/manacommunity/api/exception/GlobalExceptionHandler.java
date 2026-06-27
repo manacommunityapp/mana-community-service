@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponse> handleDuplicate(
             DuplicateResourceException ex, HttpServletRequest request) {
-        log.warn("Duplicate resource: {}", ex.getMessage());
+        log.warn("Duplicate resource: {}", ex.getDiagnosticDetail());
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
@@ -189,8 +189,6 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(fe -> ErrorResponse.FieldError.builder()
                         .field(fe.getField())
-                        .rejectedValue(fe.getRejectedValue() != null
-                                ? fe.getRejectedValue().toString() : null)
                         .message(fe.getDefaultMessage())
                         .build())
                 .collect(Collectors.toList());
@@ -210,8 +208,6 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(cv -> ErrorResponse.FieldError.builder()
                         .field(extractField(cv))
-                        .rejectedValue(cv.getInvalidValue() != null
-                                ? cv.getInvalidValue().toString() : null)
                         .message(cv.getMessage())
                         .build())
                 .collect(Collectors.toList());
@@ -273,11 +269,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, HttpServletRequest request) {
-        String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
-        log.error("Data integrity violation at {}: {}", request.getRequestURI(), cause);
+        String constraintName = extractConstraintName(ex);
+        log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName);
         return build(HttpStatus.CONFLICT, "DATA_CONFLICT",
                 "The operation conflicts with existing data — a referenced record is missing, "
                         + "or a unique value is already in use.", request, null);
+    }
+
+    private static String extractConstraintName(DataIntegrityViolationException ex) {
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : "";
+        if (msg == null) return "unknown";
+        int idx = msg.indexOf("constraint");
+        if (idx >= 0) {
+            String sub = msg.substring(idx);
+            int end = sub.indexOf('\n');
+            return end > 0 ? sub.substring(0, Math.min(end, 120)) : sub.substring(0, Math.min(sub.length(), 120));
+        }
+        return "unknown";
     }
 
     // ─── 4. Generic Fallback ─────────────────────────────────────────────────

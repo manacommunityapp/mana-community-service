@@ -47,8 +47,30 @@ public class AuctionServiceImpl implements AuctionService {
         return configRepo.findByCreatedByCommunityIdOrderByCreatedAtDesc(communityId);
     }
     @Override
+    @Transactional(readOnly = true)
     public AuctionConfigResponse getConfigResponse(Long id) {
         AuctionConfig config = configRepo.findById(id).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionConfig", id));
+        return toConfigResponse(config);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AuctionConfigResponse> getConfigResponsesBySportAndCommunity(Long sportId, Long communityId) {
+        List<AuctionConfig> configs = communityId == null
+                ? configRepo.findBySportIdWithAssociations(sportId)
+                : configRepo.findBySportIdAndCommunityIdWithAssociations(sportId, communityId);
+        return configs.stream().map(this::toConfigResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AuctionConfigResponse> getConfigResponsesByCommunity(Long communityId) {
+        if (communityId == null) return List.of();
+        return configRepo.findByCommunityIdWithAssociations(communityId).stream()
+                .map(this::toConfigResponse).toList();
+    }
+
+    private AuctionConfigResponse toConfigResponse(AuctionConfig config) {
         return new AuctionConfigResponse(
                 config.getId(),
                 config.getEvent() != null ? config.getEvent().getId() : null,
@@ -80,8 +102,8 @@ public class AuctionServiceImpl implements AuctionService {
             throw new IllegalStateException("Auction already exists for this sport and season");
 
         AuctionConfig config = AuctionConfig.builder()
-            .sport(sportRepo.getReferenceById(req.sportId()))
-            .event(req.eventId() != null ? eventRepo.getReferenceById(req.eventId()) : null)
+            .sport(sportRepo.findById(req.sportId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", req.sportId())))
+            .event(req.eventId() != null ? eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())) : null)
             .seasonName(req.seasonName())
             .auctionFormat(AuctionConfig.AuctionFormat.valueOf(req.auctionFormat()))
             .totalTeams(req.totalTeams())
@@ -128,7 +150,7 @@ public class AuctionServiceImpl implements AuctionService {
 
         // Apply all dynamic rule changes
         if (req.eventId() != null) {
-            config.setEvent(eventRepo.getReferenceById(req.eventId()));
+            config.setEvent(eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())));
         } else {
             config.setEvent(null);
         }
@@ -154,7 +176,21 @@ public class AuctionServiceImpl implements AuctionService {
                 .orElseThrow(() -> new com.manacommunity.api.exception.ManaCommunityException(
                         "Please configure the auction configuration before starting the auction.",
                         org.springframework.http.HttpStatus.BAD_REQUEST, "CONFIG_NOT_FOUND"));
-        AuctionConfig.AuctionStatus newStatus = AuctionConfig.AuctionStatus.valueOf(status);
+
+        AuctionConfig.AuctionStatus newStatus;
+        try {
+            newStatus = AuctionConfig.AuctionStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid auction status: " + status
+                    + ". Valid values: " + java.util.Arrays.toString(AuctionConfig.AuctionStatus.values()));
+        }
+
+        AuctionConfig.AuctionStatus oldStatus = config.getStatus();
+        if (oldStatus == newStatus) return config;
+
+        if (!oldStatus.canTransitionTo(newStatus)) {
+            throw new IllegalStateException("Cannot transition auction from " + oldStatus + " to " + newStatus + ".");
+        }
 
         if (newStatus == AuctionConfig.AuctionStatus.LIVE || newStatus == AuctionConfig.AuctionStatus.ACTIVE) {
             long teamCount = teamRepo.countByConfigId(configId);
@@ -167,7 +203,6 @@ public class AuctionServiceImpl implements AuctionService {
             }
         }
 
-        AuctionConfig.AuctionStatus oldStatus = config.getStatus();
         config.setStatus(newStatus);
         AuctionConfig savedConfig = configRepo.save(config);
 
@@ -234,20 +269,24 @@ public class AuctionServiceImpl implements AuctionService {
     @Transactional
     public AuctionBid placeBid(BidRequest req, Long biddingUserId) {
         AuctionConfig config = configRepo.findById(req.configId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionConfig", req.configId()));
-        AuctionTeam   team   = teamRepo.findById(req.teamId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionTeam", req.teamId()));
-        AuctionPlayer player = playerRepo.findById(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", req.playerId()));
 
         // Validate auction is live
         if (config.getStatus() !=  AuctionConfig.AuctionStatus.LIVE  &&
                 config.getStatus() != AuctionConfig.AuctionStatus.ACTIVE)
             throw new IllegalStateException("Auction is not LIVE");
 
-        // Budget check
+        // Lock player row to serialize all bids on the same player
+        AuctionPlayer player = playerRepo.findByIdForUpdate(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", req.playerId()));
+
+        // Lock team row to get a consistent budget snapshot
+        AuctionTeam team = teamRepo.findByIdForUpdate(req.teamId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionTeam", req.teamId()));
+
+        // Budget check (under lock — no concurrent bid can see stale budget)
         if (team.getRemainingBudget() < req.bidAmount())
             throw new IllegalStateException("Team budget insufficient. Available: ₹"
                 + team.getRemainingBudget());
 
-        // Minimum bid check (base price or current max + increment)
+        // Minimum bid check (under player lock — serialized per player)
         Long currentMax = bidRepo.findMaxBidForPlayer(player.getId()).orElse(0L);
         long minRequired = currentMax == 0
             ? config.getBasePrice()
@@ -264,7 +303,8 @@ public class AuctionServiceImpl implements AuctionService {
             playerRepo.save(player);
         }
 
-        int incrementUsed = (int) (req.bidAmount() - currentMax);
+        long baseline = currentMax == 0 ? config.getBasePrice() : currentMax;
+        int incrementUsed = (int) (req.bidAmount() - baseline);
 
         AuctionBid bid = AuctionBid.builder()
             .config(config)
@@ -296,13 +336,17 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public AuctionPlayer soldPlayer(SoldPlayerRequest req, Long adminUserId) {
-        AuctionPlayer player = playerRepo.findById(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", req.playerId()));
-        AuctionTeam   team   = teamRepo.findById(req.teamId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionTeam", req.teamId()));
+        // Lock player first, then team — consistent ordering prevents deadlocks
+        AuctionPlayer player = playerRepo.findByIdForUpdate(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", req.playerId()));
+        AuctionTeam   team   = teamRepo.findByIdForUpdate(req.teamId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionTeam", req.teamId()));
+
+        if (player.getStatus() == AuctionPlayer.PlayerStatus.SOLD)
+            throw new IllegalStateException("Player " + player.getPlayerName() + " is already SOLD");
 
         Long soldPrice = bidRepo.findMaxBidForPlayer(player.getId())
             .orElseThrow(() -> new IllegalStateException("No bids placed for this player"));
 
-        // Deduct from team budget
+        // Atomic budget deduction under pessimistic lock
         if (team.getRemainingBudget() < soldPrice)
             throw new IllegalStateException("Team budget insufficient for final sale");
 
@@ -342,7 +386,7 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public AuctionPlayer passPlayer(Long playerId, Long adminUserId) {
-        AuctionPlayer player = playerRepo.findById(playerId).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", playerId));
+        AuctionPlayer player = playerRepo.findByIdForUpdate(playerId).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", playerId));
         AuctionConfig config = player.getConfig();
 
         if (config.getUnsoldRule() == AuctionConfig.UnsoldRule.ROTATION_AUCTION) {
@@ -490,7 +534,8 @@ public class AuctionServiceImpl implements AuctionService {
     @Override
     @Transactional
     public PlayerWithBidResponse pickRandomPlayer(Long configId) {
-        AuctionConfig config = configRepo.findById(configId)
+        // Lock the config row to serialize all pick operations for this auction
+        AuctionConfig config = configRepo.findByIdForUpdate(configId)
             .orElseThrow(() -> new IllegalArgumentException("Auction config not found: " + configId));
 
         // Start the auction automatically if it's currently ACTIVE
@@ -529,6 +574,13 @@ public class AuctionServiceImpl implements AuctionService {
         java.util.Random random = new java.util.Random();
         int randomIndex = random.nextInt(queued.size());
         AuctionPlayer picked = queued.get(randomIndex);
+
+        // Lock the chosen player row before mutating status
+        picked = playerRepo.findByIdForUpdate(picked.getId())
+            .orElseThrow(() -> new IllegalStateException("Player disappeared during pick"));
+        if (picked.getStatus() != AuctionPlayer.PlayerStatus.QUEUED) {
+            throw new IllegalStateException("Player " + picked.getPlayerName() + " is no longer QUEUED");
+        }
 
         picked.setStatus(AuctionPlayer.PlayerStatus.SELLING);
         playerRepo.save(picked);

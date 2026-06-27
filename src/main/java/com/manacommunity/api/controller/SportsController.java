@@ -1,5 +1,6 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.dto.PlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.dto.SportsEventRequest;
@@ -14,6 +15,9 @@ import com.manacommunity.api.service.SportsEventService;
 import com.manacommunity.api.service.TournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -71,7 +75,7 @@ public class SportsController {
         if (principal != null) {
             AppUser loggedInUser = loggedInUserService.resolve(principal);
             if (loggedInUser != null) {
-                if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+                if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
                     if (loggedInUser.getCommunity() != null) {
                         sport.setCommunityId(loggedInUser.getCommunity().getId());
                     }
@@ -93,7 +97,7 @@ public class SportsController {
                     throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
-                if (loggedInUser == null || !"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+                if (loggedInUser == null || !ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
                     throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
             } else {
@@ -104,7 +108,7 @@ public class SportsController {
                 if (loggedInUser == null) {
                     throw new UnauthorizedActionException("You do not have permission to modify this sport.");
                 }
-                if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+                if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
                     Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
                     if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
                         throw new UnauthorizedActionException("You do not have permission to modify this sport.");
@@ -134,7 +138,7 @@ public class SportsController {
                     throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
                 AppUser loggedInUser = loggedInUserService.resolve(principal);
-                if (loggedInUser == null || !"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+                if (loggedInUser == null || !ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
                     throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
             } else {
@@ -145,7 +149,7 @@ public class SportsController {
                 if (loggedInUser == null) {
                     throw new UnauthorizedActionException("You do not have permission to delete this sport.");
                 }
-                if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+                if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
                     Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
                     if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
                         throw new UnauthorizedActionException("You do not have permission to delete this sport.");
@@ -164,7 +168,7 @@ public class SportsController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        if ("SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             return ResponseEntity.ok(categoryRepo.findAll());
         }
         // For all other roles: show DEFAULT categories + their community's categories
@@ -182,16 +186,16 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        String userRole = loggedInUser.getRole(); // e.g., "SUPER_ADMIN", "ADMIN", "SPORTS_ADMIN", "VENDOR"
+        String userRole = loggedInUser.getRole(); // e.g., ROLE_SUPER_ADMIN, ROLE_ADMIN, "SPORTS_ADMIN", "VENDOR"
         String typeValue;
         switch (userRole) {
-            case "SUPER_ADMIN":
+            case ROLE_SUPER_ADMIN:
                 typeValue = "DEFAULT";
                 break;
-            case "ADMIN", "SPORTS_ADMIN":
+            case ROLE_ADMIN, ROLE_SPORTS_ADMIN:
                 typeValue = "USER";
                 break;
-            case "VENDOR":
+            case ROLE_VENDOR:
                 typeValue = "VENDOR";
                 break;
             default:
@@ -230,7 +234,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
 
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             req.setCommunityId(loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
         }
 
@@ -268,7 +272,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
 
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             req.setCommunityId(loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
         }
 
@@ -334,7 +338,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         return ResponseEntity.ok(eventService.getEventMap(targetCommunityId));
@@ -347,7 +351,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         if (targetCommunityId == null) {
@@ -361,7 +365,7 @@ public class SportsController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(loggedInUser.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
         if (!isSuperAdmin) {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
@@ -377,7 +381,7 @@ public class SportsController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(loggedInUser.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
         if (!isSuperAdmin) {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
@@ -397,19 +401,27 @@ public class SportsController {
     }
 
     @GetMapping({"/events/all", "/tournaments/all"})
-    public ResponseEntity<List<SportsEvent>> getAllTournaments(
+    public ResponseEntity<PagedResponse<SportsEvent>> getAllTournaments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(loggedInUser.getRole());
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("eventDateStart").descending());
+
+        Page<SportsEvent> eventPage;
         if (!isSuperAdmin) {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
-                return ResponseEntity.ok(java.util.Collections.emptyList());
+                return ResponseEntity.ok(PagedResponse.empty());
             }
-            return ResponseEntity.ok(eventService.getCommunityEvents(communityId));
+            eventPage = eventService.getCommunityEvents(communityId, pageable);
+        } else {
+            eventPage = eventService.getAllEvents(pageable);
         }
-        return ResponseEntity.ok(eventService.getAllEvents());
+        return ResponseEntity.ok(PagedResponse.from(eventPage, e -> e));
     }
 
     @GetMapping({"/events/community", "/tournaments/community"})
@@ -419,7 +431,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!"SUPER_ADMIN".equals(loggedInUser.getRole())) {
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
                 throw new UnauthorizedActionException("You can only access your own community's tournaments.");

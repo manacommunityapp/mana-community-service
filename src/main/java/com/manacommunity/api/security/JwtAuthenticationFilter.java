@@ -1,14 +1,18 @@
 package com.manacommunity.api.security;
 
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.repository.AppUserRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,35 +22,43 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-/**
- * Production-grade authentication filter. Reads the {@code Authorization: Bearer <jwt>}
- * header, verifies the token's signature / issuer / expiry via {@link JwtTokenProvider},
- * and populates the {@link SecurityContextHolder} with the user's authorities (role +
- * DB-backed permissions). Replaces the old MockJwtFilter.
- *
- * <p>Two developer conveniences remain, both gated by {@code app.security.mock-auth-enabled}
- * (which is {@code false} in production): a legacy {@code mock-token-<id>} token, and a
- * default-user fallback when no token is sent. With the flag off, only a valid signed JWT
- * authenticates a request.</p>
- */
+@Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AppUserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final Environment environment;
 
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                    AppUserRepository userRepository,
-                                   RolePermissionRepository rolePermissionRepository) {
+                                   RolePermissionRepository rolePermissionRepository,
+                                   Environment environment) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.environment = environment;
+    }
+
+    @PostConstruct
+    void validateMockAuthProfile() {
+        if (!mockAuthEnabled) return;
+        boolean isLocalProfile = Arrays.asList(environment.getActiveProfiles()).contains("local");
+        if (!isLocalProfile) {
+            throw new IllegalStateException(
+                    "mock-auth-enabled=true is only allowed with the 'local' profile. "
+                    + "Active profiles: " + Arrays.toString(environment.getActiveProfiles())
+                    + ". Remove the flag or switch to the local profile.");
+        }
+        log.warn("*** MOCK AUTH ENABLED — all unauthenticated requests will be auto-elevated. "
+               + "This must NEVER reach a deployed environment. ***");
     }
 
     @Override
@@ -135,15 +147,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    /** DEV ONLY default-user fallback (gated by app.security.mock-auth-enabled). */
+    private volatile AppUser cachedDefaultUser;
+
     private void authenticateDefaultUser(HttpServletRequest request) {
-        AppUser user = userRepository.findAll().stream()
-                .filter(u -> "SUPER_ADMIN".equalsIgnoreCase(u.getRole()))
-                .findFirst()
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> "ADMIN".equalsIgnoreCase(u.getRole()))
-                        .findFirst()
-                        .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null)));
+        AppUser user = cachedDefaultUser;
+        if (user == null) {
+            List<AppUser> allUsers = userRepository.findAll();
+            user = allUsers.stream().filter(u -> ROLE_SUPER_ADMIN.equalsIgnoreCase(u.getRole())).findFirst()
+                    .orElseGet(() -> allUsers.stream().filter(u -> ROLE_ADMIN.equalsIgnoreCase(u.getRole())).findFirst()
+                    .orElseGet(() -> allUsers.stream().findFirst().orElse(null)));
+            cachedDefaultUser = user;
+        }
         if (user != null) {
             setAuthentication(user, request);
         }

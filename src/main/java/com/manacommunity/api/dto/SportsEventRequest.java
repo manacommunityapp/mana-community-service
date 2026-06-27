@@ -48,9 +48,11 @@ public class SportsEventRequest {
     private LocalDate playersBorn;
     private List<SponsorDto> sponsors;
 
+    private String contactName;
     private String contactNumber;
     private String contactEmail;
     private String otherContacts;
+    private Boolean auctionEnabled;
     private String bannerImage;
     private String tournamentLevel;
     private String description;

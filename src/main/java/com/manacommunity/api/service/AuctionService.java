@@ -14,6 +14,8 @@ public interface AuctionService {
     List<AuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId);
     List<AuctionConfig> getAllConfigsByCommunity(Long communityId);
     AuctionConfigResponse getConfigResponse(Long id);
+    List<AuctionConfigResponse> getConfigResponsesBySportAndCommunity(Long sportId, Long communityId);
+    List<AuctionConfigResponse> getConfigResponsesByCommunity(Long communityId);
     AuctionConfig createConfig(AuctionConfigRequest req, Long adminUserId);
     AuctionConfig updateConfig(Long configId, AuctionConfigRequest req);
     AuctionConfig updateStatus(Long configId, String status);
