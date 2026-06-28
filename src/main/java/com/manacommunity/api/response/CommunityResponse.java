@@ -20,4 +20,5 @@ public class CommunityResponse {
     private String area;
     private String subtype;
     private String inviteCode;
+    private Boolean active;
 }

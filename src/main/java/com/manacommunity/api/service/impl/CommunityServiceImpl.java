@@ -21,7 +21,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public List<CommunityResponse> getAllCommunities() {
-        return communityRepository.findAll()
+        return communityRepository.findByActiveTrueOrderByNameAsc()
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -29,7 +29,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public List<CommunityResponse> getCommunitiesByType(String type) {
-        return communityRepository.findByTypeIgnoreCase(type)
+        return communityRepository.findByActiveTrueAndTypeIgnoreCaseOrderByNameAsc(type)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -39,9 +39,34 @@ public class CommunityServiceImpl implements CommunityService {
     @org.springframework.transaction.annotation.Transactional
     public CommunityResponse createCommunity(CommunityResponse request) {
         Community community = toEntity(request);
+        community.setActive(true);
         Community saved = communityRepository.save(community);
         communityRoleInitializer.initializeCommunityRoles(saved);
         return toResponse(saved);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public CommunityResponse updateCommunity(Long id, CommunityResponse request) {
+        Community community = communityRepository.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Community", id));
+        community.setName(request.getName());
+        community.setType(request.getType());
+        community.setCity(request.getCity());
+        community.setState(request.getState());
+        community.setArea(request.getArea());
+        community.setSubtype(request.getSubtype());
+        community.setInviteCode(request.getInviteCode());
+        return toResponse(communityRepository.save(community));
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteCommunity(Long id) {
+        Community community = communityRepository.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Community", id));
+        community.setActive(false);
+        communityRepository.save(community);
     }
 
     // ─── Mapper ──────────────────────────────────────────────────────────────
@@ -67,7 +92,8 @@ public class CommunityServiceImpl implements CommunityService {
                 c.getState(),
                 c.getArea(),
                 c.getSubtype(),
-                c.getInviteCode()
+                c.getInviteCode(),
+                c.getActive()
         );
     }
 }

@@ -51,11 +51,21 @@ public class Community {
     @Column(name = "invite_code", unique = true, length = 20)
     private String inviteCode;
 
+    /**
+     * Soft-delete flag. "Deleting" a community sets this to false instead of
+     * removing the row, so historical references (users, events) stay intact.
+     */
+    @Column(name = "active", nullable = false)
+    private Boolean active;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (active == null) {
+            active = true;
+        }
     }
 }

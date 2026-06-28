@@ -7,7 +7,9 @@ import com.manacommunity.api.service.CommunityService;
 import com.manacommunity.api.service.LoggedInUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -48,13 +50,39 @@ public class CommunityController {
 
     /**
      * POST /api/communities
-     * Creates a new community. Requires authentication.
+     * Creates a new community. Restricted to ADMIN and SUPER_ADMIN.
      */
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
     public ResponseEntity<CommunityResponse> createCommunity(
-            @RequestBody CommunityResponse request,
+            @Valid @RequestBody CommunityResponse request,
             @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(communityService.createCommunity(request));
+    }
+
+    /**
+     * PUT /api/communities/{id}
+     * Updates an existing community. Restricted to ADMIN and SUPER_ADMIN.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<CommunityResponse> updateCommunity(
+            @PathVariable Long id,
+            @Valid @RequestBody CommunityResponse request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(communityService.updateCommunity(id, request));
+    }
+
+    /**
+     * DELETE /api/communities/{id}
+     * Soft-deletes a community (sets active=false). Restricted to ADMIN and SUPER_ADMIN.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCommunity(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        communityService.deleteCommunity(id);
+        return ResponseEntity.noContent().build();
     }
 }
