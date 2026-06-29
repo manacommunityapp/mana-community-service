@@ -22,14 +22,16 @@ public enum ScheduleSequence {
      */
     public static ScheduleSequence fromUi(String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Schedule sequence is required (Random | Traditional | Sequential)");
+            throw new com.manacommunity.api.exception.InvalidInputException(
+                    "Schedule sequence is required (Random | Traditional | Sequential)");
         }
         return switch (value.trim().toUpperCase()) {
             case "RANDOM"                               -> RANDOM;
             case "TRADITIONAL", "SEEDED",
                  "TRADITIONAL (SEEDED)"                 -> TRADITIONAL;
             case "SEQUENTIAL"                           -> SEQUENTIAL;
-            default -> throw new IllegalArgumentException("Unknown schedule sequence: '" + value + "'");
+            default -> throw new com.manacommunity.api.exception.InvalidInputException(
+                    "Unknown schedule sequence: '" + value + "'");
         };
     }
 }

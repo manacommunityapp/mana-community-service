@@ -1,6 +1,7 @@
 package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.dto.*;
+import com.manacommunity.api.exception.AuctionStateException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.AuctionService;
@@ -99,7 +100,7 @@ public class AuctionServiceImpl implements AuctionService {
     @Transactional
     public AuctionConfig createConfig(AuctionConfigRequest req, Long adminUserId) {
         if (configRepo.existsBySportIdAndSeasonName(req.sportId(), req.seasonName()))
-            throw new IllegalStateException("Auction already exists for this sport and season");
+            throw new AuctionStateException("Auction already exists for this sport and season");
 
         AuctionConfig config = AuctionConfig.builder()
             .sport(sportRepo.findById(req.sportId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", req.sportId())))
@@ -146,7 +147,7 @@ public class AuctionServiceImpl implements AuctionService {
             .orElseThrow(() -> new IllegalArgumentException("Auction config not found: " + configId));
 
         if (config.getStatus() == AuctionConfig.AuctionStatus.LIVE)
-            throw new IllegalStateException("Cannot update rules while auction is LIVE. Pause first.");
+            throw new AuctionStateException("Cannot update rules while auction is LIVE. Pause first.");
 
         // Apply all dynamic rule changes
         if (req.eventId() != null) {
@@ -181,7 +182,7 @@ public class AuctionServiceImpl implements AuctionService {
         try {
             newStatus = AuctionConfig.AuctionStatus.valueOf(status);
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("Invalid auction status: " + status
+            throw new AuctionStateException("Invalid auction status: " + status
                     + ". Valid values: " + java.util.Arrays.toString(AuctionConfig.AuctionStatus.values()));
         }
 
@@ -189,17 +190,17 @@ public class AuctionServiceImpl implements AuctionService {
         if (oldStatus == newStatus) return config;
 
         if (!oldStatus.canTransitionTo(newStatus)) {
-            throw new IllegalStateException("Cannot transition auction from " + oldStatus + " to " + newStatus + ".");
+            throw new AuctionStateException("Cannot transition auction from " + oldStatus + " to " + newStatus + ".");
         }
 
         if (newStatus == AuctionConfig.AuctionStatus.LIVE || newStatus == AuctionConfig.AuctionStatus.ACTIVE) {
             long teamCount = teamRepo.countByConfigId(configId);
             if (teamCount < 2) {
-                throw new IllegalStateException("Cannot start auction: At least 2 teams must be configured.");
+                throw new AuctionStateException("Cannot start auction: At least 2 teams must be configured.");
             }
             long playerCount = playerRepo.countByConfigId(configId);
             if (playerCount == 0) {
-                throw new IllegalStateException("Cannot start auction: Player pool is empty.");
+                throw new AuctionStateException("Cannot start auction: Player pool is empty.");
             }
         }
 
@@ -240,7 +241,7 @@ public class AuctionServiceImpl implements AuctionService {
         } else {
             List<AuctionPlayer> queued = playerRepo.findQueuedByConfig(configId);
             if (queued.isEmpty()) {
-                throw new IllegalStateException("No more players in queue");
+                throw new AuctionStateException("No more players in queue");
             }
             player = queued.get(0);
         }
@@ -273,7 +274,7 @@ public class AuctionServiceImpl implements AuctionService {
         // Validate auction is live
         if (config.getStatus() !=  AuctionConfig.AuctionStatus.LIVE  &&
                 config.getStatus() != AuctionConfig.AuctionStatus.ACTIVE)
-            throw new IllegalStateException("Auction is not LIVE");
+            throw new AuctionStateException("Auction is not LIVE");
 
         // Lock player row to serialize all bids on the same player
         AuctionPlayer player = playerRepo.findByIdForUpdate(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionPlayer", req.playerId()));
@@ -283,7 +284,7 @@ public class AuctionServiceImpl implements AuctionService {
 
         // Budget check (under lock — no concurrent bid can see stale budget)
         if (team.getRemainingBudget() < req.bidAmount())
-            throw new IllegalStateException("Team budget insufficient. Available: ₹"
+            throw new AuctionStateException("Team budget insufficient. Available: ₹"
                 + team.getRemainingBudget());
 
         // Minimum bid check (under player lock — serialized per player)
@@ -293,7 +294,7 @@ public class AuctionServiceImpl implements AuctionService {
             : currentMax + config.calculateNextIncrement(currentMax);
 
         if (req.bidAmount() < minRequired)
-            throw new IllegalStateException("Bid must be at least ₹" + minRequired
+            throw new AuctionStateException("Bid must be at least ₹" + minRequired
                 + ". Increment rule: "
                 + (currentMax >= config.getBidIncrementThreshold() ? "₹" + config.getBidIncrementAbove() : "₹" + config.getBidIncrementDefault()));
 
@@ -341,14 +342,14 @@ public class AuctionServiceImpl implements AuctionService {
         AuctionTeam   team   = teamRepo.findByIdForUpdate(req.teamId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("AuctionTeam", req.teamId()));
 
         if (player.getStatus() == AuctionPlayer.PlayerStatus.SOLD)
-            throw new IllegalStateException("Player " + player.getPlayerName() + " is already SOLD");
+            throw new AuctionStateException("Player " + player.getPlayerName() + " is already SOLD");
 
         Long soldPrice = bidRepo.findMaxBidForPlayer(player.getId())
             .orElseThrow(() -> new IllegalStateException("No bids placed for this player"));
 
         // Atomic budget deduction under pessimistic lock
         if (team.getRemainingBudget() < soldPrice)
-            throw new IllegalStateException("Team budget insufficient for final sale");
+            throw new AuctionStateException("Team budget insufficient for final sale");
 
         team.setRemainingBudget(team.getRemainingBudget() - soldPrice);
         team.setSpent((team.getSpent() == null ? 0L : team.getSpent()) + soldPrice);
@@ -568,7 +569,7 @@ public class AuctionServiceImpl implements AuctionService {
         // Pick a random QUEUED player
         List<AuctionPlayer> queued = playerRepo.findQueuedByConfig(configId);
         if (queued.isEmpty()) {
-            throw new IllegalStateException("No more players in queue. Auction pool is empty.");
+            throw new AuctionStateException("No more players in queue. Auction pool is empty.");
         }
 
         java.util.Random random = new java.util.Random();
@@ -579,7 +580,7 @@ public class AuctionServiceImpl implements AuctionService {
         picked = playerRepo.findByIdForUpdate(picked.getId())
             .orElseThrow(() -> new IllegalStateException("Player disappeared during pick"));
         if (picked.getStatus() != AuctionPlayer.PlayerStatus.QUEUED) {
-            throw new IllegalStateException("Player " + picked.getPlayerName() + " is no longer QUEUED");
+            throw new AuctionStateException("Player " + picked.getPlayerName() + " is no longer QUEUED");
         }
 
         picked.setStatus(AuctionPlayer.PlayerStatus.SELLING);

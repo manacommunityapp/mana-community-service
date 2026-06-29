@@ -1,12 +1,14 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.AuctionPlayerRequest;
+import com.manacommunity.api.dto.AuctionPlayerResponse;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.AuctionPlayer;
 import com.manacommunity.api.model.AuctionConfig;
 import com.manacommunity.api.security.UserPrincipal;
 import com.manacommunity.api.service.AuctionPlayerService;
 import com.manacommunity.api.service.LoggedInUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +26,8 @@ public class AuctionPlayerController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','AUCTION_ADMIN','SPORTS_ADMIN','COMMUNITY_ADMIN')")
-    public ResponseEntity<AuctionPlayer> createPlayer(
-            @RequestBody AuctionPlayerRequest req,
+    public ResponseEntity<AuctionPlayerResponse> createPlayer(
+            @Valid @RequestBody AuctionPlayerRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         AuctionPlayer player = AuctionPlayer.builder()
@@ -36,11 +38,30 @@ public class AuctionPlayerController {
                 .playerRole(req.getPlayerRole())
                 .age(req.getAge())
                 .basePrice(req.getBasePrice())
-                //.statsJson(req.getStatsJson())
-                //.queueOrder(req.getQueueOrder())
                 .status(AuctionPlayer.PlayerStatus.QUEUED)
                 .build();
         AuctionPlayer saved = auctionPlayerService.savePlayer(player);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
+    }
+
+    static AuctionPlayerResponse toResponse(AuctionPlayer p) {
+        return AuctionPlayerResponse.builder()
+                .id(p.getId())
+                .configId(p.getConfig() != null ? p.getConfig().getId() : null)
+                .userId(p.getUser() != null ? p.getUser().getId() : null)
+                .playerName(p.getPlayerName())
+                .category(p.getCategory())
+                .playerRole(p.getPlayerRole())
+                .age(p.getAge())
+                .basePrice(p.getBasePrice())
+                .statsJson(p.getStatsJson())
+                .queueOrder(p.getQueueOrder())
+                .status(p.getStatus() != null ? p.getStatus().name() : null)
+                .assignedTeamId(p.getAssignedTeam() != null ? p.getAssignedTeam().getId() : null)
+                .assignedTeamName(p.getAssignedTeam() != null ? p.getAssignedTeam().getTeamName() : null)
+                .soldPrice(p.getSoldPrice())
+                .rtmUsed(p.getRtmUsed())
+                .soldAt(p.getSoldAt())
+                .build();
     }
 }

@@ -1,8 +1,10 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.security.JwtTokenProvider;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -37,6 +39,7 @@ import java.util.List;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final Environment environment;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -44,8 +47,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
 
-    public WebSocketConfig(JwtTokenProvider jwtTokenProvider) {
+    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.environment = environment;
+    }
+
+    @PostConstruct
+    void validateMockAuthProfile() {
+        if (!mockAuthEnabled) return;
+        boolean isLocal = java.util.Arrays.asList(environment.getActiveProfiles()).contains("local");
+        if (!isLocal) {
+            throw new IllegalStateException(
+                    "WebSocket mock-auth is only allowed with the 'local' profile.");
+        }
     }
 
     @Override

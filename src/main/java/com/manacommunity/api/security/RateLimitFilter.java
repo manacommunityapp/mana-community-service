@@ -99,12 +99,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setStatus(429); // 429 Too Many Requests
         response.setContentType("application/json");
         response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        String safePath = request.getRequestURI()
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "")
+                .replace("\n", "");
         String body = "{"
                 + "\"timestamp\":\"" + LocalDateTime.now() + "\","
                 + "\"status\":429,"
                 + "\"error\":\"RATE_LIMIT_EXCEEDED\","
                 + "\"message\":\"Too many requests. Please slow down and retry shortly.\","
-                + "\"path\":\"" + request.getRequestURI() + "\"}";
+                + "\"path\":\"" + safePath + "\"}";
         response.getWriter().write(body);
     }
 

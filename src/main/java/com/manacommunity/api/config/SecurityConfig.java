@@ -223,8 +223,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
-                .requestMatchers("/api/admin/email/**").permitAll()
-                .requestMatchers("/api/tournament/**").permitAll()
+                .requestMatchers("/api/admin/email/**").hasRole(ROLE_SUPER_ADMIN)
+                .requestMatchers("/api/tournament/**").authenticated()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

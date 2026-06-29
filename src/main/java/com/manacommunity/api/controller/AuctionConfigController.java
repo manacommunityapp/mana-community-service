@@ -90,35 +90,38 @@ public class AuctionConfigController {
 
     /** POST create new auction config (admin only) */
     @PostMapping
-    public ResponseEntity<AuctionConfig> createConfig(
+    public ResponseEntity<AuctionConfigResponse> createConfig(
             @Valid @RequestBody AuctionConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_AUCTION_CONFIG);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
+        AuctionConfig created = auctionService.createConfig(req, loggedInUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(auctionService.createConfig(req, loggedInUser.getId()));
+            .body(auctionService.getConfigResponse(created.getId()));
     }
 
     /** PUT update auction rules dynamically — cannot update when LIVE */
     @PutMapping("/{id}")
-    public ResponseEntity<AuctionConfig> updateConfig(
+    public ResponseEntity<AuctionConfigResponse> updateConfig(
             @PathVariable Long id,
             @Valid @RequestBody AuctionConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_AUCTION_CONFIG);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionService.updateConfig(id, req));
+        auctionService.updateConfig(id, req);
+        return ResponseEntity.ok(auctionService.getConfigResponse(id));
     }
 
     /** PUT change auction status: DRAFT→ACTIVE→LIVE→COMPLETED */
     @PutMapping("/{id}/status")
-    public ResponseEntity<AuctionConfig> updateStatus(
+    public ResponseEntity<AuctionConfigResponse> updateStatus(
             @PathVariable Long id,
             @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionService.updateStatus(id, status));
+        auctionService.updateStatus(id, status);
+        return ResponseEntity.ok(auctionService.getConfigResponse(id));
     }
 
     /** POST upload players via CSV */
@@ -134,14 +137,14 @@ public class AuctionConfigController {
 
     /** POST create single player manually */
     @PostMapping("/{id}/players")
-    public ResponseEntity<com.manacommunity.api.model.AuctionPlayer> createPlayer(
+    public ResponseEntity<com.manacommunity.api.dto.AuctionPlayerResponse> createPlayer(
             @PathVariable Long id,
             @Valid @RequestBody com.manacommunity.api.dto.AuctionPlayerRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(auctionService.createPlayer(id, req));
+            .body(AuctionPlayerController.toResponse(auctionService.createPlayer(id, req)));
     }
 
     /** GET /api/auction/config/{id}/registration-count — get confirmed registration count */

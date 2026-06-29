@@ -1,447 +1,903 @@
-2026-06-27 13:47:59.461 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=14h11m30s636ms808µs400ns).
-2026-06-27 13:48:19.417 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 1 total, 0 closed abnormally (0 connect failure, 0 send limit, 1 transport error)], stompSubProtocol[processed CONNECT(1)-CONNECTED(1)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 9], outboundChannel[pool size = 1, active threads = 0, queued tasks = 0, completed tasks = 2], sockJsScheduler[pool size = 15, active threads = 4, queued tasks = 0, completed tasks = 11]
-2026-06-27 13:48:26.340 INFO  [cid=475c870c-c0b5-4a14-9363-1185f05bdf67 uid=-] API - --> POST /api/auth/login ip=127.0.0.1
-2026-06-27 13:48:26.703 INFO  [cid=475c870c-c0b5-4a14-9363-1185f05bdf67 uid=1] API - <-- POST /api/auth/login status=200 durationMs=363 size=-
-2026-06-27 13:48:26.716 INFO  [cid=0afa53bc-8d03-4c4b-b8eb-96b851f8d584 uid=-] API - --> GET /api/users/me ip=127.0.0.1
-2026-06-27 13:48:26.766 INFO  [cid=0afa53bc-8d03-4c4b-b8eb-96b851f8d584 uid=1] API - <-- GET /api/users/me status=200 durationMs=50 size=-
-2026-06-27 13:48:26.857 INFO  [cid=20488493-1be6-4c69-bc24-fc5dcdfd47e3 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 13:48:26.900 INFO  [cid=20488493-1be6-4c69-bc24-fc5dcdfd47e3 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=44 size=-
-2026-06-27 13:48:26.910 INFO  [cid=621cc05d-13bb-4c3d-90f5-40444d4a5451 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
-2026-06-27 13:48:26.927 INFO  [cid=621cc05d-13bb-4c3d-90f5-40444d4a5451 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=17 size=-
-2026-06-27 13:48:26.981 INFO  [cid=07c9b3c7-48cc-4f0b-8e4d-c91631dbcabc uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 13:48:27.000 INFO  [cid=07c9b3c7-48cc-4f0b-8e4d-c91631dbcabc uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=20 size=-
-2026-06-27 13:48:33.346 INFO  [cid=03b9a6fd-4cf6-4d43-9535-9c68275deb23 uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
-2026-06-27 13:48:33.500 INFO  [cid=03b9a6fd-4cf6-4d43-9535-9c68275deb23 uid=1] API - <-- GET /api/sports/dashboard status=200 durationMs=154 size=-
-2026-06-27 13:48:33.517 INFO  [cid=0f1432fb-c149-48b5-893f-37b7fec2fcc2 uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
-2026-06-27 13:48:33.541 INFO  [cid=0f1432fb-c149-48b5-893f-37b7fec2fcc2 uid=1] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=24 size=-
-2026-06-27 13:48:34.951 INFO  [cid=c62b8b2a-9dfb-4864-a3f3-362a78c6aa9e uid=-] API - --> GET /api/sports/registrations/mine ip=127.0.0.1
-2026-06-27 13:48:34.957 INFO  [cid=9ec78e44-e2a7-4aa7-9228-4dac1a80edd3 uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
-2026-06-27 13:48:34.959 INFO  [cid=962095e5-b6b4-4675-9625-11d31113e9c7 uid=-] API - --> GET /api/communities ip=127.0.0.1
-2026-06-27 13:48:34.959 INFO  [cid=b2b85bcd-fe89-414f-b5a1-829dc4ce34ba uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
-2026-06-27 13:48:34.961 INFO  [cid=e98d629b-f50e-464c-8cde-fc4a6b6a8bbc uid=-] API - --> GET /api/sports/tournaments/mine ip=127.0.0.1
-2026-06-27 13:48:34.974 INFO  [cid=9ec78e44-e2a7-4aa7-9228-4dac1a80edd3 uid=1] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=16 size=-
-2026-06-27 13:48:34.987 INFO  [cid=962095e5-b6b4-4675-9625-11d31113e9c7 uid=1] API - <-- GET /api/communities status=200 durationMs=28 size=-
-2026-06-27 13:48:34.990 INFO  [cid=b2b85bcd-fe89-414f-b5a1-829dc4ce34ba uid=1] API - <-- GET /api/sports/meta status=200 durationMs=30 size=-
-2026-06-27 13:48:34.995 INFO  [cid=e98d629b-f50e-464c-8cde-fc4a6b6a8bbc uid=1] API - <-- GET /api/sports/tournaments/mine status=200 durationMs=33 size=-
-2026-06-27 13:48:35.001 INFO  [cid=c62b8b2a-9dfb-4864-a3f3-362a78c6aa9e uid=1] API - <-- GET /api/sports/registrations/mine status=200 durationMs=50 size=-
-2026-06-27 13:48:41.806 INFO  [cid=26ecd2f7-ae6e-40b8-b251-ce2447950ac8 uid=-] API - --> GET /api/sports/categories ip=127.0.0.1
-2026-06-27 13:48:41.806 INFO  [cid=4dbd0dc9-c54e-4f50-958a-7f21ce43166d uid=-] API - --> GET /api/sports/events/all ip=127.0.0.1
-2026-06-27 13:48:41.834 INFO  [cid=26ecd2f7-ae6e-40b8-b251-ce2447950ac8 uid=1] API - <-- GET /api/sports/categories status=200 durationMs=27 size=-
-2026-06-27 13:48:41.872 INFO  [cid=4dbd0dc9-c54e-4f50-958a-7f21ce43166d uid=1] API - <-- GET /api/sports/events/all status=200 durationMs=65 size=-
-2026-06-27 13:48:41.877 INFO  [cid=49c1e54f-6856-4e79-bb80-d5aa875f5abf uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
-2026-06-27 13:48:41.877 INFO  [cid=c2fffc92-098a-49cc-bb23-01a5f6bc7cb2 uid=-] API - --> GET /api/tournaments/all ip=127.0.0.1
-2026-06-27 13:48:41.896 INFO  [cid=49c1e54f-6856-4e79-bb80-d5aa875f5abf uid=1] API - <-- GET /api/sports/meta status=200 durationMs=18 size=-
-2026-06-27 13:48:41.919 INFO  [cid=c2fffc92-098a-49cc-bb23-01a5f6bc7cb2 uid=1] API - <-- GET /api/tournaments/all status=200 durationMs=42 size=-
-2026-06-27 14:10:00.413 INFO  [cid=df9ddb0e-36ad-4c53-a29b-fd40c1b5fc7e uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 14:10:00.501 INFO  [cid=df9ddb0e-36ad-4c53-a29b-fd40c1b5fc7e uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=86 size=-
-2026-06-27 14:10:35.201 INFO  [cid=250145b9-b26f-4f1b-8c43-03db0cbe9bc6 uid=-] API - --> POST /api/auth/login ip=127.0.0.1
-2026-06-27 14:10:35.309 INFO  [cid=250145b9-b26f-4f1b-8c43-03db0cbe9bc6 uid=1] API - <-- POST /api/auth/login status=200 durationMs=106 size=-
-2026-06-27 14:10:35.314 INFO  [cid=ae895606-35f6-4212-b6ab-37aac513ff7c uid=-] API - --> GET /api/users/me ip=127.0.0.1
-2026-06-27 14:10:35.329 INFO  [cid=ae895606-35f6-4212-b6ab-37aac513ff7c uid=1] API - <-- GET /api/users/me status=200 durationMs=14 size=-
-2026-06-27 14:10:35.374 INFO  [cid=28b72020-6459-471b-a338-dd6015daa2a5 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 14:10:35.390 INFO  [cid=28b72020-6459-471b-a338-dd6015daa2a5 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=16 size=-
-2026-06-27 14:10:35.398 INFO  [cid=adba9e54-61db-4891-aa53-eb87d3b24159 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
-2026-06-27 14:10:35.404 INFO  [cid=d91c3665-7831-4633-803d-08f666cc40ca uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 14:10:35.409 INFO  [cid=adba9e54-61db-4891-aa53-eb87d3b24159 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=11 size=-
-2026-06-27 14:10:35.420 INFO  [cid=d91c3665-7831-4633-803d-08f666cc40ca uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
-2026-06-27 14:10:37.249 INFO  [cid=d4f02800-0c00-4e70-a16a-4e55b99f91ab uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
-2026-06-27 14:10:37.289 INFO  [cid=d4f02800-0c00-4e70-a16a-4e55b99f91ab uid=1] API - <-- GET /api/sports/dashboard status=200 durationMs=40 size=-
-2026-06-27 14:10:37.297 INFO  [cid=157e6605-98a4-4f6e-ac2a-4f9b96b066de uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
-2026-06-27 14:10:37.312 INFO  [cid=157e6605-98a4-4f6e-ac2a-4f9b96b066de uid=1] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=16 size=-
-2026-06-27 14:10:39.999 INFO  [cid=bf3244bb-268a-48bb-baa1-4d357c3b5a92 uid=-] API - --> GET /api/tournaments/all ip=127.0.0.1
-2026-06-27 14:10:39.999 INFO  [cid=ff3f1412-a1e5-4666-9eb4-373628ae2a04 uid=-] API - --> GET /api/sports/events/all ip=127.0.0.1
-2026-06-27 14:10:40.001 INFO  [cid=d6c5cc37-4605-40d4-a1bf-2e9bb5b5e66f uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
-2026-06-27 14:10:40.001 INFO  [cid=924a2eb4-a2d7-46fd-ada5-966c337b74cf uid=-] API - --> GET /api/sports/categories ip=127.0.0.1
-2026-06-27 14:10:40.020 INFO  [cid=924a2eb4-a2d7-46fd-ada5-966c337b74cf uid=1] API - <-- GET /api/sports/categories status=200 durationMs=19 size=-
-2026-06-27 14:10:40.025 INFO  [cid=d6c5cc37-4605-40d4-a1bf-2e9bb5b5e66f uid=1] API - <-- GET /api/sports/meta status=200 durationMs=24 size=-
-2026-06-27 14:10:40.050 INFO  [cid=ff3f1412-a1e5-4666-9eb4-373628ae2a04 uid=1] API - <-- GET /api/sports/events/all status=200 durationMs=52 size=-
-2026-06-27 14:10:40.052 INFO  [cid=bf3244bb-268a-48bb-baa1-4d357c3b5a92 uid=1] API - <-- GET /api/tournaments/all status=200 durationMs=52 size=-
-2026-06-27 14:18:19.436 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[1 current WS(1)-HttpStream(0)-HttpPoll(0), 4 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(4)-CONNECTED(4)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 33], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 7], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 73]
-2026-06-27 14:40:00.089 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=16m29s997ms816µs700ns).
-2026-06-27 14:40:01.607 INFO  [cid=e164d422-9ea3-4b6e-9c5c-4e9d5389ab05 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 14:40:01.663 INFO  [cid=e164d422-9ea3-4b6e-9c5c-4e9d5389ab05 uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=54 size=-
-2026-06-27 14:40:02.542 INFO  [cid=6aaf8f7d-df78-4887-8631-87729fcd31e7 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 14:40:02.764 INFO  [cid=6aaf8f7d-df78-4887-8631-87729fcd31e7 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=227 size=-
-2026-06-27 16:47:04.229 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 5 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(5)-CONNECTED(5)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 12, active threads = 0, queued tasks = 0, completed tasks = 45], outboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 10], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 88]
-2026-06-27 16:47:08.840 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=2h7m8s542ms270µs500ns).
-2026-06-27 16:47:37.606 INFO  [cid=268ab57c-a26b-4bfc-b879-8f739c5bf291 uid=-] API - --> POST /api/auth/logout ip=127.0.0.1
-2026-06-27 16:47:38.599 INFO  [cid=268ab57c-a26b-4bfc-b879-8f739c5bf291 uid=-] API - <-- POST /api/auth/logout status=200 durationMs=993 size=11
-2026-06-27 16:47:38.742 INFO  [cid=b5e5fe0d-33dd-412b-997b-2dd5fdd4bbe8 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
-2026-06-27 16:47:38.828 INFO  [cid=b5e5fe0d-33dd-412b-997b-2dd5fdd4bbe8 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=87 size=-
-2026-06-27 16:47:38.890 INFO  [cid=d1c4cda8-ba56-42aa-8eb1-df19f9677e1e uid=-] API - --> POST /api/auth/logout ip=127.0.0.1
-2026-06-27 16:47:39.110 INFO  [cid=d1c4cda8-ba56-42aa-8eb1-df19f9677e1e uid=1] API - <-- POST /api/auth/logout status=200 durationMs=220 size=11
-2026-06-27 21:08:45.119 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=4h10m6s123ms675µs100ns).
-2026-06-27 21:08:50.021 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 6 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(6)-CONNECTED(6)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 51], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 12], sockJsScheduler[pool size = 16, active threads = 3, queued tasks = 1, completed tasks = 111]
-2026-06-27 21:38:50.033 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 6 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(6)-CONNECTED(6)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 51], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 12], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 172]
-2026-06-27 22:08:50.052 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 6 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(6)-CONNECTED(6)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 51], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 12], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 233]
-2026-06-27 22:38:50.222 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 6 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(6)-CONNECTED(6)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 51], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 12], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 294]
-2026-06-27 23:08:50.311 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 6 total, 0 closed abnormally (0 connect failure, 0 send limit, 3 transport error)], stompSubProtocol[processed CONNECT(6)-CONNECTED(6)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 51], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 12], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 355]
-2026-06-27 23:12:23.805 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
-2026-06-27 23:12:24.084 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Graceful shutdown complete
-2026-06-27 23:12:24.173 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopping...
-2026-06-27 23:12:24.179 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@43322e52]]
-2026-06-27 23:12:24.180 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopped.
-2026-06-27 23:12:24.345 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-06-27 23:12:24.530 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
-2026-06-27 23:12:24.612 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
-2026-06-27 23:14:31.081 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 45836 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
-2026-06-27 23:14:31.086 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
-2026-06-27 23:14:31.714 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
-2026-06-27 23:14:37.130 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-06-27 23:14:38.323 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 1171 ms. Found 35 JPA repository interfaces.
-2026-06-27 23:14:40.874 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
-2026-06-27 23:14:40.876 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
-2026-06-27 23:14:48.577 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8082 (http)
-2026-06-27 23:14:48.618 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8082"]
-2026-06-27 23:14:48.683 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
-2026-06-27 23:14:48.685 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
-2026-06-27 23:14:49.094 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 17918 ms
-2026-06-27 23:14:49.750 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2026-06-27 23:14:51.331 WARN  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Could not determine DB type; skipping constraint patch: The server requested SCRAM-based authentication, but no password was provided.
-2026-06-27 23:14:51.339 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
-2026-06-27 23:14:51.589 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
-2026-06-27 23:14:51.841 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
-2026-06-27 23:14:53.182 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-06-27 23:14:53.332 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2026-06-27 23:14:54.381 WARN  [cid=- uid=-] org.hibernate.orm.jdbc.error - HHH000247: ErrorCode: 0, SQLState: 08004
-2026-06-27 23:14:54.381 WARN  [cid=- uid=-] org.hibernate.orm.jdbc.error - The server requested SCRAM-based authentication, but no password was provided.
-2026-06-27 23:14:54.383 WARN  [cid=- uid=-] org.hibernate.orm.jdbc - HHH100046: Could not obtain connection to query JDBC database metadata
-org.hibernate.exception.JDBCConnectionException: Unable to obtain isolated JDBC connection [The server requested SCRAM-based authentication, but no password was provided.] [n/a]
-	at org.hibernate.exception.internal.SQLStateConversionDelegate.convert(SQLStateConversionDelegate.java:80)
-	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:34)
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:115)
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:101)
-	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.delegateWork(JdbcIsolationDelegate.java:51)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironmentUsingJdbcMetadata(JdbcEnvironmentInitiator.java:366)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironment(JdbcEnvironmentInitiator.java:143)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:120)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:80)
-	at org.hibernate.boot.registry.internal.StandardServiceRegistryImpl.initiateService(StandardServiceRegistryImpl.java:133)
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.createService(AbstractServiceRegistryImpl.java:260)
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.initializeService(AbstractServiceRegistryImpl.java:235)
-	at org.hibernate.service.internal.AbstractServiceRegistryImpl.getService(AbstractServiceRegistryImpl.java:212)
-	at org.hibernate.boot.model.relational.Database.<init>(Database.java:44)
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.getDatabase(InFlightMetadataCollectorImpl.java:251)
-	at org.hibernate.boot.internal.InFlightMetadataCollectorImpl.<init>(InFlightMetadataCollectorImpl.java:203)
-	at org.hibernate.boot.model.process.spi.MetadataBuildingProcess.complete(MetadataBuildingProcess.java:172)
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.metadata(EntityManagerFactoryBuilderImpl.java:1392)
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.populateSessionFactoryBuilder(EntityManagerFactoryBuilderImpl.java:1472)
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1454)
-	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:93)
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:443)
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:436)
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:411)
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:419)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:365)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:135)
-	at org.springframework.beans.factory.support.ConstructorResolver.resolveConstructorArguments(ConstructorResolver.java:691)
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:513)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1362)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1194)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:356)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:135)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyPropertyValues(AbstractAutowireCapableBeanFactory.java:1712)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1461)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:602)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:764)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:748)
-	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:146)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:493)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1446)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:602)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196)
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:413)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1362)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1194)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:231)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:222)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.addServletContextInitializerBeans(ServletContextInitializerBeans.java:107)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.<init>(ServletContextInitializerBeans.java:96)
-	at org.springframework.boot.web.context.servlet.WebApplicationContextInitializer.initialize(WebApplicationContextInitializer.java:53)
-	at org.springframework.boot.tomcat.servlet.DeferredServletContainerInitializers.onStartup(DeferredServletContainerInitializers.java:55)
-	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4416)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
-	at java.base/java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:264)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java)
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
-	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
-	at java.base/java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:264)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java)
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
-	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
-	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
-	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
-	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:408)
-	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:166)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
-	at com.manacommunity.api.ManaCommunityServiceApplication.main(ManaCommunityServiceApplication.java:15)
-Caused by: org.postgresql.util.PSQLException: The server requested SCRAM-based authentication, but no password was provided.
-	at org.postgresql.core.v3.ConnectionFactoryImpl.lambda$doAuthentication$5(ConnectionFactoryImpl.java:939)
-	at org.postgresql.core.v3.AuthenticationPluginManager.withPassword(AuthenticationPluginManager.java:82)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.doAuthentication(ConnectionFactoryImpl.java:936)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:234)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:289)
-	at org.postgresql.core.ConnectionFactory.openConnection(ConnectionFactory.java:57)
-	at org.postgresql.jdbc.PgConnection.<init>(PgConnection.java:290)
-	at org.postgresql.Driver.makeConnection(Driver.java:448)
-	at org.postgresql.Driver.connect(Driver.java:298)
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:144)
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:373)
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:210)
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:488)
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:576)
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:97)
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:111)
-	at org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider.getConnection(DataSourceConnectionProvider.java:137)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess.obtainConnection(JdbcEnvironmentInitiator.java:508)
-	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcIsolationDelegate.delegateWork(JdbcIsolationDelegate.java:48)
-	... 118 common frames omitted
-2026-06-27 23:14:54.500 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-06-27 23:14:54.531 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
-	Database JDBC URL [undefined/unknown]
-	Database driver: undefined/unknown
+2026-06-29 00:01:10.268 INFO  [cid=05924944-c2f9-4629-9998-e6f77e7cc0df uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:01:10.638 INFO  [cid=05924944-c2f9-4629-9998-e6f77e7cc0df uid=1] API - <-- POST /api/auth/login status=200 durationMs=367 size=-
+2026-06-29 00:01:10.642 INFO  [cid=4799cc45-e8bb-4e5a-b034-800876dfe489 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:01:10.651 INFO  [cid=4799cc45-e8bb-4e5a-b034-800876dfe489 uid=3] API - <-- GET /api/users/me status=200 durationMs=9 size=-
+2026-06-29 00:01:10.698 INFO  [cid=d96dc066-d57d-433b-b516-8ccd797ea2b9 uid=-] API - --> GET /api/posts?page=0&size=10 ip=127.0.0.1
+2026-06-29 00:01:10.699 INFO  [cid=709c5ca0-254f-4ca1-8b0d-efa1643c5805 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:01:10.713 INFO  [cid=709c5ca0-254f-4ca1-8b0d-efa1643c5805 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=14 size=-
+2026-06-29 00:01:10.714 INFO  [cid=d96dc066-d57d-433b-b516-8ccd797ea2b9 uid=3] API - <-- GET /api/posts status=200 durationMs=18 size=-
+2026-06-29 00:01:10.722 INFO  [cid=e2636d66-ad65-4f92-b2d0-4388d0db5de8 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:01:10.732 INFO  [cid=4bb4676b-aa24-4ee2-b8af-89943baef856 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:01:10.732 INFO  [cid=e2636d66-ad65-4f92-b2d0-4388d0db5de8 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=15 size=-
+2026-06-29 00:01:10.741 INFO  [cid=4bb4676b-aa24-4ee2-b8af-89943baef856 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=9 size=-
+2026-06-29 00:01:12.110 INFO  [cid=5c277768-0ea0-4295-a8d0-2abdb79a2962 uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
+2026-06-29 00:01:12.157 INFO  [cid=5c277768-0ea0-4295-a8d0-2abdb79a2962 uid=3] API - <-- GET /api/sports/dashboard status=200 durationMs=46 size=-
+2026-06-29 00:01:12.167 INFO  [cid=18a3b555-4c6b-499b-b9d4-c2094b56b5fb uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
+2026-06-29 00:01:12.191 INFO  [cid=18a3b555-4c6b-499b-b9d4-c2094b56b5fb uid=3] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=24 size=-
+2026-06-29 00:01:13.565 INFO  [cid=c114cf51-b665-43cb-b281-37b601b98472 uid=-] API - --> GET /api/sports/registrations/mine ip=127.0.0.1
+2026-06-29 00:01:13.565 INFO  [cid=7aea51a2-9593-4bcb-ac7c-49e0dd3924e7 uid=-] API - --> GET /api/sports/tournaments/mine ip=127.0.0.1
+2026-06-29 00:01:13.565 INFO  [cid=02c17462-3f6d-4e54-8b01-f32bbaae2ef4 uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
+2026-06-29 00:01:13.565 INFO  [cid=39f9182a-a4eb-442e-9b36-7c5379fb3192 uid=-] API - --> GET /api/communities ip=127.0.0.1
+2026-06-29 00:01:13.569 INFO  [cid=0c49245c-89ce-4d0e-a63d-8dec4a30a7ed uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:01:13.580 INFO  [cid=39f9182a-a4eb-442e-9b36-7c5379fb3192 uid=3] API - <-- GET /api/communities status=200 durationMs=12 size=-
+2026-06-29 00:01:13.588 INFO  [cid=7aea51a2-9593-4bcb-ac7c-49e0dd3924e7 uid=3] API - <-- GET /api/sports/tournaments/mine status=200 durationMs=21 size=-
+2026-06-29 00:01:13.604 INFO  [cid=0c49245c-89ce-4d0e-a63d-8dec4a30a7ed uid=3] API - <-- GET /api/sports/meta status=200 durationMs=36 size=-
+2026-06-29 00:01:13.621 INFO  [cid=c114cf51-b665-43cb-b281-37b601b98472 uid=3] API - <-- GET /api/sports/registrations/mine status=200 durationMs=54 size=-
+2026-06-29 00:01:13.626 INFO  [cid=02c17462-3f6d-4e54-8b01-f32bbaae2ef4 uid=3] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=60 size=-
+2026-06-29 00:01:24.943 INFO  [cid=dc9b5d13-a4e7-4e4f-a185-1b28dfbe1846 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:24.943 INFO  [cid=3a38effb-a7e1-4b40-8048-9e4229a9a7ca uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:01:24.943 INFO  [cid=4c06bdb3-f527-4548-88f2-6b4914204f3e uid=-] API - --> GET /api/sports/tournaments/open?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:24.953 INFO  [cid=dc9b5d13-a4e7-4e4f-a185-1b28dfbe1846 uid=3] API - <-- GET /api/venues status=200 durationMs=9 size=-
+2026-06-29 00:01:24.953 INFO  [cid=3a38effb-a7e1-4b40-8048-9e4229a9a7ca uid=3] API - <-- GET /api/sports/meta status=200 durationMs=10 size=-
+2026-06-29 00:01:24.965 INFO  [cid=4c06bdb3-f527-4548-88f2-6b4914204f3e uid=3] API - <-- GET /api/sports/tournaments/open status=200 durationMs=22 size=-
+2026-06-29 00:01:26.181 INFO  [cid=43a18fc3-531d-41c8-b930-aeeacdb2d522 uid=-] API - --> GET /api/auction/config/check ip=127.0.0.1
+2026-06-29 00:01:26.181 INFO  [cid=ab54747b-1227-4e11-a525-0b7f0529987f uid=-] API - --> GET /api/auction/config/all ip=127.0.0.1
+2026-06-29 00:01:26.181 INFO  [cid=28dee930-0d64-4629-881f-ce97704e6b7e uid=-] API - --> GET /api/sports/events/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:26.181 INFO  [cid=37ff3554-ea74-431f-b913-c54657d0a6ef uid=-] API - --> GET /api/sports/tournament-list-map?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:26.317 INFO  [cid=43a18fc3-531d-41c8-b930-aeeacdb2d522 uid=3] API - <-- GET /api/auction/config/check status=400 durationMs=136 size=-
+2026-06-29 00:01:26.324 INFO  [cid=ab54747b-1227-4e11-a525-0b7f0529987f uid=3] API - <-- GET /api/auction/config/all status=200 durationMs=142 size=-
+2026-06-29 00:01:26.329 INFO  [cid=37ff3554-ea74-431f-b913-c54657d0a6ef uid=3] API - <-- GET /api/sports/tournament-list-map status=200 durationMs=147 size=-
+2026-06-29 00:01:26.329 INFO  [cid=28dee930-0d64-4629-881f-ce97704e6b7e uid=3] API - <-- GET /api/sports/events/community status=200 durationMs=147 size=-
+2026-06-29 00:01:27.211 INFO  [cid=7b852aeb-beef-4c6c-81f4-35ac6558c3de uid=-] API - --> GET /api/tournaments/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:27.213 INFO  [cid=bc451269-171c-44f8-a13e-6e6b55d62de0 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:01:27.213 INFO  [cid=f45d5be2-8904-423e-a5c9-6600c3653678 uid=-] API - --> GET /api/sports/categories ip=127.0.0.1
+2026-06-29 00:01:27.213 INFO  [cid=c196f5e4-f5a0-4345-b629-562c36141462 uid=-] API - --> GET /api/sports/events/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:01:27.220 INFO  [cid=f45d5be2-8904-423e-a5c9-6600c3653678 uid=3] API - <-- GET /api/sports/categories status=200 durationMs=7 size=-
+2026-06-29 00:01:27.223 INFO  [cid=bc451269-171c-44f8-a13e-6e6b55d62de0 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=10 size=-
+2026-06-29 00:01:27.227 INFO  [cid=7b852aeb-beef-4c6c-81f4-35ac6558c3de uid=3] API - <-- GET /api/tournaments/community status=200 durationMs=14 size=-
+2026-06-29 00:01:27.232 INFO  [cid=c196f5e4-f5a0-4345-b629-562c36141462 uid=3] API - <-- GET /api/sports/events/community status=200 durationMs=19 size=-
+2026-06-29 00:15:33.394 INFO  [cid=16ae1cfd-9817-4da2-8c28-0d60d8f22473 uid=-] API - --> GET /api/tournament/configs ip=127.0.0.1
+2026-06-29 00:15:33.394 INFO  [cid=8cad61b8-05cd-4023-b6f2-69e14e4375ab uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
+2026-06-29 00:15:33.394 INFO  [cid=ff7b9e05-401e-44cf-81d2-ddc8dd3dc228 uid=-] API - --> GET /api/sports/admin/overview ip=127.0.0.1
+2026-06-29 00:15:33.703 INFO  [cid=16ae1cfd-9817-4da2-8c28-0d60d8f22473 uid=3] API - <-- GET /api/tournament/configs status=200 durationMs=309 size=-
+2026-06-29 00:15:33.846 INFO  [cid=8cad61b8-05cd-4023-b6f2-69e14e4375ab uid=3] API - <-- GET /api/sports/dashboard status=200 durationMs=453 size=-
+2026-06-29 00:15:34.815 INFO  [cid=ff7b9e05-401e-44cf-81d2-ddc8dd3dc228 uid=3] API - <-- GET /api/sports/admin/overview status=200 durationMs=1421 size=-
+2026-06-29 00:15:35.832 INFO  [cid=b205c76b-2f1f-486f-ac72-39391f8efd34 uid=-] API - --> GET /api/sports/admin/overview ip=127.0.0.1
+2026-06-29 00:15:35.832 INFO  [cid=e7441352-f02c-491f-99dc-6e52dc6e9b6f uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
+2026-06-29 00:15:35.834 INFO  [cid=94951ddb-3651-4216-b2b0-0698f1185bcc uid=-] API - --> GET /api/tournament/configs ip=127.0.0.1
+2026-06-29 00:15:35.838 INFO  [cid=24c8f3c5-c2b9-48b5-93c3-8f8834f9e64b uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:15:35.838 INFO  [cid=93c70977-1359-478e-b01a-fa5da01b08ff uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:15:35.852 INFO  [cid=94951ddb-3651-4216-b2b0-0698f1185bcc uid=3] API - <-- GET /api/tournament/configs status=200 durationMs=18 size=-
+2026-06-29 00:15:35.866 INFO  [cid=24c8f3c5-c2b9-48b5-93c3-8f8834f9e64b uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=30 size=-
+2026-06-29 00:15:35.874 INFO  [cid=a930bb90-65e5-4bf4-a2f6-374d90149be0 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:15:35.874 INFO  [cid=b205c76b-2f1f-486f-ac72-39391f8efd34 uid=3] API - <-- GET /api/sports/admin/overview status=200 durationMs=45 size=-
+2026-06-29 00:15:35.890 INFO  [cid=93c70977-1359-478e-b01a-fa5da01b08ff uid=3] API - <-- GET /api/users/me status=200 durationMs=51 size=-
+2026-06-29 00:15:35.913 INFO  [cid=a930bb90-65e5-4bf4-a2f6-374d90149be0 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=38 size=-
+2026-06-29 00:15:35.950 INFO  [cid=f3de3218-138a-49a8-b4ec-cea6365a9176 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:15:35.969 INFO  [cid=f3de3218-138a-49a8-b4ec-cea6365a9176 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=20 size=-
+2026-06-29 00:15:35.997 INFO  [cid=e7441352-f02c-491f-99dc-6e52dc6e9b6f uid=3] API - <-- GET /api/sports/dashboard status=200 durationMs=165 size=-
+2026-06-29 00:16:21.625 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-06-29 00:16:21.836 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-06-29 00:16:21.893 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopping...
+2026-06-29 00:16:21.893 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@479c6b24]]
+2026-06-29 00:16:21.894 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopped.
+2026-06-29 00:16:22.020 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 00:16:22.139 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-06-29 00:16:22.169 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-06-29 00:17:41.375 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 22040 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-29 00:17:41.375 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-29 00:17:42.336 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-29 00:17:47.785 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-29 00:17:48.223 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 415 ms. Found 35 JPA repository interfaces.
+2026-06-29 00:17:48.869 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-29 00:17:48.870 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-29 00:17:50.365 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8082 (http)
+2026-06-29 00:17:50.404 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8082"]
+2026-06-29 00:17:50.412 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-29 00:17:50.412 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-29 00:17:50.695 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 9211 ms
+2026-06-29 00:17:52.757 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-29 00:17:53.839 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@62158991
+2026-06-29 00:17:53.842 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-29 00:17:54.009 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-29 00:17:54.184 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-29 00:17:54.214 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-29 00:17:54.504 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-29 00:17:54.562 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-29 00:17:54.577 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-29 00:17:54.587 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-29 00:17:54.591 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-29 00:17:54.592 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-29 00:17:54.603 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-29 00:17:54.606 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-29 00:17:54.614 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-29 00:17:54.624 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-29 00:17:54.898 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-29 00:17:56.142 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-29 00:17:57.043 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-29 00:17:58.619 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-29 00:17:58.785 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-29 00:17:58.816 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
 	Database dialect: PostgreSQLDialect
-	Database version: 13.0
-	Default catalog/schema: unknown/unknown
+	Database version: 17.9
+	Default catalog/schema: postgres/public
 	Autocommit mode: undefined/unknown
-	Isolation level: NONE [default NONE]
-	JDBC fetch size: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
 	Pool: DataSourceConnectionProvider
 	Minimum pool size: undefined/unknown
 	Maximum pool size: undefined/unknown
-2026-06-27 23:15:03.902 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-06-27 23:15:04.023 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2026-06-27 23:15:05.067 WARN  [cid=- uid=-] org.hibernate.orm.jdbc.error - HHH000247: ErrorCode: 0, SQLState: 08004
-2026-06-27 23:15:05.067 WARN  [cid=- uid=-] org.hibernate.orm.jdbc.error - The server requested SCRAM-based authentication, but no password was provided.
-2026-06-27 23:15:05.097 ERROR [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Failed to initialize JPA EntityManagerFactory: Unable to build Hibernate SessionFactory  [persistence unit: default] ; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [The server requested SCRAM-based authentication, but no password was provided.] [n/a]
-2026-06-27 23:15:05.111 ERROR [cid=- uid=-] o.s.b.t.s.DeferredServletContainerInitializers - Error starting Tomcat context. Exception: org.springframework.beans.factory.UnsatisfiedDependencyException. Message: Error creating bean with name 'securityConfig': Unsatisfied dependency expressed through field 'userRepository': Error creating bean with name 'appUserRepository' defined in com.manacommunity.api.repository.AppUserRepository defined in @EnableJpaRepositories declared on DataJpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Cannot resolve reference to bean 'jpaSharedEM_entityManagerFactory' while setting bean property 'entityManager'
-2026-06-27 23:15:05.315 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Stopping service [Tomcat]
-2026-06-27 23:15:05.323 WARN  [cid=- uid=-] o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Unable to start web server
-2026-06-27 23:15:05.344 INFO  [cid=- uid=-] o.s.b.a.l.ConditionEvaluationReportLogger - 
+2026-06-29 00:18:09.870 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-29 00:18:12.811 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 00:18:13.399 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-29 00:18:20.027 WARN  [cid=- uid=-] c.m.a.s.JwtAuthenticationFilter - *** MOCK AUTH ENABLED — all unauthenticated requests will be auto-elevated. This must NEVER reach a deployed environment. ***
+2026-06-29 00:18:21.524 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-29 00:18:30.131 WARN  [cid=- uid=-] c.m.a.service.FieldEncryptionService - No encryption master password configured — PII field encryption is disabled. Set JASYPT_ENCRYPTOR_PASSWORD for production use.
+2026-06-29 00:18:38.010 INFO  [cid=- uid=-] c.m.a.s.impl.SystemLogServiceImpl - Log directory resolved to: D:\Application\applications\mana community\mana-community-service\logs
+2026-06-29 00:18:39.032 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-29 00:18:40.757 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-29 00:18:47.604 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-29 00:18:47.899 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-29 00:18:47.901 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@44721f5a]]
+2026-06-29 00:18:47.904 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-29 00:18:47.904 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8082"]
+2026-06-29 00:18:47.932 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8082 (http) with context path '/'
+2026-06-29 00:18:48.041 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 67.763 seconds (process running for 68.893)
+2026-06-29 00:18:49.094 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-29 00:18:49.364 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Roles sequence synchronized to next available value successfully.
+2026-06-29 00:18:49.458 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-29 00:18:49.459 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-29 00:18:49.469 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-29 00:18:49.470 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-29 00:18:50.986 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ Role permissions seeded successfully
+2026-06-29 00:18:50.988 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-29 00:18:51.025 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 00:18:51.126 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-29 00:18:51.148 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-29 00:18:51.154 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-29 00:18:51.162 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-29 00:18:51.167 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-29 00:18:51.176 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-29 00:18:51.177 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 00:18:51.326 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 00:18:51.335 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-29 00:18:51.436 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-29 00:18:51.462 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-29 00:18:51.596 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-29 00:18:51.608 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-29 00:18:51.614 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-29 00:18:51.726 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 00:18:51.798 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-29 00:18:51.798 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-29 00:18:52.511 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-29 00:18:52.511 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-29 00:18:53.030 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-29 00:18:53.032 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-29 00:18:53.045 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 12 ms
+2026-06-29 00:18:54.692 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-29 00:18:54.697 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-29 00:18:54.787 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-29 00:18:54.787 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-29 00:18:54.901 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ✓ Player categories seeded successfully.
+2026-06-29 00:18:54.901 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-29 00:18:55.020 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ✓ Venues seeded successfully.
+2026-06-29 00:18:55.020 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-29 00:18:55.997 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-29 00:18:56.054 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-29 00:18:58.828 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-29 00:18:58.829 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-29 00:18:59.127 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-29 00:18:59.129 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-29 00:18:59.129 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-29 00:18:59.687 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-29 00:18:59.797 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-29 00:18:59.823 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Dispute committee seeded: 1 member
+2026-06-29 00:18:59.951 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction teams seeded: 5 active teams
+2026-06-29 00:19:01.222 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction players seeded from confirmed event registrations
+2026-06-29 00:19:01.224 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-29 00:19:01.345 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-29 00:19:01.350 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-29 00:19:01.397 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ✓ Venue table seeded: Community Sports Arena
+2026-06-29 00:19:01.400 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-29 00:19:01.437 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-29 00:19:01.437 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-29 00:19:01.530 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ✓ Sports event table seeded: Winter Football League
+2026-06-29 00:19:01.530 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-29 00:19:01.691 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-29 00:19:02.059 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-29 00:19:02.061 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-29 00:19:02.077 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-29 00:19:02.077 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 00:19:02.077 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-29 00:19:02.077 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 00:19:02.519 INFO  [cid=23256b54-7ede-4b8f-9937-245e88578357 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:19:02.629 INFO  [cid=23256b54-7ede-4b8f-9937-245e88578357 uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=108 size=-
+2026-06-29 00:19:47.776 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 1 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(1)-CONNECTED(1)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 9, active threads = 0, queued tasks = 0, completed tasks = 9], outboundChannel[pool size = 2, active threads = 0, queued tasks = 0, completed tasks = 2], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-29 00:20:27.508 INFO  [cid=a1a836a9-0a30-4fe6-8feb-00db4b76c9ef uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:20:28.167 INFO  [cid=a1a836a9-0a30-4fe6-8feb-00db4b76c9ef uid=1] API - <-- POST /api/auth/login status=200 durationMs=662 size=-
+2026-06-29 00:20:28.179 INFO  [cid=dd2030cd-a806-43e2-b18c-426b2108106f uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:20:28.286 INFO  [cid=dd2030cd-a806-43e2-b18c-426b2108106f uid=3] API - <-- GET /api/users/me status=200 durationMs=107 size=-
+2026-06-29 00:20:28.377 INFO  [cid=d6264a0d-cac5-4526-9098-0dfc4338d48d uid=-] API - --> GET /api/posts?page=0&size=10 ip=127.0.0.1
+2026-06-29 00:20:28.394 INFO  [cid=b5297da3-a81b-4322-aec0-6c1913ba5c73 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:20:28.581 INFO  [cid=b5297da3-a81b-4322-aec0-6c1913ba5c73 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=191 size=-
+2026-06-29 00:20:28.617 WARN  [cid=d6264a0d-cac5-4526-9098-0dfc4338d48d uid=3] o.s.d.w.c.SpringDataJackson3Configuration$PageModule$WarningLoggingModifier - Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
 
-Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-06-27 23:15:05.550 ERROR [cid=- uid=-] o.s.boot.SpringApplication - Application run failed
-org.springframework.context.ApplicationContextException: Unable to start web server
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:167)
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
-	at com.manacommunity.api.ManaCommunityServiceApplication.main(ManaCommunityServiceApplication.java:15)
-Caused by: org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat
-	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:150)
-	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
-	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:408)
-	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:166)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
-	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
-	... 8 common frames omitted
-Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'securityConfig': Unsatisfied dependency expressed through field 'userRepository': Error creating bean with name 'appUserRepository' defined in com.manacommunity.api.repository.AppUserRepository defined in @EnableJpaRepositories declared on DataJpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Cannot resolve reference to bean 'jpaSharedEM_entityManagerFactory' while setting bean property 'entityManager'
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:767)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:748)
-	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:146)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:493)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1446)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:602)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196)
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:413)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1362)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1194)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:231)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:222)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.addServletContextInitializerBeans(ServletContextInitializerBeans.java:107)
-	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.<init>(ServletContextInitializerBeans.java:96)
-	at org.springframework.boot.web.context.servlet.WebApplicationContextInitializer.initialize(WebApplicationContextInitializer.java:53)
-	at org.springframework.boot.tomcat.servlet.DeferredServletContainerInitializers.onStartup(DeferredServletContainerInitializers.java:55)
-	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4416)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
-	at java.base/java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:264)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java)
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
-	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
-	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
-	at java.base/java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:264)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java)
-	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
-	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
-	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
-	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
-	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
-	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
-	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
-	... 13 common frames omitted
-Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'appUserRepository' defined in com.manacommunity.api.repository.AppUserRepository defined in @EnableJpaRepositories declared on DataJpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Cannot resolve reference to bean 'jpaSharedEM_entityManagerFactory' while setting bean property 'entityManager'
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:377)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:135)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyPropertyValues(AbstractAutowireCapableBeanFactory.java:1712)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1461)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:602)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:764)
-	... 64 common frames omitted
-Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'jpaSharedEM_entityManagerFactory': Cannot resolve reference to bean 'entityManagerFactory' while setting constructor argument
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:377)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:135)
-	at org.springframework.beans.factory.support.ConstructorResolver.resolveConstructorArguments(ConstructorResolver.java:691)
-	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:513)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1362)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1194)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:356)
-	... 77 common frames omitted
-Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Unable to build Hibernate SessionFactory  [persistence unit: default] ; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [The server requested SCRAM-based authentication, but no password was provided.] [n/a]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196)
-	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:365)
-	... 89 common frames omitted
-Caused by: jakarta.persistence.PersistenceException: Unable to build Hibernate SessionFactory  [persistence unit: default] ; nested exception is org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [The server requested SCRAM-based authentication, but no password was provided.] [n/a]
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:448)
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:411)
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:419)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813)
-	... 96 common frames omitted
-Caused by: org.hibernate.exception.JDBCConnectionException: Unable to open JDBC Connection for DDL execution [The server requested SCRAM-based authentication, but no password was provided.] [n/a]
-	at org.hibernate.exception.internal.SQLStateConversionDelegate.convert(SQLStateConversionDelegate.java:80)
-	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:34)
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:115)
-	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:101)
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:71)
-	at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.getIsolatedConnection(GenerationTargetToDatabase.java:57)
-	at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.jdbcStatement(GenerationTargetToDatabase.java:111)
-	at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.accept(GenerationTargetToDatabase.java:75)
-	at org.hibernate.tool.schema.internal.Helper.applySqlString(Helper.java:218)
-	at org.hibernate.tool.schema.internal.SchemaDropperImpl.dropFromMetadata(SchemaDropperImpl.java:205)
-	at org.hibernate.tool.schema.internal.SchemaDropperImpl.performDrop(SchemaDropperImpl.java:182)
-	at org.hibernate.tool.schema.internal.SchemaDropperImpl.doDrop(SchemaDropperImpl.java:152)
-	at org.hibernate.tool.schema.internal.SchemaDropperImpl.doDrop(SchemaDropperImpl.java:112)
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.performDatabaseAction(SchemaManagementToolCoordinator.java:227)
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.lambda$process$1(SchemaManagementToolCoordinator.java:101)
-	at java.base/java.util.HashMap.forEach(HashMap.java:1421)
-	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.process(SchemaManagementToolCoordinator.java:100)
-	at org.hibernate.boot.internal.SessionFactoryObserverForSchemaExport.sessionFactoryCreated(SessionFactoryObserverForSchemaExport.java:35)
-	at org.hibernate.internal.SessionFactoryObserverChain.sessionFactoryCreated(SessionFactoryObserverChain.java:33)
-	at org.hibernate.internal.SessionFactoryImpl.<init>(SessionFactoryImpl.java:323)
-	at org.hibernate.internal.SessionFactoryRegistry.instantiateSessionFactory(SessionFactoryRegistry.java:64)
-	at org.hibernate.boot.internal.SessionFactoryBuilderImpl.build(SessionFactoryBuilderImpl.java:437)
-	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1456)
-	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:93)
-	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:443)
-	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:436)
-	... 100 common frames omitted
-Caused by: org.postgresql.util.PSQLException: The server requested SCRAM-based authentication, but no password was provided.
-	at org.postgresql.core.v3.ConnectionFactoryImpl.lambda$doAuthentication$5(ConnectionFactoryImpl.java:939)
-	at org.postgresql.core.v3.AuthenticationPluginManager.withPassword(AuthenticationPluginManager.java:82)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.doAuthentication(ConnectionFactoryImpl.java:936)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:234)
-	at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:289)
-	at org.postgresql.core.ConnectionFactory.openConnection(ConnectionFactory.java:57)
-	at org.postgresql.jdbc.PgConnection.<init>(PgConnection.java:290)
-	at org.postgresql.Driver.makeConnection(Driver.java:448)
-	at org.postgresql.Driver.connect(Driver.java:298)
-	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:144)
-	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:373)
-	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:210)
-	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:488)
-	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:576)
-	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:97)
-	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:111)
-	at org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider.getConnection(DataSourceConnectionProvider.java:137)
-	at org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess.obtainConnection(JdbcEnvironmentInitiator.java:508)
-	at org.hibernate.resource.transaction.backend.jdbc.internal.DdlTransactionIsolatorNonJtaImpl.getIsolatedConnection(DdlTransactionIsolatorNonJtaImpl.java:44)
-	... 121 common frames omitted
+2026-06-29 00:20:28.637 INFO  [cid=8cd531f3-1a6d-4924-8613-31f250c83d9e uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:20:29.335 INFO  [cid=d6264a0d-cac5-4526-9098-0dfc4338d48d uid=3] API - <-- GET /api/posts status=200 durationMs=958 size=-
+2026-06-29 00:20:29.344 INFO  [cid=8cd531f3-1a6d-4924-8613-31f250c83d9e uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=706 size=-
+2026-06-29 00:21:52.219 INFO  [cid=4ed01d08-b712-41e7-b3fb-af6930f28520 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:21:52.219 INFO  [cid=37c31c2e-f467-46c4-9138-062b70c11496 uid=-] API - --> GET /api/posts?page=0&size=10 ip=127.0.0.1
+2026-06-29 00:21:52.237 INFO  [cid=a49d0258-ce32-43d8-8817-a2f21057bec6 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:21:52.264 INFO  [cid=4ed01d08-b712-41e7-b3fb-af6930f28520 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=45 size=-
+2026-06-29 00:21:52.272 INFO  [cid=37c31c2e-f467-46c4-9138-062b70c11496 uid=3] API - <-- GET /api/posts status=200 durationMs=52 size=-
+2026-06-29 00:21:52.274 INFO  [cid=5ea1af8e-6069-4f93-b870-ff880952b5fe uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:21:52.298 INFO  [cid=a49d0258-ce32-43d8-8817-a2f21057bec6 uid=3] API - <-- GET /api/users/me status=200 durationMs=63 size=-
+2026-06-29 00:21:52.322 INFO  [cid=78b1e8fa-731f-4ab7-b74f-28ed5f3206f8 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:21:52.334 INFO  [cid=5ea1af8e-6069-4f93-b870-ff880952b5fe uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=61 size=-
+2026-06-29 00:21:52.373 INFO  [cid=78b1e8fa-731f-4ab7-b74f-28ed5f3206f8 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=52 size=-
+2026-06-29 00:27:03.462 INFO  [cid=a203cd3a-e333-447f-9768-6572f7db8e4c uid=-] API - --> GET /api/sports/dashboard ip=127.0.0.1
+2026-06-29 00:27:03.654 INFO  [cid=a203cd3a-e333-447f-9768-6572f7db8e4c uid=3] API - <-- GET /api/sports/dashboard status=200 durationMs=192 size=-
+2026-06-29 00:27:03.663 INFO  [cid=a7ef2adf-0bb4-4b7c-b72f-d12ad398ed10 uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
+2026-06-29 00:27:03.706 INFO  [cid=a7ef2adf-0bb4-4b7c-b72f-d12ad398ed10 uid=3] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=43 size=-
+2026-06-29 00:27:14.553 INFO  [cid=e6c07561-922a-4718-b351-28f1da0393f9 uid=-] API - --> GET /api/auction/teams/captain/mine ip=127.0.0.1
+2026-06-29 00:27:14.553 INFO  [cid=0eaaeda4-e9fa-4ab3-a65c-afd3e6ba36a0 uid=-] API - --> GET /api/sports/tournaments/mine ip=127.0.0.1
+2026-06-29 00:27:14.553 INFO  [cid=81a1daa6-08dd-4e1b-ac24-871457e2c713 uid=-] API - --> GET /api/sports/registrations/mine ip=127.0.0.1
+2026-06-29 00:27:14.554 INFO  [cid=d05a84c6-c75d-4893-a94c-87af727398d9 uid=-] API - --> GET /api/communities ip=127.0.0.1
+2026-06-29 00:27:14.556 INFO  [cid=252ee68a-4f0c-42ec-b327-b4f8e2984745 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:27:14.624 INFO  [cid=e6c07561-922a-4718-b351-28f1da0393f9 uid=3] API - <-- GET /api/auction/teams/captain/mine status=200 durationMs=71 size=-
+2026-06-29 00:27:14.649 INFO  [cid=d05a84c6-c75d-4893-a94c-87af727398d9 uid=3] API - <-- GET /api/communities status=200 durationMs=95 size=-
+2026-06-29 00:27:14.670 INFO  [cid=252ee68a-4f0c-42ec-b327-b4f8e2984745 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=114 size=-
+2026-06-29 00:27:14.715 INFO  [cid=81a1daa6-08dd-4e1b-ac24-871457e2c713 uid=3] API - <-- GET /api/sports/registrations/mine status=200 durationMs=161 size=-
+2026-06-29 00:27:14.741 INFO  [cid=0eaaeda4-e9fa-4ab3-a65c-afd3e6ba36a0 uid=3] API - <-- GET /api/sports/tournaments/mine status=200 durationMs=188 size=-
+2026-06-29 00:27:16.122 INFO  [cid=2e8a57e4-d1f4-4d12-90ed-cffe1faffc6c uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:16.122 INFO  [cid=a83d4c17-2794-4656-9c14-ec3e3370b3f5 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:27:16.122 INFO  [cid=a8846e6a-460a-4588-91ee-8c66c9cf1e5c uid=-] API - --> GET /api/sports/tournaments/open?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:16.152 INFO  [cid=a83d4c17-2794-4656-9c14-ec3e3370b3f5 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=28 size=-
+2026-06-29 00:27:16.163 INFO  [cid=a8846e6a-460a-4588-91ee-8c66c9cf1e5c uid=3] API - <-- GET /api/sports/tournaments/open status=200 durationMs=41 size=-
+2026-06-29 00:27:16.192 INFO  [cid=2e8a57e4-d1f4-4d12-90ed-cffe1faffc6c uid=3] API - <-- GET /api/venues status=200 durationMs=69 size=-
+2026-06-29 00:27:16.868 INFO  [cid=5847666a-b69d-485e-a3a4-18c33d3d7445 uid=-] API - --> GET /api/auction/config/check ip=127.0.0.1
+2026-06-29 00:27:16.868 INFO  [cid=800e37ba-affd-48e5-9aff-a8e38b6d9bfc uid=-] API - --> GET /api/sports/events/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:16.868 INFO  [cid=ef769e40-1903-4fc0-9192-021b18414de3 uid=-] API - --> GET /api/sports/tournament-list-map?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:16.868 INFO  [cid=51abc0a1-a1ba-4a00-a5cf-a4843e365fe3 uid=-] API - --> GET /api/auction/config/all ip=127.0.0.1
+2026-06-29 00:27:16.940 INFO  [cid=ef769e40-1903-4fc0-9192-021b18414de3 uid=3] API - <-- GET /api/sports/tournament-list-map status=200 durationMs=72 size=-
+2026-06-29 00:27:16.962 INFO  [cid=800e37ba-affd-48e5-9aff-a8e38b6d9bfc uid=3] API - <-- GET /api/sports/events/community status=200 durationMs=94 size=-
+2026-06-29 00:27:16.989 INFO  [cid=51abc0a1-a1ba-4a00-a5cf-a4843e365fe3 uid=3] API - <-- GET /api/auction/config/all status=200 durationMs=120 size=-
+2026-06-29 00:27:17.004 INFO  [cid=5847666a-b69d-485e-a3a4-18c33d3d7445 uid=3] API - <-- GET /api/auction/config/check status=400 durationMs=136 size=-
+2026-06-29 00:27:17.832 INFO  [cid=da32b2f5-4487-4e1b-9472-79570b7f2aca uid=-] API - --> GET /api/tournaments/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:17.834 INFO  [cid=fc426044-ec58-4ae5-848c-1cee87459250 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:27:17.834 INFO  [cid=9dbd038b-cd18-4b0c-92f5-b1116a2fcfa0 uid=-] API - --> GET /api/sports/events/community?communityId=2 ip=127.0.0.1
+2026-06-29 00:27:17.837 INFO  [cid=20c35e6a-46ab-4c5a-b6d3-d0d7dee4f310 uid=-] API - --> GET /api/sports/categories ip=127.0.0.1
+2026-06-29 00:27:17.899 INFO  [cid=fc426044-ec58-4ae5-848c-1cee87459250 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=66 size=-
+2026-06-29 00:27:17.902 INFO  [cid=9dbd038b-cd18-4b0c-92f5-b1116a2fcfa0 uid=3] API - <-- GET /api/sports/events/community status=200 durationMs=69 size=-
+2026-06-29 00:27:17.914 INFO  [cid=20c35e6a-46ab-4c5a-b6d3-d0d7dee4f310 uid=3] API - <-- GET /api/sports/categories status=200 durationMs=77 size=-
+2026-06-29 00:27:17.923 INFO  [cid=da32b2f5-4487-4e1b-9472-79570b7f2aca uid=3] API - <-- GET /api/tournaments/community status=200 durationMs=91 size=-
+2026-06-29 00:35:06.468 INFO  [cid=b6152aa6-88cd-4149-9da3-6e9aabf558a3 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:35:06.468 INFO  [cid=0092e8b7-654d-455f-8c20-cfeee03f4f3f uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:35:06.486 INFO  [cid=94ae5868-d398-4727-a809-ad9527c08d25 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:35:06.527 INFO  [cid=94ae5868-d398-4727-a809-ad9527c08d25 uid=3] API - <-- GET /api/venues status=200 durationMs=40 size=-
+2026-06-29 00:35:06.535 INFO  [cid=0092e8b7-654d-455f-8c20-cfeee03f4f3f uid=3] API - <-- GET /api/sports/meta status=200 durationMs=66 size=-
+2026-06-29 00:35:06.716 INFO  [cid=b6152aa6-88cd-4149-9da3-6e9aabf558a3 uid=3] API - <-- GET /api/users status=200 durationMs=254 size=-
+2026-06-29 00:36:30.923 INFO  [cid=c1e523be-6bae-4aa3-b693-686d5b4d057b uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:36:30.924 INFO  [cid=de6ef4c8-e64d-49a5-9200-ba08f75e92fb uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:36:30.924 INFO  [cid=7be1c365-e2d2-4f23-a289-1b3b2b7d0e5f uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:36:30.943 INFO  [cid=7be1c365-e2d2-4f23-a289-1b3b2b7d0e5f uid=-] API - <-- GET /api/venues status=403 durationMs=19 size=-
+2026-06-29 00:36:30.943 INFO  [cid=de6ef4c8-e64d-49a5-9200-ba08f75e92fb uid=-] API - <-- GET /api/sports/meta status=403 durationMs=20 size=-
+2026-06-29 00:36:30.943 INFO  [cid=c1e523be-6bae-4aa3-b693-686d5b4d057b uid=-] API - <-- GET /api/users status=403 durationMs=20 size=-
+2026-06-29 00:36:32.407 INFO  [cid=80b2724f-b88e-48b3-82be-7c329d219a5b uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:36:32.597 INFO  [cid=80b2724f-b88e-48b3-82be-7c329d219a5b uid=1] API - <-- POST /api/auth/login status=200 durationMs=192 size=-
+2026-06-29 00:36:32.605 INFO  [cid=c263e199-47de-4f60-8a7a-61ef3e29cca4 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:36:32.626 INFO  [cid=c263e199-47de-4f60-8a7a-61ef3e29cca4 uid=3] API - <-- GET /api/users/me status=200 durationMs=18 size=-
+2026-06-29 00:36:32.675 INFO  [cid=e960b3cc-0347-42f5-826a-f3c8c8d244dd uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:36:32.675 INFO  [cid=b178bc75-4204-4f5f-a7b0-9a8524131f96 uid=-] API - --> GET /api/posts?page=0&size=10 ip=127.0.0.1
+2026-06-29 00:36:32.696 INFO  [cid=e960b3cc-0347-42f5-826a-f3c8c8d244dd uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=21 size=-
+2026-06-29 00:36:32.701 INFO  [cid=b178bc75-4204-4f5f-a7b0-9a8524131f96 uid=3] API - <-- GET /api/posts status=200 durationMs=29 size=-
+2026-06-29 00:36:32.701 INFO  [cid=b63db554-cb93-4e3f-a7c0-b582b9d6c903 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:36:32.726 INFO  [cid=16b006b1-b1fb-4e0f-a152-b5708d55cd09 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:36:32.741 INFO  [cid=b63db554-cb93-4e3f-a7c0-b582b9d6c903 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=36 size=-
+2026-06-29 00:36:32.744 INFO  [cid=16b006b1-b1fb-4e0f-a152-b5708d55cd09 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=17 size=-
+2026-06-29 00:36:34.831 INFO  [cid=4ee5d009-fa40-4f57-88a5-bf19d0b1c7f6 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:36:34.831 INFO  [cid=8165ad44-13af-4a0c-b148-22739b83ca0c uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:36:34.831 INFO  [cid=7a5483a0-6851-4250-8451-48f1beb889c5 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:36:34.856 INFO  [cid=8165ad44-13af-4a0c-b148-22739b83ca0c uid=3] API - <-- GET /api/sports/meta status=200 durationMs=23 size=-
+2026-06-29 00:36:34.856 INFO  [cid=4ee5d009-fa40-4f57-88a5-bf19d0b1c7f6 uid=3] API - <-- GET /api/venues status=200 durationMs=28 size=-
+2026-06-29 00:36:34.906 INFO  [cid=7a5483a0-6851-4250-8451-48f1beb889c5 uid=3] API - <-- GET /api/users status=200 durationMs=76 size=-
+2026-06-29 00:36:38.288 INFO  [cid=0cd14199-ee03-4638-a344-2bbbe03f3ac7 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:36:38.288 INFO  [cid=40871326-879a-452e-b186-d11c299ca966 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:36:38.288 INFO  [cid=c07ba3f5-fd33-492e-8b4a-53dbdbc2103d uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:36:38.295 INFO  [cid=4703a09e-083c-4c41-89ce-bb6193a859fa uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:36:38.295 INFO  [cid=b19d7647-03c5-40f8-a26c-d858bd8aa33f uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:36:38.317 INFO  [cid=c07ba3f5-fd33-492e-8b4a-53dbdbc2103d uid=3] API - <-- GET /api/venues status=200 durationMs=26 size=-
+2026-06-29 00:36:38.317 INFO  [cid=40871326-879a-452e-b186-d11c299ca966 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=26 size=-
+2026-06-29 00:36:38.317 INFO  [cid=b19d7647-03c5-40f8-a26c-d858bd8aa33f uid=3] API - <-- GET /api/users/me status=200 durationMs=21 size=-
+2026-06-29 00:36:38.332 INFO  [cid=4703a09e-083c-4c41-89ce-bb6193a859fa uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=38 size=-
+2026-06-29 00:36:38.338 INFO  [cid=9536cec6-9cfd-432a-a235-69782b008b97 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:36:38.338 INFO  [cid=d635ae3e-e81c-4206-817c-75ba24fd173d uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:36:38.349 INFO  [cid=d635ae3e-e81c-4206-817c-75ba24fd173d uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=11 size=-
+2026-06-29 00:36:38.349 INFO  [cid=9536cec6-9cfd-432a-a235-69782b008b97 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=15 size=-
+2026-06-29 00:36:38.365 INFO  [cid=0cd14199-ee03-4638-a344-2bbbe03f3ac7 uid=3] API - <-- GET /api/users status=200 durationMs=73 size=-
+2026-06-29 00:36:40.743 INFO  [cid=95331679-f763-4d23-ad20-ae45e12e0f2b uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:36:40.746 INFO  [cid=9d3f24e4-c3d4-45a3-8967-6d5ca9a7f956 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:36:40.746 INFO  [cid=a9b0c7ed-abc8-4345-8f46-4dbf91514ea8 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:36:40.746 INFO  [cid=1b751a2c-2ac4-4f6f-8412-be06655a3b6c uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:36:40.748 INFO  [cid=1e851ca9-898b-40fe-93ba-34785797e4ba uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:36:40.768 INFO  [cid=1e851ca9-898b-40fe-93ba-34785797e4ba uid=3] API - <-- GET /api/users/me status=200 durationMs=21 size=-
+2026-06-29 00:36:40.768 INFO  [cid=1b751a2c-2ac4-4f6f-8412-be06655a3b6c uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=25 size=-
+2026-06-29 00:36:40.768 INFO  [cid=a9b0c7ed-abc8-4345-8f46-4dbf91514ea8 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=28 size=-
+2026-06-29 00:36:40.776 INFO  [cid=23c58a1a-f7fb-46d5-827c-c3d9633f3856 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:36:40.783 INFO  [cid=9d3f24e4-c3d4-45a3-8967-6d5ca9a7f956 uid=3] API - <-- GET /api/venues status=200 durationMs=37 size=-
+2026-06-29 00:36:40.801 INFO  [cid=23c58a1a-f7fb-46d5-827c-c3d9633f3856 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=20 size=-
+2026-06-29 00:36:40.807 INFO  [cid=95331679-f763-4d23-ad20-ae45e12e0f2b uid=3] API - <-- GET /api/users status=200 durationMs=64 size=-
+2026-06-29 00:36:43.912 INFO  [cid=e3bd9912-2f33-4ea1-b09d-915ac4954c93 uid=-] API - --> GET /api/roles ip=127.0.0.1
+2026-06-29 00:36:43.912 INFO  [cid=ce24fdb9-4323-4608-adf2-bed5a7c01496 uid=-] API - --> GET /api/roles/permissions ip=127.0.0.1
+2026-06-29 00:36:43.912 INFO  [cid=970c0f6c-fa96-48ec-b2f8-cacc1b6f391f uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:36:43.976 INFO  [cid=ce24fdb9-4323-4608-adf2-bed5a7c01496 uid=3] API - <-- GET /api/roles/permissions status=200 durationMs=65 size=-
+2026-06-29 00:36:43.986 INFO  [cid=970c0f6c-fa96-48ec-b2f8-cacc1b6f391f uid=3] API - <-- GET /api/users status=200 durationMs=73 size=-
+2026-06-29 00:36:44.016 INFO  [cid=e3bd9912-2f33-4ea1-b09d-915ac4954c93 uid=3] API - <-- GET /api/roles status=200 durationMs=103 size=-
+2026-06-29 00:36:48.935 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-06-29 00:36:48.993 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-06-29 00:36:49.005 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopping...
+2026-06-29 00:36:49.005 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@44721f5a]]
+2026-06-29 00:36:49.006 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopped.
+2026-06-29 00:36:49.054 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 00:36:49.099 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-06-29 00:36:49.105 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-06-29 00:36:54.302 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 24984 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-29 00:36:54.307 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-29 00:36:54.720 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-29 00:36:56.055 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-29 00:36:56.264 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 198 ms. Found 35 JPA repository interfaces.
+2026-06-29 00:36:56.752 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-29 00:36:56.752 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-29 00:36:57.553 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8082 (http)
+2026-06-29 00:36:57.575 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8082"]
+2026-06-29 00:36:57.579 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-29 00:36:57.580 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-29 00:36:57.716 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 3345 ms
+2026-06-29 00:36:57.811 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-29 00:36:58.122 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@1686ed85
+2026-06-29 00:36:58.123 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-29 00:36:58.177 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-29 00:36:58.184 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-29 00:36:58.204 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-29 00:36:58.350 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-29 00:36:58.374 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-29 00:36:58.377 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-29 00:36:58.381 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-29 00:36:58.382 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-29 00:36:58.382 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-29 00:36:58.388 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-29 00:36:58.389 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-29 00:36:58.393 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-29 00:36:58.401 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-29 00:36:58.404 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-29 00:36:58.581 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-29 00:36:58.728 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-29 00:36:59.202 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-29 00:36:59.272 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-29 00:36:59.292 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-29 00:37:01.531 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-29 00:37:02.485 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 00:37:02.604 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-29 00:37:03.856 WARN  [cid=- uid=-] c.m.a.s.JwtAuthenticationFilter - *** MOCK AUTH ENABLED — all unauthenticated requests will be auto-elevated. This must NEVER reach a deployed environment. ***
+2026-06-29 00:37:04.212 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-29 00:37:06.162 WARN  [cid=- uid=-] c.m.a.service.FieldEncryptionService - No encryption master password configured — PII field encryption is disabled. Set JASYPT_ENCRYPTOR_PASSWORD for production use.
+2026-06-29 00:37:08.015 INFO  [cid=- uid=-] c.m.a.s.impl.SystemLogServiceImpl - Log directory resolved to: D:\Application\applications\mana community\mana-community-service\logs
+2026-06-29 00:37:08.386 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-29 00:37:08.441 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-29 00:37:10.034 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-29 00:37:10.203 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-29 00:37:10.203 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@61b9f2a]]
+2026-06-29 00:37:10.206 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-29 00:37:10.206 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8082"]
+2026-06-29 00:37:10.231 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8082 (http) with context path '/'
+2026-06-29 00:37:10.264 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 16.735 seconds (process running for 17.546)
+2026-06-29 00:37:10.486 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-29 00:37:10.528 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Roles sequence synchronized to next available value successfully.
+2026-06-29 00:37:10.530 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-29 00:37:10.530 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-29 00:37:10.532 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-29 00:37:10.532 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-29 00:37:10.986 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ Role permissions seeded successfully
+2026-06-29 00:37:10.986 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-29 00:37:10.996 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 00:37:11.022 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-29 00:37:11.029 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-29 00:37:11.039 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-29 00:37:11.044 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-29 00:37:11.046 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-29 00:37:11.056 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-29 00:37:11.056 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 00:37:11.082 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 00:37:11.089 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-29 00:37:11.094 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-29 00:37:11.096 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-29 00:37:11.107 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-29 00:37:11.116 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-29 00:37:11.119 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-29 00:37:11.119 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 00:37:11.147 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-29 00:37:11.147 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-29 00:37:11.346 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-29 00:37:11.346 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-29 00:37:11.976 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-29 00:37:11.976 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-29 00:37:12.027 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-29 00:37:12.028 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-29 00:37:12.083 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ✓ Player categories seeded successfully.
+2026-06-29 00:37:12.083 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-29 00:37:12.127 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ✓ Venues seeded successfully.
+2026-06-29 00:37:12.127 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-29 00:37:12.208 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-29 00:37:12.229 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-29 00:37:12.456 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-29 00:37:12.456 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-29 00:37:12.476 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-29 00:37:12.476 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-29 00:37:12.476 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-29 00:37:12.551 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-29 00:37:12.580 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-29 00:37:12.588 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Dispute committee seeded: 1 member
+2026-06-29 00:37:12.626 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction teams seeded: 5 active teams
+2026-06-29 00:37:12.781 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction players seeded from confirmed event registrations
+2026-06-29 00:37:12.781 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-29 00:37:12.808 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-29 00:37:12.808 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-29 00:37:12.815 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ✓ Venue table seeded: Community Sports Arena
+2026-06-29 00:37:12.815 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-29 00:37:12.839 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-29 00:37:12.839 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-29 00:37:12.871 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ✓ Sports event table seeded: Winter Football League
+2026-06-29 00:37:12.871 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-29 00:37:12.916 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-29 00:37:13.080 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-29 00:37:13.080 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-29 00:37:13.086 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-29 00:37:13.086 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 00:37:13.086 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-29 00:37:13.086 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 00:37:14.128 INFO  [cid=- uid=-] o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-29 00:37:14.128 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-06-29 00:37:14.128 INFO  [cid=- uid=-] o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+2026-06-29 00:37:14.717 INFO  [cid=6a6f59f6-af25-4ce3-9c68-13f6f27d9f5b uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:37:14.825 INFO  [cid=6a6f59f6-af25-4ce3-9c68-13f6f27d9f5b uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=108 size=-
+2026-06-29 00:37:22.335 INFO  [cid=eec7043a-527b-4aa6-bbb4-3650164673a3 uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:37:22.615 INFO  [cid=eec7043a-527b-4aa6-bbb4-3650164673a3 uid=1] API - <-- POST /api/auth/login status=200 durationMs=276 size=-
+2026-06-29 00:37:22.627 INFO  [cid=a5e21a83-823e-4f8a-b8a5-c138c9f36748 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:37:22.676 INFO  [cid=a5e21a83-823e-4f8a-b8a5-c138c9f36748 uid=1] API - <-- GET /api/users/me status=200 durationMs=48 size=-
+2026-06-29 00:37:22.768 INFO  [cid=e7c2f794-b1fe-4dad-af9d-bec6604266bd uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:37:22.807 INFO  [cid=e7c2f794-b1fe-4dad-af9d-bec6604266bd uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=41 size=-
+2026-06-29 00:37:22.814 INFO  [cid=bc6d65c2-2024-4db2-9314-5bbb85050f88 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:37:22.847 INFO  [cid=bc6d65c2-2024-4db2-9314-5bbb85050f88 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=32 size=-
+2026-06-29 00:37:24.585 INFO  [cid=48b4bd30-f361-40ad-a219-b91aed7a4d3c uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:24.586 INFO  [cid=9951e17e-aec0-4997-b93e-8a57190d6041 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:24.586 INFO  [cid=aed97b91-9ae3-4bef-ac48-06ff02b24edb uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:24.656 INFO  [cid=aed97b91-9ae3-4bef-ac48-06ff02b24edb uid=1] API - <-- GET /api/sports/meta status=200 durationMs=70 size=-
+2026-06-29 00:37:24.675 INFO  [cid=9951e17e-aec0-4997-b93e-8a57190d6041 uid=1] API - <-- GET /api/venues status=200 durationMs=89 size=-
+2026-06-29 00:37:24.816 INFO  [cid=48b4bd30-f361-40ad-a219-b91aed7a4d3c uid=1] API - <-- GET /api/users status=200 durationMs=233 size=-
+2026-06-29 00:37:26.234 INFO  [cid=be683667-8a2c-4943-988f-f0ab83d92dcb uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:26.234 INFO  [cid=2140eaca-6753-4799-84d6-fb609afd38f4 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:26.234 INFO  [cid=503ee092-454c-4a59-8b1d-1384657f1cbb uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:26.257 INFO  [cid=503ee092-454c-4a59-8b1d-1384657f1cbb uid=1] API - <-- GET /api/sports/meta status=200 durationMs=22 size=-
+2026-06-29 00:37:26.268 INFO  [cid=2140eaca-6753-4799-84d6-fb609afd38f4 uid=1] API - <-- GET /api/venues status=200 durationMs=33 size=-
+2026-06-29 00:37:26.307 INFO  [cid=be683667-8a2c-4943-988f-f0ab83d92dcb uid=1] API - <-- GET /api/users status=200 durationMs=75 size=-
+2026-06-29 00:37:27.007 INFO  [cid=6c7d2c8f-d68e-4216-b8d2-4e1e8e94891f uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:27.007 INFO  [cid=26771244-1a14-434f-866d-5e9864722ccb uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:27.007 INFO  [cid=10410c01-fce8-468b-89c4-50318e07d338 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:27.046 INFO  [cid=26771244-1a14-434f-866d-5e9864722ccb uid=1] API - <-- GET /api/sports/meta status=200 durationMs=36 size=-
+2026-06-29 00:37:27.050 INFO  [cid=6c7d2c8f-d68e-4216-b8d2-4e1e8e94891f uid=1] API - <-- GET /api/venues status=200 durationMs=41 size=-
+2026-06-29 00:37:27.121 INFO  [cid=10410c01-fce8-468b-89c4-50318e07d338 uid=1] API - <-- GET /api/users status=200 durationMs=112 size=-
+2026-06-29 00:37:27.624 INFO  [cid=bc6231c4-8ddb-45e8-b8c1-194e81b8254b uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:27.626 INFO  [cid=c3c1b108-dec3-4e99-b9db-75f7eb1481d1 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:27.626 INFO  [cid=120a4a73-428e-475b-827b-b77b80517bda uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:27.662 INFO  [cid=c3c1b108-dec3-4e99-b9db-75f7eb1481d1 uid=1] API - <-- GET /api/venues status=200 durationMs=36 size=-
+2026-06-29 00:37:27.666 INFO  [cid=120a4a73-428e-475b-827b-b77b80517bda uid=1] API - <-- GET /api/sports/meta status=200 durationMs=40 size=-
+2026-06-29 00:37:27.727 INFO  [cid=bc6231c4-8ddb-45e8-b8c1-194e81b8254b uid=1] API - <-- GET /api/users status=200 durationMs=103 size=-
+2026-06-29 00:37:28.151 INFO  [cid=cfaa3748-1f78-4bd3-8c0a-fbc3d0a00375 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:28.156 INFO  [cid=2502da73-3986-489a-b50e-d6e663abb2c0 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:28.156 INFO  [cid=0ebdda5f-bbb1-4aad-a0af-ae6bb121a3ac uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:28.184 INFO  [cid=2502da73-3986-489a-b50e-d6e663abb2c0 uid=1] API - <-- GET /api/venues status=200 durationMs=28 size=-
+2026-06-29 00:37:28.189 INFO  [cid=0ebdda5f-bbb1-4aad-a0af-ae6bb121a3ac uid=1] API - <-- GET /api/sports/meta status=200 durationMs=34 size=-
+2026-06-29 00:37:28.235 INFO  [cid=cfaa3748-1f78-4bd3-8c0a-fbc3d0a00375 uid=1] API - <-- GET /api/users status=200 durationMs=83 size=-
+2026-06-29 00:37:28.362 INFO  [cid=96373250-4ba5-498f-b2da-353d0a74529c uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:28.364 INFO  [cid=49b8f4e7-f155-4520-8e6d-d9e3eee7f3de uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:28.367 INFO  [cid=ebe694a6-fd76-420d-84f8-2911fe8a37c0 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:28.392 INFO  [cid=49b8f4e7-f155-4520-8e6d-d9e3eee7f3de uid=1] API - <-- GET /api/venues status=200 durationMs=28 size=-
+2026-06-29 00:37:28.396 INFO  [cid=ebe694a6-fd76-420d-84f8-2911fe8a37c0 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=29 size=-
+2026-06-29 00:37:28.438 INFO  [cid=96373250-4ba5-498f-b2da-353d0a74529c uid=1] API - <-- GET /api/users status=200 durationMs=76 size=-
+2026-06-29 00:37:28.554 INFO  [cid=7245f9a8-ec4e-4232-be2c-700520de96b7 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:28.556 INFO  [cid=732e9912-75b6-4ed8-88eb-b6b86d4826bd uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:28.556 INFO  [cid=cccf0130-86b3-43fd-bb1c-fef7998517e6 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:28.586 INFO  [cid=cccf0130-86b3-43fd-bb1c-fef7998517e6 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=29 size=-
+2026-06-29 00:37:28.586 INFO  [cid=732e9912-75b6-4ed8-88eb-b6b86d4826bd uid=1] API - <-- GET /api/venues status=200 durationMs=33 size=-
+2026-06-29 00:37:28.625 INFO  [cid=7245f9a8-ec4e-4232-be2c-700520de96b7 uid=1] API - <-- GET /api/users status=200 durationMs=71 size=-
+2026-06-29 00:37:28.762 INFO  [cid=5d6b8e42-47c4-4123-916d-40d866957b45 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:28.762 INFO  [cid=52150c62-225b-4f75-a016-2347bac1d4bb uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:28.762 INFO  [cid=4f0b7484-524c-4b3b-b69a-4d99ff5db5ab uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:28.783 INFO  [cid=52150c62-225b-4f75-a016-2347bac1d4bb uid=1] API - <-- GET /api/sports/meta status=200 durationMs=21 size=-
+2026-06-29 00:37:28.786 INFO  [cid=4f0b7484-524c-4b3b-b69a-4d99ff5db5ab uid=1] API - <-- GET /api/venues status=200 durationMs=24 size=-
+2026-06-29 00:37:28.850 INFO  [cid=5d6b8e42-47c4-4123-916d-40d866957b45 uid=1] API - <-- GET /api/users status=200 durationMs=88 size=-
+2026-06-29 00:37:29.144 INFO  [cid=b2eaac70-ffa6-4669-8eac-5832f0073a75 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:29.147 INFO  [cid=97a94ba6-ed2e-416b-b01c-8ff7fea3fec5 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:29.147 INFO  [cid=3ea3eb38-0c8b-4670-be79-16acad5d4060 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:29.173 INFO  [cid=3ea3eb38-0c8b-4670-be79-16acad5d4060 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=24 size=-
+2026-06-29 00:37:29.176 INFO  [cid=97a94ba6-ed2e-416b-b01c-8ff7fea3fec5 uid=1] API - <-- GET /api/venues status=200 durationMs=28 size=-
+2026-06-29 00:37:29.217 INFO  [cid=b2eaac70-ffa6-4669-8eac-5832f0073a75 uid=1] API - <-- GET /api/users status=200 durationMs=72 size=-
+2026-06-29 00:37:33.447 INFO  [cid=77f849bf-706c-49d0-a722-1e2a11cd8d20 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:37:33.456 INFO  [cid=cece9752-2d39-44a5-8f71-d9fad2d43e1d uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:33.456 INFO  [cid=eba4917d-cc98-4e8d-81b1-87ab54e3c762 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:37:33.456 INFO  [cid=ee8e90c6-33ea-4ce8-bbe6-8810d9b60cb6 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:33.456 INFO  [cid=57a1625c-cf8b-4db3-b4a7-2d7f840e7c1c uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:37:33.476 INFO  [cid=57a1625c-cf8b-4db3-b4a7-2d7f840e7c1c uid=3] API - <-- GET /api/users/me status=200 durationMs=18 size=-
+2026-06-29 00:37:33.486 INFO  [cid=ee8e90c6-33ea-4ce8-bbe6-8810d9b60cb6 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=30 size=-
+2026-06-29 00:37:33.491 INFO  [cid=77f849bf-706c-49d0-a722-1e2a11cd8d20 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=38 size=-
+2026-06-29 00:37:33.494 INFO  [cid=eba4917d-cc98-4e8d-81b1-87ab54e3c762 uid=3] API - <-- GET /api/venues status=200 durationMs=38 size=-
+2026-06-29 00:37:33.497 INFO  [cid=42041828-e0a6-4614-966d-47ac8d0e2897 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:37:33.510 INFO  [cid=ba93942c-c905-4bdf-8b5f-f67ed15d4cf7 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:37:33.526 INFO  [cid=ba93942c-c905-4bdf-8b5f-f67ed15d4cf7 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
+2026-06-29 00:37:33.531 INFO  [cid=42041828-e0a6-4614-966d-47ac8d0e2897 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=27 size=-
+2026-06-29 00:37:33.560 INFO  [cid=cece9752-2d39-44a5-8f71-d9fad2d43e1d uid=3] API - <-- GET /api/users status=200 durationMs=104 size=-
+2026-06-29 00:37:35.012 INFO  [cid=0c44f1a1-cd05-40ca-82ac-c5e0a2b6429e uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:35.012 INFO  [cid=f7587bad-df70-48c1-a307-8a83642b23c8 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:37:35.012 INFO  [cid=5cf2053a-6092-4ef9-8df2-3f48e4702992 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:35.034 INFO  [cid=0c44f1a1-cd05-40ca-82ac-c5e0a2b6429e uid=3] API - <-- GET /api/sports/meta status=200 durationMs=22 size=-
+2026-06-29 00:37:35.042 INFO  [cid=f7587bad-df70-48c1-a307-8a83642b23c8 uid=3] API - <-- GET /api/venues status=200 durationMs=29 size=-
+2026-06-29 00:37:35.070 INFO  [cid=5cf2053a-6092-4ef9-8df2-3f48e4702992 uid=3] API - <-- GET /api/users status=200 durationMs=58 size=-
+2026-06-29 00:37:35.848 INFO  [cid=0c9c0d7c-f7b4-4a0f-9b24-110d728b9f5c uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:37:35.848 INFO  [cid=43124b5c-582a-4403-9c14-a3d51393567d uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:35.848 INFO  [cid=1f89500c-fe48-495a-b374-8c49fa785155 uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:35.881 INFO  [cid=0c9c0d7c-f7b4-4a0f-9b24-110d728b9f5c uid=3] API - <-- GET /api/venues status=200 durationMs=32 size=-
+2026-06-29 00:37:35.881 INFO  [cid=43124b5c-582a-4403-9c14-a3d51393567d uid=3] API - <-- GET /api/sports/meta status=200 durationMs=33 size=-
+2026-06-29 00:37:35.935 INFO  [cid=1f89500c-fe48-495a-b374-8c49fa785155 uid=3] API - <-- GET /api/users status=200 durationMs=90 size=-
+2026-06-29 00:37:58.372 INFO  [cid=1e6cbed7-2330-43a2-830a-d03b35d450cb uid=-] API - --> GET /api/users ip=127.0.0.1
+2026-06-29 00:37:58.373 INFO  [cid=169c1670-3243-4415-982e-dee9b18b9b77 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:37:58.373 INFO  [cid=bda13b4c-bcef-4420-b164-8957b5a69023 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:37:58.406 INFO  [cid=bda13b4c-bcef-4420-b164-8957b5a69023 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=32 size=-
+2026-06-29 00:37:58.411 INFO  [cid=169c1670-3243-4415-982e-dee9b18b9b77 uid=1] API - <-- GET /api/venues status=200 durationMs=38 size=-
+2026-06-29 00:37:58.452 INFO  [cid=1e6cbed7-2330-43a2-830a-d03b35d450cb uid=1] API - <-- GET /api/users status=200 durationMs=80 size=-
+2026-06-29 00:37:59.230 INFO  [cid=e1890a9b-3cc7-4be0-9260-dae6066cd7ff uid=-] API - --> GET /api/admin/log-types ip=127.0.0.1
+2026-06-29 00:37:59.258 INFO  [cid=e1890a9b-3cc7-4be0-9260-dae6066cd7ff uid=1] API - <-- GET /api/admin/log-types status=200 durationMs=27 size=-
+2026-06-29 00:38:09.233 INFO  [cid=33f15e90-2081-49ba-911b-84adb36fcd75 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:38:09.253 INFO  [cid=33f15e90-2081-49ba-911b-84adb36fcd75 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=20 size=-
+2026-06-29 00:38:10.131 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[2 current WS(2)-HttpStream(0)-HttpPoll(0), 3 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(3)-CONNECTED(3)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 21, active threads = 0, queued tasks = 0, completed tasks = 21], outboundChannel[pool size = 4, active threads = 0, queued tasks = 0, completed tasks = 4], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]
+2026-06-29 00:38:12.437 INFO  [cid=44f1ad49-3490-4003-8f99-bc9d74bb5c7b uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:38:12.439 INFO  [cid=27843bcb-ac11-42cc-8f5c-595bf67ba2ea uid=-] API - --> GET /api/communities ip=127.0.0.1
+2026-06-29 00:38:12.441 INFO  [cid=7a1c4e40-98d0-4608-8c7c-eea7d2c93464 uid=-] API - --> GET /api/communities?type=COMMUNITY ip=127.0.0.1
+2026-06-29 00:38:12.469 INFO  [cid=44f1ad49-3490-4003-8f99-bc9d74bb5c7b uid=1] API - <-- GET /api/venues status=200 durationMs=30 size=-
+2026-06-29 00:38:12.469 INFO  [cid=27843bcb-ac11-42cc-8f5c-595bf67ba2ea uid=1] API - <-- GET /api/communities status=200 durationMs=30 size=-
+2026-06-29 00:38:12.480 INFO  [cid=7a1c4e40-98d0-4608-8c7c-eea7d2c93464 uid=1] API - <-- GET /api/communities status=200 durationMs=39 size=-
+2026-06-29 00:39:36.448 INFO  [cid=5d13aa55-809d-4bcc-b898-d0b8ca1b5c0e uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:39:36.470 INFO  [cid=fd913307-aa71-4f1b-8be0-467b50d84088 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:39:36.470 INFO  [cid=5d13aa55-809d-4bcc-b898-d0b8ca1b5c0e uid=3] API - <-- GET /api/users/me status=200 durationMs=21 size=-
+2026-06-29 00:39:36.497 INFO  [cid=fd913307-aa71-4f1b-8be0-467b50d84088 uid=1] API - <-- GET /api/users/me status=200 durationMs=26 size=-
+2026-06-29 00:39:45.601 INFO  [cid=23bb5bc2-59ba-4c85-b367-e2099e5ef34e uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:39:45.602 INFO  [cid=ee5a7b32-4653-4a8f-96d0-49fe62813c8c uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:39:45.602 INFO  [cid=9536d908-c3b9-4304-ab0f-4b802950d95a uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:39:45.605 INFO  [cid=c1e38efa-3a9c-474a-9d76-472ef0231b8a uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:45.606 INFO  [cid=a7cc86de-428c-4e80-aba5-be8df8338771 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:39:45.618 INFO  [cid=c1e38efa-3a9c-474a-9d76-472ef0231b8a uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=13 size=-
+2026-06-29 00:39:45.618 INFO  [cid=a7cc86de-428c-4e80-aba5-be8df8338771 uid=3] API - <-- GET /api/users/me status=200 durationMs=12 size=-
+2026-06-29 00:39:45.619 INFO  [cid=9536d908-c3b9-4304-ab0f-4b802950d95a uid=3] API - <-- GET /api/sports/meta status=200 durationMs=15 size=-
+2026-06-29 00:39:45.626 INFO  [cid=ee5a7b32-4653-4a8f-96d0-49fe62813c8c uid=3] API - <-- GET /api/venues status=200 durationMs=23 size=-
+2026-06-29 00:39:45.665 INFO  [cid=23bb5bc2-59ba-4c85-b367-e2099e5ef34e uid=3] API - <-- GET /api/users status=200 durationMs=63 size=-
+2026-06-29 00:39:45.676 INFO  [cid=ac77035d-a15f-4db8-b32b-a0d6f9deab92 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:39:45.679 INFO  [cid=e328b559-4598-40d0-a96a-8a654f331d88 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:45.693 INFO  [cid=ac77035d-a15f-4db8-b32b-a0d6f9deab92 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=17 size=-
+2026-06-29 00:39:45.698 INFO  [cid=e328b559-4598-40d0-a96a-8a654f331d88 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=18 size=-
+2026-06-29 00:39:45.724 INFO  [cid=f953117f-4053-4d7c-bbc0-9c096a37597b uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:39:45.724 INFO  [cid=0fdb085a-5a96-4250-933b-e7f893d30a79 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:39:45.724 INFO  [cid=93f3522a-6507-4978-a115-06973eea05c1 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:39:45.728 INFO  [cid=4133943a-4622-4af5-bc4d-f46d5e761dad uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:45.728 INFO  [cid=1ab84a0d-2f7c-4ade-b98a-8dfcabb583fe uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:39:45.743 INFO  [cid=0fdb085a-5a96-4250-933b-e7f893d30a79 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=17 size=-
+2026-06-29 00:39:45.746 INFO  [cid=1ab84a0d-2f7c-4ade-b98a-8dfcabb583fe uid=1] API - <-- GET /api/users/me status=200 durationMs=18 size=-
+2026-06-29 00:39:45.749 INFO  [cid=4133943a-4622-4af5-bc4d-f46d5e761dad uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=21 size=-
+2026-06-29 00:39:45.751 INFO  [cid=93f3522a-6507-4978-a115-06973eea05c1 uid=1] API - <-- GET /api/venues status=200 durationMs=26 size=-
+2026-06-29 00:39:45.784 INFO  [cid=f953117f-4053-4d7c-bbc0-9c096a37597b uid=1] API - <-- GET /api/users status=200 durationMs=59 size=-
+2026-06-29 00:39:45.790 INFO  [cid=a547c8a5-a8ab-4679-9f9a-213f38680a01 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:39:45.801 INFO  [cid=a547c8a5-a8ab-4679-9f9a-213f38680a01 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=11 size=-
+2026-06-29 00:39:45.821 INFO  [cid=22f323c9-6b88-44b5-ba5a-6306524fdb96 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:45.838 INFO  [cid=22f323c9-6b88-44b5-ba5a-6306524fdb96 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=17 size=-
+2026-06-29 00:39:57.868 INFO  [cid=5584e049-7026-40e7-bd5d-bf194e2edd27 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:39:57.877 INFO  [cid=538f9ae5-a8cb-4e9e-a644-5605a83fdcd6 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:39:57.877 INFO  [cid=283a3a29-26b2-4763-99a4-5dfe42f06c50 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:57.877 INFO  [cid=9b886f23-286b-4187-8cb5-f062ff635951 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:39:57.877 INFO  [cid=99051f3c-ead3-448d-a415-e47b6918c56c uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:39:57.902 INFO  [cid=99051f3c-ead3-448d-a415-e47b6918c56c uid=1] API - <-- GET /api/users/me status=200 durationMs=24 size=-
+2026-06-29 00:39:57.908 INFO  [cid=283a3a29-26b2-4763-99a4-5dfe42f06c50 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=30 size=-
+2026-06-29 00:39:57.908 INFO  [cid=9b886f23-286b-4187-8cb5-f062ff635951 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=31 size=-
+2026-06-29 00:39:57.908 INFO  [cid=538f9ae5-a8cb-4e9e-a644-5605a83fdcd6 uid=1] API - <-- GET /api/venues status=200 durationMs=31 size=-
+2026-06-29 00:39:57.926 INFO  [cid=3be3feb5-dc58-4ff6-bbc2-c2e01eb9b3b0 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:39:57.928 INFO  [cid=5cadab91-0798-4e66-9b5e-f8ad6e13400b uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:39:57.943 INFO  [cid=3be3feb5-dc58-4ff6-bbc2-c2e01eb9b3b0 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=16 size=-
+2026-06-29 00:39:57.947 INFO  [cid=5cadab91-0798-4e66-9b5e-f8ad6e13400b uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=18 size=-
+2026-06-29 00:39:57.964 INFO  [cid=5584e049-7026-40e7-bd5d-bf194e2edd27 uid=1] API - <-- GET /api/users status=200 durationMs=95 size=-
+2026-06-29 00:41:02.446 INFO  [cid=26b87d10-48ef-42fa-8f9c-fcf24b0562fb uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:41:02.446 INFO  [cid=4dcb955d-1767-4686-b06a-1d212362fe68 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:41:02.450 INFO  [cid=e64d42d9-9d16-413d-a835-9fbfa28b80b9 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:41:02.461 INFO  [cid=d72dcf93-7085-4c1a-aecc-9f4d90369dcc uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:41:02.464 INFO  [cid=93addada-1811-4ad4-82ae-4825daeb28d2 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:41:02.464 INFO  [cid=ffeed1e5-a2fe-428e-89e1-239c6293ba45 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:41:02.475 INFO  [cid=e64d42d9-9d16-413d-a835-9fbfa28b80b9 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=26 size=-
+2026-06-29 00:41:02.477 INFO  [cid=26b87d10-48ef-42fa-8f9c-fcf24b0562fb uid=3] API - <-- GET /api/venues status=200 durationMs=30 size=-
+2026-06-29 00:41:02.485 INFO  [cid=ffeed1e5-a2fe-428e-89e1-239c6293ba45 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=29 size=-
+2026-06-29 00:41:02.503 INFO  [cid=93addada-1811-4ad4-82ae-4825daeb28d2 uid=1] API - <-- GET /api/venues status=200 durationMs=39 size=-
+2026-06-29 00:41:02.540 INFO  [cid=4dcb955d-1767-4686-b06a-1d212362fe68 uid=3] API - <-- GET /api/users status=200 durationMs=93 size=-
+2026-06-29 00:41:02.559 INFO  [cid=d72dcf93-7085-4c1a-aecc-9f4d90369dcc uid=1] API - <-- GET /api/users status=200 durationMs=98 size=-
+2026-06-29 00:41:44.446 INFO  [cid=5cc770a9-c918-4349-9f81-39efbfdc76da uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:41:44.446 INFO  [cid=4d0f4dea-01e5-4a14-8f67-b45e9889b5b3 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:41:44.446 INFO  [cid=5b50e016-678f-4f79-8f9b-8d8c09ba22dd uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:41:44.451 INFO  [cid=84203051-9582-44d6-a475-5634be7e8413 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:41:44.451 INFO  [cid=3b749bdb-b204-4ac3-931b-633cb8879a2f uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:41:44.452 INFO  [cid=a8158795-a267-437d-98b5-757730f074e5 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:41:44.475 INFO  [cid=5cc770a9-c918-4349-9f81-39efbfdc76da uid=1] API - <-- GET /api/venues status=200 durationMs=28 size=-
+2026-06-29 00:41:44.477 INFO  [cid=3b749bdb-b204-4ac3-931b-633cb8879a2f uid=3] API - <-- GET /api/venues status=200 durationMs=25 size=-
+2026-06-29 00:41:44.478 INFO  [cid=a8158795-a267-437d-98b5-757730f074e5 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=25 size=-
+2026-06-29 00:41:44.495 INFO  [cid=4d0f4dea-01e5-4a14-8f67-b45e9889b5b3 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=47 size=-
+2026-06-29 00:41:44.519 INFO  [cid=84203051-9582-44d6-a475-5634be7e8413 uid=3] API - <-- GET /api/users status=200 durationMs=67 size=-
+2026-06-29 00:41:44.519 INFO  [cid=5b50e016-678f-4f79-8f9b-8d8c09ba22dd uid=1] API - <-- GET /api/users status=200 durationMs=72 size=-
+2026-06-29 00:42:26.430 INFO  [cid=4153ccd9-31ed-4b3d-8780-69e865cf6094 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:42:26.451 INFO  [cid=4153ccd9-31ed-4b3d-8780-69e865cf6094 uid=1] API - <-- GET /api/users/me status=200 durationMs=20 size=-
+2026-06-29 00:42:27.856 INFO  [cid=4ace4efe-4f84-4599-89c1-b1be2a839b9b uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:42:27.876 INFO  [cid=4ace4efe-4f84-4599-89c1-b1be2a839b9b uid=1] API - <-- GET /api/users/me status=200 durationMs=20 size=-
+2026-06-29 00:42:28.357 INFO  [cid=fc57acde-8d2e-4c74-a02c-61a81992afd8 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:42:28.357 INFO  [cid=34964759-018b-465e-a096-48630b748b16 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:42:28.357 INFO  [cid=72352aef-8f85-46fc-8ac8-e1b4e650b216 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:42:28.357 INFO  [cid=17f9a758-7f33-411c-b39b-eef3030e414f uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:42:28.372 INFO  [cid=34964759-018b-465e-a096-48630b748b16 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=14 size=-
+2026-06-29 00:42:28.372 INFO  [cid=17f9a758-7f33-411c-b39b-eef3030e414f uid=1] API - <-- GET /api/sports/meta status=200 durationMs=14 size=-
+2026-06-29 00:42:28.378 INFO  [cid=72352aef-8f85-46fc-8ac8-e1b4e650b216 uid=1] API - <-- GET /api/venues status=200 durationMs=22 size=-
+2026-06-29 00:42:28.385 INFO  [cid=3be53bcc-fc01-469a-9670-6d199c3d2a7c uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:42:28.395 INFO  [cid=3601fa6b-6145-4b48-aa78-8a21135d6e7a uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:42:28.399 INFO  [cid=3be53bcc-fc01-469a-9670-6d199c3d2a7c uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=13 size=-
+2026-06-29 00:42:28.410 INFO  [cid=3601fa6b-6145-4b48-aa78-8a21135d6e7a uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=13 size=-
+2026-06-29 00:42:28.418 INFO  [cid=fc57acde-8d2e-4c74-a02c-61a81992afd8 uid=1] API - <-- GET /api/users status=200 durationMs=62 size=-
+2026-06-29 00:48:45.545 INFO  [cid=5dfa48be-7dc8-4e8c-a5b6-ce02ea7225dd uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:48:45.545 INFO  [cid=b25aafa6-b3bb-44b4-b21f-72a65972ea97 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:48:45.545 INFO  [cid=4577ab8c-7c21-4129-be1c-bdaf00a76271 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:48:45.545 INFO  [cid=94e4c78a-04ba-4576-ae94-4dfe63701a5b uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:48:45.545 INFO  [cid=bccc21e3-b093-4c56-841b-43575b590b17 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:48:45.642 INFO  [cid=bccc21e3-b093-4c56-841b-43575b590b17 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=98 size=-
+2026-06-29 00:48:45.644 INFO  [cid=b25aafa6-b3bb-44b4-b21f-72a65972ea97 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=100 size=-
+2026-06-29 00:48:45.645 INFO  [cid=4577ab8c-7c21-4129-be1c-bdaf00a76271 uid=1] API - <-- GET /api/users/me status=200 durationMs=101 size=-
+2026-06-29 00:48:45.654 INFO  [cid=409f7665-427d-4e48-8b2f-5fccd8a7da6a uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:48:45.657 INFO  [cid=94e4c78a-04ba-4576-ae94-4dfe63701a5b uid=1] API - <-- GET /api/venues status=200 durationMs=113 size=-
+2026-06-29 00:48:45.673 INFO  [cid=409f7665-427d-4e48-8b2f-5fccd8a7da6a uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=18 size=-
+2026-06-29 00:48:45.681 INFO  [cid=dd8bbdde-5e76-4641-bb7a-f38ab946f91e uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:48:45.702 INFO  [cid=dd8bbdde-5e76-4641-bb7a-f38ab946f91e uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=19 size=-
+2026-06-29 00:48:45.718 INFO  [cid=5dfa48be-7dc8-4e8c-a5b6-ce02ea7225dd uid=1] API - <-- GET /api/users status=200 durationMs=175 size=-
+2026-06-29 00:48:45.984 INFO  [cid=3f03d140-a884-4a5b-8505-6e7b37f86781 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:48:45.984 INFO  [cid=c51e42fa-40de-42f6-a302-8d136d0924f6 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:48:45.984 INFO  [cid=cb272133-cdcc-45d0-a896-f01474ff22ca uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:48:45.991 INFO  [cid=4c70dc15-ec65-440c-a078-82a9c19b6c65 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:48:45.993 INFO  [cid=97eebba6-676e-43d6-9249-463206db0ba1 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:48:46.012 INFO  [cid=4c70dc15-ec65-440c-a078-82a9c19b6c65 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=21 size=-
+2026-06-29 00:48:46.012 INFO  [cid=97eebba6-676e-43d6-9249-463206db0ba1 uid=3] API - <-- GET /api/users/me status=200 durationMs=19 size=-
+2026-06-29 00:48:46.018 INFO  [cid=cb272133-cdcc-45d0-a896-f01474ff22ca uid=3] API - <-- GET /api/sports/meta status=200 durationMs=32 size=-
+2026-06-29 00:48:46.026 INFO  [cid=3f03d140-a884-4a5b-8505-6e7b37f86781 uid=3] API - <-- GET /api/venues status=200 durationMs=41 size=-
+2026-06-29 00:48:46.078 INFO  [cid=c51e42fa-40de-42f6-a302-8d136d0924f6 uid=3] API - <-- GET /api/users status=200 durationMs=94 size=-
+2026-06-29 00:48:46.111 INFO  [cid=a060bc5f-b2d8-4df4-a0e2-16e346cb77f8 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:48:46.164 INFO  [cid=d7aa6d23-fa7a-4456-8720-0850c86b7969 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:48:46.192 INFO  [cid=d7aa6d23-fa7a-4456-8720-0850c86b7969 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=27 size=-
+2026-06-29 00:48:46.201 INFO  [cid=a060bc5f-b2d8-4df4-a0e2-16e346cb77f8 uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=90 size=-
+2026-06-29 00:55:00.492 INFO  [cid=c7f008f3-fc50-4e3c-8046-b84a5d8846c7 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:55:00.497 INFO  [cid=cf75b2d3-5a58-4907-acab-8bf6736d23e1 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:55:00.497 INFO  [cid=3eebb51c-51d8-4bd8-a4bd-796c17295597 uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:55:00.498 INFO  [cid=43bb0149-7437-4ea7-8b14-b4514ebb0611 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:00.498 INFO  [cid=b7e26125-e873-4533-8cfd-e8853a1fe9af uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:55:00.876 INFO  [cid=43bb0149-7437-4ea7-8b14-b4514ebb0611 uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=382 size=-
+2026-06-29 00:55:00.876 INFO  [cid=3eebb51c-51d8-4bd8-a4bd-796c17295597 uid=-] API - <-- GET /api/venues status=403 durationMs=383 size=-
+2026-06-29 00:55:00.891 INFO  [cid=c7f008f3-fc50-4e3c-8046-b84a5d8846c7 uid=-] API - <-- GET /api/users status=403 durationMs=400 size=-
+2026-06-29 00:55:00.894 INFO  [cid=cf75b2d3-5a58-4907-acab-8bf6736d23e1 uid=-] API - <-- GET /api/sports/meta status=403 durationMs=397 size=-
+2026-06-29 00:55:00.894 INFO  [cid=b7e26125-e873-4533-8cfd-e8853a1fe9af uid=-] API - <-- GET /api/users/me status=403 durationMs=392 size=-
+2026-06-29 00:55:01.399 INFO  [cid=faaddcb4-d2b2-47b4-8277-fe005dd63380 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:55:01.440 INFO  [cid=faaddcb4-d2b2-47b4-8277-fe005dd63380 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=38 size=-
+2026-06-29 00:55:02.877 INFO  [cid=f25791b2-3916-4eca-a9d6-fa5a0a589d70 uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:55:03.207 INFO  [cid=f25791b2-3916-4eca-a9d6-fa5a0a589d70 uid=1] API - <-- POST /api/auth/login status=200 durationMs=332 size=-
+2026-06-29 00:55:03.217 INFO  [cid=d8c069e0-975a-4e8a-8e9d-29d550feb507 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:55:03.222 INFO  [cid=d8c069e0-975a-4e8a-8e9d-29d550feb507 uid=3] API - <-- GET /api/users/me status=200 durationMs=7 size=-
+2026-06-29 00:55:03.265 INFO  [cid=831d2263-7f6d-481a-9706-5254dee79365 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:03.266 INFO  [cid=f0339cf1-2efa-4f3c-aa25-3d36b50a2133 uid=-] API - --> GET /api/posts?page=0&size=10 ip=127.0.0.1
+2026-06-29 00:55:03.277 INFO  [cid=831d2263-7f6d-481a-9706-5254dee79365 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=16 size=-
+2026-06-29 00:55:03.289 INFO  [cid=d526b85a-64bb-4b12-94a2-9480de4dec0f uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:55:03.297 INFO  [cid=ea453b60-1747-4171-aac5-516216c3e426 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:03.316 INFO  [cid=d526b85a-64bb-4b12-94a2-9480de4dec0f uid=3] API - <-- GET /api/chat/contacts status=200 durationMs=30 size=-
+2026-06-29 00:55:03.322 INFO  [cid=ea453b60-1747-4171-aac5-516216c3e426 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=23 size=-
+2026-06-29 00:55:03.597 WARN  [cid=f0339cf1-2efa-4f3c-aa25-3d36b50a2133 uid=3] o.s.d.w.c.SpringDataJackson3Configuration$PageModule$WarningLoggingModifier - Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
+
+2026-06-29 00:55:03.739 INFO  [cid=f0339cf1-2efa-4f3c-aa25-3d36b50a2133 uid=3] API - <-- GET /api/posts status=200 durationMs=477 size=-
+2026-06-29 00:55:05.050 INFO  [cid=0b35b10d-4cef-49ce-9eea-aff75e1376aa uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:55:05.050 INFO  [cid=40d1948c-da01-45e8-9424-0be4e0e9a33f uid=-] API - --> GET /api/venues?communityId=2 ip=127.0.0.1
+2026-06-29 00:55:05.050 INFO  [cid=7d3601bd-afe0-4885-adc7-187d871de195 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:55:05.065 INFO  [cid=7d3601bd-afe0-4885-adc7-187d871de195 uid=3] API - <-- GET /api/sports/meta status=200 durationMs=14 size=-
+2026-06-29 00:55:05.080 INFO  [cid=40d1948c-da01-45e8-9424-0be4e0e9a33f uid=3] API - <-- GET /api/venues status=200 durationMs=27 size=-
+2026-06-29 00:55:05.127 INFO  [cid=0b35b10d-4cef-49ce-9eea-aff75e1376aa uid=3] API - <-- GET /api/users status=200 durationMs=84 size=-
+2026-06-29 00:55:13.106 INFO  [cid=52ddd5de-44dd-488b-9e06-ae17703d4742 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:55:13.107 INFO  [cid=843fbd18-78b1-4a10-8459-8024d3ae05e5 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:55:13.107 INFO  [cid=5885b4a3-f16e-4638-85e0-c54c51b9d212 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:55:13.107 INFO  [cid=1f0dce12-dd2f-40ef-a327-e8543086ffda uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:13.107 INFO  [cid=173dc073-1580-4a00-950b-9ffa6adbd295 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:55:13.107 INFO  [cid=843fbd18-78b1-4a10-8459-8024d3ae05e5 uid=-] API - <-- GET /api/venues status=403 durationMs=2 size=-
+2026-06-29 00:55:13.107 INFO  [cid=52ddd5de-44dd-488b-9e06-ae17703d4742 uid=-] API - <-- GET /api/users status=403 durationMs=6 size=-
+2026-06-29 00:55:13.113 INFO  [cid=1f0dce12-dd2f-40ef-a327-e8543086ffda uid=-] API - <-- GET /api/chat/conversations status=403 durationMs=2 size=-
+2026-06-29 00:55:13.113 INFO  [cid=5885b4a3-f16e-4638-85e0-c54c51b9d212 uid=-] API - <-- GET /api/sports/meta status=403 durationMs=3 size=-
+2026-06-29 00:55:13.113 INFO  [cid=173dc073-1580-4a00-950b-9ffa6adbd295 uid=-] API - <-- GET /api/users/me status=403 durationMs=3 size=-
+2026-06-29 00:55:13.182 INFO  [cid=87034325-8425-4fe6-954f-b11878673bc5 uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:55:13.202 INFO  [cid=f06c6234-55d4-4a6c-8438-c180b3708d6a uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:13.202 INFO  [cid=87034325-8425-4fe6-954f-b11878673bc5 uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=15 size=-
+2026-06-29 00:55:13.218 INFO  [cid=f06c6234-55d4-4a6c-8438-c180b3708d6a uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=15 size=-
+2026-06-29 00:55:14.373 INFO  [cid=23baa8c7-2e05-486e-bed0-fd50f76406d6 uid=-] API - --> POST /api/auth/login ip=127.0.0.1
+2026-06-29 00:55:14.555 INFO  [cid=23baa8c7-2e05-486e-bed0-fd50f76406d6 uid=1] API - <-- POST /api/auth/login status=200 durationMs=182 size=-
+2026-06-29 00:55:14.561 INFO  [cid=0e926c82-1bdd-455e-9ba8-aa52b9a38b90 uid=-] API - --> GET /api/users/me ip=127.0.0.1
+2026-06-29 00:55:14.578 INFO  [cid=0e926c82-1bdd-455e-9ba8-aa52b9a38b90 uid=1] API - <-- GET /api/users/me status=200 durationMs=16 size=-
+2026-06-29 00:55:14.631 INFO  [cid=bbef38b1-a7a2-4029-82f9-5ab969dc843a uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 00:55:14.654 INFO  [cid=bbef38b1-a7a2-4029-82f9-5ab969dc843a uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=22 size=-
+2026-06-29 00:55:14.660 INFO  [cid=ef0b34c6-78bf-4515-83e7-4c8cc213ecbf uid=-] API - --> GET /api/chat/contacts ip=127.0.0.1
+2026-06-29 00:55:14.670 INFO  [cid=ef0b34c6-78bf-4515-83e7-4c8cc213ecbf uid=1] API - <-- GET /api/chat/contacts status=200 durationMs=10 size=-
+2026-06-29 00:55:15.935 INFO  [cid=36fbb4e8-39f1-4ac9-a360-0b9541cd8c93 uid=-] API - --> GET /api/users?page=0&size=1000 ip=127.0.0.1
+2026-06-29 00:55:15.936 INFO  [cid=2e90eaad-29af-4777-962f-12bc815f19c8 uid=-] API - --> GET /api/sports/meta ip=127.0.0.1
+2026-06-29 00:55:15.936 INFO  [cid=6456be00-c403-4cff-9cf4-8690140e9ee2 uid=-] API - --> GET /api/venues ip=127.0.0.1
+2026-06-29 00:55:15.966 INFO  [cid=2e90eaad-29af-4777-962f-12bc815f19c8 uid=1] API - <-- GET /api/sports/meta status=200 durationMs=30 size=-
+2026-06-29 00:55:15.967 INFO  [cid=6456be00-c403-4cff-9cf4-8690140e9ee2 uid=1] API - <-- GET /api/venues status=200 durationMs=31 size=-
+2026-06-29 00:55:16.011 INFO  [cid=36fbb4e8-39f1-4ac9-a360-0b9541cd8c93 uid=1] API - <-- GET /api/users status=200 durationMs=76 size=-
+2026-06-29 00:55:16.975 INFO  [cid=16b8db59-910e-419f-8b31-7a497e04ebba uid=-] API - --> GET /api/communities ip=127.0.0.1
+2026-06-29 00:55:16.998 INFO  [cid=16b8db59-910e-419f-8b31-7a497e04ebba uid=1] API - <-- GET /api/communities status=200 durationMs=23 size=-
+2026-06-29 01:01:10.879 INFO  [cid=26fce481-76ba-48f0-b89e-af9a78153ae3 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 01:01:10.901 INFO  [cid=26fce481-76ba-48f0-b89e-af9a78153ae3 uid=3] API - <-- GET /api/chat/conversations status=200 durationMs=25 size=-
+2026-06-29 01:01:13.392 INFO  [cid=aa45d8e4-b0ea-48b5-9cc8-fcf12854d161 uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 01:01:13.408 INFO  [cid=aa45d8e4-b0ea-48b5-9cc8-fcf12854d161 uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=19 size=-
+2026-06-29 09:30:46.424 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=8h34m17s816ms175µs501ns).
+2026-06-29 09:31:00.014 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 15 total, 0 closed abnormally (0 connect failure, 0 send limit, 4 transport error)], stompSubProtocol[processed CONNECT(14)-CONNECTED(14)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 18, active threads = 0, queued tasks = 0, completed tasks = 141], outboundChannel[pool size = 5, active threads = 0, queued tasks = 0, completed tasks = 29], sockJsScheduler[pool size = 16, active threads = 4, queued tasks = 1, completed tasks = 41]
+2026-06-29 12:34:56.801 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 15 total, 0 closed abnormally (0 connect failure, 0 send limit, 4 transport error)], stompSubProtocol[processed CONNECT(14)-CONNECTED(14)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 18, active threads = 0, queued tasks = 0, completed tasks = 141], outboundChannel[pool size = 5, active threads = 0, queued tasks = 0, completed tasks = 29], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 47]
+2026-06-29 12:34:56.921 INFO  [cid=c30852c2-90fb-4e82-a704-2bee3eea445a uid=-] API - --> POST /api/auth/logout ip=127.0.0.1
+2026-06-29 12:34:56.950 INFO  [cid=b1eb3855-69ce-4c17-9f4e-899f5564a76d uid=-] API - --> GET /api/chat/conversations ip=127.0.0.1
+2026-06-29 12:34:56.950 INFO  [cid=20fa4177-702e-4c6c-98c1-5e3c21147b22 uid=-] API - --> POST /api/auth/logout ip=127.0.0.1
+2026-06-29 12:34:57.026 INFO  [cid=b1eb3855-69ce-4c17-9f4e-899f5564a76d uid=1] API - <-- GET /api/chat/conversations status=200 durationMs=71 size=-
+2026-06-29 12:34:57.497 INFO  [cid=c30852c2-90fb-4e82-a704-2bee3eea445a uid=-] API - <-- POST /api/auth/logout status=200 durationMs=577 size=11
+2026-06-29 12:34:58.337 INFO  [cid=20fa4177-702e-4c6c-98c1-5e3c21147b22 uid=1] API - <-- POST /api/auth/logout status=200 durationMs=1384 size=11
+2026-06-29 12:35:09.764 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3h4m27s870ms65µs400ns).
+2026-06-29 13:04:56.821 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 16 total, 0 closed abnormally (0 connect failure, 0 send limit, 4 transport error)], stompSubProtocol[processed CONNECT(15)-CONNECTED(15)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 147], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 31], sockJsScheduler[pool size = 16, active threads = 1, queued tasks = 3, completed tasks = 106]
+2026-06-29 17:53:36.662 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=4h21m25s895ms33µs400ns).
+2026-06-29 17:53:53.536 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 16 total, 0 closed abnormally (0 connect failure, 0 send limit, 4 transport error)], stompSubProtocol[processed CONNECT(15)-CONNECTED(15)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 147], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 31], sockJsScheduler[pool size = 16, active threads = 3, queued tasks = 1, completed tasks = 163]
+2026-06-29 21:35:15.992 WARN  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3h40m8s581ms772µs400ns).
+2026-06-29 21:35:34.695 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 16 total, 0 closed abnormally (0 connect failure, 0 send limit, 4 transport error)], stompSubProtocol[processed CONNECT(15)-CONNECTED(15)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 147], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 31], sockJsScheduler[pool size = 16, active threads = 3, queued tasks = 1, completed tasks = 168]
+2026-06-29 21:35:46.629 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-06-29 21:35:46.740 INFO  [cid=- uid=-] o.s.boot.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-06-29 21:35:46.762 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopping...
+2026-06-29 21:35:46.763 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@61b9f2a]]
+2026-06-29 21:35:46.765 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Stopped.
+2026-06-29 21:35:46.822 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 21:35:46.902 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-06-29 21:35:46.920 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-06-29 21:35:59.259 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Starting ManaCommunityServiceApplication using Java 17.0.18 with PID 46764 (D:\Application\applications\mana community\mana-community-service\target\classes started by sande in D:\Application\applications\mana community\mana-community-service)
+2026-06-29 21:35:59.270 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - The following 1 profile is active: "local"
+2026-06-29 21:36:00.083 INFO  [cid=- uid=-] o.h.validator.internal.util.Version - HV000001: Hibernate Validator 9.0.1.Final
+2026-06-29 21:36:02.222 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-29 21:36:02.634 INFO  [cid=- uid=-] o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 391 ms. Found 35 JPA repository interfaces.
+2026-06-29 21:36:03.393 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - BeanFactoryPostProcessor mapping EntityManagerFactory to depend on tableDropper...
+2026-06-29 21:36:03.398 INFO  [cid=- uid=-] c.m.api.config.TableDropperConfig - Successfully added 'tableDropper' dependency to bean 'entityManagerFactory'
+2026-06-29 21:36:04.864 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 8082 (http)
+2026-06-29 21:36:04.890 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8082"]
+2026-06-29 21:36:04.895 INFO  [cid=- uid=-] o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-06-29 21:36:04.895 INFO  [cid=- uid=-] o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-06-29 21:36:05.068 INFO  [cid=- uid=-] o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 5681 ms
+2026-06-29 21:36:05.217 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-06-29 21:36:05.623 INFO  [cid=- uid=-] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@d13379e
+2026-06-29 21:36:05.625 INFO  [cid=- uid=-] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-06-29 21:36:05.722 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_config tournament_type constraint patched with extended values.
+2026-06-29 21:36:05.823 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match status constraint patched to support DRAFT.
+2026-06-29 21:36:05.855 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - tournament_match.config_id FK patched with ON DELETE CASCADE.
+2026-06-29 21:36:06.026 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - Foreign-key column indexes ensured.
+2026-06-29 21:36:06.069 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - roles.community_id FK to community ensured.
+2026-06-29 21:36:06.075 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_sponsor -> sports_event_sponsor backfill ensured.
+2026-06-29 21:36:06.078 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - event_notification_schedule -> sports_notification_scheduler backfill ensured.
+2026-06-29 21:36:06.080 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event_registration.email column ensured.
+2026-06-29 21:36:06.081 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - app_user lockout columns (failed_login_attempts, locked_until) ensured.
+2026-06-29 21:36:06.090 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - sports_event uuid + admin_approval_required columns ensured.
+2026-06-29 21:36:06.093 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - email_otp table ensured.
+2026-06-29 21:36:06.100 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat tables ensured.
+2026-06-29 21:36:06.111 INFO  [cid=- uid=-] c.m.a.c.SchemaConstraintPatcher$ConstraintPatcher - chat child-table FKs patched with ON DELETE CASCADE.
+2026-06-29 21:36:06.115 INFO  [cid=- uid=-] c.m.a.c.TableDropperConfig$TableDropper - Startup TableDropper is disabled (app.drop-table-on-startup.enabled = false). Skipping.
+2026-06-29 21:36:06.393 INFO  [cid=- uid=-] org.hibernate.orm.jpa - HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-06-29 21:36:06.584 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-06-29 21:36:07.239 INFO  [cid=- uid=-] o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-29 21:36:07.321 WARN  [cid=- uid=-] org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-29 21:36:07.348 INFO  [cid=- uid=-] o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/postgres]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: postgres/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-29 21:36:09.821 INFO  [cid=- uid=-] org.hibernate.orm.core - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-29 21:36:10.744 INFO  [cid=- uid=-] o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-29 21:36:10.834 INFO  [cid=- uid=-] o.s.d.j.r.q.QueryEnhancerFactories - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-29 21:36:12.077 WARN  [cid=- uid=-] c.m.a.s.JwtAuthenticationFilter - *** MOCK AUTH ENABLED — all unauthenticated requests will be auto-elevated. This must NEVER reach a deployed environment. ***
+2026-06-29 21:36:12.505 INFO  [cid=- uid=-] o.s.b.web.servlet.RegistrationBean - Filter jwtFilterAutoRegistrationDisabler was not registered (disabled)
+2026-06-29 21:36:14.275 WARN  [cid=- uid=-] c.m.a.service.FieldEncryptionService - No encryption master password configured — PII field encryption is disabled. Set JASYPT_ENCRYPTOR_PASSWORD for production use.
+2026-06-29 21:36:15.778 INFO  [cid=- uid=-] c.m.a.s.impl.SystemLogServiceImpl - Log directory resolved to: D:\Application\applications\mana community\mana-community-service\logs
+2026-06-29 21:36:16.035 WARN  [cid=- uid=-] o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-29 21:36:16.104 INFO  [cid=- uid=-] o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsService
+2026-06-29 21:36:17.801 INFO  [cid=- uid=-] o.s.b.a.e.web.EndpointLinksResolver - Exposing 4 endpoints beneath base path '/actuator'
+2026-06-29 21:36:17.920 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Starting...
+2026-06-29 21:36:17.921 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@64351d46]]
+2026-06-29 21:36:17.922 INFO  [cid=- uid=-] o.s.m.s.b.SimpleBrokerMessageHandler - Started.
+2026-06-29 21:36:17.923 INFO  [cid=- uid=-] o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8082"]
+2026-06-29 21:36:17.938 INFO  [cid=- uid=-] o.s.boot.tomcat.TomcatWebServer - Tomcat started on port 8082 (http) with context path '/'
+2026-06-29 21:36:17.954 INFO  [cid=- uid=-] c.m.a.ManaCommunityServiceApplication - Started ManaCommunityServiceApplication in 20.243 seconds (process running for 21.493)
+2026-06-29 21:36:18.160 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.
+2026-06-29 21:36:18.185 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Roles sequence synchronized to next available value successfully.
+2026-06-29 21:36:18.186 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - DDL-Auto is 'create'. Running sample data seeding...
+2026-06-29 21:36:18.186 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - Starting Java-based database seeding...
+2026-06-29 21:36:18.187 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.
+2026-06-29 21:36:18.188 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding role permissions...
+2026-06-29 21:36:18.534 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ Role permissions seeded successfully
+2026-06-29 21:36:18.534 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - Seeding default communities...
+2026-06-29 21:36:18.543 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 21:36:18.556 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 1
+2026-06-29 21:36:18.565 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 1
+2026-06-29 21:36:18.569 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 1
+2026-06-29 21:36:18.572 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 1
+2026-06-29 21:36:18.578 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 1
+2026-06-29 21:36:18.584 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 1
+2026-06-29 21:36:18.584 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: GENERAL (ID: 1)
+2026-06-29 21:36:18.618 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 21:36:18.626 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: VENDOR for community ID: 2
+2026-06-29 21:36:18.633 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: MEMBER for community ID: 2
+2026-06-29 21:36:18.643 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: CASHIER for community ID: 2
+2026-06-29 21:36:18.650 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: STAFF for community ID: 2
+2026-06-29 21:36:18.660 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: SPORTS_ADMIN for community ID: 2
+2026-06-29 21:36:18.666 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Created community-scoped role: ADMIN for community ID: 2
+2026-06-29 21:36:18.666 INFO  [cid=- uid=-] c.m.a.s.i.CommunityRoleInitializer - Initializing baseline roles for community: Lakshmi's Emperia (ID: 2)
+2026-06-29 21:36:18.684 INFO  [cid=- uid=-] c.m.a.s.sample.data.CommunitySeeder - ✓ Communities seeded: GENERAL (id=1), Lakshmi's Emperia (id=2)
+2026-06-29 21:36:18.687 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - Starting sports meta database seeding...
+2026-06-29 21:36:18.888 INFO  [cid=- uid=-] c.m.a.s.sample.data.SportsMetaSeeder - ✓ Sports seeded: Cricket (id=1), Football (id=2), Badminton (id=3) and 27 other sports
+2026-06-29 21:36:18.888 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - Seeding system and gated community users...
+2026-06-29 21:36:19.291 INFO  [cid=- uid=-] c.m.a.service.sample.data.UserSeeder - ✓ Gated community user seeding completed: SuperAdmin, Sandeep, Sunil, Ramesh, Mady and 45 block residents.
+2026-06-29 21:36:19.292 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - Seeding user-specific permissions for Sunil...
+2026-06-29 21:36:19.326 INFO  [cid=- uid=-] c.m.a.s.s.data.RolePermissionSeeder - ✓ User-specific permissions seeded for Sunil (ADMIN)
+2026-06-29 21:36:19.326 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - Seeding player categories...
+2026-06-29 21:36:19.376 INFO  [cid=- uid=-] c.m.a.s.s.data.PlayerCategorySeeder - ✓ Player categories seeded successfully.
+2026-06-29 21:36:19.377 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - Seeding community venues...
+2026-06-29 21:36:19.440 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueSeeder - ✓ Venues seeded successfully.
+2026-06-29 21:36:19.440 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - Seeding community sports events...
+2026-06-29 21:36:19.517 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Annual Summer Cricket Cup (id=1)
+2026-06-29 21:36:19.536 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Sports events seeded: Badminton — Men's Above 19 (id=2)
+2026-06-29 21:36:19.770 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventSeeder - ✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup
+2026-06-29 21:36:19.771 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - Seeding tournament sample data...
+2026-06-29 21:36:19.790 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'
+2026-06-29 21:36:19.790 INFO  [cid=- uid=-] c.m.a.s.sample.data.TournamentSeeder - ✓ Tournament seeded: LE 2026 Summer Champ (id=1)
+2026-06-29 21:36:19.790 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - Seeding auction configurations...
+2026-06-29 21:36:19.871 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config seeded: Season 2026 (id=1)
+2026-06-29 21:36:19.901 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction config categories seeded: Batsmen, Bowlers, All-rounders, Wicket Keepers
+2026-06-29 21:36:19.910 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Dispute committee seeded: 1 member
+2026-06-29 21:36:19.944 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction teams seeded: 5 active teams
+2026-06-29 21:36:20.097 INFO  [cid=- uid=-] c.m.a.s.sample.data.AuctionSeeder - ✓ Auction players seeded from confirmed event registrations
+2026-06-29 21:36:20.097 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - Seeding role_permissions table sample data...
+2026-06-29 21:36:20.121 INFO  [cid=- uid=-] c.m.a.s.s.d.RolePermissionDataSeeder - ✓ Role permissions table seeded: 16 permission(s) for MODERATOR
+2026-06-29 21:36:20.121 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - Seeding venue table sample data...
+2026-06-29 21:36:20.130 INFO  [cid=- uid=-] c.m.a.s.sample.data.VenueDataSeeder - ✓ Venue table seeded: Community Sports Arena
+2026-06-29 21:36:20.131 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - Seeding court table sample data...
+2026-06-29 21:36:20.146 INFO  [cid=- uid=-] c.m.a.s.sample.data.CourtDataSeeder - ✓ Court table seeded: 3 new court(s) for Community Sports Arena
+2026-06-29 21:36:20.147 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - Seeding sports_event table sample data...
+2026-06-29 21:36:20.171 INFO  [cid=- uid=-] c.m.a.s.s.data.SportsEventDataSeeder - ✓ Sports event table seeded: Winter Football League
+2026-06-29 21:36:20.172 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - Seeding sports_event_registration table sample data...
+2026-06-29 21:36:20.220 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Sports event registration table seeded: 3 new registration(s) for Winter Football League
+2026-06-29 21:36:20.334 INFO  [cid=- uid=-] c.m.a.s.s.d.SportsEventRegistrationDataSeeder - ✓ Badminton registration seeded: 17 new registration(s) for Badminton — Men's Above 19
+2026-06-29 21:36:20.335 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - Seeding tournament table sample data...
+2026-06-29 21:36:20.340 INFO  [cid=- uid=-] c.m.a.s.s.data.TournamentDataSeeder - ✓ Tournament table seeded: LE 2026 Winter Cup (id=2)
+2026-06-29 21:36:20.340 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 21:36:20.341 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService -   Java-based database seeding completed successfully!
+2026-06-29 21:36:20.341 INFO  [cid=- uid=-] c.m.a.s.sample.SampleDataService - ═══════════════════════════════════════════════════════════
+2026-06-29 21:37:17.881 INFO  [cid=- uid=-] o.s.w.s.c.WebSocketMessageBrokerStats - WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 6, active threads = 1, queued tasks = 3, completed tasks = 2]

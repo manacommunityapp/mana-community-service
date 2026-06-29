@@ -8,6 +8,7 @@ import com.manacommunity.api.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,7 +37,7 @@ public class ChatController {
     @PostMapping("/conversations/direct")
     public ResponseEntity<ConversationResponse> startDirect(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody StartDirectRequest request) {
+            @Valid @RequestBody StartDirectRequest request) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(chatService.startDirect(currentUser, request.userId()));
     }
@@ -55,7 +56,7 @@ public class ChatController {
     public ResponseEntity<ChatMessageResponse> sendMessage(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
-            @RequestBody SendMessageRequest request) {
+            @Valid @RequestBody SendMessageRequest request) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(chatService.sendMessage(currentUser, id, request.content()));
     }

@@ -1,7 +1,7 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.response.AuthResponse;
-import com.manacommunity.api.dto.KycRequest;
+
 import com.manacommunity.api.dto.LoginRequest;
 import com.manacommunity.api.dto.RefreshTokenRequest;
 import com.manacommunity.api.dto.RegisterRequest;
@@ -59,11 +59,6 @@ public class AuthController {
         return ResponseEntity.ok("Logged out.");
     }
 
-    @PostMapping("/verify-kyc")
-    public ResponseEntity<String> verifyKyc(
-            @Valid @RequestBody KycRequest req,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        // authService.submitKyc(principal.getId(), req);
-        return ResponseEntity.ok("KYC submitted for review. You will be notified once approved.");
-    }
+    // KYC endpoint removed — the implementation was never wired up but the
+    // endpoint accepted (and discarded) sensitive government-ID data.
 }

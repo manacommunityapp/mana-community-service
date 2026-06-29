@@ -3,7 +3,12 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.dto.PlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
+import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.dto.SportsEventRequest;
+import com.manacommunity.api.dto.SportsEventResponse;
+import com.manacommunity.api.dto.SportsRegistrationResponse;
+import com.manacommunity.api.dto.SportsMetaRequest;
+import com.manacommunity.api.dto.SportsMetaResponse;
 import com.manacommunity.api.dto.TournamentRequest;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
@@ -23,27 +28,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
 import static com.manacommunity.api.constants.PermissionConstants.*;
 
-/**
- * BUG FIXES applied:
- *
- * 1. SportsController injected SportMetaRepository directly — this is
- *    acceptable for a simple read endpoint. Kept but added proper import.
- *
- * 2. categoryRepo was used but NEVER declared as a field — added
- *    PlayerCategoryRepository categoryRepo field.
- *
- * 3. All model/DTO types were used without imports — added all imports.
- *
- * 4. UserPrincipal was not imported — changed to app-level class.
- */
 @RestController
 @RequestMapping("/api/sports")
 @RequiredArgsConstructor
@@ -51,80 +45,75 @@ public class SportsController {
 
     private final SportsEventService eventService;
     private final SportMetaRepository sportMetaRepo;
-    private final PlayerCategoryRepository categoryRepo; // BUG FIX: was missing
+    private final PlayerCategoryRepository categoryRepo;
     private final LoggedInUserService loggedInUserService;
     private final TournamentService tournamentService;
     private final PermissionCheckService permissionCheckService;
     private final SportsEventCsvImportService csvImportService;
 
     @GetMapping("/meta")
-    public ResponseEntity<List<SportsMeta>> getAllSports(
+    public ResponseEntity<List<SportsMetaResponse>> getAllSports(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
-        return ResponseEntity.ok(sportMetaRepo.findByActiveTrue());
+        return ResponseEntity.ok(sportMetaRepo.findByActiveTrue().stream()
+                .map(this::toSportsMetaResponse).toList());
     }
 
     @PostMapping("/meta")
-    public ResponseEntity<SportsMeta> createSport(
-            @RequestBody SportsMeta sport,
+    public ResponseEntity<SportsMetaResponse> createSport(
+            @Valid @RequestBody SportsMetaRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-        if (sport.getActive() == null) {
-            sport.setActive(true);
-        }
+        SportsMeta sport = SportsMeta.builder()
+                .name(request.name())
+                .icon(request.icon())
+                .iconUrl(request.iconUrl())
+                .formats(request.formats() != null ? request.formats() : List.of())
+                .active(request.active() != null ? request.active() : true)
+                .build();
         if (principal != null) {
             AppUser loggedInUser = loggedInUserService.resolve(principal);
-            if (loggedInUser != null) {
-                if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
-                    if (loggedInUser.getCommunity() != null) {
-                        sport.setCommunityId(loggedInUser.getCommunity().getId());
-                    }
+            if (loggedInUser != null && !ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+                if (loggedInUser.getCommunity() != null) {
+                    sport.setCommunityId(loggedInUser.getCommunity().getId());
                 }
             }
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(sportMetaRepo.save(sport));
+        SportsMeta saved = sportMetaRepo.save(sport);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toSportsMetaResponse(saved));
     }
 
     @PutMapping("/meta/{id}")
-    public ResponseEntity<SportsMeta> updateSport(
-            @PathVariable Long id, 
-            @RequestBody SportsMeta req,
+    public ResponseEntity<SportsMetaResponse> updateSport(
+            @PathVariable Long id,
+            @Valid @RequestBody SportsMetaRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-        return sportMetaRepo.findById(id).map(sport -> {
-            if (sport.getCommunityId() == null) {
-                if (principal == null) {
-                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
-                }
-                AppUser loggedInUser = loggedInUserService.resolve(principal);
-                if (loggedInUser == null || !ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
-                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
-                }
-            } else {
-                if (principal == null) {
-                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
-                }
-                AppUser loggedInUser = loggedInUserService.resolve(principal);
-                if (loggedInUser == null) {
-                    throw new UnauthorizedActionException("You do not have permission to modify this sport.");
-                }
-                if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
-                    Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-                    if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
-                        throw new UnauthorizedActionException("You do not have permission to modify this sport.");
-                    }
-                }
-            }
+        SportsMeta sport = sportMetaRepo.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", id));
 
-            sport.setName(req.getName());
-            sport.setIcon(req.getIcon());
-            sport.setIconUrl(req.getIconUrl());
-            sport.setFormats(req.getFormats());
-            if (req.getActive() != null) {
-                sport.setActive(req.getActive());
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        if (sport.getCommunityId() == null) {
+            if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+                throw new UnauthorizedActionException("You do not have permission to modify this sport.");
             }
-            return ResponseEntity.ok(sportMetaRepo.save(sport));
-        }).orElse(ResponseEntity.notFound().build());
+        } else if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+            Long userCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            if (userCommunityId == null || !userCommunityId.equals(sport.getCommunityId())) {
+                throw new UnauthorizedActionException("You do not have permission to modify this sport.");
+            }
+        }
+
+        sport.setName(request.name());
+        sport.setIcon(request.icon());
+        sport.setIconUrl(request.iconUrl());
+        if (request.formats() != null) {
+            sport.setFormats(request.formats());
+        }
+        if (request.active() != null) {
+            sport.setActive(request.active());
+        }
+        return ResponseEntity.ok(toSportsMetaResponse(sportMetaRepo.save(sport)));
     }
 
     @DeleteMapping("/meta/{id}")
@@ -157,7 +146,7 @@ public class SportsController {
                 }
             }
 
-            sport.setActive(false); // soft-delete by deactivating
+            sport.setActive(false);
             sportMetaRepo.save(sport);
             return ResponseEntity.ok().<Void>build();
         }).orElse(ResponseEntity.notFound().build());
@@ -171,7 +160,6 @@ public class SportsController {
         if (ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             return ResponseEntity.ok(categoryRepo.findAll());
         }
-        // For all other roles: show DEFAULT categories + their community's categories
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         if (communityId != null) {
             return ResponseEntity.ok(categoryRepo.findDefaultAndCommunityCategories(communityId));
@@ -186,7 +174,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        String userRole = loggedInUser.getRole(); // e.g., ROLE_SUPER_ADMIN, ROLE_ADMIN, "SPORTS_ADMIN", "VENDOR"
+        String userRole = loggedInUser.getRole();
         String typeValue;
         switch (userRole) {
             case ROLE_SUPER_ADMIN:
@@ -199,7 +187,7 @@ public class SportsController {
                 typeValue = "VENDOR";
                 break;
             default:
-                throw new IllegalArgumentException("Unknown user role: " + userRole);
+                throw new com.manacommunity.api.exception.InvalidInputException("Unknown user role: " + userRole);
         }
         req.setType(typeValue);
 
@@ -228,7 +216,7 @@ public class SportsController {
 
 
     @PostMapping("/events")
-    public ResponseEntity<SportsEvent> createSportsEvent(
+    public ResponseEntity<SportsEventResponse> createSportsEvent(
             @Valid @RequestBody SportsEventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
@@ -239,20 +227,20 @@ public class SportsController {
         }
 
         SportsEvent created = eventService.createEvent(req, loggedInUser.getId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toEventResponse(created));
     }
 
     @PutMapping("/events/{id}/status")
-    public ResponseEntity<SportsEvent> updateStatus(
+    public ResponseEntity<SportsEventResponse> updateStatus(
             @PathVariable Long id, @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.updateStatus(id, status));
+        return ResponseEntity.ok(toEventResponse(eventService.updateStatus(id, status)));
     }
 
     @PutMapping("/tournaments/{id}")
-    public ResponseEntity<SportsEvent> updateTournament(
+    public ResponseEntity<SportsEventResponse> updateTournament(
             @PathVariable Long id, @Valid @RequestBody TournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
@@ -260,13 +248,12 @@ public class SportsController {
 
         Tournament tournament = tournamentService.saveTournamentRecord(req, req.getAllowAdminChat());
 
-        // Find and return the updated SportsEvent for backward-compatibility with UI
         SportsEvent updated = eventService.getEventById(id);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(toEventResponse(updated));
     }
 
     @PutMapping("/events/{id}")
-    public ResponseEntity<SportsEvent> updateSportsEvent(
+    public ResponseEntity<SportsEventResponse> updateSportsEvent(
             @PathVariable Long id, @Valid @RequestBody SportsEventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
@@ -276,7 +263,7 @@ public class SportsController {
             req.setCommunityId(loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
         }
 
-        return ResponseEntity.ok(eventService.updateEvent(id, req));
+        return ResponseEntity.ok(toEventResponse(eventService.updateEvent(id, req)));
     }
 
 
@@ -291,23 +278,16 @@ public class SportsController {
     }
 
     @GetMapping({"/events/{id}", "/tournaments/{id}"})
-    public ResponseEntity<SportsEvent> getTournamentById(
+    public ResponseEntity<SportsEventResponse> getTournamentById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
-        return ResponseEntity.ok(eventService.getEventById(id));
+        return ResponseEntity.ok(toEventResponse(eventService.getEventById(id)));
     }
 
-    /**
-     * Public lookup of an event by its shareable UUID — backs the registration
-     * link {@code /sports/register/{uuid}} so the form can render event details
-     * (name, dates, age limits, whether admin approval is required) without
-     * exposing the sequential numeric id. Permitted unauthenticated in
-     * {@code SecurityConfig}; the registration POST still enforces verification.
-     */
     @GetMapping("/events/by-uuid/{uuid}")
-    public ResponseEntity<SportsEvent> getEventByUuid(@PathVariable java.util.UUID uuid) {
-        return ResponseEntity.ok(eventService.getEventByUuid(uuid));
+    public ResponseEntity<SportsEventResponse> getEventByUuid(@PathVariable java.util.UUID uuid) {
+        return ResponseEntity.ok(toEventResponse(eventService.getEventByUuid(uuid)));
     }
 
     @GetMapping({"/events/{eventId}/confirmed-count", "/tournaments/{eventId}/confirmed-count"})
@@ -319,16 +299,16 @@ public class SportsController {
     }
 
     @PutMapping({"/events/{id}/committee", "/tournaments/{id}/committee"})
-    public ResponseEntity<SportsEvent> updateCommittee(
+    public ResponseEntity<SportsEventResponse> updateCommittee(
             @PathVariable Long id,
             @RequestBody List<Long> committeeIds,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         SportsEvent event = eventService.getEventById(id);
-        String idsString = committeeIds == null ? "" : 
-            committeeIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        String idsString = committeeIds == null ? "" :
+            committeeIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         event.setDisputeCommitteeIds(idsString);
-        return ResponseEntity.ok(eventService.saveEvent(event));
+        return ResponseEntity.ok(toEventResponse(eventService.saveEvent(event)));
     }
 
     @GetMapping({"/event-list-map", "/tournament-list-map"})
@@ -345,7 +325,7 @@ public class SportsController {
     }
 
     @GetMapping({"/events/open", "/tournaments/open"})
-    public ResponseEntity<List<SportsEvent>> getOpenTournaments(
+    public ResponseEntity<List<SportsEventResponse>> getOpenTournaments(
             @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
@@ -355,13 +335,14 @@ public class SportsController {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         if (targetCommunityId == null) {
-            return ResponseEntity.ok(java.util.Collections.emptyList());
+            return ResponseEntity.ok(Collections.emptyList());
         }
-        return ResponseEntity.ok(eventService.getOpenEvents(targetCommunityId));
+        return ResponseEntity.ok(eventService.getOpenEvents(targetCommunityId).stream()
+                .map(this::toEventResponse).toList());
     }
 
     @GetMapping({"/events/open-all", "/tournaments/open-all"})
-    public ResponseEntity<List<SportsEvent>> getAllOpenTournaments(
+    public ResponseEntity<List<SportsEventResponse>> getAllOpenTournaments(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
@@ -369,15 +350,17 @@ public class SportsController {
         if (!isSuperAdmin) {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
-                return ResponseEntity.ok(java.util.Collections.emptyList());
+                return ResponseEntity.ok(Collections.emptyList());
             }
-            return ResponseEntity.ok(eventService.getOpenEvents(communityId));
+            return ResponseEntity.ok(eventService.getOpenEvents(communityId).stream()
+                    .map(this::toEventResponse).toList());
         }
-        return ResponseEntity.ok(eventService.getAllOpenEvents());
+        return ResponseEntity.ok(eventService.getAllOpenEvents().stream()
+                .map(this::toEventResponse).toList());
     }
 
     @GetMapping({"/events/closed", "/tournaments/closed"})
-    public ResponseEntity<List<SportsEvent>> getClosedTournaments(
+    public ResponseEntity<List<SportsEventResponse>> getClosedTournaments(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
@@ -385,23 +368,26 @@ public class SportsController {
         if (!isSuperAdmin) {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
-                return ResponseEntity.ok(java.util.Collections.emptyList());
+                return ResponseEntity.ok(Collections.emptyList());
             }
-            return ResponseEntity.ok(eventService.getClosedEvents(communityId));
+            return ResponseEntity.ok(eventService.getClosedEvents(communityId).stream()
+                    .map(this::toEventResponse).toList());
         }
-        return ResponseEntity.ok(eventService.getClosedEvents());
+        return ResponseEntity.ok(eventService.getClosedEvents().stream()
+                .map(this::toEventResponse).toList());
     }
 
     @GetMapping({"/events/mine", "/tournaments/mine"})
-    public ResponseEntity<List<SportsEvent>> getMyTournaments(
+    public ResponseEntity<List<SportsEventResponse>> getMyTournaments(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.getMyEvents(loggedInUser.getId()));
+        return ResponseEntity.ok(eventService.getMyEvents(loggedInUser.getId()).stream()
+                .map(this::toEventResponse).toList());
     }
 
     @GetMapping({"/events/all", "/tournaments/all"})
-    public ResponseEntity<PagedResponse<SportsEvent>> getAllTournaments(
+    public ResponseEntity<PagedResponse<SportsEventResponse>> getAllTournaments(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -421,11 +407,11 @@ public class SportsController {
         } else {
             eventPage = eventService.getAllEvents(pageable);
         }
-        return ResponseEntity.ok(PagedResponse.from(eventPage, e -> e));
+        return ResponseEntity.ok(PagedResponse.from(eventPage, this::toEventResponse));
     }
 
     @GetMapping({"/events/community", "/tournaments/community"})
-    public ResponseEntity<List<SportsEvent>> getCommunityTournaments(
+    public ResponseEntity<List<SportsEventResponse>> getCommunityTournaments(
             @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
@@ -437,17 +423,18 @@ public class SportsController {
                 throw new UnauthorizedActionException("You can only access your own community's tournaments.");
             }
         }
-        return ResponseEntity.ok(eventService.getCommunityEvents(targetCommunityId));
+        return ResponseEntity.ok(eventService.getCommunityEvents(targetCommunityId).stream()
+                .map(this::toEventResponse).toList());
     }
 
     @PostMapping("/register")
-    public ResponseEntity<SportsEventRegistration> register(
+    public ResponseEntity<SportsRegistrationResponse> register(
             @Valid @RequestBody RegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(eventService.registerUser(req, loggedInUser.getId()));
+                .body(toRegistrationResponse(eventService.registerUser(req, loggedInUser.getId())));
     }
 
     @DeleteMapping("/register/{registrationId}")
@@ -470,57 +457,264 @@ public class SportsController {
     }
 
     @GetMapping({"/events/{eventId}/registrations", "/tournaments/{eventId}/registrations"})
-    public ResponseEntity<List<SportsEventRegistration>> getTournamentRegistrations(
+    public ResponseEntity<List<SportsRegistrationResponse>> getTournamentRegistrations(
             @PathVariable Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.getEventRegistrations(eventId));
+        return ResponseEntity.ok(eventService.getEventRegistrations(eventId).stream()
+                .map(this::toRegistrationResponse).toList());
     }
 
     @GetMapping("/registrations/mine")
-    public ResponseEntity<List<SportsEventRegistration>> getMyRegistrations(
+    public ResponseEntity<List<SportsRegistrationResponse>> getMyRegistrations(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.getUserRegistrations(loggedInUser.getId()));
+        return ResponseEntity.ok(eventService.getUserRegistrations(loggedInUser.getId()).stream()
+                .map(this::toRegistrationResponse).toList());
     }
 
     @PutMapping("/registrations/{id}/confirm")
-    public ResponseEntity<SportsEventRegistration> confirmRegistration(
+    public ResponseEntity<SportsRegistrationResponse> confirmRegistration(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.confirmRegistration(id));
+        return ResponseEntity.ok(toRegistrationResponse(eventService.confirmRegistration(id)));
     }
 
     @PutMapping("/registrations/{id}/reject")
-    public ResponseEntity<SportsEventRegistration> rejectRegistration(
+    public ResponseEntity<SportsRegistrationResponse> rejectRegistration(
             @PathVariable Long id,
             @RequestParam(required = false) String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.rejectRegistration(id, reason));
+        return ResponseEntity.ok(toRegistrationResponse(eventService.rejectRegistration(id, reason)));
     }
 
     @PutMapping("/registrations/{id}/nominate")
-    public ResponseEntity<SportsEventRegistration> nominateCaptain(
-            @PathVariable Long id, 
+    public ResponseEntity<SportsRegistrationResponse> nominateCaptain(
+            @PathVariable Long id,
             @RequestParam boolean nominate,
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
-        return ResponseEntity.ok(eventService.nominateCaptain(id, nominate, teamName));
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, nominate, teamName)));
     }
 
     @PutMapping("/registrations/{id}/confirm-captain")
-    public ResponseEntity<SportsEventRegistration> confirmCaptain(
-            @PathVariable Long id, 
+    public ResponseEntity<SportsRegistrationResponse> confirmCaptain(
+            @PathVariable Long id,
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
-        return ResponseEntity.ok(eventService.confirmCaptain(id, confirm));
+        return ResponseEntity.ok(toRegistrationResponse(eventService.confirmCaptain(id, confirm)));
+    }
+
+    // ── Mappers ──────────────────────────────────────────────────────────────
+
+    private SportsEventResponse toEventResponse(SportsEvent e) {
+        SportsEventResponse.SportRef sportRef = null;
+        if (e.getSport() != null) {
+            sportRef = SportsEventResponse.SportRef.builder()
+                    .id(e.getSport().getId())
+                    .name(e.getSport().getName())
+                    .icon(e.getSport().getIcon())
+                    .iconUrl(e.getSport().getIconUrl())
+                    .build();
+        }
+
+        SportsEventResponse.CommunityRef communityRef = null;
+        if (e.getCommunity() != null) {
+            communityRef = SportsEventResponse.CommunityRef.builder()
+                    .id(e.getCommunity().getId())
+                    .name(e.getCommunity().getName())
+                    .build();
+        }
+
+        SportsEventResponse.VenueRef venueRef = null;
+        if (e.getVenue() != null) {
+            venueRef = SportsEventResponse.VenueRef.builder()
+                    .id(e.getVenue().getId())
+                    .name(e.getVenue().getName())
+                    .address(e.getVenue().getAddress())
+                    .city(e.getVenue().getCity())
+                    .area(e.getVenue().getArea())
+                    .build();
+        }
+
+        SportsEventResponse.CreatedByRef createdByRef = null;
+        if (e.getCreatedBy() != null) {
+            createdByRef = SportsEventResponse.CreatedByRef.builder()
+                    .id(e.getCreatedBy().getId())
+                    .name(e.getCreatedBy().getFullName())
+                    .email(e.getCreatedBy().getEmail())
+                    .build();
+        }
+
+        List<SportsEventResponse.CategoryRef> categoryRefs = e.getCategories() != null
+                ? e.getCategories().stream().map(c -> SportsEventResponse.CategoryRef.builder()
+                        .id(c.getId())
+                        .name(c.getName())
+                        .categoryType(c.getCategory_type())
+                        .description(c.getDescription())
+                        .minAge(c.getMinAge())
+                        .maxAge(c.getMaxAge())
+                        .gender(c.getGender())
+                        .type(c.getType())
+                        .build()).toList()
+                : List.of();
+
+        List<SponsorDto> sponsorDtos = e.getSponsors() != null
+                ? e.getSponsors().stream().map(s -> {
+                    SponsorDto dto = new SponsorDto();
+                    dto.setCategory(s.getCategory());
+                    dto.setName(s.getName());
+                    dto.setUrl(s.getUrl());
+                    return dto;
+                }).toList()
+                : List.of();
+
+        SportsEventResponse.TournamentRef tournamentRef = null;
+        if (e.getTournament() != null) {
+            tournamentRef = SportsEventResponse.TournamentRef.builder()
+                    .id(e.getTournament().getId())
+                    .name(e.getTournament().getName())
+                    .registrationStatus(e.getTournament().getRegistrationStatus() != null
+                            ? e.getTournament().getRegistrationStatus().name() : null)
+                    .build();
+        }
+
+        return SportsEventResponse.builder()
+                .id(e.getId())
+                .uuid(e.getUuid())
+                .name(e.getName())
+                .icon(e.getIcon())
+                .minAge(e.getMinAge())
+                .maxAge(e.getMaxAge())
+                .minPlayers(e.getMinPlayers())
+                .maxPlayers(e.getMaxPlayers())
+                .gender(e.getGender())
+                .playersBorn(e.getPlayersBorn())
+                .active(e.getActive())
+                .adminApprovalRequired(e.getAdminApprovalRequired())
+                .sport(sportRef)
+                .community(communityRef)
+                .venue(venueRef)
+                .createdBy(createdByRef)
+                .eventDateStart(e.getEventDateStart())
+                .eventDateEnd(e.getEventDateEnd())
+                .registrationDateStart(e.getRegistrationDateStart())
+                .registrationDateEnd(e.getRegistrationDateEnd())
+                .maxParticipants(e.getMaxParticipants())
+                .startTime(e.getStartTime())
+                .dueTime(e.getDueTime())
+                .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
+                .format(e.getFormat())
+                .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
+                .categories(categoryRefs)
+                .sponsors(sponsorDtos)
+                .contactName(e.getContactName())
+                .contactNumber(e.getContactNumber())
+                .contactEmail(e.getContactEmail())
+                .otherContacts(e.getOtherContacts())
+                .auctionEnabled(e.getAuctionEnabled())
+                .bannerImage(e.getBannerImage())
+                .tournamentLevel(e.getTournamentLevel())
+                .description(e.getDescription())
+                .disputeCommitteeIds(e.getDisputeCommitteeIds())
+                .tournament(tournamentRef)
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
+                .build();
+    }
+
+    private SportsRegistrationResponse toRegistrationResponse(SportsEventRegistration r) {
+        SportsRegistrationResponse.EventRef eventRef = null;
+        if (r.getEvent() != null) {
+            SportsRegistrationResponse.SportRef sportRef = null;
+            if (r.getEvent().getSport() != null) {
+                sportRef = SportsRegistrationResponse.SportRef.builder()
+                        .id(r.getEvent().getSport().getId())
+                        .name(r.getEvent().getSport().getName())
+                        .build();
+            }
+            eventRef = SportsRegistrationResponse.EventRef.builder()
+                    .id(r.getEvent().getId())
+                    .name(r.getEvent().getName())
+                    .eventDateStart(r.getEvent().getEventDateStart() != null ? r.getEvent().getEventDateStart().toString() : null)
+                    .eventDateEnd(r.getEvent().getEventDateEnd() != null ? r.getEvent().getEventDateEnd().toString() : null)
+                    .sport(sportRef)
+                    .build();
+        }
+
+        SportsRegistrationResponse.UserRef userRef = null;
+        if (r.getUser() != null) {
+            userRef = SportsRegistrationResponse.UserRef.builder()
+                    .id(r.getUser().getId())
+                    .fullName(r.getUser().getFullName())
+                    .name(r.getUser().getFullName())
+                    .email(r.getUser().getEmail())
+                    .phone(r.getUser().getPhone())
+                    .flatNo(r.getUser().getFlatNo())
+                    .build();
+        }
+
+        SportsRegistrationResponse.CategoryRef categoryRef = null;
+        if (r.getCategory() != null) {
+            categoryRef = SportsRegistrationResponse.CategoryRef.builder()
+                    .id(r.getCategory().getId())
+                    .name(r.getCategory().getName())
+                    .categoryType(r.getCategory().getCategory_type())
+                    .minAge(r.getCategory().getMinAge())
+                    .maxAge(r.getCategory().getMaxAge())
+                    .gender(r.getCategory().getGender())
+                    .build();
+        }
+
+        SportsRegistrationResponse.UserRef partnerRef = null;
+        if (r.getPartner() != null) {
+            partnerRef = SportsRegistrationResponse.UserRef.builder()
+                    .id(r.getPartner().getId())
+                    .fullName(r.getPartner().getFullName())
+                    .name(r.getPartner().getFullName())
+                    .email(r.getPartner().getEmail())
+                    .build();
+        }
+
+        return SportsRegistrationResponse.builder()
+                .id(r.getId())
+                .event(eventRef)
+                .user(userRef)
+                .category(categoryRef)
+                .matchType(r.getMatchType() != null ? r.getMatchType().name() : null)
+                .partner(partnerRef)
+                .status(r.getStatus() != null ? r.getStatus().name() : null)
+                .playerName(r.getPlayerName())
+                .email(r.getEmail())
+                .relation(r.getRelation())
+                .flatNumber(r.getFlatNumber())
+                .age(r.getAge())
+                .role(r.getRole())
+                .captainNomination(r.getCaptainNomination())
+                .captainConfirmation(r.getCaptainConfirmation())
+                .proposedTeamName(r.getProposedTeamName())
+                .registeredAt(r.getRegisteredAt())
+                .updatedAt(r.getUpdatedAt())
+                .build();
+    }
+
+    private SportsMetaResponse toSportsMetaResponse(SportsMeta sport) {
+        return new SportsMetaResponse(
+                sport.getId(),
+                sport.getName(),
+                sport.getIcon(),
+                sport.getIconUrl(),
+                sport.getCommunityId(),
+                sport.getFormats(),
+                sport.getActive()
+        );
     }
 }

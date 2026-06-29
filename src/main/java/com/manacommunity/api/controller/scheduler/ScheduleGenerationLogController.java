@@ -47,6 +47,7 @@ public class ScheduleGenerationLogController {
             @RequestParam(defaultValue = "20") int size) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        return ResponseEntity.ok(logService.getLogsByCommunity(communityId, page, size));
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(logService.getLogsByCommunity(communityId, Math.max(page, 0), safeSize));
     }
 }

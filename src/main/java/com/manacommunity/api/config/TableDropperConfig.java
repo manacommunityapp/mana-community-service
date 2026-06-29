@@ -32,6 +32,7 @@ import java.util.List;
  * are handled automatically by PostgreSQL.
  */
 @Configuration
+@org.springframework.context.annotation.Profile("local")
 public class TableDropperConfig {
 
     private static final Logger log = LoggerFactory.getLogger(TableDropperConfig.class);

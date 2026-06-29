@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,14 +28,15 @@ public class FeedController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         AppUser currentUser = loggedInUserService.resolve(principal);
-        Page<PostResponse> response = feedService.getFeed(currentUser, page, size);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Page<PostResponse> response = feedService.getFeed(currentUser, Math.max(page, 0), safeSize);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping
     public ResponseEntity<PostResponse> createPost(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody PostRequest request) {
+            @Valid @RequestBody PostRequest request) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         PostResponse response = feedService.createPost(currentUser, request);
         return ResponseEntity.ok(response);
@@ -59,7 +61,10 @@ public class FeedController {
     }
 
     @GetMapping("/{id}/comments")
-    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long id) {
+    public ResponseEntity<List<CommentResponse>> getComments(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        loggedInUserService.resolve(principal);
         List<CommentResponse> response = feedService.getComments(id);
         return ResponseEntity.ok(response);
     }
@@ -68,7 +73,7 @@ public class FeedController {
     public ResponseEntity<CommentResponse> addComment(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
-            @RequestBody CommentRequest request) {
+            @Valid @RequestBody CommentRequest request) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         CommentResponse response = feedService.addComment(currentUser, id, request);
         return ResponseEntity.ok(response);

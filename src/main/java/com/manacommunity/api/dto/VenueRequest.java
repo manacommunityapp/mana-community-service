@@ -1,38 +1,71 @@
 package com.manacommunity.api.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-/**
- * DTO for creating or updating a Venue.
- */
+import java.util.List;
+
 @Data
 public class VenueRequest {
 
+    @NotBlank
+    @Size(max = 100)
     private String name;
 
+    @Size(max = 255)
     private String address;
 
+    @Size(max = 50)
     private String city;
 
+    @Size(max = 50)
     private String area;
 
+    @Size(max = 10)
     private String pinCode;
 
+    @Size(max = 500)
     private String mapLink;
 
     private Integer capacity;
 
-    private String venueType; // APARTMENT, COLLEGE, SCHOOL, OFFICE, CLUB, OUTSIDE
+    @Size(max = 30)
+    private String venueType;
 
-    private String venueCategory; // Community name or SPORTS_VENUE, PUBLIC_PARK, etc.
+    @Size(max = 50)
+    private String venueCategory;
 
-    private String openingTime; // e.g. "08:00 AM"
+    @Size(max = 20)
+    private String openingTime;
 
-    private String closingTime; // e.g. "08:00 PM"
+    @Size(max = 20)
+    private String closingTime;
 
+    @Size(max = 100)
     private String contactName;
 
+    @Size(max = 15)
     private String contactNumber;
 
+    @Size(max = 120)
     private String contactEmail;
+
+    private List<CourtDto> courts;
+
+    @Data
+    public static class CourtDto {
+        @NotBlank
+        @Size(max = 50)
+        private String name;
+
+        @Size(max = 20)
+        private String color;
+
+        @Size(max = 20)
+        private String openingTime;
+
+        @Size(max = 20)
+        private String closingTime;
+    }
 }

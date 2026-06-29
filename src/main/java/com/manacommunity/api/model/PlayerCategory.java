@@ -1,5 +1,6 @@
 package com.manacommunity.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -40,6 +41,7 @@ public class PlayerCategory {
     @Column(nullable = false,unique = false, length = 10)
     private String type; // DEFAULT, USER, VENDOR
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
     private Community community;

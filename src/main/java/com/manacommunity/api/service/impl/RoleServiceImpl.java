@@ -1,5 +1,7 @@
 package com.manacommunity.api.service.impl;
 
+import com.manacommunity.api.exception.DuplicateResourceException;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.model.Role;
 import com.manacommunity.api.repository.RoleRepository;
 import com.manacommunity.api.service.RoleService;
@@ -30,7 +32,7 @@ public class RoleServiceImpl implements RoleService {
     @Transactional
     public Role createRole(String name, Long communityId) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Role name is required");
+            throw new InvalidInputException("Role name is required");
         }
         
         String normalizedName = name.trim().toUpperCase();
@@ -39,7 +41,7 @@ public class RoleServiceImpl implements RoleService {
                 : roleRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(normalizedName);
                 
         if (exists) {
-            throw new IllegalStateException("Role already exists");
+            throw new DuplicateResourceException("Role", "name", name);
         }
         
         Role newRole = Role.builder()
@@ -61,7 +63,7 @@ public class RoleServiceImpl implements RoleService {
     @Transactional
     public Role findOrCreateRole(String name, Long communityId) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Role name is required");
+            throw new InvalidInputException("Role name is required");
         }
         
         String normalizedName = name.trim().toUpperCase();

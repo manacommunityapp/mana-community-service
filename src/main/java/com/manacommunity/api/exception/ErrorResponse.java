@@ -47,7 +47,6 @@ public class ErrorResponse {
     @Builder
     public static class FieldError {
         private final String field;
-        private final String rejectedValue;
         private final String message;
     }
 }

@@ -3,14 +3,18 @@ package com.manacommunity.api.controller;
 import static com.manacommunity.api.constants.PermissionConstants.*;
 
 import com.manacommunity.api.constants.PermissionConstants;
+import com.manacommunity.api.dto.VenueRequest;
+import com.manacommunity.api.dto.VenueResponse;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.Venue;
 import com.manacommunity.api.security.UserPrincipal;
 import com.manacommunity.api.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.VenueService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,7 +31,7 @@ public class VenueController {
     private final PermissionCheckService permissionCheckService;
 
     @GetMapping
-    public ResponseEntity<List<Venue>> getVenues(
+    public ResponseEntity<List<VenueResponse>> getVenues(
             @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
@@ -46,37 +50,38 @@ public class VenueController {
     }
 
     @PostMapping
-    public ResponseEntity<Venue> createVenue(
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SPORTS_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<VenueResponse> createVenue(
             @RequestParam(required = false) Long communityId,
-            @RequestBody Venue venue,
+            @Valid @RequestBody VenueRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
         if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
-        return ResponseEntity.ok(venueService.createVenue(targetCommunityId, venue));
+        return ResponseEntity.ok(venueService.createVenue(targetCommunityId, request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Venue> updateVenue(
+    public ResponseEntity<VenueResponse> updateVenue(
             @PathVariable Long id,
-            @RequestBody Venue venue,
+            @Valid @RequestBody VenueRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        
-        // Check if timing is being updated, if so enforce role permission check
+
         Venue existing = venueService.getVenueById(id);
-        boolean timingChanged = !Objects.equals(existing.getOpeningTime(), venue.getOpeningTime())
-                || !Objects.equals(existing.getClosingTime(), venue.getClosingTime());
+        boolean timingChanged = !Objects.equals(existing.getOpeningTime(), request.getOpeningTime())
+                || !Objects.equals(existing.getClosingTime(), request.getClosingTime());
         if (timingChanged) {
             permissionCheckService.requireAnyPermission(principal, PermissionConstants.EDIT_VENUE_TIMING);
         }
-        
-        return ResponseEntity.ok(venueService.updateVenue(id, venue));
+
+        return ResponseEntity.ok(venueService.updateVenue(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> deleteVenue(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
