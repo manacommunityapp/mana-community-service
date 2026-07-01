@@ -1,5 +1,6 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.api.model.AppUser;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -21,17 +22,31 @@ public class UserPrincipal implements UserDetails {
     private final Long id;
     private final String email;
     private final String password;
+    private final AppUser user;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String email, String password,
                          Collection<? extends GrantedAuthority> authorities) {
+        this(id, email, password, authorities, null);
+    }
+
+    public UserPrincipal(Long id, String email, String password,
+                         Collection<? extends GrantedAuthority> authorities,
+                         AppUser user) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
+        this.user = user;
     }
 
     public Long getId() { return id; }
+    public Long getUserId() { return id; }
+    public AppUser getUser() { return user; }
+
+    public Long getCommunityId() {
+        return user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+    }
 
     @Override public String getUsername() { return email; }
     @Override public String getPassword() { return password; }

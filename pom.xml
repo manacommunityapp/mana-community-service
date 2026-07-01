@@ -52,7 +52,21 @@
             Re-enable permanently:                 remove this property.
         -->
         <maven.test.skip>true</maven.test.skip>
+        <spring-ai.version>1.0.0</spring-ai.version>
     </properties>
+
+    <!-- ── Spring AI BOM — centralises version management for all Spring AI modules ── -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
 
         <!-- Spring Web (includes embedded Tomcat + spring-webmvc) -->
@@ -66,6 +80,8 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
+
 
         <!-- JavaMail / SMTP support (JavaMailSender) for email notifications -->
         <dependency>
@@ -206,6 +222,23 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-core</artifactId>
             <version>7.0.4</version>
+        </dependency>
+
+        <!-- ── AI Chat Agent ──────────────────────────────────────────────── -->
+
+        <!-- Spring AI + Ollama model adapter (free, local LLM).
+             To use Claude instead: swap this for spring-ai-starter-model-anthropic
+             and set ANTHROPIC_API_KEY. No Java code changes needed. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+
+        <!-- WebFlux — provides Flux<String> for the SSE streaming chat endpoint.
+             Does NOT replace WebMVC; both coexist in the same Boot app. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
     </dependencies>

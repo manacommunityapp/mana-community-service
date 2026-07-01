@@ -85,6 +85,30 @@ app:
     # Lead time before a match's start at which the self-match reminder is sent.
     match-reminder-lead-minutes: ${APP_MAIL_MATCH_REMINDER_LEAD:30}
 
+  # ── SMS & WhatsApp (Twilio) ──────────────────────────────────────
+  # When disabled (default), messages are logged but not sent — safe for dev.
+  # Sign up at twilio.com/try-twilio for a free trial account.
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    account-sid: ${TWILIO_ACCOUNT_SID:}
+    auth-token: ${TWILIO_AUTH_TOKEN:}
+    from-number: ${TWILIO_FROM_NUMBER:}
+    whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
+    default-country-code: ${SMS_DEFAULT_COUNTRY_CODE:+91}
+
+  # ── Weekly Schedule Digest ───────────────────────────────────────
+  # Cron expression for the digest email job (default: Monday 7:00 AM).
+  digest:
+    cron: ${DIGEST_CRON:0 0 7 * * MON}
+
+  # ── AI Rate Limiting ─────────────────────────────────────────────
+  # Controls request throughput to protect LLM costs. Admins get 2x.
+  ai:
+    rate-limit:
+      per-minute: ${AI_RATE_LIMIT_PER_MINUTE:20}
+      per-hour: ${AI_RATE_LIMIT_PER_HOUR:200}
+      admin-multiplier: ${AI_RATE_LIMIT_ADMIN_MULTIPLIER:2}
+
   security:
     # ── JWT signing/verification ────────────────────────────────────────
     jwt:
@@ -126,4 +150,26 @@ app:
 # CORS Configuration for React Frontend
 #cors:
 #  allowed-origins: "http://localhost:3000"
+
+# ── AI Chat Agent (Ollama — free, runs locally) ──────────────────────
+# Ollama serves on port 11434 by default after `ollama pull llama3.1 && ollama serve`.
+# To use Claude instead: swap spring-ai-starter-model-ollama for
+# spring-ai-starter-model-anthropic in pom.xml, remove the ollama block below,
+# and uncomment the anthropic block.
+spring.ai:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    chat:
+      model: ${OLLAMA_MODEL:llama3.1}
+      options:
+        temperature: 0.3
+        num-predict: 2048
+  # Uncomment to use Claude/Anthropic instead of Ollama:
+  # anthropic:
+  #   api-key: ${ANTHROPIC_API_KEY}
+  #   chat:
+  #     options:
+  #       model: claude-sonnet-4-6
+  #       temperature: 0.3
+  #       max-tokens: 2048
 

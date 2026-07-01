@@ -1,9 +1,11 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.PagedResponse;
+import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.Expense;
 import com.manacommunity.api.model.Invoice;
 import com.manacommunity.api.repository.ExpenseRepository;
+import com.manacommunity.api.service.LoggedInUserService;
 import com.manacommunity.api.repository.InvoiceRepository;
 import com.manacommunity.api.security.UserPrincipal;
 import com.manacommunity.api.service.BillingService;
@@ -30,13 +32,16 @@ public class BillingController {
     private final ExpenseRepository expenseRepository;
     private final InvoiceRepository invoiceRepository;
     private final BillingService billingService;
+    private final LoggedInUserService loggedInUserService;
 
     public BillingController(ExpenseRepository expenseRepository,
                              InvoiceRepository invoiceRepository,
-                             BillingService billingService) {
+                             BillingService billingService,
+                             LoggedInUserService loggedInUserService) {
         this.expenseRepository = expenseRepository;
         this.invoiceRepository = invoiceRepository;
         this.billingService = billingService;
+        this.loggedInUserService = loggedInUserService;
     }
 
     // ── Expenses ──────────────────────────────────────────────────────────
@@ -51,7 +56,8 @@ public class BillingController {
 
         size = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         var pageable = PageRequest.of(page, size);
-        var communityId = principal.getCommunityId();
+        AppUser user = loggedInUserService.resolve(principal);
+        var communityId = user.getCommunity().getId();
 
         var expensePage = status != null && !status.isBlank()
                 ? expenseRepository.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status, pageable)
@@ -70,13 +76,14 @@ public class BillingController {
             @RequestParam(required = false) String description,
             @RequestParam(required = false) MultipartFile receipt) {
 
+        AppUser user = loggedInUserService.resolve(principal);
         Expense expense = Expense.builder()
                 .title(title)
                 .amount(amount)
                 .category(category)
                 .description(description)
-                .community(principal.getUser().getCommunity())
-                .createdBy(principal.getUser())
+                .community(user.getCommunity())
+                .createdBy(user)
                 .build();
 
         if (receipt != null && !receipt.isEmpty()) {
@@ -127,7 +134,8 @@ public class BillingController {
 
         size = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         var pageable = PageRequest.of(page, size);
-        var communityId = principal.getCommunityId();
+        AppUser user = loggedInUserService.resolve(principal);
+        var communityId = user.getCommunity().getId();
 
         var invoicePage = status != null && !status.isBlank()
                 ? invoiceRepository.findByCommunityIdAndStatusOrderByGeneratedAtDesc(communityId, status, pageable)
@@ -139,7 +147,7 @@ public class BillingController {
     @GetMapping("/invoices/my")
     public ResponseEntity<List<InvoiceResponse>> getMyInvoices(
             @AuthenticationPrincipal UserPrincipal principal) {
-        var invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(principal.getUserId());
+        var invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(principal.getId());
         return ResponseEntity.ok(invoices.stream().map(this::toInvoiceResponse).toList());
     }
 
