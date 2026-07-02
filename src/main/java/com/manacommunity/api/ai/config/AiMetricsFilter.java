@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.*;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -25,6 +26,7 @@ import java.time.Instant;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
 public class AiMetricsFilter implements Filter {
 
     private final Counter successCounter;

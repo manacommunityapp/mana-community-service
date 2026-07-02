@@ -6,6 +6,7 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,8 +15,14 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Registers 16 tool groups with 66 @Tool methods covering every domain
  * of the platform. Every tool enforces community-scoped data isolation.</p>
+ *
+ * <p>The entire AI/Ollama integration is gated behind {@code app.ai.enabled}
+ * (per-environment flag, default OFF). When disabled, none of these beans —
+ * nor the {@code ChatClient} they build from the Ollama starter — are created,
+ * so the app runs with no dependency on a running Ollama server.</p>
  */
 @Configuration
+@ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
 public class ChatAgentConfig {
 
     @Bean
