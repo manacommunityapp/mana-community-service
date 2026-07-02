@@ -3,6 +3,7 @@ package com.manacommunity.api.service.scheduler;
 import com.manacommunity.api.dto.scheduler.TournamentConfigRequest;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.repository.AuctionTeamRepository;
+import com.manacommunity.api.exception.InvalidInputException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +26,7 @@ public class RegistrationValidator {
     public List<AuctionTeam> validateTeams(TournamentConfigRequest req) {
         List<AuctionTeam> teams = teamRepo.findAllById(req.teamIds());
         if (teams.size() != req.totalTeams()) {
-            throw new IllegalArgumentException(
+            throw new InvalidInputException(
                 "Expected " + req.totalTeams() + " teams, got " + teams.size());
         }
         return teams;

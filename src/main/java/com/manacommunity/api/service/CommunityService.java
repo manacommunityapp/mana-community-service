@@ -14,4 +14,10 @@ public interface CommunityService {
 
     /** Creates a new community. */
     CommunityResponse createCommunity(CommunityResponse request);
+
+    /** Updates an existing community's editable details. */
+    CommunityResponse updateCommunity(Long id, CommunityResponse request);
+
+    /** Soft-deletes a community (sets active=false; the row is preserved). */
+    void deleteCommunity(Long id);
 }

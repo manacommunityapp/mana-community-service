@@ -34,7 +34,7 @@ public class SeedingStrategyFactory {
     public SeedingStrategy forSequence(ScheduleSequence sequence) {
         SeedingStrategy strategy = byType.get(sequence);
         if (strategy == null) {
-            throw new IllegalStateException("No seeding strategy registered for " + sequence);
+            throw new com.manacommunity.api.exception.InvalidInputException("No seeding strategy registered for " + sequence);
         }
         return strategy;
     }

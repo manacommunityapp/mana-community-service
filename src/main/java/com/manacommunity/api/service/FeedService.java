@@ -1,6 +1,7 @@
 package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.*;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +28,7 @@ public class FeedService {
     @Transactional(readOnly = true)
     public Page<PostResponse> getFeed(AppUser currentUser, int page, int size) {
         if (currentUser.getCommunity() == null) {
-            throw new IllegalArgumentException("User is not associated with any community.");
+            throw new InvalidInputException("User is not associated with any community.");
         }
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.findByCommunityIdOrderByCreatedAtDesc(currentUser.getCommunity().getId(), pageable);
@@ -36,7 +38,7 @@ public class FeedService {
     @Transactional
     public PostResponse createPost(AppUser currentUser, PostRequest request) {
         if (currentUser.getCommunity() == null) {
-            throw new IllegalArgumentException("User is not associated with any community.");
+            throw new InvalidInputException("User is not associated with any community.");
         }
         boolean isOfficial = "ADMIN".equalsIgnoreCase(currentUser.getRole());
 
@@ -59,8 +61,7 @@ public class FeedService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
 
-        // Only author or admin can delete post
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(currentUser.getRole());
+        boolean isAdmin = isAdminRole(currentUser.getRole());
         if (!post.getUser().getId().equals(currentUser.getId()) && !isAdmin) {
             throw new UnauthorizedActionException("delete post " + postId);
         }
@@ -124,8 +125,7 @@ public class FeedService {
         PostComment comment = postCommentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
 
-        // Only author of comment, author of post, or admin can delete comment
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(currentUser.getRole());
+        boolean isAdmin = isAdminRole(currentUser.getRole());
         boolean isCommentAuthor = comment.getUser().getId().equals(currentUser.getId());
         boolean isPostAuthor = comment.getPost().getUser().getId().equals(currentUser.getId());
 
@@ -183,8 +183,14 @@ public class FeedService {
         return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase();
     }
 
+    private static final Set<String> ADMIN_ROLES = Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN");
+
+    private boolean isAdminRole(String role) {
+        return role != null && ADMIN_ROLES.contains(role.toUpperCase());
+    }
+
     private String mapRole(String rawRole) {
-        if ("ADMIN".equalsIgnoreCase(rawRole)) return "Admin";
+        if (isAdminRole(rawRole)) return "Admin";
         return "Verified Member";
     }
 }

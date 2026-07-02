@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +23,6 @@ public class UserController {
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.repository.RolePermissionRepository rolePermissionRepo;
     private final com.manacommunity.api.service.RoleService roleService;
-    private final jakarta.persistence.EntityManager entityManager;
 
     private java.util.List<String> getPermissionsForUser(AppUser user) {
         if (user.getRole() == null) {
@@ -125,6 +125,7 @@ public class UserController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
@@ -163,6 +164,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<UserResponse> getUserById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -187,22 +189,24 @@ public class UserController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> toggleUserStatus(@PathVariable Long id) {
         AppUser user = appUserRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
         user.setIsActive(!user.getIsActive());
         appUserRepo.save(user);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/role")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> updateUserRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
         AppUser user = appUserRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
         String newRole = body.get("role");
         if (newRole == null) {
-            return ResponseEntity.badRequest().build();
+            throw new com.manacommunity.api.exception.InvalidInputException("Role is required");
         }
         
         String normRole = newRole.toUpperCase();
@@ -212,7 +216,7 @@ public class UserController {
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         com.manacommunity.api.model.Role roleEntity = roleService.findOrCreateRole(normRole, communityId);
         if (roleEntity == null) {
-            throw new IllegalStateException("Failed to resolve role: " + normRole);
+            throw new com.manacommunity.api.exception.InvalidInputException("Failed to resolve role: " + normRole);
         }
         user.setRoleEntity(roleEntity);
         appUserRepo.save(user);
@@ -220,11 +224,6 @@ public class UserController {
         // Delete old user-specific permissions
         rolePermissionRepo.deleteByUserId(user.getId());
         rolePermissionRepo.flush();
-
-        // Drop legacy unique constraint if it still exists
-        try {
-            entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
-        } catch (Exception ignored) {}
 
         // Load standard role permission templates (where user is null) from the resolved roleEntity
         java.util.Set<com.manacommunity.api.model.RolePermission> templates =

@@ -1,13 +1,16 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.dto.VenueRequest;
+import com.manacommunity.api.dto.VenueResponse;
 import com.manacommunity.api.model.Venue;
+
 import java.util.List;
 
 public interface VenueService {
-    List<Venue> getVenuesByCommunityId(Long communityId);
-    List<Venue> getAllVenues();
+    List<VenueResponse> getVenuesByCommunityId(Long communityId);
+    List<VenueResponse> getAllVenues();
     Venue getVenueById(Long id);
-    Venue createVenue(Long communityId, Venue venue);
-    Venue updateVenue(Long id, Venue venue);
+    VenueResponse createVenue(Long communityId, VenueRequest request);
+    VenueResponse updateVenue(Long id, VenueRequest request);
     void deleteVenue(Long id);
 }

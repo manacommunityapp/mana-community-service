@@ -53,8 +53,18 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserProfileResponse updateProfile(AppUser user, UserProfileRequest request) {
         // Update user fields
         if (request.getFullName() != null) user.setFullName(request.getFullName());
-        if (request.getEmail() != null) user.setEmail(request.getEmail());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+            if (appUserRepository.existsByEmail(request.getEmail())) {
+                throw new com.manacommunity.api.exception.DuplicateResourceException("User", "email", request.getEmail());
+            }
+            user.setEmail(request.getEmail());
+        }
+        if (request.getPhone() != null && !request.getPhone().equals(user.getPhone())) {
+            if (appUserRepository.existsByPhone(request.getPhone())) {
+                throw new com.manacommunity.api.exception.DuplicateResourceException("User", "phone", request.getPhone());
+            }
+            user.setPhone(request.getPhone());
+        }
         if (request.getDob() != null) user.setDateOfBirth(request.getDob());
         if (request.getGender() != null) user.setGender(request.getGender());
         if (request.getFlatNo() != null) user.setFlatNo(request.getFlatNo());

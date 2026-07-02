@@ -10,6 +10,7 @@ import com.manacommunity.api.service.RoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/roles")
+@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
 @RequiredArgsConstructor
 public class RolePermissionController {
 
@@ -71,12 +73,8 @@ public class RolePermissionController {
     @PostMapping
     public ResponseEntity<?> createRole(@RequestBody Map<String, String> body) {
         String roleName = body.get("name");
-        try {
-            Role saved = roleService.createRole(roleName);
-            return ResponseEntity.ok(saved);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
+        Role saved = roleService.createRole(roleName);
+        return ResponseEntity.ok(saved);
     }
 
     private Long resolveCommunityId(UserPrincipal principal) {

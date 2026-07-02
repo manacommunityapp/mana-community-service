@@ -256,7 +256,7 @@ public class TournamentSchedulerController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<String> assignTeamsToGroups(
             @PathVariable Long configId,
-            @RequestBody List<GroupAssignmentRequest> assignments) {
+            @Valid @RequestBody List<GroupAssignmentRequest> assignments) {
         schedulerService.assignTeamsToGroups(configId, assignments);
         return ResponseEntity.ok("Group assignments saved successfully.");
     }
@@ -268,7 +268,7 @@ public class TournamentSchedulerController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<String> scheduleManualMatch(
             @PathVariable Long configId,
-            @RequestBody MatchScheduleRequest req) {
+            @Valid @RequestBody MatchScheduleRequest req) {
         schedulerService.scheduleManualMatch(configId, req);
         return ResponseEntity.ok("Match scheduled successfully for " + req.stage());
     }
@@ -293,7 +293,7 @@ public class TournamentSchedulerController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> saveMatchesBulk(
             @PathVariable Long configId,
-            @RequestBody BulkMatchSaveRequest request) {
+            @Valid @RequestBody BulkMatchSaveRequest request) {
         int saved = schedulerService.saveMatchesBulk(configId, request.matches());
         return ResponseEntity.ok(Map.of("saved", saved, "configId", configId));
     }
@@ -307,7 +307,7 @@ public class TournamentSchedulerController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateMatchesStatus(
             @PathVariable Long configId,
-            @RequestBody MatchStatusUpdateRequest request) {
+            @Valid @RequestBody MatchStatusUpdateRequest request) {
         int updated = schedulerService.updateMatchesStatus(configId, request.status());
         return ResponseEntity.ok(Map.of("updated", updated, "configId", configId, "status", request.status()));
     }
@@ -345,7 +345,7 @@ public class TournamentSchedulerController {
     @PostMapping("/playoff/generate")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<PlayoffMatchDraftResponse>> generatePlayoff(
-            @RequestBody PlayoffGenerateRequest request) {
+            @Valid @RequestBody PlayoffGenerateRequest request) {
         return ResponseEntity.ok(playoffGenerator.buildPlayoffBracket(request));
     }
 

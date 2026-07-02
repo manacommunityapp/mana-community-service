@@ -472,7 +472,7 @@ public class BracketGenerator {
         int maxRounds = Objects.requireNonNullElse(config.getSwissRounds(), 5);
 
         if (nextRound > maxRounds)
-            throw new IllegalStateException("Swiss tournament already completed " + maxRounds + " rounds");
+            throw new com.manacommunity.api.exception.AuctionStateException("Swiss tournament already completed " + maxRounds + " rounds");
 
         // Build score map: teamId → points
         Map<Long, Integer> scores = new HashMap<>();

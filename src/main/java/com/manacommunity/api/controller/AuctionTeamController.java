@@ -1,6 +1,7 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.AuctionTeamRequest;
+import com.manacommunity.api.dto.AuctionTeamResponse;
 import com.manacommunity.api.model.AppUser;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.security.UserPrincipal;
@@ -8,6 +9,7 @@ import com.manacommunity.api.service.AuctionTeamService;
 import com.manacommunity.api.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import static com.manacommunity.api.constants.PermissionConstants.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,66 +28,85 @@ public class AuctionTeamController {
     private final PermissionCheckService permissionCheckService;
 
     @GetMapping("/{configId}")
-    public ResponseEntity<List<AuctionTeam>> getTeams(
+    public ResponseEntity<List<AuctionTeamResponse>> getTeams(
             @PathVariable Long configId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL);
-        return ResponseEntity.ok(auctionTeamService.getTeams(configId));
+        return ResponseEntity.ok(auctionTeamService.getTeams(configId).stream().map(this::toResponse).toList());
     }
 
     @GetMapping("/nominated/{eventId}")
-    public ResponseEntity<List<AuctionTeam>> getNominatedCaptains(
+    public ResponseEntity<List<AuctionTeamResponse>> getNominatedCaptains(
             @PathVariable Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL);
-        return ResponseEntity.ok(auctionTeamService.getNominatedCaptains(eventId));
+        return ResponseEntity.ok(auctionTeamService.getNominatedCaptains(eventId).stream().map(this::toResponse).toList());
     }
 
     @GetMapping("/captain/mine")
-    public ResponseEntity<List<AuctionTeam>> getMyCaptainRegistrations(
+    public ResponseEntity<List<AuctionTeamResponse>> getMyCaptainRegistrations(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionTeamService.getCaptainRegistration(loggedInUser.getId()));
+        return ResponseEntity.ok(auctionTeamService.getCaptainRegistration(loggedInUser.getId()).stream().map(this::toResponse).toList());
     }
 
     @PostMapping
-    public ResponseEntity<AuctionTeam> createTeam(
-            @RequestBody AuctionTeamRequest req,
+    public ResponseEntity<AuctionTeamResponse> createTeam(
+            @Valid @RequestBody AuctionTeamRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(auctionTeamService.createTeam(req, loggedInUser.getId()));
+        AuctionTeam created = auctionTeamService.createTeam(req, loggedInUser.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
     }
 
     @PutMapping("/{teamId}/confirm-captain")
-    public ResponseEntity<AuctionTeam> confirmCaptain(
+    public ResponseEntity<AuctionTeamResponse> confirmCaptain(
             @PathVariable Long teamId,
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
-        return ResponseEntity.ok(auctionTeamService.confirmCaptain(teamId, confirm, loggedInUser.getId(), isAdmin));
+        return ResponseEntity.ok(toResponse(auctionTeamService.confirmCaptain(teamId, confirm, loggedInUser.getId(), isAdmin)));
     }
 
     @PostMapping("/nominate")
-    public ResponseEntity<AuctionTeam> nominateCaptain(
+    public ResponseEntity<AuctionTeamResponse> nominateCaptain(
             @RequestParam Long eventId,
             @RequestParam boolean nominate,
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName));
+        return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
     }
 
     @GetMapping("/captain/all")
-    public ResponseEntity<List<AuctionTeam>> getAllCaptainNominations(
+    public ResponseEntity<List<AuctionTeamResponse>> getAllCaptainNominations(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_PLAYER_POOL);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionTeamService.getCaptainRegistration(loggedInUser.getId()));
+        return ResponseEntity.ok(auctionTeamService.getCaptainRegistration(loggedInUser.getId()).stream().map(this::toResponse).toList());
+    }
+
+    private AuctionTeamResponse toResponse(AuctionTeam t) {
+        return AuctionTeamResponse.builder()
+                .id(t.getId())
+                .configId(t.getConfig() != null ? t.getConfig().getId() : null)
+                .eventId(t.getEventId())
+                .teamName(t.getTeamName())
+                .ownerName(t.getOwnerName())
+                .ownerUserId(t.getOwnerUser() != null ? t.getOwnerUser().getId() : null)
+                .captainUserId(t.getCaptainUser() != null ? t.getCaptainUser().getId() : null)
+                .colorHex(t.getColorHex())
+                .totalBudget(t.getTotalBudget())
+                .remainingBudget(t.getRemainingBudget())
+                .spent(t.getSpent())
+                .captainNomination(t.getCaptainNomination())
+                .captainConfirmation(t.getCaptainConfirmation())
+                .createdAt(t.getCreatedAt())
+                .build();
     }
 }

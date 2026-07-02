@@ -1,0 +1,105 @@
+# ============================================================================
+# Mana Community Service — Docker Compose
+# ============================================================================
+# Start:   docker compose up -d
+# Logs:    docker compose logs -f app
+# Stop:    docker compose down
+# ============================================================================
+
+services:
+  # ── Spring Boot App ─────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: mana-app
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mana_community
+      SPRING_DATASOURCE_USERNAME: mana
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-mana_dev_password}
+
+      # AI Agent — Ollama (local, free)
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.1
+
+      # AI Agent — Claude (uncomment to use instead of Ollama)
+      # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # SMS/WhatsApp (disabled by default)
+      SMS_ENABLED: "false"
+      # TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      # TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      # TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER}
+
+      # Rate limiting
+      APP_AI_RATE_LIMIT_PER_MINUTE: 20
+      APP_AI_RATE_LIMIT_PER_HOUR: 200
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - mana-net
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: mana-db
+    environment:
+      POSTGRES_DB: mana_community
+      POSTGRES_USER: mana
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mana_dev_password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mana -d mana_community"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mana-net
+
+  # ── Ollama (Local LLM) ─────────────────────────────────────────────
+  # Runs llama3.1 locally. Remove if using Claude API instead.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mana-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+    # Pull the model on first start
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.1 && wait"]
+    restart: unless-stopped
+    networks:
+      - mana-net
+
+  # ── Prometheus (Metrics) ────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mana-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+    networks:
+      - mana-net
+
+volumes:
+  pgdata:
+  ollama-models:
+
+networks:
+  mana-net:
+    driver: bridge

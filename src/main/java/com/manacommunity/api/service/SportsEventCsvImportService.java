@@ -1,5 +1,7 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.exception.CsvParseException;
+import com.manacommunity.api.exception.InvalidFileUploadException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.PlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
@@ -37,16 +39,16 @@ public class SportsEventCsvImportService {
      */
     private void validateCsvUpload(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("No file was uploaded, or the file is empty.");
+            throw new InvalidFileUploadException("No file was uploaded, or the file is empty.");
         }
         if (file.getSize() > MAX_CSV_BYTES) {
-            throw new IllegalArgumentException("CSV file is too large (max 5 MB).");
+            throw new InvalidFileUploadException("CSV file is too large (max 5 MB).");
         }
         String raw = file.getOriginalFilename();
         String name = raw == null ? "" : raw.replace('\\', '/');
         name = name.substring(name.lastIndexOf('/') + 1).trim().toLowerCase(); // strip any path
         if (!name.endsWith(".csv")) {
-            throw new IllegalArgumentException("Only .csv files are accepted.");
+            throw new InvalidFileUploadException("Only .csv files are accepted.");
         }
         String contentType = file.getContentType();
         if (contentType != null
@@ -54,7 +56,7 @@ public class SportsEventCsvImportService {
                 && !contentType.equals("text/plain")
                 && !contentType.equals("application/vnd.ms-excel")
                 && !contentType.equals("application/octet-stream")) {
-            throw new IllegalArgumentException("Unsupported file type: " + contentType + " (expected CSV).");
+            throw new InvalidFileUploadException("Unsupported file type: " + contentType + " (expected CSV).");
         }
     }
 
@@ -154,7 +156,7 @@ public class SportsEventCsvImportService {
                 imported++;
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse CSV: " + e.getMessage(), e);
+            throw new CsvParseException("Failed to parse CSV: " + e.getMessage(), e);
         }
 
         return new ImportResult(imported, skippedReasons.size(), skippedReasons);

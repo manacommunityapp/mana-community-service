@@ -26,4 +26,5 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
+    java.util.List<AppUser> findByCommunityIdAndIsActiveTrue(Long communityId);
 }

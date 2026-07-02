@@ -3,6 +3,7 @@ package com.manacommunity.api.service;
 import com.manacommunity.api.dto.chat.ChatContactResponse;
 import com.manacommunity.api.dto.chat.ChatMessageResponse;
 import com.manacommunity.api.dto.chat.ConversationResponse;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.AppUser;
@@ -58,7 +59,7 @@ public class ChatService {
     @Transactional
     public ConversationResponse startDirect(AppUser currentUser, Long otherUserId) {
         if (otherUserId == null || otherUserId.equals(currentUser.getId())) {
-            throw new IllegalArgumentException("A valid other user is required to start a conversation.");
+            throw new InvalidInputException("A valid other user is required to start a conversation.");
         }
         AppUser other = userRepository.findById(otherUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", String.valueOf(otherUserId)));
@@ -98,7 +99,7 @@ public class ChatService {
     @Transactional
     public ChatMessageResponse sendMessage(AppUser currentUser, Long conversationId, String content) {
         if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Message content must not be empty.");
+            throw new InvalidInputException("Message content must not be empty.");
         }
         ConversationParticipant membership = requireMembership(conversationId, currentUser.getId());
         Conversation conversation = membership.getConversation();

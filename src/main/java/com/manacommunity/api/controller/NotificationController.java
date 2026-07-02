@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -29,7 +30,8 @@ public class NotificationController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(notificationService.getUserNotifications(principal.getId(), page, size));
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(notificationService.getUserNotifications(principal.getId(), Math.max(page, 0), safeSize));
     }
 
     /** GET /api/notifications/count — unread badge count. */
@@ -43,7 +45,7 @@ public class NotificationController {
     @PutMapping("/read")
     public ResponseEntity<Map<String, Object>> markAsRead(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody MarkReadRequest request) {
+            @Valid @RequestBody MarkReadRequest request) {
         int updated = notificationService.markAsRead(principal.getId(), request.notificationIds());
         return ResponseEntity.ok(Map.of("updated", updated));
     }

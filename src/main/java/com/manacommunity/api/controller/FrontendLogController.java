@@ -62,9 +62,9 @@ public class FrontendLogController {
         @NotBlank @Size(max = 50) private String ts;
         @NotBlank @Size(max = 100) private String tag;
         @NotBlank @Size(max = 2000) private String message;
-        private String correlationId;
-        private String error;
-        private String stack;
-        private Object data;
+        @Size(max = 100) private String correlationId;
+        @Size(max = 5000) private String error;
+        @Size(max = 10000) private String stack;
+        @Size(max = 2000) private String data;
     }
 }

@@ -117,6 +117,42 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(AuctionStateException.class)
+    public ResponseEntity<ErrorResponse> handleAuctionState(
+            AuctionStateException ex, HttpServletRequest request) {
+        log.warn("Auction state error: {}", ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(InvalidFileUploadException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFile(
+            InvalidFileUploadException ex, HttpServletRequest request) {
+        log.warn("Invalid file upload: {}", ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(CsvParseException.class)
+    public ResponseEntity<ErrorResponse> handleCsvParse(
+            CsvParseException ex, HttpServletRequest request) {
+        log.warn("CSV parse error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(InvalidInputException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidInput(
+            InvalidInputException ex, HttpServletRequest request) {
+        log.warn("Invalid input at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(EncryptionException.class)
+    public ResponseEntity<ErrorResponse> handleEncryption(
+            EncryptionException ex, HttpServletRequest request) {
+        log.error("Encryption failure at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(),
+                "An internal error occurred. Please try again later.", request, null);
+    }
+
     /** Catch-all for any other ManaCommunityException subtype. */
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(
@@ -125,12 +161,11 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
-    // ─── 1b. Common service-layer runtime exceptions ────────────────────────
-    // Services throw these directly (guards, state checks, bare orElseThrow()).
-    // Without these handlers they fall through to the generic 500 and the UI
-    // loses an otherwise meaningful message.
+    // ─── 1b. Fallback for remaining raw Java exceptions ─────────────────────
+    // These catch any IllegalArgumentException / IllegalStateException that was
+    // NOT converted to a custom exception (e.g. from third-party code or startup
+    // guards). New service code should use typed exceptions above instead.
 
-    /** Bad input / failed precondition with a caller-meaningful message → 400. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex, HttpServletRequest request) {
@@ -139,7 +174,6 @@ public class GlobalExceptionHandler {
                 messageOr(ex, "The request contained an invalid value."), request, null);
     }
 
-    /** Action not allowed in the current state (e.g. "Auction is not LIVE") → 409. */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(
             IllegalStateException ex, HttpServletRequest request) {
