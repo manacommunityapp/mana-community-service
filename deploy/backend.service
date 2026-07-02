@@ -9,7 +9,7 @@ WorkingDirectory=/opt/mana-community/backend
 
 # Log directory — logback-spring.xml reads this via ${LOG_DIR:-logs}
 Environment=LOG_DIR=/var/log/mana-community
-Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=SPRING_PROFILES_ACTIVE=dev
 
 # These MUST be set via systemctl edit backend --force (override file)
 # or in /etc/mana-community/env. Never commit real secrets to git.
