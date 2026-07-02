@@ -17,7 +17,7 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="${LOG_DIR:-/var/log/mana-community}"
 JAVA_OPTS="${JAVA_OPTS:--Xms256m -Xmx512m}"
-PROFILE="${SPRING_PROFILES_ACTIVE:-prod}"
+PROFILE="${SPRING_PROFILES_ACTIVE:-dev}"
 JAR=$(find "$APP_DIR/target" -maxdepth 1 -name "*.jar" -not -name "*-sources.jar" | head -1)
 
 if [ -z "$JAR" ]; then
