@@ -10,6 +10,7 @@ import com.manacommunity.api.repository.AuctionTeamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -30,6 +31,7 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class AiChatAgentService {
 

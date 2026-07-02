@@ -9,6 +9,7 @@ import com.manacommunity.api.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Flux;
 @Slf4j
 @RestController
 @RequestMapping("/api/ai/chat")
+@ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class AiChatController {
 

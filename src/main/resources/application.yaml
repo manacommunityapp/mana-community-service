@@ -10,6 +10,25 @@ spring:
   application:
     name: mana-community-service
 
+  # ── AI/Ollama auto-config kill-switch (Spring Boot 4 compatibility) ───
+  # Spring AI 1.0.0 targets Boot 3.x: its model auto-configurations reference
+  # org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration,
+  # a class Boot 4 relocated — so with the Ollama starter on the classpath the
+  # context fails to start (ClassNotFoundException) EVEN when app.ai.enabled is
+  # false, because Spring AI's own auto-config loads independently of our beans.
+  # While the AI integration is OFF we exclude those auto-configs so startup is
+  # clean. To RE-ENABLE AI: upgrade Spring AI to a Boot-4-compatible release,
+  # remove this exclude list, and set AI_ENABLED=true (see app.ai.enabled).
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+      - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
+      - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration
+      - org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration
+      - org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration
+
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
   # Real delivery only happens when app.mail.enabled=true AND a host is set.
   # Override these via env vars in prod (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD…).
@@ -101,9 +120,16 @@ app:
   digest:
     cron: ${DIGEST_CRON:0 0 7 * * MON}
 
-  # ── AI Rate Limiting ─────────────────────────────────────────────
-  # Controls request throughput to protect LLM costs. Admins get 2x.
+  # ── AI Chat Agent (Ollama) ───────────────────────────────────────
   ai:
+    # Master switch. Gates the ENTIRE AI/Ollama integration (ChatClient,
+    # /api/ai/** controller, rate-limit + metrics filters) via
+    # @ConditionalOnProperty. When false, none of those beans are created and
+    # the app has NO dependency on a running Ollama server. Default OFF; each
+    # env yaml sets its own value. Flip to true only where an Ollama server is
+    # reachable (see the spring.ai.ollama block below).
+    enabled: ${AI_ENABLED:false}
+    # Request throughput limits to protect LLM cost/load. Admins get 2x.
     rate-limit:
       per-minute: ${AI_RATE_LIMIT_PER_MINUTE:20}
       per-hour: ${AI_RATE_LIMIT_PER_HOUR:200}
@@ -152,7 +178,10 @@ app:
 #  allowed-origins: "http://localhost:3000"
 
 # ── AI Chat Agent (Ollama — free, runs locally) ──────────────────────
-# Ollama serves on port 11434 by default after `ollama pull llama3.1 && ollama serve`.
+# Connection settings for the Ollama model. Only takes effect when
+# app.ai.enabled=true (the master switch above); otherwise the AI beans that
+# would consume this are never created. Ollama serves on port 11434 by default
+# after `ollama pull llama3.1 && ollama serve`.
 # To use Claude instead: swap spring-ai-starter-model-ollama for
 # spring-ai-starter-model-anthropic in pom.xml, remove the ollama block below,
 # and uncomment the anthropic block.

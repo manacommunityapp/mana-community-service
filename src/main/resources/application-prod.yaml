@@ -31,6 +31,10 @@ server:
   port: 8080
 
 app:
+  # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
+  # Set AI_ENABLED=true only once a reachable Ollama endpoint is configured.
+  ai:
+    enabled: ${AI_ENABLED:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
   security:
