@@ -1,10 +1,12 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.user.service.LoggedInUserService;
+
 import static com.manacommunity.api.constants.PermissionConstants.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.repository.RolePermissionRepository;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;

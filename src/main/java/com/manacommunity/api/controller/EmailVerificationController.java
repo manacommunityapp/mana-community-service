@@ -1,5 +1,7 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailProperties;
 import com.manacommunity.api.email.EmailService;

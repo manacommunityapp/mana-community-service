@@ -1,6 +1,6 @@
 package com.manacommunity.api.controller;
 
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,5 +1,11 @@
 package com.manacommunity.api.service.scheduler;
 
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.user.repository.AppUserRepository;
+
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.dto.scheduler.*;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.AuctionTeam;

@@ -1,5 +1,9 @@
 package com.manacommunity.api.model.scheduler;
 
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.model.*;
 import jakarta.persistence.*;
 import lombok.*;

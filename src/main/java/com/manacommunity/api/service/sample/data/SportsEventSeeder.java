@@ -1,5 +1,9 @@
 package com.manacommunity.api.service.sample.data;
 
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;

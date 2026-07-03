@@ -1,9 +1,11 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.api.user.security.UserPrincipal;
+
 import static com.manacommunity.api.constants.PermissionConstants.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;

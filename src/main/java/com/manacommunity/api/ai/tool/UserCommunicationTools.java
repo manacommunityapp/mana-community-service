@@ -1,10 +1,12 @@
 package com.manacommunity.api.ai.tool;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import com.manacommunity.api.ai.service.AiWebSocketPushService;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.sms.SmsService;
 import com.manacommunity.api.sms.SmsService.SmsResult;
 import jakarta.persistence.EntityManager;

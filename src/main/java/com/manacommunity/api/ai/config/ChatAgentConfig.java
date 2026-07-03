@@ -1,5 +1,7 @@
 package com.manacommunity.api.ai.config;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.ai.tool.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;

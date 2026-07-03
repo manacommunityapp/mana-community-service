@@ -3,7 +3,7 @@ package com.manacommunity.api.service;
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
 import com.manacommunity.api.model.*;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;

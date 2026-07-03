@@ -1,5 +1,13 @@
 package com.manacommunity.api.service.impl;
 
+import com.manacommunity.api.security.AuditAction;
+
+import com.manacommunity.api.security.AuditModule;
+
+import com.manacommunity.api.security.AuditService;
+
+import com.manacommunity.api.user.repository.AppUserRepository;
+
 import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.AuctionStateException;
 import com.manacommunity.api.model.*;

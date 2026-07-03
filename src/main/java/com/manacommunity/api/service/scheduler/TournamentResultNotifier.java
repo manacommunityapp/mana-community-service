@@ -1,7 +1,7 @@
 package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.email.TournamentResultEmailService;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.AuctionPlayer;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.SportsEventRegistration;

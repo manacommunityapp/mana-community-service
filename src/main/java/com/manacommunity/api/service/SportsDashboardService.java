@@ -1,9 +1,11 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.model.Community;
+
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.PlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;

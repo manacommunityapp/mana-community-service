@@ -1,10 +1,10 @@
 package com.manacommunity.api.controller;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Role;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.RolePermissionService;
 import com.manacommunity.api.service.RoleService;
 import lombok.RequiredArgsConstructor;

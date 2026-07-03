@@ -1,5 +1,7 @@
 package com.manacommunity.api.service.scheduler.seeding;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.dto.scheduler.PlayoffMatchDraftResponse.ParticipantRef;
 import org.springframework.stereotype.Component;
 

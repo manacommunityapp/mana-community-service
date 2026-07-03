@@ -1,5 +1,7 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;

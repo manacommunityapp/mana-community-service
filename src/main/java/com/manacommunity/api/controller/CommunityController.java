@@ -1,10 +1,12 @@
 package com.manacommunity.api.controller;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.response.CommunityResponse;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.CommunityService;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

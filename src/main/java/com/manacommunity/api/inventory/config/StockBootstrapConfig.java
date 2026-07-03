@@ -1,5 +1,7 @@
 package com.manacommunity.api.inventory.config;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.inventory.entity.*;
 import com.manacommunity.api.inventory.repository.*;
 import com.manacommunity.api.inventory.service.StockQuantService;

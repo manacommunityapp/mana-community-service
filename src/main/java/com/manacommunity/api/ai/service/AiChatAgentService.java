@@ -1,10 +1,14 @@
 package com.manacommunity.api.ai.service;
 
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.model.Role;
+
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import com.manacommunity.api.ai.dto.AiChatRequest;
 import com.manacommunity.api.ai.dto.AiChatResponse;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.repository.AuctionTeamRepository;
 import lombok.RequiredArgsConstructor;

@@ -1,13 +1,13 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.PagedResponse;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Expense;
 import com.manacommunity.api.model.Invoice;
 import com.manacommunity.api.repository.ExpenseRepository;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.repository.InvoiceRepository;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.BillingService;
 import lombok.Builder;
 import lombok.Data;

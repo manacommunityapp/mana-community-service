@@ -1,11 +1,11 @@
 package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.ScheduleGenerationLogResponse;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.scheduler.GenerationAction;
 import com.manacommunity.api.model.scheduler.GenerationStatus;
 import com.manacommunity.api.model.scheduler.ScheduleGenerationLog;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.scheduler.ScheduleGenerationLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

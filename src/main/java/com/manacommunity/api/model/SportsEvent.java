@@ -1,5 +1,7 @@
 package com.manacommunity.api.model;
 
+import com.manacommunity.api.user.model.AppUser;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

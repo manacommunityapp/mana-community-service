@@ -1,6 +1,6 @@
 package com.manacommunity.api.email;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.scheduler.TournamentConfig;
 import lombok.RequiredArgsConstructor;

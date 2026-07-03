@@ -1,5 +1,7 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.dto.PlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
@@ -14,8 +16,8 @@ import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.PlayerCategoryRepository;
 import com.manacommunity.api.repository.SportMetaRepository;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.SportsEventService;
 import com.manacommunity.api.service.TournamentService;
 import jakarta.validation.Valid;

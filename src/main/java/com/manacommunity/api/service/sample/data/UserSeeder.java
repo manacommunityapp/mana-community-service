@@ -1,10 +1,10 @@
 package com.manacommunity.api.service.sample.data;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

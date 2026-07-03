@@ -2,7 +2,7 @@ package com.manacommunity.api.inventory.controller;
 
 import com.manacommunity.api.inventory.dto.ProductDto;
 import com.manacommunity.api.inventory.service.ProductCatalogService;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
