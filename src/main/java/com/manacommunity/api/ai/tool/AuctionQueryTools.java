@@ -1,5 +1,7 @@
 package com.manacommunity.api.ai.tool;
 
+import com.manacommunity.api.model.Community;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;

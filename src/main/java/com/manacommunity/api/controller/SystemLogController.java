@@ -2,7 +2,7 @@ package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.SystemLogResponse;
 import com.manacommunity.api.dto.SystemStatsResponse;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SystemLogService;
 import lombok.RequiredArgsConstructor;

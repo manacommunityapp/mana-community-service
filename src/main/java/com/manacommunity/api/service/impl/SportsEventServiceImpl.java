@@ -1,5 +1,11 @@
 package com.manacommunity.api.service.impl;
 
+import com.manacommunity.api.model.Community;
+
+import com.manacommunity.api.user.repository.AppUserRepository;
+
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.dto.SportsEventRequest;
 import com.manacommunity.api.dto.NotificationScheduleDto;
 import com.manacommunity.api.dto.RegistrationRequest;

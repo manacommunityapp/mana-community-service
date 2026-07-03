@@ -1,6 +1,6 @@
 package com.manacommunity.api.scheduler;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import java.util.List;
 
 /**

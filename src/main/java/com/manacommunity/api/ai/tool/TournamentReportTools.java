@@ -1,11 +1,13 @@
 package com.manacommunity.api.ai.tool;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailService;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;

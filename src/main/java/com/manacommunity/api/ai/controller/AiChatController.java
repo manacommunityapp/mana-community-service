@@ -1,11 +1,13 @@
 package com.manacommunity.api.ai.controller;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.ai.dto.AiChatRequest;
 import com.manacommunity.api.ai.dto.AiChatResponse;
 import com.manacommunity.api.ai.service.AiChatAgentService;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.service.LoggedInUserService;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,15 +1,15 @@
 package com.manacommunity.api.controller.scheduler;
 
 import com.manacommunity.api.dto.scheduler.*;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.scheduler.TournamentConfig;
 import com.manacommunity.api.model.scheduler.TournamentMatch;
 import com.manacommunity.api.repository.SportsEventRepository;
 import com.manacommunity.api.repository.scheduler.TournamentConfigRepository;
 import com.manacommunity.api.repository.scheduler.TournamentMatchRepository;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.scheduler.TournamentSchedulerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;

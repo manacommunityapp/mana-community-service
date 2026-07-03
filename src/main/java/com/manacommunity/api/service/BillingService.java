@@ -1,10 +1,10 @@
 package com.manacommunity.api.service;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Expense;
 import com.manacommunity.api.model.Invoice;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.ExpenseRepository;
 import com.manacommunity.api.repository.InvoiceRepository;
 import org.slf4j.Logger;

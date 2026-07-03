@@ -1,5 +1,7 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.model.Role;
+
 import com.manacommunity.api.exception.CsvParseException;
 import com.manacommunity.api.exception.InvalidFileUploadException;
 import com.manacommunity.api.exception.ResourceNotFoundException;

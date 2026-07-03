@@ -3,7 +3,7 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.MarkReadRequest;
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

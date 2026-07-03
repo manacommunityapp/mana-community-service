@@ -1,9 +1,9 @@
 package com.manacommunity.api.controller.scheduler;
 
 import com.manacommunity.api.dto.scheduler.ScheduleGenerationLogResponse;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.scheduler.ScheduleGenerationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

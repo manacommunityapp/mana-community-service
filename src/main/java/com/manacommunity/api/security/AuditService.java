@@ -1,5 +1,7 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.api.user.security.UserPrincipal;
+
 import com.manacommunity.api.model.AuditLog;
 import com.manacommunity.api.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;

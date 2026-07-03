@@ -1,5 +1,7 @@
 package com.manacommunity.api.ai.tool;
 
+import com.manacommunity.api.model.Community;
+
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import jakarta.persistence.EntityManager;

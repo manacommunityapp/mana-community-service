@@ -2,7 +2,7 @@ package com.manacommunity.api.scheduler;
 
 import com.manacommunity.api.email.EmailProperties;
 import com.manacommunity.api.email.MatchReminderEmailService;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.AuctionPlayer;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.scheduler.TournamentMatch;

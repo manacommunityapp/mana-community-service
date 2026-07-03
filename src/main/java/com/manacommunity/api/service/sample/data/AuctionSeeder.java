@@ -1,5 +1,7 @@
 package com.manacommunity.api.service.sample.data;
 
+import com.manacommunity.api.user.model.AppUser;
+
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import lombok.RequiredArgsConstructor;

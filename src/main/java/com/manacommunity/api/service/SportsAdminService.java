@@ -8,7 +8,7 @@ import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.EventRow;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.SportRef;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.TournamentRow;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.PlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsMeta;

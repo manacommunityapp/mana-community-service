@@ -1,10 +1,10 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.chat.*;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.ChatService;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

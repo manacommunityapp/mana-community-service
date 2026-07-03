@@ -1,9 +1,9 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsDashboardService;
 import lombok.RequiredArgsConstructor;

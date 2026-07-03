@@ -1,9 +1,9 @@
 package com.manacommunity.api.config;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.repository.AppUserRepository;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
