@@ -88,5 +88,5 @@ public class FinanceDocument {
     @PreUpdate
     void onUpdate() { updatedAt = LocalDateTime.now(); }
 
-    public enum Type { INVOICE, ESTIMATE, SALES_ORDER, CREDIT_NOTE, REFUND }
+    public enum Type { INVOICE, ESTIMATE, SALES_ORDER, CREDIT_NOTE, REFUND, EXPENSE, PURCHASE, PURCHASE_RETURN, PURCHASE_ORDER, DEBIT_NOTE }
 }
