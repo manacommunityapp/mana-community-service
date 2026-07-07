@@ -97,6 +97,8 @@ public class TournamentController {
         return TournamentResponse.builder()
                 .id(t.getId())
                 .name(t.getName())
+                .communityId(t.getCommunity() != null ? t.getCommunity().getId() : null)
+                .communityName(t.getCommunity() != null ? t.getCommunity().getName() : null)
                 .maxParticipants(t.getMaxParticipants())
                 .description(t.getDescription())
                 .eventDateStart(t.getEventDateStart())

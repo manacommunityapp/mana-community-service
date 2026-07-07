@@ -29,6 +29,11 @@ public class Tournament {
     private String description;
 
     // One Tournament contains Many Sports Events.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Community community;
+
     @OneToMany(mappedBy = "tournament", cascade = CascadeType.ALL)
     @JsonIgnoreProperties({"tournament"})
     private List<SportsEvent> sportsEvents = new ArrayList<>();

@@ -154,6 +154,11 @@ public class SportsEvent {
     @Column(length = 2000)
     private String description;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30)
+    @Builder.Default
+    private EventStatus status = EventStatus.DRAFT;
+
     // The foreign key. It MUST be nullable (nullable = true) because
     // you are creating the SportsEvent BEFORE the Tournament exists.
     @ManyToOne(fetch = FetchType.LAZY)

@@ -25,8 +25,10 @@ public interface SportsEventService {
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
     List<SportsEvent> getAllEvents();
     Page<SportsEvent> getAllEvents(Pageable pageable);
+    List<SportsEvent> getAllEventsIncludingInactive();
     List<SportsEvent> getCommunityEvents(Long communityId);
     Page<SportsEvent> getCommunityEvents(Long communityId, Pageable pageable);
+    List<SportsEvent> getCommunityEventsIncludingInactive(Long communityId);
     SportsEvent getEventById(Long id);
     SportsEvent getEventByUuid(java.util.UUID uuid);
     SportsEvent saveEvent(SportsEvent event);

@@ -72,6 +72,7 @@ public class SportsEventDataSeeder {
                         .maxAge(45)
                         .gender("MALE")
                         .playersBorn(LocalDate.of(1900, 1, 1))
+                        .status(SportsEvent.EventStatus.DRAFT)
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build()));

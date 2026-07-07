@@ -15,7 +15,8 @@ public record SportsDashboardResponse(
         List<EventCard> openRegistrations,
         List<EventCard> closedRegistrations,
         List<UpcomingEvent> myUpcomingEvents,
-        List<MyRegistration> myRegistrations
+        List<MyRegistration> myRegistrations,
+        List<TournamentCard> openTournaments
 ) {
 
     /** The four headline stat cards. */
@@ -43,6 +44,19 @@ public record SportsDashboardResponse(
             // The current user's registration for this event (if any) — drives the button state.
             Long myRegistrationId,
             String myRegistrationStatus
+    ) {}
+
+    /** A tournament with its child events grouped for "Open for Registration". */
+    public record TournamentCard(
+            Long id,
+            String name,
+            String bannerImage,
+            LocalDate eventDateStart,
+            LocalDate eventDateEnd,
+            String registrationStatus,
+            Long communityId,
+            String communityName,
+            List<EventCard> events
     ) {}
 
     /** A row in "Your Upcoming Events" (also feeds the next-match timer & notifications). */

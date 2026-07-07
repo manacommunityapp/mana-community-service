@@ -415,6 +415,7 @@ public class SportsController {
     @GetMapping({"/events/community", "/tournaments/community"})
     public ResponseEntity<List<SportsEventResponse>> getCommunityTournaments(
             @RequestParam Long communityId,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
@@ -425,8 +426,10 @@ public class SportsController {
                 throw new UnauthorizedActionException("You can only access your own community's tournaments.");
             }
         }
-        return ResponseEntity.ok(eventService.getCommunityEvents(targetCommunityId).stream()
-                .map(this::toEventResponse).toList());
+        List<SportsEvent> events = includeInactive
+                ? eventService.getCommunityEventsIncludingInactive(targetCommunityId)
+                : eventService.getCommunityEvents(targetCommunityId);
+        return ResponseEntity.ok(events.stream().map(this::toEventResponse).toList());
     }
 
     @PostMapping("/register")
@@ -613,6 +616,7 @@ public class SportsController {
                 .maxParticipants(e.getMaxParticipants())
                 .startTime(e.getStartTime())
                 .dueTime(e.getDueTime())
+                .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)

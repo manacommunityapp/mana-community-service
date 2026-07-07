@@ -6,6 +6,7 @@ import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.model.SportsEventSponsor;
 import com.manacommunity.api.repository.TournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
+import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.service.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class TournamentServiceImpl implements TournamentService {
 
     private final TournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
+    private final CommunityRepository communityRepo;
 
     @Override
     public List<Tournament> getAllTournaments() {
@@ -81,6 +83,10 @@ public class TournamentServiceImpl implements TournamentService {
         
         tournament.setStartTime(req.getStartTime());
         tournament.setDueTime(req.getDueTime());
+
+        if (req.getCommunityId() != null) {
+            tournament.setCommunity(communityRepo.findById(req.getCommunityId()).orElse(null));
+        }
 
         // Resolve existing SportsEvents from req.getSportsEventIds()
         List<SportsEvent> sportsEvents = new ArrayList<>();
@@ -166,6 +172,29 @@ public class TournamentServiceImpl implements TournamentService {
         }
 
         tournament.setRegistrationStatus(tournamentStatus);
-        return tournamentRepo.save(tournament);
+        Tournament saved = tournamentRepo.save(tournament);
+
+        if (tournamentStatus == Tournament.EventStatus.COMPLETED
+                || tournamentStatus == Tournament.EventStatus.CANCELLED) {
+            if (saved.getSportsEvents() != null) {
+                for (SportsEvent ev : saved.getSportsEvents()) {
+                    ev.setActive(false);
+                    ev.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                    ev.setUpdatedAt(java.time.LocalDateTime.now());
+                    eventRepo.save(ev);
+                }
+            }
+        } else {
+            if (saved.getSportsEvents() != null) {
+                for (SportsEvent ev : saved.getSportsEvents()) {
+                    ev.setActive(true);
+                    ev.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                    ev.setUpdatedAt(java.time.LocalDateTime.now());
+                    eventRepo.save(ev);
+                }
+            }
+        }
+
+        return saved;
     }
 }

@@ -68,7 +68,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .registrationDateEnd(req.getRegistrationDateEnd())
                 .venue(venue)
                 .maxParticipants(req.getMaxParticipants() != null ? req.getMaxParticipants() : 64)
-                //.registrationStatus(SportsEvent.EventStatus.DRAFT)
+                .status(SportsEvent.EventStatus.DRAFT)
                 .format(req.getFormat() != null ? java.util.Arrays.asList(req.getFormat().split(",")) : new java.util.ArrayList<>())
                 .tournamentType(req.getTournamentType() != null
                         ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null)
@@ -393,10 +393,36 @@ public class SportsEventServiceImpl implements SportsEventService {
             if (linkedTournament != null) {
                 linkedTournament.setRegistrationStatus(tournamentStatus);
                 tournamentRepo.save(linkedTournament);
+                tournament = linkedTournament;
+            }
+        }
+
+        boolean isClosing = tournamentStatus == Tournament.EventStatus.COMPLETED
+                || tournamentStatus == Tournament.EventStatus.CANCELLED;
+
+        if (isClosing && tournament != null && tournament.getSportsEvents() != null) {
+            for (SportsEvent sibling : tournament.getSportsEvents()) {
+                sibling.setActive(false);
+                sibling.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                sibling.setUpdatedAt(LocalDateTime.now());
+                eventRepo.save(sibling);
+            }
+        } else if (tournament != null && tournament.getSportsEvents() != null) {
+            for (SportsEvent sibling : tournament.getSportsEvents()) {
+                sibling.setActive(true);
+                sibling.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                sibling.setUpdatedAt(LocalDateTime.now());
+                eventRepo.save(sibling);
             }
         }
 
         event.setUpdatedAt(LocalDateTime.now());
+        if (isClosing) {
+            event.setActive(false);
+        } else {
+            event.setActive(true);
+        }
+        event.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
         return eventRepo.save(event);
     }
 
@@ -534,6 +560,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 Tournament tournament = Tournament.builder()
                         .name(event.getName())
                         .sportsEvents(new java.util.ArrayList<>())
+                        .community(event.getCommunity())
                         .createdAt(event.getCreatedAt() != null ? event.getCreatedAt() : LocalDateTime.now())
                         .updatedAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
                         .build();
@@ -555,8 +582,18 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Override
+    public List<SportsEvent> getAllEventsIncludingInactive() {
+        return eventRepo.findAll();
+    }
+
+    @Override
     public List<SportsEvent> getCommunityEvents(Long communityId) {
         return eventRepo.findByCommunityIdAndActiveTrueOrderByEventDateStartDesc(communityId);
+    }
+
+    @Override
+    public List<SportsEvent> getCommunityEventsIncludingInactive(Long communityId) {
+        return eventRepo.findByCommunityIdOrderByEventDateStartDesc(communityId);
     }
 
     @Override

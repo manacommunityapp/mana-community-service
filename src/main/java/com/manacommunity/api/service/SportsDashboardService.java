@@ -10,13 +10,12 @@ import com.manacommunity.api.model.PlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.model.Tournament;
+import com.manacommunity.api.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,6 +30,7 @@ import java.util.stream.Collectors;
 public class SportsDashboardService {
 
     private final SportsEventService eventService;
+    private final TournamentRepository tournamentRepo;
 
     @Transactional(readOnly = true)
     public SportsDashboardResponse getDashboard(AppUser user) {
@@ -83,7 +83,43 @@ public class SportsDashboardService {
                 0                    // Community Players — placeholder, matches current UI
         );
 
-        return new SportsDashboardResponse(stats, open, closed, upcoming, registrations);
+        // Query tournaments directly from the tournament table for the grouped view.
+        List<Tournament> openTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_OPEN)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_OPEN, communityId)
+                    : List.of());
+        List<TournamentCard> openTournaments = buildTournamentCards(openTournamentEntities, regByEvent);
+
+        return new SportsDashboardResponse(stats, open, closed, upcoming, registrations, openTournaments);
+    }
+
+    // ── Tournament grouping ────────────────────────────────────────────
+
+    private List<TournamentCard> buildTournamentCards(
+            List<Tournament> tournaments,
+            Map<Long, SportsEventRegistration> regByEvent) {
+
+        List<TournamentCard> cards = new ArrayList<>();
+        for (Tournament t : tournaments) {
+            List<SportsEvent> childEvents = t.getSportsEvents() != null ? t.getSportsEvents() : List.of();
+            List<EventCard> eventCards = childEvents.stream()
+                    .filter(e -> e.getActive() == null || e.getActive())
+                    .map(e -> toEventCard(e, regByEvent.get(e.getId())))
+                    .toList();
+            cards.add(new TournamentCard(
+                    t.getId(),
+                    t.getName(),
+                    t.getBannerImage(),
+                    t.getEventDateStart(),
+                    t.getEventDateEnd(),
+                    t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null,
+                    t.getCommunity() != null ? t.getCommunity().getId() : null,
+                    t.getCommunity() != null ? t.getCommunity().getName() : null,
+                    eventCards
+            ));
+        }
+        return cards;
     }
 
     // ── Mapping helpers ───────────────────────────────────────────────
