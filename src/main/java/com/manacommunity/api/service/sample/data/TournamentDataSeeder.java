@@ -24,6 +24,7 @@ public class TournamentDataSeeder {
     public static final String TOURNAMENT_NAME = "LE 2026 Winter Cup";
 
     private final TournamentRepository tournamentRepo;
+    private final com.manacommunity.api.repository.CommunityRepository communityRepo;
 
     @Transactional
     public void seed() {
@@ -50,6 +51,7 @@ public class TournamentDataSeeder {
                         .registrationStatus(Tournament.EventStatus.DRAFT)
                         .sportsEvents(new ArrayList<>())
                         .sponsors(new ArrayList<>())
+                        .community(communityRepo.findById(2L).orElse(null))
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build()));

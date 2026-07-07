@@ -115,6 +115,11 @@ public class FinanceDocumentService {
             case SALES_ORDER -> "SLSODR";
             case CREDIT_NOTE -> "CN";
             case REFUND -> "REF";
+            case EXPENSE -> "EXP";
+            case PURCHASE -> "PUR";
+            case PURCHASE_RETURN -> "PRET";
+            case PURCHASE_ORDER -> "PO";
+            case DEBIT_NOTE -> "DN";
         };
     }
 

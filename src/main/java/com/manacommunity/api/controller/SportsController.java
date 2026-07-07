@@ -57,7 +57,16 @@ public class SportsController {
     public ResponseEntity<List<SportsMetaResponse>> getAllSports(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
-        return ResponseEntity.ok(sportMetaRepo.findByActiveTrue().stream()
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        if (ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+            return ResponseEntity.ok(sportMetaRepo.findByActiveTrue().stream()
+                    .map(this::toSportsMetaResponse).toList());
+        }
+        Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+        if (communityId == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(sportMetaRepo.findActiveByCommunity(communityId).stream()
                 .map(this::toSportsMetaResponse).toList());
     }
 
@@ -166,7 +175,7 @@ public class SportsController {
         if (communityId != null) {
             return ResponseEntity.ok(categoryRepo.findDefaultAndCommunityCategories(communityId));
         }
-        return ResponseEntity.ok(categoryRepo.findAll());
+        return ResponseEntity.ok(Collections.emptyList());
     }
 
     @PostMapping("/categories")
@@ -415,6 +424,7 @@ public class SportsController {
     @GetMapping({"/events/community", "/tournaments/community"})
     public ResponseEntity<List<SportsEventResponse>> getCommunityTournaments(
             @RequestParam Long communityId,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
@@ -425,8 +435,10 @@ public class SportsController {
                 throw new UnauthorizedActionException("You can only access your own community's tournaments.");
             }
         }
-        return ResponseEntity.ok(eventService.getCommunityEvents(targetCommunityId).stream()
-                .map(this::toEventResponse).toList());
+        List<SportsEvent> events = includeInactive
+                ? eventService.getCommunityEventsIncludingInactive(targetCommunityId)
+                : eventService.getCommunityEvents(targetCommunityId);
+        return ResponseEntity.ok(events.stream().map(this::toEventResponse).toList());
     }
 
     @PostMapping("/register")
@@ -613,6 +625,7 @@ public class SportsController {
                 .maxParticipants(e.getMaxParticipants())
                 .startTime(e.getStartTime())
                 .dueTime(e.getDueTime())
+                .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)

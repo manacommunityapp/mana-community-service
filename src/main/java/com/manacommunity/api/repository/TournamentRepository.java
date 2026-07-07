@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface TournamentRepository extends JpaRepository<Tournament, Long> {
-    @Query("SELECT DISTINCT t FROM Tournament t JOIN t.sportsEvents se WHERE se.community.id = :communityId ORDER BY t.createdAt DESC")
+    @Query("SELECT t FROM Tournament t WHERE t.community.id = :communityId ORDER BY t.createdAt DESC")
     List<Tournament> findByEventCommunityIdOrderByCreatedAtDesc(@Param("communityId") Long communityId);
 
     @Query("SELECT COUNT(t) > 0 FROM Tournament t JOIN t.sportsEvents se WHERE se.id = :eventId")
@@ -26,6 +26,12 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
         List<Tournament> list = findByEventIdList(eventId);
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
+
+    @Query("SELECT DISTINCT t FROM Tournament t LEFT JOIN FETCH t.sportsEvents WHERE t.registrationStatus = :status ORDER BY t.createdAt DESC")
+    List<Tournament> findByRegistrationStatusWithEvents(@Param("status") Tournament.EventStatus status);
+
+    @Query("SELECT DISTINCT t FROM Tournament t LEFT JOIN FETCH t.sportsEvents se WHERE t.registrationStatus = :status AND t.community.id = :communityId ORDER BY t.createdAt DESC")
+    List<Tournament> findByRegistrationStatusAndCommunityWithEvents(@Param("status") Tournament.EventStatus status, @Param("communityId") Long communityId);
 
     @Modifying
     @Transactional

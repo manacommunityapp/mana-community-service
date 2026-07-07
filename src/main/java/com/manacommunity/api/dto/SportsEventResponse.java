@@ -37,6 +37,7 @@ public class SportsEventResponse {
     private String startTime;
     private String dueTime;
 
+    private String status;
     private String auctionStatus;
     private List<String> format;
     private String tournamentType;

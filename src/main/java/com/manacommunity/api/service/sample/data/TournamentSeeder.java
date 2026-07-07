@@ -2,6 +2,7 @@ package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.Tournament;
+import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import com.manacommunity.api.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class TournamentSeeder {
 
     private final TournamentRepository tournamentRepo;
     private final SportsEventRepository sportsEventRepo;
+    private final CommunityRepository communityRepo;
 
     @Transactional
     public void seed() {
@@ -52,6 +54,7 @@ public class TournamentSeeder {
                             .registrationStatus(Tournament.EventStatus.REGISTRATION_CLOSED)
                             .sportsEvents(new ArrayList<>())
                             .sponsors(new ArrayList<>())
+                            .community(communityRepo.findById(2L).orElse(null))
                             .createdAt(LocalDateTime.of(2026, 6, 1, 0, 5, 7))
                             .updatedAt(LocalDateTime.of(2026, 6, 1, 0, 10, 45))
                             .build();

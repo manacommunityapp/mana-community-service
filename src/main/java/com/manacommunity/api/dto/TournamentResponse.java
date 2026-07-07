@@ -12,6 +12,8 @@ import java.util.List;
 public class TournamentResponse {
     private Long id;
     private String name;
+    private Long communityId;
+    private String communityName;
     private Integer maxParticipants;
     private String description;
     private LocalDate eventDateStart;

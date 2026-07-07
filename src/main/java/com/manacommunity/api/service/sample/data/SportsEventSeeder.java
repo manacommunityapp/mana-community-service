@@ -165,7 +165,7 @@ public class SportsEventSeeder {
                             .community(community)
                             .venue(venue)
                             .createdBy(createdBy)
-                            //.registrationStatus(status)
+                            .status(status)
                             .format(formats != null ? formats : java.util.Collections.emptyList())
                             .tournamentType(tournamentType)
                             .registrationDateStart(regDateStart)

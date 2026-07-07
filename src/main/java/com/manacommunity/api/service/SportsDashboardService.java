@@ -10,13 +10,12 @@ import com.manacommunity.api.model.PlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.model.Tournament;
+import com.manacommunity.api.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,24 +30,44 @@ import java.util.stream.Collectors;
 public class SportsDashboardService {
 
     private final SportsEventService eventService;
+    private final TournamentRepository tournamentRepo;
 
     @Transactional(readOnly = true)
-    public SportsDashboardResponse getDashboard(AppUser user) {
+    public Stats getStats(AppUser user) {
         boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportsEvent> openEvents = isSuperAdmin
                 ? eventService.getAllOpenEvents()
                 : (communityId != null ? eventService.getOpenEvents(communityId) : List.of());
-
-        List<SportsEvent> closedEvents = isSuperAdmin
-                ? eventService.getClosedEvents()
-                : (communityId != null ? eventService.getClosedEvents(communityId) : List.of());
-
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
+
+        int liveCount = (int) openEvents.stream()
+                .filter(e -> "LIVE".equals(registrationStatus(e)))
+                .count();
+
+        return new Stats(
+                myEvents.size(),     // Your Registrations
+                liveCount,           // Live Events
+                openEvents.size(),   // Open Registrations
+                0                    // Community Players — placeholder, matches current UI
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<UpcomingEvent> getUpcomingEvents(AppUser user) {
+        List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
+        return myEvents.stream()
+                .map(this::toUpcomingEvent)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentCard> getOpenTournaments(AppUser user) {
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
-        // Index the user's registrations by event id so open-event cards can show the right button.
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
                 .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
                 .collect(Collectors.toMap(
@@ -56,34 +75,69 @@ public class SportsDashboardService {
                         Function.identity(),
                         (a, b) -> a)); // keep first on duplicate
 
-        List<EventCard> open = openEvents.stream()
-                .map(e -> toEventCard(e, regByEvent.get(e.getId())))
-                .toList();
+        List<Tournament> openTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_OPEN)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_OPEN, communityId)
+                    : List.of());
+        return buildTournamentCards(openTournamentEntities, regByEvent);
+    }
 
-        List<EventCard> closed = closedEvents.stream()
-                .map(e -> toEventCard(e, regByEvent.get(e.getId())))
-                .toList();
+    @Transactional(readOnly = true)
+    public List<TournamentCard> getClosedTournaments(AppUser user) {
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
-        List<UpcomingEvent> upcoming = myEvents.stream()
-                .map(this::toUpcomingEvent)
-                .toList();
+        Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .collect(Collectors.toMap(
+                        r -> r.getEvent().getId(),
+                        Function.identity(),
+                        (a, b) -> a)); // keep first on duplicate
 
-        List<MyRegistration> registrations = myRegs.stream()
+        List<Tournament> closedTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED, communityId)
+                    : List.of());
+        return buildTournamentCards(closedTournamentEntities, regByEvent);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MyRegistration> getMyRegistrations(AppUser user) {
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
+        return myRegs.stream()
                 .map(this::toMyRegistration)
                 .toList();
+    }
 
-        int liveCount = (int) openEvents.stream()
-                .filter(e -> "LIVE".equals(registrationStatus(e)))
-                .count();
+    // ── Tournament grouping ────────────────────────────────────────────
 
-        Stats stats = new Stats(
-                myEvents.size(),     // Your Registrations
-                liveCount,           // Live Events
-                openEvents.size(),   // Open Registrations
-                0                    // Community Players — placeholder, matches current UI
-        );
+    private List<TournamentCard> buildTournamentCards(
+            List<Tournament> tournaments,
+            Map<Long, SportsEventRegistration> regByEvent) {
 
-        return new SportsDashboardResponse(stats, open, closed, upcoming, registrations);
+        List<TournamentCard> cards = new ArrayList<>();
+        for (Tournament t : tournaments) {
+            List<SportsEvent> childEvents = t.getSportsEvents() != null ? t.getSportsEvents() : List.of();
+            List<EventCard> eventCards = childEvents.stream()
+                    .filter(e -> e.getActive() == null || e.getActive())
+                    .map(e -> toEventCard(e, regByEvent.get(e.getId())))
+                    .toList();
+            cards.add(new TournamentCard(
+                    t.getId(),
+                    t.getName(),
+                    t.getBannerImage(),
+                    t.getEventDateStart(),
+                    t.getEventDateEnd(),
+                    t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null,
+                    t.getCommunity() != null ? t.getCommunity().getId() : null,
+                    t.getCommunity() != null ? t.getCommunity().getName() : null,
+                    eventCards
+            ));
+        }
+        return cards;
     }
 
     // ── Mapping helpers ───────────────────────────────────────────────
@@ -116,7 +170,9 @@ public class SportsDashboardService {
                 firstCategoryName(e),
                 registrationStatus(e),
                 e.getEventDateStart(),
-                e.getStartTime()
+                e.getStartTime(),
+                e.getTournament() != null ? e.getTournament().getId() : null,
+                e.getTournament() != null ? e.getTournament().getName() : null
         );
     }
 
