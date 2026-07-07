@@ -57,7 +57,16 @@ public class SportsController {
     public ResponseEntity<List<SportsMetaResponse>> getAllSports(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
-        return ResponseEntity.ok(sportMetaRepo.findByActiveTrue().stream()
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        if (ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+            return ResponseEntity.ok(sportMetaRepo.findByActiveTrue().stream()
+                    .map(this::toSportsMetaResponse).toList());
+        }
+        Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+        if (communityId == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(sportMetaRepo.findActiveByCommunity(communityId).stream()
                 .map(this::toSportsMetaResponse).toList());
     }
 
@@ -166,7 +175,7 @@ public class SportsController {
         if (communityId != null) {
             return ResponseEntity.ok(categoryRepo.findDefaultAndCommunityCategories(communityId));
         }
-        return ResponseEntity.ok(categoryRepo.findAll());
+        return ResponseEntity.ok(Collections.emptyList());
     }
 
     @PostMapping("/categories")

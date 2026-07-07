@@ -17,8 +17,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
 @RestController
 @RequestMapping("/api/tournament")
@@ -107,7 +110,7 @@ public class TournamentSchedulerController {
         if (communityId != null) {
             events = eventRepo.findByCommunityIdOrderByEventDateStartDesc(communityId);
         } else {
-            events = eventRepo.findAll();
+            events = Collections.emptyList();
         }
 
         List<Map<String, Object>> result = events.stream().map(e -> {
@@ -203,8 +206,18 @@ public class TournamentSchedulerController {
      * List all tournaments for a community.
      */
     @GetMapping
-    public ResponseEntity<List<TournamentConfig>> list(@RequestParam Long communityId) {
-        return ResponseEntity.ok(configRepo.findByCommunityIdOrderByCreatedAtDesc(communityId));
+    public ResponseEntity<List<TournamentConfig>> list(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long targetCommunityId = communityId;
+        if (!ROLE_SUPER_ADMIN.equals(user.getRole())) {
+            targetCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        }
+        if (targetCommunityId == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(configRepo.findByCommunityIdOrderByCreatedAtDesc(targetCommunityId));
     }
 
     /**
