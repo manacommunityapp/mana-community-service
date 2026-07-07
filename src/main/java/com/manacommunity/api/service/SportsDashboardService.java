@@ -33,22 +33,41 @@ public class SportsDashboardService {
     private final TournamentRepository tournamentRepo;
 
     @Transactional(readOnly = true)
-    public SportsDashboardResponse getDashboard(AppUser user) {
+    public Stats getStats(AppUser user) {
         boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportsEvent> openEvents = isSuperAdmin
                 ? eventService.getAllOpenEvents()
                 : (communityId != null ? eventService.getOpenEvents(communityId) : List.of());
-
-        List<SportsEvent> closedEvents = isSuperAdmin
-                ? eventService.getClosedEvents()
-                : (communityId != null ? eventService.getClosedEvents(communityId) : List.of());
-
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
+
+        int liveCount = (int) openEvents.stream()
+                .filter(e -> "LIVE".equals(registrationStatus(e)))
+                .count();
+
+        return new Stats(
+                myEvents.size(),     // Your Registrations
+                liveCount,           // Live Events
+                openEvents.size(),   // Open Registrations
+                0                    // Community Players — placeholder, matches current UI
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<UpcomingEvent> getUpcomingEvents(AppUser user) {
+        List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
+        return myEvents.stream()
+                .map(this::toUpcomingEvent)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentCard> getOpenTournaments(AppUser user) {
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
-        // Index the user's registrations by event id so open-event cards can show the right button.
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
                 .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
                 .collect(Collectors.toMap(
@@ -56,42 +75,41 @@ public class SportsDashboardService {
                         Function.identity(),
                         (a, b) -> a)); // keep first on duplicate
 
-        List<EventCard> open = openEvents.stream()
-                .map(e -> toEventCard(e, regByEvent.get(e.getId())))
-                .toList();
-
-        List<EventCard> closed = closedEvents.stream()
-                .map(e -> toEventCard(e, regByEvent.get(e.getId())))
-                .toList();
-
-        List<UpcomingEvent> upcoming = myEvents.stream()
-                .map(this::toUpcomingEvent)
-                .toList();
-
-        List<MyRegistration> registrations = myRegs.stream()
-                .map(this::toMyRegistration)
-                .toList();
-
-        int liveCount = (int) openEvents.stream()
-                .filter(e -> "LIVE".equals(registrationStatus(e)))
-                .count();
-
-        Stats stats = new Stats(
-                myEvents.size(),     // Your Registrations
-                liveCount,           // Live Events
-                openEvents.size(),   // Open Registrations
-                0                    // Community Players — placeholder, matches current UI
-        );
-
-        // Query tournaments directly from the tournament table for the grouped view.
         List<Tournament> openTournamentEntities = isSuperAdmin
                 ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_OPEN)
                 : (communityId != null
                     ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_OPEN, communityId)
                     : List.of());
-        List<TournamentCard> openTournaments = buildTournamentCards(openTournamentEntities, regByEvent);
+        return buildTournamentCards(openTournamentEntities, regByEvent);
+    }
 
-        return new SportsDashboardResponse(stats, open, closed, upcoming, registrations, openTournaments);
+    @Transactional(readOnly = true)
+    public List<TournamentCard> getClosedTournaments(AppUser user) {
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
+
+        Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .collect(Collectors.toMap(
+                        r -> r.getEvent().getId(),
+                        Function.identity(),
+                        (a, b) -> a)); // keep first on duplicate
+
+        List<Tournament> closedTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED, communityId)
+                    : List.of());
+        return buildTournamentCards(closedTournamentEntities, regByEvent);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MyRegistration> getMyRegistrations(AppUser user) {
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
+        return myRegs.stream()
+                .map(this::toMyRegistration)
+                .toList();
     }
 
     // ── Tournament grouping ────────────────────────────────────────────
@@ -152,7 +170,9 @@ public class SportsDashboardService {
                 firstCategoryName(e),
                 registrationStatus(e),
                 e.getEventDateStart(),
-                e.getStartTime()
+                e.getStartTime(),
+                e.getTournament() != null ? e.getTournament().getId() : null,
+                e.getTournament() != null ? e.getTournament().getName() : null
         );
     }
 

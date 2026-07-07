@@ -68,7 +68,9 @@ public record SportsDashboardResponse(
             String categoryName,
             String registrationStatus,
             LocalDate eventDateStart,
-            String startTime
+            String startTime,
+            Long tournamentId,
+            String tournamentName
     ) {}
 
     /** The current user's registrations — used for button states and captaincy. */
