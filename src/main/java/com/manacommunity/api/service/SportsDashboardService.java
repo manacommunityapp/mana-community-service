@@ -11,6 +11,7 @@ import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.repository.TournamentRepository;
+import com.manacommunity.api.repository.SportsEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class SportsDashboardService {
 
     private final SportsEventService eventService;
     private final TournamentRepository tournamentRepo;
+    private final SportsEventRepository eventRepo;
 
     @Transactional(readOnly = true)
     public Stats getStats(AppUser user) {
@@ -42,15 +44,23 @@ public class SportsDashboardService {
                 : (communityId != null ? eventService.getOpenEvents(communityId) : List.of());
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
 
-        int liveCount = (int) openEvents.stream()
-                .filter(e -> "LIVE".equals(registrationStatus(e)))
-                .count();
+        int liveCount = (int) (isSuperAdmin
+                ? eventRepo.countByTournamentRegistrationStatus(Tournament.EventStatus.LIVE)
+                : (communityId != null ? eventRepo.countByCommunityIdAndTournamentRegistrationStatus(communityId, Tournament.EventStatus.LIVE) : 0));
+
+        List<Tournament.EventStatus> upcomingStatuses = List.of(
+                Tournament.EventStatus.DRAFT,
+                Tournament.EventStatus.REGISTRATION_OPEN
+        );
+        int upcomingTournamentsCount = (int) (isSuperAdmin
+                ? tournamentRepo.countByRegistrationStatusIn(upcomingStatuses)
+                : (communityId != null ? tournamentRepo.countByCommunityIdAndRegistrationStatusIn(communityId, upcomingStatuses) : 0));
 
         return new Stats(
                 myEvents.size(),     // Your Registrations
                 liveCount,           // Live Events
                 openEvents.size(),   // Open Registrations
-                0                    // Community Players — placeholder, matches current UI
+                upcomingTournamentsCount // Upcoming Tournaments
         );
     }
 

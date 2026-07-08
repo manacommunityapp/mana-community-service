@@ -24,7 +24,7 @@ public record SportsDashboardResponse(
             int yourRegistrations,
             int liveEvents,
             int openRegistrations,
-            int communityPlayers
+            int upcomingTournaments
     ) {}
 
     /** A row in "Open for Registration" / "Closed Registrations". */

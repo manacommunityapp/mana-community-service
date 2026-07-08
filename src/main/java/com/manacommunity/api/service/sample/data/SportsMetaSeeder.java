@@ -31,7 +31,7 @@ public class SportsMetaSeeder {
         getOrCreateSport("Beach Volleyball", "🏐");
         getOrCreateSport("Billiards", "🎱");
         getOrCreateSport("Bowling", "🎳");
-        getOrCreateSport("Carrom", "🎯");
+        getOrCreateSport("Carrom", "🔴");
         getOrCreateSport("Chess", "♟️");
         getOrCreateSport("Cricket (Tennis Ball)", "🏏");
         getOrCreateSport("Cycling", "🚴");

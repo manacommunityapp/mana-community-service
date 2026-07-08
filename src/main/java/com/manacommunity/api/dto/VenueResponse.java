@@ -24,8 +24,11 @@ public class VenueResponse {
     private String contactName;
     private String contactNumber;
     private String contactEmail;
+    private Long contactId;
+    private String contactTitle;
     private Long communityId;
     private String communityName;
+    private List<ContactDto> contacts;
     private List<CourtDto> courts;
 
     @Data

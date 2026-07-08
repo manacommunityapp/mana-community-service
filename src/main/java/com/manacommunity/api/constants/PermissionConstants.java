@@ -74,6 +74,11 @@ public final class PermissionConstants {
     public static final String CREATE_LISTING   = "Create Listing";
     public static final String DELETE_LISTING   = "Delete Listing";
 
+    // ──── VISITOR / GATE PASS ──────────────────────────────────────
+    public static final String VIEW_VISITORS      = "View Visitors";
+    public static final String CREATE_VISITOR_PASS = "Create Visitor Pass";
+    public static final String MANAGE_GATE        = "Manage Gate";
+
     // ──── JOBS & REFERRALS ──────────────────────────────────────────
     public static final String VIEW_JOBS  = "View Jobs";
     public static final String CREATE_JOB = "Create Job";
@@ -121,6 +126,7 @@ public final class PermissionConstants {
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
+                    List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING)
@@ -132,6 +138,7 @@ public final class PermissionConstants {
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
+                    List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING)
@@ -143,6 +150,7 @@ public final class PermissionConstants {
                     List.of(VIEW_FEED, CREATE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE),
+                    List.of(VIEW_VISITORS, CREATE_VISITOR_PASS),
                     List.of(VIEW_JOBS),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, EDIT_VENUE_TIMING)
@@ -156,6 +164,7 @@ public final class PermissionConstants {
             VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL,
             VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS,
             VIEW_MARKETPLACE,
+            VIEW_VISITORS, CREATE_VISITOR_PASS,
             VIEW_JOBS, APPLY_JOB,
             VIEW_EVENTS, REGISTER_EVENT
     );
@@ -164,6 +173,7 @@ public final class PermissionConstants {
             VIEW_FEED, CREATE_POST, COMMENT_ON_POST,
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING,
+            VIEW_VISITORS,
             VIEW_JOBS, CREATE_JOB,
             VIEW_EVENTS, REGISTER_EVENT
     );
@@ -172,6 +182,7 @@ public final class PermissionConstants {
             VIEW_FEED, COMMENT_ON_POST,
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE,
+            VIEW_VISITORS,
             VIEW_JOBS,
             VIEW_EVENTS
     );
@@ -180,6 +191,7 @@ public final class PermissionConstants {
             VIEW_FEED, COMMENT_ON_POST,
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE,
+            VIEW_VISITORS, MANAGE_GATE,
             VIEW_JOBS,
             VIEW_EVENTS
     );

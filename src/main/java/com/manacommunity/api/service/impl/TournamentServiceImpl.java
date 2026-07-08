@@ -7,6 +7,9 @@ import com.manacommunity.api.model.SportsEventSponsor;
 import com.manacommunity.api.repository.TournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.repository.ContactRepository;
+import com.manacommunity.api.model.Contact;
+import com.manacommunity.api.dto.ContactDto;
 import com.manacommunity.api.service.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +27,23 @@ public class TournamentServiceImpl implements TournamentService {
     private final TournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
     private final CommunityRepository communityRepo;
+    private final ContactRepository contactRepository;
+
+    private List<Contact> resolveContacts(List<ContactDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) return new ArrayList<>();
+        return dtos.stream().map(dto -> {
+            if (dto.getId() != null) {
+                return contactRepository.findById(dto.getId())
+                        .orElseGet(() -> contactRepository.save(Contact.builder()
+                                .name(dto.getName()).title(dto.getTitle())
+                                .number(dto.getNumber()).email(dto.getEmail()).build()));
+            }
+            return contactRepository.findByNameAndNumberAndEmail(dto.getName(), dto.getNumber(), dto.getEmail())
+                    .orElseGet(() -> contactRepository.save(Contact.builder()
+                            .name(dto.getName()).title(dto.getTitle())
+                            .number(dto.getNumber()).email(dto.getEmail()).build()));
+        }).collect(Collectors.toList());
+    }
 
     @Override
     public List<Tournament> getAllTournaments() {
@@ -75,6 +96,8 @@ public class TournamentServiceImpl implements TournamentService {
         tournament.setContactName(req.getContactName());
         tournament.setContactNumber(req.getContactNumber());
         tournament.setContactEmail(req.getContactEmail());
+        tournament.getContacts().clear();
+        tournament.getContacts().addAll(resolveContacts(req.getContacts()));
         tournament.setOtherContacts(req.getOtherContacts());
         
         tournament.setBannerImage(req.getBannerImage());

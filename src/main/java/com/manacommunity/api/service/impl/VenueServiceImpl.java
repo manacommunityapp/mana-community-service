@@ -1,18 +1,22 @@
 package com.manacommunity.api.service.impl;
 
+import com.manacommunity.api.dto.ContactDto;
 import com.manacommunity.api.dto.VenueRequest;
 import com.manacommunity.api.dto.VenueResponse;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.Contact;
 import com.manacommunity.api.model.Court;
 import com.manacommunity.api.model.Venue;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.repository.ContactRepository;
 import com.manacommunity.api.repository.VenueRepository;
 import com.manacommunity.api.service.VenueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,6 +26,38 @@ public class VenueServiceImpl implements VenueService {
 
     private final VenueRepository venueRepo;
     private final CommunityRepository communityRepo;
+    private final ContactRepository contactRepository;
+
+    private List<Contact> resolveContacts(List<ContactDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) return new ArrayList<>();
+        return dtos.stream().map(dto -> {
+            if (dto.getId() != null) {
+                return contactRepository.findById(dto.getId())
+                        .orElseGet(() -> contactRepository.save(toContactEntity(dto)));
+            }
+            return contactRepository.findByNameAndNumberAndEmail(dto.getName(), dto.getNumber(), dto.getEmail())
+                    .orElseGet(() -> contactRepository.save(toContactEntity(dto)));
+        }).collect(Collectors.toList());
+    }
+
+    private Contact toContactEntity(ContactDto dto) {
+        return Contact.builder()
+                .name(dto.getName())
+                .title(dto.getTitle())
+                .number(dto.getNumber())
+                .email(dto.getEmail())
+                .build();
+    }
+
+    private ContactDto toContactDto(Contact c) {
+        return ContactDto.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .title(c.getTitle())
+                .number(c.getNumber())
+                .email(c.getEmail())
+                .build();
+    }
 
     @Override
     public List<VenueResponse> getVenuesByCommunityId(Long communityId) {
@@ -43,6 +79,7 @@ public class VenueServiceImpl implements VenueService {
     @Override
     @Transactional
     public VenueResponse createVenue(Long communityId, VenueRequest request) {
+        List<Contact> contacts = resolveContacts(request.getContacts());
         Venue venue = Venue.builder()
                 .name(request.getName())
                 .address(request.getAddress())
@@ -58,6 +95,8 @@ public class VenueServiceImpl implements VenueService {
                 .contactName(request.getContactName())
                 .contactNumber(request.getContactNumber())
                 .contactEmail(request.getContactEmail())
+                .contactTitle(request.getContactTitle())
+                .contacts(contacts)
                 .build();
 
         if (communityId != null && communityId > 0) {
@@ -74,6 +113,7 @@ public class VenueServiceImpl implements VenueService {
     public VenueResponse updateVenue(Long id, VenueRequest request) {
         Venue existing = venueRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Venue", id));
+        List<Contact> contacts = resolveContacts(request.getContacts());
         existing.setName(request.getName());
         existing.setAddress(request.getAddress());
         existing.setCity(request.getCity());
@@ -88,6 +128,9 @@ public class VenueServiceImpl implements VenueService {
         existing.setContactName(request.getContactName());
         existing.setContactNumber(request.getContactNumber());
         existing.setContactEmail(request.getContactEmail());
+        existing.setContactTitle(request.getContactTitle());
+        existing.getContacts().clear();
+        existing.getContacts().addAll(contacts);
 
         existing.getCourts().clear();
         applyCourts(existing, request.getCourts());
@@ -135,6 +178,10 @@ public class VenueServiceImpl implements VenueService {
                 .contactName(venue.getContactName())
                 .contactNumber(venue.getContactNumber())
                 .contactEmail(venue.getContactEmail())
+                .contactTitle(venue.getContactTitle())
+                .contacts(venue.getContacts() != null
+                        ? venue.getContacts().stream().map(this::toContactDto).toList()
+                        : List.of())
                 .communityId(venue.getCommunity() != null ? venue.getCommunity().getId() : null)
                 .communityName(venue.getCommunity() != null ? venue.getCommunity().getName() : null)
                 .courts(venue.getCourts() != null

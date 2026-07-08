@@ -45,8 +45,4 @@ public interface SportsEventService {
     java.util.List<java.util.Map<String, Object>> getEventMap(Long communityId);
     long getConfirmedRegistrationCount(Long eventId);
     
-    // Player Category CRUD
-    com.manacommunity.api.model.PlayerCategory createCategory(com.manacommunity.api.dto.PlayerCategoryRequest req);
-    com.manacommunity.api.model.PlayerCategory updateCategory(Long id, com.manacommunity.api.dto.PlayerCategoryRequest req);
-    void deleteCategory(Long id);
 }

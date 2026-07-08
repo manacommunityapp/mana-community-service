@@ -138,6 +138,15 @@ public class SportsEvent {
     private String contactName;
     private String contactNumber;
     private String contactEmail;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "sports_event_contact",
+        joinColumns = @JoinColumn(name = "sports_event_id"),
+        inverseJoinColumns = @JoinColumn(name = "contact_id")
+    )
+    @Builder.Default
+    private List<Contact> contacts = new ArrayList<>();
     
     @Column(name = "other_contacts", length = 1000)
     private String otherContacts;

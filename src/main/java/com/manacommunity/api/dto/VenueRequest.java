@@ -51,6 +51,11 @@ public class VenueRequest {
     @Size(max = 120)
     private String contactEmail;
 
+    @Size(max = 100)
+    private String contactTitle;
+
+    private List<ContactDto> contacts;
+
     private List<CourtDto> courts;
 
     @Data
