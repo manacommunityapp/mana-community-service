@@ -21,7 +21,7 @@ public class SportsMetaSeeder {
     private final SportMetaRepository sportRepo;
 
     @Transactional
-    public void seed() {
+    public void defaultSeed() {
         log.info("Starting sports meta database seeding...");
         SportsMeta cricket   = getOrCreateSport("Cricket",   "🏏");
         SportsMeta football  = getOrCreateSport("Football",  "⚽");

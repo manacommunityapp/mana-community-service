@@ -97,7 +97,8 @@ public class SportsAdminService {
                 t != null && t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null,
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 sport != null ? new SportRef(sport.getName(), sport.getIcon(), sport.getIconUrl()) : null,
-                t != null ? t.getId() : null
+                t != null ? t.getId() : null,
+                e.getAdminApprovalRequired()
         );
     }
 

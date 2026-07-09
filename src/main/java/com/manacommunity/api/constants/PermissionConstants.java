@@ -79,6 +79,26 @@ public final class PermissionConstants {
     public static final String CREATE_VISITOR_PASS = "Create Visitor Pass";
     public static final String MANAGE_GATE        = "Manage Gate";
 
+    // ──── AMENITY BOOKING ────────────────────────────────────────────
+    public static final String VIEW_AMENITIES    = "View Amenities";
+    public static final String BOOK_AMENITY      = "Book Amenity";
+    public static final String MANAGE_AMENITIES  = "Manage Amenities";
+
+    // ──── NOTICE BOARD ───────────────────────────────────────────────
+    public static final String VIEW_NOTICES   = "View Notices";
+    public static final String CREATE_NOTICE  = "Create Notice";
+    public static final String DELETE_NOTICE  = "Delete Notice";
+
+    // ──── HELPDESK / COMPLAINTS ────────────────────────────────────
+    public static final String VIEW_TICKETS    = "View Tickets";
+    public static final String CREATE_TICKET   = "Create Ticket";
+    public static final String MANAGE_TICKETS  = "Manage Tickets";
+
+    // ──── POLLING / VOTING ─────────────────────────────────────────
+    public static final String VIEW_POLLS   = "View Polls";
+    public static final String CREATE_POLL  = "Create Poll";
+    public static final String VOTE_POLL    = "Vote Poll";
+
     // ──── JOBS & REFERRALS ──────────────────────────────────────────
     public static final String VIEW_JOBS  = "View Jobs";
     public static final String CREATE_JOB = "Create Job";
@@ -127,6 +147,10 @@ public final class PermissionConstants {
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
+                    List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
+                    List.of(VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE),
+                    List.of(VIEW_TICKETS, CREATE_TICKET, MANAGE_TICKETS),
+                    List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING)
@@ -139,6 +163,10 @@ public final class PermissionConstants {
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
+                    List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
+                    List.of(VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE),
+                    List.of(VIEW_TICKETS, CREATE_TICKET, MANAGE_TICKETS),
+                    List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING)
@@ -151,6 +179,10 @@ public final class PermissionConstants {
                     ALL_SPORTS_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS),
+                    List.of(VIEW_AMENITIES, BOOK_AMENITY),
+                    List.of(VIEW_NOTICES, CREATE_NOTICE),
+                    List.of(VIEW_TICKETS, CREATE_TICKET),
+                    List.of(VIEW_POLLS, VOTE_POLL),
                     List.of(VIEW_JOBS),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, EDIT_VENUE_TIMING)
@@ -165,6 +197,10 @@ public final class PermissionConstants {
             VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS,
             VIEW_MARKETPLACE,
             VIEW_VISITORS, CREATE_VISITOR_PASS,
+            VIEW_AMENITIES, BOOK_AMENITY,
+            VIEW_NOTICES,
+            VIEW_TICKETS, CREATE_TICKET,
+            VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, APPLY_JOB,
             VIEW_EVENTS, REGISTER_EVENT
     );
@@ -174,6 +210,10 @@ public final class PermissionConstants {
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING,
             VIEW_VISITORS,
+            VIEW_AMENITIES,
+            VIEW_NOTICES,
+            VIEW_TICKETS, CREATE_TICKET,
+            VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, CREATE_JOB,
             VIEW_EVENTS, REGISTER_EVENT
     );
@@ -183,6 +223,10 @@ public final class PermissionConstants {
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE,
             VIEW_VISITORS,
+            VIEW_AMENITIES,
+            VIEW_NOTICES,
+            VIEW_TICKETS,
+            VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS,
             VIEW_EVENTS
     );
@@ -192,6 +236,10 @@ public final class PermissionConstants {
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_MARKETPLACE,
             VIEW_VISITORS, MANAGE_GATE,
+            VIEW_AMENITIES,
+            VIEW_NOTICES,
+            VIEW_TICKETS, MANAGE_TICKETS,
+            VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS,
             VIEW_EVENTS
     );

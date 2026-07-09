@@ -40,7 +40,8 @@ public record SportsAdminOverviewResponse(
             String registrationStatus,
             String auctionStatus,
             SportRef sport,
-            Long tournamentId
+            Long tournamentId,
+            Boolean adminApprovalRequired
     ) {}
 
     /** Just the sport fields the cards display (name + icon/iconUrl). */

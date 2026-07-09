@@ -215,6 +215,10 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         SportsEventRegistration saved = regRepo.save(reg);
 
+        if (!approvalRequired) {
+            handleConfirmationSideEffects(saved);
+        }
+
         // Email the right stage: "we received your entry" (pending) vs. "you're confirmed".
         registrationEmailService.send(saved, approvalRequired
                 ? RegistrationEmailService.Stage.RECEIVED
@@ -267,6 +271,15 @@ public class SportsEventServiceImpl implements SportsEventService {
         reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
         SportsEventRegistration saved = regRepo.save(reg);
 
+        handleConfirmationSideEffects(saved);
+
+        // Registration process — the entry is now CONFIRMED.
+        registrationEmailService.send(saved, RegistrationEmailService.Stage.CONFIRMED);
+
+        return saved;
+    }
+
+    private void handleConfirmationSideEffects(SportsEventRegistration saved) {
         auctionConfigRepo.findByEventId(saved.getEvent().getId()).ifPresent(config -> {
             boolean exists = playerRepo.findByConfigId(config.getId()).stream()
                     .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(saved.getUser().getId()));
@@ -295,11 +308,6 @@ public class SportsEventServiceImpl implements SportsEventService {
         });
 
         hydrateCaptaincy(List.of(saved), saved.getEvent().getId());
-
-        // Registration process — the entry is now CONFIRMED.
-        registrationEmailService.send(saved, RegistrationEmailService.Stage.CONFIRMED);
-
-        return saved;
     }
 
     @Override

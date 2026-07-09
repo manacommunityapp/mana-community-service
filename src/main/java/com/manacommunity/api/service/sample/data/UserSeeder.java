@@ -34,12 +34,18 @@ public class UserSeeder {
     public void defaultSeed() {
         log.info("Seeding system and gated community users...");
         String hash = passwordEncoder.encode("password123");
-        Community leCommunity = communitySeeder.getLeCommunity();
+        Community leCommunity = communitySeeder.getGeneralCommunity();
 
         // 1. Core administrative/test accounts
         AppUser superAdmin = createUser(
+                "manacommunity@gmail.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
+                leCommunity, "", "", "MALE", LocalDate.of(1990, 1, 1));
+
+        // 1. Core administrative/test accounts
+        AppUser superAdmin2 = createUser(
                 "admin@manacommunity.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
-                null, "", "", "MALE", LocalDate.of(1990, 1, 1));
+                leCommunity, "", "", "MALE", LocalDate.of(1990, 1, 1));
+
     }
 
 
@@ -49,11 +55,6 @@ public class UserSeeder {
         log.info("Seeding system and gated community users...");
         String hash = passwordEncoder.encode("password123");
         Community leCommunity = communitySeeder.getLeCommunity();
-
-        // 1. Core administrative/test accounts
-        AppUser superAdmin = createUser(
-                "admin@manacommunity.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
-                null, "", "", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser sandeep = createUser(
                 "sandeep@gmail.com", "Sandeep Kamarapu", ROLE_MEMBER, hash,
