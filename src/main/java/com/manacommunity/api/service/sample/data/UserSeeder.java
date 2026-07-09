@@ -64,8 +64,12 @@ public class UserSeeder {
                 "sunil@gmail.com", "Sunil Kanthala", ROLE_ADMIN, hash,
                 leCommunity, "C", "212", "MALE", LocalDate.of(1990, 1, 1));
 
+        AppUser chethan = createUser(
+                "chethan@gmail.com", "Chethan Reddy", ROLE_SPORTS_ADMIN, hash,
+                leCommunity, "B", "504", "MALE", LocalDate.of(1990, 1, 1));
+
         AppUser ramesh = createUser(
-                "ramesh@gmail.com", "Ramesh Korlakunta", "SPORTS_ADMIN", hash,
+                "ramesh@gmail.com", "Ramesh Korlakunta", ROLE_SPORTS_ADMIN, hash,
                 leCommunity, "B", "907", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser mady = createUser(

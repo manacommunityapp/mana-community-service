@@ -11,8 +11,25 @@ import java.util.List;
  */
 public record SportsAdminOverviewResponse(
         List<TournamentRow> tournaments,
-        List<EventRow> events
+        List<EventRow> events,
+        List<RegistrationRow> pendingRegistrations,
+        List<RegistrationRow> confirmedRegistrations
 ) {
+
+    public record RegistrationRow(
+            Long id,
+            String playerName,
+            String email,
+            String flatNumber,
+            String role,
+            String relation,
+            Integer age,
+            String status,
+            String eventName,
+            String sportName,
+            java.time.LocalDateTime registeredAt,
+            String proposedTeamName
+    ) {}
 
     /** A row in the tournaments list, with its nested events. */
     public record TournamentRow(

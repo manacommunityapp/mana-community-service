@@ -120,9 +120,9 @@ public class SampleDataService implements ApplicationRunner {
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
             venueSeeder.seed();
-            sportsEventSeeder.seed();
-            tournamentSeeder.seed();
-            auctionSeeder.seed();
+            //sportsEventSeeder.seed();
+            //tournamentSeeder.seed();
+            //auctionSeeder.seed();
 
             // Dedicated per-table seeders (run after their dependencies above)
             //rolePermissionDataSeeder.seed();

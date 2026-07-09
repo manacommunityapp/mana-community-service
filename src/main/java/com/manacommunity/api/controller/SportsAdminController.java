@@ -37,10 +37,11 @@ public class SportsAdminController {
 
     @GetMapping("/overview")
     public ResponseEntity<SportsAdminOverviewResponse> overview(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(adminService.getOverview(user));
+        return ResponseEntity.ok(adminService.getOverview(user, communityId));
     }
 
     @GetMapping("/form-data")
