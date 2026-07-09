@@ -26,6 +26,9 @@ public class TournamentResponse {
     private String contactName;
     private String contactNumber;
     private String contactEmail;
+    private Long contactId;
+    private String contactTitle;
+    private List<ContactDto> contacts;
     private String otherContacts;
     private Boolean allowAdminChat;
     private String registrationStatus;

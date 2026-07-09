@@ -1,6 +1,7 @@
 package com.manacommunity.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +24,7 @@ public class PlayerCategory {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @JsonProperty("categoryType")
     @Column(nullable = false, unique = false, length = 10)
     private String category_type; // MENS, WOMENS, BOYS, GIRLS, KIDS, SENIORS
 

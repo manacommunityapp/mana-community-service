@@ -52,6 +52,15 @@ public class Tournament {
     private String contactNumber;
     private String contactEmail;
 
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "tournament_contact",
+        joinColumns = @JoinColumn(name = "tournament_id"),
+        inverseJoinColumns = @JoinColumn(name = "contact_id")
+    )
+    @Builder.Default
+    private List<Contact> contacts = new ArrayList<>();
+
     @Column(length = 5000)
     private String otherContacts;
 

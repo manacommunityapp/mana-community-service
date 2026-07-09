@@ -34,12 +34,18 @@ public class UserSeeder {
     public void defaultSeed() {
         log.info("Seeding system and gated community users...");
         String hash = passwordEncoder.encode("password123");
-        Community leCommunity = communitySeeder.getLeCommunity();
+        Community leCommunity = communitySeeder.getGeneralCommunity();
 
         // 1. Core administrative/test accounts
         AppUser superAdmin = createUser(
+                "manacommunity@gmail.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
+                leCommunity, "", "", "MALE", LocalDate.of(1990, 1, 1));
+
+        // 1. Core administrative/test accounts
+        AppUser superAdmin2 = createUser(
                 "admin@manacommunity.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
-                null, "", "", "MALE", LocalDate.of(1990, 1, 1));
+                leCommunity, "", "", "MALE", LocalDate.of(1990, 1, 1));
+
     }
 
 
@@ -50,11 +56,6 @@ public class UserSeeder {
         String hash = passwordEncoder.encode("password123");
         Community leCommunity = communitySeeder.getLeCommunity();
 
-        // 1. Core administrative/test accounts
-        AppUser superAdmin = createUser(
-                "admin@manacommunity.com", "Super Admin", ROLE_SUPER_ADMIN, hash,
-                null, "", "", "MALE", LocalDate.of(1990, 1, 1));
-
         AppUser sandeep = createUser(
                 "sandeep@gmail.com", "Sandeep Kamarapu", ROLE_MEMBER, hash,
                 leCommunity, "B", "806", "MALE", LocalDate.of(1990, 1, 1));
@@ -63,8 +64,12 @@ public class UserSeeder {
                 "sunil@gmail.com", "Sunil Kanthala", ROLE_ADMIN, hash,
                 leCommunity, "C", "212", "MALE", LocalDate.of(1990, 1, 1));
 
+        AppUser chethan = createUser(
+                "chethan@gmail.com", "Chethan Reddy", ROLE_SPORTS_ADMIN, hash,
+                leCommunity, "B", "504", "MALE", LocalDate.of(1990, 1, 1));
+
         AppUser ramesh = createUser(
-                "ramesh@gmail.com", "Ramesh Korlakunta", "SPORTS_ADMIN", hash,
+                "ramesh@gmail.com", "Ramesh Korlakunta", ROLE_SPORTS_ADMIN, hash,
                 leCommunity, "B", "907", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser mady = createUser(

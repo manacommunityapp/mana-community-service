@@ -57,4 +57,8 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     Page<SportsEvent> findByActiveTrue(Pageable pageable);
 
     Page<SportsEvent> findByCommunityIdAndActiveTrue(Long communityId, Pageable pageable);
+
+    long countByTournamentRegistrationStatus(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
+
+    long countByCommunityIdAndTournamentRegistrationStatus(Long communityId, com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
 }

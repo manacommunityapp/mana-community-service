@@ -15,6 +15,9 @@ import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.repository.PlayerCategoryRepository;
 import com.manacommunity.api.repository.SportMetaRepository;
+import com.manacommunity.api.repository.SportsEventRegistrationRepository;
+import com.manacommunity.api.model.SportsEventRegistration;
+import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.RegistrationRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -38,22 +41,23 @@ public class SportsAdminService {
     private final CommunityService communityService;
     private final SportMetaRepository sportMetaRepo;
     private final PlayerCategoryRepository categoryRepo;
+    private final SportsEventRegistrationRepository regRepo;
 
     // ── Overview (Dashboard / Sports Event tabs) ──────────────────────
 
     @Transactional(readOnly = true)
-    public SportsAdminOverviewResponse getOverview(AppUser user) {
+    public SportsAdminOverviewResponse getOverview(AppUser user, Long communityId) {
         boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long activeCommId = isSuperAdmin ? communityId : (user.getCommunity() != null ? user.getCommunity().getId() : null);
 
-        List<Tournament> tournaments = isSuperAdmin
+        List<Tournament> tournaments = isSuperAdmin && activeCommId == null
                 ? tournamentService.getAllTournaments()
-                : (communityId != null ? tournamentService.getCommunityTournaments(communityId) : List.of());
+                : (activeCommId != null ? tournamentService.getCommunityTournaments(activeCommId) : List.of());
 
         PageRequest eventPage = PageRequest.of(0, 100, Sort.by("eventDateStart").descending());
-        List<SportsEvent> events = isSuperAdmin
+        List<SportsEvent> events = isSuperAdmin && activeCommId == null
                 ? eventService.getAllEvents(eventPage).getContent()
-                : (communityId != null ? eventService.getCommunityEvents(communityId, eventPage).getContent() : List.of());
+                : (activeCommId != null ? eventService.getCommunityEvents(activeCommId, eventPage).getContent() : List.of());
 
         List<TournamentRow> tournamentRows = tournaments.stream()
                 .map(this::toTournamentRow)
@@ -63,7 +67,46 @@ public class SportsAdminService {
                 .map(this::toEventRow)
                 .toList();
 
-        return new SportsAdminOverviewResponse(tournamentRows, eventRows);
+        List<SportsEventRegistration> registrations;
+        if (isSuperAdmin && activeCommId == null) {
+            registrations = regRepo.findAll();
+        } else if (activeCommId != null) {
+            registrations = regRepo.findByCommunityId(activeCommId);
+        } else {
+            registrations = List.of();
+        }
+
+        List<RegistrationRow> pendingRegistrations = registrations.stream()
+                .filter(r -> r.getStatus() == SportsEventRegistration.RegistrationStatus.PENDING 
+                        || r.getStatus() == SportsEventRegistration.RegistrationStatus.REGISTERED)
+                .map(this::toRegistrationRow)
+                .toList();
+
+        List<RegistrationRow> confirmedRegistrations = registrations.stream()
+                .filter(r -> r.getStatus() == SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .map(this::toRegistrationRow)
+                .toList();
+
+        return new SportsAdminOverviewResponse(tournamentRows, eventRows, pendingRegistrations, confirmedRegistrations);
+    }
+
+    private RegistrationRow toRegistrationRow(SportsEventRegistration r) {
+        String eventName = r.getEvent() != null ? r.getEvent().getName() : "";
+        String sportName = r.getEvent() != null && r.getEvent().getSport() != null ? r.getEvent().getSport().getName() : "";
+        return new RegistrationRow(
+                r.getId(),
+                r.getPlayerName(),
+                r.getEmail(),
+                r.getFlatNumber(),
+                r.getRole(),
+                r.getRelation(),
+                r.getAge(),
+                r.getStatus() != null ? r.getStatus().name() : null,
+                eventName,
+                sportName,
+                r.getRegisteredAt(),
+                r.getProposedTeamName()
+        );
     }
 
     private TournamentRow toTournamentRow(Tournament t) {
@@ -97,7 +140,8 @@ public class SportsAdminService {
                 t != null && t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null,
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 sport != null ? new SportRef(sport.getName(), sport.getIcon(), sport.getIconUrl()) : null,
-                t != null ? t.getId() : null
+                t != null ? t.getId() : null,
+                e.getAdminApprovalRequired()
         );
     }
 

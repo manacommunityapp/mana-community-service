@@ -42,12 +42,12 @@ public class SampleDataService implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        try {
-            entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
-            log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.");
-        } catch (Exception e) {
-            log.warn("Could not drop legacy unique constraint on startup: {}", e.getMessage());
-        }
+//        try {
+//            entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
+//            log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.");
+//        } catch (Exception e) {
+//            log.warn("Could not drop legacy unique constraint on startup: {}", e.getMessage());
+//        }
 
         try {
             entityManager.createNativeQuery("SELECT setval('manacommunity.roles_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.roles), false)").getSingleResult();
@@ -56,16 +56,27 @@ public class SampleDataService implements ApplicationRunner {
             log.warn("Could not synchronize roles sequence on startup: {}", e.getMessage());
         }
 
+        boolean insertSampleData = environment.getProperty("app.insert-sample-data", Boolean.class, false);
         String ddlAuto = environment.getProperty("spring.jpa.hibernate.ddl-auto", "none");
         if ("update".equalsIgnoreCase(ddlAuto)) {
-            log.info("DDL-Auto is 'update'. Running sample data seeding...");
-            //executeSampleDataSql();
+            log.info("DDL-Auto is 'update'.");
+            if (insertSampleData) {
+                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
+                executeSampleDataSql();
+            }
         } else if ("create".equalsIgnoreCase(ddlAuto)) {
-            log.info("DDL-Auto is 'create'. Running sample data seeding...");
-            //executeDefaultDataSql();
-            executeSampleDataSql();
+            log.info("DDL-Auto is 'create'. Running default data seeding...");
+            executeDefaultDataSql();
+            if (insertSampleData) {
+                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
+                executeSampleDataSql();
+            }
         } else {
-            log.info("DDL-Auto is '{}'. Skipping sample data seeding.", ddlAuto);
+            log.info("DDL-Auto is '{}'.", ddlAuto);
+            if (insertSampleData) {
+                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
+                executeSampleDataSql();
+            }
         }
     }
 
@@ -75,11 +86,12 @@ public class SampleDataService implements ApplicationRunner {
             communitySeeder.defaultSeed();
             rolePermissionSeeder.defaultSeed();
             userSeeder.defaultSeed();
-            rolePermissionSeeder.seedUserPermissions();
-            sportsMetaSeeder.seed();
-            playerCategorySeeder.defaultSeed();
-            venueSeeder.defaultSeed();
 
+            sportsMetaSeeder.defaultSeed();
+            playerCategorySeeder.defaultSeed();
+
+            //venueSeeder.defaultSeed();
+            communitySeeder.seed();
             return "Default data successfully seeded using Java repositories!";
         } catch (Exception e) {
             log.error("Failed to seed database: ", e);
@@ -91,34 +103,34 @@ public class SampleDataService implements ApplicationRunner {
     public String executeSampleDataSql() {
         try {
             log.info("Starting Java-based database seeding...");
-            try {
-                entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
-                log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.");
-            } catch (Exception e) {
-                log.warn("Could not drop legacy unique constraint: {}", e.getMessage());
-            }
+//            try {
+//                entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
+//                log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.");
+//            } catch (Exception e) {
+//                log.warn("Could not drop legacy unique constraint: {}", e.getMessage());
+//            }
 
+            //executeDefaultDataSql();
             // ════════════════════════════════════════════════════════════════════
             // Execute modular seeders in strict dependency order
             // ════════════════════════════════════════════════════════════════════
-            rolePermissionSeeder.seed();
-            communitySeeder.seed();
-            sportsMetaSeeder.seed();
+            //rolePermissionSeeder.seed();
+            //communitySeeder.seed();
             userSeeder.seed();
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
             venueSeeder.seed();
-            sportsEventSeeder.seed();
-            tournamentSeeder.seed();
-            auctionSeeder.seed();
+            //sportsEventSeeder.seed();
+            //tournamentSeeder.seed();
+            //auctionSeeder.seed();
 
             // Dedicated per-table seeders (run after their dependencies above)
-            rolePermissionDataSeeder.seed();
-            venueDataSeeder.seed();
-            courtDataSeeder.seed();
-            sportsEventDataSeeder.seed();
-            sportsEventRegistrationDataSeeder.seed();
-            tournamentDataSeeder.seed();
+            //rolePermissionDataSeeder.seed();
+            //venueDataSeeder.seed();
+            //courtDataSeeder.seed();
+            //sportsEventDataSeeder.seed();
+            //sportsEventRegistrationDataSeeder.seed();
+            //tournamentDataSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");

@@ -163,67 +163,6 @@ public class SportsController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/categories")
-    public ResponseEntity<List<PlayerCategory>> getCategories(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
-        if (ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
-            return ResponseEntity.ok(categoryRepo.findAll());
-        }
-        Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        if (communityId != null) {
-            return ResponseEntity.ok(categoryRepo.findDefaultAndCommunityCategories(communityId));
-        }
-        return ResponseEntity.ok(Collections.emptyList());
-    }
-
-    @PostMapping("/categories")
-    public ResponseEntity<PlayerCategory> createCategory(
-            @Valid @RequestBody PlayerCategoryRequest req,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
-        String userRole = loggedInUser.getRole();
-        String typeValue;
-        switch (userRole) {
-            case ROLE_SUPER_ADMIN:
-                typeValue = "DEFAULT";
-                break;
-            case ROLE_ADMIN, ROLE_SPORTS_ADMIN:
-                typeValue = "USER";
-                break;
-            case ROLE_VENDOR:
-                typeValue = "VENDOR";
-                break;
-            default:
-                throw new com.manacommunity.api.exception.InvalidInputException("Unknown user role: " + userRole);
-        }
-        req.setType(typeValue);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(eventService.createCategory(req));
-    }
-
-    @PutMapping("/categories/{id}")
-    public ResponseEntity<PlayerCategory> updateCategory(
-            @PathVariable Long id,
-            @Valid @RequestBody com.manacommunity.api.dto.PlayerCategoryRequest req,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.updateCategory(id, req));
-    }
-
-    @DeleteMapping("/categories/{id}")
-    public ResponseEntity<Void> deleteCategory(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
-        eventService.deleteCategory(id);
-        return ResponseEntity.noContent().build();
-    }
 
 
     @PostMapping("/events")
@@ -634,6 +573,11 @@ public class SportsController {
                 .contactName(e.getContactName())
                 .contactNumber(e.getContactNumber())
                 .contactEmail(e.getContactEmail())
+                .contacts(e.getContacts() != null
+                        ? e.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
+                            .id(c.getId()).name(c.getName()).title(c.getTitle())
+                            .number(c.getNumber()).email(c.getEmail()).build()).toList()
+                        : java.util.List.of())
                 .otherContacts(e.getOtherContacts())
                 .auctionEnabled(e.getAuctionEnabled())
                 .bannerImage(e.getBannerImage())

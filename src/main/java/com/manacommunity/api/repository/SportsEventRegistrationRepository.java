@@ -34,4 +34,6 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
             @org.springframework.data.repository.query.Param("sportId") Long sportId, 
             //@org.springframework.data.repository.query.Param("registrationStatus") SportsEventRegistration.RegistrationStatus status,
             @org.springframework.data.repository.query.Param("excludedStatuses") java.util.List<com.manacommunity.api.model.SportsEvent.EventStatus> excludedStatuses);
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM SportsEventRegistration r WHERE r.event.community.id = :communityId")
+    List<SportsEventRegistration> findByCommunityId(@org.springframework.data.repository.query.Param("communityId") Long communityId);
 }

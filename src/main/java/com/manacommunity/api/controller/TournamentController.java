@@ -111,6 +111,11 @@ public class TournamentController {
                 .contactName(t.getContactName())
                 .contactNumber(t.getContactNumber())
                 .contactEmail(t.getContactEmail())
+                .contacts(t.getContacts() != null
+                        ? t.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
+                            .id(c.getId()).name(c.getName()).title(c.getTitle())
+                            .number(c.getNumber()).email(c.getEmail()).build()).toList()
+                        : java.util.List.of())
                 .otherContacts(t.getOtherContacts())
                 .allowAdminChat(t.getAllowAdminChat())
                 .registrationStatus(t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null)

@@ -26,6 +26,10 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 
+import com.manacommunity.api.repository.ContactRepository;
+import com.manacommunity.api.model.Contact;
+import com.manacommunity.api.dto.ContactDto;
+
 @Service
 @RequiredArgsConstructor
 public class SportsEventServiceImpl implements SportsEventService {
@@ -45,6 +49,23 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final RegistrationEmailService registrationEmailService;
     private final com.manacommunity.api.service.RecaptchaService recaptchaService;
     private final com.manacommunity.api.service.OtpService otpService;
+    private final ContactRepository contactRepository;
+
+    private java.util.List<Contact> resolveContacts(java.util.List<ContactDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) return new java.util.ArrayList<>();
+        return dtos.stream().map(dto -> {
+            if (dto.getId() != null) {
+                return contactRepository.findById(dto.getId())
+                        .orElseGet(() -> contactRepository.save(Contact.builder()
+                                .name(dto.getName()).title(dto.getTitle())
+                                .number(dto.getNumber()).email(dto.getEmail()).build()));
+            }
+            return contactRepository.findByNameAndNumberAndEmail(dto.getName(), dto.getNumber(), dto.getEmail())
+                    .orElseGet(() -> contactRepository.save(Contact.builder()
+                            .name(dto.getName()).title(dto.getTitle())
+                            .number(dto.getNumber()).email(dto.getEmail()).build()));
+        }).collect(java.util.stream.Collectors.toList());
+    }
 
     @Transactional
     public SportsEvent createEvent(SportsEventRequest req, Long adminUserId) {
@@ -83,6 +104,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .contactName(req.getContactName())
                 .contactNumber(req.getContactNumber())
                 .contactEmail(req.getContactEmail())
+                .contacts(resolveContacts(req.getContacts()))
                 .otherContacts(req.getOtherContacts())
                 .auctionEnabled(req.getAuctionEnabled() != null && req.getAuctionEnabled())
                 .bannerImage(req.getBannerImage())
@@ -193,6 +215,10 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         SportsEventRegistration saved = regRepo.save(reg);
 
+        if (!approvalRequired) {
+            handleConfirmationSideEffects(saved);
+        }
+
         // Email the right stage: "we received your entry" (pending) vs. "you're confirmed".
         registrationEmailService.send(saved, approvalRequired
                 ? RegistrationEmailService.Stage.RECEIVED
@@ -245,6 +271,15 @@ public class SportsEventServiceImpl implements SportsEventService {
         reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
         SportsEventRegistration saved = regRepo.save(reg);
 
+        handleConfirmationSideEffects(saved);
+
+        // Registration process — the entry is now CONFIRMED.
+        registrationEmailService.send(saved, RegistrationEmailService.Stage.CONFIRMED);
+
+        return saved;
+    }
+
+    private void handleConfirmationSideEffects(SportsEventRegistration saved) {
         auctionConfigRepo.findByEventId(saved.getEvent().getId()).ifPresent(config -> {
             boolean exists = playerRepo.findByConfigId(config.getId()).stream()
                     .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(saved.getUser().getId()));
@@ -273,11 +308,6 @@ public class SportsEventServiceImpl implements SportsEventService {
         });
 
         hydrateCaptaincy(List.of(saved), saved.getEvent().getId());
-
-        // Registration process — the entry is now CONFIRMED.
-        registrationEmailService.send(saved, RegistrationEmailService.Stage.CONFIRMED);
-
-        return saved;
     }
 
     @Override
@@ -373,28 +403,13 @@ public class SportsEventServiceImpl implements SportsEventService {
                     org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_STATUS");
         }
 
-        Tournament tournament = tournamentRepo.findById(id).orElse(null);
-        SportsEvent event = null;
+        SportsEvent event = eventRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
+        Tournament tournament = event.getTournament();
         if (tournament != null) {
             tournament.setRegistrationStatus(tournamentStatus);
             tournamentRepo.save(tournament);
-
-            if (!tournament.getSportsEvents().isEmpty()) {
-                event = tournament.getSportsEvents().get(0);
-            }
-        }
-
-        if (event == null) {
-            event = eventRepo.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Tournament or Event", id));
-
-            Tournament linkedTournament = event.getTournament();
-            if (linkedTournament != null) {
-                linkedTournament.setRegistrationStatus(tournamentStatus);
-                tournamentRepo.save(linkedTournament);
-                tournament = linkedTournament;
-            }
         }
 
         boolean isClosing = tournamentStatus == Tournament.EventStatus.COMPLETED
@@ -678,6 +693,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setContactName(req.getContactName());
         event.setContactNumber(req.getContactNumber());
         event.setContactEmail(req.getContactEmail());
+        event.getContacts().clear();
+        event.getContacts().addAll(resolveContacts(req.getContacts()));
         event.setOtherContacts(req.getOtherContacts());
         if (req.getAuctionEnabled() != null) {
             event.setAuctionEnabled(req.getAuctionEnabled());
@@ -726,50 +743,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
-    // --- Player Category CRUD ---
-    
-    @Override
-    @Transactional
-    public PlayerCategory createCategory(com.manacommunity.api.dto.PlayerCategoryRequest req) {
-        PlayerCategory cat = PlayerCategory.builder()
-                .name(req.getName())
-                .category_type(req.getCategoryType())
-                .description(req.getDescription())
-                .minAge(req.getMinAge())
-                .maxAge(req.getMaxAge())
-                .gender(req.getGender())
-                .type(req.getType())
-                .build();
-        if (req.getCommunityId() != null) {
-            cat.setCommunity(communityRepo.findById(req.getCommunityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())));
-        }
-        return categoryRepo.save(cat);
-    }
 
-    @Override
-    @Transactional
-    public PlayerCategory updateCategory(Long id, com.manacommunity.api.dto.PlayerCategoryRequest req) {
-        PlayerCategory cat = categoryRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PlayerCategory", id));
-        cat.setName(req.getName());
-        cat.setCategory_type(req.getCategoryType());
-        cat.setDescription(req.getDescription());
-        cat.setMinAge(req.getMinAge());
-        cat.setMaxAge(req.getMaxAge());
-        cat.setGender(req.getGender());
-        if (req.getCommunityId() != null) {
-            cat.setCommunity(communityRepo.findById(req.getCommunityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())));
-        } else {
-            cat.setCommunity(null);
-        }
-        return categoryRepo.save(cat);
-    }
-
-    @Override
-    @Transactional
-    public void deleteCategory(Long id) {
-        categoryRepo.deleteById(id);
-    }
 
     private String listToCommaString(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return null;

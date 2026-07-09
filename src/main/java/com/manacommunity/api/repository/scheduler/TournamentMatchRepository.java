@@ -58,4 +58,12 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
     @Modifying(clearAutomatically = true)
     @Query("UPDATE TournamentMatch m SET m.status = :status WHERE m.config.id = :configId")
     int updateStatusByConfigId(@Param("configId") Long configId, @Param("status") MatchStatus status);
+
+    @Query("SELECT COUNT(m) FROM TournamentMatch m WHERE m.config.community.id = :communityId")
+    long countByCommunityId(@Param("communityId") Long communityId);
+
+    @Query("SELECT COUNT(m) FROM TournamentMatch m WHERE m.config.community.id = :communityId AND m.status = :status")
+    long countByCommunityIdAndStatus(@Param("communityId") Long communityId, @Param("status") MatchStatus status);
+
+    long countByStatus(MatchStatus status);
 }

@@ -33,6 +33,9 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     @Query("SELECT DISTINCT t FROM Tournament t LEFT JOIN FETCH t.sportsEvents se WHERE t.registrationStatus = :status AND t.community.id = :communityId ORDER BY t.createdAt DESC")
     List<Tournament> findByRegistrationStatusAndCommunityWithEvents(@Param("status") Tournament.EventStatus status, @Param("communityId") Long communityId);
 
+    long countByRegistrationStatusIn(List<Tournament.EventStatus> statuses);
+    long countByCommunityIdAndRegistrationStatusIn(Long communityId, List<Tournament.EventStatus> statuses);
+
     @Modifying
     @Transactional
     @Query("DELETE FROM Tournament t WHERE t.id IN (SELECT t2.id FROM Tournament t2 JOIN t2.sportsEvents se WHERE se.id = :eventId)")

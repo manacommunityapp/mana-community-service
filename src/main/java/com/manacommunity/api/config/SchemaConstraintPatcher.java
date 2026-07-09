@@ -411,6 +411,25 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher email-column patch failed: {}", e.getMessage(), e);
             }
 
+            // Ensure the venue.contact_title column exists before Hibernate validates.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.venue') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.venue
+                              ADD COLUMN IF NOT EXISTS contact_title varchar(100);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("venue.contact_title column ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher venue contact_title column patch failed: {}", e.getMessage(), e);
+            }
+
             // Ensure the app_user brute-force lockout columns exist before Hibernate
             // validates (prod runs ddl-auto=validate). Idempotent + table-guarded.
             try (Connection conn = dataSource.getConnection();

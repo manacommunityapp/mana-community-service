@@ -47,6 +47,17 @@ public class Venue {
 
     private String contactEmail;
 
+    private String contactTitle;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "venue_contact",
+        joinColumns = @JoinColumn(name = "venue_id"),
+        inverseJoinColumns = @JoinColumn(name = "contact_id")
+    )
+    @Builder.Default
+    private List<Contact> contacts = new ArrayList<>();
+
     @OneToMany(mappedBy = "venue", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private List<Court> courts = new ArrayList<>();

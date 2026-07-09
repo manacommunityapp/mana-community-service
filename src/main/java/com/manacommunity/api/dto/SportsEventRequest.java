@@ -51,6 +51,8 @@ public class SportsEventRequest {
     private String contactName;
     private String contactNumber;
     private String contactEmail;
+    private String contactTitle;
+    private java.util.List<ContactDto> contacts;
     private String otherContacts;
     private Boolean auctionEnabled;
     private String bannerImage;
