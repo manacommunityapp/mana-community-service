@@ -12,6 +12,7 @@ public class AuthResponse {
     private String role;
     private Long communityId;
     private java.time.LocalDate dateOfBirth;
+    private java.util.List<String> enabledModules;
 
     public AuthResponse(String userId, String message, String token) {
         this.userId = userId;
@@ -71,4 +72,7 @@ public class AuthResponse {
 
     public java.time.LocalDate getDateOfBirth() { return dateOfBirth; }
     public void setDateOfBirth(java.time.LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+
+    public java.util.List<String> getEnabledModules() { return enabledModules; }
+    public void setEnabledModules(java.util.List<String> enabledModules) { this.enabledModules = enabledModules; }
 }

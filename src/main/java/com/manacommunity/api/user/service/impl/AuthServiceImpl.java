@@ -24,6 +24,7 @@ import com.manacommunity.api.security.AuditLogService;
 import com.manacommunity.api.security.JwtTokenProvider;
 import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.user.service.AuthService;
+import com.manacommunity.api.service.CommunityModuleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -61,6 +62,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.user.security.SessionService sessionService;
     @Autowired
     private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
+    @Autowired
+    private CommunityModuleService communityModuleService;
 
     @Override
     @Transactional
@@ -235,6 +238,12 @@ public class AuthServiceImpl implements AuthService {
                 user.getDateOfBirth()
         );
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
+        
+        java.util.List<String> enabledModules = user.getCommunity() != null 
+                ? communityModuleService.getEnabledModuleKeys(user.getCommunity().getId()) 
+                : java.util.Collections.emptyList();
+        response.setEnabledModules(enabledModules);
+        
         return response;
     }
 

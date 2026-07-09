@@ -20,4 +20,7 @@ public interface CommunityService {
 
     /** Soft-deletes a community (sets active=false; the row is preserved). */
     void deleteCommunity(Long id);
+
+    /** Updates the list of enabled feature modules for a community. */
+    CommunityResponse updateEnabledModules(Long id, List<String> modules);
 }

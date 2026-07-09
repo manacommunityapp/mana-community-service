@@ -87,4 +87,17 @@ public class CommunityController {
         communityService.deleteCommunity(id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * PUT /api/communities/{id}/modules
+     * Updates enabled feature modules for a community. SUPER_ADMIN only.
+     */
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PutMapping("/{id}/modules")
+    public ResponseEntity<CommunityResponse> updateModules(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, java.util.List<String>> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(communityService.updateEnabledModules(id, body.get("modules")));
+    }
 }

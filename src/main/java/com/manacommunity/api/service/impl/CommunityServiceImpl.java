@@ -1,8 +1,11 @@
 package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.CommunityModule;
+import com.manacommunity.api.repository.CommunityModuleRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.response.CommunityResponse;
+import com.manacommunity.api.service.CommunityModuleService;
 import com.manacommunity.api.service.CommunityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,12 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Autowired
     private CommunityRoleInitializer communityRoleInitializer;
+
+    @Autowired
+    private CommunityModuleService communityModuleService;
+
+    @Autowired
+    private CommunityModuleRepository communityModuleRepo;
 
     @Override
     public List<CommunityResponse> getAllCommunities() {
@@ -42,6 +51,7 @@ public class CommunityServiceImpl implements CommunityService {
         community.setActive(true);
         Community saved = communityRepository.save(community);
         communityRoleInitializer.initializeCommunityRoles(saved);
+        communityModuleService.initializeModulesForCommunity(saved.getId());
         return toResponse(saved);
     }
 
@@ -62,14 +72,28 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     @org.springframework.transaction.annotation.Transactional
+    public CommunityResponse updateEnabledModules(Long id, List<String> modules) {
+        Community community = communityRepository.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Community", id));
+
+        var allModules = communityModuleRepo.findByCommunityIdOrderBySortOrderAsc(id);
+        for (CommunityModule cm : allModules) {
+            boolean shouldEnable = modules != null && modules.contains(cm.getModuleKey());
+            cm.setIsEnabled(shouldEnable);
+        }
+        communityModuleRepo.saveAll(allModules);
+
+        return toResponse(community);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
     public void deleteCommunity(Long id) {
         Community community = communityRepository.findById(id)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Community", id));
         community.setActive(false);
         communityRepository.save(community);
     }
-
-    // ─── Mapper ──────────────────────────────────────────────────────────────
 
     private Community toEntity(CommunityResponse r) {
         return Community.builder()
@@ -84,6 +108,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private CommunityResponse toResponse(Community c) {
+        List<String> modules = communityModuleService.getEnabledModuleKeys(c.getId());
         return new CommunityResponse(
                 c.getId(),
                 c.getName(),
@@ -93,7 +118,8 @@ public class CommunityServiceImpl implements CommunityService {
                 c.getArea(),
                 c.getSubtype(),
                 c.getInviteCode(),
-                c.getActive()
+                c.getActive(),
+                modules
         );
     }
 }

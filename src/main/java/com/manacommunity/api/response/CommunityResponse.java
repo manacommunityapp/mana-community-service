@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * Lightweight DTO returned for community dropdowns.
  * Exposes only what the signup form needs.
@@ -21,4 +23,5 @@ public class CommunityResponse {
     private String subtype;
     private String inviteCode;
     private Boolean active;
+    private List<String> enabledModules;
 }
