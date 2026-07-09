@@ -1,0 +1,40 @@
+package com.manacommunity.api.events.entity;
+
+import com.manacommunity.api.user.model.AppUser;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "event_registration", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"event_id", "user_id"})
+})
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class EventRegistration {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private CommunityEvent event;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AppUser user;
+
+    @Column(name = "registered_at", nullable = false, updatable = false)
+    private LocalDateTime registeredAt;
+
+    @PrePersist
+    protected void onCreate() {
+        registeredAt = LocalDateTime.now();
+    }
+}
