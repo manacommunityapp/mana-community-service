@@ -27,6 +27,7 @@ public class UserController {
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.repository.RolePermissionRepository rolePermissionRepo;
     private final com.manacommunity.api.service.RoleService roleService;
+    private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
 
     private java.util.List<String> getPermissionsForUser(AppUser user) {
         if (user.getRole() == null) {
@@ -49,6 +50,13 @@ public class UserController {
                 .toList();
     }
 
+    private java.util.List<String> getEnabledModules(AppUser user) {
+        if (user.getCommunity() == null) {
+            return java.util.Collections.emptyList();
+        }
+        return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getLoggedInUserDetails(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -68,6 +76,7 @@ public class UserController {
                 .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
                 .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
                 .permissions(getPermissionsForUser(user))
+                .enabledModules(getEnabledModules(user))
                 .build();
 
         return ResponseEntity.ok(response);

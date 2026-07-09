@@ -23,4 +23,5 @@ public class UserResponse {
     private Long roleId;
     private Boolean isActive;
     private java.util.List<String> permissions;
+    private java.util.List<String> enabledModules;
 }
