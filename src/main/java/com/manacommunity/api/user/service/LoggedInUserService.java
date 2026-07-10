@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class LoggedInUserService {
 
+    private static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
+
     private final AppUserRepository userRepository;
 
     /**
@@ -30,5 +32,25 @@ public class LoggedInUserService {
     public AppUser resolve(UserPrincipal principal) {
         return userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", principal.getId().toString()));
+    }
+
+    public ResolvedUser resolveContext(UserPrincipal principal) {
+        return ResolvedUser.from(resolve(principal));
+    }
+
+    public record ResolvedUser(AppUser user, boolean superAdmin, Long communityId) {
+        public static ResolvedUser from(AppUser user) {
+            boolean sa = ROLE_SUPER_ADMIN.equals(user.getRole());
+            Long cid = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            return new ResolvedUser(user, sa, cid);
+        }
+
+        public Long userId() {
+            return user.getId();
+        }
+
+        public Long scopeCommunityId(Long requestedCommunityId) {
+            return superAdmin ? requestedCommunityId : communityId;
+        }
     }
 }

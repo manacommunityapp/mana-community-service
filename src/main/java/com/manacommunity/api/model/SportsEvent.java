@@ -132,8 +132,12 @@ public class SportsEvent {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
-    @Column(name = "dispute_committee_ids", length = 1000)
-    private String disputeCommitteeIds;
+    @ManyToMany
+    @JoinTable(name = "sports_event_dispute_committee",
+            joinColumns = @JoinColumn(name = "sports_event_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @Builder.Default
+    private Set<AppUser> disputeCommittee = new java.util.HashSet<>();
 
     private String contactName;
     private String contactNumber;

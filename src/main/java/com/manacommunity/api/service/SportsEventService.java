@@ -44,5 +44,5 @@ public interface SportsEventService {
     
     java.util.List<java.util.Map<String, Object>> getEventMap(Long communityId);
     long getConfirmedRegistrationCount(Long eventId);
-    
+    SportsEvent updateDisputeCommittee(Long eventId, java.util.List<Long> userIds);
 }

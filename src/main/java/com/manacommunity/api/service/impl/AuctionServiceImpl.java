@@ -13,6 +13,7 @@ import com.manacommunity.api.exception.AuctionStateException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.AuctionService;
+import com.manacommunity.api.service.AuctionWebSocketService;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class AuctionServiceImpl implements AuctionService {
     private final com.manacommunity.api.repository.SportsEventRepository eventRepo;
     private final com.manacommunity.api.security.AuditService auditService;
     private final MeterRegistry meterRegistry;
+    private final AuctionWebSocketService auctionWs;
 
     @Override
     public List<AuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId) {
@@ -215,6 +217,8 @@ public class AuctionServiceImpl implements AuctionService {
         config.setStatus(newStatus);
         AuctionConfig savedConfig = configRepo.save(config);
 
+        auctionWs.broadcastStatusChange(configId, oldStatus.name(), newStatus.name());
+
         // Audit the lifecycle transitions only (start / end), not every save.
         if (oldStatus != newStatus) {
             if (newStatus == AuctionConfig.AuctionStatus.LIVE || newStatus == AuctionConfig.AuctionStatus.ACTIVE) {
@@ -338,6 +342,14 @@ public class AuctionServiceImpl implements AuctionService {
             "AuctionPlayer", String.valueOf(player.getId()),
             null,
             "team=" + team.getTeamName() + ", amount=" + req.bidAmount());
+
+        auctionWs.broadcastBid(config.getId(), AuctionBidResponse.builder()
+            .id(saved.getId()).configId(config.getId())
+            .playerId(player.getId()).teamId(team.getId())
+            .teamName(team.getTeamName()).bidAmount(saved.getBidAmount())
+            .incrementUsed(saved.getIncrementUsed()).isRtm(saved.getIsRtm())
+            .bidByUserId(biddingUserId).bidAt(saved.getBidAt()).build());
+
         return saved;
     }
 
@@ -388,6 +400,12 @@ public class AuctionServiceImpl implements AuctionService {
             "AuctionPlayer", String.valueOf(player.getId()),
             null,
             "soldTo=" + team.getTeamName() + ", price=" + soldPrice);
+
+        auctionWs.broadcastPlayerSold(player.getConfig().getId(),
+            new AuctionWebSocketService.PlayerSoldPayload(
+                player.getId(), player.getPlayerName(),
+                team.getId(), team.getTeamName(), soldPrice));
+
         return savedPlayer;
     }
 
@@ -412,7 +430,14 @@ public class AuctionServiceImpl implements AuctionService {
             .config(config).action("PLAYER_PASSED").player(player)
             .performedBy(userRepo.getReferenceById(adminUserId)).build());
 
-        return playerRepo.save(player);
+        AuctionPlayer saved = playerRepo.save(player);
+
+        auctionWs.broadcastPlayerPassed(config.getId(),
+            new AuctionWebSocketService.PlayerPassedPayload(
+                player.getId(), player.getPlayerName(),
+                player.getStatus().name(), player.getQueueOrder()));
+
+        return saved;
     }
 
     @Override
@@ -596,7 +621,7 @@ public class AuctionServiceImpl implements AuctionService {
 
         log.info("Random player picked for auction: {} (id={})", picked.getPlayerName(), picked.getId());
 
-        return new PlayerWithBidResponse(
+        PlayerWithBidResponse response = new PlayerWithBidResponse(
             picked.getId(), picked.getPlayerName(), picked.getCategory(),
             picked.getPlayerRole(), picked.getAge(), picked.getBasePrice(),
             picked.getStatsJson(), (long) picked.getBasePrice(),
@@ -604,5 +629,9 @@ public class AuctionServiceImpl implements AuctionService {
             config.calculateNextIncrement(picked.getBasePrice()),
             null, picked.getQueueOrder(), picked.getStatus().name()
         );
+
+        auctionWs.broadcastPlayerPicked(configId, response);
+
+        return response;
     }
 }

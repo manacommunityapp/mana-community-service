@@ -96,7 +96,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .createdBy(userRepo.getReferenceById(adminUserId))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .disputeCommitteeIds(listToCommaString(req.getDisputeCommitteeIds()))
+                .disputeCommittee(resolveDisputeCommittee(req.getDisputeCommitteeIds()))
                 .minPlayers(req.getMinPlayers())
                 .maxPlayers(req.getMaxPlayers())
                 .gender(req.getGender())
@@ -681,7 +681,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
         }
         
-        event.setDisputeCommitteeIds(listToCommaString(req.getDisputeCommitteeIds()));
+        event.setDisputeCommittee(resolveDisputeCommittee(req.getDisputeCommitteeIds()));
         event.setMinPlayers(req.getMinPlayers());
         event.setMaxPlayers(req.getMaxPlayers());
         event.setGender(req.getGender());
@@ -745,8 +745,17 @@ public class SportsEventServiceImpl implements SportsEventService {
 
 
 
-    private String listToCommaString(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) return null;
-        return ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+    private java.util.Set<AppUser> resolveDisputeCommittee(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return new java.util.HashSet<>();
+        return new java.util.HashSet<>(userRepo.findAllById(userIds));
+    }
+
+    @Override
+    @Transactional
+    public SportsEvent updateDisputeCommittee(Long eventId, List<Long> userIds) {
+        SportsEvent event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
+        event.setDisputeCommittee(resolveDisputeCommittee(userIds));
+        return eventRepo.save(event);
     }
 }

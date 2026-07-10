@@ -2,6 +2,7 @@ package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.AuctionPlayer;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -39,11 +40,14 @@ public interface AuctionPlayerRepository extends JpaRepository<AuctionPlayer, Lo
     @Query("SELECT COUNT(p) FROM AuctionPlayer p WHERE p.config.id = :cid AND p.status = 'SOLD'")
     int countSold(@Param("cid") Long configId);
 
+    @EntityGraph(attributePaths = {"assignedTeam", "user"})
     List<AuctionPlayer> findByConfigIdAndCategoryOrderByQueueOrder(Long configId, String category);
     long countByConfigId(Long configId);
     long countByConfigIdAndStatus(Long configId, AuctionPlayer.PlayerStatus status);
+
+    @EntityGraph(attributePaths = {"assignedTeam", "user"})
     List<AuctionPlayer> findByConfigId(Long configId);
-    
-    // Existing method signature adapted for backward compatibility if needed, or new schema usage:
+
+    @EntityGraph(attributePaths = {"assignedTeam", "user"})
     List<AuctionPlayer> findByConfigIdAndStatusOrderByQueueOrderAsc(Long configId, AuctionPlayer.PlayerStatus status);
 }

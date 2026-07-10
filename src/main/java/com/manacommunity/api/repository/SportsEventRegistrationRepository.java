@@ -1,6 +1,7 @@
 package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.SportsEventRegistration;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,7 +12,11 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
 
     boolean existsByEventIdAndUserIsNullAndPlayerName(Long eventId, String playerName);
     long countByEventId(Long eventId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner"})
     List<SportsEventRegistration> findByEventId(Long eventId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner"})
     List<SportsEventRegistration> findByUserId(Long userId);
     List<SportsEventRegistration> findByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
     long countByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
