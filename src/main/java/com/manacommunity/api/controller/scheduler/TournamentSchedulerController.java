@@ -35,6 +35,7 @@ public class TournamentSchedulerController {
     private final LoggedInUserService        loggedInUserService;
     private final com.manacommunity.api.repository.AuctionConfigRepository auctionConfigRepo;
     private final com.manacommunity.api.service.scheduler.PlayoffScheduleGenerator playoffGenerator;
+    private final com.manacommunity.api.service.scheduler.MatchResultService matchResultService;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD — save / update (without schedule generation)
@@ -360,6 +361,52 @@ public class TournamentSchedulerController {
     public ResponseEntity<List<PlayoffMatchDraftResponse>> generatePlayoff(
             @Valid @RequestBody PlayoffGenerateRequest request) {
         return ResponseEntity.ok(playoffGenerator.buildPlayoffBracket(request));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DETAILED RESULTS, SCORECARDS & LEADERBOARDS
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/tournament/match/result/detail
+     * Records detailed result with scorecard (innings, batting, bowling).
+     */
+    @PostMapping("/match/result/detail")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
+    public ResponseEntity<MatchDetailResponse> recordDetailedResult(
+            @Valid @RequestBody MatchResultDetailRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(matchResultService.recordDetailedResult(req));
+    }
+
+    /**
+     * GET /api/tournament/match/{matchId}/detail
+     * Returns full match detail including scorecard and leaderboard snippet.
+     */
+    @GetMapping("/match/{matchId}/detail")
+    public ResponseEntity<MatchDetailResponse> getMatchDetail(@PathVariable Long matchId) {
+        return ResponseEntity.ok(matchResultService.getMatchDetail(matchId));
+    }
+
+    /**
+     * GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp
+     * Returns tournament leaderboard.
+     */
+    @GetMapping("/{configId}/leaderboard")
+    public ResponseEntity<List<MatchDetailResponse.PlayerStatsRow>> getLeaderboard(
+            @PathVariable Long configId,
+            @RequestParam(defaultValue = "runs") String type) {
+        return ResponseEntity.ok(matchResultService.getLeaderboard(configId, type));
+    }
+
+    /**
+     * GET /api/tournament/player/{playerId}/stats
+     * Returns player career stats across all tournaments.
+     */
+    @GetMapping("/player/{playerId}/stats")
+    public ResponseEntity<List<MatchDetailResponse.PlayerStatsRow>> getPlayerStats(
+            @PathVariable Long playerId) {
+        return ResponseEntity.ok(matchResultService.getPlayerCareerStats(playerId));
     }
 
     record TournamentTypeInfo(
