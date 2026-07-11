@@ -30,10 +30,10 @@ spring:
       - org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration
 
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
-  # Real delivery only happens when app.mail.enabled=true AND a host is set.
-  # Override these via env vars in prod (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD…).
+  # AWS SES SMTP via IAM user 'mailuser'. Real delivery only happens when
+  # app.mail.enabled=true AND credentials are set via env vars.
   mail:
-    host: ${MAIL_HOST:}
+    host: ${MAIL_HOST:email-smtp.ap-south-1.amazonaws.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
@@ -43,6 +43,9 @@ spring:
           auth: true
           starttls:
             enable: true
+            required: true
+          ssl:
+            protocols: TLSv1.2
 
   # ── Upload limits (file-upload hardening / DoS) ───────────────────────
   servlet:
