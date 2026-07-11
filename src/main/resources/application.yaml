@@ -35,8 +35,8 @@ spring:
   mail:
     host: ${MAIL_HOST:email-smtp.ap-south-1.amazonaws.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:AKIAS32HETSUFIPG545X}
+    password: ${MAIL_PASSWORD:BImHJcwK1cOgkMXLSl0BZ8onM23poOQx4+3ZaCSupVkA}
     properties:
       mail:
         smtp:
@@ -98,8 +98,8 @@ management:
 # ── Application-level email notification settings ───────────────────────
 app:
   mail:
-    # When false (default), emails are rendered + logged but NOT sent — safe for dev.
-    enabled: ${APP_MAIL_ENABLED:false}
+    # Set to true to enable email delivery via AWS SES.
+    enabled: ${APP_MAIL_ENABLED:true}
     from: ${APP_MAIL_FROM:no-reply@manacommunity.app}
     from-name: ${APP_MAIL_FROM_NAME:Mana Community}
     # Public base URL of the React app — used to build action links in emails.
