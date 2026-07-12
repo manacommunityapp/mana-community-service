@@ -36,6 +36,74 @@ public class NotificationManagementService {
     // ═══════════════════════════════════════════════════════════════
 
     /**
+     * Creates a notification for a user delivered via both EMAIL and IN_APP channels.
+     * Used by email services to persist a record alongside the email dispatch.
+     */
+    @Transactional
+    public Notification createEmailNotification(
+            Long userId,
+            NotificationType type,
+            NotificationCategory category,
+            String title,
+            String body,
+            String actionUrl,
+            ReferenceType referenceType,
+            Long referenceId,
+            NotificationPriority priority
+    ) {
+        Notification n = Notification.builder()
+                .user(userRepo.getReferenceById(userId))
+                .type(type)
+                .category(category != null ? category : NotificationCategory.GENERAL)
+                .title(title)
+                .body(body)
+                .actionUrl(actionUrl)
+                .referenceType(referenceType)
+                .referenceId(referenceId)
+                .priority(priority != null ? priority : NotificationPriority.NORMAL)
+                .channels("[\"EMAIL\",\"IN_APP\"]")
+                .build();
+        n = notificationRepo.save(n);
+        log.debug("Email+InApp notification created [{}] type={} for user={}", n.getId(), type, userId);
+        return n;
+    }
+
+    /**
+     * Creates email+in-app notifications for multiple users (bulk).
+     */
+    @Transactional
+    public int createBulkEmailNotifications(
+            List<Long> userIds,
+            NotificationType type,
+            NotificationCategory category,
+            String title,
+            String body,
+            String actionUrl,
+            ReferenceType referenceType,
+            Long referenceId,
+            NotificationPriority priority
+    ) {
+        List<Notification> notifications = userIds.stream()
+                .map(uid -> Notification.builder()
+                        .user(userRepo.getReferenceById(uid))
+                        .type(type)
+                        .category(category != null ? category : NotificationCategory.GENERAL)
+                        .title(title)
+                        .body(body)
+                        .actionUrl(actionUrl)
+                        .referenceType(referenceType)
+                        .referenceId(referenceId)
+                        .priority(priority != null ? priority : NotificationPriority.NORMAL)
+                        .channels("[\"EMAIL\",\"IN_APP\"]")
+                        .build())
+                .toList();
+        notificationRepo.saveAll(notifications);
+        log.info("Bulk-created {} email notifications of type {} for reference {}:{}",
+                notifications.size(), type, referenceType, referenceId);
+        return notifications.size();
+    }
+
+    /**
      * Creates a single in-app notification for one user.
      */
     @Transactional

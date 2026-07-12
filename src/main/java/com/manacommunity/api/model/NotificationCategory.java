@@ -6,6 +6,7 @@ package com.manacommunity.api.model;
 public enum NotificationCategory {
     SPORTS,
     AUCTION,
+    EVENTS,
     COMMUNITY,
     GENERAL
 }

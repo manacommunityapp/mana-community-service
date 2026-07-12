@@ -1,8 +1,9 @@
 package com.manacommunity.api.email;
 
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.*;
 import com.manacommunity.api.model.scheduler.TournamentConfig;
+import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,9 +20,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ScheduleEmailService {
 
-    private final EmailSupport          support;
-    private final EmailTemplateRenderer renderer;
-    private final EmailService          emailService;
+    private final EmailSupport                   support;
+    private final EmailTemplateRenderer          renderer;
+    private final EmailService                   emailService;
+    private final NotificationManagementService  notificationService;
 
     public void sendSchedulePublished(TournamentConfig config, List<AppUser> recipients, int matchCount) {
         if (config == null || recipients == null || recipients.isEmpty()) return;
@@ -54,5 +56,24 @@ public class ScheduleEmailService {
         emailService.sendAll(batch);
         log.info("Queued {} 'schedule published' emails for tournament '{}'",
                 batch.size(), config.getTournamentName());
+
+        try {
+            List<Long> userIds = recipients.stream()
+                    .filter(u -> u != null && u.getId() != null && !support.isBlank(u.getEmail()))
+                    .map(AppUser::getId)
+                    .toList();
+            if (!userIds.isEmpty()) {
+                String subject = EmailTemplate.SCHEDULE_PUBLISHED.defaultSubject()
+                        + " — " + config.getTournamentName();
+                notificationService.createBulkEmailNotifications(
+                        userIds, NotificationType.SCHEDULE_PUBLISHED, NotificationCategory.SPORTS,
+                        subject, matchCount + " matches scheduled for " + config.getTournamentName(),
+                        support.props().getBaseUrl() + "/profile?tab=schedule",
+                        ReferenceType.TOURNAMENT_CONFIG, config.getId(),
+                        NotificationPriority.NORMAL);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist schedule-published notifications: {}", e.getMessage());
+        }
     }
 }

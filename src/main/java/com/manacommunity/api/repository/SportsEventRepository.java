@@ -11,14 +11,7 @@ import java.util.UUID;
 
 public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> {
 
-    String EVENT_GRAPH = "SportsEvent.withAssociations";
-
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
-    @Override
-    Optional<SportsEvent> findById(Long id);
-
     /** Look up an event by its public, non-sequential UUID (used in shareable registration links). */
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     Optional<SportsEvent> findByUuid(UUID uuid);
 
     /**
@@ -29,7 +22,6 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
      *
      * Fixed by using Spring Data method derivation which handles enum properly.
      */
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     List<SportsEvent> findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
             Long communityId, List<com.manacommunity.api.model.Tournament.EventStatus> registrationStatuses);
 
@@ -41,7 +33,6 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
      *
      * Fixed using a subquery referencing SportsEventRegistration entity.
      */
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     @Query("""
         SELECT DISTINCT e FROM SportsEvent e
         WHERE e.id IN (
@@ -54,23 +45,17 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     List<SportsEvent> findEventsForUser(@Param("userId") Long userId);
 
     /** Find all events by registrationStatus, ordered by start date */
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     List<SportsEvent> findByTournamentRegistrationStatusOrderByEventDateStartAsc(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
 
     /** Find all events for a specific community */
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     List<SportsEvent> findByCommunityIdOrderByEventDateStartDesc(Long communityId);
 
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     List<SportsEvent> findByActiveTrue();
 
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     List<SportsEvent> findByCommunityIdAndActiveTrueOrderByEventDateStartDesc(Long communityId);
 
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     Page<SportsEvent> findByActiveTrue(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"sport", "community", "venue", "createdBy", "tournament", "categories", "sponsors", "contacts", "disputeCommittee"})
     Page<SportsEvent> findByCommunityIdAndActiveTrue(Long communityId, Pageable pageable);
 
     long countByTournamentRegistrationStatus(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);

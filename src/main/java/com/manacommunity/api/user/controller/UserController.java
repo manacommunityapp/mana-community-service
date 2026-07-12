@@ -145,6 +145,7 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
@@ -153,13 +154,21 @@ public class UserController {
 
         Page<AppUser> userPage;
         if (isSuperAdmin) {
-            userPage = appUserRepo.findAll(pageable);
+            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
+                userPage = appUserRepo.findByKycStatus(kycStatus.toUpperCase(), pageable);
+            } else {
+                userPage = appUserRepo.findAll(pageable);
+            }
         } else {
             Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (communityId == null) {
                 return ResponseEntity.ok(PagedResponse.empty());
             }
-            userPage = appUserRepo.findByCommunityId(communityId, pageable);
+            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
+                userPage = appUserRepo.findByCommunityIdAndKycStatus(communityId, kycStatus.toUpperCase(), pageable);
+            } else {
+                userPage = appUserRepo.findByCommunityId(communityId, pageable);
+            }
         }
         return ResponseEntity.ok(PagedResponse.from(userPage, u -> UserResponse.builder()
                         .id(u.getId())
@@ -264,5 +273,55 @@ public class UserController {
         rolePermissionRepo.saveAll(userPermissions);
         
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/kyc")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<Void> updateUserKycStatus(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
+        String status = body.get("status");
+        if (status == null || (!status.equals("VERIFIED") && !status.equals("REJECTED") && !status.equals("PENDING"))) {
+            throw new com.manacommunity.api.exception.InvalidInputException("Valid status (PENDING, VERIFIED, REJECTED) is required");
+        }
+        user.setKycStatus(status);
+        appUserRepo.save(user);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/kyc/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<com.manacommunity.api.user.dto.KycStatsResponse> getKycStats(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+
+        long total;
+        long pending;
+        long approved;
+        long rejected;
+
+        if (isSuperAdmin) {
+            total = appUserRepo.count();
+            approved = appUserRepo.countByKycStatus("VERIFIED");
+            rejected = appUserRepo.countByKycStatus("REJECTED");
+            pending = Math.max(0, total - approved - rejected);
+        } else {
+            Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            if (communityId == null) {
+                return ResponseEntity.ok(com.manacommunity.api.user.dto.KycStatsResponse.builder().build());
+            }
+            total = appUserRepo.countByCommunityId(communityId);
+            approved = appUserRepo.countByCommunityIdAndKycStatus(communityId, "VERIFIED");
+            rejected = appUserRepo.countByCommunityIdAndKycStatus(communityId, "REJECTED");
+            pending = Math.max(0, total - approved - rejected);
+        }
+
+        return ResponseEntity.ok(com.manacommunity.api.user.dto.KycStatsResponse.builder()
+                .total(total)
+                .pending(pending)
+                .approved(approved)
+                .rejected(rejected)
+                .build());
     }
 }

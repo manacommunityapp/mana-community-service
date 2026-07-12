@@ -1,7 +1,9 @@
 package com.manacommunity.api.email;
 
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.*;
 import com.manacommunity.api.model.scheduler.TournamentMatch;
+import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,9 +20,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MatchReminderEmailService {
 
-    private final EmailSupport          support;
-    private final EmailTemplateRenderer renderer;
-    private final EmailService          emailService;
+    private final EmailSupport                   support;
+    private final EmailTemplateRenderer          renderer;
+    private final EmailService                   emailService;
+    private final NotificationManagementService  notificationService;
 
     public void sendMatchReminder(TournamentMatch match, List<AppUser> recipients, long minutesUntilStart) {
         if (match == null || recipients == null || recipients.isEmpty()) return;
@@ -59,5 +62,23 @@ public class MatchReminderEmailService {
         emailService.sendAll(batch);
         log.info("Queued {} 'match reminder' emails for match {} ({})",
                 batch.size(), match.getId(), roundName);
+
+        try {
+            List<Long> userIds = recipients.stream()
+                    .filter(u -> u != null && u.getId() != null && !support.isBlank(u.getEmail()))
+                    .map(AppUser::getId)
+                    .toList();
+            if (!userIds.isEmpty()) {
+                notificationService.createBulkEmailNotifications(
+                        userIds, NotificationType.MATCH_REMINDER, NotificationCategory.SPORTS,
+                        homeTeam + " vs " + awayTeam + " starts in " + minutesUntilStart + " min",
+                        roundName + " at " + venueName,
+                        support.props().getBaseUrl() + "/profile?tab=schedule",
+                        ReferenceType.TOURNAMENT_MATCH, match.getId(),
+                        NotificationPriority.HIGH);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist match-reminder notifications for match {}: {}", match.getId(), e.getMessage());
+        }
     }
 }
