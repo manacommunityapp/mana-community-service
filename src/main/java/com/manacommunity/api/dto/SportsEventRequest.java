@@ -70,4 +70,6 @@ public class SportsEventRequest {
      * confirmation; when false they auto-confirm. Null is treated as true.
      */
     private Boolean adminApprovalRequired;
+
+    private Long tournamentId;
 }
