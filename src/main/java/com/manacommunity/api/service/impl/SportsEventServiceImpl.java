@@ -137,6 +137,12 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setSponsors(sponsorsList);
         }
 
+        if (req.getTournamentId() != null) {
+            Tournament tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Tournament", req.getTournamentId()));
+            event.setTournament(tournament);
+        }
+
         SportsEvent saved = eventRepo.save(event);
 
         if (req.getNotifications() != null)
