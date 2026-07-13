@@ -67,7 +67,27 @@ public class TournamentServiceImpl implements TournamentService {
     @Override
     @Transactional
     public void deleteTournament(Long id) {
-        tournamentRepo.deleteById(id);
+        Tournament tournament = tournamentRepo.findById(id).orElse(null);
+        if (tournament == null) {
+            return; // already gone — treat delete as idempotent
+        }
+
+        // Disassociate the sports events instead of deleting them: null out the
+        // FK on each event so the tournament can be removed without cascade-
+        // deleting events (which own registrations/matches and would block the
+        // delete). The events survive, just unlinked from any tournament.
+        List<SportsEvent> events = eventRepo.findByTournamentId(id);
+        for (SportsEvent ev : events) {
+            ev.setTournament(null);
+        }
+        eventRepo.saveAll(events);
+
+        // Keep the in-memory collection consistent so JPA doesn't re-link on flush.
+        if (tournament.getSportsEvents() != null) {
+            tournament.getSportsEvents().clear();
+        }
+
+        tournamentRepo.delete(tournament);
     }
 
     @Override
@@ -137,6 +157,7 @@ public class TournamentServiceImpl implements TournamentService {
             tournament.getSportsEvents().add(ev);
             eventRepo.save(ev);
         }
+        tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
 
         // Build mainEvent context for sponsors mapping
         SportsEvent mainEvent = null;

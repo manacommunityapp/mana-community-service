@@ -34,8 +34,18 @@ public class Tournament {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Community community;
 
-    @OneToMany(mappedBy = "tournament", cascade = CascadeType.ALL)
+    // One Tournament has Many Sports Events (1:N). Inverse side — the owning
+    // side is SportsEvent.tournament, whose @JoinColumn maps the FK
+    // sports_event.tournament_id. @Builder.Default is required because Lombok
+    // @Builder ignores the field initializer without it, which would otherwise
+    // leave sportsEvents null on builder-created Tournament rows.
+    //
+    // Cascade is PERSIST+MERGE only (NOT ALL/REMOVE): deleting a tournament must
+    // NOT delete its events (they own registrations, matches, etc., and would
+    // block the delete). deleteTournament() disassociates the events instead.
+    @OneToMany(mappedBy = "tournament", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonIgnoreProperties({"tournament"})
+    @Builder.Default
     private List<SportsEvent> sportsEvents = new ArrayList<>();
 
     private LocalDate eventDateStart;
@@ -46,6 +56,10 @@ public class Tournament {
     private String startTime;
     private String dueTime;
 
+    // Stores either a URL or an inline base64 data-URI, so it must not be
+    // capped at the default varchar(255) — base64 images overflow it and
+    // Postgres raises SQLSTATE 22001 ("value too long"). Map to TEXT.
+    @Column(columnDefinition = "TEXT")
     private String bannerImage;
 
     private String contactName;
@@ -78,6 +92,23 @@ public class Tournament {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * Link a SportsEvent to this tournament, keeping both sides of the 1:N in
+     * sync (sets the FK on the event and adds it to this collection).
+     */
+    public void addSportsEvent(SportsEvent event) {
+        if (event == null) return;
+        sportsEvents.add(event);
+        event.setTournament(this);
+    }
+
+    /** Detach a SportsEvent from this tournament, clearing its FK. */
+    public void removeSportsEvent(SportsEvent event) {
+        if (event == null) return;
+        sportsEvents.remove(event);
+        event.setTournament(null);
+    }
 
     @PrePersist
     protected void onCreate() {

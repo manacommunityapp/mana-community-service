@@ -31,6 +31,7 @@ public class SampleDataService implements ApplicationRunner {
     private final TournamentSeeder tournamentSeeder;
     private final AuctionSeeder auctionSeeder;
 
+    private final DefaultCommunityModuleDataService defaultCommunityModuleDataService;
     // Dedicated per-table sample seeders
     private final RolePermissionDataSeeder rolePermissionDataSeeder;
     private final VenueDataSeeder venueDataSeeder;
@@ -120,6 +121,7 @@ public class SampleDataService implements ApplicationRunner {
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
             venueSeeder.seed();
+            defaultCommunityModuleDataService.seedDefaultModulesForCommunity(2L);
             //sportsEventSeeder.seed();
             //tournamentSeeder.seed();
             //auctionSeeder.seed();

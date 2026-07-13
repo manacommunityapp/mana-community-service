@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -55,12 +56,15 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                             .filter(m -> m.key().equals(moduleKey))
                             .findFirst()
                             .orElseThrow(() -> new ResourceNotFoundException("CommunityModule", "moduleKey", moduleKey));
+                    LocalDateTime now = LocalDateTime.now();
                     return CommunityModule.builder()
                             .community(community)
                             .moduleKey(def.key())
                             .moduleLabel(def.label())
-                            .isEnabled(true)
+                            .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
                             .sortOrder(def.sortOrder())
+                            .createdAt(now)
+                            .updatedAt(now)
                             .build();
                 });
 
@@ -82,12 +86,15 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                                 .filter(m -> m.key().equals(toggle.moduleKey()))
                                 .findFirst()
                                 .orElseThrow(() -> new ResourceNotFoundException("CommunityModule", "moduleKey", toggle.moduleKey()));
+                        LocalDateTime now = LocalDateTime.now();
                         return CommunityModule.builder()
                                 .community(community)
                                 .moduleKey(def.key())
                                 .moduleLabel(def.label())
-                                .isEnabled(true)
+                                .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
                                 .sortOrder(def.sortOrder())
+                                .createdAt(now)
+                                .updatedAt(now)
                                 .build();
                     });
             cm.setIsEnabled(toggle.isEnabled());
@@ -108,13 +115,16 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
         Community community = communityRepo.findById(communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Community", communityId));
 
+        LocalDateTime now = LocalDateTime.now();
         List<CommunityModule> modules = ModuleConstants.ALL_MODULES.stream()
                 .map(def -> CommunityModule.builder()
                         .community(community)
                         .moduleKey(def.key())
                         .moduleLabel(def.label())
-                        .isEnabled(true)
+                        .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
                         .sortOrder(def.sortOrder())
+                        .createdAt(now)
+                        .updatedAt(now)
                         .build())
                 .toList();
 
@@ -126,7 +136,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Transactional(readOnly = true)
     public boolean isModuleEnabled(Long communityId, String moduleKey) {
         if (!communityModuleRepo.existsByCommunityId(communityId)) {
-            return true;
+            return false;
         }
         return communityModuleRepo.isModuleEnabled(communityId, moduleKey);
     }

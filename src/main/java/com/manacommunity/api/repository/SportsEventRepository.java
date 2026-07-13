@@ -14,6 +14,9 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     /** Look up an event by its public, non-sequential UUID (used in shareable registration links). */
     Optional<SportsEvent> findByUuid(UUID uuid);
 
+    /** All events currently linked to the given tournament (used to disassociate on tournament delete). */
+    List<SportsEvent> findByTournamentId(Long tournamentId);
+
     /**
      * BUG FIX: String literals like 'REGISTRATION_OPEN' are INVALID in JPQL
      * for enum-typed fields — JPQL compares against enum names, not string literals.

@@ -161,6 +161,9 @@ public class SportsEvent {
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
+    // URL or inline base64 data-URI — see Tournament.bannerImage; must be TEXT
+    // to avoid the default varchar(255) overflow (SQLSTATE 22001).
+    @Column(columnDefinition = "TEXT")
     private String bannerImage;
     private String tournamentLevel;
 

@@ -33,6 +33,7 @@ public class TournamentResponse {
     private Boolean allowAdminChat;
     private String registrationStatus;
     private List<SponsorDto> sponsors;
+    private List<SportsEventResponse> sportsEvents;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
