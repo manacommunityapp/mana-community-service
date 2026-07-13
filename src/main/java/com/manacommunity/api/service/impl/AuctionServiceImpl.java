@@ -13,6 +13,8 @@ import com.manacommunity.api.exception.AuctionStateException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.AuctionService;
+import com.manacommunity.api.service.AuctionWebSocketService;
+import com.manacommunity.api.service.NotificationManagementService;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,8 @@ public class AuctionServiceImpl implements AuctionService {
     private final com.manacommunity.api.repository.SportsEventRepository eventRepo;
     private final com.manacommunity.api.security.AuditService auditService;
     private final MeterRegistry meterRegistry;
+    private final NotificationManagementService notificationService;
+    private final AuctionWebSocketService auctionWs;
 
     @Override
     public List<AuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId) {
@@ -215,6 +219,8 @@ public class AuctionServiceImpl implements AuctionService {
         config.setStatus(newStatus);
         AuctionConfig savedConfig = configRepo.save(config);
 
+        auctionWs.broadcastStatusChange(configId, oldStatus.name(), newStatus.name());
+
         // Audit the lifecycle transitions only (start / end), not every save.
         if (oldStatus != newStatus) {
             if (newStatus == AuctionConfig.AuctionStatus.LIVE || newStatus == AuctionConfig.AuctionStatus.ACTIVE) {
@@ -223,12 +229,18 @@ public class AuctionServiceImpl implements AuctionService {
                     com.manacommunity.api.security.AuditModule.AUCTION,
                     "AuctionConfig", String.valueOf(configId),
                     String.valueOf(oldStatus), String.valueOf(newStatus));
+                notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_STARTED,
+                        "Auction Started — " + savedConfig.getSeasonName(),
+                        "The auction is now live!", NotificationPriority.HIGH);
             } else if (newStatus == AuctionConfig.AuctionStatus.COMPLETED) {
                 auditService.record(
                     com.manacommunity.api.security.AuditAction.AUCTION_ENDED,
                     com.manacommunity.api.security.AuditModule.AUCTION,
                     "AuctionConfig", String.valueOf(configId),
                     String.valueOf(oldStatus), String.valueOf(newStatus));
+                notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_COMPLETED,
+                        "Auction Completed — " + savedConfig.getSeasonName(),
+                        "The auction has concluded. Check your team roster.", NotificationPriority.NORMAL);
             }
         }
         return savedConfig;
@@ -325,6 +337,10 @@ public class AuctionServiceImpl implements AuctionService {
             .bidByUser(userRepo.getReferenceById(biddingUserId))
             .build();
 
+        // Capture previous leading team before saving new bid (for outbid notification)
+        AuctionTeam previousLeader = bidRepo.findTopBidsForPlayer(player.getId(), PageRequest.of(0, 1))
+                .stream().findFirst().map(AuctionBid::getTeam).orElse(null);
+
         log.info("Bid placed: player={} team={} amount={}", player.getPlayerName(),
             team.getTeamName(), req.bidAmount());
         AuctionBid saved = bidRepo.save(bid);
@@ -338,6 +354,29 @@ public class AuctionServiceImpl implements AuctionService {
             "AuctionPlayer", String.valueOf(player.getId()),
             null,
             "team=" + team.getTeamName() + ", amount=" + req.bidAmount());
+
+        try {
+            if (previousLeader != null && previousLeader.getOwnerUser() != null
+                    && !previousLeader.getId().equals(team.getId())) {
+                notificationService.createNotification(
+                        previousLeader.getOwnerUser().getId(), NotificationType.BID_OUTBID, NotificationCategory.AUCTION,
+                        "Outbid on " + player.getPlayerName(),
+                        team.getTeamName() + " bid ₹" + req.bidAmount(),
+                        null, ReferenceType.AUCTION_PLAYER, player.getId(),
+                        NotificationPriority.HIGH, null, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist outbid notification: {}", e.getMessage());
+        }
+
+
+        auctionWs.broadcastBid(config.getId(), AuctionBidResponse.builder()
+            .id(saved.getId()).configId(config.getId())
+            .playerId(player.getId()).teamId(team.getId())
+            .teamName(team.getTeamName()).bidAmount(saved.getBidAmount())
+            .incrementUsed(saved.getIncrementUsed()).isRtm(saved.getIsRtm())
+            .bidByUserId(biddingUserId).bidAt(saved.getBidAt()).build());
+
         return saved;
     }
 
@@ -388,6 +427,26 @@ public class AuctionServiceImpl implements AuctionService {
             "AuctionPlayer", String.valueOf(player.getId()),
             null,
             "soldTo=" + team.getTeamName() + ", price=" + soldPrice);
+
+        try {
+            if (team.getOwnerUser() != null && team.getOwnerUser().getId() != null) {
+                notificationService.createNotification(
+                        team.getOwnerUser().getId(), NotificationType.PLAYER_SOLD, NotificationCategory.AUCTION,
+                        player.getPlayerName() + " sold to " + team.getTeamName(),
+                        "Acquired for ₹" + soldPrice + " | Budget remaining: ₹" + team.getRemainingBudget(),
+                        null, ReferenceType.AUCTION_PLAYER, player.getId(),
+                        NotificationPriority.HIGH, null, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist player-sold notification: {}", e.getMessage());
+        }
+
+
+        auctionWs.broadcastPlayerSold(player.getConfig().getId(),
+            new AuctionWebSocketService.PlayerSoldPayload(
+                player.getId(), player.getPlayerName(),
+                team.getId(), team.getTeamName(), soldPrice));
+
         return savedPlayer;
     }
 
@@ -412,7 +471,14 @@ public class AuctionServiceImpl implements AuctionService {
             .config(config).action("PLAYER_PASSED").player(player)
             .performedBy(userRepo.getReferenceById(adminUserId)).build());
 
-        return playerRepo.save(player);
+        AuctionPlayer saved = playerRepo.save(player);
+
+        auctionWs.broadcastPlayerPassed(config.getId(),
+            new AuctionWebSocketService.PlayerPassedPayload(
+                player.getId(), player.getPlayerName(),
+                player.getStatus().name(), player.getQueueOrder()));
+
+        return saved;
     }
 
     @Override
@@ -539,6 +605,26 @@ public class AuctionServiceImpl implements AuctionService {
         return playerRepo.save(player);
     }
 
+    private void notifyAuctionTeamOwners(AuctionConfig config, NotificationType type,
+                                           String title, String body, NotificationPriority priority) {
+        try {
+            List<Long> ownerIds = teamRepo.findByConfigIdOrderByTeamName(config.getId()).stream()
+                    .filter(t -> t.getOwnerUser() != null && t.getOwnerUser().getId() != null)
+                    .map(t -> t.getOwnerUser().getId())
+                    .distinct()
+                    .toList();
+            if (!ownerIds.isEmpty()) {
+                notificationService.createBulkNotifications(
+                        ownerIds, type, NotificationCategory.AUCTION,
+                        title, body, null,
+                        ReferenceType.AUCTION_CONFIG, config.getId(),
+                        priority, null, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist {} notifications for auction {}: {}", type, config.getId(), e.getMessage());
+        }
+    }
+
     // ── PICK RANDOM PLAYER FOR LIVE AUCTION ──────────────────────
     @Override
     @Transactional
@@ -596,7 +682,7 @@ public class AuctionServiceImpl implements AuctionService {
 
         log.info("Random player picked for auction: {} (id={})", picked.getPlayerName(), picked.getId());
 
-        return new PlayerWithBidResponse(
+        PlayerWithBidResponse response = new PlayerWithBidResponse(
             picked.getId(), picked.getPlayerName(), picked.getCategory(),
             picked.getPlayerRole(), picked.getAge(), picked.getBasePrice(),
             picked.getStatsJson(), (long) picked.getBasePrice(),
@@ -604,5 +690,9 @@ public class AuctionServiceImpl implements AuctionService {
             config.calculateNextIncrement(picked.getBasePrice()),
             null, picked.getQueueOrder(), picked.getStatus().name()
         );
+
+        auctionWs.broadcastPlayerPicked(configId, response);
+
+        return response;
     }
 }

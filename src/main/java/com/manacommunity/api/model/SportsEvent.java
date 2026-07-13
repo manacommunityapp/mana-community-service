@@ -132,8 +132,12 @@ public class SportsEvent {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
-    @Column(name = "dispute_committee_ids", length = 1000)
-    private String disputeCommitteeIds;
+    @ManyToMany
+    @JoinTable(name = "sports_event_dispute_committee",
+            joinColumns = @JoinColumn(name = "sports_event_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @Builder.Default
+    private Set<AppUser> disputeCommittee = new java.util.HashSet<>();
 
     private String contactName;
     private String contactNumber;
@@ -157,6 +161,9 @@ public class SportsEvent {
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
+    // URL or inline base64 data-URI — see Tournament.bannerImage; must be TEXT
+    // to avoid the default varchar(255) overflow (SQLSTATE 22001).
+    @Column(columnDefinition = "TEXT")
     private String bannerImage;
     private String tournamentLevel;
 

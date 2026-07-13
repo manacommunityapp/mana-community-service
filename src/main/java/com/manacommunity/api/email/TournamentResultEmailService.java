@@ -1,6 +1,8 @@
 package com.manacommunity.api.email;
 
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.*;
+import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,9 +25,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TournamentResultEmailService {
 
-    private final EmailSupport          support;
-    private final EmailTemplateRenderer renderer;
-    private final EmailService          emailService;
+    private final EmailSupport                   support;
+    private final EmailTemplateRenderer          renderer;
+    private final EmailService                   emailService;
+    private final NotificationManagementService  notificationService;
 
     // ── Winner notification (a round completed) ───────────────────────
 
@@ -49,6 +52,14 @@ public class TournamentResultEmailService {
             dispatch(EmailTemplate.WINNER_NOTIFICATION, winner.getEmail(), winner.getFullName(),
                     EmailTemplate.WINNER_NOTIFICATION.defaultSubject() + " — " + orDefault(roundName, ""),
                     vars);
+
+            notificationService.createEmailNotification(
+                    winner.getId(), NotificationType.WINNER_NOTIFICATION, NotificationCategory.SPORTS,
+                    "You won " + orDefault(roundName, "your match") + "!",
+                    "Defeated " + orDefault(opponentName, "opponent") + (support.isBlank(score) ? "" : " (" + score + ")"),
+                    support.props().getBaseUrl() + "/profile?tab=schedule",
+                    ReferenceType.TOURNAMENT_MATCH, null,
+                    NotificationPriority.HIGH);
         } catch (Exception e) {
             log.error("Failed to build winner-notification email for user {}", winner.getId(), e);
         }
@@ -82,6 +93,24 @@ public class TournamentResultEmailService {
         }
         emailService.sendAll(batch);
         log.info("Queued {} tournament-completion emails for '{}'", batch.size(), tournamentName);
+
+        try {
+            List<Long> userIds = recipients.stream()
+                    .filter(u -> u != null && u.getId() != null && !support.isBlank(u.getEmail()))
+                    .map(AppUser::getId)
+                    .toList();
+            if (!userIds.isEmpty()) {
+                notificationService.createBulkEmailNotifications(
+                        userIds, NotificationType.TOURNAMENT_COMPLETED, NotificationCategory.SPORTS,
+                        orDefault(tournamentName, "Tournament") + " — Results are in!",
+                        "Champion: " + orDefault(championName, "TBA"),
+                        support.props().getBaseUrl() + "/profile?tab=results",
+                        ReferenceType.TOURNAMENT_CONFIG, null,
+                        NotificationPriority.NORMAL);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist tournament-completion notifications: {}", e.getMessage());
+        }
     }
 
     // ── Prize distribution (event closure) ────────────────────────────
@@ -108,6 +137,14 @@ public class TournamentResultEmailService {
             dispatch(EmailTemplate.PRIZE_DISTRIBUTION, recipient.getEmail(), recipient.getFullName(),
                     EmailTemplate.PRIZE_DISTRIBUTION.defaultSubject() + " — " + orDefault(tournamentName, ""),
                     vars);
+
+            notificationService.createEmailNotification(
+                    recipient.getId(), NotificationType.PRIZE_DISTRIBUTION, NotificationCategory.SPORTS,
+                    orDefault(position, "Winner") + " — " + orDefault(tournamentName, "Tournament"),
+                    support.isBlank(prize) ? "Prize details available" : prize,
+                    support.props().getBaseUrl() + "/profile?tab=results",
+                    ReferenceType.TOURNAMENT_CONFIG, null,
+                    NotificationPriority.HIGH);
         } catch (Exception e) {
             log.error("Failed to build prize-distribution email for user {}", recipient.getId(), e);
         }

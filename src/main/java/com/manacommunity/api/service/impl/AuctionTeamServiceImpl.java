@@ -9,12 +9,12 @@ import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.dto.AuctionTeamRequest;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.AuctionConfig;
-import com.manacommunity.api.model.AuctionTeam;
+import com.manacommunity.api.model.*;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.AuctionConfigRepository;
 import com.manacommunity.api.repository.AuctionTeamRepository;
 import com.manacommunity.api.service.AuctionTeamService;
+import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +31,7 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
     private final AuctionConfigRepository configRepo;
     private final AppUserRepository userRepo;
     private final com.manacommunity.api.security.AuditService auditService;
+    private final NotificationManagementService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -76,6 +77,18 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
             "AuctionTeam", String.valueOf(savedTeam.getId()),
             null,
             "name=" + savedTeam.getTeamName() + ", budget=" + savedTeam.getTotalBudget());
+
+        try {
+            notificationService.createNotification(
+                    teamOwner.getId(), NotificationType.TEAM_CREATED, NotificationCategory.AUCTION,
+                    "Team Created — " + savedTeam.getTeamName(),
+                    "Budget: ₹" + savedTeam.getTotalBudget(),
+                    null, ReferenceType.AUCTION_TEAM, savedTeam.getId(),
+                    NotificationPriority.NORMAL, null, null);
+        } catch (Exception e) {
+            log.warn("Failed to persist team-created notification: {}", e.getMessage());
+        }
+
         return savedTeam;
     }
 
@@ -95,7 +108,24 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
         }
 
         team.setCaptainConfirmation(confirm);
-        return teamRepo.save(team);
+        AuctionTeam saved = teamRepo.save(team);
+
+        try {
+            Long recipientId = saved.getCaptainUser() != null ? saved.getCaptainUser().getId()
+                    : (saved.getOwnerUser() != null ? saved.getOwnerUser().getId() : null);
+            if (recipientId != null && confirm) {
+                notificationService.createNotification(
+                        recipientId, NotificationType.CAPTAIN_CONFIRMED, NotificationCategory.AUCTION,
+                        "Captain Confirmed — " + saved.getTeamName(),
+                        "You are confirmed as captain",
+                        null, ReferenceType.AUCTION_TEAM, saved.getId(),
+                        NotificationPriority.NORMAL, null, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist captain-confirmed notification: {}", e.getMessage());
+        }
+
+        return saved;
     }
 
     @Override
@@ -125,15 +155,27 @@ public class AuctionTeamServiceImpl implements AuctionTeamService {
         } else if (team.getTeamName() == null) {
             team.setTeamName(user.getFullName() + "'s Team");
         }
-        
-        // If withdrawing, we might want to keep the record but set flags to false
-        // or potentially delete if it was just a nomination. 
-        // For now, setting flags to false is safer.
+
         if (!nominate) {
             team.setCaptainConfirmation(false);
         }
 
-        return teamRepo.save(team);
+        AuctionTeam saved = teamRepo.save(team);
+
+        try {
+            if (nominate) {
+                notificationService.createNotification(
+                        user.getId(), NotificationType.CAPTAIN_NOMINATED, NotificationCategory.AUCTION,
+                        "Captain Nomination Submitted",
+                        "You've been nominated as captain for " + saved.getTeamName(),
+                        null, ReferenceType.AUCTION_TEAM, saved.getId(),
+                        NotificationPriority.NORMAL, null, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist captain-nomination notification: {}", e.getMessage());
+        }
+
+        return saved;
     }
 
     @Override

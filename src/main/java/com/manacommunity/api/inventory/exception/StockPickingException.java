@@ -1,11 +1,10 @@
 package com.manacommunity.api.inventory.exception;
 
+import com.manacommunity.api.exception.ManaCommunityException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.BAD_REQUEST)
-public class StockPickingException extends RuntimeException {
+public class StockPickingException extends ManaCommunityException {
     public StockPickingException(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST, "STOCK_PICKING_ERROR");
     }
 }

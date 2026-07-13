@@ -632,6 +632,117 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher chat cascade-FK patch failed: {}", e.getMessage(), e);
             }
+
+            // Widen banner_image columns from the default varchar(255) to TEXT.
+            // They store either a URL or an inline base64 data-URI; base64 images
+            // overflow varchar(255) and Postgres raises SQLSTATE 22001
+            // ("value too long"), surfaced to the client as a 409. Prod runs
+            // ddl-auto=validate so Hibernate won't alter the live column — do it
+            // here. Guarded on the column still being character varying so the
+            // (potentially large) column is never rewritten on later boots.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          rec record;
+                        BEGIN
+                          FOR rec IN
+                            SELECT * FROM (VALUES
+                              ('tournament','banner_image'),
+                              ('sports_event','banner_image')
+                            ) AS t(tbl, col)
+                          LOOP
+                            IF EXISTS (
+                              SELECT 1 FROM information_schema.columns
+                              WHERE table_schema = 'manacommunity'
+                                AND table_name = rec.tbl
+                                AND column_name = rec.col
+                                AND data_type = 'character varying'
+                            ) THEN
+                              EXECUTE format(
+                                'ALTER TABLE manacommunity.%I ALTER COLUMN %I TYPE TEXT',
+                                rec.tbl, rec.col);
+                            END IF;
+                          END LOOP;
+                        END $$;
+                        """);
+
+                log.info("banner_image columns widened to TEXT.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher banner_image widen patch failed: {}", e.getMessage(), e);
+            }
+
+            // Make sports_event.tournament_id -> tournament(id) SET NULL on delete,
+            // so deleting a tournament never gets blocked by its events: the events
+            // survive with tournament_id nulled rather than the FK rejecting the
+            // delete. Hibernate generates this FK as NO ACTION; prod runs
+            // ddl-auto=validate so it won't change it — do it here. Idempotent:
+            // finds the existing FK on the column, drops it, and re-adds a named
+            // FK with ON DELETE SET NULL; skips once ours is already in place.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          existing_fk text;
+                          col_attnum  smallint;
+                        BEGIN
+                          -- Skip on fresh databases where the table isn't created yet.
+                          IF to_regclass('manacommunity.sports_event') IS NULL THEN
+                            RETURN;
+                          END IF;
+
+                          -- Already SET NULL under our name? Nothing to do.
+                          IF EXISTS (
+                            SELECT 1 FROM pg_constraint con
+                            JOIN pg_class rel ON rel.oid = con.conrelid
+                            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                            WHERE nsp.nspname = 'manacommunity'
+                              AND rel.relname = 'sports_event'
+                              AND con.conname = 'fk_sports_event_tournament'
+                              AND con.contype = 'f'
+                              AND con.confdeltype = 'n'
+                          ) THEN
+                            RETURN;
+                          END IF;
+
+                          SELECT a.attnum INTO col_attnum
+                          FROM pg_attribute a
+                          JOIN pg_class rel ON rel.oid = a.attrelid
+                          JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                          WHERE nsp.nspname = 'manacommunity'
+                            AND rel.relname = 'sports_event'
+                            AND a.attname = 'tournament_id';
+
+                          -- Drop any existing FK defined on tournament_id (e.g. NO ACTION).
+                          FOR existing_fk IN
+                            SELECT con.conname
+                            FROM pg_constraint con
+                            JOIN pg_class rel ON rel.oid = con.conrelid
+                            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                            WHERE nsp.nspname = 'manacommunity'
+                              AND rel.relname = 'sports_event'
+                              AND con.contype = 'f'
+                              AND con.conkey = ARRAY[col_attnum]
+                          LOOP
+                            EXECUTE format('ALTER TABLE manacommunity.sports_event DROP CONSTRAINT %I', existing_fk);
+                          END LOOP;
+
+                          ALTER TABLE manacommunity.sports_event
+                            ADD CONSTRAINT fk_sports_event_tournament
+                            FOREIGN KEY (tournament_id)
+                            REFERENCES manacommunity.tournament(id)
+                            ON DELETE SET NULL;
+                        END $$;
+                        """);
+
+                log.info("sports_event.tournament_id FK patched with ON DELETE SET NULL.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher sports_event tournament FK patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }

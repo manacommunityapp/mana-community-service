@@ -56,7 +56,7 @@ public class SportsEventResponse {
     private String bannerImage;
     private String tournamentLevel;
     private String description;
-    private String disputeCommitteeIds;
+    private java.util.List<Long> disputeCommitteeIds;
 
     private TournamentRef tournament;
 

@@ -8,6 +8,7 @@ import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.RolePermissionService;
 import com.manacommunity.api.service.RoleService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/roles")
 @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
@@ -83,7 +85,8 @@ public class RolePermissionController {
             AppUser user = loggedInUserService.resolve(principal);
             if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) return null;
             return user.getCommunity() != null ? user.getCommunity().getId() : null;
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+            log.warn("Failed to resolve community for principal: {}", ex.getMessage());
             return null;
         }
     }

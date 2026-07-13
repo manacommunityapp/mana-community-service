@@ -153,7 +153,7 @@ public class SportsEventSeeder {
                                                int minAge, int maxAge,
                                                String gender,
                                                LocalDate playersBorn,
-                                               String disputeCommitteeIds) {
+                                               String ignoredDisputeCommitteeIds) {
         return sportsEventRepo.findAll().stream()
                 .filter(e -> e.getName().equals(name))
                 .findFirst()
@@ -173,7 +173,6 @@ public class SportsEventSeeder {
                             .eventDateStart(dateStart)
                             .eventDateEnd(dateEnd)
                             .maxParticipants(maxParticipants)
-                            .disputeCommitteeIds(disputeCommitteeIds)
                             .categories(categories)
                             .minAge(minAge)
                             .maxAge(maxAge)

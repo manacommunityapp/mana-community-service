@@ -1,17 +1,17 @@
 package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.dto.TournamentRequest;
-import com.manacommunity.api.model.SportsEvent;
-import com.manacommunity.api.model.Tournament;
-import com.manacommunity.api.model.SportsEventSponsor;
+import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.TournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
+import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.ContactRepository;
-import com.manacommunity.api.model.Contact;
 import com.manacommunity.api.dto.ContactDto;
+import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.service.TournamentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +20,17 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TournamentServiceImpl implements TournamentService {
 
     private final TournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
+    private final SportsEventRegistrationRepository regRepo;
     private final CommunityRepository communityRepo;
     private final ContactRepository contactRepository;
+    private final NotificationManagementService notificationService;
 
     private List<Contact> resolveContacts(List<ContactDto> dtos) {
         if (dtos == null || dtos.isEmpty()) return new ArrayList<>();
@@ -64,7 +67,27 @@ public class TournamentServiceImpl implements TournamentService {
     @Override
     @Transactional
     public void deleteTournament(Long id) {
-        tournamentRepo.deleteById(id);
+        Tournament tournament = tournamentRepo.findById(id).orElse(null);
+        if (tournament == null) {
+            return; // already gone — treat delete as idempotent
+        }
+
+        // Disassociate the sports events instead of deleting them: null out the
+        // FK on each event so the tournament can be removed without cascade-
+        // deleting events (which own registrations/matches and would block the
+        // delete). The events survive, just unlinked from any tournament.
+        List<SportsEvent> events = eventRepo.findByTournamentId(id);
+        for (SportsEvent ev : events) {
+            ev.setTournament(null);
+        }
+        eventRepo.saveAll(events);
+
+        // Keep the in-memory collection consistent so JPA doesn't re-link on flush.
+        if (tournament.getSportsEvents() != null) {
+            tournament.getSportsEvents().clear();
+        }
+
+        tournamentRepo.delete(tournament);
     }
 
     @Override
@@ -134,6 +157,7 @@ public class TournamentServiceImpl implements TournamentService {
             tournament.getSportsEvents().add(ev);
             eventRepo.save(ev);
         }
+        tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
 
         // Build mainEvent context for sponsors mapping
         SportsEvent mainEvent = null;
@@ -218,6 +242,64 @@ public class TournamentServiceImpl implements TournamentService {
             }
         }
 
+        notifyTournamentParticipants(saved, tournamentStatus);
+
         return saved;
+    }
+
+    private void notifyTournamentParticipants(Tournament tournament, Tournament.EventStatus newStatus) {
+        try {
+            if (tournament.getSportsEvents() == null || tournament.getSportsEvents().isEmpty()) return;
+
+            List<Long> userIds = tournament.getSportsEvents().stream()
+                    .flatMap(ev -> regRepo.findByEventId(ev.getId()).stream())
+                    .filter(r -> r.getUser() != null && r.getUser().getId() != null)
+                    .map(r -> r.getUser().getId())
+                    .distinct()
+                    .toList();
+            if (userIds.isEmpty()) return;
+
+            NotificationType type;
+            String title;
+            String body;
+            NotificationPriority priority;
+
+            switch (newStatus) {
+                case REGISTRATION_OPEN -> {
+                    type = NotificationType.REGISTRATION_OPEN;
+                    title = "Registrations Open — " + tournament.getName();
+                    body = "Registrations are now open for " + tournament.getName();
+                    priority = NotificationPriority.HIGH;
+                }
+                case CANCELLED -> {
+                    type = NotificationType.EVENT_CANCELLED;
+                    title = "Tournament Cancelled — " + tournament.getName();
+                    body = "This tournament has been cancelled";
+                    priority = NotificationPriority.HIGH;
+                }
+                case COMPLETED -> {
+                    type = NotificationType.EVENT_STATUS_CHANGED;
+                    title = "Tournament Completed — " + tournament.getName();
+                    body = "The tournament has concluded. Thank you for participating!";
+                    priority = NotificationPriority.NORMAL;
+                }
+                default -> {
+                    type = NotificationType.EVENT_STATUS_CHANGED;
+                    title = tournament.getName() + " — Status Update";
+                    body = "Status changed to " + newStatus.name().replace('_', ' ').toLowerCase();
+                    priority = NotificationPriority.NORMAL;
+                }
+            }
+
+            notificationService.createBulkNotifications(
+                    userIds, type, NotificationCategory.EVENTS,
+                    title, body, null,
+                    ReferenceType.TOURNAMENT, tournament.getId(),
+                    priority, null,
+                    tournament.getCommunity() != null ? tournament.getCommunity().getId() : null);
+        } catch (Exception e) {
+            log.warn("Failed to persist tournament-status notifications for tournament {}: {}",
+                    tournament.getId(), e.getMessage());
+        }
     }
 }

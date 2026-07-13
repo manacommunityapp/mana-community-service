@@ -14,8 +14,10 @@ import com.manacommunity.api.exception.*;
 import com.manacommunity.api.email.RegistrationEmailService;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.service.SportsEventService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ import com.manacommunity.api.repository.ContactRepository;
 import com.manacommunity.api.model.Contact;
 import com.manacommunity.api.dto.ContactDto;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsEventServiceImpl implements SportsEventService {
@@ -47,6 +50,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final AuctionPlayerRepository playerRepo;
     private final TournamentRepository tournamentRepo;
     private final RegistrationEmailService registrationEmailService;
+    private final NotificationManagementService notificationService;
     private final com.manacommunity.api.service.RecaptchaService recaptchaService;
     private final com.manacommunity.api.service.OtpService otpService;
     private final ContactRepository contactRepository;
@@ -96,7 +100,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .createdBy(userRepo.getReferenceById(adminUserId))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .disputeCommitteeIds(listToCommaString(req.getDisputeCommitteeIds()))
+                .disputeCommittee(resolveDisputeCommittee(req.getDisputeCommitteeIds()))
                 .minPlayers(req.getMinPlayers())
                 .maxPlayers(req.getMaxPlayers())
                 .gender(req.getGender())
@@ -131,6 +135,12 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .build());
             }
             event.setSponsors(sponsorsList);
+        }
+
+        if (req.getTournamentId() != null) {
+            Tournament tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Tournament", req.getTournamentId()));
+            event.setTournament(tournament);
         }
 
         SportsEvent saved = eventRepo.save(event);
@@ -244,6 +254,19 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         reg.setStatus(SportsEventRegistration.RegistrationStatus.WITHDRAWN);
         regRepo.save(reg);
+
+        try {
+            String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "the event";
+            notificationService.createNotification(
+                    userId, NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                    "Registration Withdrawn",
+                    "Your registration for " + eventName + " has been withdrawn",
+                    null, ReferenceType.SPORTS_EVENT,
+                    reg.getEvent() != null ? reg.getEvent().getId() : null,
+                    NotificationPriority.NORMAL, null, null);
+        } catch (Exception e) {
+            log.warn("Failed to persist withdrawal notification: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -438,7 +461,11 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setActive(true);
         }
         event.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
-        return eventRepo.save(event);
+        SportsEvent saved = eventRepo.save(event);
+
+        notifyEventParticipants(saved, tournamentStatus);
+
+        return saved;
     }
 
     private LocalDateTime getTournamentStartDateTime(SportsEvent event) {
@@ -681,7 +708,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
         }
         
-        event.setDisputeCommitteeIds(listToCommaString(req.getDisputeCommitteeIds()));
+        event.setDisputeCommittee(resolveDisputeCommittee(req.getDisputeCommitteeIds()));
         event.setMinPlayers(req.getMinPlayers());
         event.setMaxPlayers(req.getMaxPlayers());
         event.setGender(req.getGender());
@@ -744,6 +771,72 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
 
+
+    private java.util.Set<AppUser> resolveDisputeCommittee(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return new java.util.HashSet<>();
+        return new java.util.HashSet<>(userRepo.findAllById(userIds));
+    }
+
+    @Override
+    @Transactional
+    public SportsEvent updateDisputeCommittee(Long eventId, List<Long> userIds) {
+        SportsEvent event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
+        event.setDisputeCommittee(resolveDisputeCommittee(userIds));
+        return eventRepo.save(event);
+    }
+
+     private void notifyEventParticipants(SportsEvent event, Tournament.EventStatus newStatus) {
+        try {
+            List<Long> userIds = regRepo.findByEventId(event.getId()).stream()
+                    .filter(r -> r.getUser() != null && r.getUser().getId() != null)
+                    .map(r -> r.getUser().getId())
+                    .distinct()
+                    .toList();
+            if (userIds.isEmpty()) return;
+
+            NotificationType type;
+            String title;
+            String body;
+            NotificationPriority priority;
+
+            switch (newStatus) {
+                case REGISTRATION_OPEN -> {
+                    type = NotificationType.REGISTRATION_OPEN;
+                    title = "Registrations Open — " + event.getName();
+                    body = "Registrations are now open. Sign up before spots fill!";
+                    priority = NotificationPriority.HIGH;
+                }
+                case CANCELLED -> {
+                    type = NotificationType.EVENT_CANCELLED;
+                    title = "Event Cancelled — " + event.getName();
+                    body = "This event has been cancelled";
+                    priority = NotificationPriority.HIGH;
+                }
+                case COMPLETED -> {
+                    type = NotificationType.EVENT_STATUS_CHANGED;
+                    title = "Event Completed — " + event.getName();
+                    body = "This event has concluded. Thank you for participating!";
+                    priority = NotificationPriority.NORMAL;
+                }
+                default -> {
+                    type = NotificationType.EVENT_STATUS_CHANGED;
+                    title = event.getName() + " — Status Update";
+                    body = "Event status changed to " + newStatus.name().replace('_', ' ').toLowerCase();
+                    priority = NotificationPriority.NORMAL;
+                }
+            }
+
+            notificationService.createBulkNotifications(
+                    userIds, type, NotificationCategory.EVENTS,
+                    title, body, null,
+                    ReferenceType.SPORTS_EVENT, event.getId(),
+                    priority, null,
+                    event.getCommunity() != null ? event.getCommunity().getId() : null);
+        } catch (Exception e) {
+            log.warn("Failed to persist event-status notifications for event {}: {}", event.getId(), e.getMessage());
+        }
+    }
 
     private String listToCommaString(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return null;

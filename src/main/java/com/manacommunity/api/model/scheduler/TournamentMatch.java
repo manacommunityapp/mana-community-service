@@ -1,5 +1,6 @@
 package com.manacommunity.api.model.scheduler;
 
+import com.manacommunity.api.model.AuctionPlayer;
 import com.manacommunity.api.model.AuctionTeam;
 import com.manacommunity.api.model.Court;
 import com.manacommunity.api.model.Venue;
@@ -75,6 +76,26 @@ public class TournamentMatch {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_team_id")
     private AuctionTeam winner;
+
+    @Enumerated(EnumType.STRING)
+    private ResultType resultType;
+
+    private String  winMargin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "toss_winner_team_id")
+    private AuctionTeam tossWinner;
+
+    private String  tossDecision;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "man_of_match_id")
+    private AuctionPlayer manOfMatch;
+
+    @Column(columnDefinition = "TEXT")
+    private String  matchSummary;
+
+    private String  umpires;
 
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

@@ -27,4 +27,9 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
     java.util.List<AppUser> findByCommunityIdAndIsActiveTrue(Long communityId);
+    Page<AppUser> findByKycStatus(String kycStatus, Pageable pageable);
+    Page<AppUser> findByCommunityIdAndKycStatus(Long communityId, String kycStatus, Pageable pageable);
+    long countByKycStatus(String kycStatus);
+    long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
+    long countByCommunityId(Long communityId);
 }

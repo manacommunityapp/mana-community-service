@@ -1,7 +1,7 @@
 package com.manacommunity.api.email;
 
-import com.manacommunity.api.model.SportsEvent;
-import com.manacommunity.api.model.SportsEventRegistration;
+import com.manacommunity.api.model.*;
+import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,9 +31,10 @@ public class RegistrationEmailService {
     /** Which point in the registration lifecycle the email represents. */
     public enum Stage { RECEIVED, CONFIRMED, REJECTED }
 
-    private final EmailSupport          support;
-    private final EmailTemplateRenderer renderer;
-    private final EmailService          emailService;
+    private final EmailSupport                   support;
+    private final EmailTemplateRenderer          renderer;
+    private final EmailService                   emailService;
+    private final NotificationManagementService  notificationService;
 
     public void send(SportsEventRegistration reg, Stage stage) {
         send(reg, stage, null);
@@ -87,6 +88,8 @@ public class RegistrationEmailService {
 
             String html = renderer.render(template, vars);
             emailService.send(new EmailMessage(to, name, subject, html));
+
+            persistNotification(reg, stage, subject);
         } catch (Exception e) {
             log.error("Failed to build registration ({}) email for reg {}", stage, reg.getId(), e);
         }
@@ -103,5 +106,26 @@ public class RegistrationEmailService {
         if (!support.isBlank(reg.getPlayerName())) return reg.getPlayerName();
         if (reg.getUser() != null) return reg.getUser().getFullName();
         return "there";
+    }
+
+    private void persistNotification(SportsEventRegistration reg, Stage stage, String subject) {
+        try {
+            if (reg.getUser() == null || reg.getUser().getId() == null) return;
+            NotificationType type = switch (stage) {
+                case RECEIVED  -> NotificationType.REGISTRATION_RECEIVED;
+                case CONFIRMED -> NotificationType.REGISTRATION_CONFIRMED;
+                case REJECTED  -> NotificationType.REGISTRATION_REJECTED;
+            };
+            Long eventId = reg.getEvent() != null ? reg.getEvent().getId() : null;
+            String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "the event";
+            notificationService.createEmailNotification(
+                    reg.getUser().getId(), type, NotificationCategory.SPORTS,
+                    subject, "Registration for " + eventName,
+                    support.props().getBaseUrl() + "/profile",
+                    ReferenceType.SPORTS_EVENT, eventId,
+                    NotificationPriority.NORMAL);
+        } catch (Exception e) {
+            log.warn("Failed to persist registration notification for reg {}: {}", reg.getId(), e.getMessage());
+        }
     }
 }

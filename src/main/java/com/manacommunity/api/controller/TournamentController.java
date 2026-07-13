@@ -4,6 +4,8 @@ import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.dto.TournamentRequest;
 import com.manacommunity.api.dto.TournamentResponse;
+import com.manacommunity.api.dto.SportsEventResponse;
+import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -120,8 +122,134 @@ public class TournamentController {
                 .allowAdminChat(t.getAllowAdminChat())
                 .registrationStatus(t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null)
                 .sponsors(sponsorDtos)
+                .sportsEvents(t.getSportsEvents() != null
+                        ? t.getSportsEvents().stream().map(this::toEventResponse).toList()
+                        : List.of())
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
+                .build();
+    }
+
+    private SportsEventResponse toEventResponse(SportsEvent e) {
+        SportsEventResponse.SportRef sportRef = null;
+        if (e.getSport() != null) {
+            sportRef = SportsEventResponse.SportRef.builder()
+                    .id(e.getSport().getId())
+                    .name(e.getSport().getName())
+                    .icon(e.getSport().getIcon())
+                    .iconUrl(e.getSport().getIconUrl())
+                    .build();
+        }
+
+        SportsEventResponse.CommunityRef communityRef = null;
+        if (e.getCommunity() != null) {
+            communityRef = SportsEventResponse.CommunityRef.builder()
+                    .id(e.getCommunity().getId())
+                    .name(e.getCommunity().getName())
+                    .build();
+        }
+
+        SportsEventResponse.VenueRef venueRef = null;
+        if (e.getVenue() != null) {
+            venueRef = SportsEventResponse.VenueRef.builder()
+                    .id(e.getVenue().getId())
+                    .name(e.getVenue().getName())
+                    .address(e.getVenue().getAddress())
+                    .city(e.getVenue().getCity())
+                    .area(e.getVenue().getArea())
+                    .build();
+        }
+
+        SportsEventResponse.CreatedByRef createdByRef = null;
+        if (e.getCreatedBy() != null) {
+            createdByRef = SportsEventResponse.CreatedByRef.builder()
+                    .id(e.getCreatedBy().getId())
+                    .name(e.getCreatedBy().getFullName())
+                    .email(e.getCreatedBy().getEmail())
+                    .build();
+        }
+
+        List<SportsEventResponse.CategoryRef> categoryRefs = e.getCategories() != null
+                ? e.getCategories().stream().map(c -> SportsEventResponse.CategoryRef.builder()
+                        .id(c.getId())
+                        .name(c.getName())
+                        .categoryType(c.getCategory_type())
+                        .description(c.getDescription())
+                        .minAge(c.getMinAge())
+                        .maxAge(c.getMaxAge())
+                        .gender(c.getGender())
+                        .type(c.getType())
+                        .build()).toList()
+                : List.of();
+
+        List<SponsorDto> sponsorDtos = e.getSponsors() != null
+                ? e.getSponsors().stream().map(s -> {
+                    SponsorDto dto = new SponsorDto();
+                    dto.setCategory(s.getCategory());
+                    dto.setName(s.getName());
+                    dto.setUrl(s.getUrl());
+                    return dto;
+                }).toList()
+                : List.of();
+
+        SportsEventResponse.TournamentRef tournamentRef = null;
+        if (e.getTournament() != null) {
+            tournamentRef = SportsEventResponse.TournamentRef.builder()
+                    .id(e.getTournament().getId())
+                    .name(e.getTournament().getName())
+                    .registrationStatus(e.getTournament().getRegistrationStatus() != null
+                            ? e.getTournament().getRegistrationStatus().name() : null)
+                    .build();
+        }
+
+        return SportsEventResponse.builder()
+                .id(e.getId())
+                .uuid(e.getUuid())
+                .name(e.getName())
+                .icon(e.getIcon())
+                .minAge(e.getMinAge())
+                .maxAge(e.getMaxAge())
+                .minPlayers(e.getMinPlayers())
+                .maxPlayers(e.getMaxPlayers())
+                .gender(e.getGender())
+                .playersBorn(e.getPlayersBorn())
+                .active(e.getActive())
+                .adminApprovalRequired(e.getAdminApprovalRequired())
+                .sport(sportRef)
+                .community(communityRef)
+                .venue(venueRef)
+                .createdBy(createdByRef)
+                .eventDateStart(e.getEventDateStart())
+                .eventDateEnd(e.getEventDateEnd())
+                .registrationDateStart(e.getRegistrationDateStart())
+                .registrationDateEnd(e.getRegistrationDateEnd())
+                .maxParticipants(e.getMaxParticipants())
+                .startTime(e.getStartTime())
+                .dueTime(e.getDueTime())
+                .status(e.getStatus() != null ? e.getStatus().name() : null)
+                .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
+                .format(e.getFormat())
+                .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
+                .categories(categoryRefs)
+                .sponsors(sponsorDtos)
+                .contactName(e.getContactName())
+                .contactNumber(e.getContactNumber())
+                .contactEmail(e.getContactEmail())
+                .contacts(e.getContacts() != null
+                        ? e.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
+                            .id(c.getId()).name(c.getName()).title(c.getTitle())
+                            .number(c.getNumber()).email(c.getEmail()).build()).toList()
+                        : java.util.List.of())
+                .otherContacts(e.getOtherContacts())
+                .auctionEnabled(e.getAuctionEnabled())
+                .bannerImage(e.getBannerImage())
+                .tournamentLevel(e.getTournamentLevel())
+                .description(e.getDescription())
+                .disputeCommitteeIds(e.getDisputeCommittee() != null
+                        ? e.getDisputeCommittee().stream().map(u -> u.getId()).toList()
+                        : List.of())
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
                 .build();
     }
 }

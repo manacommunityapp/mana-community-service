@@ -158,46 +158,63 @@ public class BracketGenerator {
     public TournamentConfig applyResult(MatchResultRequest req) {
         TournamentMatch match = matchRepo.findById(req.matchId())
             .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", req.matchId()));
-        AuctionTeam     winner= teamRepo.findById(req.winnerTeamId())
-            .orElseThrow(() -> new ResourceNotFoundException("Team", req.winnerTeamId()));
-        AuctionTeam     loser = winner.getId().equals(match.getTeamA().getId())
-            ? match.getTeamB() : match.getTeamA();
 
-        match.setWinner(winner);
         match.setScoreTeamA(req.scoreTeamA());
         match.setScoreTeamB(req.scoreTeamB());
         match.setStatus(MatchStatus.COMPLETED);
         match.setCompletedAt(LocalDateTime.now());
-        matchRepo.save(match);
 
-        auditService.record(
-            com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
-            com.manacommunity.api.security.AuditModule.TOURNAMENT,
-            "TournamentMatch", String.valueOf(match.getId()),
-            null,
-            "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+        if (req.winnerTeamId() != null) {
+            AuctionTeam winner = teamRepo.findById(req.winnerTeamId())
+                .orElseThrow(() -> new ResourceNotFoundException("Team", req.winnerTeamId()));
+            AuctionTeam loser = winner.getId().equals(match.getTeamA().getId())
+                ? match.getTeamB() : match.getTeamA();
 
-        // Advance winner to next round match
-        if (match.getWinnerAdvancesToMatchId() != null) {
-            TournamentMatch next = matchRepo.findById(match.getWinnerAdvancesToMatchId())
-                .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getWinnerAdvancesToMatchId()));
-            if (next.getTeamA() == null) next.setTeamA(winner);
-            else                          next.setTeamB(winner);
-            matchRepo.save(next);
-        }
+            match.setWinner(winner);
+            matchRepo.save(match);
 
-        // For double elimination: send loser to losers bracket
-        if (match.getLoserSentToMatchId() != null) {
-            TournamentMatch losersMatch = matchRepo.findById(match.getLoserSentToMatchId())
-                .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getLoserSentToMatchId()));
-            if (losersMatch.getTeamA() == null) losersMatch.setTeamA(loser);
-            else                                 losersMatch.setTeamB(loser);
-            matchRepo.save(losersMatch);
-        }
+            auditService.record(
+                com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
+                com.manacommunity.api.security.AuditModule.TOURNAMENT,
+                "TournamentMatch", String.valueOf(match.getId()),
+                null,
+                "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
 
-        // Update group standings for group matches
-        if (match.getGroup() != null) {
-            updateGroupStandings(match, winner, loser, req);
+            // Advance winner to next round match
+            if (match.getWinnerAdvancesToMatchId() != null) {
+                TournamentMatch next = matchRepo.findById(match.getWinnerAdvancesToMatchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getWinnerAdvancesToMatchId()));
+                if (next.getTeamA() == null) next.setTeamA(winner);
+                else                          next.setTeamB(winner);
+                matchRepo.save(next);
+            }
+
+            // For double elimination: send loser to losers bracket
+            if (match.getLoserSentToMatchId() != null) {
+                TournamentMatch losersMatch = matchRepo.findById(match.getLoserSentToMatchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", match.getLoserSentToMatchId()));
+                if (losersMatch.getTeamA() == null) losersMatch.setTeamA(loser);
+                else                                 losersMatch.setTeamB(loser);
+                matchRepo.save(losersMatch);
+            }
+
+            // Update group standings for group matches
+            if (match.getGroup() != null) {
+                updateGroupStandings(match, winner, loser, req);
+            }
+        } else {
+            matchRepo.save(match);
+            auditService.record(
+                com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
+                com.manacommunity.api.security.AuditModule.TOURNAMENT,
+                "TournamentMatch", String.valueOf(match.getId()),
+                null,
+                "result=DRAW/TIE, score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+
+            // Update group standings for draws
+            if (match.getGroup() != null) {
+                updateGroupStandingsForDraw(match, req);
+            }
         }
 
         return match.getConfig();
@@ -598,6 +615,26 @@ public class BracketGenerator {
         double nrr = (standing.getOversFor() > 0 ? (double) standing.getRunsFor() / standing.getOversFor() : 0)
                    - (standing.getOversAgainst() > 0 ? (double) standing.getRunsAgainst() / standing.getOversAgainst() : 0);
         standing.setNetRunRate(Math.round(nrr * 1000.0) / 1000.0);
+    }
+
+    private void updateGroupStandingsForDraw(TournamentMatch match, MatchResultRequest req) {
+        int ptsDraw = Objects.requireNonNullElse(match.getConfig().getPointsForDraw(), 1);
+
+        GroupTeamStanding sa = standingRepo
+            .findByGroupIdAndTeamId(match.getGroup().getId(), match.getTeamA().getId());
+        sa.setPlayed(sa.getPlayed() + 1);
+        sa.setDrawn(sa.getDrawn() + 1);
+        sa.setPoints(sa.getPoints() + ptsDraw);
+        if (req.runsTeamA() != null) updateNRR(sa, match.getTeamA(), match, req);
+        standingRepo.save(sa);
+
+        GroupTeamStanding sb = standingRepo
+            .findByGroupIdAndTeamId(match.getGroup().getId(), match.getTeamB().getId());
+        sb.setPlayed(sb.getPlayed() + 1);
+        sb.setDrawn(sb.getDrawn() + 1);
+        sb.setPoints(sb.getPoints() + ptsDraw);
+        if (req.runsTeamB() != null) updateNRR(sb, match.getTeamB(), match, req);
+        standingRepo.save(sb);
     }
 
     // ═══════════════════════════════════════════════════════════════
