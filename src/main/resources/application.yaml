@@ -112,7 +112,7 @@ app:
     #   CC       — send to the real recipient AND CC default-recipient
     recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
     # Default recipient address used when recipient-mode is REDIRECT or CC.
-    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:}
+    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:manacommunityapp@gmail.com}
 
   # ── SMS & WhatsApp (Twilio) ──────────────────────────────────────
   # When disabled (default), messages are logged but not sent — safe for dev.
