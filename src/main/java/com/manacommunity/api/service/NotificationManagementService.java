@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 /**
  * General-purpose notification service that manages the user-facing
@@ -230,6 +230,80 @@ public class NotificationManagementService {
         if (dismissed > 0) {
             log.info("Auto-dismissed {} expired notifications", dismissed);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ANALYTICS
+    // ═══════════════════════════════════════════════════════════════
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAnalytics(Long communityId, int days) {
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        long total;
+        long totalRead;
+        List<Object[]> byType;
+        List<Object[]> byCategory;
+        List<Object[]> readRateByCategory;
+        List<Object[]> daily;
+        List<Object[]> byPriority;
+
+        if (communityId != null) {
+            total = notificationRepo.countByCommunityId(communityId);
+            totalRead = notificationRepo.countByCommunityIdAndReadTrue(communityId);
+            byType = notificationRepo.countByCommunityGroupByType(communityId);
+            byCategory = notificationRepo.countByCommunityGroupByCategory(communityId);
+            readRateByCategory = notificationRepo.readRateByCommunityGroupByCategory(communityId);
+            daily = notificationRepo.dailyCountByCommunity(communityId, since);
+            byPriority = notificationRepo.countByCommunityGroupByPriority(communityId);
+        } else {
+            total = notificationRepo.count();
+            totalRead = notificationRepo.countByReadTrue();
+            byType = notificationRepo.countGroupByType();
+            byCategory = notificationRepo.countGroupByCategory();
+            readRateByCategory = notificationRepo.readRateGroupByCategory();
+            daily = notificationRepo.dailyCount(since);
+            byPriority = notificationRepo.countGroupByPriority();
+        }
+
+        result.put("totalSent", total);
+        result.put("totalRead", totalRead);
+        result.put("readRate", total > 0 ? Math.round((double) totalRead / total * 10000.0) / 100.0 : 0);
+        result.put("days", days);
+
+        result.put("byType", byType.stream().map(r -> Map.of(
+                "type", r[0] != null ? r[0].toString() : "UNKNOWN",
+                "count", ((Number) r[1]).longValue()
+        )).toList());
+
+        result.put("byCategory", byCategory.stream().map(r -> Map.of(
+                "category", r[0] != null ? r[0].toString() : "UNKNOWN",
+                "count", ((Number) r[1]).longValue()
+        )).toList());
+
+        result.put("readRateByCategory", readRateByCategory.stream().map(r -> {
+            long catTotal = ((Number) r[1]).longValue();
+            long catRead = ((Number) r[2]).longValue();
+            return Map.of(
+                    "category", r[0] != null ? r[0].toString() : "UNKNOWN",
+                    "total", catTotal,
+                    "read", catRead,
+                    "readRate", catTotal > 0 ? Math.round((double) catRead / catTotal * 10000.0) / 100.0 : 0
+            );
+        }).toList());
+
+        result.put("dailyTrend", daily.stream().map(r -> Map.of(
+                "date", r[0].toString(),
+                "count", ((Number) r[1]).longValue()
+        )).toList());
+
+        result.put("byPriority", byPriority.stream().map(r -> Map.of(
+                "priority", r[0] != null ? r[0].toString() : "UNKNOWN",
+                "count", ((Number) r[1]).longValue()
+        )).toList());
+
+        return result;
     }
 
     // ═══════════════════════════════════════════════════════════════
