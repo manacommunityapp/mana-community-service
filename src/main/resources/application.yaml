@@ -106,6 +106,13 @@ app:
     base-url: ${APP_MAIL_BASE_URL:http://localhost:5173}
     # Lead time before a match's start at which the self-match reminder is sent.
     match-reminder-lead-minutes: ${APP_MAIL_MATCH_REMINDER_LEAD:30}
+    # Controls where notification emails are delivered:
+    #   NONE     — send to the real recipient (production default)
+    #   REDIRECT — send ALL emails to default-recipient instead of the real user
+    #   CC       — send to the real recipient AND CC default-recipient
+    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:REDIRECT}
+    # Default recipient address used when recipient-mode is REDIRECT or CC.
+    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:manacommunityapp@gmail.com}
 
   # ── SMS & WhatsApp (Twilio) ──────────────────────────────────────
   # When disabled (default), messages are logged but not sent — safe for dev.

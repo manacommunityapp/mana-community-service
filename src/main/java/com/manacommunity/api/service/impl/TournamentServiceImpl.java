@@ -10,6 +10,7 @@ import com.manacommunity.api.repository.ContactRepository;
 import com.manacommunity.api.dto.ContactDto;
 import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.service.TournamentService;
+import com.manacommunity.api.email.TournamentEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class TournamentServiceImpl implements TournamentService {
     private final CommunityRepository communityRepo;
     private final ContactRepository contactRepository;
     private final NotificationManagementService notificationService;
+    private final TournamentEmailService tournamentEmailService;
 
     private List<Contact> resolveContacts(List<ContactDto> dtos) {
         if (dtos == null || dtos.isEmpty()) return new ArrayList<>();
@@ -243,6 +245,14 @@ public class TournamentServiceImpl implements TournamentService {
         }
 
         notifyTournamentParticipants(saved, tournamentStatus);
+
+        if (tournamentStatus == Tournament.EventStatus.REGISTRATION_OPEN) {
+            try {
+                tournamentEmailService.sendTournamentRegistrationOpen(saved);
+            } catch (Exception e) {
+                log.error("Failed to send tournament registration open email for tournament {}: {}", saved.getId(), e.getMessage());
+            }
+        }
 
         return saved;
     }
