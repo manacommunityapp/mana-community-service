@@ -16,6 +16,46 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** Paginated feed: all non-dismissed notifications for a user, newest first. */
     Page<Notification> findByUserIdAndDismissedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    // ── Analytics queries ─────────────────────────────────────────────────
+
+    long countByCommunityId(Long communityId);
+
+    long countByCommunityIdAndReadTrue(Long communityId);
+
+    @Query("SELECT n.type, COUNT(n) FROM Notification n WHERE n.community.id = :cid GROUP BY n.type ORDER BY COUNT(n) DESC")
+    List<Object[]> countByCommunityGroupByType(@Param("cid") Long communityId);
+
+    @Query("SELECT n.category, COUNT(n) FROM Notification n WHERE n.community.id = :cid GROUP BY n.category ORDER BY COUNT(n) DESC")
+    List<Object[]> countByCommunityGroupByCategory(@Param("cid") Long communityId);
+
+    @Query("SELECT n.category, COUNT(n), SUM(CASE WHEN n.read = true THEN 1 ELSE 0 END) FROM Notification n WHERE n.community.id = :cid GROUP BY n.category")
+    List<Object[]> readRateByCommunityGroupByCategory(@Param("cid") Long communityId);
+
+    @Query("SELECT CAST(n.createdAt AS date), COUNT(n) FROM Notification n WHERE n.community.id = :cid AND n.createdAt >= :since GROUP BY CAST(n.createdAt AS date) ORDER BY CAST(n.createdAt AS date)")
+    List<Object[]> dailyCountByCommunity(@Param("cid") Long communityId, @Param("since") LocalDateTime since);
+
+    @Query("SELECT n.priority, COUNT(n) FROM Notification n WHERE n.community.id = :cid GROUP BY n.priority")
+    List<Object[]> countByCommunityGroupByPriority(@Param("cid") Long communityId);
+
+    // Global analytics (super-admin)
+
+    @Query("SELECT n.type, COUNT(n) FROM Notification n GROUP BY n.type ORDER BY COUNT(n) DESC")
+    List<Object[]> countGroupByType();
+
+    @Query("SELECT n.category, COUNT(n) FROM Notification n GROUP BY n.category ORDER BY COUNT(n) DESC")
+    List<Object[]> countGroupByCategory();
+
+    @Query("SELECT n.category, COUNT(n), SUM(CASE WHEN n.read = true THEN 1 ELSE 0 END) FROM Notification n GROUP BY n.category")
+    List<Object[]> readRateGroupByCategory();
+
+    @Query("SELECT CAST(n.createdAt AS date), COUNT(n) FROM Notification n WHERE n.createdAt >= :since GROUP BY CAST(n.createdAt AS date) ORDER BY CAST(n.createdAt AS date)")
+    List<Object[]> dailyCount(@Param("since") LocalDateTime since);
+
+    @Query("SELECT n.priority, COUNT(n) FROM Notification n GROUP BY n.priority")
+    List<Object[]> countGroupByPriority();
+
+    long countByReadTrue();
+
     /** Unread badge count. */
     long countByUserIdAndReadFalseAndDismissedFalse(Long userId);
 

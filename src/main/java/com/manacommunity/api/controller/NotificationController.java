@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.List;
 
 /**
  * REST endpoints for the user-facing notification inbox.
@@ -73,5 +74,17 @@ public class NotificationController {
             @AuthenticationPrincipal UserPrincipal principal) {
         int dismissed = notificationService.dismissAll(principal.getId());
         return ResponseEntity.ok(Map.of("dismissed", dismissed));
+    }
+
+    /** GET /api/notifications/analytics — engagement metrics for admin dashboards. */
+    @GetMapping("/analytics")
+    public ResponseEntity<Map<String, Object>> analytics(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(value = "days", defaultValue = "30") int days) {
+        Long communityId = principal.getCommunityId();
+        boolean isSuperAdmin = principal.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        return ResponseEntity.ok(notificationService.getAnalytics(
+                isSuperAdmin ? null : communityId, Math.min(Math.max(days, 1), 365)));
     }
 }
