@@ -110,7 +110,7 @@ app:
     #   NONE     — send to the real recipient (production default)
     #   REDIRECT — send ALL emails to default-recipient instead of the real user
     #   CC       — send to the real recipient AND CC default-recipient
-    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
+    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:REDIRECT}
     # Default recipient address used when recipient-mode is REDIRECT or CC.
     default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:manacommunityapp@gmail.com}
 

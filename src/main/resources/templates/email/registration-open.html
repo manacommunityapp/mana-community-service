@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — Tournament Registration Open'">Tournament Registration Open</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2933;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- Hero Header with Gradient -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e1b4b 0%,#4f46e5 50%,#7c3aed 100%);padding:40px 32px 32px;text-align:center;">
+              <div style="font-size:48px;line-height:1;margin-bottom:12px;">🏆</div>
+              <h1 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">Registrations Are Open!</h1>
+              <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.8);font-weight:500;" th:text="${tournamentName}">Summer Smash Cup 2026</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#4b5563;">
+                Hi <strong th:text="${recipientName}">there</strong>, great news! Registrations have officially
+                opened for <strong th:text="${tournamentName}">the upcoming tournament</strong>.
+                Grab your spot before they fill up — this is your chance to compete and represent your community!
+              </p>
+
+              <!-- Description callout -->
+              <div th:if="${description}" style="margin:0 0 24px;padding:14px 18px;background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%);border-left:4px solid #6366f1;border-radius:8px;font-size:14px;color:#4338ca;line-height:1.6;" th:text="${description}">
+                Tournament description goes here.
+              </div>
+
+              <!-- Details Card -->
+              <div style="background-color:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:24px;">
+                <div style="padding:12px 18px;background-color:#f1f5f9;border-bottom:1px solid #e2e8f0;">
+                  <span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">📋 Tournament Details</span>
+                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;color:#6b7280;font-size:13px;width:40%;">Tournament</td><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:600;color:#1e293b;text-align:right;" th:text="${tournamentName}">Summer Smash Cup</td></tr>
+                  <tr th:if="${sportName}"><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;color:#6b7280;font-size:13px;">Sport(s)</td><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:500;color:#1e293b;text-align:right;" th:text="${sportName}">Badminton</td></tr>
+                  <tr th:if="${registrationPeriod}"><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;color:#6b7280;font-size:13px;">Registration Window</td><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:500;color:#1e293b;text-align:right;" th:text="${registrationPeriod}">TBA</td></tr>
+                  <tr th:if="${eventDates}"><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;color:#6b7280;font-size:13px;">Event Dates</td><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:500;color:#1e293b;text-align:right;" th:text="${eventDates}">TBA</td></tr>
+                  <tr th:if="${venueName}"><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;color:#6b7280;font-size:13px;">Venue</td><td style="padding:12px 18px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:500;color:#1e293b;text-align:right;" th:text="${venueName}">TBA</td></tr>
+                  <tr th:if="${contactDetails}"><td style="padding:12px 18px;color:#6b7280;font-size:13px;">Organizer</td><td style="padding:12px 18px;font-size:14px;font-weight:500;color:#1e293b;text-align:right;" th:text="${contactDetails}">TBA</td></tr>
+                </table>
+              </div>
+
+              <!-- Urgency banner -->
+              <div style="margin:0 0 24px;padding:14px 18px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:10px;border:1px solid #fbbf24;text-align:center;">
+                <span style="font-size:13px;font-weight:700;color:#92400e;">⏰ Spots are limited — register before they fill up!</span>
+              </div>
+
+              <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#6b7280;">
+                If this is a team event, make sure your team captain registers and confirms the roster before registrations close.
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align:center;">
+                <a th:href="${actionUrl}" href="#" style="display:inline-block;background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(79,70,229,0.4);">Register Now →</a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;background-color:#f9fafb;border-top:1px solid #eef0f2;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;text-align:center;">
+                You're receiving this because you're a member of <span th:text="${appName}">Mana Community</span>.<br/>
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>. Automated message — do not reply.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

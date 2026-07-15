@@ -59,7 +59,12 @@ public class SmtpEmailService implements EmailService {
             MimeMessage mime = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     mime, MimeMessageHelper.MULTIPART_MODE_NO, StandardCharsets.UTF_8.name());
-            helper.setFrom(fromAddress());
+            
+            InternetAddress from = (message.from() != null && !message.from().isBlank())
+                    ? new InternetAddress(message.from().trim(), message.fromName() != null ? message.fromName().trim() : props.getFromName(), StandardCharsets.UTF_8.name())
+                    : fromAddress();
+            
+            helper.setFrom(from);
             helper.setTo(effectiveTo);
             helper.setSubject(message.subject());
             helper.setText(message.htmlBody(), true);

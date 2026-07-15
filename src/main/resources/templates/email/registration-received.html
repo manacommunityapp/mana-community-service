@@ -27,11 +27,18 @@
                 <strong th:text="${eventName}">the event</strong>. Your spot is recorded — here are your details:
               </p>
 
+              <!-- Tournament context banner (if linked to a tournament) -->
+              <div th:if="${tournamentName}" style="margin:0 0 20px;padding:12px 16px;background-color:#eff6ff;border-left:4px solid #2563eb;border-radius:4px;">
+                <div style="font-size:11px;font-weight:600;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Tournament</div>
+                <div style="font-size:15px;font-weight:700;color:#1e3a5f;" th:text="${tournamentName}">Summer Smash Cup</div>
+              </div>
+
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
                 <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Sport</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${sportName}">Badminton</td></tr>
                 <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Category</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${categoryName}">Open</td></tr>
-                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Format</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${matchType}">Singles</td></tr>
-                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Event date</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${eventDate}">TBA</td></tr>
+                <tr th:if="${matchType}"><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Format</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${matchType}">Singles</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Event Dates</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${eventDates}">TBA</td></tr>
+                <tr th:if="${registrationPeriod}"><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Registration Window</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${registrationPeriod}">TBA</td></tr>
                 <tr><td style="padding:8px 0;border-bottom:1px solid #eef0f2;color:#6b7280;font-size:13px;">Venue</td><td style="padding:8px 0;border-bottom:1px solid #eef0f2;font-size:14px;text-align:right;" th:text="${venueName}">TBA</td></tr>
                 <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Status</td><td style="padding:8px 0;font-size:14px;text-align:right;"><span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;" th:text="${status}">Registered</span></td></tr>
               </table>

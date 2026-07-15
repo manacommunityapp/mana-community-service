@@ -32,7 +32,13 @@ public enum EmailTemplate {
     PRIZE_DISTRIBUTION("prize-distribution", "Prize distribution details"),
 
     /** One-time passcode emailed to verify an address before registration. */
-    EMAIL_OTP("email-otp", "Your verification code");
+    EMAIL_OTP("email-otp", "Your verification code"),
+
+    /** Tournament registrations are now open for the community. */
+    REGISTRATION_OPEN("registration-open", "Registrations are now open!"),
+
+    /** Tournament has officially started / opening ceremony. */
+    TOURNAMENT_START("tournament-start", "Welcome to the tournament! 🚀");
 
     private final String templateName;
     private final String defaultSubject;

@@ -63,6 +63,17 @@ public class EmailVerificationController {
         return ResponseEntity.ok(renderer.render(template, sampleVars(template)));
     }
 
+    @PostMapping(value = "/preview/{template}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> previewPost(
+            @PathVariable("template") EmailTemplate template,
+            @RequestBody(required = false) Map<String, Object> customVars) {
+        Map<String, Object> vars = sampleVars(template);
+        if (customVars != null) {
+            vars.putAll(customVars);
+        }
+        return ResponseEntity.ok(renderer.render(template, vars));
+    }
+
     // ── Sample payloads ──────────────────────────────────────────────
 
     @GetMapping("/sample-payloads")
@@ -135,7 +146,19 @@ public class EmailVerificationController {
 
         String html = renderer.render(template, vars);
         String subject = "[TEST] " + template.defaultSubject();
-        emailService.send(new EmailMessage(recipient, "Test Recipient", subject, html));
+
+        String fromOverride = null;
+        String fromNameOverride = null;
+        if (customVars != null) {
+            if (customVars.containsKey("fromEmail")) {
+                fromOverride = String.valueOf(customVars.get("fromEmail"));
+            }
+            if (customVars.containsKey("fromName")) {
+                fromNameOverride = String.valueOf(customVars.get("fromName"));
+            }
+        }
+
+        emailService.send(new EmailMessage(recipient, "Test Recipient", subject, html, fromOverride, fromNameOverride));
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("template", template.name());
@@ -154,7 +177,8 @@ public class EmailVerificationController {
 
     @PostMapping("/test-all")
     public ResponseEntity<Map<String, Object>> sendAllTemplates(
-            @RequestParam(value = "to", required = false) String to) {
+            @RequestParam(value = "to", required = false) String to,
+            @RequestBody(required = false) Map<String, Object> customVars) {
 
         String recipient = resolveTestRecipient(to);
         if (recipient == null || recipient.isBlank()) {
@@ -171,9 +195,25 @@ public class EmailVerificationController {
             entry.put("template", template.name());
             entry.put("subject", "[TEST] " + template.defaultSubject());
             try {
-                String html = renderer.render(template, sampleVars(template));
+                Map<String, Object> vars = sampleVars(template);
+                if (customVars != null && !customVars.isEmpty()) {
+                    vars.putAll(customVars);
+                }
+                String html = renderer.render(template, vars);
+                
+                String fromOverride = null;
+                String fromNameOverride = null;
+                if (customVars != null) {
+                    if (customVars.containsKey("fromEmail")) {
+                        fromOverride = String.valueOf(customVars.get("fromEmail"));
+                    }
+                    if (customVars.containsKey("fromName")) {
+                        fromNameOverride = String.valueOf(customVars.get("fromName"));
+                    }
+                }
+
                 emailService.send(new EmailMessage(recipient, "Test Recipient",
-                        "[TEST] " + template.defaultSubject(), html));
+                        "[TEST] " + template.defaultSubject(), html, fromOverride, fromNameOverride));
                 entry.put("status", "SENT");
                 sent++;
             } catch (Exception e) {
@@ -286,6 +326,25 @@ public class EmailVerificationController {
             case EMAIL_OTP -> {
                 v.put("otpCode", "428913");
                 v.put("expiryMinutes", 10);
+            }
+            case REGISTRATION_OPEN -> {
+                v.put("tournamentName", "Summer Smash Cup");
+                v.put("description", "Join us for the annual Summer Smash Cup! Compete against local teams in multiple sports formats including Badminton, Table Tennis, and Football.");
+                v.put("sportName", "Badminton, Table Tennis, Football");
+                v.put("registrationPeriod", "15 Jun 2026 - 30 Jun 2026");
+                v.put("eventDates", "05 Jul 2026 - 12 Jul 2026");
+                v.put("venueName", "Community Sports Arena");
+                v.put("contactDetails", "Amit Patel (amit@manacommunity.app, +91 98765 43210)");
+                v.put("actionUrl", props.getBaseUrl() + "/sports");
+            }
+            case TOURNAMENT_START -> {
+                v.put("tournamentName", "Summer Smash Cup 2026");
+                v.put("description", "Welcome players and captains! The opening ceremony starts at 9:00 AM sharp at the central club lawns. First round matches will commence immediately after.");
+                v.put("sportName", "Badminton, Football, Table Tennis");
+                v.put("openingTime", "Sat, 05 Jul 2026 09:00 AM");
+                v.put("venueName", "Community Sports Arena");
+                v.put("firstFixture", "Team Red vs Team Blue (Football Pitch 1)");
+                v.put("actionUrl", props.getBaseUrl() + "/sports");
             }
         }
         return v;

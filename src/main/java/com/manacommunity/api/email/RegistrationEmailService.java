@@ -53,14 +53,35 @@ public class RegistrationEmailService {
             String name = playerName(reg);
             SportsEvent event = reg.getEvent();
 
-            // Variables shared by both registration templates.
+            // Variables shared by all registration templates.
             Map<String, Object> vars = support.baseVars(name);
             vars.put("eventName", event != null ? event.getName() : "the event");
             vars.put("sportName", event != null && event.getSport() != null ? event.getSport().getName() : "");
             vars.put("categoryName", reg.getCategory() != null ? reg.getCategory().getName() : "");
-            vars.put("eventDate", event != null ? support.formatDate(event.getEventDateStart()) : "TBA");
             vars.put("venueName", event != null && event.getVenue() != null ? event.getVenue().getName() : "TBA");
             vars.put("actionUrl", support.props().getBaseUrl() + "/profile");
+            vars.put("matchType", reg.getMatchType() != null ? support.prettify(reg.getMatchType().name()) : "");
+
+            // Tournament context (if the event belongs to a tournament)
+            Tournament tournament = event != null ? event.getTournament() : null;
+            vars.put("tournamentName", tournament != null ? tournament.getName() : null);
+
+            // Event date range (start — end)
+            String eventDates = event != null ? support.formatDate(event.getEventDateStart()) : "TBA";
+            if (event != null && event.getEventDateEnd() != null && event.getEventDateStart() != null
+                    && !event.getEventDateEnd().isEqual(event.getEventDateStart())) {
+                eventDates += " to " + support.formatDate(event.getEventDateEnd());
+            }
+            vars.put("eventDates", eventDates);
+
+            // Registration window
+            if (event != null && event.getRegistrationDateStart() != null) {
+                String regPeriod = support.formatDate(event.getRegistrationDateStart());
+                if (event.getRegistrationDateEnd() != null) {
+                    regPeriod += " to " + support.formatDate(event.getRegistrationDateEnd());
+                }
+                vars.put("registrationPeriod", regPeriod);
+            }
 
             EmailTemplate template;
             String subject;
