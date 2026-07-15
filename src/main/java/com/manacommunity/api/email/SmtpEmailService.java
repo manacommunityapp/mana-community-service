@@ -49,19 +49,32 @@ public class SmtpEmailService implements EmailService {
             return;
         }
 
+        String effectiveTo = resolveRecipient(message.to());
+        if (effectiveTo == null || effectiveTo.isBlank()) {
+            log.debug("[EMAIL] Skipped — no effective recipient after mode resolution");
+            return;
+        }
+
         try {
             MimeMessage mime = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     mime, MimeMessageHelper.MULTIPART_MODE_NO, StandardCharsets.UTF_8.name());
             helper.setFrom(fromAddress());
-            helper.setTo(message.to());
+            helper.setTo(effectiveTo);
             helper.setSubject(message.subject());
-            helper.setText(message.htmlBody(), true); // true => HTML
+            helper.setText(message.htmlBody(), true);
+
+            if (props.getRecipientMode() == EmailProperties.RecipientMode.CC
+                    && hasDefaultRecipient()
+                    && !effectiveTo.equalsIgnoreCase(props.getDefaultRecipient().trim())) {
+                helper.setCc(props.getDefaultRecipient().trim());
+            }
+
             sender.send(mime);
-            log.info("[EMAIL SENT] '{}' -> {}", message.subject(), message.to());
+            log.info("[EMAIL SENT] '{}' -> {}{}", message.subject(), effectiveTo,
+                    !effectiveTo.equalsIgnoreCase(message.to()) ? " (redirected from " + message.to() + ")" : "");
         } catch (MessagingException | UnsupportedEncodingException e) {
-            // Never propagate — a failed notification must not break the business flow.
-            log.error("[EMAIL FAILED] '{}' -> {}: {}", message.subject(), message.to(), e.getMessage(), e);
+            log.error("[EMAIL FAILED] '{}' -> {}: {}", message.subject(), effectiveTo, e.getMessage(), e);
         }
     }
 
@@ -71,6 +84,17 @@ public class SmtpEmailService implements EmailService {
         for (EmailMessage m : messages) {
             send(m);
         }
+    }
+
+    private String resolveRecipient(String originalTo) {
+        if (props.getRecipientMode() == EmailProperties.RecipientMode.REDIRECT && hasDefaultRecipient()) {
+            return props.getDefaultRecipient().trim();
+        }
+        return originalTo;
+    }
+
+    private boolean hasDefaultRecipient() {
+        return props.getDefaultRecipient() != null && !props.getDefaultRecipient().isBlank();
     }
 
     private InternetAddress fromAddress() throws UnsupportedEncodingException {

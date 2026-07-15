@@ -32,4 +32,20 @@ public class EmailProperties {
 
     /** How many minutes before a match starts the self-match reminder is sent. */
     private int matchReminderLeadMinutes = 30;
+
+    /**
+     * When set, controls where notification emails are delivered.
+     * <ul>
+     *   <li>{@code NONE} (default) — send to the real recipient (production mode)</li>
+     *   <li>{@code REDIRECT} — send to {@link #defaultRecipient} instead of the real
+     *       recipient; useful for dev/staging so no real user gets mail</li>
+     *   <li>{@code CC} — send to the real recipient AND copy {@link #defaultRecipient}</li>
+     * </ul>
+     */
+    private RecipientMode recipientMode = RecipientMode.NONE;
+
+    /** Default recipient address used when {@link #recipientMode} is REDIRECT or CC. */
+    private String defaultRecipient;
+
+    public enum RecipientMode { NONE, REDIRECT, CC }
 }
