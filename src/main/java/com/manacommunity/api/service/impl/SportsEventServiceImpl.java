@@ -156,8 +156,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
-//        if (event.getRegistrationStatus() != SportsEvent.EventStatus.REGISTRATION_OPEN)
-//            throw new RegistrationClosedException(event.getName(), event.getRegistrationStatus().name());
+        if (event.getStatus() != SportsEvent.EventStatus.REGISTRATION_OPEN)
+            throw new RegistrationClosedException(event.getName(), event.getStatus().name());
 
         // Anti-abuse gates (both no-ops unless enabled in config): bot check then
         // proof the registrant controls the email they're submitting.
@@ -339,6 +339,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
         reg.setStatus(SportsEventRegistration.RegistrationStatus.REJECTED);
+        reg.setRejectReason(reason);
         SportsEventRegistration saved = regRepo.save(reg);
 
         // Registration process — the entry was not approved (optional reason).

@@ -156,9 +156,6 @@ public class TournamentSchedulerController {
                 "Single elimination — lose once and you're out. Fast and decisive.",
                 "2-64", "ceil(log2 N) rounds"),
                 new TournamentTypeInfo("GROUP_KNOCKOUT",    "Group Stage + Knockout",
-                        "Teams split into groups (A, B …). Top N advance to knockout bracket.",
-                        "4-32", "Group rounds + Knockout"),
-            new TournamentTypeInfo("GROUP_KNOCKOUT",    "Group Stage + Knockout",
                 "Teams split into groups (A, B …). Top N advance to knockout bracket.",
                 "4-32", "Group rounds + Knockout"),
             new TournamentTypeInfo("ROUND_ROBIN",       "Round Robin (League)",
@@ -259,6 +256,15 @@ public class TournamentSchedulerController {
     /**
      * PUT /api/tournament/match/{matchId}/reschedule
      */
+    @PutMapping("/match/{matchId}/reschedule")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<MatchResponse> rescheduleMatch(
+            @PathVariable Long matchId,
+            @Valid @RequestBody RescheduleRequest req) {
+        TournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue());
+        return ResponseEntity.ok(schedulerService.toMatchResponse(updated));
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // MANUAL SCHEDULING ENDPOINTS
     // ═══════════════════════════════════════════════════════════════
