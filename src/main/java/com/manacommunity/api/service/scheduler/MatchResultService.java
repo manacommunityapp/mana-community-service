@@ -35,6 +35,7 @@ public class MatchResultService {
     private final AuctionTeamRepository teamRepo;
     private final AuctionPlayerRepository playerRepo;
     private final BracketGenerator bracketGenerator;
+    private final TournamentConfigRepository configRepo;
 
     @Transactional
     public MatchDetailResponse recordDetailedResult(MatchResultDetailRequest req) {
@@ -268,9 +269,7 @@ public class MatchResultService {
     private void recalculatePlayerStats(Long configId, TournamentMatch match) {
         Set<Long> playerIds = new HashSet<>();
 
-        List<MatchResult> results = resultRepo.findAll().stream()
-            .filter(r -> r.getMatch().getConfig().getId().equals(configId))
-            .toList();
+        List<MatchResult> results = resultRepo.findByMatch_Config_Id(configId);
 
         for (MatchResult r : results) {
             List<MatchInnings> inns = inningsRepo.findByMatchResultIdOrderByInningsNumber(r.getId());
@@ -295,9 +294,7 @@ public class MatchResultService {
 
         AuctionPlayer player = playerRepo.findById(playerId).orElse(null);
         if (player == null) return;
-        TournamentConfig config = matchRepo.findAll().stream()
-            .filter(m -> m.getConfig().getId().equals(configId))
-            .findFirst().map(TournamentMatch::getConfig).orElse(null);
+        TournamentConfig config = configRepo.findById(configId).orElse(null);
         if (config == null) return;
 
         int totalRuns = allBatting.stream().mapToInt(BattingPerformance::getRunsScored).sum();
@@ -334,20 +331,15 @@ public class MatchResultService {
             ? new BigDecimal(totalRunsConceded).divide(totalOversBowled, 2, RoundingMode.HALF_UP)
             : BigDecimal.ZERO;
 
-        long momCount = resultRepo.findAll().stream()
-            .filter(r -> r.getMatch().getConfig().getId().equals(configId)
-                && r.getManOfMatch() != null && r.getManOfMatch().getId().equals(playerId))
+        long momCount = resultRepo.findByMatch_Config_Id(configId).stream()
+            .filter(r -> r.getManOfMatch() != null && r.getManOfMatch().getId().equals(playerId))
             .count();
 
         Set<Long> matchIds = new HashSet<>();
         allBatting.forEach(b -> matchIds.add(b.getInnings().getMatchResult().getMatch().getId()));
         allBowling.forEach(b -> matchIds.add(b.getInnings().getMatchResult().getMatch().getId()));
 
-        long fielderCatches = allBatting.stream()
-            .flatMap(__ -> battingRepo.findAll().stream())
-            .filter(b -> b.getFielder() != null && b.getFielder().getId().equals(playerId)
-                && b.getDismissalType() == DismissalType.CAUGHT)
-            .count();
+        long fielderCatches = battingRepo.countByFielderIdAndDismissalTypeAndConfigId(playerId, DismissalType.CAUGHT, configId);
 
         PlayerTournamentStats stats = statsRepo.findByConfigIdAndPlayerId(configId, playerId)
             .orElseGet(() -> PlayerTournamentStats.builder().config(config).player(player).build());

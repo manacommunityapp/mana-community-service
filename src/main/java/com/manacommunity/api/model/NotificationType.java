@@ -39,6 +39,10 @@ public enum NotificationType {
     TOURNAMENT_COMPLETED,
     PRIZE_DISTRIBUTION,
 
+    // Tournament announcements
+    TOURNAMENT_OPEN,
+    TOURNAMENT_ANNOUNCEMENT,
+
     // General
     GENERAL,
 
