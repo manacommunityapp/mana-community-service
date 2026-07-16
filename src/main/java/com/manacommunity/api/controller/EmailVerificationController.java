@@ -283,6 +283,31 @@ public class EmailVerificationController {
                 v.put("ceremonyDate", "Sun, 21 Jun 2026, 06:00 PM");
                 v.put("venueName", "Community Sports Arena");
             }
+            case TOURNAMENT_OPEN -> {
+                v.put("tournamentName", "Summer Smash Cup 2026");
+                v.put("eventDate", "Sat, 20 Jun 2026");
+                v.put("registrationDeadline", "Fri, 15 Jun 2026");
+                v.put("contactName", "Vikram Patel");
+                v.put("contactNumber", "+91 98765 43210");
+                v.put("venueName", "Community Sports Arena");
+                v.put("bannerImage", "");
+                v.put("customMessage", "Don't miss your chance to compete! Early bird registrations get a free team jersey.");
+                v.put("sportsEvents", List.of(
+                        Map.of("sportName", "Badminton", "eventName", "Men's Singles", "icon", "🏸", "ageRange", "18–45", "gender", "Male"),
+                        Map.of("sportName", "Badminton", "eventName", "Women's Doubles", "icon", "🏸", "ageRange", "18–40", "gender", "Female"),
+                        Map.of("sportName", "Table Tennis", "eventName", "Mixed Doubles", "icon", "🏓", "ageRange", "16–50", "gender", "All"),
+                        Map.of("sportName", "Cricket", "eventName", "Men's T20", "icon", "🏏", "ageRange", "18–45", "gender", "Male")
+                ));
+            }
+            case TOURNAMENT_ANNOUNCEMENT -> {
+                v.put("tournamentName", "Summer Smash Cup 2026");
+                v.put("subject", "Important Update: Venue Change");
+                v.put("customMessage", "Due to ongoing renovations, all matches have been moved to the Community Sports Arena (Block C). Same timings apply. See you there!");
+                v.put("eventDate", "Sat, 20 Jun 2026");
+                v.put("contactName", "Vikram Patel");
+                v.put("contactNumber", "+91 98765 43210");
+                v.put("bannerImage", "");
+            }
             case EMAIL_OTP -> {
                 v.put("otpCode", "428913");
                 v.put("expiryMinutes", 10);

@@ -31,6 +31,12 @@ public enum EmailTemplate {
     /** Prize distribution / closing ceremony details. */
     PRIZE_DISTRIBUTION("prize-distribution", "Prize distribution details"),
 
+    /** Tournament created — announcing registration is open. */
+    TOURNAMENT_OPEN("tournament-open", "Registration is now open!"),
+
+    /** General tournament announcement (custom or pre-built). */
+    TOURNAMENT_ANNOUNCEMENT("tournament-announcement", "Tournament announcement"),
+
     /** One-time passcode emailed to verify an address before registration. */
     EMAIL_OTP("email-otp", "Your verification code");
 

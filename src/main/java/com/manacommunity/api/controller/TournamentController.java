@@ -2,8 +2,10 @@ package com.manacommunity.api.controller;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.SponsorDto;
+import com.manacommunity.api.dto.TournamentAnnouncementRequest;
 import com.manacommunity.api.dto.TournamentRequest;
 import com.manacommunity.api.dto.TournamentResponse;
+import com.manacommunity.api.email.TournamentAnnouncementService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Tournament;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -21,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tournaments")
@@ -30,6 +33,7 @@ public class TournamentController {
     private final TournamentService tournamentService;
     private final LoggedInUserService loggedInUserService;
     private final SportsEventService eventService;
+    private final TournamentAnnouncementService announcementService;
 
     @GetMapping("/all")
     public ResponseEntity<List<TournamentResponse>> getAllTournaments(@AuthenticationPrincipal UserPrincipal principal) {
@@ -81,6 +85,35 @@ public class TournamentController {
     public ResponseEntity<TournamentResponse> updateStatus(
             @PathVariable Long id, @RequestParam String status) {
         return ResponseEntity.ok(toResponse(tournamentService.updateStatus(id, status)));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PostMapping("/{id}/announce")
+    public ResponseEntity<Map<String, Object>> announce(
+            @PathVariable Long id,
+            @Valid @RequestBody TournamentAnnouncementRequest req) {
+        Tournament tournament = tournamentService.getTournamentById(id);
+        int sent = announcementService.announce(tournament, req);
+        return ResponseEntity.ok(Map.of("sent", sent, "tournamentId", id));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PostMapping("/{id}/notify-open")
+    public ResponseEntity<Map<String, Object>> notifyRegistrationOpen(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Tournament tournament = tournamentService.getTournamentById(id);
+        String message = body != null && body.get("message") instanceof String m ? m
+                : "Registration for " + tournament.getName() + " is now open!";
+        boolean sendEmail = body == null || !Boolean.FALSE.equals(body.get("sendEmail"));
+        boolean sendPush = body == null || !Boolean.FALSE.equals(body.get("sendPush"));
+
+        TournamentAnnouncementRequest req = new TournamentAnnouncementRequest(
+                "TOURNAMENT_OPEN",
+                "Registration is now open — " + tournament.getName(),
+                message, sendEmail, sendPush, null);
+        int sent = announcementService.announce(tournament, req);
+        return ResponseEntity.ok(Map.of("sent", sent, "tournamentId", id));
     }
 
     private TournamentResponse toResponse(Tournament t) {
