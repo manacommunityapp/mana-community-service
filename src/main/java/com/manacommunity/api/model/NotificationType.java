@@ -40,5 +40,9 @@ public enum NotificationType {
     PRIZE_DISTRIBUTION,
 
     // General
-    GENERAL
+    GENERAL,
+
+    // Visitor
+    VISITOR_PENDING,
+    VISITOR_CHECK_IN
 }
