@@ -1,7 +1,7 @@
 package com.manacommunity.api.slice.repository;
 
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.support.BaseRepositoryTest;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,19 +1,19 @@
 package com.manacommunity.api.unit.service;
 
-import com.manacommunity.api.dto.LoginRequest;
-import com.manacommunity.api.dto.RegisterRequest;
+import com.manacommunity.api.user.dto.LoginRequest;
+import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.InvalidInviteCodeException;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.RoleRepository;
-import com.manacommunity.api.response.AuthResponse;
-import com.manacommunity.api.service.impl.AuthServiceImpl;
+import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.service.impl.AuthServiceImpl;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
