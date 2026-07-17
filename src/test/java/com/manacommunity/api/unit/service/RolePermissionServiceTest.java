@@ -1,10 +1,10 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Role;
 import com.manacommunity.api.model.RolePermission;
-import com.manacommunity.api.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
 import com.manacommunity.api.repository.RoleRepository;
 import com.manacommunity.api.service.impl.RolePermissionServiceImpl;

@@ -35,6 +35,23 @@ public class Post {
     @Column(name = "is_official", nullable = false)
     private boolean official;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "post_type", nullable = false)
+    private PostType postType = PostType.GENERAL;
+
+    @Column(name = "price")
+    private Double price;
+
+    @Column(name = "location", length = 255)
+    private String location;
+
+    @Column(name = "poll_question", length = 500)
+    private String pollQuestion;
+
+    @Column(name = "poll_options", length = 1000)
+    private String pollOptions;
+
     @Column(name = "likes_count", nullable = false)
     private int likesCount;
 

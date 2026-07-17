@@ -2,6 +2,11 @@ package com.manacommunity.api.dto;
 
 import java.time.LocalDateTime;
 
+import com.manacommunity.api.model.PostType;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
 public record PostResponse(
     Long id,
     String content,
@@ -14,5 +19,12 @@ public record PostResponse(
     String authorName,
     String authorAvatar,
     String authorRole,
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+    PostType postType,
+    Double price,
+    String location,
+    String pollQuestion,
+    List<String> pollOptionsList,
+    Map<String, Long> pollVotes,
+    String userVotedOption
 ) {}

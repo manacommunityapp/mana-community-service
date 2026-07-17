@@ -4,15 +4,15 @@ import com.manacommunity.api.ai.controller.AiChatController;
 import com.manacommunity.api.ai.dto.AiChatRequest;
 import com.manacommunity.api.ai.dto.AiChatResponse;
 import com.manacommunity.api.ai.service.AiChatAgentService;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.WithMockUserPrincipal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -24,16 +24,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("AI Chat Controller")
 class AiChatControllerTest extends BaseWebMvcTest {
 
-    @MockBean
+    @MockitoBean
     private AiChatAgentService chatAgentService;
 
-    @MockBean
+    @MockitoBean
     private LoggedInUserService loggedInUserService;
 
     @Test
     @DisplayName("POST /api/ai/chat — 401 without auth")
     void chatRequiresAuthentication() throws Exception {
-        mvc.perform(post("/api/ai/chat")
+        mockMvc.perform(post("/api/ai/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"hello\"}"))
                 .andExpect(status().isUnauthorized());
@@ -46,7 +46,7 @@ class AiChatControllerTest extends BaseWebMvcTest {
         AppUser user = mockActiveUser();
         when(loggedInUserService.resolve(any())).thenReturn(user);
 
-        mvc.perform(post("/api/ai/chat")
+        mockMvc.perform(post("/api/ai/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"\"}"))
                 .andExpect(status().isBadRequest());
@@ -61,7 +61,7 @@ class AiChatControllerTest extends BaseWebMvcTest {
         when(chatAgentService.chat(any(AiChatRequest.class), eq(user)))
                 .thenReturn(new AiChatResponse(null, "Hello! How can I help?"));
 
-        mvc.perform(post("/api/ai/chat")
+        mockMvc.perform(post("/api/ai/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"hello\"}"))
                 .andExpect(status().isOk())
@@ -78,7 +78,7 @@ class AiChatControllerTest extends BaseWebMvcTest {
         user.setCommunity(null); // no community
         when(loggedInUserService.resolve(any())).thenReturn(user);
 
-        mvc.perform(post("/api/ai/chat")
+        mockMvc.perform(post("/api/ai/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"hello\"}"))
                 .andExpect(status().isBadRequest());

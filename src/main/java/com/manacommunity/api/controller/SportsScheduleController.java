@@ -9,6 +9,7 @@ import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/sports/schedule")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class SportsScheduleController {
 
     private final SportsScheduleService scheduleService;

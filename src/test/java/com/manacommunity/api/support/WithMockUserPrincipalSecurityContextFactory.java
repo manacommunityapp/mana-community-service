@@ -1,6 +1,6 @@
 package com.manacommunity.api.support;
 
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

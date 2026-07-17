@@ -15,9 +15,11 @@ spring:
 
   jpa:
     hibernate:
-      # 'update' automatically creates/modifies tables to match your @Entity classes
-      #ddl-auto: create
-      ddl-auto: update
+      # 'create' drops & recreates all tables each boot, so the (non-idempotent)
+      # sample-data seeders always run against empty tables. Use 'update' only
+      # with app.insert-sample-data=false, else seeding hits duplicate-key errors.
+      ddl-auto: create
+      #ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -26,6 +28,26 @@ spring:
         format_sql: false
         use_sql_comments: false
 
+  # ── Gmail SMTP (overrides AWS SES from application.yaml for local dev) ──
+  # Uses Gmail's SMTP relay with an App Password. To generate one:
+  #   1. Enable 2-Step Verification on your Google account
+  #   2. Go to https://myaccount.google.com/apppasswords
+  #   3. Create an App Password for "Mail" and paste it below
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USERNAME:manacommunityapp@gmail.com}
+    password: ${GMAIL_APP_PASSWORD:rygzuwgwbsvckiju}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 server:
   port: 8082
@@ -41,6 +63,17 @@ app:
   security:
     mock-auth-enabled: true
 
+  # ── Local email settings ─────────────────────────────────────────────
+  # Enabled so emails are actually sent (not just logged).
+  # REDIRECT mode sends all emails to default-recipient instead of real
+  # users — safe for local testing.
+  mail:
+    enabled: ${APP_MAIL_ENABLED:true}
+    from: ${GMAIL_USERNAME:manacommunityapp@gmail.com}
+    from-name: Mana Community (Local)
+    base-url: http://localhost:5173
+    recipient-mode: REDIRECT
+    default-recipient: ${GMAIL_USERNAME:manacommunityapp@gmail.com}
 
 # CORS Configuration for React Frontend
 cors:

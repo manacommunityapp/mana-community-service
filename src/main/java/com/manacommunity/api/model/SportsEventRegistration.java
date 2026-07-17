@@ -49,6 +49,9 @@ public class SportsEventRegistration {
     private Integer age;
     private String role;
 
+    @Column(name = "reject_reason", length = 1000)
+    private String rejectReason;
+
     private Boolean captainNomination;
     private Boolean captainConfirmation;
     private String proposedTeamName;

@@ -3,11 +3,16 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.MarkReadRequest;
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
+import com.manacommunity.api.dto.TournamentAnnouncementRequest;
+import com.manacommunity.api.email.TournamentAnnouncementService;
+import com.manacommunity.api.model.Tournament;
+import com.manacommunity.api.service.TournamentService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +29,8 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationManagementService notificationService;
+    private final TournamentAnnouncementService announcementService;
+    private final TournamentService tournamentService;
 
     /** GET /api/notifications — paginated notification feed for the logged-in user. */
     @GetMapping
@@ -74,6 +81,26 @@ public class NotificationController {
             @AuthenticationPrincipal UserPrincipal principal) {
         int dismissed = notificationService.dismissAll(principal.getId());
         return ResponseEntity.ok(Map.of("dismissed", dismissed));
+    }
+
+    /** POST /api/notifications/tournament/{id}/open — send registration-open announcement. */
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PostMapping("/tournament/{tournamentId}/open")
+    public ResponseEntity<Map<String, Object>> notifyTournamentOpen(
+            @PathVariable Long tournamentId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Tournament tournament = tournamentService.getTournamentById(tournamentId);
+        String message = body != null && body.get("message") instanceof String m ? m
+                : "Registration for " + tournament.getName() + " is now open!";
+        boolean sendEmail = body == null || !Boolean.FALSE.equals(body.get("sendEmail"));
+        boolean sendPush = body == null || !Boolean.FALSE.equals(body.get("sendPush"));
+
+        TournamentAnnouncementRequest req = new TournamentAnnouncementRequest(
+                "TOURNAMENT_OPEN",
+                "Registration is now open — " + tournament.getName(),
+                message, sendEmail, sendPush, null);
+        int sent = announcementService.announce(tournament, req);
+        return ResponseEntity.ok(Map.of("sent", sent, "tournamentId", tournamentId));
     }
 
     /** GET /api/notifications/analytics — engagement metrics for admin dashboards. */

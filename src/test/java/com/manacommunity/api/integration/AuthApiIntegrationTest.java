@@ -1,8 +1,8 @@
 package com.manacommunity.api.integration;
 
-import com.manacommunity.api.dto.LoginRequest;
-import com.manacommunity.api.dto.RegisterRequest;
-import com.manacommunity.api.response.AuthResponse;
+import com.manacommunity.api.user.dto.LoginRequest;
+import com.manacommunity.api.user.dto.RegisterRequest;
+import com.manacommunity.api.user.dto.AuthResponse;
 import com.manacommunity.api.support.BaseIntegrationTest;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.DisplayName;
@@ -32,37 +32,53 @@ class AuthApiIntegrationTest extends BaseIntegrationTest {
         @DisplayName("full registration flow returns 201 with token")
         void successfulRegistration() {
             // Seed a community first via the admin seed endpoint (mock-auth-enabled=true)
-            restTemplate.postForEntity(baseUrl("/api/admin/seed/all"), null, Void.class);
+            webTestClient.post()
+                    .uri("/api/admin/seed/all")
+                    .exchange()
+                    .expectStatus().isOk();
 
             RegisterRequest req = TestDataBuilder.registerRequest();
             // Use a unique email/phone to avoid conflicts across test runs
             req.setEmail("integration_" + System.currentTimeMillis() + "@test.com");
             req.setPhone("9" + (System.currentTimeMillis() % 1_000_000_000L));
 
-            ResponseEntity<AuthResponse> response =
-                    restTemplate.postForEntity(baseUrl("/api/auth/register"), req, AuthResponse.class);
+            AuthResponse responseBody = webTestClient.post()
+                    .uri("/api/auth/register")
+                    .bodyValue(req)
+                    .exchange()
+                    .expectStatus().isCreated()
+                    .expectBody(AuthResponse.class)
+                    .returnResult()
+                    .getResponseBody();
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().getToken()).isNotBlank();
+            assertThat(responseBody).isNotNull();
+            assertThat(responseBody.getToken()).isNotBlank();
         }
 
         @Test
         @DisplayName("duplicate email returns 409")
         void duplicateEmailReturns409() {
-            restTemplate.postForEntity(baseUrl("/api/admin/seed/all"), null, Void.class);
+            webTestClient.post()
+                    .uri("/api/admin/seed/all")
+                    .exchange()
+                    .expectStatus().isOk();
 
             RegisterRequest req = TestDataBuilder.registerRequest();
             req.setEmail("dup_email_test@test.com");
             req.setPhone("8100000001");
 
-            restTemplate.postForEntity(baseUrl("/api/auth/register"), req, AuthResponse.class);
+            webTestClient.post()
+                    .uri("/api/auth/register")
+                    .bodyValue(req)
+                    .exchange()
+                    .expectStatus().isCreated();
 
             req.setPhone("8100000002"); // different phone, same email
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(baseUrl("/api/auth/register"), req, String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            webTestClient.post()
+                    .uri("/api/auth/register")
+                    .bodyValue(req)
+                    .exchange()
+                    .expectStatus().isEqualTo(HttpStatus.CONFLICT);
         }
     }
 
@@ -73,15 +89,19 @@ class AuthApiIntegrationTest extends BaseIntegrationTest {
     class Login {
 
         @Test
-        @DisplayName("wrong password returns 401")
+        @DisplayName("wrong password returns 401/4xx")
         void wrongPasswordReturns401() {
-            restTemplate.postForEntity(baseUrl("/api/admin/seed/all"), null, Void.class);
+            webTestClient.post()
+                    .uri("/api/admin/seed/all")
+                    .exchange()
+                    .expectStatus().isOk();
 
             LoginRequest req = TestDataBuilder.loginRequest("admin@manacommunity.com", "wrong_password");
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(baseUrl("/api/auth/login"), req, String.class);
-
-            assertThat(response.getStatusCode().value()).isIn(400, 401, 403);
+            webTestClient.post()
+                    .uri("/api/auth/login")
+                    .bodyValue(req)
+                    .exchange()
+                    .expectStatus().value(status -> assertThat(status).isIn(400, 401, 403));
         }
     }
 
@@ -90,9 +110,9 @@ class AuthApiIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("GET /api/communities is publicly accessible")
     void publicCommunityEndpoint() {
-        ResponseEntity<String> response =
-                restTemplate.getForEntity(baseUrl("/api/communities"), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        webTestClient.get()
+                .uri("/api/communities")
+                .exchange()
+                .expectStatus().isOk();
     }
 }

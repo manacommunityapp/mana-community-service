@@ -26,14 +26,27 @@ public class FeedService {
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final PostCommentRepository postCommentRepository;
+    private final PostPollVoteRepository pollVoteRepository;
 
     @Transactional(readOnly = true)
-    public Page<PostResponse> getFeed(AppUser currentUser, int page, int size) {
+    public Page<PostResponse> getFeed(AppUser currentUser, String type, int page, int size) {
         if (currentUser.getCommunity() == null) {
             throw new InvalidInputException("User is not associated with any community.");
         }
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postRepository.findByCommunityIdOrderByCreatedAtDesc(currentUser.getCommunity().getId(), pageable);
+        Page<Post> posts;
+        if (type == null || type.trim().isEmpty() || "ALL".equalsIgnoreCase(type)) {
+            posts = postRepository.findByCommunityIdOrderByCreatedAtDesc(currentUser.getCommunity().getId(), pageable);
+        } else if ("OFFICIAL".equalsIgnoreCase(type)) {
+            posts = postRepository.findByCommunityIdAndOfficialTrueOrderByCreatedAtDesc(currentUser.getCommunity().getId(), pageable);
+        } else {
+            try {
+                PostType postType = PostType.valueOf(type.toUpperCase());
+                posts = postRepository.findByCommunityIdAndPostTypeOrderByCreatedAtDesc(currentUser.getCommunity().getId(), postType, pageable);
+            } catch (IllegalArgumentException e) {
+                posts = postRepository.findByCommunityIdOrderByCreatedAtDesc(currentUser.getCommunity().getId(), pageable);
+            }
+        }
         return posts.map(post -> toPostResponse(post, currentUser.getId()));
     }
 
@@ -42,7 +55,10 @@ public class FeedService {
         if (currentUser.getCommunity() == null) {
             throw new InvalidInputException("User is not associated with any community.");
         }
-        boolean isOfficial = "ADMIN".equalsIgnoreCase(currentUser.getRole());
+        boolean isOfficial = "ADMIN".equalsIgnoreCase(currentUser.getRole()) 
+                || "SUPER_ADMIN".equalsIgnoreCase(currentUser.getRole()) 
+                || "COMMUNITY_ADMIN".equalsIgnoreCase(currentUser.getRole());
+        PostType type = request.type() != null ? request.type() : PostType.GENERAL;
 
         Post post = Post.builder()
                 .user(currentUser)
@@ -50,6 +66,11 @@ public class FeedService {
                 .content(request.content())
                 .imageUrl(request.imageUrl())
                 .official(isOfficial)
+                .postType(type)
+                .price(request.price())
+                .location(request.location())
+                .pollQuestion(request.pollQuestion())
+                .pollOptions(request.pollOptions())
                 .likesCount(0)
                 .commentsCount(0)
                 .build();
@@ -68,6 +89,47 @@ public class FeedService {
             throw new UnauthorizedActionException("delete post " + postId);
         }
         postRepository.delete(post);
+    }
+
+    @Transactional
+    public PostResponse voteOnPoll(AppUser currentUser, Long postId, String option) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+
+        if (post.getPostType() != PostType.POLL) {
+            throw new InvalidInputException("This post is not a poll.");
+        }
+
+        String optionsStr = post.getPollOptions();
+        if (optionsStr == null || option == null) {
+            throw new InvalidInputException("Invalid poll options.");
+        }
+        boolean isValidOption = false;
+        for (String opt : optionsStr.split(",")) {
+            if (opt.trim().equalsIgnoreCase(option.trim())) {
+                isValidOption = true;
+                break;
+            }
+        }
+        if (!isValidOption) {
+            throw new InvalidInputException("Option not found in this poll.");
+        }
+
+        Optional<PollVote> existingVote = pollVoteRepository.findByPostIdAndUserId(postId, currentUser.getId());
+        if (existingVote.isPresent()) {
+            PollVote vote = existingVote.get();
+            vote.setSelectedOption(option);
+            pollVoteRepository.save(vote);
+        } else {
+            PollVote vote = PollVote.builder()
+                    .post(post)
+                    .user(currentUser)
+                    .selectedOption(option)
+                    .build();
+            pollVoteRepository.save(vote);
+        }
+
+        return toPostResponse(post, currentUser.getId());
     }
 
     @Transactional
@@ -146,6 +208,38 @@ public class FeedService {
         String initials = getInitials(author.getFullName());
         boolean liked = postLikeRepository.existsByPostIdAndUserId(post.getId(), currentUserId);
 
+        List<String> optionsList = null;
+        java.util.Map<String, Long> pollVotes = null;
+        String userVotedOption = null;
+
+        if (post.getPostType() == PostType.POLL) {
+            if (post.getPollOptions() != null) {
+                optionsList = java.util.Arrays.stream(post.getPollOptions().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+            }
+
+            pollVotes = new java.util.HashMap<>();
+            if (optionsList != null) {
+                for (String opt : optionsList) {
+                    pollVotes.put(opt, 0L);
+                }
+            }
+
+            List<Object[]> aggregatedVotes = pollVoteRepository.countVotesGroupByOption(post.getId());
+            for (Object[] row : aggregatedVotes) {
+                String opt = (String) row[0];
+                Long count = (Long) row[1];
+                pollVotes.put(opt, count);
+            }
+
+            Optional<PollVote> userVote = pollVoteRepository.findByPostIdAndUserId(post.getId(), currentUserId);
+            if (userVote.isPresent()) {
+                userVotedOption = userVote.get().getSelectedOption();
+            }
+        }
+
         return new PostResponse(
                 post.getId(),
                 post.getContent(),
@@ -158,7 +252,14 @@ public class FeedService {
                 author.getFullName(),
                 initials,
                 mapRole(author.getRole()),
-                post.getCreatedAt()
+                post.getCreatedAt(),
+                post.getPostType(),
+                post.getPrice(),
+                post.getLocation(),
+                post.getPollQuestion(),
+                optionsList,
+                pollVotes,
+                userVotedOption
         );
     }
 
