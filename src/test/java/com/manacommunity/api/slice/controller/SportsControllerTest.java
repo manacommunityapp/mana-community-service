@@ -4,7 +4,7 @@ import com.manacommunity.api.controller.SportsController;
 import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.repository.PlayerCategoryRepository;
 import com.manacommunity.api.repository.SportMetaRepository;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsEventCsvImportService;
 import com.manacommunity.api.service.SportsEventService;
@@ -89,7 +89,7 @@ class SportsControllerTest extends BaseWebMvcTest {
         @DisplayName("returns 200 with empty list when no events exist")
         void emptyEvents_returns200() throws Exception {
             doNothing().when(permissionCheckService).requireAnyPermission(any(), any());
-            when(eventService.getAllEvents(any())).thenReturn(List.of());
+            when(eventService.getAllEvents(any())).thenReturn(org.springframework.data.domain.Page.empty());
 
             mockMvc.perform(get("/api/sports/events"))
                     .andExpect(status().isOk())

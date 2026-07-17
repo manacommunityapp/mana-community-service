@@ -35,7 +35,7 @@ class AuctionQueryToolsTest extends BaseAiToolTest {
         @Test
         @DisplayName("returns auctions scoped to user's community")
         void returnsAuctionsForCommunity() {
-            List<Object[]> rows = List.of(
+            List<Object[]> rows = List.<Object[]>of(
                     new Object[]{1L, "Season 1", "STANDARD", "ACTIVE", 8, 40}
             );
             TypedQuery<Object[]> query = mockListQuery(rows);
@@ -80,7 +80,7 @@ class AuctionQueryToolsTest extends BaseAiToolTest {
                     .thenReturn(countQuery);
 
             // Mock player query
-            List<Object[]> rows = List.of(
+            List<Object[]> rows = List.<Object[]>of(
                     new Object[]{"Virat", "BATSMEN", "Batsman", 35, 150000, "QUEUED", null, 1, null, null}
             );
             TypedQuery<Object[]> playerQuery = mockListQuery(rows);

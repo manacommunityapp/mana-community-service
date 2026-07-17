@@ -1,10 +1,11 @@
 package com.manacommunity.api.unit.service;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.Role;
 import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.repository.RolePermissionRepository;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;

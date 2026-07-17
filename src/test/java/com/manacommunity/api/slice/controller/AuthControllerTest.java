@@ -1,13 +1,13 @@
 package com.manacommunity.api.slice.controller;
 
-import com.manacommunity.api.controller.AuthController;
-import com.manacommunity.api.dto.LoginRequest;
-import com.manacommunity.api.dto.RegisterRequest;
+import com.manacommunity.api.user.controller.AuthController;
+import com.manacommunity.api.user.dto.LoginRequest;
+import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.InvalidInviteCodeException;
 import com.manacommunity.api.exception.ManaCommunityException;
-import com.manacommunity.api.response.AuthResponse;
-import com.manacommunity.api.service.AuthService;
+import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.DisplayName;

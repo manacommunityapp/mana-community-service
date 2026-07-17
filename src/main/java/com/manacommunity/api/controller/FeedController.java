@@ -25,11 +25,12 @@ public class FeedController {
     @GetMapping
     public ResponseEntity<Page<PostResponse>> getFeed(
             @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         int safeSize = Math.min(Math.max(size, 1), 50);
-        Page<PostResponse> response = feedService.getFeed(currentUser, Math.max(page, 0), safeSize);
+        Page<PostResponse> response = feedService.getFeed(currentUser, type, Math.max(page, 0), safeSize);
         return ResponseEntity.ok(response);
     }
 
@@ -86,5 +87,15 @@ public class FeedController {
         AppUser currentUser = loggedInUserService.resolve(principal);
         feedService.deleteComment(currentUser, commentId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/vote")
+    public ResponseEntity<PostResponse> voteOnPoll(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam String option) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        PostResponse response = feedService.voteOnPoll(currentUser, id, option);
+        return ResponseEntity.ok(response);
     }
 }

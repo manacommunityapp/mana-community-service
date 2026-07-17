@@ -13,6 +13,14 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     Optional<VisitorPass> findByPassCode(String passCode);
 
+    Optional<VisitorPass> findByOtp(String otp);
+
+    Optional<VisitorPass> findFirstByVisitorPhoneAndStatusInOrderByCreatedAtDesc(
+            String phone, List<VisitorPass.PassStatus> statuses);
+
+    List<VisitorPass> findByResidentIdAndStatusOrderByCreatedAtDesc(
+            Long residentId, VisitorPass.PassStatus status);
+
     List<VisitorPass> findByCommunityIdAndStatusOrderByCreatedAtDesc(
             Long communityId, VisitorPass.PassStatus status);
 

@@ -1,9 +1,10 @@
 package com.manacommunity.api.support;
 
-import com.manacommunity.api.dto.LoginRequest;
-import com.manacommunity.api.dto.RegisterRequest;
+import com.manacommunity.api.user.dto.LoginRequest;
+import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.model.scheduler.*;
+import com.manacommunity.api.user.model.AppUser;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

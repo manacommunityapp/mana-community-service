@@ -27,6 +27,7 @@ public class SampleDataService implements ApplicationRunner {
     private final UserSeeder userSeeder;
     private final PlayerCategorySeeder playerCategorySeeder;
     private final VenueSeeder venueSeeder;
+    private final CommunityLeaderSeeder communityLeaderSeeder;
     private final SportsEventSeeder sportsEventSeeder;
     private final TournamentSeeder tournamentSeeder;
     private final AuctionSeeder auctionSeeder;
@@ -91,7 +92,6 @@ public class SampleDataService implements ApplicationRunner {
 
             sportsMetaSeeder.defaultSeed();
             playerCategorySeeder.defaultSeed();
-            inventorySeeder.seed();
 
             //venueSeeder.defaultSeed();
             communitySeeder.seed();
@@ -123,8 +123,9 @@ public class SampleDataService implements ApplicationRunner {
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
             venueSeeder.seed();
-            inventorySeeder.seed();
+            //inventorySeeder.seed();
             defaultCommunityModuleDataService.seedDefaultModulesForCommunity(2L);
+            communityLeaderSeeder.seed();
             //sportsEventSeeder.seed();
             //tournamentSeeder.seed();
             //auctionSeeder.seed();

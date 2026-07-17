@@ -6,8 +6,13 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "poll_vote", uniqueConstraints = {
+// Distinct JPA entity name + table: the legacy feed entity
+// com.manacommunity.api.model.PollVote also uses the entity name "PollVote"
+// and the table "poll_vote" (with post-based columns). Two entities cannot
+// share an entity name (Hibernate bootstrap fails) or a table with different
+// columns, so this standalone polling module's votes live in their own table.
+@Entity(name = "PollingPollVote")
+@Table(name = "poll_option_vote", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"poll_id", "voter_id", "option_id"})
 })
 @Data

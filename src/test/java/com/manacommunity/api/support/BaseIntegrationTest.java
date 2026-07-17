@@ -3,8 +3,7 @@ package com.manacommunity.api.support;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-//import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -56,13 +55,6 @@ public abstract class BaseIntegrationTest {
         registry.add("spring.sql.init.schema-locations", () -> "classpath:sql/init-schema.sql");
     }
 
-    @LocalServerPort
-    protected int port;
-
-    //@Autowired
-    //protected TestRestTemplate restTemplate;
-
-    protected String baseUrl(String path) {
-        return "http://localhost:" + port + path;
-    }
+    @Autowired
+    protected WebTestClient webTestClient;
 }

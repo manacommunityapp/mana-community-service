@@ -56,6 +56,30 @@ public class VisitorPass {
     @Column(name = "flat_number", length = 30)
     private String flatNumber;
 
+    @Column(name = "otp", length = 6)
+    private String otp;
+
+    @Column(name = "otp_expires_at")
+    private LocalDateTime otpExpiresAt;
+
+    @Column(name = "gate_in", length = 100)
+    private String gateIn;
+
+    @Column(name = "gate_out", length = 100)
+    private String gateOut;
+
+    @Column(name = "guard_in", length = 100)
+    private String guardIn;
+
+    @Column(name = "guard_out", length = 100)
+    private String guardOut;
+
+    @Column(name = "visitor_photo", columnDefinition = "TEXT")
+    private String visitorPhoto;
+
+    @Column(name = "encrypted_token", length = 500)
+    private String encryptedToken;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "resident_id", nullable = false)
     private AppUser resident;
@@ -83,6 +107,6 @@ public class VisitorPass {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum PassType { PRE_APPROVED, WALK_IN, DELIVERY, RECURRING }
+    public enum PassType { GUEST, DELIVERY, MAID, VENDOR, FAMILY, RECURRING, PRE_APPROVED, WALK_IN, OTHER }
     public enum PassStatus { PENDING, APPROVED, CHECKED_IN, CHECKED_OUT, REJECTED, EXPIRED }
 }

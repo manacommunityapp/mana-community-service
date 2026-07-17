@@ -9,7 +9,7 @@ import com.manacommunity.api.repository.scheduler.TournamentConfigRepository;
 import com.manacommunity.api.repository.scheduler.TournamentMatchRepository;
 import com.manacommunity.api.dto.scheduler.PlayoffGenerateRequest;
 import com.manacommunity.api.dto.scheduler.PlayoffMatchDraftResponse;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.scheduler.PlayoffScheduleGenerator;
 import com.manacommunity.api.service.scheduler.TournamentSchedulerService;
 import com.manacommunity.api.support.BaseWebMvcTest;
@@ -80,7 +80,7 @@ class TournamentSchedulerControllerTest extends BaseWebMvcTest {
                 matches.add(new BulkMatchSaveRequest.MatchData(
                         10L, 84L, "Group A", "GROUP", i,
                         "Team A", "1", "Team B", "2",
-                        LocalDate.now().toString(), "10:00", 90, "Ground", "1", "SCHEDULED"));
+                        LocalDate.now().toString(), "10:00", 90, 1L, 1L, "SCHEDULED"));
             }
             return new BulkMatchSaveRequest(matches);
         }
@@ -128,7 +128,7 @@ class TournamentSchedulerControllerTest extends BaseWebMvcTest {
         private PlayoffGenerateRequest input() {
             return new PlayoffGenerateRequest(
                     2, 2, "TRADITIONAL", true,
-                    "2026-06-20", "08:00 AM", 30, 10, "LE", "Court 1");
+                    "2026-06-20", "08:00 AM", 30, 10, 1L, 1L, null, null);
         }
 
         @Test
@@ -139,7 +139,7 @@ class TournamentSchedulerControllerTest extends BaseWebMvcTest {
                     new PlayoffMatchDraftResponse("playoff-final", "Final", "FINAL", 1,
                             new PlayoffMatchDraftResponse.ParticipantRef("a", "A"),
                             new PlayoffMatchDraftResponse.ParticipantRef("b", "B"),
-                            "2026-06-20", "09:20 AM", 30, "LE", "Court 1", false)));
+                            "2026-06-20", "09:20 AM", 30, 1L, 1L, false, null)));
 
             mockMvc.perform(post("/api/tournament/playoff/generate")
                             .contentType(MediaType.APPLICATION_JSON)

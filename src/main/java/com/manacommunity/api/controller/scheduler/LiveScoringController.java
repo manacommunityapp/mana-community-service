@@ -22,7 +22,8 @@ public class LiveScoringController {
 
     @MessageMapping("/match/{matchId}/ball")
     public void handleBallEvent(@DestinationVariable Long matchId, BallEventRequest req, Principal principal) {
-        Long userId = principal != null ? Long.parseLong(principal.getName()) : null;
+        if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        Long userId = Long.parseLong(principal.getName());
         BallEventResponse response = liveScoringService.recordBall(req, userId);
         messagingTemplate.convertAndSend("/topic/match/" + matchId, response);
 
@@ -32,6 +33,7 @@ public class LiveScoringController {
 
     @MessageMapping("/match/{matchId}/undo")
     public void handleUndo(@DestinationVariable Long matchId, java.util.Map<String, Integer> payload, Principal principal) {
+        if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
         Integer inningsNumber = payload.getOrDefault("inningsNumber", 1);
         BallEventResponse response = liveScoringService.undoLastBall(matchId, inningsNumber);
         messagingTemplate.convertAndSend("/topic/match/" + matchId + "/undo", response);
@@ -42,6 +44,7 @@ public class LiveScoringController {
 
     @MessageMapping("/match/{matchId}/startInnings")
     public void handleStartInnings(@DestinationVariable Long matchId, java.util.Map<String, Integer> payload, Principal principal) {
+        if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
         Integer inningsNumber = payload.getOrDefault("inningsNumber", 1);
         liveScoringService.startInnings(matchId, inningsNumber);
 

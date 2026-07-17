@@ -23,4 +23,14 @@ public class VisitorPassResponse {
     private String residentName;
     private Long communityId;
     private String createdAt;
+
+    // Enhanced columns
+    private String otp;
+    private String otpExpiresAt;
+    private String gateIn;
+    private String gateOut;
+    private String guardIn;
+    private String guardOut;
+    private String visitorPhoto;
+    private String encryptedToken;
 }
