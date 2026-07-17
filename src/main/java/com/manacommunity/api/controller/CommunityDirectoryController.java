@@ -2,12 +2,9 @@ package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.CommunityLeaderRequest;
 import com.manacommunity.api.dto.CommunityLeaderResponse;
-import com.manacommunity.api.exception.ResourceNotFoundException;
-import com.manacommunity.api.model.CommunityLeader;
-import com.manacommunity.api.repository.CommunityLeaderRepository;
-import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.service.CommunityDirectoryService;
+import com.manacommunity.api.service.CommunityDirectoryService.DirectoryStats;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
@@ -19,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/community/directory")
@@ -26,22 +24,41 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CommunityDirectoryController {
 
-    private final CommunityLeaderRepository leaderRepo;
-    private final CommunityRepository communityRepo;
-    private final AppUserRepository userRepo;
+    private final CommunityDirectoryService directoryService;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
     public ResponseEntity<List<CommunityLeaderResponse>> getDirectory(
             @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
-        List<CommunityLeaderResponse> leaders = leaderRepo
-                .findByCommunityIdAndIsActiveTrueOrderByDisplayOrderAsc(communityId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-        return ResponseEntity.ok(leaders);
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(directoryService.getActiveLeaders(communityId));
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<List<CommunityLeaderResponse>> getAllLeaders(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(directoryService.getAllLeaders(communityId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CommunityLeaderResponse> getLeader(@PathVariable Long id) {
+        return ResponseEntity.ok(directoryService.getLeaderById(id));
+    }
+
+    @GetMapping("/grouped")
+    public ResponseEntity<Map<String, List<CommunityLeaderResponse>>> getGrouped(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(directoryService.getGroupedByCommittee(communityId));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<DirectoryStats> getStats(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(directoryService.getStats(communityId));
     }
 
     @PostMapping
@@ -49,25 +66,9 @@ public class CommunityDirectoryController {
     public ResponseEntity<CommunityLeaderResponse> addLeader(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CommunityLeaderRequest req) {
-        AppUser admin = loggedInUserService.resolve(principal);
-        Long communityId = admin.getCommunity().getId();
-
-        AppUser targetUser = userRepo.findById(req.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", req.userId().toString()));
-
-        CommunityLeader leader = CommunityLeader.builder()
-                .community(communityRepo.findById(communityId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Community", "id", communityId.toString())))
-                .user(targetUser)
-                .designation(req.designation())
-                .committee(req.committee())
-                .contactPhone(req.contactPhone() != null ? req.contactPhone() : targetUser.getPhone())
-                .contactEmail(req.contactEmail() != null ? req.contactEmail() : targetUser.getEmail())
-                .displayOrder(req.displayOrder() != null ? req.displayOrder() : 0)
-                .build();
-
-        leader = leaderRepo.save(leader);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(leader));
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(directoryService.addLeader(communityId, req));
     }
 
     @PutMapping("/{id}")
@@ -75,44 +76,34 @@ public class CommunityDirectoryController {
     public ResponseEntity<CommunityLeaderResponse> updateLeader(
             @PathVariable Long id,
             @Valid @RequestBody CommunityLeaderRequest req) {
-        CommunityLeader leader = leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", "id", id.toString()));
-
-        leader.setDesignation(req.designation());
-        leader.setCommittee(req.committee());
-        leader.setDisplayOrder(req.displayOrder() != null ? req.displayOrder() : leader.getDisplayOrder());
-
-        if (req.contactPhone() != null) leader.setContactPhone(req.contactPhone());
-        if (req.contactEmail() != null) leader.setContactEmail(req.contactEmail());
-
-        leader = leaderRepo.save(leader);
-        return ResponseEntity.ok(toResponse(leader));
+        return ResponseEntity.ok(directoryService.updateLeader(id, req));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> removeLeader(@PathVariable Long id) {
-        CommunityLeader leader = leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", "id", id.toString()));
-        leader.setIsActive(false);
-        leaderRepo.save(leader);
+        directoryService.removeLeader(id);
         return ResponseEntity.noContent().build();
     }
 
-    private CommunityLeaderResponse toResponse(CommunityLeader l) {
-        AppUser u = l.getUser();
-        return new CommunityLeaderResponse(
-                l.getId(),
-                u.getId(),
-                u.getFullName(),
-                u.getProfilePicUrl(),
-                l.getDesignation(),
-                l.getCommittee(),
-                l.getContactPhone(),
-                l.getContactEmail(),
-                u.getFlatNo(),
-                u.getBlock(),
-                l.getDisplayOrder()
-        );
+    @PutMapping("/{id}/restore")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<CommunityLeaderResponse> restoreLeader(@PathVariable Long id) {
+        return ResponseEntity.ok(directoryService.restoreLeader(id));
+    }
+
+    @PutMapping("/reorder")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<Void> reorder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<Long> orderedIds) {
+        Long communityId = resolveCommunityId(principal);
+        directoryService.reorder(communityId, orderedIds);
+        return ResponseEntity.ok().build();
+    }
+
+    private Long resolveCommunityId(UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return user.getCommunity().getId();
     }
 }
