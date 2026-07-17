@@ -30,25 +30,25 @@ public class CommunityLeaderSeeder {
         seedLeader(le, userSeeder.getMady(),     "Treasurer",        null, 4);
 
         // Directors
-        seedLeader(le, userSeeder.getUserByEmail("chethan@gmail.com"),    "Sports Director",    null, 5);
-        seedLeader(le, userSeeder.getUserByEmail("priya.patel@gmail.com"), "Cultural Head",      null, 6);
-        seedLeader(le, userSeeder.getUserByEmail("amit.kumar@gmail.com"),  "Maintenance Head",   null, 7);
-        seedLeader(le, userSeeder.getUserByEmail("vikram.singh@gmail.com"),"Security Head",      null, 8);
-        seedLeader(le, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), "Grievance Officer",  null, 9);
+        seedLeader(le, userSeeder.getOrCreateUser("chethan@gmail.com", "Chethan Reddy", "ROLE_SPORTS_ADMIN", le),    "Sports Director",    null, 5);
+        seedLeader(le, userSeeder.getOrCreateUser("priya.patel@gmail.com", "Priya Patel", "ROLE_MEMBER", le), "Cultural Head",      null, 6);
+        seedLeader(le, userSeeder.getOrCreateUser("amit.kumar@gmail.com", "Amit Kumar", "ROLE_MEMBER", le),  "Maintenance Head",   null, 7);
+        seedLeader(le, userSeeder.getOrCreateUser("vikram.singh@gmail.com", "Vikram Singh", "ROLE_MEMBER", le), "Security Head",      null, 8);
+        seedLeader(le, userSeeder.getOrCreateUser("sneha.reddy@gmail.com", "Sneha Reddy", "ROLE_MEMBER", le), "Grievance Officer",  null, 9);
 
         // Sports Committee
-        seedLeader(le, userSeeder.getUserByEmail("rajat.bhatia@gmail.com"), "Member", "Sports Committee", 10);
-        seedLeader(le, userSeeder.getUserByEmail("kavita.menon@gmail.com"), "Member", "Sports Committee", 11);
-        seedLeader(le, userSeeder.getUserByEmail("arjun.kapoor@gmail.com"), "Member", "Sports Committee", 12);
+        seedLeader(le, userSeeder.getOrCreateUser("rajat.bhatia@gmail.com", "Rajat Bhatia", "ROLE_MEMBER", le), "Member", "Sports Committee", 10);
+        seedLeader(le, userSeeder.getOrCreateUser("kavita.menon@gmail.com", "Kavita Menon", "ROLE_MEMBER", le), "Member", "Sports Committee", 11);
+        seedLeader(le, userSeeder.getOrCreateUser("arjun.kapoor@gmail.com", "Arjun Kapoor", "ROLE_MEMBER", le), "Member", "Sports Committee", 12);
 
         // Cultural Committee
-        seedLeader(le, userSeeder.getUserByEmail("ananya.desai@gmail.com"), "Member", "Cultural Committee", 13);
-        seedLeader(le, userSeeder.getUserByEmail("neha.gupta@gmail.com"),   "Member", "Cultural Committee", 14);
-        seedLeader(le, userSeeder.getUserByEmail("divya.rao@gmail.com"),    "Member", "Cultural Committee", 15);
+        seedLeader(le, userSeeder.getOrCreateUser("ananya.desai@gmail.com", "Ananya Desai", "ROLE_MEMBER", le), "Member", "Cultural Committee", 13);
+        seedLeader(le, userSeeder.getOrCreateUser("neha.gupta@gmail.com", "Neha Gupta", "ROLE_MEMBER", le),   "Member", "Cultural Committee", 14);
+        seedLeader(le, userSeeder.getOrCreateUser("divya.rao@gmail.com", "Divya Rao", "ROLE_MEMBER", le),    "Member", "Cultural Committee", 15);
 
         // Maintenance Committee
-        seedLeader(le, userSeeder.getUserByEmail("rohit.verma@gmail.com"),  "Member", "Maintenance Committee", 16);
-        seedLeader(le, userSeeder.getUserByEmail("deepak.pillai@gmail.com"),"Member", "Maintenance Committee", 17);
+        seedLeader(le, userSeeder.getOrCreateUser("rohit.verma@gmail.com", "Rohit Verma", "ROLE_MEMBER", le),  "Member", "Maintenance Committee", 16);
+        seedLeader(le, userSeeder.getOrCreateUser("deepak.pillai@gmail.com", "Deepak Pillai", "ROLE_MEMBER", le), "Member", "Maintenance Committee", 17);
 
         log.info("✓ Community directory leaders seeded successfully ({} entries).",
                 leaderRepo.findByCommunityIdAndIsActiveTrueOrderByDisplayOrderAsc(le.getId()).size());

@@ -26,7 +26,7 @@ public class FeedService {
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final PostCommentRepository postCommentRepository;
-    private final PollVoteRepository pollVoteRepository;
+    private final PostPollVoteRepository pollVoteRepository;
 
     @Transactional(readOnly = true)
     public Page<PostResponse> getFeed(AppUser currentUser, String type, int page, int size) {

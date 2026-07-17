@@ -123,7 +123,7 @@ public class SampleDataService implements ApplicationRunner {
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
             venueSeeder.seed();
-            inventorySeeder.seed();
+            //inventorySeeder.seed();
             defaultCommunityModuleDataService.seedDefaultModulesForCommunity(2L);
             communityLeaderSeeder.seed();
             //sportsEventSeeder.seed();

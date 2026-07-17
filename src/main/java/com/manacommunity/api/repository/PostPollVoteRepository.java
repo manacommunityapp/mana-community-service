@@ -7,7 +7,15 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface PollVoteRepository extends JpaRepository<PollVote, Long> {
+/**
+ * Votes on feed/post polls (over {@link PollVote}, keyed by post + user).
+ *
+ * Renamed from PollVoteRepository to avoid a Spring Data bean-name clash with
+ * com.manacommunity.api.polling.repository.PollVoteRepository — Spring derives
+ * the bean name from the interface's simple name, so two "PollVoteRepository"
+ * interfaces both resolve to "pollVoteRepository" and collide.
+ */
+public interface PostPollVoteRepository extends JpaRepository<PollVote, Long> {
     Optional<PollVote> findByPostIdAndUserId(Long postId, Long userId);
     List<PollVote> findByPostId(Long postId);
 
