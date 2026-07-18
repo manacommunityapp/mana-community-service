@@ -5,6 +5,7 @@ import com.manacommunity.api.model.InventoryItem;
 import com.manacommunity.api.service.InventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,11 +36,13 @@ public class InventoryController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
     public ResponseEntity<InventoryItem> createItem(@RequestBody InventoryItem item) {
         return ResponseEntity.ok(inventoryService.createItem(item));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/{id}/checkout")
     public ResponseEntity<InventoryItem> checkoutItem(@PathVariable Long id, @RequestBody CheckoutRequest request) {
         return inventoryService.checkoutItem(id, request)
@@ -47,6 +50,7 @@ public class InventoryController {
                 .orElse(ResponseEntity.badRequest().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/{id}/checkin")
     public ResponseEntity<InventoryItem> checkinItem(@PathVariable Long id) {
         return inventoryService.checkinItem(id)
@@ -54,6 +58,7 @@ public class InventoryController {
                 .orElse(ResponseEntity.badRequest().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/{id}/status")
     public ResponseEntity<InventoryItem> updateStatus(@PathVariable Long id, @RequestParam String status) {
         return inventoryService.updateStatus(id, status)
@@ -61,6 +66,7 @@ public class InventoryController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/{id}/maintenance")
     public ResponseEntity<InventoryItem> recordMaintenance(
             @PathVariable Long id,
@@ -70,6 +76,7 @@ public class InventoryController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/{id}/audit")
     public ResponseEntity<InventoryItem> recordAudit(
             @PathVariable Long id,
