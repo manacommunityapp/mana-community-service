@@ -32,7 +32,7 @@ public class CommunityServiceImpl implements CommunityService {
     public List<CommunityResponse> getAllCommunities() {
         return communityRepository.findByActiveTrueOrderByNameAsc()
                 .stream()
-                .map(this::toResponse)
+                .map(this::toPublicResponse)
                 .collect(Collectors.toList());
     }
 
@@ -40,7 +40,7 @@ public class CommunityServiceImpl implements CommunityService {
     public List<CommunityResponse> getCommunitiesByType(String type) {
         return communityRepository.findByActiveTrueAndTypeIgnoreCaseOrderByNameAsc(type)
                 .stream()
-                .map(this::toResponse)
+                .map(this::toPublicResponse)
                 .collect(Collectors.toList());
     }
 
@@ -105,6 +105,22 @@ public class CommunityServiceImpl implements CommunityService {
                 .subtype(r.getSubtype())
                 .inviteCode(r.getInviteCode())
                 .build();
+    }
+
+    private CommunityResponse toPublicResponse(Community c) {
+        List<String> modules = communityModuleService.getEnabledModuleKeys(c.getId());
+        return new CommunityResponse(
+                c.getId(),
+                c.getName(),
+                c.getType(),
+                c.getCity(),
+                c.getState(),
+                c.getArea(),
+                c.getSubtype(),
+                null,
+                c.getActive(),
+                modules
+        );
     }
 
     private CommunityResponse toResponse(Community c) {
