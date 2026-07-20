@@ -1,5 +1,8 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.DonationRequest;
 import com.manacommunity.api.marketplace.dto.DonationResponse;
 import com.manacommunity.api.marketplace.entity.Donation;
@@ -50,7 +53,7 @@ public class DonationService {
                 .build();
 
         Donation saved = donationRepo.save(donation);
-        auditService.record(AuditAction.PRODUCT_CREATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.DONATION_CREATED, AuditModule.MARKETPLACE,
                 "Donation", String.valueOf(saved.getId()));
         return toResponse(saved);
     }
@@ -58,18 +61,18 @@ public class DonationService {
     @Transactional
     public DonationResponse claimDonation(Long id, AppUser claimer) {
         Donation donation = donationRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Donation not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Donation", id));
         if (donation.getStatus() != Donation.DonationStatus.AVAILABLE) {
-            throw new IllegalArgumentException("Donation is no longer available");
+            throw new InvalidInputException("Donation is no longer available");
         }
         if (claimer.getId().equals(donation.getDonor().getId())) {
-            throw new IllegalArgumentException("You cannot claim your own donation");
+            throw new InvalidInputException("You cannot claim your own donation");
         }
 
         donation.setClaimedBy(claimer);
         donation.setStatus(Donation.DonationStatus.CLAIMED);
         Donation saved = donationRepo.save(donation);
-        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.DONATION_CLAIMED, AuditModule.MARKETPLACE,
                 "Donation", String.valueOf(saved.getId()));
         return toResponse(saved);
     }
@@ -77,14 +80,14 @@ public class DonationService {
     @Transactional
     public void deleteDonation(Long id, Long donorId) {
         Donation donation = donationRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Donation not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Donation", id));
         if (!donation.getDonor().getId().equals(donorId)) {
-            throw new IllegalArgumentException("You can only delete your own donations");
+            throw new UnauthorizedActionException("You can only delete your own donations");
         }
 
         donation.setStatus(Donation.DonationStatus.DONATED);
         donationRepo.save(donation);
-        auditService.record(AuditAction.PRODUCT_DELETED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.DONATION_DELETED, AuditModule.MARKETPLACE,
                 "Donation", String.valueOf(id));
     }
 

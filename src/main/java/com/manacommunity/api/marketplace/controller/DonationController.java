@@ -51,7 +51,7 @@ public class DonationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('View Marketplace')")
+    @PreAuthorize("hasAuthority('Create Listing')")
     public ResponseEntity<DonationResponse> create(
             @Valid @RequestBody DonationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -70,7 +70,7 @@ public class DonationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Delete Listing')")
+    @PreAuthorize("hasAnyAuthority('Delete Listing', 'Manage Marketplace')")
     public ResponseEntity<Void> deleteDonation(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

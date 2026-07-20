@@ -1,5 +1,7 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.LostAndFoundRequest;
 import com.manacommunity.api.marketplace.dto.LostAndFoundResponse;
 import com.manacommunity.api.marketplace.entity.LostAndFound;
@@ -58,7 +60,7 @@ public class LostAndFoundService {
                 .build();
 
         LostAndFound saved = lostAndFoundRepo.save(post);
-        auditService.record(AuditAction.PRODUCT_CREATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.LOST_FOUND_CREATED, AuditModule.MARKETPLACE,
                 "LostAndFound", String.valueOf(saved.getId()));
         return toResponse(saved);
     }
@@ -66,14 +68,14 @@ public class LostAndFoundService {
     @Transactional
     public LostAndFoundResponse resolve(Long id, Long reporterId) {
         LostAndFound post = lostAndFoundRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("LostAndFound post", id));
         if (!post.getReporter().getId().equals(reporterId)) {
-            throw new IllegalArgumentException("You can only resolve your own posts");
+            throw new UnauthorizedActionException("You can only resolve your own posts");
         }
 
         post.setStatus(LostAndFound.LostFoundStatus.RESOLVED);
         LostAndFound saved = lostAndFoundRepo.save(post);
-        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.LOST_FOUND_RESOLVED, AuditModule.MARKETPLACE,
                 "LostAndFound", String.valueOf(saved.getId()));
         return toResponse(saved);
     }
@@ -81,11 +83,11 @@ public class LostAndFoundService {
     @Transactional
     public void close(Long id) {
         LostAndFound post = lostAndFoundRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("LostAndFound post", id));
 
         post.setStatus(LostAndFound.LostFoundStatus.CLOSED);
         lostAndFoundRepo.save(post);
-        auditService.record(AuditAction.PRODUCT_DELETED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.LOST_FOUND_CLOSED, AuditModule.MARKETPLACE,
                 "LostAndFound", String.valueOf(id));
     }
 

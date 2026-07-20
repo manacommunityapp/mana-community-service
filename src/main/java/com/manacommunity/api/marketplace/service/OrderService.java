@@ -1,5 +1,8 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.OrderRequest;
 import com.manacommunity.api.marketplace.dto.OrderResponse;
 import com.manacommunity.api.marketplace.entity.Listing;
@@ -46,20 +49,20 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getById(Long id) {
         return toResponse(orderRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id)));
+                .orElseThrow(() -> new ResourceNotFoundException("Order", id)));
     }
 
     @Transactional
     public OrderResponse createOrder(OrderRequest req, AppUser buyer, Community community) {
         Listing listing = listingRepo.findById(req.getListingId())
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + req.getListingId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", req.getListingId()));
 
         if (listing.getStatus() != Listing.ListingStatus.ACTIVE) {
-            throw new IllegalArgumentException("Listing is not active: " + req.getListingId());
+            throw new InvalidInputException("Listing is not available for purchase");
         }
 
         if (listing.getSeller().getId().equals(buyer.getId())) {
-            throw new IllegalArgumentException("You cannot order your own listing");
+            throw new InvalidInputException("You cannot order your own listing");
         }
 
         String orderNumber = "ORD-" + System.currentTimeMillis();
@@ -86,7 +89,7 @@ public class OrderService {
         order.getItems().add(item);
 
         MarketplaceOrder saved = orderRepo.save(order);
-        auditService.record(AuditAction.PRODUCT_CREATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.ORDER_CREATED, AuditModule.MARKETPLACE,
                 "Order", String.valueOf(saved.getId()));
         return toResponse(saved);
     }
@@ -94,16 +97,16 @@ public class OrderService {
     @Transactional
     public OrderResponse updateStatus(Long orderId, String status, Long userId) {
         MarketplaceOrder order = orderRepo.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
         if (!order.getBuyer().getId().equals(userId) && !order.getSeller().getId().equals(userId)) {
-            throw new IllegalArgumentException("You are not authorized to update this order");
+            throw new UnauthorizedActionException("You are not authorized to update this order");
         }
 
         MarketplaceOrder.OrderStatus currentStatus = order.getStatus();
         if (currentStatus == MarketplaceOrder.OrderStatus.COMPLETED
                 || currentStatus == MarketplaceOrder.OrderStatus.CANCELLED) {
-            throw new IllegalArgumentException("Cannot update order in " + currentStatus + " status");
+            throw new InvalidInputException("Cannot update order in " + currentStatus + " status");
         }
 
         String oldStatus = currentStatus.name();
@@ -111,7 +114,7 @@ public class OrderService {
         order.setStatus(newStatus);
 
         MarketplaceOrder saved = orderRepo.save(order);
-        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.ORDER_UPDATED, AuditModule.MARKETPLACE,
                 "Order", String.valueOf(saved.getId()), oldStatus, newStatus.name());
         return toResponse(saved);
     }
@@ -119,22 +122,22 @@ public class OrderService {
     @Transactional
     public void cancelOrder(Long orderId, Long userId) {
         MarketplaceOrder order = orderRepo.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
         if (!order.getBuyer().getId().equals(userId) && !order.getSeller().getId().equals(userId)) {
-            throw new IllegalArgumentException("You are not authorized to cancel this order");
+            throw new UnauthorizedActionException("You are not authorized to cancel this order");
         }
 
         MarketplaceOrder.OrderStatus currentStatus = order.getStatus();
         if (currentStatus != MarketplaceOrder.OrderStatus.PENDING
                 && currentStatus != MarketplaceOrder.OrderStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Order can only be cancelled when PENDING or CONFIRMED");
+            throw new InvalidInputException("Order can only be cancelled when PENDING or CONFIRMED");
         }
 
         String oldStatus = currentStatus.name();
         order.setStatus(MarketplaceOrder.OrderStatus.CANCELLED);
         orderRepo.save(order);
-        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+        auditService.record(AuditAction.ORDER_CANCELLED, AuditModule.MARKETPLACE,
                 "Order", String.valueOf(orderId), oldStatus, "CANCELLED");
     }
 

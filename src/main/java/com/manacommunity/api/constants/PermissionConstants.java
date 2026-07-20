@@ -73,6 +73,7 @@ public final class PermissionConstants {
     public static final String VIEW_MARKETPLACE = "View Marketplace";
     public static final String CREATE_LISTING   = "Create Listing";
     public static final String DELETE_LISTING   = "Delete Listing";
+    public static final String MANAGE_MARKETPLACE = "Manage Marketplace";
 
     // ──── VISITOR / GATE PASS ──────────────────────────────────────
     public static final String VIEW_VISITORS      = "View Visitors";
@@ -145,7 +146,7 @@ public final class PermissionConstants {
             Stream.of(
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
-                    List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
+                    List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
                     List.of(VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE),
@@ -161,7 +162,7 @@ public final class PermissionConstants {
             Stream.of(
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
-                    List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING),
+                    List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
                     List.of(VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE),
