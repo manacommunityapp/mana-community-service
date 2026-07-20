@@ -8,6 +8,9 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,19 +29,22 @@ public class ListingController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<List<ListingResponse>> getListings(
+    public ResponseEntity<Page<ListingResponse>> getListings(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) {
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok(Page.empty());
         }
+        PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
         if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(listingService.searchListings(communityId, search));
+            return ResponseEntity.ok(listingService.searchListings(communityId, search, pageable));
         }
-        return ResponseEntity.ok(listingService.getCommunityListings(communityId, category));
+        return ResponseEntity.ok(listingService.getCommunityListings(communityId, category, pageable));
     }
 
     @GetMapping("/mine")

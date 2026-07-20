@@ -20,4 +20,5 @@ public @interface WithMockUserPrincipal {
     long id() default 1L;
     String email() default "admin@test.com";
     String role() default "ADMIN";
+    String[] permissions() default {};
 }
