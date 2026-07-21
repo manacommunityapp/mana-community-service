@@ -36,6 +36,18 @@ public class TournamentController {
     private final LoggedInUserService loggedInUserService;
     private final SportsEventService eventService;
     private final TournamentAnnouncementService announcementService;
+    private final com.manacommunity.api.email.TournamentEmailService tournamentEmailService;
+
+    @GetMapping("/announcement/{id}")
+    public ResponseEntity<com.manacommunity.api.dto.email.TournamentAnnouncementEmailDTO> announcement(@PathVariable Long id) {
+        return ResponseEntity.ok(tournamentEmailService.getTournamentAnnouncement(id));
+    }
+
+    /** Rendered HTML preview of the announcement email (open in a browser). */
+    @GetMapping(value = "/announcement/{id}/preview", produces = org.springframework.http.MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> announcementPreview(@PathVariable Long id) {
+        return ResponseEntity.ok(tournamentEmailService.renderAnnouncementHtml(id));
+    }
 
     @GetMapping("/all")
     public ResponseEntity<List<TournamentResponse>> getAllTournaments(@AuthenticationPrincipal UserPrincipal principal) {

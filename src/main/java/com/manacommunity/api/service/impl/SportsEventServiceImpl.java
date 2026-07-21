@@ -693,7 +693,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Transactional
     public SportsEvent updateEvent(Long eventId, SportsEventRequest req) {
         SportsEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
         
         event.setName(req.getName());
         event.setEventDateStart(req.getEventDateStart());

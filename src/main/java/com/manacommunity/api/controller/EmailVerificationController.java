@@ -347,6 +347,18 @@ public class EmailVerificationController {
                 v.put("contactName", "Vikram Patel");
                 v.put("contactNumber", "+91 98765 43210");
                 v.put("bannerImage", "");
+                v.put("announcementDate", "01 Jun 2026");
+                v.put("registrationStartDate", "05 Jun 2026");
+                v.put("registrationEndDate", "15 Jun 2026");
+                v.put("fixturesDate", "18 Jun 2026");
+                v.put("openingCeremonyDate", "20 Jun 2026");
+                v.put("finalsDate", "25 Jun 2026");
+                v.put("sportsEvents", List.of(
+                        Map.of("sportName", "Badminton", "eventName", "Men's Singles Badminton", "icon", "🏸", "ageRange", "18–45", "gender", "Male"),
+                        Map.of("sportName", "Badminton", "eventName", "Women's Doubles Badminton", "icon", "🏸", "ageRange", "18–40", "gender", "Female"),
+                        Map.of("sportName", "Table Tennis", "eventName", "Mixed Doubles Table Tennis", "icon", "🏓", "ageRange", "16–50", "gender", "All"),
+                        Map.of("sportName", "Cricket", "eventName", "Men's T20 Cricket", "icon", "🏏", "ageRange", "18–45", "gender", "Male")
+                ));
             }
             case EMAIL_OTP -> {
                 v.put("otpCode", "428913");

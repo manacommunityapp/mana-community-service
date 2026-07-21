@@ -743,6 +743,219 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher sports_event tournament FK patch failed: {}", e.getMessage(), e);
             }
+
+            // Ensure the app_user columns captured by the admin create-user form
+            // exist and that profile_pic_url can hold a base64 data-URI. Prod runs
+            // ddl-auto=validate so Hibernate won't add/alter these. Idempotent:
+            // ADD COLUMN IF NOT EXISTS, and only widen profile_pic_url while it's
+            // still varchar so the column isn't rewritten on later boots.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.app_user') IS NOT NULL THEN
+                            IF EXISTS (
+                              SELECT 1 FROM information_schema.columns
+                              WHERE table_schema = 'manacommunity'
+                                AND table_name = 'app_user'
+                                AND column_name = 'profile_pic_url'
+                                AND data_type = 'character varying'
+                            ) THEN
+                              ALTER TABLE manacommunity.app_user
+                                ALTER COLUMN profile_pic_url TYPE TEXT;
+                            END IF;
+
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS employee_id       varchar(50);
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS tower             varchar(30);
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS resident_type     varchar(30);
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS occupancy_status  varchar(30);
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS notify_email      boolean DEFAULT true;
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS notify_sms        boolean DEFAULT false;
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS notify_whatsapp   boolean DEFAULT true;
+                            ALTER TABLE manacommunity.app_user ADD COLUMN IF NOT EXISTS notify_push       boolean DEFAULT true;
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("app_user create-user columns ensured (profile_pic_url TEXT + profile/notification fields).");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher app_user create-user columns patch failed: {}", e.getMessage(), e);
+            }
+
+            // Make deleting a SportsEvent ("tournament" in the sports UI) clean up its
+            // whole event-scoped subtree instead of failing on non-cascading FKs
+            // (registrations, scheduling config -> matches/groups/standings, auction
+            // config -> teams/players/bids/logs). Hibernate generates these FKs as
+            // NO ACTION and prod runs ddl-auto=validate, so set the behaviour here.
+            //
+            // action 'c' = ON DELETE CASCADE (ownership: the child is meaningless
+            //   without its parent and is removed with it).
+            // action 'n' = ON DELETE SET NULL (cross-reference: the referencing row
+            //   should survive a standalone delete of the pointed-to row; the column
+            //   is nullable). During a full event teardown these rows are removed via
+            //   their own ownership cascade, and SET NULL only avoids a transient
+            //   ordering violation.
+            // Idempotent: skips a column whose FK already has the desired action.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          rec         record;
+                          existing_fk text;
+                          col_attnum  smallint;
+                          want        char;
+                        BEGIN
+                          FOR rec IN
+                            SELECT * FROM (VALUES
+                              -- (child_table, fk_column, parent_table, action)
+                              ('sports_event_registration','event_id','sports_event','c'),
+                              ('tournament_config','event_id','sports_event','c'),
+                              ('auction_config','event_id','sports_event','c'),
+                              ('sports_event_sponsor','event_id','sports_event','c'),
+                              ('sports_notification_scheduler','event_id','sports_event','c'),
+                              ('tournament_group','config_id','tournament_config','c'),
+                              ('tournament_match','config_id','tournament_config','c'),
+                              ('group_team_standing','group_id','tournament_group','c'),
+                              ('auction_team','config_id','auction_config','c'),
+                              ('auction_player','config_id','auction_config','c'),
+                              ('auction_bid','config_id','auction_config','c'),
+                              ('auction_session_log','config_id','auction_config','c'),
+                              ('auction_dispute_committee','config_id','auction_config','c'),
+                              ('auction_bid','team_id','auction_team','c'),
+                              ('auction_bid','player_id','auction_player','c'),
+                              ('auction_session_log','team_id','auction_team','c'),
+                              ('auction_session_log','player_id','auction_player','c'),
+                              ('group_team_standing','team_id','auction_team','c'),
+                              ('auction_player','assigned_team_id','auction_team','n'),
+                              ('tournament_match','group_id','tournament_group','n'),
+                              ('tournament_match','team_a_id','auction_team','n'),
+                              ('tournament_match','team_b_id','auction_team','n'),
+                              ('tournament_match','winner_team_id','auction_team','n'),
+                              ('tournament_match','toss_winner_team_id','auction_team','n'),
+                              ('tournament_match','man_of_match_id','auction_player','n'),
+                              -- Venue delete: courts belong to the venue (removed with
+                              -- it); events/matches survive with a null (TBD) venue.
+                              ('court','venue_id','venue','c'),
+                              ('sports_event','venue_id','venue','n'),
+                              ('tournament_match','venue_id','venue','n'),
+                              -- Player-category delete: unlink from events (join rows)
+                              -- and null the category on registrations, which survive.
+                              ('event_category','category_id','player_category','c'),
+                              ('event_category','event_id','sports_event','c'),
+                              ('sports_event_registration','category_id','player_category','n')
+                            ) AS t(child, col, parent, act)
+                          LOOP
+                            CONTINUE WHEN to_regclass('manacommunity.' || rec.child) IS NULL;
+                            CONTINUE WHEN to_regclass('manacommunity.' || rec.parent) IS NULL;
+                            CONTINUE WHEN NOT EXISTS (
+                              SELECT 1 FROM information_schema.columns
+                              WHERE table_schema = 'manacommunity'
+                                AND table_name = rec.child AND column_name = rec.col);
+
+                            want := CASE WHEN rec.act = 'c' THEN 'c' ELSE 'n' END;
+
+                            SELECT a.attnum INTO col_attnum
+                            FROM pg_attribute a
+                            WHERE a.attrelid = ('manacommunity.' || rec.child)::regclass
+                              AND a.attname = rec.col;
+
+                            -- Already the desired action on a FK over this column? Skip.
+                            IF EXISTS (
+                              SELECT 1 FROM pg_constraint con
+                              JOIN pg_class rel ON rel.oid = con.conrelid
+                              JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                              WHERE nsp.nspname = 'manacommunity'
+                                AND rel.relname = rec.child
+                                AND con.contype = 'f'
+                                AND con.conkey = ARRAY[col_attnum]
+                                AND con.confdeltype = want
+                            ) THEN
+                              CONTINUE;
+                            END IF;
+
+                            -- Drop any existing FK on this column, then re-add with the action.
+                            FOR existing_fk IN
+                              SELECT con.conname FROM pg_constraint con
+                              JOIN pg_class rel ON rel.oid = con.conrelid
+                              JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                              WHERE nsp.nspname = 'manacommunity'
+                                AND rel.relname = rec.child
+                                AND con.contype = 'f'
+                                AND con.conkey = ARRAY[col_attnum]
+                            LOOP
+                              EXECUTE format('ALTER TABLE manacommunity.%I DROP CONSTRAINT %I', rec.child, existing_fk);
+                            END LOOP;
+
+                            EXECUTE format(
+                              'ALTER TABLE manacommunity.%I ADD CONSTRAINT %I FOREIGN KEY (%I) '
+                              || 'REFERENCES manacommunity.%I(id) ON DELETE %s',
+                              rec.child, 'fk_' || rec.child || '_' || rec.col, rec.col, rec.parent,
+                              CASE WHEN want = 'c' THEN 'CASCADE' ELSE 'SET NULL' END);
+                          END LOOP;
+                        END $$;
+                        """);
+
+                log.info("SportsEvent delete subtree FKs patched (cascade/set-null for registrations, scheduling and auction graphs).");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher event-delete-subtree FK patch failed: {}", e.getMessage(), e);
+            }
+
+            // Tournament announcement content tables (announcements, gallery,
+            // timeline) that back the announcement email. Prod runs
+            // ddl-auto=validate, which won't create new entity tables. Idempotent;
+            // FKs cascade so a tournament's content is removed with it.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_announcement (
+                            id            BIGSERIAL PRIMARY KEY,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            title         VARCHAR(150),
+                            content       VARCHAR(2000) NOT NULL,
+                            icon          VARCHAR(20),
+                            sort_order    INTEGER DEFAULT 0,
+                            created_at    TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_announcement_tid ON manacommunity.tournament_announcement (tournament_id)");
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_gallery_image (
+                            id            BIGSERIAL PRIMARY KEY,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            title         VARCHAR(100),
+                            image_url     TEXT,
+                            bg_color      VARCHAR(20),
+                            icon          VARCHAR(20),
+                            sort_order    INTEGER DEFAULT 0,
+                            created_at    TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_gallery_tid ON manacommunity.tournament_gallery_image (tournament_id)");
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_timeline_entry (
+                            id            BIGSERIAL PRIMARY KEY,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            entry_date    DATE,
+                            date_label    VARCHAR(60),
+                            title         VARCHAR(150) NOT NULL,
+                            description   VARCHAR(500),
+                            sort_order    INTEGER DEFAULT 0,
+                            created_at    TIMESTAMP NOT NULL DEFAULT now()
+                        )
+                        """);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.tournament_timeline_entry (tournament_id)");
+
+                log.info("Tournament content tables ensured (announcement, gallery, timeline).");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher tournament content tables patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }

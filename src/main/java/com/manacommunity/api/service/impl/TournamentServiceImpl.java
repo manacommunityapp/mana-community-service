@@ -95,7 +95,8 @@ public class TournamentServiceImpl implements TournamentService {
     @Override
     @Transactional
     public Tournament saveTournamentRecord(TournamentRequest req, Boolean allowAdminChat) {
-        // Resolve an existing Tournament if it is linked to any of the selected event IDs
+        // Create/resolve path: reuse an existing Tournament only if one is already
+        // linked to a selected event, otherwise start a fresh record.
         Tournament tournament = null;
         if (req.getSportsEventIds() != null && !req.getSportsEventIds().isEmpty()) {
             for (Long eventId : req.getSportsEventIds()) {
@@ -109,6 +110,23 @@ public class TournamentServiceImpl implements TournamentService {
         if (tournament == null) {
             tournament = new Tournament();
         }
+        return applyTournamentFields(tournament, req, allowAdminChat);
+    }
+
+    @Override
+    @Transactional
+    public Tournament updateTournamentRecord(Long id, TournamentRequest req, Boolean allowAdminChat) {
+        // Update path: the tournament is identified authoritatively by its id (with a
+        // fallback lookup by linked event id for older callers). We NEVER create a new
+        // Tournament here — doing so was the cause of tournaments duplicating on edit.
+        Tournament tournament = tournamentRepo.findById(id)
+                .or(() -> tournamentRepo.findByEventId(id))
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Tournament", id));
+        return applyTournamentFields(tournament, req, allowAdminChat);
+    }
+
+    private Tournament applyTournamentFields(Tournament tournament, TournamentRequest req, Boolean allowAdminChat) {
+        boolean isNew = tournament.getId() == null;
 
         // Map tournament fields directly from TournamentRequest DTO
         tournament.setName(req.getName());
@@ -159,7 +177,11 @@ public class TournamentServiceImpl implements TournamentService {
             tournament.getSportsEvents().add(ev);
             eventRepo.save(ev);
         }
-        tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
+        // Only default to DRAFT for brand-new tournaments; editing must not demote
+        // an already-open/completed tournament back to DRAFT.
+        if (isNew || tournament.getRegistrationStatus() == null) {
+            tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
+        }
 
         // Build mainEvent context for sponsors mapping
         SportsEvent mainEvent = null;

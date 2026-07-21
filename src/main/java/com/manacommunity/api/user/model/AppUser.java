@@ -56,7 +56,9 @@ public class AppUser {
     @Column(nullable = false, length = 10)
     private String gender; // MALE, FEMALE, OTHER
 
-    @Column(name = "profile_pic_url", length = 255)
+    // TEXT (not varchar(255)): the admin create-user form can upload a photo as
+    // an inline base64 data-URI, which overflows 255 chars (SQLSTATE 22001).
+    @Column(name = "profile_pic_url", columnDefinition = "TEXT")
     private String profilePicUrl;
 
     @Column(nullable = false, length = 20)
@@ -84,6 +86,19 @@ public class AppUser {
     @Column(name = "block", length = 20)
     private String block;
 
+    // ── Additional profile fields captured by the admin create-user form ──
+    @Column(name = "employee_id", length = 50)
+    private String employeeId; // external Resident/Employee ID (e.g. RES-9021)
+
+    @Column(name = "tower", length = 30)
+    private String tower;
+
+    @Column(name = "resident_type", length = 30)
+    private String residentType; // Resident, Non-Resident, Guest
+
+    @Column(name = "occupancy_status", length = 30)
+    private String occupancyStatus; // Owner, Tenant, Staff
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
     private Community community;
@@ -91,6 +106,23 @@ public class AppUser {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    // ── Notification channel preferences (set from the create-user form) ──
+    @Column(name = "notify_email")
+    @Builder.Default
+    private Boolean notifyEmail = true;
+
+    @Column(name = "notify_sms")
+    @Builder.Default
+    private Boolean notifySms = false;
+
+    @Column(name = "notify_whatsapp")
+    @Builder.Default
+    private Boolean notifyWhatsapp = true;
+
+    @Column(name = "notify_push")
+    @Builder.Default
+    private Boolean notifyPush = true;
 
     // ── Brute-force lockout (stateless session security) ──────────────────
     // Consecutive failed logins; reset to 0 on a successful login.

@@ -83,6 +83,7 @@ public class UserController {
     }
 
     private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
+    private final com.manacommunity.api.user.service.AdminUserService adminUserService;
 
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
@@ -187,6 +188,39 @@ public class UserController {
                         .isActive(u.getIsActive())
                         .permissions(getPermissionsForUser(u))
                         .build()));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<UserResponse> createUser(
+            @jakarta.validation.Valid @RequestBody com.manacommunity.api.user.dto.AdminCreateUserRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        // Non-super-admins may only create users within their own community.
+        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole()) && loggedInUser.getCommunity() != null) {
+            req.setCommunityId(loggedInUser.getCommunity().getId());
+            req.setInviteCode(null);
+        }
+
+        AppUser saved = adminUserService.createUser(req);
+        UserResponse body = UserResponse.builder()
+                .id(saved.getId())
+                .fullName(saved.getFullName())
+                .email(saved.getEmail())
+                .phone(saved.getPhone())
+                .role(saved.getRole())
+                .kycStatus(saved.getKycStatus())
+                .profilePicUrl(saved.getProfilePicUrl())
+                .gender(saved.getGender())
+                .dateOfBirth(saved.getDateOfBirth())
+                .flatNo(saved.getFlatNo())
+                .block(saved.getBlock())
+                .communityId(saved.getCommunity() != null ? saved.getCommunity().getId() : null)
+                .roleId(saved.getRoleEntity() != null ? saved.getRoleEntity().getId() : null)
+                .isActive(saved.getIsActive())
+                .permissions(getPermissionsForUser(saved))
+                .build();
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(body);
     }
 
     @GetMapping("/{id}")

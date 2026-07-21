@@ -49,4 +49,6 @@ public interface CommunityLeaderRepository extends JpaRepository<CommunityLeader
     List<String> findDistinctCommittees(@Param("communityId") Long communityId);
 
     long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    List<CommunityLeader> findByUserIdAndIsActiveTrue(Long userId);
 }

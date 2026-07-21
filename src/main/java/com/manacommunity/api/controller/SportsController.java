@@ -172,9 +172,14 @@ public class SportsController {
             @PathVariable Long id, @Valid @RequestBody TournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-        Tournament tournament = tournamentService.saveTournamentRecord(req, req.getAllowAdminChat());
-        SportsEvent updated = eventService.getEventById(id);
-        return ResponseEntity.ok(toEventResponse(updated));
+        // Update the existing tournament in place (never insert a duplicate).
+        Tournament tournament = tournamentService.updateTournamentRecord(id, req, req.getAllowAdminChat());
+        // Respond with the tournament's primary linked event when it has one;
+        // fall back to null for tournaments that have no events yet.
+        SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())
+                ? tournament.getSportsEvents().get(0)
+                : null;
+        return ResponseEntity.ok(mainEvent != null ? toEventResponse(mainEvent) : null);
     }
 
     @PutMapping("/events/{id}")
