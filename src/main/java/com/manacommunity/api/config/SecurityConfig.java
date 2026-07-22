@@ -225,6 +225,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
+                .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers("/api/tournament/**").authenticated()
                 // AI Chat Agent — requires authentication; the controller itself
                 // validates community membership and active status.
