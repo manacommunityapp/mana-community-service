@@ -62,13 +62,17 @@ public class EmailVerificationController {
 
     @GetMapping("/templates")
     public ResponseEntity<Map<String, Object>> templates() {
-        List<Map<String, String>> list = new ArrayList<>();
+        List<Map<String, Object>> list = new ArrayList<>();
         for (EmailTemplate t : EmailTemplate.values()) {
-            Map<String, String> entry = new LinkedHashMap<>();
+            EmailTemplate.Trigger trigger = t.trigger();
+            Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("key", t.name());
             entry.put("subject", t.defaultSubject());
             entry.put("templateFile", t.templateName() + ".html");
             entry.put("category", t.category().name());
+            entry.put("triggerMenuPath", trigger.menuPath());
+            entry.put("triggerWired", trigger.wired());
+            entry.put("triggerDescription", trigger.description());
             list.add(entry);
         }
         Map<String, Object> resp = new LinkedHashMap<>();
