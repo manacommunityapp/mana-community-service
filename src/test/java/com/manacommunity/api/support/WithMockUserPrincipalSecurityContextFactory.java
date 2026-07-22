@@ -15,9 +15,11 @@ public class WithMockUserPrincipalSecurityContextFactory
 
     @Override
     public SecurityContext createSecurityContext(WithMockUserPrincipal annotation) {
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority("ROLE_" + annotation.role())
-        );
+        List<GrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + annotation.role()));
+        for (String perm : annotation.permissions()) {
+            authorities.add(new SimpleGrantedAuthority(perm));
+        }
         UserPrincipal principal = new UserPrincipal(
                 annotation.id(), annotation.email(), "password", authorities);
         var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);

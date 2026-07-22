@@ -3,6 +3,7 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.model.Vendor;
 import com.manacommunity.api.repository.VendorRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,11 +32,13 @@ public class VendorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
     public ResponseEntity<Vendor> createVendor(@RequestBody Vendor vendor) {
         return ResponseEntity.ok(vendorRepository.save(vendor));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Vendor> updateVendor(@PathVariable Long id, @RequestBody Vendor request) {
         return vendorRepository.findById(id)

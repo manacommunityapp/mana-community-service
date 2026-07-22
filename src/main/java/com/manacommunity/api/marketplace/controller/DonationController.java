@@ -1,8 +1,8 @@
 package com.manacommunity.api.marketplace.controller;
 
-import com.manacommunity.api.marketplace.dto.ListingRequest;
-import com.manacommunity.api.marketplace.dto.ListingResponse;
-import com.manacommunity.api.marketplace.service.ListingService;
+import com.manacommunity.api.marketplace.dto.DonationRequest;
+import com.manacommunity.api.marketplace.dto.DonationResponse;
+import com.manacommunity.api.marketplace.service.DonationService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -20,18 +20,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/marketplace/listings")
+@RequestMapping("/api/marketplace/donations")
 @RequiredArgsConstructor
-public class ListingController {
+public class DonationController {
 
-    private final ListingService listingService;
+    private final DonationService donationService;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<Page<ListingResponse>> getListings(
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String search,
+    public ResponseEntity<Page<DonationResponse>> getCommunityDonations(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -41,63 +39,43 @@ public class ListingController {
             return ResponseEntity.ok(Page.empty());
         }
         PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
-        if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(listingService.searchListings(communityId, search, pageable));
-        }
-        return ResponseEntity.ok(listingService.getCommunityListings(communityId, category, pageable));
+        return ResponseEntity.ok(donationService.getCommunityDonations(communityId, pageable));
     }
 
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<List<ListingResponse>> getMyListings(
+    public ResponseEntity<List<DonationResponse>> getMyDonations(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(listingService.getMyListings(user.getId()));
-    }
-
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<ListingResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(listingService.getById(id));
+        return ResponseEntity.ok(donationService.getMyDonations(user.getId()));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<ListingResponse> create(
-            @Valid @RequestBody ListingRequest req,
+    public ResponseEntity<DonationResponse> create(
+            @Valid @RequestBody DonationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(listingService.create(req, user, user.getCommunity()));
+                .body(donationService.create(req, user, user.getCommunity()));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<ListingResponse> update(
+    @PutMapping("/{id}/claim")
+    @PreAuthorize("hasAuthority('View Marketplace')")
+    public ResponseEntity<DonationResponse> claimDonation(
             @PathVariable Long id,
-            @Valid @RequestBody ListingRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(listingService.update(id, req, user.getId()));
-    }
-
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<Void> updateStatus(
-            @PathVariable Long id,
-            @RequestParam String status,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        listingService.updateStatus(id, status, user.getId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(donationService.claimDonation(id, user));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Delete Listing')")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("hasAnyAuthority('Delete Listing', 'Manage Marketplace')")
+    public ResponseEntity<Void> deleteDonation(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        listingService.adminDelete(id);
+        AppUser user = loggedInUserService.resolve(principal);
+        donationService.deleteDonation(id, user.getId());
         return ResponseEntity.noContent().build();
     }
 }

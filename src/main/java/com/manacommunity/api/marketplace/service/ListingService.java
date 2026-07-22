@@ -1,13 +1,20 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.ListingRequest;
 import com.manacommunity.api.marketplace.dto.ListingResponse;
 import com.manacommunity.api.marketplace.entity.Listing;
 import com.manacommunity.api.marketplace.entity.ListingImage;
 import com.manacommunity.api.marketplace.repository.ListingRepository;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,19 +26,20 @@ import java.util.List;
 public class ListingService {
 
     private final ListingRepository listingRepo;
+    private final AuditService auditService;
 
     @Transactional(readOnly = true)
-    public List<ListingResponse> getCommunityListings(Long communityId, String category) {
-        List<Listing> listings = (category == null || category.isBlank() || "All".equalsIgnoreCase(category))
-                ? listingRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, Listing.ListingStatus.ACTIVE)
-                : listingRepo.findByCommunityIdAndCategoryAndStatusOrderByCreatedAtDesc(communityId, category, Listing.ListingStatus.ACTIVE);
-        return listings.stream().map(this::toResponse).toList();
+    public Page<ListingResponse> getCommunityListings(Long communityId, String category, Pageable pageable) {
+        Page<Listing> page = (category == null || category.isBlank() || "All".equalsIgnoreCase(category))
+                ? listingRepo.findByCommunityIdAndStatus(communityId, Listing.ListingStatus.ACTIVE, pageable)
+                : listingRepo.findByCommunityIdAndCategoryAndStatus(communityId, category, Listing.ListingStatus.ACTIVE, pageable);
+        return page.map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<ListingResponse> searchListings(Long communityId, String query) {
-        return listingRepo.searchByCommunity(communityId, query, Listing.ListingStatus.ACTIVE)
-                .stream().map(this::toResponse).toList();
+    public Page<ListingResponse> searchListings(Long communityId, String query, Pageable pageable) {
+        return listingRepo.searchByCommunity(communityId, query, Listing.ListingStatus.ACTIVE, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +51,7 @@ public class ListingService {
     @Transactional(readOnly = true)
     public ListingResponse getById(Long id) {
         return toResponse(listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id)));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id)));
     }
 
     @Transactional
@@ -72,15 +80,18 @@ public class ListingService {
             }
         }
 
-        return toResponse(listingRepo.save(listing));
+        Listing saved = listingRepo.save(listing);
+        auditService.record(AuditAction.PRODUCT_CREATED, AuditModule.MARKETPLACE,
+                "Listing", String.valueOf(saved.getId()));
+        return toResponse(saved);
     }
 
     @Transactional
     public ListingResponse update(Long id, ListingRequest req, Long sellerId) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         if (!listing.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("You can only edit your own listings");
+            throw new UnauthorizedActionException("You can only edit your own listings");
         }
 
         listing.setTitle(req.getTitle());
@@ -107,26 +118,34 @@ public class ListingService {
             }
         }
 
-        return toResponse(listingRepo.save(listing));
+        Listing updated = listingRepo.save(listing);
+        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+                "Listing", String.valueOf(updated.getId()));
+        return toResponse(updated);
     }
 
     @Transactional
     public void updateStatus(Long id, String status, Long sellerId) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         if (!listing.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("You can only modify your own listings");
+            throw new UnauthorizedActionException("You can only modify your own listings");
         }
+        String oldStatus = listing.getStatus().name();
         listing.setStatus(Listing.ListingStatus.valueOf(status));
         listingRepo.save(listing);
+        auditService.record(AuditAction.PRODUCT_UPDATED, AuditModule.MARKETPLACE,
+                "Listing", String.valueOf(id), oldStatus, status);
     }
 
     @Transactional
     public void adminDelete(Long id) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         listing.setStatus(Listing.ListingStatus.DELETED);
         listingRepo.save(listing);
+        auditService.record(AuditAction.PRODUCT_DELETED, AuditModule.MARKETPLACE,
+                "Listing", String.valueOf(id));
     }
 
     private ListingResponse toResponse(Listing l) {

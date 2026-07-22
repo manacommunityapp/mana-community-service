@@ -4,6 +4,7 @@ import com.manacommunity.api.model.MaintenanceRecord;
 import com.manacommunity.api.service.MaintenanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class MaintenanceController {
         return ResponseEntity.ok(maintenanceService.getRecordsByAssetId(assetId));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping("/asset/{assetId}")
     public ResponseEntity<MaintenanceRecord> createRecord(
             @PathVariable Long assetId,
@@ -32,6 +34,7 @@ public class MaintenanceController {
         return ResponseEntity.ok(maintenanceService.createRecord(assetId, record));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}/status")
     public ResponseEntity<MaintenanceRecord> updateStatus(
             @PathVariable Long id,

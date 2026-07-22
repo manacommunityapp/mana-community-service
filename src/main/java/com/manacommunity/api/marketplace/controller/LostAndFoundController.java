@@ -1,8 +1,8 @@
 package com.manacommunity.api.marketplace.controller;
 
-import com.manacommunity.api.marketplace.dto.ListingRequest;
-import com.manacommunity.api.marketplace.dto.ListingResponse;
-import com.manacommunity.api.marketplace.service.ListingService;
+import com.manacommunity.api.marketplace.dto.LostAndFoundRequest;
+import com.manacommunity.api.marketplace.dto.LostAndFoundResponse;
+import com.manacommunity.api.marketplace.service.LostAndFoundService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -20,18 +20,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/marketplace/listings")
+@RequestMapping("/api/marketplace/lost-found")
 @RequiredArgsConstructor
-public class ListingController {
+public class LostAndFoundController {
 
-    private final ListingService listingService;
+    private final LostAndFoundService lostAndFoundService;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<Page<ListingResponse>> getListings(
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String search,
+    public ResponseEntity<Page<LostAndFoundResponse>> getPosts(
+            @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -41,63 +40,42 @@ public class ListingController {
             return ResponseEntity.ok(Page.empty());
         }
         PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
-        if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(listingService.searchListings(communityId, search, pageable));
-        }
-        return ResponseEntity.ok(listingService.getCommunityListings(communityId, category, pageable));
+        return ResponseEntity.ok(lostAndFoundService.getCommunityPosts(communityId, type, pageable));
     }
 
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<List<ListingResponse>> getMyListings(
+    public ResponseEntity<List<LostAndFoundResponse>> getMyPosts(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(listingService.getMyListings(user.getId()));
-    }
-
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Marketplace')")
-    public ResponseEntity<ListingResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(listingService.getById(id));
+        return ResponseEntity.ok(lostAndFoundService.getMyPosts(user.getId()));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<ListingResponse> create(
-            @Valid @RequestBody ListingRequest req,
+    @PreAuthorize("hasAuthority('View Marketplace')")
+    public ResponseEntity<LostAndFoundResponse> create(
+            @Valid @RequestBody LostAndFoundRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(listingService.create(req, user, user.getCommunity()));
+                .body(lostAndFoundService.create(req, user, user.getCommunity()));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<ListingResponse> update(
+    @PutMapping("/{id}/resolve")
+    @PreAuthorize("hasAuthority('View Marketplace')")
+    public ResponseEntity<LostAndFoundResponse> resolve(
             @PathVariable Long id,
-            @Valid @RequestBody ListingRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(listingService.update(id, req, user.getId()));
-    }
-
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Create Listing')")
-    public ResponseEntity<Void> updateStatus(
-            @PathVariable Long id,
-            @RequestParam String status,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        listingService.updateStatus(id, status, user.getId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(lostAndFoundService.resolve(id, user.getId()));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Delete Listing')")
-    public ResponseEntity<Void> delete(
+    @PreAuthorize("hasAuthority('Manage Marketplace')")
+    public ResponseEntity<Void> close(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        listingService.adminDelete(id);
+        lostAndFoundService.close(id);
         return ResponseEntity.noContent().build();
     }
 }
