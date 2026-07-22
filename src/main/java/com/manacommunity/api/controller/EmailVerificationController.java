@@ -7,12 +7,17 @@ import com.manacommunity.api.email.EmailTemplate;
 import com.manacommunity.api.email.EmailTemplateRenderer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 /**
  * Admin tooling to verify, preview and test-fire every email template
@@ -38,6 +43,21 @@ public class EmailVerificationController {
     private final EmailService          emailService;
     private final EmailProperties       props;
 
+    // Deliberately simple RFC-5322-ish check — good enough to reject typos and
+    // header-injection attempts (CR/LF, missing @) without a full grammar parser.
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+
+    // Test-send endpoints dispatch real emails, so they get a much tighter,
+    // per-admin limit than the global API rate limiter — capped low enough to
+    // stop accidental/careless repeated firing without blocking normal QA use.
+    // /test-all fans out to every template in one call, so it gets its own,
+    // stricter budget rather than sharing /test's counter.
+    private static final int TEST_SEND_LIMIT_PER_MINUTE = 10;
+    private static final int TEST_SEND_ALL_LIMIT_PER_MINUTE = 2;
+    private static final long RATE_LIMIT_WINDOW_MS = 60_000L;
+    private final ConcurrentHashMap<String, RateLimitWindow> rateLimitWindows = new ConcurrentHashMap<>();
+
     // ── List templates ───────────────────────────────────────────────
 
     @GetMapping("/templates")
@@ -48,6 +68,7 @@ public class EmailVerificationController {
             entry.put("key", t.name());
             entry.put("subject", t.defaultSubject());
             entry.put("templateFile", t.templateName() + ".html");
+            entry.put("category", t.category().name());
             list.add(entry);
         }
         Map<String, Object> resp = new LinkedHashMap<>();
@@ -131,12 +152,20 @@ public class EmailVerificationController {
     public ResponseEntity<Map<String, Object>> sendTest(
             @RequestParam(value = "to", required = false) String to,
             @RequestParam("template") EmailTemplate template,
-            @RequestBody(required = false) Map<String, Object> customVars) {
+            @RequestBody(required = false) Map<String, Object> customVars,
+            Authentication authentication) {
+
+        ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test"), TEST_SEND_LIMIT_PER_MINUTE);
+        if (limited != null) return limited;
 
         String recipient = resolveTestRecipient(to);
         if (recipient == null || recipient.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "No recipient — pass ?to= or set app.mail.default-recipient"));
+        }
+        if (!EMAIL_PATTERN.matcher(recipient).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "\"" + recipient + "\" doesn't look like a valid email address"));
         }
 
         Map<String, Object> vars = sampleVars(template);
@@ -145,7 +174,9 @@ public class EmailVerificationController {
         }
 
         String html = renderer.render(template, vars);
-        String subject = "[TEST] " + template.defaultSubject();
+        String subjectOverride = customVars != null ? asTrimmedString(customVars.get("subject")) : null;
+        String subject = "[TEST] " + (subjectOverride != null && !subjectOverride.isBlank()
+                ? subjectOverride : template.defaultSubject());
 
         String fromOverride = null;
         String fromNameOverride = null;
@@ -178,29 +209,41 @@ public class EmailVerificationController {
     @PostMapping("/test-all")
     public ResponseEntity<Map<String, Object>> sendAllTemplates(
             @RequestParam(value = "to", required = false) String to,
-            @RequestBody(required = false) Map<String, Object> customVars) {
+            @RequestBody(required = false) Map<String, Object> customVars,
+            Authentication authentication) {
+
+        ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test-all"), TEST_SEND_ALL_LIMIT_PER_MINUTE);
+        if (limited != null) return limited;
 
         String recipient = resolveTestRecipient(to);
         if (recipient == null || recipient.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "No recipient — pass ?to= or set app.mail.default-recipient"));
         }
+        if (!EMAIL_PATTERN.matcher(recipient).matches()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "\"" + recipient + "\" doesn't look like a valid email address"));
+        }
 
         List<Map<String, Object>> results = new ArrayList<>();
         int sent = 0;
         int failed = 0;
 
+        String subjectOverride = customVars != null ? asTrimmedString(customVars.get("subject")) : null;
+
         for (EmailTemplate template : EmailTemplate.values()) {
+            String subject = "[TEST] " + (subjectOverride != null && !subjectOverride.isBlank()
+                    ? subjectOverride : template.defaultSubject());
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("template", template.name());
-            entry.put("subject", "[TEST] " + template.defaultSubject());
+            entry.put("subject", subject);
             try {
                 Map<String, Object> vars = sampleVars(template);
                 if (customVars != null && !customVars.isEmpty()) {
                     vars.putAll(customVars);
                 }
                 String html = renderer.render(template, vars);
-                
+
                 String fromOverride = null;
                 String fromNameOverride = null;
                 if (customVars != null) {
@@ -213,7 +256,7 @@ public class EmailVerificationController {
                 }
 
                 emailService.send(new EmailMessage(recipient, "Test Recipient",
-                        "[TEST] " + template.defaultSubject(), html, fromOverride, fromNameOverride));
+                        subject, html, fromOverride, fromNameOverride));
                 entry.put("status", "SENT");
                 sent++;
             } catch (Exception e) {
@@ -247,6 +290,51 @@ public class EmailVerificationController {
             return props.getDefaultRecipient().trim();
         }
         return null;
+    }
+
+    // ── Per-admin rate limiting for real-email-dispatching endpoints ──
+
+    private String bucketKey(Authentication authentication, String action) {
+        String principal = authentication != null ? authentication.getName() : "anonymous";
+        return action + ":" + principal;
+    }
+
+    /** Returns null when the call is allowed, or a ready-to-return 429 response when the limit is hit. */
+    private ResponseEntity<Map<String, Object>> checkRateLimit(String key, int limitPerMinute) {
+        long now = System.currentTimeMillis();
+        RateLimitWindow window = rateLimitWindows.compute(key, (k, current) -> {
+            if (current == null || now - current.start >= RATE_LIMIT_WINDOW_MS) {
+                return new RateLimitWindow(now);
+            }
+            current.count.incrementAndGet();
+            return current;
+        });
+
+        if (window.count.get() > limitPerMinute) {
+            long retryAfter = Math.max(1, (RATE_LIMIT_WINDOW_MS - (now - window.start)) / 1000);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(retryAfter))
+                    .body(Map.of("error", "Too many test emails sent — retry in " + retryAfter + "s"));
+        }
+        return null;
+    }
+
+    private static final class RateLimitWindow {
+        final long start;
+        final AtomicInteger count;
+
+        RateLimitWindow(long start) {
+            this.start = start;
+            this.count = new AtomicInteger(1);
+        }
+    }
+
+    // ── Small helper ───────────────────────────────────────────────────
+
+    private static String asTrimmedString(Object value) {
+        if (value == null) return null;
+        String s = String.valueOf(value).trim();
+        return s.isEmpty() ? null : s;
     }
 
     // ── Sample data per template ─────────────────────────────────────
