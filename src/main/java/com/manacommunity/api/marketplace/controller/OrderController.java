@@ -54,7 +54,7 @@ public class OrderController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('View Marketplace')")
+    @PreAuthorize("hasAuthority('Create Listing')")
     public ResponseEntity<OrderResponse> create(
             @Valid @RequestBody OrderRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {

@@ -1,5 +1,9 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.DuplicateResourceException;
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.ReviewRequest;
 import com.manacommunity.api.marketplace.dto.ReviewResponse;
 import com.manacommunity.api.marketplace.entity.Listing;
@@ -35,14 +39,14 @@ public class ReviewService {
     @Transactional
     public ReviewResponse createReview(ReviewRequest req, AppUser reviewer) {
         Listing listing = listingRepo.findById(req.getListingId())
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + req.getListingId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", req.getListingId()));
 
         if (listing.getSeller().getId().equals(reviewer.getId())) {
-            throw new IllegalArgumentException("cannot review own listing");
+            throw new InvalidInputException("You cannot review your own listing");
         }
 
         if (reviewRepo.existsByListingIdAndReviewerId(req.getListingId(), reviewer.getId())) {
-            throw new IllegalArgumentException("already reviewed");
+            throw new DuplicateResourceException("Review", "listing", String.valueOf(req.getListingId()));
         }
 
         ListingReview review = ListingReview.builder()
@@ -61,10 +65,10 @@ public class ReviewService {
     @Transactional
     public ReviewResponse addSellerReply(Long reviewId, String reply, Long sellerId) {
         ListingReview review = reviewRepo.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review", reviewId));
 
         if (!review.getListing().getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("only seller can reply");
+            throw new UnauthorizedActionException("Only the listing seller can reply to reviews");
         }
 
         review.setSellerReply(reply);

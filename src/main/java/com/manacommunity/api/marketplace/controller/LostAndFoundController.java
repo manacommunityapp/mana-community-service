@@ -71,7 +71,7 @@ public class LostAndFoundController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Delete Listing')")
+    @PreAuthorize("hasAuthority('Manage Marketplace')")
     public ResponseEntity<Void> close(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

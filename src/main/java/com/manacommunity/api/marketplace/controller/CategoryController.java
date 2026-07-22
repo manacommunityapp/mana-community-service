@@ -40,7 +40,7 @@ public class CategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Delete Listing')")
+    @PreAuthorize("hasAuthority('Manage Marketplace')")
     public ResponseEntity<CategoryResponse> create(
             @Valid @RequestBody CategoryRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -50,7 +50,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Delete Listing')")
+    @PreAuthorize("hasAuthority('Manage Marketplace')")
     public ResponseEntity<CategoryResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody CategoryRequest req) {
@@ -58,7 +58,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}/toggle")
-    @PreAuthorize("hasAuthority('Delete Listing')")
+    @PreAuthorize("hasAuthority('Manage Marketplace')")
     public ResponseEntity<Void> toggleActive(@PathVariable Long id) {
         categoryService.toggleActive(id);
         return ResponseEntity.ok().build();

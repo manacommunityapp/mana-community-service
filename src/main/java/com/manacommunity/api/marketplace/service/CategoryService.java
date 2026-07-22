@@ -1,5 +1,6 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.marketplace.dto.CategoryRequest;
 import com.manacommunity.api.marketplace.dto.CategoryResponse;
 import com.manacommunity.api.marketplace.entity.MarketplaceCategory;
@@ -43,7 +44,7 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public CategoryResponse getById(Long id) {
         return toResponse(categoryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id)));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id)));
     }
 
     @Transactional
@@ -57,7 +58,7 @@ public class CategoryService {
 
         if (req.getParentId() != null) {
             MarketplaceCategory parent = categoryRepo.findById(req.getParentId())
-                    .orElseThrow(() -> new IllegalArgumentException("Parent category not found: " + req.getParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent category", req.getParentId()));
             builder.parent(parent);
         }
 
@@ -70,7 +71,7 @@ public class CategoryService {
     @Transactional
     public CategoryResponse update(Long id, CategoryRequest req) {
         MarketplaceCategory category = categoryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
 
         category.setName(req.getName());
         category.setSlug(req.getName().toLowerCase().replaceAll("\\s+", "-"));
@@ -81,7 +82,7 @@ public class CategoryService {
 
         if (req.getParentId() != null) {
             MarketplaceCategory parent = categoryRepo.findById(req.getParentId())
-                    .orElseThrow(() -> new IllegalArgumentException("Parent category not found: " + req.getParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent category", req.getParentId()));
             category.setParent(parent);
         } else {
             category.setParent(null);
@@ -96,7 +97,7 @@ public class CategoryService {
     @Transactional
     public void toggleActive(Long id) {
         MarketplaceCategory category = categoryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
         category.setActive(!category.isActive());
         categoryRepo.save(category);
         auditService.record(AuditAction.CONFIG_UPDATED, AuditModule.MARKETPLACE,

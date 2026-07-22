@@ -1,5 +1,7 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.marketplace.dto.ListingRequest;
 import com.manacommunity.api.marketplace.dto.ListingResponse;
 import com.manacommunity.api.marketplace.entity.Listing;
@@ -49,7 +51,7 @@ public class ListingService {
     @Transactional(readOnly = true)
     public ListingResponse getById(Long id) {
         return toResponse(listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id)));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id)));
     }
 
     @Transactional
@@ -87,9 +89,9 @@ public class ListingService {
     @Transactional
     public ListingResponse update(Long id, ListingRequest req, Long sellerId) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         if (!listing.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("You can only edit your own listings");
+            throw new UnauthorizedActionException("You can only edit your own listings");
         }
 
         listing.setTitle(req.getTitle());
@@ -125,9 +127,9 @@ public class ListingService {
     @Transactional
     public void updateStatus(Long id, String status, Long sellerId) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         if (!listing.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("You can only modify your own listings");
+            throw new UnauthorizedActionException("You can only modify your own listings");
         }
         String oldStatus = listing.getStatus().name();
         listing.setStatus(Listing.ListingStatus.valueOf(status));
@@ -139,7 +141,7 @@ public class ListingService {
     @Transactional
     public void adminDelete(Long id) {
         Listing listing = listingRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", id));
         listing.setStatus(Listing.ListingStatus.DELETED);
         listingRepo.save(listing);
         auditService.record(AuditAction.PRODUCT_DELETED, AuditModule.MARKETPLACE,

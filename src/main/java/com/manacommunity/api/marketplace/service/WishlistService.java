@@ -1,5 +1,7 @@
 package com.manacommunity.api.marketplace.service;
 
+import com.manacommunity.api.exception.DuplicateResourceException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.marketplace.dto.WishlistResponse;
 import com.manacommunity.api.marketplace.entity.Listing;
 import com.manacommunity.api.marketplace.entity.ListingImage;
@@ -33,10 +35,10 @@ public class WishlistService {
     @Transactional
     public WishlistResponse addToWishlist(Long userId, Long listingId, AppUser user) {
         Listing listing = listingRepo.findById(listingId)
-                .orElseThrow(() -> new IllegalArgumentException("Listing not found: " + listingId));
+                .orElseThrow(() -> new ResourceNotFoundException("Listing", listingId));
 
         if (wishlistRepo.existsByUserIdAndListingId(userId, listingId)) {
-            throw new IllegalArgumentException("Listing already in wishlist");
+            throw new DuplicateResourceException("Wishlist item", "listing", String.valueOf(listingId));
         }
 
         Wishlist wishlist = Wishlist.builder()
