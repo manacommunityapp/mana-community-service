@@ -170,10 +170,24 @@ public class TournamentServiceImpl implements TournamentService {
             }
         }
 
-        // Link new/current events
+        // Link new/current events & sync tournament-level fields
         tournament.setSportsEvents(new ArrayList<>());
         for (SportsEvent ev : sportsEvents) {
             ev.setTournament(tournament);
+            if (req.getEventDateStart() != null) ev.setEventDateStart(req.getEventDateStart());
+            if (req.getEventDateEnd() != null) ev.setEventDateEnd(req.getEventDateEnd());
+            if (req.getRegistrationDateStart() != null) ev.setRegistrationDateStart(req.getRegistrationDateStart());
+            if (req.getRegistrationDateEnd() != null) ev.setRegistrationDateEnd(req.getRegistrationDateEnd());
+            if (req.getMaxParticipants() != null) ev.setMaxParticipants(req.getMaxParticipants());
+            if (req.getDescription() != null) ev.setDescription(req.getDescription());
+            if (req.getStartTime() != null) ev.setStartTime(req.getStartTime());
+            if (req.getDueTime() != null) ev.setDueTime(req.getDueTime());
+            if (req.getBannerImage() != null) ev.setBannerImage(req.getBannerImage());
+            if (req.getContactName() != null) ev.setContactName(req.getContactName());
+            if (req.getContactNumber() != null) ev.setContactNumber(req.getContactNumber());
+            if (req.getContactEmail() != null) ev.setContactEmail(req.getContactEmail());
+            if (req.getOtherContacts() != null) ev.setOtherContacts(req.getOtherContacts());
+            if (req.getTournamentLevel() != null) ev.setTournamentLevel(req.getTournamentLevel());
             tournament.getSportsEvents().add(ev);
             eventRepo.save(ev);
         }
