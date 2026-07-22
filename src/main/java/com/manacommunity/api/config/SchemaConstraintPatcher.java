@@ -956,6 +956,158 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher tournament content tables patch failed: {}", e.getMessage(), e);
             }
+
+            // Multi-tenant email template management (branding, headers, footers,
+            // templates, versions, dynamic fields). Prod runs ddl-auto=validate, so
+            // the tables must be created here rather than relying on Hibernate.
+            // Idempotent: CREATE ... IF NOT EXISTS + ON CONFLICT DO NOTHING seeding,
+            // safe to re-run every boot. Mirrors db/sql/v1.0.0/35_email_template_management.sql.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_branding (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            community_id    BIGINT          NOT NULL UNIQUE REFERENCES manacommunity.community(id),
+                            logo_url        VARCHAR(500),
+                            primary_color   VARCHAR(20)     NOT NULL DEFAULT '#2563eb',
+                            secondary_color VARCHAR(20)     DEFAULT '#0f172a',
+                            font_family     VARCHAR(120),
+                            button_style    VARCHAR(40),
+                            banner_url      VARCHAR(500),
+                            facebook_url    VARCHAR(500),
+                            instagram_url   VARCHAR(500),
+                            website_url     VARCHAR(500),
+                            support_email   VARCHAR(160),
+                            support_phone   VARCHAR(40),
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP       NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_header (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            community_id    BIGINT          NOT NULL REFERENCES manacommunity.community(id),
+                            name            VARCHAR(120)    NOT NULL,
+                            html_content    TEXT            NOT NULL,
+                            layout_json     TEXT,
+                            is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
+                            version         INTEGER         NOT NULL DEFAULT 1,
+                            created_by      BIGINT,
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP       NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_footer (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            community_id    BIGINT          NOT NULL REFERENCES manacommunity.community(id),
+                            name            VARCHAR(120)    NOT NULL,
+                            html_content    TEXT            NOT NULL,
+                            layout_json     TEXT,
+                            is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
+                            version         INTEGER         NOT NULL DEFAULT 1,
+                            created_by      BIGINT,
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP       NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_template (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            community_id    BIGINT          NOT NULL REFERENCES manacommunity.community(id),
+                            template_code   VARCHAR(80)     NOT NULL,
+                            template_name   VARCHAR(160)    NOT NULL,
+                            category        VARCHAR(80),
+                            subject         VARCHAR(240)    NOT NULL,
+                            html_content    TEXT            NOT NULL,
+                            layout_json     TEXT,
+                            header_id       BIGINT          REFERENCES manacommunity.email_header(id),
+                            footer_id       BIGINT          REFERENCES manacommunity.email_footer(id),
+                            status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
+                            version         INTEGER         NOT NULL DEFAULT 1,
+                            created_by      BIGINT,
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            CONSTRAINT uk_email_template_community_code UNIQUE (community_id, template_code),
+                            CONSTRAINT ck_email_template_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_template_version (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            template_id     BIGINT          NOT NULL REFERENCES manacommunity.email_template(id) ON DELETE CASCADE,
+                            version         INTEGER         NOT NULL,
+                            subject         VARCHAR(240)    NOT NULL,
+                            html_content    TEXT            NOT NULL,
+                            layout_json     TEXT,
+                            header_id       BIGINT          REFERENCES manacommunity.email_header(id),
+                            footer_id       BIGINT          REFERENCES manacommunity.email_footer(id),
+                            status          VARCHAR(20)     NOT NULL,
+                            created_by      BIGINT,
+                            notes           VARCHAR(500),
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            CONSTRAINT uk_email_template_version UNIQUE (template_id, version),
+                            CONSTRAINT ck_email_template_version_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_dynamic_field (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            category        VARCHAR(80)     NOT NULL,
+                            field_key       VARCHAR(120)    NOT NULL UNIQUE,
+                            display_name    VARCHAR(140)    NOT NULL,
+                            sample_value    VARCHAR(500),
+                            description     VARCHAR(500),
+                            is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
+                            sort_order      INTEGER         NOT NULL DEFAULT 0
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_header_community ON manacommunity.email_header(community_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_footer_community ON manacommunity.email_footer(community_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_template_community_status ON manacommunity.email_template(community_id, status)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_template_code ON manacommunity.email_template(template_code)");
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_email_header_community_name ON manacommunity.email_header(community_id, name)");
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_email_footer_community_name ON manacommunity.email_footer(community_id, name)");
+
+                log.info("Email template management tables ensured (default header/footer/templates are seeded via EmailTemplateFeeder, not here).");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher email template management patch failed: {}", e.getMessage(), e);
+            }
+
+            // Freeform templates composed in the GrapesJS drag-and-drop builder —
+            // separate from the code-keyed email_template table above.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_builder_template (
+                            id            BIGSERIAL       PRIMARY KEY,
+                            community_id  BIGINT          NOT NULL REFERENCES manacommunity.community(id),
+                            name          VARCHAR(160)    NOT NULL,
+                            subject       VARCHAR(240)    NOT NULL,
+                            html_content  TEXT            NOT NULL,
+                            css           TEXT,
+                            layout_json   TEXT,
+                            status        VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
+                            version       INTEGER         NOT NULL DEFAULT 1,
+                            created_at    TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at    TIMESTAMP       NOT NULL DEFAULT now(),
+                            CONSTRAINT ck_email_builder_template_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
+                        )
+                        """);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_builder_template_community ON manacommunity.email_builder_template(community_id)");
+
+                log.info("Email builder template table ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher email builder template patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }
