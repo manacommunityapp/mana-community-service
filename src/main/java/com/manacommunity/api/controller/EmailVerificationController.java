@@ -39,7 +39,6 @@ public class EmailVerificationController {
     private final ConcurrentHashMap<String, RateLimitWindow> rateLimitWindows = new ConcurrentHashMap<>();
 
     @GetMapping("/templates")
-<<<<<<< HEAD
     public ResponseEntity<Map<String, Object>> templates(
             @RequestParam(value = "communityId", required = false) Long communityId
     ) {
@@ -47,22 +46,6 @@ public class EmailVerificationController {
                 ? templateService.listAllTemplates()
                 : templateService.listTemplates(communityId);
 
-=======
-    public ResponseEntity<Map<String, Object>> templates() {
-        List<Map<String, Object>> list = new ArrayList<>();
-        for (EmailTemplate t : EmailTemplate.values()) {
-            EmailTemplate.Trigger trigger = t.trigger();
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("key", t.name());
-            entry.put("subject", t.defaultSubject());
-            entry.put("templateFile", t.templateName() + ".html");
-            entry.put("category", t.category().name());
-            entry.put("triggerMenuPath", trigger.menuPath());
-            entry.put("triggerWired", trigger.wired());
-            entry.put("triggerDescription", trigger.description());
-            list.add(entry);
-        }
->>>>>>> cd5cd31c6e118d0410b11a20a9e598fbbfb0e7b3
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("source", "DATABASE");
         resp.put("communityId", communityId);
