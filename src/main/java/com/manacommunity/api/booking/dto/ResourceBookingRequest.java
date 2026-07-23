@@ -3,11 +3,13 @@ package com.manacommunity.api.booking.dto;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
-public class BookingRequest {
+public class ResourceBookingRequest {
 
     @NotNull
-    private Long amenityId;
+    private Long resourceId;
 
     @NotNull
     private String bookingDate;
@@ -18,5 +20,9 @@ public class BookingRequest {
     @NotNull
     private String endTime;
 
+    private String endDate;
     private String purpose;
+    private Integer numberOfGuests;
+    private List<Long> equipmentIds;
+    private String couponCode;
 }
