@@ -1,0 +1,18 @@
+package com.manacommunity.api.booking.entity.enums;
+
+public enum RuleType {
+    MAX_BOOKINGS,
+    MEMBERS_ONLY,
+    GUESTS_ALLOWED,
+    AGE_RESTRICTION,
+    GENDER_RESTRICTION,
+    DEPOSIT_REQUIRED,
+    SECURITY_APPROVAL,
+    COMMITTEE_APPROVAL,
+    WEEKDAY_RULE,
+    WEEKEND_RULE,
+    FESTIVAL_RULE,
+    RECURRING_RULE,
+    TIME_RESTRICTION,
+    CAPACITY_LIMIT
+}
