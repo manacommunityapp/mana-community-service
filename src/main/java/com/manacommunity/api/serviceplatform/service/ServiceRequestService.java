@@ -197,6 +197,10 @@ public class ServiceRequestService {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceRequest", requestId));
 
+        if (request.getAssignedProvider() == null) {
+            throw new UnauthorizedActionException("This request is not assigned to any provider");
+        }
+
         if (!request.getAssignedProvider().getId().equals(provider.getId())) {
             throw new UnauthorizedActionException("This request is not assigned to you");
         }
@@ -213,6 +217,10 @@ public class ServiceRequestService {
 
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceRequest", requestId));
+
+        if (request.getAssignedProvider() == null) {
+            throw new UnauthorizedActionException("This request is not assigned to any provider");
+        }
 
         if (!request.getAssignedProvider().getId().equals(provider.getId())) {
             throw new UnauthorizedActionException("This request is not assigned to you");
