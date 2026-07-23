@@ -4,7 +4,6 @@ package com.manacommunity.api.serviceplatform.service;
 import com.manacommunity.api.serviceplatform.dto.response.ServiceSearchResult;
 import com.manacommunity.api.serviceplatform.entity.ProviderServiceOffering;
 import com.manacommunity.api.serviceplatform.repository.ProviderServiceOfferingRepository;
-import com.manacommunity.api.serviceplatform.repository.ServiceCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ServiceSearchService {
 
     private final ProviderServiceOfferingRepository offeringRepository;
-    private final ServiceCategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
     public Page<ServiceSearchResult> search(Long communityId, String query, Long domainId,
@@ -31,8 +29,7 @@ public class ServiceSearchService {
             offerings = offeringRepository.findVerifiedByCategoryAndCommunity(
                     categoryId, communityId, pageable);
         } else {
-            offerings = offeringRepository.findByCategoryIdAndAvailableTrue(
-                    categoryId, pageable);
+            offerings = Page.empty(pageable);
         }
 
         return offerings.map(this::toSearchResult);
