@@ -102,6 +102,6 @@ public class ServiceProviderController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('View Service Providers')")
     public ResponseEntity<ServiceProviderResponse> getProvider(@PathVariable Long id) {
-        return ResponseEntity.ok(providerService.getProfile(id));
+        return ResponseEntity.ok(providerService.getProviderById(id));
     }
 }

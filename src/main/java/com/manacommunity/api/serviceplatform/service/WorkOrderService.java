@@ -45,9 +45,12 @@ public class WorkOrderService {
     );
 
     @Transactional(readOnly = true)
-    public WorkOrderResponse getWorkOrder(Long workOrderId) {
+    public WorkOrderResponse getWorkOrder(Long workOrderId, Long communityId) {
         WorkOrder wo = workOrderRepository.findById(workOrderId)
                 .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", workOrderId));
+        if (communityId != null && !wo.getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot access work orders from another community");
+        }
         return toResponse(wo);
     }
 

@@ -1,6 +1,7 @@
 package com.manacommunity.api.serviceplatform.service;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
@@ -56,9 +57,13 @@ public class ServiceCatalogService {
     }
 
     @Transactional
-    public ServiceDomainResponse updateDomain(Long id, CreateServiceDomainRequest req) {
+    public ServiceDomainResponse updateDomain(Long id, CreateServiceDomainRequest req, Long communityId) {
         ServiceDomain domain = domainRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceDomain", id));
+        if (communityId != null && domain.getCommunity() != null
+                && !domain.getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot modify domains from another community");
+        }
 
         domain.setName(req.getName());
         domain.setSlug(req.getSlug());
@@ -76,9 +81,13 @@ public class ServiceCatalogService {
     }
 
     @Transactional
-    public void deleteDomain(Long id) {
+    public void deleteDomain(Long id, Long communityId) {
         ServiceDomain domain = domainRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceDomain", id));
+        if (communityId != null && domain.getCommunity() != null
+                && !domain.getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot delete domains from another community");
+        }
         domain.setActive(false);
         domainRepository.save(domain);
         auditService.record(AuditAction.SERVICE_DOMAIN_DELETED, AuditModule.SERVICE_PLATFORM,
@@ -143,9 +152,13 @@ public class ServiceCatalogService {
     }
 
     @Transactional
-    public ServiceCategoryResponse updateCategory(Long id, CreateServiceCategoryRequest req) {
+    public ServiceCategoryResponse updateCategory(Long id, CreateServiceCategoryRequest req, Long communityId) {
         ServiceCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceCategory", id));
+        if (communityId != null && category.getDomain() != null && category.getDomain().getCommunity() != null
+                && !category.getDomain().getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot modify categories from another community");
+        }
 
         category.setName(req.getName());
         category.setSlug(req.getSlug());
@@ -164,9 +177,13 @@ public class ServiceCatalogService {
     }
 
     @Transactional
-    public void deleteCategory(Long id) {
+    public void deleteCategory(Long id, Long communityId) {
         ServiceCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceCategory", id));
+        if (communityId != null && category.getDomain() != null && category.getDomain().getCommunity() != null
+                && !category.getDomain().getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot delete categories from another community");
+        }
         category.setActive(false);
         categoryRepository.save(category);
         auditService.record(AuditAction.SERVICE_CATEGORY_DELETED, AuditModule.SERVICE_PLATFORM,

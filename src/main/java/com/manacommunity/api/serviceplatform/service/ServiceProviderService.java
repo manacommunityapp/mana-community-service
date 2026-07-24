@@ -83,6 +83,17 @@ public class ServiceProviderService {
         return resp;
     }
 
+    @Transactional(readOnly = true)
+    public ServiceProviderResponse getProviderById(Long providerId) {
+        ServiceProvider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider", providerId));
+        ServiceProviderResponse resp = toResponse(provider);
+        resp.setOfferings(provider.getOfferings().stream()
+                .map(this::toOfferingResponse)
+                .collect(Collectors.toList()));
+        return resp;
+    }
+
     @Transactional
     public ServiceProviderResponse updateProfile(Long userId, RegisterProviderRequest req) {
         ServiceProvider provider = providerRepository.findByUserId(userId)

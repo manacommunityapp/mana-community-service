@@ -62,8 +62,12 @@ public class ServiceRequestController {
 
     @GetMapping("/requests/{id}")
     @PreAuthorize("hasAuthority('View Service Requests')")
-    public ResponseEntity<ServiceRequestResponse> getRequest(@PathVariable Long id) {
-        return ResponseEntity.ok(requestService.getRequest(id));
+    public ResponseEntity<ServiceRequestResponse> getRequest(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(requestService.getRequest(id, communityId));
     }
 
     @PatchMapping("/requests/{id}/cancel")

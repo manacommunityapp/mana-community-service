@@ -123,7 +123,7 @@ class ServiceCatalogServiceTest {
                     .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
             when(domainRepository.findById(1L)).thenReturn(Optional.of(d));
 
-            catalogService.deleteDomain(1L);
+            catalogService.deleteDomain(1L, null);
 
             assertThat(d.isActive()).isFalse();
             verify(domainRepository).save(d);
@@ -133,7 +133,7 @@ class ServiceCatalogServiceTest {
         @DisplayName("throws when domain not found")
         void throwsWhenNotFound() {
             when(domainRepository.findById(99L)).thenReturn(Optional.empty());
-            assertThatThrownBy(() -> catalogService.deleteDomain(99L))
+            assertThatThrownBy(() -> catalogService.deleteDomain(99L, null))
                     .isInstanceOf(RuntimeException.class);
         }
     }

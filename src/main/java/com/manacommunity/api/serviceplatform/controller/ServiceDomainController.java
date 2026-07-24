@@ -65,14 +65,21 @@ public class ServiceDomainController {
     @PreAuthorize("hasAuthority('Manage Service Catalog')")
     public ResponseEntity<ServiceDomainResponse> updateDomain(
             @PathVariable Long id,
-            @Valid @RequestBody CreateServiceDomainRequest request) {
-        return ResponseEntity.ok(catalogService.updateDomain(id, request));
+            @Valid @RequestBody CreateServiceDomainRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(catalogService.updateDomain(id, request, communityId));
     }
 
     @DeleteMapping("/domains/{id}")
     @PreAuthorize("hasAuthority('Manage Service Catalog')")
-    public ResponseEntity<Void> deleteDomain(@PathVariable Long id) {
-        catalogService.deleteDomain(id);
+    public ResponseEntity<Void> deleteDomain(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        catalogService.deleteDomain(id, communityId);
         return ResponseEntity.noContent().build();
     }
 

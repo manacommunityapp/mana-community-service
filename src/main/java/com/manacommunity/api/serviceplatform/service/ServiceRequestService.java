@@ -97,9 +97,12 @@ public class ServiceRequestService {
     }
 
     @Transactional(readOnly = true)
-    public ServiceRequestResponse getRequest(Long requestId) {
+    public ServiceRequestResponse getRequest(Long requestId, Long communityId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceRequest", requestId));
+        if (communityId != null && !request.getCommunity().getId().equals(communityId)) {
+            throw new UnauthorizedActionException("Cannot access requests from another community");
+        }
         ServiceRequestResponse resp = toResponse(request);
         workOrderRepository.findByServiceRequestId(requestId)
                 .ifPresent(wo -> resp.setWorkOrder(toWorkOrderResponse(wo)));
