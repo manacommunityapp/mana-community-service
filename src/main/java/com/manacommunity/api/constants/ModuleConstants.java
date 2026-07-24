@@ -21,6 +21,8 @@ public final class ModuleConstants {
         new ModuleDef("EVENTS",          "Events",           10),
         new ModuleDef("COMMUNITY_MGMT",  "Community Mgmt",   11),
         new ModuleDef("FINANCE_MGMT",    "Finance Mgmt",     12),
-        new ModuleDef("ADMIN_HUB",       "Admin Hub",        13)
+        new ModuleDef("ADMIN_HUB",       "Admin Hub",        13),
+        new ModuleDef("FOOD_OS",         "Food & Lifestyle", 14),
+        new ModuleDef("VENDOR_MANAGEMENT","Vendor Management",15)
     );
 }

@@ -135,6 +135,47 @@ public final class PermissionConstants {
     public static final String VIEW_VENDOR_ANALYTICS   = "View Vendor Analytics";
 
 
+    // ──── FOOD & LIFESTYLE OS ─────────────────────────────────────
+    public static final String VIEW_FOOD_PROFILE       = "View Food Profile";
+    public static final String MANAGE_FOOD_PROFILE     = "Manage Food Profile";
+    public static final String VIEW_FOOD_RESTAURANTS   = "View Food Restaurants";
+    public static final String MANAGE_FOOD_RESTAURANTS = "Manage Food Restaurants";
+    public static final String VIEW_FOOD_MENU          = "View Food Menu";
+    public static final String MANAGE_FOOD_MENU        = "Manage Food Menu";
+    public static final String VIEW_FOOD_HOME_CHEFS    = "View Food Home Chefs";
+    public static final String MANAGE_FOOD_HOME_CHEFS  = "Manage Food Home Chefs";
+    public static final String VIEW_FOOD_ORDERS        = "View Food Orders";
+    public static final String MANAGE_FOOD_ORDERS      = "Manage Food Orders";
+    public static final String VIEW_FOOD_SUBSCRIPTIONS = "View Food Subscriptions";
+    public static final String MANAGE_FOOD_SUBSCRIPTIONS = "Manage Food Subscriptions";
+    public static final String VIEW_FOOD_DINING        = "View Food Dining";
+    public static final String MANAGE_FOOD_DINING      = "Manage Food Dining";
+    public static final String VIEW_FOOD_GROCERY       = "View Food Grocery";
+    public static final String MANAGE_FOOD_GROCERY     = "Manage Food Grocery";
+    public static final String VIEW_FOOD_RECIPES       = "View Food Recipes";
+    public static final String MANAGE_FOOD_RECIPES     = "Manage Food Recipes";
+    public static final String VIEW_FOOD_NUTRITION     = "View Food Nutrition";
+    public static final String MANAGE_FOOD_NUTRITION   = "Manage Food Nutrition";
+    public static final String VIEW_FOOD_DELIVERY      = "View Food Delivery";
+    public static final String MANAGE_FOOD_DELIVERY    = "Manage Food Delivery";
+    public static final String VIEW_FOOD_COMMUNITY_KITCHEN  = "View Food Community Kitchen";
+    public static final String MANAGE_FOOD_COMMUNITY_KITCHEN = "Manage Food Community Kitchen";
+    public static final String VIEW_FOOD_CATERING      = "View Food Catering";
+    public static final String MANAGE_FOOD_CATERING    = "Manage Food Catering";
+    public static final String VIEW_FOOD_CORPORATE     = "View Food Corporate";
+    public static final String MANAGE_FOOD_CORPORATE   = "Manage Food Corporate";
+    public static final String VIEW_FOOD_EVENTS        = "View Food Events";
+    public static final String MANAGE_FOOD_EVENTS      = "Manage Food Events";
+    public static final String VIEW_FOOD_PANTRY        = "View Food Pantry";
+    public static final String MANAGE_FOOD_PANTRY      = "Manage Food Pantry";
+    public static final String VIEW_FOOD_LOYALTY       = "View Food Loyalty";
+    public static final String MANAGE_FOOD_LOYALTY     = "Manage Food Loyalty";
+    public static final String VIEW_FOOD_ANALYTICS     = "View Food Analytics";
+    public static final String VIEW_FOOD_PAYMENTS      = "View Food Payments";
+    public static final String MANAGE_FOOD_PAYMENTS    = "Manage Food Payments";
+    public static final String VIEW_FOOD_CLOUD_KITCHENS  = "View Food Cloud Kitchens";
+    public static final String MANAGE_FOOD_CLOUD_KITCHENS = "Manage Food Cloud Kitchens";
+
     // ──── ADMIN DASHBOARD ───────────────────────────────────────────
     public static final String VIEW_ADMIN         = "View Admin";
     public static final String VERIFY_KYC         = "Verify KYC";
