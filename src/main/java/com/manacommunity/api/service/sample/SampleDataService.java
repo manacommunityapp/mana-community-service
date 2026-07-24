@@ -41,6 +41,7 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsEventDataSeeder sportsEventDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
     private final TournamentDataSeeder tournamentDataSeeder;
+    private final EmailTemplateFeeder emailTemplateFeeder;
 
     @Override
     @Transactional
@@ -93,8 +94,9 @@ public class SampleDataService implements ApplicationRunner {
             sportsMetaSeeder.defaultSeed();
             playerCategorySeeder.defaultSeed();
 
-            //venueSeeder.defaultSeed();
             communitySeeder.seed();
+            emailTemplateFeeder.seed();
+
             return "Default data successfully seeded using Java repositories!";
         } catch (Exception e) {
             log.error("Failed to seed database: ", e);
@@ -126,6 +128,7 @@ public class SampleDataService implements ApplicationRunner {
             //inventorySeeder.seed();
             defaultCommunityModuleDataService.seedDefaultModulesForCommunity(2L);
             communityLeaderSeeder.seed();
+            //emailTemplateFeeder.seed();
             //sportsEventSeeder.seed();
             //tournamentSeeder.seed();
             //auctionSeeder.seed();

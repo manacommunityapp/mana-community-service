@@ -34,6 +34,8 @@ build/
 
 ### Logs ###
 /logs/
+*.log
+
 
 ### Secrets — never commit real env/credentials ###
 deploy/env

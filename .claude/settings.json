@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f /tmp/mana-run.log)",
+      "Bash(./mvnw -q -o spring-boot:run -Dspring-boot.run.profiles=local \"-Dspring-boot.run.arguments=--app.insert-sample-data=false\")",
+      "Bash(curl -s -o /dev/null -w \"communities: %{http_code}\\\\n\" http://localhost:8082/api/communities -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s http://localhost:8082/api/communities -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -o /tmp/preview_resp.html -w \"status: %{http_code}\\\\n\" \"http://localhost:8082/api/admin/email/preview/TOURNAMENT_ANNOUNCEMENT?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -o /dev/null -w \"status: %{http_code}\\\\n\" \"http://localhost:8082/api/admin/email/preview/TOURNAMENT_ANNOUNCEMENT\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -o /tmp/preview_post.html -w 'status: %{http_code}\\\\n' -X POST http://localhost:8082/api/admin/email/preview/TOURNAMENT_ANNOUNCEMENT?communityId=2 -H 'Authorization: Bearer mock-token-1' -H 'Content-Type: application/json' -d '{\"tournamentName\":\"My Custom Cup\",\"customMessage\":\"Custom override message\"}')",
+      "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 8082 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 11296 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 8082 -State Listen -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 13328 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(curl -s -o /tmp/preview_ann.html -w \"TOURNAMENT_ANNOUNCEMENT status: %{http_code}\\\\n\" \"http://localhost:8082/api/admin/email/preview/TOURNAMENT_ANNOUNCEMENT?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -o /tmp/preview_otp.html -w \"EMAIL_OTP status: %{http_code}\\\\n\" \"http://localhost:8082/api/admin/email/preview/EMAIL_OTP?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -o /tmp/preview_topen.html -w \"TOURNAMENT_OPEN status: %{http_code}\\\\n\" \"http://localhost:8082/api/admin/email/preview/TOURNAMENT_OPEN?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s \"http://localhost:8082/api/admin/email/templates?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s \"http://localhost:8082/api/admin/email/templates?communityId=1\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(psql --version)",
+      "Bash(curl -s \"http://localhost:8082/api/admin/email/templates\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://localhost:8082/api/admin/email/communities/2/templates -H 'Authorization: Bearer mock-token-1' -H 'Content-Type: application/json' -d '{\"templateCode\":\"TEST_PROBE\",\"templateName\":\"Test Probe\",\"subject\":\"probe\",\"htmlContent\":\"<p>hi {{recipientName}}</p>\",\"status\":\"ACTIVE\"}')",
+      "Bash(curl -s -w \"\\\\ndelete probe HTTP:%{http_code}\\\\n\" -X DELETE \"http://localhost:8082/api/admin/email/templates/1\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s \"http://localhost:8082/api/email/templates?communityId=2\" -H \"Authorization: Bearer mock-token-1\")",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://localhost:8082/api/email/templates -H 'Authorization: Bearer mock-token-1' -H 'Content-Type: application/json' -d '{\"communityId\":2,\"templateName\":\"Welcome Email\",\"subject\":\"Welcome!\",\"html\":\"<p>Hi {{recipientName}}</p>\",\"css\":\"p{color:red}\",\"jsonLayout\":{\"components\":[{\"type\":\"text\"}]},\"status\":\"DRAFT\"}')",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 8064 -Force -ErrorAction SilentlyContinue\")"
+    ]
+  }
+}

@@ -110,6 +110,7 @@ public final class PermissionConstants {
     public static final String CREATE_EVENT   = "Create Event";
     public static final String REGISTER_EVENT = "Register Event";
 
+
     // ──── SERVICE PLATFORM ────────────────────────────────────────────
     public static final String VIEW_SERVICE_CATALOG     = "View Service Catalog";
     public static final String MANAGE_SERVICE_CATALOG   = "Manage Service Catalog";
@@ -120,6 +121,19 @@ public final class PermissionConstants {
     public static final String MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
     public static final String VIEW_WORK_ORDERS         = "View Work Orders";
     public static final String MANAGE_WORK_ORDERS       = "Manage Work Orders";
+
+    // ──── VENDOR MANAGEMENT SYSTEM ─────────────────────────────────
+    public static final String VIEW_VENDOR_MANAGEMENT  = "View Vendor Management";
+    public static final String CREATE_VENDOR           = "Create Vendor";
+    public static final String MANAGE_VENDORS          = "Manage Vendors";
+    public static final String BOOK_VENDOR_SERVICE     = "Book Vendor Service";
+    public static final String MANAGE_WORK_ORDERS      = "Manage Work Orders";
+    public static final String MANAGE_PROCUREMENT      = "Manage Procurement";
+    public static final String MANAGE_CONTRACTS        = "Manage Contracts";
+    public static final String MANAGE_VENDOR_PAYMENTS  = "Manage Vendor Payments";
+    public static final String RATE_VENDOR             = "Rate Vendor";
+    public static final String VIEW_VENDOR_ANALYTICS   = "View Vendor Analytics";
+
 
     // ──── ADMIN DASHBOARD ───────────────────────────────────────────
     public static final String VIEW_ADMIN         = "View Admin";
@@ -166,9 +180,15 @@ public final class PermissionConstants {
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING),
+
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
                             MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
                             MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS)
+
+                    List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+                            MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
+
             ).flatMap(List::stream).toList()
     );
 
@@ -185,9 +205,15 @@ public final class PermissionConstants {
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING),
+
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
                             MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
                             MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS)
+
+                    List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+                            MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
+
             ).flatMap(List::stream).toList()
     );
 
@@ -214,6 +240,7 @@ public final class PermissionConstants {
             VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL,
             VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS,
             VIEW_MARKETPLACE,
+            VIEW_VENDOR_MANAGEMENT, BOOK_VENDOR_SERVICE, RATE_VENDOR,
             VIEW_VISITORS, CREATE_VISITOR_PASS,
             VIEW_AMENITIES, BOOK_AMENITY,
             VIEW_NOTICES,
@@ -235,7 +262,8 @@ public final class PermissionConstants {
             VIEW_TICKETS, CREATE_TICKET,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, CREATE_JOB,
-            VIEW_EVENTS, REGISTER_EVENT
+            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, MANAGE_VENDOR_PAYMENTS
     );
 
     public static final List<String> CASHIER_PERMISSIONS = List.of(

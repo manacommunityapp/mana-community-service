@@ -51,7 +51,8 @@ public class MatchResultService {
 
         if (req.winnerTeamId() != null) {
             bracketGenerator.applyResult(basicReq);
-            match = matchRepo.findById(req.matchId()).orElseThrow();
+            match = matchRepo.findById(req.matchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("TournamentMatch", req.matchId()));
         } else {
             match.setScoreTeamA(req.scoreTeamA());
             match.setScoreTeamB(req.scoreTeamB());

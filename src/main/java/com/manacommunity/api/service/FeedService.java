@@ -27,6 +27,7 @@ public class FeedService {
     private final PostLikeRepository postLikeRepository;
     private final PostCommentRepository postCommentRepository;
     private final PostPollVoteRepository pollVoteRepository;
+    private final CommunityLeaderRepository communityLeaderRepository;
 
     @Transactional(readOnly = true)
     public Page<PostResponse> getFeed(AppUser currentUser, String type, int page, int size) {
@@ -251,7 +252,7 @@ public class FeedService {
                 author.getId(),
                 author.getFullName(),
                 initials,
-                mapRole(author.getRole()),
+                mapRole(author),
                 post.getCreatedAt(),
                 post.getPostType(),
                 post.getPrice(),
@@ -274,7 +275,7 @@ public class FeedService {
                 author.getId(),
                 author.getFullName(),
                 initials,
-                mapRole(author.getRole()),
+                mapRole(author),
                 comment.getCreatedAt()
         );
     }
@@ -292,8 +293,21 @@ public class FeedService {
         return role != null && ADMIN_ROLES.contains(role.toUpperCase());
     }
 
-    private String mapRole(String rawRole) {
+    private String mapRole(AppUser user) {
+        if (communityLeaderRepository != null) {
+            List<CommunityLeader> leaders = communityLeaderRepository.findByUserIdAndIsActiveTrue(user.getId());
+            if (!leaders.isEmpty()) {
+                CommunityLeader leader = leaders.get(0);
+                if (leader.getCommittee() != null && !leader.getCommittee().isBlank()) {
+                    return leader.getDesignation() + " (" + leader.getCommittee() + ")";
+                }
+                return leader.getDesignation();
+            }
+        }
+        
+        String rawRole = user.getRole();
         if (isAdminRole(rawRole)) return "Admin";
+        if ("COMMITTEE".equalsIgnoreCase(rawRole)) return "Committee Member";
         return "Verified Member";
     }
 }

@@ -36,6 +36,18 @@ public class TournamentController {
     private final LoggedInUserService loggedInUserService;
     private final SportsEventService eventService;
     private final TournamentAnnouncementService announcementService;
+    private final com.manacommunity.api.email.TournamentEmailService tournamentEmailService;
+
+    @GetMapping("/announcement/{id}")
+    public ResponseEntity<com.manacommunity.api.dto.email.TournamentAnnouncementEmailDTO> announcement(@PathVariable Long id) {
+        return ResponseEntity.ok(tournamentEmailService.getTournamentAnnouncement(id));
+    }
+
+    /** Rendered HTML preview of the announcement email (open in a browser). */
+    @GetMapping(value = "/announcement/{id}/preview", produces = org.springframework.http.MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> announcementPreview(@PathVariable Long id) {
+        return ResponseEntity.ok(tournamentEmailService.renderAnnouncementHtml(id));
+    }
 
     @GetMapping("/all")
     public ResponseEntity<List<TournamentResponse>> getAllTournaments(@AuthenticationPrincipal UserPrincipal principal) {
@@ -252,32 +264,32 @@ public class TournamentController {
                 .community(communityRef)
                 .venue(venueRef)
                 .createdBy(createdByRef)
-                .eventDateStart(e.getEventDateStart())
-                .eventDateEnd(e.getEventDateEnd())
-                .registrationDateStart(e.getRegistrationDateStart())
-                .registrationDateEnd(e.getRegistrationDateEnd())
-                .maxParticipants(e.getMaxParticipants())
-                .startTime(e.getStartTime())
-                .dueTime(e.getDueTime())
+                .eventDateStart(e.getEventDateStart() != null ? e.getEventDateStart() : (e.getTournament() != null ? e.getTournament().getEventDateStart() : null))
+                .eventDateEnd(e.getEventDateEnd() != null ? e.getEventDateEnd() : (e.getTournament() != null ? e.getTournament().getEventDateEnd() : null))
+                .registrationDateStart(e.getRegistrationDateStart() != null ? e.getRegistrationDateStart() : (e.getTournament() != null ? e.getTournament().getRegistrationDateStart() : null))
+                .registrationDateEnd(e.getRegistrationDateEnd() != null ? e.getRegistrationDateEnd() : (e.getTournament() != null ? e.getTournament().getRegistrationDateEnd() : null))
+                .maxParticipants(e.getMaxParticipants() != null ? e.getMaxParticipants() : (e.getTournament() != null ? e.getTournament().getMaxParticipants() : null))
+                .startTime(e.getStartTime() != null ? e.getStartTime() : (e.getTournament() != null ? e.getTournament().getStartTime() : null))
+                .dueTime(e.getDueTime() != null ? e.getDueTime() : (e.getTournament() != null ? e.getTournament().getDueTime() : null))
                 .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
                 .categories(categoryRefs)
                 .sponsors(sponsorDtos)
-                .contactName(e.getContactName())
-                .contactNumber(e.getContactNumber())
-                .contactEmail(e.getContactEmail())
+                .contactName(e.getContactName() != null ? e.getContactName() : (e.getTournament() != null ? e.getTournament().getContactName() : null))
+                .contactNumber(e.getContactNumber() != null ? e.getContactNumber() : (e.getTournament() != null ? e.getTournament().getContactNumber() : null))
+                .contactEmail(e.getContactEmail() != null ? e.getContactEmail() : (e.getTournament() != null ? e.getTournament().getContactEmail() : null))
                 .contacts(e.getContacts() != null
                         ? e.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
                             .id(c.getId()).name(c.getName()).title(c.getTitle())
                             .number(c.getNumber()).email(c.getEmail()).build()).toList()
                         : java.util.List.of())
-                .otherContacts(e.getOtherContacts())
+                .otherContacts(e.getOtherContacts() != null ? e.getOtherContacts() : (e.getTournament() != null ? e.getTournament().getOtherContacts() : null))
                 .auctionEnabled(e.getAuctionEnabled())
-                .bannerImage(e.getBannerImage())
+                .bannerImage(e.getBannerImage() != null ? e.getBannerImage() : (e.getTournament() != null ? e.getTournament().getBannerImage() : null))
                 .tournamentLevel(e.getTournamentLevel())
-                .description(e.getDescription())
+                .description(e.getDescription() != null ? e.getDescription() : (e.getTournament() != null ? e.getTournament().getDescription() : null))
                 .disputeCommitteeIds(e.getDisputeCommittee() != null
                         ? e.getDisputeCommittee().stream().map(u -> u.getId()).toList()
                         : List.of())
