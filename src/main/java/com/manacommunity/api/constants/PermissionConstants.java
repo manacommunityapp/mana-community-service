@@ -127,7 +127,6 @@ public final class PermissionConstants {
     public static final String CREATE_VENDOR           = "Create Vendor";
     public static final String MANAGE_VENDORS          = "Manage Vendors";
     public static final String BOOK_VENDOR_SERVICE     = "Book Vendor Service";
-    public static final String MANAGE_WORK_ORDERS      = "Manage Work Orders";
     public static final String MANAGE_PROCUREMENT      = "Manage Procurement";
     public static final String MANAGE_CONTRACTS        = "Manage Contracts";
     public static final String MANAGE_VENDOR_PAYMENTS  = "Manage Vendor Payments";
@@ -183,7 +182,7 @@ public final class PermissionConstants {
 
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
                             MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
-                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS)
+                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
 
                     List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
                             MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -208,7 +207,7 @@ public final class PermissionConstants {
 
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
                             MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
-                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS)
+                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
 
                     List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
                             MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
