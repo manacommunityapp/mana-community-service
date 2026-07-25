@@ -23,8 +23,13 @@ public class TrialBalanceService {
     private final AccountRepository accountRepository;
     private final FiscalYearRepository fiscalYearRepository;
 
+    /**
+     * Generates a trial balance from each active account's current running balance.
+     * This is NOT a historical point-in-time snapshot — it always reflects balances
+     * as of "now", regardless of the fiscal year requested.
+     */
     @Transactional(readOnly = true)
-    public TrialBalanceDto generate(Long fiscalYearId, LocalDate asOfDate) {
+    public TrialBalanceDto generate(Long fiscalYearId) {
         FiscalYear fy = fiscalYearRepository.findById(fiscalYearId)
                 .orElseThrow(() -> new CfbosResourceNotFoundException("FiscalYear", fiscalYearId));
 
@@ -63,7 +68,7 @@ public class TrialBalanceService {
 
         return TrialBalanceDto.builder()
                 .fiscalYearName(fy.getName())
-                .asOfDate(asOfDate)
+                .generatedAt(LocalDate.now())
                 .totalDebit(totalDebit)
                 .totalCredit(totalCredit)
                 .lines(lines)

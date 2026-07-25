@@ -108,9 +108,8 @@ public class AccountingController {
     @GetMapping("/trial-balance")
     public ResponseEntity<TrialBalanceDto> getTrialBalance(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long fiscalYearId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
+            @RequestParam Long fiscalYearId) {
         permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
-        return ResponseEntity.ok(trialBalanceService.generate(fiscalYearId, asOfDate));
+        return ResponseEntity.ok(trialBalanceService.generate(fiscalYearId));
     }
 }

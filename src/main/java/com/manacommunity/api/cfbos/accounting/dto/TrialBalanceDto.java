@@ -8,7 +8,9 @@ import java.util.List;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class TrialBalanceDto {
     private String fiscalYearName;
-    private LocalDate asOfDate;
+    // Reflects the live running balance of each account at generation time, not a
+    // historical point-in-time snapshot. See TrialBalanceService.generate.
+    private LocalDate generatedAt;
     private BigDecimal totalDebit;
     private BigDecimal totalCredit;
     private List<TrialBalanceLine> lines;

@@ -11,6 +11,7 @@ public class AccountDto {
     private String name;
     private AccountType accountType;
     private String accountGroupName;
+    private Long accountGroupId;
     private Long parentAccountId;
     private Boolean isSystemAccount;
     private Boolean isBankAccount;

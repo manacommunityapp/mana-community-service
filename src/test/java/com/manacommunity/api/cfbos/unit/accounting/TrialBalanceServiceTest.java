@@ -55,7 +55,7 @@ class TrialBalanceServiceTest {
         when(accountRepository.findByIsActiveTrue())
                 .thenReturn(List.of(receivable, income, zeroBalance));
 
-        TrialBalanceDto result = trialBalanceService.generate(1L, LocalDate.of(2026, 7, 25));
+        TrialBalanceDto result = trialBalanceService.generate(1L);
 
         assertThat(result.getFiscalYearName()).isEqualTo("2026-27");
         assertThat(result.getTotalDebit()).isEqualByComparingTo("5000.00");
@@ -73,7 +73,7 @@ class TrialBalanceServiceTest {
     void shouldThrowWhenFiscalYearMissing() {
         when(fiscalYearRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> trialBalanceService.generate(99L, LocalDate.of(2026, 7, 25)))
+        assertThatThrownBy(() -> trialBalanceService.generate(99L))
                 .isInstanceOf(CfbosResourceNotFoundException.class);
     }
 }

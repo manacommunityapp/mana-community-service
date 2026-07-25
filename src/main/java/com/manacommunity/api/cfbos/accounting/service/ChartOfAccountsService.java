@@ -3,7 +3,10 @@ package com.manacommunity.api.cfbos.accounting.service;
 import com.manacommunity.api.cfbos.accounting.dto.AccountDto;
 import com.manacommunity.api.cfbos.accounting.dto.AccountTreeNodeDto;
 import com.manacommunity.api.cfbos.accounting.entity.Account;
+import com.manacommunity.api.cfbos.accounting.entity.AccountGroup;
+import com.manacommunity.api.cfbos.accounting.repository.AccountGroupRepository;
 import com.manacommunity.api.cfbos.accounting.repository.AccountRepository;
+import com.manacommunity.api.cfbos.shared.exception.CfbosException;
 import com.manacommunity.api.cfbos.shared.exception.CfbosResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,7 @@ import java.util.List;
 public class ChartOfAccountsService {
 
     private final AccountRepository accountRepository;
+    private final AccountGroupRepository accountGroupRepository;
 
     @Transactional(readOnly = true)
     public List<AccountTreeNodeDto> getAccountTree() {
@@ -42,19 +46,26 @@ public class ChartOfAccountsService {
                 ? accountRepository.findById(dto.getParentAccountId()).orElse(null)
                 : null;
 
+        AccountGroup accountGroup;
+        if (parent != null) {
+            accountGroup = parent.getAccountGroup();
+        } else if (dto.getAccountGroupId() != null) {
+            accountGroup = accountGroupRepository.findById(dto.getAccountGroupId())
+                    .orElseThrow(() -> new CfbosResourceNotFoundException("AccountGroup", dto.getAccountGroupId()));
+        } else {
+            throw new CfbosException("Either parentAccountId or accountGroupId is required");
+        }
+
         Account account = Account.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
                 .accountType(dto.getAccountType())
                 .parentAccount(parent)
+                .accountGroup(accountGroup)
                 .isSystemAccount(dto.getIsSystemAccount() != null ? dto.getIsSystemAccount() : false)
                 .isBankAccount(dto.getIsBankAccount() != null ? dto.getIsBankAccount() : false)
                 .description(dto.getDescription())
                 .build();
-
-        if (parent != null) {
-            account.setAccountGroup(parent.getAccountGroup());
-        }
 
         return toDto(accountRepository.save(account));
     }
@@ -77,6 +88,7 @@ public class ChartOfAccountsService {
                 .id(e.getId()).code(e.getCode()).name(e.getName())
                 .accountType(e.getAccountType())
                 .accountGroupName(e.getAccountGroup() != null ? e.getAccountGroup().getName() : null)
+                .accountGroupId(e.getAccountGroup() != null ? e.getAccountGroup().getId() : null)
                 .parentAccountId(e.getParentAccount() != null ? e.getParentAccount().getId() : null)
                 .isSystemAccount(e.getIsSystemAccount())
                 .isBankAccount(e.getIsBankAccount())

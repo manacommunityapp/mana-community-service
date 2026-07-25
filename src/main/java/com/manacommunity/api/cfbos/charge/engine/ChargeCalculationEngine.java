@@ -8,7 +8,8 @@ import com.manacommunity.api.cfbos.shared.exception.CfbosException;
 import org.springframework.context.expression.MapAccessor;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,6 +27,10 @@ public class ChargeCalculationEngine {
                                               BigDecimal fixedAmount,
                                               BigDecimal ratePerUnit,
                                               PropertyContext context) {
+        if (method != CalculationMethod.FIXED && ratePerUnit == null) {
+            throw new CfbosException("ratePerUnit is required for " + method + " calculation",
+                    HttpStatus.BAD_REQUEST, "CFBOS_MISSING_RATE");
+        }
         return switch (method) {
             case FIXED -> fixed(fixedAmount);
             case AREA_BASED -> areaBased(ratePerUnit, context);
@@ -72,17 +77,19 @@ public class ChargeCalculationEngine {
                 .build();
     }
 
-    @SuppressWarnings("deprecation")
     public BigDecimal evaluateFormula(String expression, Map<String, Object> variables) {
-        StandardEvaluationContext ctx = new StandardEvaluationContext();
-        ctx.setRootObject(variables);
-        // MapAccessor is deprecated-for-removal in this Spring version but remains the
-        // supported way to resolve bare property names ("area", not "#area") against a
-        // Map root object, which is the SpEL syntax required by ChargeCalculationEngineTest.
-        ctx.addPropertyAccessor(new MapAccessor());
-        ctx.setVariables(variables);
+        // SimpleEvaluationContext (not StandardEvaluationContext) is used deliberately: it
+        // disallows SpEL type references, constructor calls and bean references, which closes
+        // off the T(java.lang.Runtime).getRuntime().exec(...) style RCE that a StandardEvaluationContext
+        // would allow when evaluating admin-supplied formula expressions. MapAccessor remains
+        // needed so bare property names ("area", not "#area") resolve against the Map root object,
+        // which is the SpEL syntax required by ChargeCalculationEngineTest.
+        SimpleEvaluationContext ctx = SimpleEvaluationContext
+                .forPropertyAccessors(new MapAccessor())
+                .withInstanceMethods()
+                .build();
 
-        Object result = parser.parseExpression(expression).getValue(ctx);
+        Object result = parser.parseExpression(expression).getValue(ctx, variables);
         if (result instanceof Number num) {
             return new BigDecimal(num.toString()).setScale(2, RoundingMode.HALF_UP);
         }

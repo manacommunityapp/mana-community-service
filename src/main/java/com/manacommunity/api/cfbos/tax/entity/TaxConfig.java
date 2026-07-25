@@ -45,6 +45,9 @@ public class TaxConfig {
     private Long updatedBy;
     private LocalDateTime updatedAt;
 
+    @PrePersist
+    protected void onCreate() { updatedAt = LocalDateTime.now(); }
+
     @PreUpdate
     protected void onUpdate() { updatedAt = LocalDateTime.now(); }
 }
