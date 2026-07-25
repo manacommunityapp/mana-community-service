@@ -1,0 +1,7 @@
+package com.manacommunity.api.cfbos.shared.enums;
+
+public enum DocumentType {
+    INVOICE, CREDIT_NOTE, DEBIT_NOTE, RECEIPT, REFUND,
+    JOURNAL_ENTRY, PURCHASE_ORDER, VENDOR_INVOICE, VENDOR_PAYMENT,
+    EXPENSE, BILLING_RUN, DEMAND_NOTE, PAYMENT_ADVICE, GRN
+}
