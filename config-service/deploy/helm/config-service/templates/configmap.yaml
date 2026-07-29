@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "config-service.fullname" . }}-config
+  labels:
+    {{- include "config-service.labels" . | nindent 4 }}
+data:
+  EUREKA_HOST: {{ .Values.eureka.host | quote }}
+  CONFIG_REPO_BRANCH: {{ .Values.config.repo.branch | quote }}
+  CONFIG_REPO_BASEDIR: {{ .Values.config.repo.basedir | quote }}
+  AVAILABILITY_ZONE: {{ .Values.availabilityZone | quote }}

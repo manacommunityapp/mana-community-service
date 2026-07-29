@@ -1,0 +1,90 @@
+# ============================================================
+# Analytics Service - Analytics & Reporting
+# Port: 8095
+# ============================================================
+
+server:
+  port: 8095
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_analytics
+    username: ${DB_USERNAME:mana_analytics}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: analytics
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: analytics-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+mana:
+  analytics:
+    data-collection:
+      event-tracking: true
+      batch-size: 100
+      flush-interval-seconds: 30
+      retention-days: 730
+    reports:
+      cache-duration-minutes: 60
+      max-export-rows: 100000
+      formats:
+        - PDF
+        - XLSX
+        - CSV
+      scheduled-reports:
+        enabled: true
+        delivery-channel: EMAIL
+    dashboards:
+      max-per-community: 20
+      max-widgets-per-dashboard: 12
+      refresh-interval-seconds: 300
+      real-time:
+        enabled: true
+        websocket: true
+    metrics:
+      domains:
+        - FINANCE
+        - MAINTENANCE
+        - VISITOR
+        - AMENITY
+        - PARKING
+        - ENERGY
+        - SECURITY
+        - COMMUNITY_ENGAGEMENT
+      aggregation:
+        intervals:
+          - HOURLY
+          - DAILY
+          - WEEKLY
+          - MONTHLY
+          - YEARLY
+    data-warehouse:
+      enabled: ${DATA_WAREHOUSE_ENABLED:false}
+      type: ${DW_TYPE:bigquery}
+      sync-schedule-cron: "0 0 1 * * *"
+    privacy:
+      anonymize-personal-data: true
+      gdpr-compliant: true
+      data-masking-enabled: true
+
+logging:
+  level:
+    com.manacommunity.analytics: INFO

@@ -1,0 +1,79 @@
+# ============================================================
+# Sports Service - Sports Facility Booking & Tournaments
+# Port: 8092
+# ============================================================
+
+server:
+  port: 8092
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_sports
+    username: ${DB_USERNAME:mana_sports}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: sports
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  sports:
+    facilities:
+      - TENNIS_COURT
+      - BADMINTON_COURT
+      - BASKETBALL_COURT
+      - CRICKET_NET
+      - TABLE_TENNIS
+      - SQUASH_COURT
+      - FOOTBALL_FIELD
+      - VOLLEYBALL_COURT
+      - JOGGING_TRACK
+    booking:
+      advance-days: 14
+      min-duration-minutes: 30
+      max-duration-minutes: 120
+      max-bookings-per-user-per-day: 2
+      cancellation-hours-before: 4
+      no-show-penalty:
+        enabled: true
+        max-strikes: 3
+        suspension-days: 7
+    tournaments:
+      enabled: true
+      max-participants: 128
+      registration-advance-days: 14
+      bracket-types:
+        - SINGLE_ELIMINATION
+        - DOUBLE_ELIMINATION
+        - ROUND_ROBIN
+    coaching:
+      enabled: true
+      max-batch-size: 15
+      trial-sessions: 2
+    equipment:
+      rental-enabled: true
+      deposit-required: true
+      max-rental-hours: 4
+    scoring:
+      live-scoring: true
+      leaderboard: true
+    operating-hours:
+      weekday-open: "06:00"
+      weekday-close: "22:00"
+      weekend-open: "06:00"
+      weekend-close: "23:00"
+
+logging:
+  level:
+    com.manacommunity.sports: INFO

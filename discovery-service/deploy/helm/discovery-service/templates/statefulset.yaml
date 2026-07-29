@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "discovery-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "discovery-service.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "discovery-service.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: {{ .Values.podManagementPolicy }}
+  selector:
+    matchLabels:
+      {{- include "discovery-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "discovery-service.selectorLabels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ include "discovery-service.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: http
+              protocol: TCP
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.springProfiles | quote }}
+            - name: EUREKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "discovery-service.fullname" . }}-credentials
+                  key: username
+            - name: EUREKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "discovery-service.fullname" . }}-credentials
+                  key: password
+            - name: EUREKA_SERVICE_URLS
+              value: {{ include "discovery-service.peerUrls" . | quote }}
+            - name: EUREKA_INSTANCE_HOSTNAME
+              value: "$(HOSTNAME).{{ include "discovery-service.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: EUREKA_PREFER_IP
+              value: {{ .Values.eureka.preferIpAddress | quote }}
+            - name: EUREKA_ZONE
+              value: {{ .Values.eureka.zone | quote }}
+            - name: JAVA_OPTS
+              value: {{ .Values.javaOpts | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+      {{- if .Values.podAntiAffinity.enabled }}
+      affinity:
+        podAntiAffinity:
+          {{- if eq .Values.podAntiAffinity.type "required" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - {{ include "discovery-service.name" . }}
+              topologyKey: kubernetes.io/hostname
+          {{- else }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - {{ include "discovery-service.name" . }}
+                topologyKey: kubernetes.io/hostname
+          {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,97 @@
+# ============================================================
+# Security Service - Security & Surveillance
+# Port: 8093
+# ============================================================
+
+server:
+  port: 8093
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_security
+    username: ${DB_USERNAME:mana_security}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: security
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  security-ops:
+    patrol:
+      enabled: true
+      checkpoint-scan-required: true
+      route-tracking: true
+      shift-duration-hours: 8
+      max-missed-checkpoints-alert: 2
+    incident:
+      categories:
+        - THEFT
+        - VANDALISM
+        - TRESPASSING
+        - FIRE
+        - MEDICAL_EMERGENCY
+        - DOMESTIC_DISPUTE
+        - NOISE_COMPLAINT
+        - SUSPICIOUS_ACTIVITY
+        - VEHICLE_ACCIDENT
+        - POWER_OUTAGE
+      severity-levels:
+        - CRITICAL
+        - HIGH
+        - MEDIUM
+        - LOW
+      auto-escalate-after-minutes: 30
+      resolution-sla-hours: 24
+      notification:
+        alert-management: true
+        alert-residents: false
+    surveillance:
+      cctv:
+        integration-enabled: ${CCTV_ENABLED:false}
+        stream-url: ${CCTV_STREAM_URL:}
+        retention-days: 30
+        motion-detection: true
+        face-recognition: false
+      access-control:
+        enabled: true
+        modes:
+          - RFID
+          - BIOMETRIC
+          - QR_CODE
+          - PIN
+        max-failed-attempts: 3
+        lockout-duration-minutes: 15
+    guard:
+      tracking:
+        gps-enabled: true
+        location-update-interval-seconds: 30
+      sos:
+        enabled: true
+        auto-alert-police: false
+        alert-radius-km: 1
+    gate:
+      types:
+        - MAIN_GATE
+        - VEHICLE_GATE
+        - PEDESTRIAN_GATE
+        - SERVICE_GATE
+        - EMERGENCY_EXIT
+      operating-hours:
+        main-gate: "00:00-23:59"
+        service-gate: "07:00-22:00"
+
+logging:
+  level:
+    com.manacommunity.security: INFO

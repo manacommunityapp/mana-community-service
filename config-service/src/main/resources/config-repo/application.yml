@@ -1,0 +1,148 @@
+# ============================================================
+# Shared configuration for all Mana Community microservices
+# These defaults are inherited by every service unless overridden
+# ============================================================
+
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSZ
+    time-zone: UTC
+
+  datasource:
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      pool-name: ${spring.application.name}-pool
+      max-lifetime: 1200000
+      connection-timeout: 30000
+      leak-detection-threshold: 60000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+        generate_statistics: false
+
+  cloud:
+    discovery:
+      enabled: true
+
+# Eureka client settings
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD:password}@${EUREKA_HOST:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 15
+    eureka-connection-idle-timeout-seconds: 30
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+    metadata-map:
+      zone: ${AVAILABILITY_ZONE:default}
+      version: ${APP_VERSION:1.0.0}
+
+# Management / Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Resilience4j defaults
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        register-health-indicator: true
+        sliding-window-size: 10
+        sliding-window-type: COUNT_BASED
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 10s
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 80
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+        cancel-running-future: true
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 25
+        max-wait-duration: 0ms
+
+# Logging defaults
+logging:
+  level:
+    root: INFO
+    com.manacommunity: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Feign client defaults
+spring.cloud.openfeign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: basic
+  circuitbreaker:
+    enabled: true
+
+# Multi-tenancy header
+mana:
+  multi-tenancy:
+    header-name: X-Tenant-ID
+    default-tenant: default
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: "*"
+    max-age: 3600

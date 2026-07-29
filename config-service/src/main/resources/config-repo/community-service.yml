@@ -1,0 +1,64 @@
+# ============================================================
+# Community Service - Community Management
+# Port: 8082
+# ============================================================
+
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_community
+    username: ${DB_USERNAME:mana_community}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: community
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  community:
+    max-communities-per-user: 10
+    max-units-per-community: 5000
+    max-members-per-unit: 10
+    invite:
+      expiry-hours: 72
+      max-pending: 100
+    onboarding:
+      require-document-verification: true
+      auto-approve: false
+    hierarchy:
+      levels:
+        - SOCIETY
+        - TOWER
+        - FLOOR
+        - UNIT
+    amenities:
+      booking-advance-days: 30
+      max-booking-duration-hours: 4
+    announcements:
+      max-attachments: 5
+      max-attachment-size-mb: 10
+      auto-expire-days: 90
+    polls:
+      min-options: 2
+      max-options: 10
+      default-duration-days: 7
+    documents:
+      allowed-types: application/pdf,image/jpeg,image/png,application/msword
+      max-size-mb: 25
+
+logging:
+  level:
+    com.manacommunity.community: INFO

@@ -1,0 +1,72 @@
+# ============================================================
+# Healthcare Service - Health Records & Wellness
+# Port: 8089
+# ============================================================
+
+server:
+  port: 8089
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_healthcare
+    username: ${DB_USERNAME:mana_healthcare}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: healthcare
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  healthcare:
+    data:
+      encryption:
+        enabled: true
+        algorithm: AES-256-GCM
+      retention-years: 7
+      compliance: HIPAA
+    appointment:
+      advance-booking-days: 30
+      min-duration-minutes: 15
+      max-duration-minutes: 60
+      cancellation-notice-hours: 4
+      reminder-before-hours: 24,2
+    pharmacy:
+      enabled: true
+      delivery:
+        enabled: true
+        max-radius-km: 10
+    emergency:
+      enabled: true
+      auto-alert-security: true
+      ambulance-integration: true
+      emergency-contacts-max: 5
+    wellness:
+      enabled: true
+      health-tracking: true
+      fitness-integration: false
+    telemedicine:
+      enabled: ${TELEMEDICINE_ENABLED:false}
+      video-provider: ${VIDEO_PROVIDER:}
+      max-session-minutes: 30
+    diagnostics:
+      lab-integration: false
+      report-delivery: DIGITAL
+    consent:
+      required: true
+      digital-signature: true
+      validity-months: 12
+
+logging:
+  level:
+    com.manacommunity.healthcare: INFO

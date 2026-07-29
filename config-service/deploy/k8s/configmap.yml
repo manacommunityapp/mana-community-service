@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-service-config
+  namespace: mana-community
+  labels:
+    app: config-service
+    tier: infrastructure
+    part-of: mana-community-os
+data:
+  EUREKA_HOST: "discovery-service"
+  CONFIG_REPO_BRANCH: "main"
+  CONFIG_REPO_BASEDIR: "/var/config-repo"
+  AVAILABILITY_ZONE: "default"

@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "discovery-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "discovery-service.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "discovery-service.selectorLabels" . | nindent 4 }}
+{{- if .Values.headlessService.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "discovery-service.fullname" . }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "discovery-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "discovery-service.selectorLabels" . | nindent 4 }}
+  publishNotReadyAddresses: true
+{{- end }}

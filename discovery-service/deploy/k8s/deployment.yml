@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: discovery-service
+  namespace: community
+  labels:
+    app: discovery-service
+    app.kubernetes.io/name: discovery-service
+    app.kubernetes.io/part-of: community-platform
+    app.kubernetes.io/component: infrastructure
+spec:
+  serviceName: discovery-service-headless
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: discovery-service
+  template:
+    metadata:
+      labels:
+        app: discovery-service
+        app.kubernetes.io/name: discovery-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8761"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: discovery-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: discovery-service
+          image: manacommunity/discovery-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8761
+              name: http
+              protocol: TCP
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod,kubernetes"
+            - name: EUREKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: discovery-service-credentials
+                  key: username
+            - name: EUREKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discovery-service-credentials
+                  key: password
+            - name: EUREKA_SERVICE_URLS
+              valueFrom:
+                configMapKeyRef:
+                  name: discovery-service-config
+                  key: eureka-service-urls
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: discovery-service-config
+                  key: java-opts
+          envFrom:
+            - configMapRef:
+                name: discovery-service-config
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8761
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8761
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - discovery-service
+                topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: discovery-service
+  namespace: community
+  labels:
+    app: discovery-service
