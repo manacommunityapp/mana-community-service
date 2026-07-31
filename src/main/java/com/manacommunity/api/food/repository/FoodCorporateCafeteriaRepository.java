@@ -10,5 +10,7 @@ public interface FoodCorporateCafeteriaRepository extends JpaRepository<FoodCorp
 
     List<FoodCorporateCafeteria> findByAccountIdAndStatus(Long accountId, String status);
 
+    List<FoodCorporateCafeteria> findByCommunityIdAndStatus(Long communityId, String status);
+
     Optional<FoodCorporateCafeteria> findByIdAndCommunityId(Long id, Long communityId);
 }

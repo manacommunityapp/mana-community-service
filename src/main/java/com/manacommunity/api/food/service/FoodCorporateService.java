@@ -41,13 +41,13 @@ public class FoodCorporateService {
     private final FoodCorporateCateringRequestRepository cateringRequestRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAccounts(Long communityId) {
+    public List<Map<String, Object>> list(Long communityId) {
         List<FoodCorporateAccount> accounts = accountRepo.findByCommunityId(communityId);
         return accounts.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> createAccount(Map<String, Object> request, Long communityId) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request) {
         Community community = new Community();
         community.setId(communityId);
 
@@ -69,7 +69,7 @@ public class FoodCorporateService {
     }
 
     @Transactional
-    public Map<String, Object> issueMealCard(Map<String, Object> request, Long communityId) {
+    public Map<String, Object> issue(Long communityId, Map<String, Object> request) {
         Long accountId = Long.valueOf(request.get("accountId").toString());
         FoodCorporateAccount account = accountRepo.findByIdAndCommunityId(accountId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCorporateAccount", accountId));
@@ -104,13 +104,15 @@ public class FoodCorporateService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMealCards(Long accountId) {
+    public List<Map<String, Object>> getCards(Long communityId, Long accountId) {
+        accountRepo.findByIdAndCommunityId(accountId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("FoodCorporateAccount", accountId));
         List<FoodCorporateMealCard> cards = mealCardRepo.findByAccountId(accountId);
         return cards.stream().map(this::toMealCardResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getCardTransactions(Long cardId, Pageable pageable) {
+    public Page<Map<String, Object>> getTransactions(Long communityId, Long cardId, Pageable pageable) {
         Page<FoodCorporateMealCardTransaction> transactions = transactionRepo.findByCardId(cardId, pageable);
         return transactions.map(t -> {
             Map<String, Object> map = new HashMap<>();
@@ -159,9 +161,9 @@ public class FoodCorporateService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCafeterias(Long accountId) {
-        List<FoodCorporateCafeteria> cafeterias = cafeteriaRepo.findByAccountIdAndStatus(
-                accountId, FoodCorporateCafeteria.CafeteriaStatus.ACTIVE.name());
+    public List<Map<String, Object>> listCafeterias(Long communityId) {
+        List<FoodCorporateCafeteria> cafeterias = cafeteriaRepo.findByCommunityIdAndStatus(
+                communityId, FoodCorporateCafeteria.CafeteriaStatus.ACTIVE.name());
         return cafeterias.stream().map(c -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", c.getId());
@@ -178,7 +180,7 @@ public class FoodCorporateService {
     }
 
     @Transactional
-    public Map<String, Object> createCafeteria(Map<String, Object> request, Long communityId) {
+    public Map<String, Object> createCafeteria(Long communityId, Map<String, Object> request) {
         Long accountId = Long.valueOf(request.get("accountId").toString());
         FoodCorporateAccount account = accountRepo.findByIdAndCommunityId(accountId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCorporateAccount", accountId));
@@ -211,7 +213,9 @@ public class FoodCorporateService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCafeteriaMenu(Long cafeteriaId, LocalDate date) {
+    public List<Map<String, Object>> getMenu(Long communityId, Long cafeteriaId, LocalDate date) {
+        cafeteriaRepo.findByIdAndCommunityId(cafeteriaId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("FoodCorporateCafeteria", cafeteriaId));
         List<FoodCorporateCafeteriaMenu> menus = cafeteriaMenuRepo.findByCafeteriaIdAndDate(cafeteriaId, date);
         return menus.stream().map(m -> {
             Map<String, Object> map = new HashMap<>();
@@ -231,9 +235,11 @@ public class FoodCorporateService {
     }
 
     @Transactional
-    public Map<String, Object> createCateringRequest(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> createRequest(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = new Community();
+        community.setId(communityId);
         Long accountId = Long.valueOf(request.get("accountId").toString());
-        FoodCorporateAccount account = accountRepo.findByIdAndCommunityId(accountId, community.getId())
+        FoodCorporateAccount account = accountRepo.findByIdAndCommunityId(accountId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCorporateAccount", accountId));
 
         FoodCorporateCateringRequest cateringRequest = FoodCorporateCateringRequest.builder()

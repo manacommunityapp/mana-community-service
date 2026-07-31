@@ -68,7 +68,7 @@ public class FoodEventController {
                                       @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(eventService.register(communityId, id, request));
+        return ResponseEntity.ok(eventService.register(communityId, id, request, user));
     }
 
     @GetMapping("/{id}/registrations")
@@ -98,7 +98,7 @@ public class FoodEventController {
                                              @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(eventService.addContribution(communityId, id, request));
+        return ResponseEntity.ok(eventService.addContribution(communityId, id, request, user));
     }
 
     @PostMapping("/{id}/feedback")
@@ -108,6 +108,6 @@ public class FoodEventController {
                                             @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(eventService.submitFeedback(communityId, id, request));
+        return ResponseEntity.ok(eventService.submitFeedback(communityId, id, request, user));
     }
 }

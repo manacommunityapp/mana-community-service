@@ -36,7 +36,7 @@ public class FoodDiningController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(diningReservationService.create(communityId, request));
+                .body(diningReservationService.create(communityId, request, user));
     }
 
     @GetMapping("/reservations")
@@ -111,7 +111,7 @@ public class FoodDiningController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(diningReservationService.joinWaitlist(communityId, request));
+        return ResponseEntity.ok(diningReservationService.joinWaitlist(communityId, request, user));
     }
 
     @GetMapping("/waitlist/{restaurantId}")
@@ -144,6 +144,6 @@ public class FoodDiningController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(diningReservationService.submitFeedback(communityId, id, request));
+        return ResponseEntity.ok(diningReservationService.submitFeedback(communityId, id, request, user));
     }
 }

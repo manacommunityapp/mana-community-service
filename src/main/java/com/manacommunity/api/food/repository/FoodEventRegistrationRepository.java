@@ -14,4 +14,6 @@ public interface FoodEventRegistrationRepository extends JpaRepository<FoodEvent
     Optional<FoodEventRegistration> findByEventIdAndUserId(Long eventId, Long userId);
 
     long countByEventIdAndStatus(Long eventId, String status);
+
+    Optional<FoodEventRegistration> findByIdAndCommunityId(Long id, Long communityId);
 }

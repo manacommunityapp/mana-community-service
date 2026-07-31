@@ -30,7 +30,8 @@ public class FoodDiningReservationService {
     private final FoodDiningFeedbackRepository feedbackRepo;
 
     @Transactional
-    public Map<String, Object> createReservation(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         String confirmationCode = "RSV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         FoodDiningReservation reservation = FoodDiningReservation.builder()
@@ -58,20 +59,20 @@ public class FoodDiningReservationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyReservations(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyReservations(Long communityId, Long userId, Pageable pageable) {
         return reservationRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getReservationById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodDiningReservation reservation = reservationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("DiningReservation", id));
         return toResponse(reservation);
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getRestaurantReservations(Long restaurantId, LocalDate date, String status) {
+    public List<Map<String, Object>> getRestaurantReservations(Long communityId, Long restaurantId, LocalDate date, String status) {
         FoodDiningReservation.ReservationStatus reservationStatus =
                 FoodDiningReservation.ReservationStatus.valueOf(status);
         return reservationRepo.findByRestaurantIdAndDateAndStatus(restaurantId, date, reservationStatus)
@@ -79,7 +80,7 @@ public class FoodDiningReservationService {
     }
 
     @Transactional
-    public Map<String, Object> updateStatus(Long id, String status, Long communityId) {
+    public Map<String, Object> updateStatus(Long communityId, Long id, String status) {
         FoodDiningReservation reservation = reservationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("DiningReservation", id));
         reservation.setStatus(FoodDiningReservation.ReservationStatus.valueOf(status));
@@ -87,7 +88,7 @@ public class FoodDiningReservationService {
     }
 
     @Transactional
-    public Map<String, Object> checkIn(Long id, Long communityId) {
+    public Map<String, Object> checkIn(Long communityId, Long id) {
         FoodDiningReservation reservation = reservationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("DiningReservation", id));
         reservation.setCheckedInAt(LocalDateTime.now());
@@ -96,7 +97,7 @@ public class FoodDiningReservationService {
     }
 
     @Transactional
-    public Map<String, Object> cancelReservation(Long id, Long communityId) {
+    public Map<String, Object> cancel(Long communityId, Long id) {
         FoodDiningReservation reservation = reservationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("DiningReservation", id));
         reservation.setStatus(FoodDiningReservation.ReservationStatus.CANCELLED);
@@ -104,7 +105,10 @@ public class FoodDiningReservationService {
     }
 
     @Transactional
-    public Map<String, Object> joinWaitlist(Long restaurantId, Integer partySize, AppUser user, Community community) {
+    public Map<String, Object> joinWaitlist(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
+        Long restaurantId = Long.valueOf(request.get("restaurantId").toString());
+        Integer partySize = Integer.valueOf(request.get("partySize").toString());
         FoodDiningWaitlist entry = FoodDiningWaitlist.builder()
                 .restaurantId(restaurantId)
                 .user(user)
@@ -128,7 +132,7 @@ public class FoodDiningReservationService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getWaitlist(Long restaurantId) {
+    public List<Map<String, Object>> getWaitlist(Long communityId, Long restaurantId) {
         return waitlistRepo.findByRestaurantIdAndStatus(restaurantId, FoodDiningWaitlist.WaitlistStatus.WAITING)
                 .stream().map(w -> {
                     Map<String, Object> map = new HashMap<>();
@@ -174,9 +178,9 @@ public class FoodDiningReservationService {
     }
 
     @Transactional
-    public Map<String, Object> submitFeedback(Long reservationId, Map<String, Object> request, AppUser user) {
+    public Map<String, Object> submitFeedback(Long communityId, Long reservationId, Map<String, Object> request, AppUser user) {
         Community community = new Community();
-        community.setId(Long.valueOf(request.get("communityId").toString()));
+        community.setId(communityId);
 
         FoodDiningFeedback feedback = FoodDiningFeedback.builder()
                 .reservationId(reservationId)

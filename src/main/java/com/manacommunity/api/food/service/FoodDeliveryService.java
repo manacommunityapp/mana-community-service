@@ -35,7 +35,8 @@ public class FoodDeliveryService {
     private final FoodOrderRepository orderRepo;
 
     @Transactional
-    public Map<String, Object> registerPartner(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> register(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodDeliveryPartner partner = FoodDeliveryPartner.builder()
                 .user(user)
                 .vehicleType(FoodDeliveryPartner.VehicleType.valueOf((String) request.get("vehicleType")))
@@ -51,14 +52,17 @@ public class FoodDeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAvailablePartners(Long communityId) {
+    public List<Map<String, Object>> getAvailable(Long communityId) {
         List<FoodDeliveryPartner> partners = partnerRepo.findByCommunityIdAndStatus(
                 communityId, FoodDeliveryPartner.PartnerStatus.AVAILABLE.name());
         return partners.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> assignDelivery(Long orderId, Long partnerId, Long communityId) {
+    public Map<String, Object> assignDelivery(Long communityId, Map<String, Object> request) {
+        Long orderId = Long.valueOf(request.get("orderId").toString());
+        Long partnerId = Long.valueOf(request.get("partnerId").toString());
+
         FoodOrder order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodOrder", orderId));
 
@@ -85,7 +89,7 @@ public class FoodDeliveryService {
     }
 
     @Transactional
-    public Map<String, Object> updateAssignmentStatus(Long assignmentId, String status, BigDecimal latitude, BigDecimal longitude) {
+    public Map<String, Object> updateStatus(Long communityId, Long assignmentId, String status, BigDecimal latitude, BigDecimal longitude) {
         FoodDeliveryAssignment assignment = assignmentRepo.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodDeliveryAssignment", assignmentId));
 
@@ -127,14 +131,17 @@ public class FoodDeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public boolean verifyDeliveryOtp(Long assignmentId, String otp) {
+    public boolean verifyOtp(Long communityId, Long assignmentId, String otp) {
         FoodDeliveryAssignment assignment = assignmentRepo.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodDeliveryAssignment", assignmentId));
         return otp != null && otp.equals(assignment.getOtpCode());
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyDeliveries(Long partnerId, String status, Pageable pageable) {
+    public Page<Map<String, Object>> getMyDeliveries(Long communityId, Long userId, String status, Pageable pageable) {
+        FoodDeliveryPartner me = partnerRepo.findByUserIdAndCommunityId(userId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("FoodDeliveryPartner", "userId", userId.toString()));
+        Long partnerId = me.getId();
         if (status != null && !status.isBlank()) {
             List<FoodDeliveryAssignment> assignments = assignmentRepo.findByPartnerIdAndStatus(partnerId, status);
             List<Map<String, Object>> result = assignments.stream()
@@ -146,8 +153,12 @@ public class FoodDeliveryService {
     }
 
     @Transactional
-    public Map<String, Object> updatePartnerLocation(Long partnerId, BigDecimal lat, BigDecimal lng) {
-        FoodDeliveryPartner partner = partnerRepo.findById(partnerId)
+    public Map<String, Object> updateLocation(Long communityId, Map<String, Object> request) {
+        Long partnerId = Long.valueOf(request.get("partnerId").toString());
+        BigDecimal lat = request.containsKey("latitude") ? new BigDecimal(request.get("latitude").toString()) : null;
+        BigDecimal lng = request.containsKey("longitude") ? new BigDecimal(request.get("longitude").toString()) : null;
+
+        FoodDeliveryPartner partner = partnerRepo.findByIdAndCommunityId(partnerId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodDeliveryPartner", partnerId));
 
         partner.setCurrentLatitude(lat);
@@ -158,7 +169,7 @@ public class FoodDeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getDeliveryZones(Long communityId) {
+    public List<Map<String, Object>> getZones(Long communityId) {
         List<FoodDeliveryZone> zones = zoneRepo.findByCommunityIdAndActive(communityId, true);
         return zones.stream().map(z -> {
             Map<String, Object> map = new HashMap<>();

@@ -102,6 +102,6 @@ public class FoodCorporateController {
                                            @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(corporateService.createRequest(communityId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(corporateService.createRequest(communityId, request, user));
     }
 }

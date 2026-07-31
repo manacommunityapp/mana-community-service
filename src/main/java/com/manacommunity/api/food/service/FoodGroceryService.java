@@ -43,14 +43,15 @@ public class FoodGroceryService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getStoreById(Long id, Long communityId) {
+    public Map<String, Object> getStoreById(Long communityId, Long id) {
         FoodGroceryStore store = storeRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", id));
         return toStoreResponse(store);
     }
 
     @Transactional
-    public Map<String, Object> createStore(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> createStore(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodGroceryStore store = FoodGroceryStore.builder()
                 .name((String) request.get("name"))
                 .slug((String) request.get("slug"))
@@ -74,7 +75,7 @@ public class FoodGroceryService {
     }
 
     @Transactional
-    public Map<String, Object> updateStore(Long id, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> updateStore(Long communityId, Long id, Map<String, Object> request) {
         FoodGroceryStore store = storeRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", id));
 
@@ -101,7 +102,7 @@ public class FoodGroceryService {
     // ---- Category ----
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCategories(Long storeId) {
+    public List<Map<String, Object>> getCategories(Long communityId, Long storeId) {
         return categoryRepo.findByStoreIdAndActiveOrderBySortOrder(storeId, true)
                 .stream().map(c -> {
                     Map<String, Object> map = new HashMap<>();
@@ -121,7 +122,7 @@ public class FoodGroceryService {
     // ---- Product ----
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getProducts(Long storeId, Long categoryId, String search, Pageable pageable) {
+    public Page<Map<String, Object>> getProducts(Long communityId, Long storeId, Long categoryId, String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return productRepo.searchByStore(storeId, search, pageable).map(this::toProductResponse);
         }
@@ -132,14 +133,14 @@ public class FoodGroceryService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getProductById(Long id) {
+    public Map<String, Object> getProductById(Long communityId, Long id) {
         FoodGroceryProduct product = productRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", id));
         return toProductResponse(product);
     }
 
     @Transactional
-    public Map<String, Object> createProduct(Map<String, Object> request, Long communityId) {
+    public Map<String, Object> createProduct(Long communityId, Map<String, Object> request) {
         Long storeId = Long.valueOf(request.get("storeId").toString());
         FoodGroceryStore store = storeRepo.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));

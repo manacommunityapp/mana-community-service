@@ -35,7 +35,7 @@ public class FoodEventService {
     private final FoodEventFeedbackRepository feedbackRepo;
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getEvents(Long communityId, String status, Pageable pageable) {
+    public Page<Map<String, Object>> list(Long communityId, String status, Pageable pageable) {
         Page<FoodEvent> events;
         if (status != null && !status.isBlank()) {
             events = eventRepo.findByCommunityIdAndStatus(communityId, status, pageable);
@@ -46,14 +46,15 @@ public class FoodEventService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getEventById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodEvent event = eventRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEvent", id));
         return toResponse(event);
     }
 
     @Transactional
-    public Map<String, Object> createEvent(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodEvent event = FoodEvent.builder()
                 .name((String) request.get("name"))
                 .description((String) request.get("description"))
@@ -79,7 +80,7 @@ public class FoodEventService {
     }
 
     @Transactional
-    public Map<String, Object> updateEvent(Long id, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> update(Long communityId, Long id, Map<String, Object> request) {
         FoodEvent event = eventRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEvent", id));
 
@@ -125,9 +126,11 @@ public class FoodEventService {
     }
 
     @Transactional
-    public Map<String, Object> registerForEvent(Long eventId, Integer guests, String dietaryReqs,
-                                                 AppUser user, Community community) {
-        FoodEvent event = eventRepo.findByIdAndCommunityId(eventId, community.getId())
+    public Map<String, Object> register(Long communityId, Long eventId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
+        Integer guests = request.get("guests") != null ? Integer.valueOf(request.get("guests").toString()) : null;
+        String dietaryReqs = (String) request.get("dietaryRequirements");
+        FoodEvent event = eventRepo.findByIdAndCommunityId(eventId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEvent", eventId));
 
         String qrCode = UUID.randomUUID().toString();
@@ -155,13 +158,13 @@ public class FoodEventService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getRegistrations(Long eventId, Pageable pageable) {
+    public Page<Map<String, Object>> getRegistrations(Long communityId, Long eventId, Pageable pageable) {
         Page<FoodEventRegistration> registrations = registrationRepo.findByEventId(eventId, pageable);
         return registrations.map(this::toRegistrationResponse);
     }
 
     @Transactional
-    public Map<String, Object> checkInAttendee(Long registrationId, Long communityId) {
+    public Map<String, Object> checkIn(Long communityId, Long registrationId) {
         FoodEventRegistration registration = registrationRepo.findByIdAndCommunityId(registrationId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEventRegistration", registrationId));
 
@@ -173,7 +176,7 @@ public class FoodEventService {
     }
 
     @Transactional
-    public Map<String, Object> addContribution(Long eventId, Map<String, Object> request, AppUser user) {
+    public Map<String, Object> addContribution(Long communityId, Long eventId, Map<String, Object> request, AppUser user) {
         FoodEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEvent", eventId));
 
@@ -208,7 +211,7 @@ public class FoodEventService {
     }
 
     @Transactional
-    public Map<String, Object> submitFeedback(Long eventId, Map<String, Object> request, AppUser user) {
+    public Map<String, Object> submitFeedback(Long communityId, Long eventId, Map<String, Object> request, AppUser user) {
         FoodEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodEvent", eventId));
 
