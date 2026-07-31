@@ -31,14 +31,22 @@ public class FoodResidentProfileService {
     private final FoodResidentGoalRepository goalRepo;
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getProfile(Long userId, Long communityId) {
+    public Map<String, Object> getMyProfile(Long communityId, Long userId) {
         FoodResidentProfile profile = profileRepo.findByUserIdAndCommunityId(userId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("ResidentProfile", "userId", userId.toString()));
         return toResponse(profile);
     }
 
+    @Transactional(readOnly = true)
+    public Long getProfileId(Long communityId, Long userId) {
+        FoodResidentProfile profile = profileRepo.findByUserIdAndCommunityId(userId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("ResidentProfile", "userId", userId.toString()));
+        return profile.getId();
+    }
+
     @Transactional
-    public Map<String, Object> createOrUpdateProfile(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> updateProfile(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodResidentProfile profile = profileRepo.findByUserIdAndCommunityId(user.getId(), community.getId())
                 .orElse(FoodResidentProfile.builder()
                         .user(user)
@@ -94,7 +102,8 @@ public class FoodResidentProfileService {
     }
 
     @Transactional
-    public Map<String, Object> addAllergy(Long profileId, Map<String, Object> request) {
+    public Map<String, Object> addAllergy(Long communityId, Long userId, Map<String, Object> request) {
+        Long profileId = getProfileId(communityId, userId);
         FoodResidentProfile profile = profileRepo.findById(profileId)
                 .orElseThrow(() -> new ResourceNotFoundException("ResidentProfile", profileId));
 
@@ -121,7 +130,7 @@ public class FoodResidentProfileService {
     }
 
     @Transactional
-    public void removeAllergy(Long allergyId) {
+    public void removeAllergy(Long communityId, Long userId, Long allergyId) {
         if (!allergyRepo.existsById(allergyId)) {
             throw new ResourceNotFoundException("ResidentAllergy", allergyId);
         }
@@ -129,7 +138,8 @@ public class FoodResidentProfileService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getFavorites(Long profileId, String type) {
+    public List<Map<String, Object>> getFavorites(Long communityId, Long userId, String type) {
+        Long profileId = getProfileId(communityId, userId);
         List<FoodResidentFavorite> favorites;
         if (type != null && !type.isBlank()) {
             FoodResidentFavorite.FavoriteType favoriteType = FoodResidentFavorite.FavoriteType.valueOf(type);
@@ -149,7 +159,10 @@ public class FoodResidentProfileService {
     }
 
     @Transactional
-    public Map<String, Object> addFavorite(Long profileId, String type, Long referenceId) {
+    public Map<String, Object> addFavorite(Long communityId, Long userId, Map<String, Object> request) {
+        Long profileId = getProfileId(communityId, userId);
+        String type = (String) request.get("favoriteType");
+        Long referenceId = Long.valueOf(request.get("referenceId").toString());
         FoodResidentProfile profile = profileRepo.findById(profileId)
                 .orElseThrow(() -> new ResourceNotFoundException("ResidentProfile", profileId));
 
@@ -171,7 +184,7 @@ public class FoodResidentProfileService {
     }
 
     @Transactional
-    public void removeFavorite(Long favoriteId) {
+    public void removeFavorite(Long communityId, Long userId, Long favoriteId) {
         if (!favoriteRepo.existsById(favoriteId)) {
             throw new ResourceNotFoundException("ResidentFavorite", favoriteId);
         }
@@ -179,7 +192,8 @@ public class FoodResidentProfileService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getGoals(Long profileId) {
+    public List<Map<String, Object>> getGoals(Long communityId, Long userId) {
+        Long profileId = getProfileId(communityId, userId);
         List<FoodResidentGoal> goals = goalRepo.findByProfileIdAndStatus(profileId, FoodResidentGoal.GoalStatus.ACTIVE);
         return goals.stream().map(g -> {
             Map<String, Object> map = new HashMap<>();

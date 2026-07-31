@@ -179,7 +179,7 @@ public class FoodGroceryService {
     }
 
     @Transactional
-    public Map<String, Object> updateProduct(Long id, Map<String, Object> request) {
+    public Map<String, Object> updateProduct(Long communityId, Long id, Map<String, Object> request) {
         FoodGroceryProduct product = productRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", id));
 
@@ -209,7 +209,8 @@ public class FoodGroceryService {
     // ---- Order ----
 
     @Transactional
-    public Map<String, Object> placeGroceryOrder(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> placeOrder(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         Long storeId = Long.valueOf(request.get("storeId").toString());
         FoodGroceryStore store = storeRepo.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));
@@ -243,20 +244,20 @@ public class FoodGroceryService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getGroceryOrders(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyOrders(Long communityId, Long userId, Pageable pageable) {
         return orderRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(this::toOrderResponse);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getGroceryOrderById(Long id, Long communityId) {
+    public Map<String, Object> getOrderById(Long communityId, Long id) {
         FoodGroceryOrder order = orderRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryOrder", id));
         return toOrderResponse(order);
     }
 
     @Transactional
-    public Map<String, Object> updateGroceryOrderStatus(Long id, String status, Long communityId) {
+    public Map<String, Object> updateStatus(Long communityId, Long id, String status) {
         FoodGroceryOrder order = orderRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryOrder", id));
         order.setStatus(FoodGroceryOrder.GroceryOrderStatus.valueOf(status));
@@ -269,7 +270,7 @@ public class FoodGroceryService {
     // ---- Delivery Slots ----
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getDeliverySlots(Long storeId, LocalDate date) {
+    public List<Map<String, Object>> getDeliverySlots(Long communityId, Long storeId, LocalDate date) {
         return slotRepo.findByStoreIdAndDate(storeId, date)
                 .stream().map(s -> {
                     Map<String, Object> map = new HashMap<>();
@@ -291,7 +292,8 @@ public class FoodGroceryService {
     // ---- Wishlist ----
 
     @Transactional
-    public Map<String, Object> addToWishlist(Long userId, Long productId, Long communityId) {
+    public Map<String, Object> addToWishlist(Long communityId, Long userId, Map<String, Object> request) {
+        Long productId = Long.valueOf(request.get("productId").toString());
         FoodGroceryProduct product = productRepo.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", productId));
 
@@ -318,7 +320,7 @@ public class FoodGroceryService {
     }
 
     @Transactional
-    public void removeFromWishlist(Long userId, Long productId) {
+    public void removeFromWishlist(Long communityId, Long userId, Long productId) {
         wishlistRepo.deleteByUserIdAndProductId(userId, productId);
     }
 

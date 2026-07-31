@@ -34,20 +34,21 @@ public class FoodNutritionService {
     // ---- Nutritionist ----
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getNutritionists(Long communityId) {
+    public List<Map<String, Object>> list(Long communityId) {
         return nutritionistRepo.findByCommunityIdAndStatus(communityId, "ACTIVE")
                 .stream().map(this::toNutritionistResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getNutritionistById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodNutritionist nutritionist = nutritionistRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Nutritionist", id));
         return toNutritionistResponse(nutritionist);
     }
 
     @Transactional
-    public Map<String, Object> registerNutritionist(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> register(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodNutritionist nutritionist = FoodNutritionist.builder()
                 .user(user)
                 .qualification((String) request.get("qualification"))
@@ -69,8 +70,9 @@ public class FoodNutritionService {
     // ---- Consultation ----
 
     @Transactional
-    public Map<String, Object> bookConsultation(Long nutritionistId, Map<String, Object> request,
-                                                 AppUser user, Community community) {
+    public Map<String, Object> book(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
+        Long nutritionistId = Long.valueOf(request.get("nutritionistId").toString());
         FoodNutritionist nutritionist = nutritionistRepo.findById(nutritionistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Nutritionist", nutritionistId));
 
@@ -108,7 +110,7 @@ public class FoodNutritionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyConsultations(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyConsultations(Long communityId, Long userId, Pageable pageable) {
         return consultationRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(c -> {
                     Map<String, Object> map = new HashMap<>();
@@ -132,7 +134,8 @@ public class FoodNutritionService {
     // ---- Meal Plan ----
 
     @Transactional
-    public Map<String, Object> createMealPlan(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodMealPlan plan = FoodMealPlan.builder()
                 .user(user)
                 .name((String) request.get("name"))
@@ -154,7 +157,7 @@ public class FoodNutritionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMyMealPlans(Long userId, Long communityId) {
+    public List<Map<String, Object>> getMyMealPlans(Long communityId, Long userId) {
         return mealPlanRepo.findByUserIdAndCommunityId(userId, communityId)
                 .stream().map(this::toMealPlanResponse).collect(Collectors.toList());
     }
@@ -188,7 +191,11 @@ public class FoodNutritionService {
     // ---- Calorie Log ----
 
     @Transactional
-    public Map<String, Object> logCalories(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> logCalorie(Long communityId, Long userId, Map<String, Object> request) {
+        AppUser user = new AppUser();
+        user.setId(userId);
+        Community community = new Community();
+        community.setId(communityId);
         FoodCalorieLog log = FoodCalorieLog.builder()
                 .user(user)
                 .date(request.get("date") != null ?
@@ -237,7 +244,7 @@ public class FoodNutritionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCalorieLogs(Long userId, LocalDate date) {
+    public List<Map<String, Object>> getByDate(Long communityId, Long userId, LocalDate date) {
         return calorieLogRepo.findByUserIdAndDate(userId, date)
                 .stream().map(log -> {
                     Map<String, Object> map = new HashMap<>();
@@ -259,7 +266,7 @@ public class FoodNutritionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getDailyNutrition(Long userId, LocalDate date) {
+    public Map<String, Object> getDailyNutrition(Long communityId, Long userId, LocalDate date) {
         List<FoodCalorieLog> logs = calorieLogRepo.findByUserIdAndDate(userId, date);
 
         int totalCalories = logs.stream()
@@ -297,7 +304,11 @@ public class FoodNutritionService {
     // ---- Weight Log ----
 
     @Transactional
-    public Map<String, Object> logWeight(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> logWeight(Long communityId, Long userId, Map<String, Object> request) {
+        AppUser user = new AppUser();
+        user.setId(userId);
+        Community community = new Community();
+        community.setId(communityId);
         FoodWeightLog log = FoodWeightLog.builder()
                 .user(user)
                 .date(request.get("date") != null ?
@@ -331,7 +342,7 @@ public class FoodNutritionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getWeightHistory(Long userId) {
+    public List<Map<String, Object>> getHistory(Long communityId, Long userId) {
         return weightLogRepo.findByUserIdOrderByDateDesc(userId)
                 .stream().map(log -> {
                     Map<String, Object> map = new HashMap<>();
@@ -350,7 +361,11 @@ public class FoodNutritionService {
     // ---- Water Log ----
 
     @Transactional
-    public Map<String, Object> logWater(Long userId, LocalDate date, Integer intakeMl, Community community) {
+    public Map<String, Object> logWater(Long communityId, Long userId, Map<String, Object> request) {
+        LocalDate date = request.get("date") != null ? LocalDate.parse((String) request.get("date")) : null;
+        Integer intakeMl = request.get("intakeMl") != null ? Integer.valueOf(request.get("intakeMl").toString()) : null;
+        Community community = new Community();
+        community.setId(communityId);
         AppUser user = new AppUser();
         user.setId(userId);
 

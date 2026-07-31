@@ -69,7 +69,7 @@ public class FoodRecipeController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(recipeService.create(communityId, request));
+                .body(recipeService.create(communityId, request, user));
     }
 
     @PutMapping("/{id}")
@@ -102,7 +102,7 @@ public class FoodRecipeController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(recipeService.rate(communityId, id, request));
+        return ResponseEntity.ok(recipeService.rate(communityId, id, request, user));
     }
 
     @GetMapping("/collections")
@@ -121,7 +121,7 @@ public class FoodRecipeController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(recipeService.createCollection(communityId, request));
+        return ResponseEntity.ok(recipeService.createCollection(communityId, request, user));
     }
 
     @PostMapping("/collections/{id}/items")
@@ -156,6 +156,6 @@ public class FoodRecipeController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(recipeService.addComment(communityId, id, request));
+        return ResponseEntity.ok(recipeService.addComment(communityId, id, request, user));
     }
 }

@@ -32,7 +32,7 @@ public class FoodOrderController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(orderService.placeOrder(communityId, user.getId(), request));
+                .body(orderService.placeOrder(communityId, request, user));
     }
 
     @GetMapping
@@ -112,7 +112,7 @@ public class FoodOrderController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(orderService.rateOrder(communityId, user.getId(), id, request));
+        return ResponseEntity.ok(orderService.rateOrder(communityId, id, request, user));
     }
 
     @GetMapping("/{id}/tracking")
@@ -133,7 +133,7 @@ public class FoodOrderController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(orderService.createGroupOrder(communityId, user.getId(), request));
+                .body(orderService.createGroupOrder(communityId, request, user));
     }
 
     @PostMapping("/group/join")
@@ -143,7 +143,7 @@ public class FoodOrderController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(orderService.joinGroupOrder(communityId, user.getId(), joinCode));
+        return ResponseEntity.ok(orderService.joinGroupOrder(communityId, joinCode, user));
     }
 
     @PostMapping("/{id}/refund")

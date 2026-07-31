@@ -27,7 +27,7 @@ public class FoodMenuService {
     private final FoodRestaurantRepository restaurantRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCategories(Long restaurantId) {
+    public List<Map<String, Object>> getCategories(Long communityId, Long restaurantId) {
         List<FoodMenuCategory> categories = categoryRepo.findByRestaurantIdAndActiveOrderBySortOrder(restaurantId, true);
         return categories.stream().map(c -> {
             Map<String, Object> map = new HashMap<>();
@@ -48,7 +48,7 @@ public class FoodMenuService {
     }
 
     @Transactional
-    public Map<String, Object> createCategory(Map<String, Object> request, Long restaurantId, Long communityId) {
+    public Map<String, Object> createCategory(Long communityId, Long restaurantId, Map<String, Object> request) {
         FoodRestaurant restaurant = restaurantRepo.findByIdAndCommunityId(restaurantId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", restaurantId));
 
@@ -90,7 +90,7 @@ public class FoodMenuService {
     }
 
     @Transactional
-    public Map<String, Object> updateCategory(Long categoryId, Map<String, Object> request) {
+    public Map<String, Object> updateCategory(Long communityId, Long restaurantId, Long categoryId, Map<String, Object> request) {
         FoodMenuCategory category = categoryRepo.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("MenuCategory", categoryId));
 
@@ -130,7 +130,7 @@ public class FoodMenuService {
     }
 
     @Transactional
-    public void deleteCategory(Long categoryId) {
+    public void deleteCategory(Long communityId, Long restaurantId, Long categoryId) {
         if (!categoryRepo.existsById(categoryId)) {
             throw new ResourceNotFoundException("MenuCategory", categoryId);
         }
@@ -138,7 +138,7 @@ public class FoodMenuService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMenuItems(Long restaurantId, Long categoryId, String search, Pageable pageable) {
+    public Page<Map<String, Object>> getItems(Long communityId, Long restaurantId, Long categoryId, String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return menuItemRepo.searchByRestaurant(restaurantId, search, pageable)
                     .map(this::toResponse);
@@ -156,14 +156,14 @@ public class FoodMenuService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getMenuItem(Long itemId) {
+    public Map<String, Object> getItem(Long communityId, Long restaurantId, Long itemId) {
         FoodMenuItem item = menuItemRepo.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("MenuItem", itemId));
         return toResponse(item);
     }
 
     @Transactional
-    public Map<String, Object> createMenuItem(Map<String, Object> request, Long restaurantId, Long communityId) {
+    public Map<String, Object> createItem(Long communityId, Long restaurantId, Map<String, Object> request) {
         FoodRestaurant restaurant = restaurantRepo.findByIdAndCommunityId(restaurantId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", restaurantId));
 
@@ -228,7 +228,7 @@ public class FoodMenuService {
     }
 
     @Transactional
-    public Map<String, Object> updateMenuItem(Long itemId, Map<String, Object> request) {
+    public Map<String, Object> updateItem(Long communityId, Long restaurantId, Long itemId, Map<String, Object> request) {
         FoodMenuItem item = menuItemRepo.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("MenuItem", itemId));
 
@@ -296,7 +296,7 @@ public class FoodMenuService {
     }
 
     @Transactional
-    public Map<String, Object> toggleAvailability(Long itemId, Boolean available) {
+    public Map<String, Object> toggleAvailability(Long communityId, Long restaurantId, Long itemId, Boolean available) {
         FoodMenuItem item = menuItemRepo.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("MenuItem", itemId));
         item.setIsAvailable(available);
@@ -305,7 +305,7 @@ public class FoodMenuService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCombos(Long restaurantId) {
+    public List<Map<String, Object>> getCombos(Long communityId, Long restaurantId) {
         List<FoodMenuItemCombo> combos = comboRepo.findByRestaurantIdAndActive(restaurantId, true);
         return combos.stream().map(c -> {
             Map<String, Object> map = new HashMap<>();

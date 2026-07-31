@@ -56,13 +56,13 @@ public class FoodPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyPayments(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyPayments(Long communityId, Long userId, Pageable pageable) {
         return paymentRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getWallet(Long userId, Long communityId) {
+    public Map<String, Object> getWallet(Long communityId, Long userId) {
         FoodWallet wallet = walletRepo.findByUserIdAndCommunityId(userId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "userId", userId.toString()));
 
@@ -77,8 +77,8 @@ public class FoodPaymentService {
     }
 
     @Transactional
-    public Map<String, Object> creditWallet(Long userId, BigDecimal amount, String referenceType,
-                                             Long referenceId, Long communityId) {
+    public Map<String, Object> credit(Long communityId, Long userId, BigDecimal amount, String referenceType,
+                                             Long referenceId) {
         FoodWallet wallet = walletRepo.findByUserIdAndCommunityId(userId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "userId", userId.toString()));
 
@@ -145,7 +145,7 @@ public class FoodPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getWalletTransactions(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getTransactions(Long communityId, Long userId, Pageable pageable) {
         FoodWallet wallet = walletRepo.findByUserIdAndCommunityId(userId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "userId", userId.toString()));
 

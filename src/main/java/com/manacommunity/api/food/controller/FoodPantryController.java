@@ -27,7 +27,7 @@ public class FoodPantryController {
     public ResponseEntity<?> getItems(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(pantryService.getItems(communityId));
+        return ResponseEntity.ok(pantryService.getItems(communityId, user.getId()));
     }
 
     @PostMapping("/items")
@@ -36,7 +36,7 @@ public class FoodPantryController {
                                      @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(pantryService.addItem(communityId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(pantryService.addItem(communityId, request, user));
     }
 
     @PutMapping("/items/{id}")
@@ -58,7 +58,7 @@ public class FoodPantryController {
         Long communityId = user.getCommunity().getId();
         BigDecimal quantityUsed = new BigDecimal(request.get("quantityUsed").toString());
         String usedFor = (String) request.get("usedFor");
-        return ResponseEntity.ok(pantryService.consume(communityId, id, quantityUsed, usedFor));
+        return ResponseEntity.ok(pantryService.consume(communityId, id, quantityUsed, usedFor, user));
     }
 
     @GetMapping("/expiring")
@@ -67,7 +67,7 @@ public class FoodPantryController {
                                          @RequestParam(defaultValue = "7") int daysAhead) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(pantryService.getExpiring(communityId, daysAhead));
+        return ResponseEntity.ok(pantryService.getExpiring(communityId, user.getId(), daysAhead));
     }
 
     @GetMapping("/shopping-lists")
@@ -75,7 +75,7 @@ public class FoodPantryController {
     public ResponseEntity<?> getLists(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(pantryService.getLists(communityId));
+        return ResponseEntity.ok(pantryService.getLists(communityId, user.getId()));
     }
 
     @PostMapping("/shopping-lists")
@@ -85,7 +85,7 @@ public class FoodPantryController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         String name = (String) request.get("name");
-        return ResponseEntity.status(HttpStatus.CREATED).body(pantryService.create(communityId, name));
+        return ResponseEntity.status(HttpStatus.CREATED).body(pantryService.create(communityId, name, user));
     }
 
     @PostMapping("/shopping-lists/{id}/items")
@@ -114,7 +114,7 @@ public class FoodPantryController {
     public ResponseEntity<?> getAlerts(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(pantryService.getAlerts(communityId));
+        return ResponseEntity.ok(pantryService.getAlerts(communityId, user.getId()));
     }
 
     @PatchMapping("/alerts/{id}/read")

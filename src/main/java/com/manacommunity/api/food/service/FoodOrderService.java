@@ -30,7 +30,8 @@ public class FoodOrderService {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public Map<String, Object> placeOrder(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> placeOrder(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         String orderNumber = "ORD-" + System.currentTimeMillis() + "-" + String.format("%04d", new Random().nextInt(10000));
 
         FoodOrder order = FoodOrder.builder()
@@ -121,27 +122,27 @@ public class FoodOrderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getOrders(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyOrders(Long communityId, Long userId, Pageable pageable) {
         return orderRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getOrderById(Long id, Long communityId) {
+    public Map<String, Object> getOrderById(Long communityId, Long userId, Long id) {
         FoodOrder order = orderRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
         return toResponse(order);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getOrderByNumber(String orderNumber) {
+    public Map<String, Object> getByNumber(Long communityId, Long userId, String orderNumber) {
         FoodOrder order = orderRepo.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "orderNumber", orderNumber));
         return toResponse(order);
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getProviderOrders(String providerType, Long providerId, Long communityId, String status, Pageable pageable) {
+    public Page<Map<String, Object>> getProviderOrders(Long communityId, String providerType, Long providerId, String status, Pageable pageable) {
         if (status != null && !status.isBlank()) {
             FoodOrder.OrderStatus orderStatus = FoodOrder.OrderStatus.valueOf(status);
             return orderRepo.findByStatusAndCommunityId(orderStatus, communityId, pageable)
@@ -153,7 +154,7 @@ public class FoodOrderService {
     }
 
     @Transactional
-    public Map<String, Object> updateOrderStatus(Long orderId, String status, Long communityId) {
+    public Map<String, Object> updateStatus(Long communityId, Long userId, Long orderId, String status) {
         FoodOrder order = orderRepo.findByIdAndCommunityId(orderId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
@@ -187,20 +188,20 @@ public class FoodOrderService {
     }
 
     @Transactional
-    public Map<String, Object> cancelOrder(Long orderId, String reason, Long communityId) {
+    public Map<String, Object> cancelOrder(Long communityId, Long userId, Long orderId, Map<String, Object> request) {
         FoodOrder order = orderRepo.findByIdAndCommunityId(orderId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
         order.setStatus(FoodOrder.OrderStatus.CANCELLED);
         order.setCancelledAt(LocalDateTime.now());
-        order.setCancellationReason(reason);
+        order.setCancellationReason((String) request.get("reason"));
 
         FoodOrder saved = orderRepo.save(order);
         return toResponse(saved);
     }
 
     @Transactional
-    public Map<String, Object> rateOrder(Long orderId, Map<String, Object> rating, AppUser user) {
+    public Map<String, Object> rateOrder(Long communityId, Long orderId, Map<String, Object> rating, AppUser user) {
         FoodOrder order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
@@ -234,7 +235,7 @@ public class FoodOrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getOrderTracking(Long orderId) {
+    public List<Map<String, Object>> getTracking(Long communityId, Long userId, Long orderId) {
         List<FoodOrderTracking> trackings = trackingRepo.findByOrderIdOrderByTimestampDesc(orderId);
         return trackings.stream().map(t -> {
             Map<String, Object> map = new HashMap<>();
@@ -251,7 +252,8 @@ public class FoodOrderService {
     }
 
     @Transactional
-    public Map<String, Object> createGroupOrder(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> createGroupOrder(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         String joinCode = UUID.randomUUID().toString().substring(0, 8);
 
         FoodGroupOrder groupOrder = FoodGroupOrder.builder()
@@ -298,7 +300,7 @@ public class FoodOrderService {
     }
 
     @Transactional
-    public Map<String, Object> joinGroupOrder(String joinCode, AppUser user) {
+    public Map<String, Object> joinGroupOrder(Long communityId, String joinCode, AppUser user) {
         FoodGroupOrder groupOrder = groupOrderRepo.findByJoinCode(joinCode)
                 .orElseThrow(() -> new ResourceNotFoundException("GroupOrder", "joinCode", joinCode));
 
@@ -322,7 +324,7 @@ public class FoodOrderService {
     }
 
     @Transactional
-    public Map<String, Object> requestRefund(Long orderId, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> requestRefund(Long communityId, Long userId, Long orderId, Map<String, Object> request) {
         FoodOrder order = orderRepo.findByIdAndCommunityId(orderId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 

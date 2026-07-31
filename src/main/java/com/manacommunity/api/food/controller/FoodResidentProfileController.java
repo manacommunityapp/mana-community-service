@@ -36,7 +36,7 @@ public class FoodResidentProfileController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(profileService.updateProfile(communityId, user.getId(), request));
+        return ResponseEntity.ok(profileService.updateProfile(communityId, request, user));
     }
 
     @GetMapping("/allergies")

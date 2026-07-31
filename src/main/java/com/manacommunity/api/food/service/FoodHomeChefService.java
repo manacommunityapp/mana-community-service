@@ -32,7 +32,7 @@ public class FoodHomeChefService {
     private final FoodHomeChefPayoutRepository payoutRepo;
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getHomeChefs(Long communityId, String status, String search, Pageable pageable) {
+    public Page<Map<String, Object>> list(Long communityId, String status, String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return chefRepo.searchByCommunity(communityId, search, pageable)
                     .map(this::toResponse);
@@ -47,21 +47,22 @@ public class FoodHomeChefService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getHomeChefById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodHomeChef chef = chefRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("HomeChef", id));
         return toResponse(chef);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getMyProfile(Long userId, Long communityId) {
+    public Map<String, Object> getMyProfile(Long communityId, Long userId) {
         FoodHomeChef chef = chefRepo.findByUserIdAndCommunityId(userId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("HomeChef", "userId", userId.toString()));
         return toResponse(chef);
     }
 
     @Transactional
-    public Map<String, Object> registerHomeChef(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> register(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodHomeChef chef = FoodHomeChef.builder()
                 .user(user)
                 .kitchenName((String) request.get("kitchenName"))
@@ -86,7 +87,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional
-    public Map<String, Object> updateHomeChef(Long id, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> update(Long communityId, Long id, Map<String, Object> request) {
         FoodHomeChef chef = chefRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("HomeChef", id));
 
@@ -129,7 +130,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMenu(Long chefId, Pageable pageable) {
+    public Page<Map<String, Object>> getMenu(Long communityId, Long chefId, Pageable pageable) {
         return menuRepo.findByChefId(chefId, pageable).map(m -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", m.getId());
@@ -156,7 +157,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional
-    public Map<String, Object> addMenuItem(Long chefId, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> addMenuItem(Long communityId, Long chefId, Map<String, Object> request) {
         FoodHomeChef chef = chefRepo.findByIdAndCommunityId(chefId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("HomeChef", chefId));
 
@@ -221,7 +222,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional
-    public Map<String, Object> updateMenuItem(Long menuId, Map<String, Object> request) {
+    public Map<String, Object> updateMenuItem(Long communityId, Long menuId, Map<String, Object> request) {
         FoodHomeChefMenu menu = menuRepo.findById(menuId)
                 .orElseThrow(() -> new ResourceNotFoundException("HomeChefMenu", menuId));
 
@@ -294,7 +295,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getReviews(Long chefId, Pageable pageable) {
+    public Page<Map<String, Object>> getReviews(Long communityId, Long chefId, Pageable pageable) {
         return reviewRepo.findByChefId(chefId, pageable).map(r -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", r.getId());
@@ -315,7 +316,7 @@ public class FoodHomeChefService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getPayouts(Long chefId, Pageable pageable) {
+    public Page<Map<String, Object>> getPayouts(Long communityId, Long chefId, Pageable pageable) {
         return payoutRepo.findByChefId(chefId, pageable).map(p -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", p.getId());

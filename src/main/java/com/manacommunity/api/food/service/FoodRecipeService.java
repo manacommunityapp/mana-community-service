@@ -30,7 +30,7 @@ public class FoodRecipeService {
     private final FoodRecipeRatingRepository ratingRepo;
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getRecipes(Long communityId, String search, Pageable pageable) {
+    public Page<Map<String, Object>> list(Long communityId, String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return recipeRepo.searchByCommunity(communityId, search, pageable).map(this::toResponse);
         }
@@ -38,7 +38,7 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public Map<String, Object> getRecipeById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodRecipe recipe = recipeRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", id));
         recipe.setViewCount(recipe.getViewCount() != null ? recipe.getViewCount() + 1 : 1);
@@ -61,12 +61,13 @@ public class FoodRecipeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyRecipes(Long userId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyRecipes(Long communityId, Long userId, Pageable pageable) {
         return recipeRepo.findByAuthorId(userId, pageable).map(this::toResponse);
     }
 
     @Transactional
-    public Map<String, Object> createRecipe(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         String title = (String) request.get("title");
         String slug = title.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
 
@@ -111,7 +112,7 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public Map<String, Object> updateRecipe(Long id, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> update(Long communityId, Long id, Map<String, Object> request) {
         FoodRecipe recipe = recipeRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", id));
 
@@ -153,14 +154,15 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public void deleteRecipe(Long id, Long communityId) {
+    public void delete(Long communityId, Long id) {
         FoodRecipe recipe = recipeRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", id));
         recipeRepo.delete(recipe);
     }
 
     @Transactional
-    public Map<String, Object> rateRecipe(Long recipeId, int rating, AppUser user) {
+    public Map<String, Object> rate(Long communityId, Long recipeId, Map<String, Object> request, AppUser user) {
+        int rating = Integer.parseInt(request.get("rating").toString());
         FoodRecipe recipe = recipeRepo.findById(recipeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", recipeId));
 
@@ -189,7 +191,7 @@ public class FoodRecipeService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCollections(Long userId, Long communityId) {
+    public List<Map<String, Object>> getCollections(Long communityId, Long userId) {
         return collectionRepo.findByUserIdAndCommunityId(userId, communityId)
                 .stream().map(c -> {
                     Map<String, Object> map = new HashMap<>();
@@ -207,7 +209,10 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public Map<String, Object> createCollection(String name, String description, AppUser user, Community community) {
+    public Map<String, Object> createCollection(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
+        String name = (String) request.get("name");
+        String description = (String) request.get("description");
         FoodRecipeCollection collection = FoodRecipeCollection.builder()
                 .name(name)
                 .description(description)
@@ -230,7 +235,8 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public Map<String, Object> addToCollection(Long collectionId, Long recipeId) {
+    public Map<String, Object> addToCollection(Long communityId, Long collectionId, Map<String, Object> request) {
+        Long recipeId = Long.valueOf(request.get("recipeId").toString());
         FoodRecipeCollection collection = collectionRepo.findById(collectionId)
                 .orElseThrow(() -> new ResourceNotFoundException("RecipeCollection", collectionId));
         FoodRecipe recipe = recipeRepo.findById(recipeId)
@@ -251,7 +257,7 @@ public class FoodRecipeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getComments(Long recipeId, Pageable pageable) {
+    public Page<Map<String, Object>> getComments(Long communityId, Long recipeId, Pageable pageable) {
         return commentRepo.findByRecipeId(recipeId, pageable)
                 .map(c -> {
                     Map<String, Object> map = new HashMap<>();
@@ -268,7 +274,9 @@ public class FoodRecipeService {
     }
 
     @Transactional
-    public Map<String, Object> addComment(Long recipeId, String commentText, Long parentId, AppUser user) {
+    public Map<String, Object> addComment(Long communityId, Long recipeId, Map<String, Object> request, AppUser user) {
+        String commentText = (String) request.get("commentText");
+        Long parentId = request.get("parentId") != null ? Long.valueOf(request.get("parentId").toString()) : null;
         FoodRecipe recipe = recipeRepo.findById(recipeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", recipeId));
 

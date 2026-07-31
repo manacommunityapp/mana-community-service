@@ -32,13 +32,14 @@ public class FoodPantryService {
     private final FoodPantryShoppingListRepository shoppingListRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getItems(Long userId, Long communityId) {
+    public List<Map<String, Object>> getItems(Long communityId, Long userId) {
         List<FoodPantryItem> items = pantryItemRepo.findByUserIdAndCommunityId(userId, communityId);
         return items.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> addItem(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> addItem(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodPantryItem item = FoodPantryItem.builder()
                 .user(user)
                 .itemName((String) request.get("itemName"))
@@ -68,7 +69,7 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> updateItem(Long id, Map<String, Object> request) {
+    public Map<String, Object> updateItem(Long communityId, Long id, Map<String, Object> request) {
         FoodPantryItem item = pantryItemRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PantryItem", id));
 
@@ -108,7 +109,7 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> consumeItem(Long id, BigDecimal quantityUsed, String usedFor, AppUser user) {
+    public Map<String, Object> consume(Long communityId, Long id, BigDecimal quantityUsed, String usedFor, AppUser user) {
         FoodPantryItem item = pantryItemRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PantryItem", id));
 
@@ -131,7 +132,7 @@ public class FoodPantryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getExpiringItems(Long userId, int daysAhead) {
+    public List<Map<String, Object>> getExpiring(Long communityId, Long userId, int daysAhead) {
         LocalDate expiryThreshold = LocalDate.now().plusDays(daysAhead);
         List<FoodPantryItem> items = pantryItemRepo.findByUserIdAndExpiryDateBefore(userId, expiryThreshold);
         return items.stream()
@@ -141,7 +142,7 @@ public class FoodPantryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getShoppingLists(Long userId, Long communityId) {
+    public List<Map<String, Object>> getLists(Long communityId, Long userId) {
         List<FoodPantryShoppingList> lists = shoppingListRepo.findByUserIdAndCommunityId(userId, communityId);
         return lists.stream().map(sl -> {
             Map<String, Object> map = new HashMap<>();
@@ -157,7 +158,8 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> createShoppingList(String name, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, String name, AppUser user) {
+        Community community = user.getCommunity();
         FoodPantryShoppingList list = FoodPantryShoppingList.builder()
                 .name(name)
                 .user(user)
@@ -179,7 +181,7 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> addShoppingListItem(Long listId, Map<String, Object> request) {
+    public Map<String, Object> addItem(Long communityId, Long listId, Map<String, Object> request) {
         // TODO: Implement when FoodPantryShoppingListItemRepository is available
         FoodPantryShoppingList list = shoppingListRepo.findById(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("ShoppingList", listId));
@@ -196,7 +198,7 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> markPurchased(Long listItemId, BigDecimal purchasedPrice) {
+    public Map<String, Object> markPurchased(Long communityId, Long listItemId, BigDecimal purchasedPrice) {
         // TODO: Implement when FoodPantryShoppingListItemRepository is available
         Map<String, Object> map = new HashMap<>();
         map.put("id", listItemId);
@@ -206,7 +208,7 @@ public class FoodPantryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAlerts(Long userId, Long communityId) {
+    public List<Map<String, Object>> getAlerts(Long communityId, Long userId) {
         List<FoodPantryAlert> alerts = pantryAlertRepo.findByUserIdAndCommunityId(userId, communityId);
         return alerts.stream().map(a -> {
             Map<String, Object> map = new HashMap<>();
@@ -223,7 +225,7 @@ public class FoodPantryService {
     }
 
     @Transactional
-    public Map<String, Object> markAlertRead(Long alertId) {
+    public Map<String, Object> markRead(Long communityId, Long alertId) {
         FoodPantryAlert alert = pantryAlertRepo.findById(alertId)
                 .orElseThrow(() -> new ResourceNotFoundException("PantryAlert", alertId));
         alert.setIsRead(true);

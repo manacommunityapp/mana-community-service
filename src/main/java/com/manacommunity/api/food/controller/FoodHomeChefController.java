@@ -65,7 +65,7 @@ public class FoodHomeChefController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(homeChefService.register(communityId, user.getId(), request));
+                .body(homeChefService.register(communityId, request, user));
     }
 
     @PutMapping("/{id}")

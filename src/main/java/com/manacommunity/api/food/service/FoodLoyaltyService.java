@@ -36,14 +36,15 @@ public class FoodLoyaltyService {
     private final FoodLoyaltyCouponRepository couponRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getPrograms(Long communityId) {
+    public List<Map<String, Object>> list(Long communityId) {
         List<FoodLoyaltyProgram> programs = programRepo.findByCommunityIdAndStatus(communityId,
                 FoodLoyaltyProgram.ProgramStatus.ACTIVE.name());
         return programs.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> enrollMember(Long programId, AppUser user, Community community) {
+    public Map<String, Object> enroll(Long communityId, Long programId, AppUser user) {
+        Community community = user.getCommunity();
         FoodLoyaltyProgram program = programRepo.findById(programId)
                 .orElseThrow(() -> new ResourceNotFoundException("LoyaltyProgram", programId));
 
@@ -74,7 +75,7 @@ public class FoodLoyaltyService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMemberInfo(Long userId, Long communityId) {
+    public List<Map<String, Object>> getMemberInfo(Long communityId, Long userId) {
         List<FoodLoyaltyMember> members = memberRepo.findByUserIdAndCommunityId(userId, communityId);
         return members.stream().map(m -> {
             Map<String, Object> map = new HashMap<>();
@@ -94,7 +95,7 @@ public class FoodLoyaltyService {
     }
 
     @Transactional
-    public Map<String, Object> earnPoints(Long userId, Integer points, String referenceType, Long referenceId, Long communityId) {
+    public Map<String, Object> earnPoints(Long communityId, Long userId, Integer points, String referenceType, Long referenceId) {
         List<FoodLoyaltyMember> members = memberRepo.findByUserIdAndCommunityId(userId, communityId);
         if (members.isEmpty()) {
             throw new ResourceNotFoundException("LoyaltyMember", "userId", userId.toString());
@@ -127,7 +128,7 @@ public class FoodLoyaltyService {
     }
 
     @Transactional
-    public Map<String, Object> redeemPoints(Long userId, Integer points, Long communityId) {
+    public Map<String, Object> redeemPoints(Long communityId, Long userId, Integer points) {
         List<FoodLoyaltyMember> members = memberRepo.findByUserIdAndCommunityId(userId, communityId);
         if (members.isEmpty()) {
             throw new ResourceNotFoundException("LoyaltyMember", "userId", userId.toString());
@@ -171,7 +172,7 @@ public class FoodLoyaltyService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> validateCoupon(String code, BigDecimal orderAmount) {
+    public Map<String, Object> validateCoupon(Long communityId, String code, BigDecimal orderAmount) {
         Map<String, Object> result = new HashMap<>();
         var couponOpt = couponRepo.findByCodeAndActive(code, true);
 
@@ -225,7 +226,7 @@ public class FoodLoyaltyService {
     }
 
     @Transactional
-    public Map<String, Object> applyCoupon(String code, Long orderId, Long userId, BigDecimal discountAmount) {
+    public Map<String, Object> applyCoupon(Long communityId, String code, Long orderId, BigDecimal discountAmount, AppUser user) {
         var couponOpt = couponRepo.findByCodeAndActive(code, true);
         if (couponOpt.isEmpty()) {
             throw new ResourceNotFoundException("Coupon", "code", code);
@@ -241,21 +242,22 @@ public class FoodLoyaltyService {
         map.put("couponId", coupon.getId());
         map.put("code", coupon.getCode());
         map.put("orderId", orderId);
-        map.put("userId", userId);
+        map.put("userId", user.getId());
         map.put("discountApplied", discountAmount);
         map.put("appliedAt", LocalDateTime.now());
         return map;
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getGiftCards(Long userId) {
+    public List<Map<String, Object>> getGiftCards(Long communityId, Long userId) {
         // TODO: Implement when FoodLoyaltyGiftCardRepository is available
         return Collections.emptyList();
     }
 
     @Transactional
-    public Map<String, Object> purchaseGiftCard(BigDecimal amount, Long giftedToUserId, LocalDate validUntil,
-                                                 AppUser user, Community community) {
+    public Map<String, Object> purchase(Long communityId, BigDecimal amount, Long giftedToUserId, LocalDate validUntil,
+                                                 AppUser user) {
+        Community community = user.getCommunity();
         // TODO: Implement when FoodLoyaltyGiftCardRepository is available
         Map<String, Object> map = new HashMap<>();
         map.put("purchasedById", user.getId());

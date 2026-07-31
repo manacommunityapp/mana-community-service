@@ -38,7 +38,7 @@ public class FoodLoyaltyController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         Long programId = Long.valueOf(request.get("programId").toString());
-        return ResponseEntity.ok(loyaltyService.enroll(communityId, user.getId(), programId));
+        return ResponseEntity.ok(loyaltyService.enroll(communityId, programId, user));
     }
 
     @GetMapping("/my-info")
@@ -92,7 +92,7 @@ public class FoodLoyaltyController {
         String code = (String) request.get("code");
         Long orderId = Long.valueOf(request.get("orderId").toString());
         BigDecimal discountAmount = new BigDecimal(request.get("discountAmount").toString());
-        return ResponseEntity.ok(loyaltyService.applyCoupon(communityId, code, orderId, discountAmount));
+        return ResponseEntity.ok(loyaltyService.applyCoupon(communityId, code, orderId, discountAmount, user));
     }
 
     @GetMapping("/gift-cards")
@@ -113,6 +113,6 @@ public class FoodLoyaltyController {
         Long giftedToUserId = Long.valueOf(request.get("giftedToUserId").toString());
         LocalDate validUntil = LocalDate.parse(request.get("validUntil").toString());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(loyaltyService.purchase(communityId, user.getId(), amount, giftedToUserId, validUntil));
+                .body(loyaltyService.purchase(communityId, amount, giftedToUserId, validUntil, user));
     }
 }

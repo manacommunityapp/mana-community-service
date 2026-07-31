@@ -59,7 +59,7 @@ public class FoodGroceryController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(groceryService.createStore(communityId, request));
+                .body(groceryService.createStore(communityId, request, user));
     }
 
     @PutMapping("/stores/{id}")
@@ -138,7 +138,7 @@ public class FoodGroceryController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(groceryService.placeOrder(communityId, request));
+                .body(groceryService.placeOrder(communityId, request, user));
     }
 
     @GetMapping("/orders")

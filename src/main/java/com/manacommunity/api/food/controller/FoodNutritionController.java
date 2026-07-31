@@ -55,7 +55,7 @@ public class FoodNutritionController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(nutritionService.register(communityId, request));
+                .body(nutritionService.register(communityId, request, user));
     }
 
     @PostMapping("/consultations")
@@ -65,7 +65,7 @@ public class FoodNutritionController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(nutritionService.book(communityId, request));
+        return ResponseEntity.ok(nutritionService.book(communityId, request, user));
     }
 
     @GetMapping("/consultations")
@@ -88,7 +88,7 @@ public class FoodNutritionController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(nutritionService.create(communityId, request));
+                .body(nutritionService.create(communityId, request, user));
     }
 
     @GetMapping("/meal-plans")
