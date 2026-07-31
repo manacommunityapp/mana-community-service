@@ -20,13 +20,13 @@ public class VmsVendorCategoryService {
 
     @Transactional(readOnly = true)
     public List<VendorCategoryResponse> getCategories(Long communityId) {
-        List<VmsVendorCategory> roots = categoryRepo.findByCommunityIdAndParentIdIsNullAndIsActiveTrue(communityId);
+        List<VmsVendorCategory> roots = categoryRepo.findByCommunityIdAndParentIdIsNullAndActiveTrue(communityId);
         return roots.stream().map(this::toResponseWithChildren).toList();
     }
 
     @Transactional(readOnly = true)
     public List<VendorCategoryResponse> getAllCategories(Long communityId) {
-        return categoryRepo.findByCommunityIdAndIsActiveTrue(communityId)
+        return categoryRepo.findByCommunityIdAndActiveTrue(communityId)
                 .stream().map(this::toResponse).toList();
     }
 
@@ -62,7 +62,7 @@ public class VmsVendorCategoryService {
     public void delete(Long id) {
         VmsVendorCategory category = categoryRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
-        category.setIsActive(false);
+        category.setActive(false);
         categoryRepo.save(category);
     }
 
@@ -74,12 +74,12 @@ public class VmsVendorCategoryService {
                 .icon(c.getIcon())
                 .parentId(c.getParent() != null ? c.getParent().getId() : null)
                 .sortOrder(c.getSortOrder())
-                .isActive(c.getIsActive())
+                .isActive(c.getActive())
                 .build();
     }
 
     private VendorCategoryResponse toResponseWithChildren(VmsVendorCategory c) {
-        List<VmsVendorCategory> children = categoryRepo.findByParentIdAndIsActiveTrue(c.getId());
+        List<VmsVendorCategory> children = categoryRepo.findByParentIdAndActiveTrue(c.getId());
         return VendorCategoryResponse.builder()
                 .id(c.getId())
                 .name(c.getName())
@@ -87,7 +87,7 @@ public class VmsVendorCategoryService {
                 .icon(c.getIcon())
                 .parentId(c.getParent() != null ? c.getParent().getId() : null)
                 .sortOrder(c.getSortOrder())
-                .isActive(c.getIsActive())
+                .isActive(c.getActive())
                 .children(children.stream().map(this::toResponse).toList())
                 .build();
     }

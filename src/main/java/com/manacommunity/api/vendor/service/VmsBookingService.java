@@ -47,10 +47,10 @@ public class VmsBookingService {
     @Transactional(readOnly = true)
     public Page<BookingResponse> getUserBookings(Long userId, String status, Pageable pageable) {
         if (status != null && !status.isBlank()) {
-            return bookingRepo.findByUserIdAndStatus(userId, VmsBooking.BookingStatus.valueOf(status), pageable)
+            return bookingRepo.findByResidentIdAndStatus(userId, VmsBooking.BookingStatus.valueOf(status), pageable)
                     .map(this::toResponse);
         }
-        return bookingRepo.findByUserId(userId, pageable).map(this::toResponse);
+        return bookingRepo.findByResidentId(userId, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -71,15 +71,13 @@ public class VmsBookingService {
         VmsBooking booking = VmsBooking.builder()
                 .bookingNumber(bookingNumber)
                 .vendor(vendor)
-                .service(service)
-                .user(user)
+                .resident(user)
                 .bookingType(req.getBookingType() != null ? VmsBooking.BookingType.valueOf(req.getBookingType()) : VmsBooking.BookingType.STANDARD)
                 .scheduledDate(req.getScheduledDate())
                 .scheduledTime(req.getScheduledTime())
                 .address(req.getAddress())
-                .notes(req.getNotes())
+                .specialInstructions(req.getNotes())
                 .totalAmount(service.getBasePrice())
-                .netAmount(service.getBasePrice())
                 .paymentMethod(req.getPaymentMethod())
                 .community(community)
                 .build();
@@ -100,31 +98,27 @@ public class VmsBookingService {
 
     private BookingResponse toResponse(VmsBooking b) {
         VmsVendor v = b.getVendor();
-        VmsVendorService s = b.getService();
-        AppUser u = b.getUser();
+        AppUser u = b.getResident();
         return BookingResponse.builder()
                 .id(b.getId())
                 .bookingNumber(b.getBookingNumber())
                 .vendor(BookingResponse.VendorRef.builder()
                         .id(v.getId()).businessName(v.getBusinessName())
-                        .logoUrl(v.getLogoUrl()).phone(v.getPhone()).build())
-                .service(BookingResponse.ServiceRef.builder()
-                        .id(s.getId()).name(s.getName()).basePrice(s.getBasePrice()).build())
+                        .logoUrl(v.getLogoUrl()).phone(v.getUser() != null ? v.getUser().getPhone() : null).build())
                 .user(BookingResponse.UserRef.builder()
                         .id(u.getId()).fullName(u.getFullName()).phone(u.getPhone()).build())
                 .bookingType(b.getBookingType() != null ? b.getBookingType().name() : null)
                 .status(b.getStatus().name())
                 .scheduledDate(b.getScheduledDate())
                 .scheduledTime(b.getScheduledTime())
-                .scheduledEndTime(b.getScheduledEndTime())
                 .totalAmount(b.getTotalAmount())
                 .taxAmount(b.getTaxAmount())
                 .discountAmount(b.getDiscountAmount())
-                .netAmount(b.getNetAmount())
+                .netAmount(b.getTotalAmount())
                 .paymentStatus(b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null)
                 .paymentMethod(b.getPaymentMethod())
                 .address(b.getAddress())
-                .notes(b.getNotes())
+                .notes(b.getSpecialInstructions())
                 .cancellationReason(b.getCancellationReason())
                 .communityId(b.getCommunity() != null ? b.getCommunity().getId() : null)
                 .createdAt(b.getCreatedAt())

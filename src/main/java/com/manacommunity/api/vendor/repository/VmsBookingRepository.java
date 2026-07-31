@@ -21,9 +21,9 @@ public interface VmsBookingRepository extends JpaRepository<VmsBooking, Long> {
 
     Page<VmsBooking> findByVendorId(Long vendorId, Pageable pageable);
 
-    Page<VmsBooking> findByUserId(Long userId, Pageable pageable);
+    Page<VmsBooking> findByResidentId(Long residentId, Pageable pageable);
 
-    Page<VmsBooking> findByUserIdAndStatus(Long userId, VmsBooking.BookingStatus status, Pageable pageable);
+    Page<VmsBooking> findByResidentIdAndStatus(Long residentId, VmsBooking.BookingStatus status, Pageable pageable);
 
     Optional<VmsBooking> findByIdAndCommunityId(Long id, Long communityId);
 

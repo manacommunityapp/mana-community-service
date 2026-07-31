@@ -62,7 +62,7 @@ public class VmsWorkOrderService {
                 .location(req.getLocation())
                 .scheduledDate(req.getScheduledDate())
                 .estimatedCost(req.getEstimatedCost())
-                .createdBy(createdBy)
+                .createdByUser(createdBy)
                 .community(community)
                 .build();
 
@@ -110,10 +110,9 @@ public class VmsWorkOrderService {
                         .build() : null)
                 .location(wo.getLocation())
                 .scheduledDate(wo.getScheduledDate())
-                .completedDate(wo.getCompletedDate())
+                .completedDate(wo.getCompletedAt() != null ? wo.getCompletedAt().toLocalDate() : null)
                 .estimatedCost(wo.getEstimatedCost())
                 .actualCost(wo.getActualCost())
-                .completionNotes(wo.getCompletionNotes())
                 .communityId(wo.getCommunity() != null ? wo.getCommunity().getId() : null)
                 .createdAt(wo.getCreatedAt())
                 .updatedAt(wo.getUpdatedAt())

@@ -65,10 +65,9 @@ public class VmsServiceCatalogService {
                 .basePrice(req.getBasePrice())
                 .priceUnit(req.getPriceUnit())
                 .durationMinutes(req.getDurationMinutes())
-                .taxPercent(req.getTaxPercent())
-                .isAvailable(req.getIsAvailable() != null ? req.getIsAvailable() : true)
-                .maxBookingsPerDay(req.getMaxBookingsPerDay())
-                .community(community)
+                .gstPercent(req.getTaxPercent())
+                .status(req.getIsAvailable() != null && !req.getIsAvailable()
+                        ? VmsVendorService.ServiceStatus.INACTIVE : VmsVendorService.ServiceStatus.ACTIVE)
                 .build();
 
         return toResponse(serviceRepo.save(svc));
@@ -83,9 +82,10 @@ public class VmsServiceCatalogService {
         svc.setBasePrice(req.getBasePrice());
         svc.setPriceUnit(req.getPriceUnit());
         svc.setDurationMinutes(req.getDurationMinutes());
-        svc.setTaxPercent(req.getTaxPercent());
-        if (req.getIsAvailable() != null) svc.setIsAvailable(req.getIsAvailable());
-        if (req.getMaxBookingsPerDay() != null) svc.setMaxBookingsPerDay(req.getMaxBookingsPerDay());
+        svc.setGstPercent(req.getTaxPercent());
+        if (req.getIsAvailable() != null) {
+            svc.setStatus(req.getIsAvailable() ? VmsVendorService.ServiceStatus.ACTIVE : VmsVendorService.ServiceStatus.INACTIVE);
+        }
         return toResponse(serviceRepo.save(svc));
     }
 
@@ -108,15 +108,14 @@ public class VmsServiceCatalogService {
                 .basePrice(s.getBasePrice())
                 .priceUnit(s.getPriceUnit())
                 .durationMinutes(s.getDurationMinutes())
-                .taxPercent(s.getTaxPercent())
+                .taxPercent(s.getGstPercent())
                 .status(s.getStatus() != null ? s.getStatus().name() : null)
-                .isAvailable(s.getIsAvailable())
-                .maxBookingsPerDay(s.getMaxBookingsPerDay())
+                .isAvailable(s.getStatus() == VmsVendorService.ServiceStatus.ACTIVE)
                 .vendor(VendorServiceResponse.VendorRef.builder()
                         .id(v.getId())
                         .businessName(v.getBusinessName())
                         .logoUrl(v.getLogoUrl())
-                        .avgRating(v.getAvgRating())
+                        .avgRating(v.getAverageRating())
                         .build())
                 .createdAt(s.getCreatedAt())
                 .build();

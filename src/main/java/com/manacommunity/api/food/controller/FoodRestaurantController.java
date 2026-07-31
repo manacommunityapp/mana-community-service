@@ -65,7 +65,7 @@ public class FoodRestaurantController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(restaurantService.create(communityId, user.getId(), request));
+                .body(restaurantService.create(communityId, request, user));
     }
 
     @PutMapping("/{id}")
@@ -92,7 +92,7 @@ public class FoodRestaurantController {
 
     @GetMapping("/featured")
     @PreAuthorize("hasAuthority('View Food Restaurants')")
-    public ResponseEntity<Map<String, Object>> getFeatured(
+    public ResponseEntity<?> getFeatured(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();

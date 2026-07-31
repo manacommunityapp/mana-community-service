@@ -57,7 +57,7 @@ public class VmsRatingService {
     private void updateVendorRatingStats(VmsVendor vendor) {
         BigDecimal avgRating = ratingRepo.findAverageRatingByVendorId(vendor.getId());
         long totalRatings = ratingRepo.countByVendorIdAndStatus(vendor.getId(), "PUBLISHED");
-        vendor.setAvgRating(avgRating != null ? avgRating : BigDecimal.ZERO);
+        vendor.setAverageRating(avgRating != null ? avgRating : BigDecimal.ZERO);
         vendor.setTotalRatings((int) totalRatings);
         vendorRepo.save(vendor);
     }

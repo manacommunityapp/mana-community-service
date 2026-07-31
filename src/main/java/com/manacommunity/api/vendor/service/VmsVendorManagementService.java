@@ -49,7 +49,7 @@ public class VmsVendorManagementService {
     @Transactional(readOnly = true)
     public VendorResponse getMyVendorProfile(Long userId, Long communityId) {
         VmsVendor vendor = vendorRepo.findByUserIdAndCommunityId(userId, communityId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", "userId", userId.toString()));
         return toFullResponse(vendor);
     }
 
@@ -60,24 +60,14 @@ public class VmsVendorManagementService {
 
         VmsVendor vendor = VmsVendor.builder()
                 .businessName(req.getBusinessName())
-                .tradeName(req.getTradeName())
                 .category(category)
                 .businessType(req.getBusinessType() != null ? VmsVendor.BusinessType.valueOf(req.getBusinessType()) : VmsVendor.BusinessType.INDIVIDUAL)
                 .description(req.getDescription())
-                .email(req.getEmail())
-                .phone(req.getPhone())
-                .alternatePhone(req.getAlternatePhone())
                 .website(req.getWebsite())
-                .address(req.getAddress())
-                .city(req.getCity())
-                .state(req.getState())
-                .pincode(req.getPincode())
-                .latitude(req.getLatitude())
-                .longitude(req.getLongitude())
                 .gstNumber(req.getGstNumber())
-                .panNumber(req.getPanNumber())
+                .pan(req.getPanNumber())
                 .logoUrl(req.getLogoUrl())
-                .bannerUrl(req.getBannerUrl())
+                .coverImageUrl(req.getBannerUrl())
                 .commissionRate(req.getCommissionRate())
                 .user(user)
                 .community(community)
@@ -93,9 +83,8 @@ public class VmsVendorManagementService {
                         .designation(o.getDesignation())
                         .email(o.getEmail())
                         .phone(o.getPhone())
-                        .aadhaarNumber(o.getAadhaarNumber())
-                        .panNumber(o.getPanNumber())
-                        .ownershipPercent(o.getOwnershipPercent())
+                        .aadhaar(o.getAadhaarNumber())
+                        .pan(o.getPanNumber())
                         .build());
             }
         }
@@ -109,22 +98,12 @@ public class VmsVendorManagementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor", id));
 
         vendor.setBusinessName(req.getBusinessName());
-        vendor.setTradeName(req.getTradeName());
         vendor.setDescription(req.getDescription());
-        vendor.setEmail(req.getEmail());
-        vendor.setPhone(req.getPhone());
-        vendor.setAlternatePhone(req.getAlternatePhone());
         vendor.setWebsite(req.getWebsite());
-        vendor.setAddress(req.getAddress());
-        vendor.setCity(req.getCity());
-        vendor.setState(req.getState());
-        vendor.setPincode(req.getPincode());
-        vendor.setLatitude(req.getLatitude());
-        vendor.setLongitude(req.getLongitude());
         vendor.setGstNumber(req.getGstNumber());
-        vendor.setPanNumber(req.getPanNumber());
+        vendor.setPan(req.getPanNumber());
         vendor.setLogoUrl(req.getLogoUrl());
-        vendor.setBannerUrl(req.getBannerUrl());
+        vendor.setCoverImageUrl(req.getBannerUrl());
         if (req.getCommissionRate() != null) vendor.setCommissionRate(req.getCommissionRate());
         if (req.getCategoryId() != null) {
             VmsVendorCategory category = categoryRepo.findById(req.getCategoryId())
@@ -147,7 +126,6 @@ public class VmsVendorManagementService {
         return VendorResponse.builder()
                 .id(v.getId())
                 .businessName(v.getBusinessName())
-                .tradeName(v.getTradeName())
                 .category(VendorResponse.CategoryRef.builder()
                         .id(v.getCategory().getId())
                         .name(v.getCategory().getName())
@@ -156,12 +134,12 @@ public class VmsVendorManagementService {
                 .businessType(v.getBusinessType() != null ? v.getBusinessType().name() : null)
                 .status(v.getStatus().name())
                 .description(v.getDescription())
-                .email(v.getEmail())
-                .phone(v.getPhone())
+                .email(v.getUser() != null ? v.getUser().getEmail() : null)
+                .phone(v.getUser() != null ? v.getUser().getPhone() : null)
                 .logoUrl(v.getLogoUrl())
-                .avgRating(v.getAvgRating())
+                .avgRating(v.getAverageRating())
                 .totalRatings(v.getTotalRatings())
-                .isVerified(v.getIsVerified())
+                .isVerified(v.getVerified())
                 .communityId(v.getCommunity() != null ? v.getCommunity().getId() : null)
                 .createdAt(v.getCreatedAt())
                 .updatedAt(v.getUpdatedAt())
@@ -170,20 +148,13 @@ public class VmsVendorManagementService {
 
     private VendorResponse toFullResponse(VmsVendor v) {
         List<VmsVendorOwner> owners = ownerRepo.findByVendorId(v.getId());
-        List<VmsVendorBranch> branches = branchRepo.findByVendorIdAndIsActiveTrue(v.getId());
+        List<VmsVendorBranch> branches = branchRepo.findByVendorIdAndActiveTrue(v.getId());
 
         VendorResponse resp = toResponse(v);
-        resp.setAlternatePhone(v.getAlternatePhone());
         resp.setWebsite(v.getWebsite());
-        resp.setAddress(v.getAddress());
-        resp.setCity(v.getCity());
-        resp.setState(v.getState());
-        resp.setPincode(v.getPincode());
-        resp.setLatitude(v.getLatitude());
-        resp.setLongitude(v.getLongitude());
         resp.setGstNumber(v.getGstNumber());
-        resp.setPanNumber(v.getPanNumber());
-        resp.setBannerUrl(v.getBannerUrl());
+        resp.setPanNumber(v.getPan());
+        resp.setBannerUrl(v.getCoverImageUrl());
         resp.setCommissionRate(v.getCommissionRate());
 
         resp.setOwners(owners.stream().map(o -> VendorOwnerResponse.builder()
@@ -192,7 +163,6 @@ public class VmsVendorManagementService {
                 .designation(o.getDesignation())
                 .email(o.getEmail())
                 .phone(o.getPhone())
-                .ownershipPercent(o.getOwnershipPercent())
                 .build()).toList());
 
         resp.setBranches(branches.stream().map(b -> VendorBranchResponse.builder()
@@ -206,7 +176,7 @@ public class VmsVendorManagementService {
                 .longitude(b.getLongitude())
                 .phone(b.getPhone())
                 .email(b.getEmail())
-                .isActive(b.getIsActive())
+                .isActive(b.getActive())
                 .build()).toList());
 
         return resp;

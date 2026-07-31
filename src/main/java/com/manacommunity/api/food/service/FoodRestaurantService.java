@@ -24,7 +24,7 @@ public class FoodRestaurantService {
     private final FoodRestaurantRepository restaurantRepo;
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getRestaurants(Long communityId, String status, String search, Pageable pageable) {
+    public Page<Map<String, Object>> list(Long communityId, String status, String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return restaurantRepo.searchByCommunity(communityId, search, pageable)
                     .map(this::toResponse);
@@ -39,14 +39,14 @@ public class FoodRestaurantService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getRestaurantById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodRestaurant restaurant = restaurantRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", id));
         return toResponse(restaurant);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getMyRestaurant(Long userId, Long communityId) {
+    public Map<String, Object> getMyRestaurant(Long communityId, Long userId) {
         List<FoodRestaurant> restaurants = restaurantRepo.findByOwnerIdAndCommunityId(userId, communityId);
         if (restaurants.isEmpty()) {
             throw new ResourceNotFoundException("Restaurant", "ownerId", userId.toString());
@@ -55,7 +55,8 @@ public class FoodRestaurantService {
     }
 
     @Transactional
-    public Map<String, Object> createRestaurant(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         String name = (String) request.get("name");
         String slug = name.toLowerCase().replaceAll("\\s+", "-");
 
@@ -108,7 +109,7 @@ public class FoodRestaurantService {
     }
 
     @Transactional
-    public Map<String, Object> updateRestaurant(Long id, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> update(Long communityId, Long id, Map<String, Object> request) {
         FoodRestaurant restaurant = restaurantRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", id));
 
@@ -176,7 +177,7 @@ public class FoodRestaurantService {
     }
 
     @Transactional
-    public Map<String, Object> updateStatus(Long id, String status, Long communityId) {
+    public Map<String, Object> updateStatus(Long communityId, Long id, String status) {
         FoodRestaurant restaurant = restaurantRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", id));
         restaurant.setStatus(FoodRestaurant.RestaurantStatus.valueOf(status));
@@ -185,7 +186,7 @@ public class FoodRestaurantService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getFeaturedRestaurants(Long communityId) {
+    public List<Map<String, Object>> getFeatured(Long communityId) {
         List<FoodRestaurant> restaurants = restaurantRepo.findByCommunityIdAndFeatured(communityId, true);
         return restaurants.stream().map(this::toResponse).toList();
     }

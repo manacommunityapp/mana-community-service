@@ -25,7 +25,7 @@ public class FoodMenuController {
 
     @GetMapping("/categories")
     @PreAuthorize("hasAuthority('View Food Restaurants')")
-    public ResponseEntity<Map<String, Object>> getCategories(
+    public ResponseEntity<?> getCategories(
             @PathVariable Long restaurantId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -131,7 +131,7 @@ public class FoodMenuController {
 
     @GetMapping("/combos")
     @PreAuthorize("hasAuthority('View Food Restaurants')")
-    public ResponseEntity<Map<String, Object>> getCombos(
+    public ResponseEntity<?> getCombos(
             @PathVariable Long restaurantId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);

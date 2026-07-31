@@ -48,7 +48,7 @@ public class FoodEventController {
                                     @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(eventService.create(communityId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(eventService.create(communityId, request, user));
     }
 
     @PutMapping("/{id}")

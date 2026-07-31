@@ -41,7 +41,7 @@ public class FoodResidentProfileController {
 
     @GetMapping("/allergies")
     @PreAuthorize("hasAuthority('View Food Profile')")
-    public ResponseEntity<Map<String, Object>> getAllergies(
+    public ResponseEntity<?> getAllergies(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
@@ -72,7 +72,7 @@ public class FoodResidentProfileController {
 
     @GetMapping("/favorites")
     @PreAuthorize("hasAuthority('View Food Profile')")
-    public ResponseEntity<Map<String, Object>> getFavorites(
+    public ResponseEntity<?> getFavorites(
             @RequestParam(required = false) String type,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -103,7 +103,7 @@ public class FoodResidentProfileController {
 
     @GetMapping("/goals")
     @PreAuthorize("hasAuthority('View Food Profile')")
-    public ResponseEntity<Map<String, Object>> getGoals(
+    public ResponseEntity<?> getGoals(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();

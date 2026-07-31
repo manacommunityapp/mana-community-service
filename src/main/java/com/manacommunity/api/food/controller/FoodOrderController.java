@@ -117,7 +117,7 @@ public class FoodOrderController {
 
     @GetMapping("/{id}/tracking")
     @PreAuthorize("hasAuthority('View Food Orders')")
-    public ResponseEntity<Map<String, Object>> getTracking(
+    public ResponseEntity<?> getTracking(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);

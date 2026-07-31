@@ -45,18 +45,10 @@ public class VmsRegistrationService {
         VmsVendorRegistration reg = VmsVendorRegistration.builder()
                 .businessName(req.getBusinessName())
                 .category(category)
-                .businessType(req.getBusinessType())
                 .contactName(req.getContactName())
-                .contactEmail(req.getContactEmail())
-                .contactPhone(req.getContactPhone())
-                .description(req.getDescription())
-                .address(req.getAddress())
-                .city(req.getCity())
-                .state(req.getState())
-                .pincode(req.getPincode())
-                .gstNumber(req.getGstNumber())
-                .panNumber(req.getPanNumber())
-                .applicant(user)
+                .email(req.getContactEmail())
+                .phone(req.getContactPhone())
+                .notes(req.getDescription())
                 .community(community)
                 .build();
 
@@ -67,8 +59,7 @@ public class VmsRegistrationService {
     public VendorRegistrationResponse approve(Long id, Long communityId, AppUser reviewer) {
         VmsVendorRegistration reg = registrationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", id));
-        reg.setStatus("APPROVED");
-        reg.setReviewedBy(reviewer);
+        reg.setStatus(VmsVendorRegistration.RegistrationStatus.APPROVED);
         return toResponse(registrationRepo.save(reg));
     }
 
@@ -76,9 +67,8 @@ public class VmsRegistrationService {
     public VendorRegistrationResponse reject(Long id, Long communityId, String reason, AppUser reviewer) {
         VmsVendorRegistration reg = registrationRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", id));
-        reg.setStatus("REJECTED");
-        reg.setRejectionReason(reason);
-        reg.setReviewedBy(reviewer);
+        reg.setStatus(VmsVendorRegistration.RegistrationStatus.REJECTED);
+        reg.setNotes(reason);
         return toResponse(registrationRepo.save(reg));
     }
 
@@ -87,12 +77,11 @@ public class VmsRegistrationService {
                 .id(r.getId())
                 .businessName(r.getBusinessName())
                 .categoryName(r.getCategory() != null ? r.getCategory().getName() : null)
-                .businessType(r.getBusinessType())
                 .contactName(r.getContactName())
-                .contactEmail(r.getContactEmail())
-                .contactPhone(r.getContactPhone())
-                .status(r.getStatus())
-                .rejectionReason(r.getRejectionReason())
+                .contactEmail(r.getEmail())
+                .contactPhone(r.getPhone())
+                .status(r.getStatus() != null ? r.getStatus().name() : null)
+                .rejectionReason(r.getNotes())
                 .communityId(r.getCommunity() != null ? r.getCommunity().getId() : null)
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())

@@ -1081,34 +1081,6 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher email template management patch failed: {}", e.getMessage(), e);
             }
 
-            // Freeform templates composed in the GrapesJS drag-and-drop builder —
-            // separate from the code-keyed email_template table above.
-            try (Connection conn = dataSource.getConnection();
-                 Statement stmt = conn.createStatement()) {
-
-                stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.email_builder_template (
-                            id            BIGSERIAL       PRIMARY KEY,
-                            community_id  BIGINT          NOT NULL REFERENCES manacommunity.community(id),
-                            name          VARCHAR(160)    NOT NULL,
-                            subject       VARCHAR(240)    NOT NULL,
-                            html_content  TEXT            NOT NULL,
-                            css           TEXT,
-                            layout_json   TEXT,
-                            status        VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
-                            version       INTEGER         NOT NULL DEFAULT 1,
-                            created_at    TIMESTAMP       NOT NULL DEFAULT now(),
-                            updated_at    TIMESTAMP       NOT NULL DEFAULT now(),
-                            CONSTRAINT ck_email_builder_template_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
-                        )
-                        """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_builder_template_community ON manacommunity.email_builder_template(community_id)");
-
-                log.info("Email builder template table ensured.");
-            } catch (Exception e) {
-                log.error("SchemaConstraintPatcher email builder template patch failed: {}", e.getMessage(), e);
-            }
-
             // ── VMS (Vendor Management System) tables ─────────────────────────
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {

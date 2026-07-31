@@ -76,7 +76,7 @@ public class FoodSubscriptionController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(subscriptionService.subscribe(communityId, request));
+                .body(subscriptionService.subscribe(communityId, request, user));
     }
 
     @GetMapping("/my")

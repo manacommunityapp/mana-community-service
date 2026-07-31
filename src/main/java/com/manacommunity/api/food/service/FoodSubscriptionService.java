@@ -40,14 +40,14 @@ public class FoodSubscriptionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getPlanById(Long id, Long communityId) {
+    public Map<String, Object> getPlanById(Long communityId, Long id) {
         FoodSubscriptionPlan plan = planRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("SubscriptionPlan", id));
         return toResponse(plan);
     }
 
     @Transactional
-    public Map<String, Object> createPlan(Map<String, Object> request, Long communityId) {
+    public Map<String, Object> createPlan(Long communityId, Map<String, Object> request) {
         Community community = new Community();
         community.setId(communityId);
 
@@ -79,7 +79,7 @@ public class FoodSubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> updatePlan(Long id, Map<String, Object> request) {
+    public Map<String, Object> updatePlan(Long communityId, Long id, Map<String, Object> request) {
         FoodSubscriptionPlan plan = planRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SubscriptionPlan", id));
 
@@ -106,7 +106,8 @@ public class FoodSubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> subscribe(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> subscribe(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         Long planId = Long.valueOf(request.get("planId").toString());
         FoodSubscriptionPlan plan = planRepo.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("SubscriptionPlan", planId));
@@ -131,13 +132,16 @@ public class FoodSubscriptionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMySubscriptions(Long userId, Long communityId) {
+    public List<Map<String, Object>> getMySubscriptions(Long communityId, Long userId) {
         return subscriptionRepo.findByUserIdAndCommunityId(userId, communityId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> pauseSubscription(Long id, LocalDate pauseStart, LocalDate pauseEnd, String reason) {
+    public Map<String, Object> pause(Long communityId, Long id, Map<String, Object> request) {
+        LocalDate pauseStart = request.get("pauseStart") != null ? LocalDate.parse((String) request.get("pauseStart")) : null;
+        LocalDate pauseEnd = request.get("pauseEnd") != null ? LocalDate.parse((String) request.get("pauseEnd")) : null;
+        String reason = (String) request.get("reason");
         FoodSubscription subscription = subscriptionRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription", id));
         subscription.setStatus(FoodSubscription.SubscriptionStatus.PAUSED);
@@ -156,7 +160,7 @@ public class FoodSubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> resumeSubscription(Long id) {
+    public Map<String, Object> resume(Long communityId, Long id) {
         FoodSubscription subscription = subscriptionRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription", id));
         subscription.setStatus(FoodSubscription.SubscriptionStatus.ACTIVE);
@@ -173,7 +177,8 @@ public class FoodSubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> cancelSubscription(Long id, String reason) {
+    public Map<String, Object> cancel(Long communityId, Long id, Map<String, Object> request) {
+        String reason = (String) request.get("reason");
         FoodSubscription subscription = subscriptionRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription", id));
         subscription.setStatus(FoodSubscription.SubscriptionStatus.CANCELLED);
@@ -181,7 +186,7 @@ public class FoodSubscriptionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getDeliveries(Long subscriptionId, Pageable pageable) {
+    public Page<Map<String, Object>> getDeliveries(Long communityId, Long subscriptionId, Pageable pageable) {
         return deliveryRepo.findBySubscriptionId(subscriptionId, pageable)
                 .map(d -> {
                     Map<String, Object> map = new HashMap<>();
