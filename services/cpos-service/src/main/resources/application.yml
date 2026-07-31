@@ -27,18 +27,21 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:cpos_redis_pass}
-      timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 10
-
-  elasticsearch:
-    uris: ${ES_URI:http://localhost:9200}
+  # Unused for now — no Redis/Elasticsearch instance provisioned locally, and
+  # the matching starter dependencies are commented out in pom.xml. Re-enable
+  # together when caching/search are actually wired up.
+  # data:
+  #   redis:
+  #     host: ${REDIS_HOST:localhost}
+  #     port: ${REDIS_PORT:6379}
+  #     password: ${REDIS_PASSWORD:cpos_redis_pass}
+  #     timeout: 2000ms
+  #     lettuce:
+  #       pool:
+  #         max-active: 10
+  #
+  # elasticsearch:
+  #   uris: ${ES_URI:http://localhost:9200}
 
 server:
   port: 8090
@@ -75,8 +78,9 @@ spring:
       on-profile: docker
   datasource:
     url: jdbc:postgresql://postgres:5432/cpos_db
-  data:
-    redis:
-      host: redis
-  elasticsearch:
-    uris: http://elasticsearch:9200
+  # Unused for now — see the commented default-profile block above.
+  # data:
+  #   redis:
+  #     host: redis
+  # elasticsearch:
+  #   uris: http://elasticsearch:9200

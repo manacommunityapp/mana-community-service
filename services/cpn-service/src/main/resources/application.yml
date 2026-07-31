@@ -22,14 +22,17 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
-  elasticsearch:
-    uris: ${ES_URI:http://localhost:9200}
+  # Unused for now — RedisConfig/ElasticsearchConfig are commented out, and
+  # the matching starter dependencies are commented out in pom.xml. Re-enable
+  # together when caching/search are actually wired up.
+  # data:
+  #   redis:
+  #     host: ${REDIS_HOST:localhost}
+  #     port: ${REDIS_PORT:6379}
+  #     password: ${REDIS_PASSWORD:}
+  #     timeout: 2000ms
+  # elasticsearch:
+  #   uris: ${ES_URI:http://localhost:9200}
   mail:
     host: smtp.gmail.com
     port: 587

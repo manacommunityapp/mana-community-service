@@ -37,20 +37,21 @@ public class FoodCommunityKitchenService {
     private final FoodCommunityKitchenTokenRepository tokenRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getKitchens(Long communityId) {
+    public List<Map<String, Object>> list(Long communityId) {
         List<FoodCommunityKitchen> kitchens = kitchenRepo.findByCommunityId(communityId);
         return kitchens.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getKitchenById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodCommunityKitchen kitchen = kitchenRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCommunityKitchen", id));
         return toResponse(kitchen);
     }
 
     @Transactional
-    public Map<String, Object> createKitchen(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodCommunityKitchen kitchen = FoodCommunityKitchen.builder()
                 .name((String) request.get("name"))
                 .kitchenType(FoodCommunityKitchen.CommunityKitchenType.valueOf((String) request.get("kitchenType")))
@@ -69,7 +70,9 @@ public class FoodCommunityKitchenService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMenu(Long kitchenId, LocalDate date) {
+    public List<Map<String, Object>> getMenu(Long communityId, Long kitchenId, LocalDate date) {
+        kitchenRepo.findByIdAndCommunityId(kitchenId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("FoodCommunityKitchen", kitchenId));
         List<FoodCommunityKitchenMenu> menus = menuRepo.findByKitchenIdAndDate(kitchenId, date);
         return menus.stream().map(m -> {
             Map<String, Object> map = new HashMap<>();
@@ -90,7 +93,7 @@ public class FoodCommunityKitchenService {
     }
 
     @Transactional
-    public Map<String, Object> createMenu(Long kitchenId, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> createMenu(Long communityId, Long kitchenId, Map<String, Object> request) {
         FoodCommunityKitchen kitchen = kitchenRepo.findByIdAndCommunityId(kitchenId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCommunityKitchen", kitchenId));
 
@@ -125,7 +128,11 @@ public class FoodCommunityKitchenService {
     }
 
     @Transactional
-    public Map<String, Object> bookMeal(Long menuId, Integer quantity, AppUser user, Community community) {
+    public Map<String, Object> bookMeal(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
+        Long menuId = Long.valueOf(request.get("menuId").toString());
+        Integer quantity = ((Number) request.get("quantity")).intValue();
+
         FoodCommunityKitchenMenu menu = menuRepo.findById(menuId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCommunityKitchenMenu", menuId));
 
@@ -177,7 +184,7 @@ public class FoodCommunityKitchenService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getMyBookings(Long userId, Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> getMyBookings(Long communityId, Long userId, Pageable pageable) {
         Page<FoodCommunityKitchenBooking> bookings = bookingRepo.findByUserIdAndCommunityId(userId, communityId, pageable);
         return bookings.map(b -> {
             Map<String, Object> map = new HashMap<>();
@@ -198,7 +205,8 @@ public class FoodCommunityKitchenService {
     }
 
     @Transactional
-    public Map<String, Object> verifyToken(String qrCode) {
+    public Map<String, Object> verifyToken(Long communityId, Map<String, Object> request) {
+        String qrCode = (String) request.get("qrCode");
         FoodCommunityKitchenToken token = tokenRepo.findByQrCode(qrCode)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCommunityKitchenToken", "qrCode", qrCode));
 

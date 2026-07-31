@@ -30,7 +30,7 @@ public class FoodAnalyticsService {
     private final FoodSubscriptionRepository subscriptionRepo;
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getRestaurantAnalytics(Long restaurantId, LocalDate startDate, LocalDate endDate) {
+    public List<Map<String, Object>> getRestaurantAnalytics(Long communityId, Long restaurantId, LocalDate startDate, LocalDate endDate) {
         List<FoodRestaurantAnalytics> analytics = restaurantAnalyticsRepo
                 .findByRestaurantIdAndDateBetween(restaurantId, startDate, endDate);
 
@@ -55,8 +55,9 @@ public class FoodAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getHomeChefAnalytics(Long chefId, LocalDate startDate, LocalDate endDate) {
+    public Map<String, Object> getHomeChefAnalytics(Long communityId, Long chefId, LocalDate startDate, LocalDate endDate) {
         Map<String, Object> summary = new HashMap<>();
+        summary.put("communityId", communityId);
         summary.put("chefId", chefId);
         summary.put("startDate", startDate);
         summary.put("endDate", endDate);
@@ -68,7 +69,7 @@ public class FoodAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCommunityConsumptionTrends(Long communityId, int months) {
+    public List<Map<String, Object>> getCommunityTrends(Long communityId, int months) {
         List<Map<String, Object>> trends = new ArrayList<>();
         LocalDate now = LocalDate.now();
 
@@ -87,7 +88,7 @@ public class FoodAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getFoodWasteAnalytics(Long communityId, int months) {
+    public List<Map<String, Object>> getFoodWaste(Long communityId, int months) {
         List<Map<String, Object>> wasteData = new ArrayList<>();
         LocalDate now = LocalDate.now();
 
@@ -106,7 +107,7 @@ public class FoodAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getRevenueAnalytics(Long communityId, LocalDate startDate, LocalDate endDate) {
+    public Map<String, Object> getRevenue(Long communityId, LocalDate startDate, LocalDate endDate) {
         Map<String, Object> summary = new HashMap<>();
         summary.put("communityId", communityId);
         summary.put("startDate", startDate);

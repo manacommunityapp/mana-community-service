@@ -248,6 +248,12 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- com.cpos.CposApplication (and previously com.cpn.CpnApplication) are
+                         unrelated Spring Boot apps that also live under src/main/java; without
+                         an explicit main class the plugin can't pick one among the candidates. -->
+                    <mainClass>com.manacommunity.api.ManaCommunityServiceApplication</mainClass>
+                </configuration>
             </plugin>
             <!-- Unit + slice tests run by default; integration tests run only with -Dgroups=integration -->
             <plugin>

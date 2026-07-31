@@ -81,7 +81,7 @@ public class BookingRuleService {
         rule.setRuleValue(req.getRuleValue());
         rule.setRuleOperator(req.getRuleOperator());
         rule.setDescription(req.getDescription());
-        if (req.getIsActive() != null) rule.setIsActive(req.getIsActive());
+        if (req.getIsActive() != null) rule.setActive(req.getIsActive());
         if (req.getPriority() != null) rule.setPriority(req.getPriority());
         if (req.getValidFrom() != null) rule.setValidFrom(LocalDate.parse(req.getValidFrom()));
         if (req.getValidTo() != null) rule.setValidTo(LocalDate.parse(req.getValidTo()));
@@ -93,7 +93,7 @@ public class BookingRuleService {
     public void deleteRule(Long id) {
         BusinessRule rule = ruleRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Rule not found: " + id));
-        rule.setIsActive(false);
+        rule.setActive(false);
         ruleRepo.save(rule);
     }
 
@@ -144,7 +144,7 @@ public class BookingRuleService {
         if (req.getAmount() != null) rule.setAmount(BigDecimal.valueOf(req.getAmount()));
         if (req.getPercentage() != null) rule.setPercentage(BigDecimal.valueOf(req.getPercentage()));
         rule.setDescription(req.getDescription());
-        if (req.getIsActive() != null) rule.setIsActive(req.getIsActive());
+        if (req.getIsActive() != null) rule.setActive(req.getIsActive());
         rule.setDayOfWeek(req.getDayOfWeek());
         if (req.getValidFrom() != null) rule.setValidFrom(LocalDate.parse(req.getValidFrom()));
         if (req.getValidTo() != null) rule.setValidTo(LocalDate.parse(req.getValidTo()));
@@ -158,7 +158,7 @@ public class BookingRuleService {
     public void deletePricingRule(Long id) {
         PricingRule rule = pricingRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pricing rule not found: " + id));
-        rule.setIsActive(false);
+        rule.setActive(false);
         pricingRepo.save(rule);
     }
 
@@ -185,7 +185,7 @@ public class BookingRuleService {
                 .ruleValue(r.getRuleValue())
                 .ruleOperator(r.getRuleOperator())
                 .description(r.getDescription())
-                .isActive(r.getIsActive())
+                .isActive(r.isActive())
                 .priority(r.getPriority())
                 .validFrom(r.getValidFrom() != null ? r.getValidFrom().toString() : null)
                 .validTo(r.getValidTo() != null ? r.getValidTo().toString() : null)
@@ -201,7 +201,7 @@ public class BookingRuleService {
                 .amount(r.getAmount())
                 .percentage(r.getPercentage())
                 .description(r.getDescription())
-                .isActive(r.getIsActive())
+                .isActive(r.isActive())
                 .validFrom(r.getValidFrom() != null ? r.getValidFrom().toString() : null)
                 .validTo(r.getValidTo() != null ? r.getValidTo().toString() : null)
                 .dayOfWeek(r.getDayOfWeek())
@@ -219,10 +219,10 @@ public class BookingRuleService {
                 .stepOrder(w.getStepOrder())
                 .stepType(w.getStepType())
                 .stepName(w.getStepName())
-                .isRequired(w.getIsRequired())
+                .isRequired(w.isRequired())
                 .approverRole(w.getApproverRole())
                 .timeoutHours(w.getTimeoutHours())
-                .isActive(w.getIsActive())
+                .isActive(w.isActive())
                 .build();
     }
 }

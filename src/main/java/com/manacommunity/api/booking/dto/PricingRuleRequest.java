@@ -21,4 +21,16 @@ public class PricingRuleRequest {
     private String currency;
     private String description;
     private Boolean isActive;
+
+    private Double amount;
+    private Double percentage;
+    private String dayOfWeek;
+
+    /** ISO-8601 date (yyyy-MM-dd), parsed with LocalDate.parse in the service. */
+    private String validFrom;
+    private String validTo;
+
+    /** ISO-8601 time (HH:mm[:ss]), parsed with LocalTime.parse in the service. */
+    private String startTime;
+    private String endTime;
 }

@@ -31,20 +31,21 @@ public class FoodCloudKitchenService {
     private final FoodCloudKitchenBrandRepository brandRepo;
 
     @Transactional(readOnly = true)
-    public Page<Map<String, Object>> getKitchens(Long communityId, Pageable pageable) {
+    public Page<Map<String, Object>> list(Long communityId, Pageable pageable) {
         return kitchenRepo.findByCommunityId(communityId, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getKitchenById(Long id, Long communityId) {
+    public Map<String, Object> getById(Long communityId, Long id) {
         FoodCloudKitchen kitchen = kitchenRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("CloudKitchen", id));
         return toResponse(kitchen);
     }
 
     @Transactional
-    public Map<String, Object> createKitchen(Map<String, Object> request, AppUser user, Community community) {
+    public Map<String, Object> create(Long communityId, Map<String, Object> request, AppUser user) {
+        Community community = user.getCommunity();
         FoodCloudKitchen kitchen = FoodCloudKitchen.builder()
                 .name((String) request.get("name"))
                 .description((String) request.get("description"))
@@ -75,7 +76,9 @@ public class FoodCloudKitchenService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getBrands(Long kitchenId) {
+    public List<Map<String, Object>> getBrands(Long communityId, Long kitchenId) {
+        kitchenRepo.findByIdAndCommunityId(kitchenId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("CloudKitchen", kitchenId));
         List<FoodCloudKitchenBrand> brands = brandRepo.findByKitchenId(kitchenId);
         return brands.stream().map(b -> {
             Map<String, Object> map = new HashMap<>();
@@ -96,7 +99,7 @@ public class FoodCloudKitchenService {
     }
 
     @Transactional
-    public Map<String, Object> createBrand(Long kitchenId, Map<String, Object> request, Long communityId) {
+    public Map<String, Object> createBrand(Long communityId, Long kitchenId, Map<String, Object> request) {
         FoodCloudKitchen kitchen = kitchenRepo.findByIdAndCommunityId(kitchenId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("CloudKitchen", kitchenId));
 
@@ -133,13 +136,13 @@ public class FoodCloudKitchenService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getSlots(Long kitchenId) {
+    public List<Map<String, Object>> getSlots(Long communityId, Long kitchenId) {
         // TODO: Implement when FoodCloudKitchenSlotRepository is available
         return new ArrayList<>();
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAnalytics(Long kitchenId, LocalDate startDate, LocalDate endDate) {
+    public List<Map<String, Object>> getAnalytics(Long communityId, Long kitchenId, LocalDate startDate, LocalDate endDate) {
         // TODO: Implement when FoodCloudKitchenAnalyticsRepository is available
         return new ArrayList<>();
     }

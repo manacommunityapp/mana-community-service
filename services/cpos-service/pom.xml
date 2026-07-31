@@ -45,10 +45,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Unused for now — no Redis instance provisioned locally, nothing
+             wired up to consume it yet. See application.yml (spring.data.redis). -->
+        <!--
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
@@ -77,11 +81,15 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- Elasticsearch -->
+        <!-- Elasticsearch — unused for now — no ES instance provisioned
+             locally, nothing wired up to consume it yet. See application.yml
+             (spring.elasticsearch). -->
+        <!--
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
         </dependency>
+        -->
 
         <!-- JWT -->
         <dependency>

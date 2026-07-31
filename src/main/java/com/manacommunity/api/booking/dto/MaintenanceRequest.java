@@ -22,4 +22,12 @@ public class MaintenanceRequest {
     private String title;
     private String description;
     private String status;
+
+    private String reason;
+    private Double cost;
+    private String vendorName;
+    private String vendorContact;
+    private String notes;
+    private Boolean isRecurring;
+    private String recurringPattern;
 }

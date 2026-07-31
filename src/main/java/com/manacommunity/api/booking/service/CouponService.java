@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,13 +35,13 @@ public class CouponService {
                 .code(req.getCode().toUpperCase())
                 .description(req.getDescription())
                 .discountType(DiscountType.valueOf(req.getDiscountType()))
-                .discountValue(BigDecimal.valueOf(req.getDiscountValue()))
+                .discountValue(req.getDiscountValue())
                 .maxUses(req.getMaxUses())
                 .currentUses(0)
                 .validFrom(LocalDateTime.parse(req.getValidFrom()))
                 .validTo(LocalDateTime.parse(req.getValidTo()))
-                .minBookingAmount(req.getMinBookingAmount() != null ? BigDecimal.valueOf(req.getMinBookingAmount()) : null)
-                .maxDiscountAmount(req.getMaxDiscountAmount() != null ? BigDecimal.valueOf(req.getMaxDiscountAmount()) : null)
+                .minBookingAmount(req.getMinBookingAmount())
+                .maxDiscountAmount(req.getMaxDiscountAmount())
                 .isActive(req.getIsActive() != null ? req.getIsActive() : true)
                 .community(community)
                 .build();
@@ -79,7 +78,7 @@ public class CouponService {
                 .validTo(c.getValidTo().toString())
                 .minBookingAmount(c.getMinBookingAmount())
                 .maxDiscountAmount(c.getMaxDiscountAmount())
-                .isActive(c.getIsActive())
+                .isActive(c.isActive())
                 .build();
     }
 }

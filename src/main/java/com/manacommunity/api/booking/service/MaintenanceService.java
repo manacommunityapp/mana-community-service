@@ -107,7 +107,7 @@ public class MaintenanceService {
                 .vendorName(m.getVendorName())
                 .vendorContact(m.getVendorContact())
                 .notes(m.getNotes())
-                .isRecurring(m.getIsRecurring())
+                .isRecurring(m.isRecurring())
                 .createdAt(m.getCreatedAt() != null ? m.getCreatedAt().toString() : null)
                 .build();
     }

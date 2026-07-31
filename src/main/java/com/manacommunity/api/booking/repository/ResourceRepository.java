@@ -18,4 +18,6 @@ public interface ResourceRepository extends JpaRepository<Resource, Long>, JpaSp
     List<Resource> findByCommunityIdAndCategoryIdAndStatusAndDeletedFalse(Long communityId, Long categoryId, ResourceStatus status);
 
     long countByCommunityIdAndDeletedFalse(Long communityId);
+
+    long countByCategoryIdAndDeletedFalse(Long categoryId);
 }

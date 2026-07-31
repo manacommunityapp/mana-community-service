@@ -19,9 +19,9 @@ public class CouponRequest {
     private BigDecimal discountValue;
 
     private String description;
-    private BigDecimal minimumAmount;
-    private BigDecimal maximumDiscount;
-    private Integer maxUsageCount;
+    private BigDecimal minBookingAmount;
+    private BigDecimal maxDiscountAmount;
+    private Integer maxUses;
     private String validFrom;
     private String validTo;
     private Boolean isActive;

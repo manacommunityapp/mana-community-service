@@ -46,7 +46,7 @@ public class FoodCommunityKitchenController {
                                     @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(communityKitchenService.create(communityId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(communityKitchenService.create(communityId, request, user));
     }
 
     @GetMapping("/{id}/menu")
@@ -75,7 +75,7 @@ public class FoodCommunityKitchenController {
                                       @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(communityKitchenService.bookMeal(communityId, request));
+        return ResponseEntity.ok(communityKitchenService.bookMeal(communityId, request, user));
     }
 
     @GetMapping("/my-bookings")
