@@ -485,6 +485,142 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher sports_event uuid/approval patch failed: {}", e.getMessage(), e);
             }
 
+            // Ensure the tournament scheduler tables exist before Hibernate validates
+            // (prod runs ddl-auto=validate, which won't create new entity tables).
+            // Idempotent and safe to re-run every boot.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_config (
+                            id                          BIGSERIAL PRIMARY KEY,
+                            tournament_name             VARCHAR(150) NOT NULL,
+                            sport_id                    BIGINT REFERENCES manacommunity.sport_meta(id),
+                            community_id                BIGINT REFERENCES manacommunity.community(id),
+                            event_id                    BIGINT REFERENCES manacommunity.sports_event(id),
+                            tournament_type             VARCHAR(30) NOT NULL,
+                            total_teams                 INT NOT NULL,
+                            number_of_groups            INT,
+                            teams_per_group             INT,
+                            teams_advancing_per_group   INT,
+                            third_place_match           BOOLEAN DEFAULT TRUE,
+                            has_seeding                 BOOLEAN DEFAULT FALSE,
+                            swiss_rounds                INT,
+                            start_date                  DATE NOT NULL,
+                            end_date                    DATE,
+                            match_duration_minutes      INT DEFAULT 90,
+                            break_between_matches_minutes INT DEFAULT 30,
+                            venue_name                  VARCHAR(200),
+                            points_for_win              INT DEFAULT 2,
+                            points_for_draw             INT DEFAULT 1,
+                            points_for_loss             INT DEFAULT 0,
+                            status                      VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+                            created_by                  BIGINT REFERENCES manacommunity.app_user(id),
+                            created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_group (
+                            id          BIGSERIAL PRIMARY KEY,
+                            config_id   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id) ON DELETE CASCADE,
+                            group_name  VARCHAR(20) NOT NULL,
+                            group_order INT NOT NULL,
+                            CONSTRAINT uq_group_config UNIQUE (config_id, group_name)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.group_team_standing (
+                            id              BIGSERIAL PRIMARY KEY,
+                            group_id        BIGINT NOT NULL REFERENCES manacommunity.tournament_group(id) ON DELETE CASCADE,
+                            team_id         BIGINT NOT NULL REFERENCES manacommunity.auction_team(id),
+                            seed_rank       INT,
+                            played          INT DEFAULT 0,
+                            won             INT DEFAULT 0,
+                            lost            INT DEFAULT 0,
+                            drawn           INT DEFAULT 0,
+                            points          INT DEFAULT 0,
+                            runs_for        INT DEFAULT 0,
+                            runs_against    INT DEFAULT 0,
+                            overs_for       INT DEFAULT 0,
+                            overs_against   INT DEFAULT 0,
+                            net_run_rate    DECIMAL(8,3) DEFAULT 0.000,
+                            qualified       BOOLEAN DEFAULT FALSE,
+                            eliminated      BOOLEAN DEFAULT FALSE,
+                            CONSTRAINT uq_standing_group_team UNIQUE (group_id, team_id)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_match (
+                            id                          BIGSERIAL PRIMARY KEY,
+                            config_id                   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id),
+                            group_id                    BIGINT REFERENCES manacommunity.tournament_group(id),
+                            round                       VARCHAR(30),
+                            round_number                INT,
+                            match_number                INT,
+                            bracket_slot                INT,
+                            team_a_id                   BIGINT REFERENCES manacommunity.auction_team(id),
+                            team_b_id                   BIGINT REFERENCES manacommunity.auction_team(id),
+                            winner_feed_from_match_a    BIGINT REFERENCES manacommunity.tournament_match(id),
+                            winner_feed_from_match_b    BIGINT REFERENCES manacommunity.tournament_match(id),
+                            winner_advances_to_match_id BIGINT REFERENCES manacommunity.tournament_match(id),
+                            loser_sent_to_match_id      BIGINT REFERENCES manacommunity.tournament_match(id),
+                            scheduled_at                TIMESTAMP NOT NULL,
+                            duration_minutes            INT DEFAULT 90,
+                            venue_name                  VARCHAR(200),
+                            court_number                VARCHAR(10),
+                            status                      VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
+                            score_team_a                VARCHAR(50),
+                            score_team_b                VARCHAR(50),
+                            winner_team_id              BIGINT REFERENCES manacommunity.auction_team(id),
+                            started_at                  TIMESTAMP,
+                            completed_at                TIMESTAMP,
+                            match_notes                 TEXT,
+                            swiss_round_number          INT,
+                            created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT chk_match_status CHECK (status IN (
+                                'SCHEDULED','LIVE','COMPLETED','POSTPONED','CANCELLED','BYE'
+                            ))
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_notification_scheduler (
+                            id            BIGSERIAL PRIMARY KEY,
+                            event_id      BIGINT NOT NULL REFERENCES manacommunity.sports_event(id),
+                            tournament_id BIGINT REFERENCES manacommunity.tournament(id),
+                            trigger_key   VARCHAR(50),
+                            label         VARCHAR(100) NOT NULL,
+                            offset_minutes INT NOT NULL,
+                            enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+                            title         VARCHAR(200) NOT NULL,
+                            body          TEXT NOT NULL,
+                            recipients    VARCHAR(500) NOT NULL,
+                            channels      VARCHAR(200) NOT NULL,
+                            priority      VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+                            is_custom     BOOLEAN NOT NULL DEFAULT FALSE,
+                            sent          BOOLEAN NOT NULL DEFAULT FALSE,
+                            notify_at     TIMESTAMP,
+                            created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_config_status ON manacommunity.tournament_match (config_id, status)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_scheduled_at ON manacommunity.tournament_match (scheduled_at)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_round ON manacommunity.tournament_match (config_id, round_number)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_group ON manacommunity.tournament_match (group_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.group_team_standing (group_id, points DESC, net_run_rate DESC)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_event_notify ON manacommunity.sports_notification_scheduler (event_id, notify_at)");
+
+                log.info("Tournament scheduler tables ensured before Hibernate validation.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher tournament scheduler table patch failed: {}", e.getMessage(), e);
+            }
+
             // Ensure the email_otp table exists before Hibernate validates (prod runs
             // ddl-auto=validate, which won't create new entity tables). Idempotent.
             try (Connection conn = dataSource.getConnection();
