@@ -1587,7 +1587,28 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE TABLE IF NOT EXISTS manacommunity.vms_notification_preferences (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id), event_type VARCHAR(60) NOT NULL, email_enabled BOOLEAN NOT NULL DEFAULT TRUE, sms_enabled BOOLEAN NOT NULL DEFAULT TRUE, push_enabled BOOLEAN NOT NULL DEFAULT TRUE, whatsapp_enabled BOOLEAN NOT NULL DEFAULT FALSE, community_id BIGINT NOT NULL REFERENCES manacommunity.community(id), UNIQUE(user_id, event_type, community_id))");
 
                 stmt.execute("CREATE TABLE IF NOT EXISTS manacommunity.vms_ai_recommendations (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id), vendor_id BIGINT NOT NULL REFERENCES manacommunity.vms_vendors(id), service_id BIGINT REFERENCES manacommunity.vms_vendor_services(id), score DECIMAL(5,4) NOT NULL, reason VARCHAR(500), context_type VARCHAR(30), community_id BIGINT NOT NULL REFERENCES manacommunity.community(id), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
-                stmt.execute("CREATE TABLE IF NOT EXISTS manacommunity.vms_ai_predictions (id BIGSERIAL PRIMARY KEY, prediction_type VARCHAR(50) NOT NULL, entity_type VARCHAR(30) NOT NULL, entity_id BIGINT NOT NULL, predicted_value VARCHAR(200) NOT NULL, confidence DECIMAL(5,4), actual_value VARCHAR(200), model_version VARCHAR(30), community_id BIGINT NOT NULL REFERENCES manacommunity.community(id), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+                stmt.execute("CREATE TABLE IF NOT EXISTS manacommunity.vms_ai_predictions (id BIGSERIAL PRIMARY KEY, prediction_type VARCHAR(50) NOT NULL, entity_type VARCHAR(30) NOT NULL, entity_id BIGINT NOT NULL, predicted_value DECIMAL(14,4), confidence DECIMAL(5,4), actual_value DECIMAL(14,4), model_version VARCHAR(30), community_id BIGINT NOT NULL REFERENCES manacommunity.community(id), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+
+                // predicted_value/actual_value were originally created as VARCHAR(200); the
+                // VmsAiPrediction entity expects DECIMAL(14,4). Postgres won't auto-cast
+                // varchar->numeric on ALTER COLUMN, so convert any pre-existing text data explicitly.
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                            IF EXISTS (SELECT 1 FROM information_schema.columns
+                                       WHERE table_schema = 'manacommunity' AND table_name = 'vms_ai_predictions'
+                                         AND column_name = 'predicted_value' AND data_type = 'character varying') THEN
+                                ALTER TABLE manacommunity.vms_ai_predictions
+                                    ALTER COLUMN predicted_value TYPE DECIMAL(14,4) USING NULLIF(predicted_value, '')::DECIMAL(14,4);
+                            END IF;
+                            IF EXISTS (SELECT 1 FROM information_schema.columns
+                                       WHERE table_schema = 'manacommunity' AND table_name = 'vms_ai_predictions'
+                                         AND column_name = 'actual_value' AND data_type = 'character varying') THEN
+                                ALTER TABLE manacommunity.vms_ai_predictions
+                                    ALTER COLUMN actual_value TYPE DECIMAL(14,4) USING NULLIF(actual_value, '')::DECIMAL(14,4);
+                            END IF;
+                        END $$;
+                        """);
 
                 stmt.execute("CREATE TABLE IF NOT EXISTS manacommunity.vms_audit_log (id BIGSERIAL PRIMARY KEY, entity_type VARCHAR(50) NOT NULL, entity_id BIGINT NOT NULL, action VARCHAR(30) NOT NULL, field_name VARCHAR(100), old_value TEXT, new_value TEXT, performed_by BIGINT REFERENCES manacommunity.app_user(id), ip_address VARCHAR(50), community_id BIGINT NOT NULL REFERENCES manacommunity.community(id), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
 
