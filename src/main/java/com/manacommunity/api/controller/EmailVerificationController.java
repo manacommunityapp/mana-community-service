@@ -1,10 +1,11 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.dto.email.EmailTemplateManagementDtos.PreviewResponse;
+import com.manacommunity.api.dto.email.EmailTemplateManagementDtos.TemplateSummaryResponse;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailProperties;
 import com.manacommunity.api.email.EmailService;
-import com.manacommunity.api.email.EmailTemplate;
-import com.manacommunity.api.email.EmailTemplateRenderer;
+import com.manacommunity.api.email.EmailTemplateManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,114 +20,107 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-/**
- * Admin tooling to verify, preview and test-fire every email template
- * without needing a live registration, match or tournament.
- *
- * <ul>
- *   <li>{@code GET  /templates}                  — list all templates + subjects</li>
- *   <li>{@code GET  /preview/{template}}          — render a template to HTML</li>
- *   <li>{@code GET  /sample-payloads}             — sample payload for every template</li>
- *   <li>{@code GET  /sample-payloads/{template}}  — sample payload for one template</li>
- *   <li>{@code GET  /health}                      — email config status</li>
- *   <li>{@code POST /test}                        — send one template (with optional custom vars)</li>
- *   <li>{@code POST /test-all}                    — send ALL templates to one address</li>
- * </ul>
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/admin/email")
 @RequiredArgsConstructor
 public class EmailVerificationController {
 
-    private final EmailTemplateRenderer renderer;
-    private final EmailService          emailService;
-    private final EmailProperties       props;
+    private final EmailTemplateManagementService templateService;
+    private final EmailService emailService;
+    private final EmailProperties props;
 
-    // Deliberately simple RFC-5322-ish check — good enough to reject typos and
-    // header-injection attempts (CR/LF, missing @) without a full grammar parser.
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
-    // Test-send endpoints dispatch real emails, so they get a much tighter,
-    // per-admin limit than the global API rate limiter — capped low enough to
-    // stop accidental/careless repeated firing without blocking normal QA use.
-    // /test-all fans out to every template in one call, so it gets its own,
-    // stricter budget rather than sharing /test's counter.
     private static final int TEST_SEND_LIMIT_PER_MINUTE = 10;
     private static final int TEST_SEND_ALL_LIMIT_PER_MINUTE = 2;
     private static final long RATE_LIMIT_WINDOW_MS = 60_000L;
     private final ConcurrentHashMap<String, RateLimitWindow> rateLimitWindows = new ConcurrentHashMap<>();
 
-    // ── List templates ───────────────────────────────────────────────
-
     @GetMapping("/templates")
-    public ResponseEntity<Map<String, Object>> templates() {
-        List<Map<String, Object>> list = new ArrayList<>();
-        for (EmailTemplate t : EmailTemplate.values()) {
-            EmailTemplate.Trigger trigger = t.trigger();
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("key", t.name());
-            entry.put("subject", t.defaultSubject());
-            entry.put("templateFile", t.templateName() + ".html");
-            entry.put("category", t.category().name());
-            entry.put("triggerMenuPath", trigger.menuPath());
-            entry.put("triggerWired", trigger.wired());
-            entry.put("triggerDescription", trigger.description());
-            list.add(entry);
-        }
+    public ResponseEntity<Map<String, Object>> templates(
+            @RequestParam(value = "communityId", required = false) Long communityId
+    ) {
+        List<TemplateSummaryResponse> templates = communityId == null
+                ? templateService.listAllTemplates()
+                : templateService.listTemplates(communityId);
+
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("count", list.size());
-        resp.put("templates", list);
+        resp.put("source", "DATABASE");
+        resp.put("communityId", communityId);
+        resp.put("count", templates.size());
+        resp.put("templates", templates);
         return ResponseEntity.ok(resp);
     }
 
-    // ── Preview (HTML) ───────────────────────────────────────────────
-
-    @GetMapping(value = "/preview/{template}", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> preview(@PathVariable("template") EmailTemplate template) {
-        return ResponseEntity.ok(renderer.render(template, sampleVars(template)));
+    @GetMapping(value = "/preview/{templateCode}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> preview(
+            @PathVariable String templateCode,
+            @RequestParam("communityId") Long communityId
+    ) {
+        PreviewResponse preview = templateService.previewActiveTemplate(
+                communityId,
+                templateCode,
+                sampleVars(templateCode)
+        );
+        return ResponseEntity.ok(preview.html());
     }
 
-    @PostMapping(value = "/preview/{template}", produces = MediaType.TEXT_HTML_VALUE)
+    @PostMapping(value = "/preview/{templateCode}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> previewPost(
-            @PathVariable("template") EmailTemplate template,
-            @RequestBody(required = false) Map<String, Object> customVars) {
-        Map<String, Object> vars = sampleVars(template);
+            @PathVariable String templateCode,
+            @RequestParam("communityId") Long communityId,
+            @RequestBody(required = false) Map<String, Object> customVars
+    ) {
+        Map<String, Object> vars = sampleVars(templateCode);
         if (customVars != null) {
             vars.putAll(customVars);
         }
-        return ResponseEntity.ok(renderer.render(template, vars));
+
+        PreviewResponse preview = templateService.previewActiveTemplate(communityId, templateCode, vars);
+        return ResponseEntity.ok(preview.html());
     }
 
-    // ── Sample payloads ──────────────────────────────────────────────
-
     @GetMapping("/sample-payloads")
-    public ResponseEntity<Map<String, Object>> allSamplePayloads() {
+    public ResponseEntity<Map<String, Object>> allSamplePayloads(
+            @RequestParam(value = "communityId", required = false) Long communityId
+    ) {
+        List<TemplateSummaryResponse> templates = communityId == null
+                ? templateService.listAllTemplates()
+                : templateService.listTemplates(communityId);
+
         Map<String, Object> payloads = new LinkedHashMap<>();
-        for (EmailTemplate t : EmailTemplate.values()) {
+        for (TemplateSummaryResponse template : templates) {
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("subject", t.defaultSubject());
-            entry.put("variables", sampleVars(t));
-            payloads.put(t.name(), entry);
+            entry.put("communityId", template.communityId());
+            entry.put("subject", template.subject());
+            entry.put("variables", sampleVars(template.templateCode()));
+            payloads.put(template.communityId() + ":" + template.templateCode(), entry);
         }
         return ResponseEntity.ok(payloads);
     }
 
-    @GetMapping("/sample-payloads/{template}")
+    @GetMapping("/sample-payloads/{templateCode}")
     public ResponseEntity<Map<String, Object>> samplePayload(
-            @PathVariable("template") EmailTemplate template) {
+            @PathVariable String templateCode,
+            @RequestParam(value = "communityId", required = false) Long communityId
+    ) {
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("template", template.name());
-        resp.put("subject", template.defaultSubject());
-        resp.put("variables", sampleVars(template));
+        resp.put("templateCode", normalizeCode(templateCode));
+        resp.put("communityId", communityId);
+        resp.put("variables", sampleVars(templateCode));
         return ResponseEntity.ok(resp);
     }
 
-    // ── Health / config check ────────────────────────────────────────
-
     @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> health() {
+    public ResponseEntity<Map<String, Object>> health(
+            @RequestParam(value = "communityId", required = false) Long communityId
+    ) {
+        int templateCount = communityId == null
+                ? templateService.listAllTemplates().size()
+                : templateService.listTemplates(communityId).size();
+
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("mailEnabled", props.isEnabled());
         resp.put("from", props.getFrom());
@@ -134,69 +128,64 @@ public class EmailVerificationController {
         resp.put("recipientMode", props.getRecipientMode().name());
         resp.put("defaultRecipient", props.getDefaultRecipient());
         resp.put("baseUrl", props.getBaseUrl());
-        resp.put("templateCount", EmailTemplate.values().length);
+        resp.put("templateSource", "DATABASE");
+        resp.put("templateCount", templateCount);
 
         String status;
         if (!props.isEnabled()) {
-            status = "DISABLED — emails are rendered + logged but never sent";
+            status = "DISABLED - emails are rendered and logged but never sent";
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.REDIRECT) {
-            status = "REDIRECT — all emails go to " + props.getDefaultRecipient();
+            status = "REDIRECT - all emails go to " + props.getDefaultRecipient();
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.CC) {
-            status = "CC — emails go to real recipient + copy to " + props.getDefaultRecipient();
+            status = "CC - emails go to real recipient plus copy to " + props.getDefaultRecipient();
         } else {
-            status = "PRODUCTION — emails go to real recipients";
+            status = "PRODUCTION - emails go to real recipients";
         }
         resp.put("status", status);
         return ResponseEntity.ok(resp);
     }
 
-    // ── Send one test email ──────────────────────────────────────────
-
     @PostMapping("/test")
     public ResponseEntity<Map<String, Object>> sendTest(
             @RequestParam(value = "to", required = false) String to,
-            @RequestParam("template") EmailTemplate template,
+            @RequestParam("communityId") Long communityId,
+            @RequestParam("template") String templateCode,
             @RequestBody(required = false) Map<String, Object> customVars,
-            Authentication authentication) {
-
+            Authentication authentication
+    ) {
         ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test"), TEST_SEND_LIMIT_PER_MINUTE);
         if (limited != null) return limited;
 
         String recipient = resolveTestRecipient(to);
         if (recipient == null || recipient.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "No recipient — pass ?to= or set app.mail.default-recipient"));
+                    "error", "No recipient - pass ?to= or set app.mail.default-recipient"));
         }
         if (!EMAIL_PATTERN.matcher(recipient).matches()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "\"" + recipient + "\" doesn't look like a valid email address"));
         }
 
-        Map<String, Object> vars = sampleVars(template);
+        Map<String, Object> vars = sampleVars(templateCode);
         if (customVars != null && !customVars.isEmpty()) {
             vars.putAll(customVars);
         }
 
-        String html = renderer.render(template, vars);
-        String subjectOverride = customVars != null ? asTrimmedString(customVars.get("subject")) : null;
-        String subject = "[TEST] " + (subjectOverride != null && !subjectOverride.isBlank()
-                ? subjectOverride : template.defaultSubject());
-
-        String fromOverride = null;
-        String fromNameOverride = null;
-        if (customVars != null) {
-            if (customVars.containsKey("fromEmail")) {
-                fromOverride = String.valueOf(customVars.get("fromEmail"));
-            }
-            if (customVars.containsKey("fromName")) {
-                fromNameOverride = String.valueOf(customVars.get("fromName"));
-            }
-        }
-
-        emailService.send(new EmailMessage(recipient, "Test Recipient", subject, html, fromOverride, fromNameOverride));
+        PreviewResponse preview = templateService.previewActiveTemplate(communityId, templateCode, vars);
+        String subject = "[TEST] " + preview.subject();
+        emailService.send(new EmailMessage(
+                recipient,
+                "Test Recipient",
+                subject,
+                preview.html(),
+                stringValue(customVars, "fromEmail"),
+                stringValue(customVars, "fromName")
+        ));
 
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("template", template.name());
+        resp.put("source", "DATABASE");
+        resp.put("communityId", communityId);
+        resp.put("template", normalizeCode(templateCode));
         resp.put("subject", subject);
         resp.put("to", recipient);
         resp.put("customVarsApplied", customVars != null ? customVars.keySet() : List.of());
@@ -204,77 +193,74 @@ public class EmailVerificationController {
         resp.put("recipientMode", props.getRecipientMode().name());
         resp.put("note", props.isEnabled()
                 ? "Dispatched via SMTP."
-                : "app.mail.enabled=false — email was rendered + logged but not actually sent.");
+                : "app.mail.enabled=false - email was rendered and logged but not actually sent.");
         return ResponseEntity.ok(resp);
     }
-
-    // ── Send ALL templates to one address ────────────────────────────
 
     @PostMapping("/test-all")
     public ResponseEntity<Map<String, Object>> sendAllTemplates(
             @RequestParam(value = "to", required = false) String to,
+            @RequestParam("communityId") Long communityId,
             @RequestBody(required = false) Map<String, Object> customVars,
-            Authentication authentication) {
-
+            Authentication authentication
+    ) {
         ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test-all"), TEST_SEND_ALL_LIMIT_PER_MINUTE);
         if (limited != null) return limited;
 
         String recipient = resolveTestRecipient(to);
         if (recipient == null || recipient.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "No recipient — pass ?to= or set app.mail.default-recipient"));
+                    "error", "No recipient - pass ?to= or set app.mail.default-recipient"));
         }
         if (!EMAIL_PATTERN.matcher(recipient).matches()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "\"" + recipient + "\" doesn't look like a valid email address"));
         }
 
+        List<TemplateSummaryResponse> templates = templateService.listTemplates(communityId);
         List<Map<String, Object>> results = new ArrayList<>();
         int sent = 0;
         int failed = 0;
 
-        String subjectOverride = customVars != null ? asTrimmedString(customVars.get("subject")) : null;
-
-        for (EmailTemplate template : EmailTemplate.values()) {
-            String subject = "[TEST] " + (subjectOverride != null && !subjectOverride.isBlank()
-                    ? subjectOverride : template.defaultSubject());
+        for (TemplateSummaryResponse template : templates) {
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("template", template.name());
-            entry.put("subject", subject);
+            entry.put("template", template.templateCode());
             try {
-                Map<String, Object> vars = sampleVars(template);
+                Map<String, Object> vars = sampleVars(template.templateCode());
                 if (customVars != null && !customVars.isEmpty()) {
                     vars.putAll(customVars);
                 }
-                String html = renderer.render(template, vars);
+                PreviewResponse preview = templateService.previewActiveTemplate(
+                        communityId,
+                        template.templateCode(),
+                        vars
+                );
 
-                String fromOverride = null;
-                String fromNameOverride = null;
-                if (customVars != null) {
-                    if (customVars.containsKey("fromEmail")) {
-                        fromOverride = String.valueOf(customVars.get("fromEmail"));
-                    }
-                    if (customVars.containsKey("fromName")) {
-                        fromNameOverride = String.valueOf(customVars.get("fromName"));
-                    }
-                }
-
-                emailService.send(new EmailMessage(recipient, "Test Recipient",
-                        subject, html, fromOverride, fromNameOverride));
+                emailService.send(new EmailMessage(
+                        recipient,
+                        "Test Recipient",
+                        "[TEST] " + preview.subject(),
+                        preview.html(),
+                        stringValue(customVars, "fromEmail"),
+                        stringValue(customVars, "fromName")
+                ));
+                entry.put("subject", "[TEST] " + preview.subject());
                 entry.put("status", "SENT");
                 sent++;
             } catch (Exception e) {
                 entry.put("status", "FAILED");
                 entry.put("error", e.getMessage());
                 failed++;
-                log.error("Failed to send test email for template {}: {}", template.name(), e.getMessage());
+                log.error("Failed to send DB test email for template {}: {}", template.templateCode(), e.getMessage());
             }
             results.add(entry);
         }
 
         Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("source", "DATABASE");
+        resp.put("communityId", communityId);
         resp.put("to", recipient);
-        resp.put("totalTemplates", EmailTemplate.values().length);
+        resp.put("totalTemplates", templates.size());
         resp.put("sent", sent);
         resp.put("failed", failed);
         resp.put("mailEnabled", props.isEnabled());
@@ -282,28 +268,25 @@ public class EmailVerificationController {
         resp.put("results", results);
         resp.put("note", props.isEnabled()
                 ? sent + " emails dispatched via SMTP to " + recipient
-                : "app.mail.enabled=false — emails were rendered + logged but not actually sent.");
+                : "app.mail.enabled=false - emails were rendered and logged but not actually sent.");
         return ResponseEntity.ok(resp);
     }
 
-    // ── Resolve recipient: explicit > default-recipient > null ────────
-
     private String resolveTestRecipient(String explicit) {
-        if (explicit != null && !explicit.isBlank()) return explicit.trim();
+        if (explicit != null && !explicit.isBlank()) {
+            return explicit.trim();
+        }
         if (props.getDefaultRecipient() != null && !props.getDefaultRecipient().isBlank()) {
             return props.getDefaultRecipient().trim();
         }
         return null;
     }
 
-    // ── Per-admin rate limiting for real-email-dispatching endpoints ──
-
     private String bucketKey(Authentication authentication, String action) {
         String principal = authentication != null ? authentication.getName() : "anonymous";
         return action + ":" + principal;
     }
 
-    /** Returns null when the call is allowed, or a ready-to-return 429 response when the limit is hit. */
     private ResponseEntity<Map<String, Object>> checkRateLimit(String key, int limitPerMinute) {
         long now = System.currentTimeMillis();
         RateLimitWindow window = rateLimitWindows.compute(key, (k, current) -> {
@@ -333,50 +316,44 @@ public class EmailVerificationController {
         }
     }
 
-    // ── Small helper ───────────────────────────────────────────────────
-
-    private static String asTrimmedString(Object value) {
-        if (value == null) return null;
-        String s = String.valueOf(value).trim();
-        return s.isEmpty() ? null : s;
-    }
-
-    // ── Sample data per template ─────────────────────────────────────
-
-    private Map<String, Object> sampleVars(EmailTemplate template) {
+    private Map<String, Object> sampleVars(String templateCode) {
         Map<String, Object> v = new HashMap<>();
         v.put("appName", props.getFromName());
         v.put("baseUrl", props.getBaseUrl());
         v.put("recipientName", "Rahul Sharma");
+        v.put("firstName", "Rahul");
+        v.put("lastName", "Sharma");
         v.put("year", LocalDate.now().getYear());
         v.put("actionUrl", props.getBaseUrl() + "/profile");
 
-        switch (template) {
-            case REGISTRATION_RECEIVED -> {
+        switch (normalizeCode(templateCode)) {
+            case "REGISTRATION_RECEIVED" -> {
                 v.put("eventName", "Summer Smash Badminton 2026");
                 v.put("sportName", "Badminton");
                 v.put("categoryName", "Men's Open");
                 v.put("matchType", "Singles");
-                v.put("eventDate", "Sat, 20 Jun 2026");
+                v.put("eventDates", "Sat, 20 Jun 2026");
                 v.put("venueName", "Community Sports Arena");
                 v.put("status", "Registered");
             }
-            case REGISTRATION_CONFIRMED -> {
+            case "REGISTRATION_CONFIRMED" -> {
                 v.put("eventName", "Summer Smash Badminton 2026");
                 v.put("sportName", "Badminton");
                 v.put("categoryName", "Men's Open");
-                v.put("eventDate", "Sat, 20 Jun 2026");
+                v.put("matchType", "Singles");
+                v.put("eventDates", "Sat, 20 Jun 2026");
                 v.put("venueName", "Community Sports Arena");
                 v.put("confirmedAt", "Sat, 14 Jun 2026 10:30 AM");
             }
-            case REGISTRATION_REJECTED -> {
+            case "REGISTRATION_REJECTED" -> {
                 v.put("eventName", "Summer Smash Badminton 2026");
                 v.put("sportName", "Badminton");
                 v.put("categoryName", "Men's Open");
-                v.put("eventDate", "Sat, 20 Jun 2026");
+                v.put("eventDates", "Sat, 20 Jun 2026");
+                v.put("venueName", "Community Sports Arena");
                 v.put("reason", "The Men's Open category reached its maximum number of participants.");
             }
-            case SCHEDULE_PUBLISHED -> {
+            case "SCHEDULE_PUBLISHED" -> {
                 v.put("tournamentName", "Summer Smash Cup");
                 v.put("eventName", "Summer Smash Badminton 2026");
                 v.put("sportName", "Badminton");
@@ -384,7 +361,7 @@ public class EmailVerificationController {
                 v.put("venueName", "Community Sports Arena");
                 v.put("matchCount", 24);
             }
-            case MATCH_REMINDER -> {
+            case "MATCH_REMINDER" -> {
                 v.put("tournamentName", "Summer Smash Cup");
                 v.put("roundName", "Quarter Final");
                 v.put("homeTeam", "Rahul Sharma");
@@ -395,27 +372,27 @@ public class EmailVerificationController {
                 v.put("courtName", "Court 2");
                 v.put("minutesUntilStart", 30);
             }
-            case WINNER_NOTIFICATION -> {
+            case "WINNER_NOTIFICATION" -> {
                 v.put("tournamentName", "Summer Smash Cup");
                 v.put("roundName", "Quarter Final");
                 v.put("opponentName", "Amit Kumar");
                 v.put("score", "21-18, 21-15");
                 v.put("nextRoundInfo", "You play the winner of QF-2 in the Semi-Final on Sun, 21 Jun.");
             }
-            case TOURNAMENT_COMPLETION -> {
+            case "TOURNAMENT_COMPLETION" -> {
                 v.put("tournamentName", "Summer Smash Cup");
                 v.put("championName", "Rahul Sharma");
                 v.put("runnerUpName", "Amit Kumar");
                 v.put("thirdPlaceName", "Vikram Singh");
             }
-            case PRIZE_DISTRIBUTION -> {
+            case "PRIZE_DISTRIBUTION" -> {
                 v.put("tournamentName", "Summer Smash Cup");
                 v.put("position", "Champion");
-                v.put("prize", "₹10,000 + Trophy");
+                v.put("prize", "10000 + Trophy");
                 v.put("ceremonyDate", "Sun, 21 Jun 2026, 06:00 PM");
                 v.put("venueName", "Community Sports Arena");
             }
-            case TOURNAMENT_OPEN -> {
+            case "TOURNAMENT_OPEN" -> {
                 v.put("tournamentName", "Summer Smash Cup 2026");
                 v.put("eventDate", "Sat, 20 Jun 2026");
                 v.put("registrationDeadline", "Fri, 15 Jun 2026");
@@ -423,47 +400,65 @@ public class EmailVerificationController {
                 v.put("contactNumber", "+91 98765 43210");
                 v.put("venueName", "Community Sports Arena");
                 v.put("bannerImage", "");
-                v.put("customMessage", "Don't miss your chance to compete! Early bird registrations get a free team jersey.");
-                v.put("sportsEvents", List.of(
-                        Map.of("sportName", "Badminton", "eventName", "Men's Singles", "icon", "🏸", "ageRange", "18–45", "gender", "Male"),
-                        Map.of("sportName", "Badminton", "eventName", "Women's Doubles", "icon", "🏸", "ageRange", "18–40", "gender", "Female"),
-                        Map.of("sportName", "Table Tennis", "eventName", "Mixed Doubles", "icon", "🏓", "ageRange", "16–50", "gender", "All"),
-                        Map.of("sportName", "Cricket", "eventName", "Men's T20", "icon", "🏏", "ageRange", "18–45", "gender", "Male")
-                ));
+                v.put("sportList", "Badminton, Table Tennis, Cricket");
+                v.put("customMessage", "Early registrations get priority fixture slots.");
+                v.put("actionUrl", props.getBaseUrl() + "/sports");
             }
-            case TOURNAMENT_ANNOUNCEMENT -> {
+            case "TOURNAMENT_ANNOUNCEMENT" -> {
                 v.put("tournamentName", "Summer Smash Cup 2026");
-                v.put("subject", "Important Update: Venue Change");
-                v.put("customMessage", "Due to ongoing renovations, all matches have been moved to the Community Sports Arena (Block C). Same timings apply. See you there!");
-                v.put("eventDate", "Sat, 20 Jun 2026");
-                v.put("contactName", "Vikram Patel");
-                v.put("contactNumber", "+91 98765 43210");
-                v.put("bannerImage", "");
+                v.put("tournamentDescription", "A community-wide tournament across badminton, cricket, and table tennis.");
+                v.put("customMessage", "Venue updated to Community Sports Arena, Block C. Timings remain unchanged.");
+                v.put("eventStartDate", "20 Jun 2026");
+                v.put("totalEvents", 5);
+                v.put("totalSports", 3);
+                v.put("expectedParticipants", 500);
+                v.put("venueName", "Community Sports Arena");
+                v.put("supportEmail", "sports@manacommunity.app");
+                v.put("supportPhone", "+91 98765 43210");
+                v.put("actionUrl", props.getBaseUrl() + "/sports");
             }
-            case EMAIL_OTP -> {
+            case "EMAIL_OTP" -> {
                 v.put("otpCode", "428913");
                 v.put("expiryMinutes", 10);
             }
-            case REGISTRATION_OPEN -> {
+            case "REGISTRATION_OPEN" -> {
                 v.put("tournamentName", "Summer Smash Cup");
-                v.put("description", "Join us for the annual Summer Smash Cup! Compete against local teams in multiple sports formats including Badminton, Table Tennis, and Football.");
+                v.put("description", "Join us for the annual Summer Smash Cup across multiple sports.");
                 v.put("sportName", "Badminton, Table Tennis, Football");
+                v.put("sportList", "Badminton, Table Tennis, Football");
                 v.put("registrationPeriod", "15 Jun 2026 - 30 Jun 2026");
                 v.put("eventDates", "05 Jul 2026 - 12 Jul 2026");
                 v.put("venueName", "Community Sports Arena");
-                v.put("contactDetails", "Amit Patel (amit@manacommunity.app, +91 98765 43210)");
+                v.put("contactDetails", "Amit Patel, +91 98765 43210");
                 v.put("actionUrl", props.getBaseUrl() + "/sports");
             }
-            case TOURNAMENT_START -> {
+            case "TOURNAMENT_START" -> {
                 v.put("tournamentName", "Summer Smash Cup 2026");
-                v.put("description", "Welcome players and captains! The opening ceremony starts at 9:00 AM sharp at the central club lawns. First round matches will commence immediately after.");
+                v.put("description", "Opening ceremony starts at 9:00 AM sharp.");
                 v.put("sportName", "Badminton, Football, Table Tennis");
                 v.put("openingTime", "Sat, 05 Jul 2026 09:00 AM");
                 v.put("venueName", "Community Sports Arena");
-                v.put("firstFixture", "Team Red vs Team Blue (Football Pitch 1)");
+                v.put("firstFixture", "Team Red vs Team Blue");
                 v.put("actionUrl", props.getBaseUrl() + "/sports");
+            }
+            default -> {
+                v.put("tournamentName", "Summer Smash Cup");
+                v.put("eventName", "Community Event");
+                v.put("venueName", "Community Sports Arena");
             }
         }
         return v;
+    }
+
+    private String normalizeCode(String templateCode) {
+        return templateCode == null ? "" : templateCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String stringValue(Map<String, Object> vars, String key) {
+        if (vars == null || !vars.containsKey(key) || vars.get(key) == null) {
+            return null;
+        }
+        String value = String.valueOf(vars.get(key)).trim();
+        return value.isEmpty() ? null : value;
     }
 }

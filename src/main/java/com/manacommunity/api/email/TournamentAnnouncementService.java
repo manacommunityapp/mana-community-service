@@ -21,6 +21,7 @@ public class TournamentAnnouncementService {
     private final EmailService emailService;
     private final NotificationManagementService notificationService;
     private final AppUserRepository userRepo;
+    private final TournamentEmailService tournamentEmailService;
 
     public int announce(Tournament tournament, TournamentAnnouncementRequest req) {
         Long communityId = tournament.getCommunity() != null ? tournament.getCommunity().getId() : null;
@@ -42,7 +43,11 @@ public class TournamentAnnouncementService {
                 if (req.customHtml() != null && !req.customHtml().isBlank()) {
                     html = req.customHtml();
                 } else {
-                    html = renderer.render(template, buildVars(tournament, user, req));
+                    // Single DTO drives the template — built once per recipient with
+                    // the per-send custom message applied.
+                    Map<String, Object> vars = support.baseVars(user.getFullName());
+                    vars.put("email", tournamentEmailService.buildTournamentAnnouncementDTO(tournament, req.message()));
+                    html = renderer.render(template, vars);
                 }
 
                 if (req.sendEmail()) {
@@ -84,38 +89,4 @@ public class TournamentAnnouncementService {
         }
     }
 
-    private Map<String, Object> buildVars(Tournament t, AppUser user, TournamentAnnouncementRequest req) {
-        Map<String, Object> vars = support.baseVars(user.getFullName());
-        vars.put("tournamentName", t.getName());
-        vars.put("subject", req.subject());
-        vars.put("customMessage", req.message());
-        vars.put("eventDate", support.formatDate(t.getEventDateStart()));
-        vars.put("registrationDeadline", support.formatDate(t.getRegistrationDateEnd()));
-        vars.put("contactName", t.getContactName());
-        vars.put("contactNumber", t.getContactNumber());
-        vars.put("bannerImage", t.getBannerImage());
-        vars.put("actionUrl", support.props().getBaseUrl() + "/sports");
-
-        List<SportsEvent> events = t.getSportsEvents();
-        if (events != null && !events.isEmpty()) {
-            String venueName = events.stream()
-                    .filter(e -> e.getVenue() != null)
-                    .map(e -> e.getVenue().getName())
-                    .findFirst().orElse(null);
-            vars.put("venueName", venueName);
-
-            List<Map<String, String>> eventRows = new ArrayList<>();
-            for (SportsEvent ev : events) {
-                Map<String, String> row = new LinkedHashMap<>();
-                row.put("sportName", ev.getSport() != null ? ev.getSport().getName() : ev.getName());
-                row.put("eventName", ev.getName());
-                row.put("icon", ev.getIcon());
-                row.put("ageRange", ev.getMinAge() + "–" + ev.getMaxAge());
-                row.put("gender", ev.getGender() != null ? support.prettify(ev.getGender()) : "All");
-                eventRows.add(row);
-            }
-            vars.put("sportsEvents", eventRows);
-        }
-        return vars;
-    }
 }

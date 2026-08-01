@@ -64,6 +64,12 @@ public class SecurityConfig { // BUG FIX: was package-private
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Autowired
+    private com.manacommunity.api.security.RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+
+    @Autowired
+    private com.manacommunity.api.security.RestAccessDeniedHandler restAccessDeniedHandler;
+
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
@@ -200,6 +206,14 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // (X-Content-Type-Options: nosniff is on by default.)
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // Render filter-level auth failures (missing/invalid token, forbidden)
+            // in the same ErrorResponse envelope as @RestControllerAdvice, instead
+            // of Spring's default BasicErrorController body (no errorCode/message/
+            // correlationId). Method-security @PreAuthorize denials still flow
+            // through GlobalExceptionHandler and produce the identical shape.
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint(restAuthenticationEntryPoint)
+                    .accessDeniedHandler(restAccessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 // The container's ERROR dispatch (e.g. a 401 from the docs chain's
                 // sendError) re-enters the security filter; permit it so the original
@@ -225,6 +239,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 .requestMatchers("/api/communities/**").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
+                .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers("/api/tournament/**").authenticated()
                 // AI Chat Agent — requires authentication; the controller itself
                 // validates community membership and active status.

@@ -1,0 +1,414 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tournament Announcements – Mana Community Sports 2026</title>
+<style>
+/* ─── Reset ─────────────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f4f7fb;color:#333;}
+
+/* ─── Header ─────────────────────────────────────────────────── */
+header{
+  background:#0f172a;color:#fff;
+  padding:18px 50px;
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 20px rgba(0,0,0,0.3);
+}
+header h2{font-weight:700;font-size:18px;letter-spacing:-.01em;}
+header nav a{color:rgba(255,255,255,.8);margin-left:25px;text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
+header nav a:hover{color:#fff;}
+
+/* ─── Hero ───────────────────────────────────────────────────── */
+.hero{
+  min-height:440px;
+  background:
+    linear-gradient(150deg,rgba(10,18,50,.92) 0%,rgba(30,58,138,.88) 45%,rgba(109,40,217,.82) 100%),
+    repeating-linear-gradient(45deg,transparent,transparent 25px,rgba(255,255,255,.025) 25px,rgba(255,255,255,.025) 50px);
+  display:flex;justify-content:center;align-items:center;
+  text-align:center;color:#fff;padding:40px 20px;position:relative;overflow:hidden;
+}
+.hero::before{content:'🏆';position:absolute;font-size:380px;opacity:.04;right:-60px;top:-80px;pointer-events:none;}
+.hero::after{content:'🥇';position:absolute;font-size:200px;opacity:.04;left:-30px;bottom:-50px;pointer-events:none;}
+.hero h1{font-size:44px;font-weight:800;margin-bottom:10px;letter-spacing:-.02em;text-shadow:0 2px 30px rgba(0,0,0,.4);}
+.hero p{font-size:18px;opacity:.9;margin-bottom:28px;}
+
+/* Live Countdown */
+.countdown-wrap{display:flex;gap:14px;justify-content:center;margin-top:6px;}
+.c-unit{
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2);
+  backdrop-filter:blur(8px);
+  border-radius:12px;padding:14px 18px;min-width:74px;text-align:center;
+}
+.c-unit .num{font-size:32px;font-weight:800;display:block;line-height:1;}
+.c-unit .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.7;margin-top:4px;display:block;}
+.c-label{margin-bottom:12px;font-size:13px;font-weight:600;background:#ff9800;display:inline-flex;align-items:center;gap:6px;padding:6px 18px;border-radius:30px;box-shadow:0 4px 20px rgba(255,152,0,.4);}
+
+/* ─── Container ──────────────────────────────────────────────── */
+.container{width:92%;max-width:1300px;margin:auto;padding:40px 0;}
+
+/* ─── Card ───────────────────────────────────────────────────── */
+.card{background:#fff;border-radius:16px;padding:28px;margin-bottom:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);}
+.section-title{
+  font-size:22px;font-weight:800;color:#1e3a8a;margin-bottom:24px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title::after{content:'';flex:1;height:2px;background:linear-gradient(to right,#dbeafe,transparent);border-radius:2px;}
+
+/* ─── Summary Stats ───────────────────────────────────────────── */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+.s-box{
+  padding:24px 20px;border-radius:14px;text-align:center;color:#fff;
+  transition:transform .2s;
+}
+.s-box:hover{transform:translateY(-4px);}
+.s-box h2{font-size:38px;font-weight:800;}
+.s-box p{font-size:13px;margin-top:4px;opacity:.9;font-weight:500;}
+.s-box.blue{background:linear-gradient(135deg,#1d4ed8,#3b82f6);box-shadow:0 6px 20px rgba(29,78,216,.3);}
+.s-box.purple{background:linear-gradient(135deg,#6d28d9,#a855f7);box-shadow:0 6px 20px rgba(109,40,217,.3);}
+.s-box.green{background:linear-gradient(135deg,#047857,#10b981);box-shadow:0 6px 20px rgba(4,120,87,.3);}
+.s-box.red{background:linear-gradient(135deg,#b91c1c,#ef4444);box-shadow:0 6px 20px rgba(185,28,28,.3);}
+
+/* ─── Tournaments ─────────────────────────────────────────────── */
+.tournaments{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:22px;}
+.tournament{
+  background:#fff;border-radius:14px;overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.08);
+  transition:transform .3s,box-shadow .3s;
+}
+.tournament:hover{transform:translateY(-7px);box-shadow:0 14px 35px rgba(0,0,0,.13);}
+
+.t-img{
+  height:200px;display:flex;align-items:center;justify-content:center;
+  font-size:90px;position:relative;overflow:hidden;
+}
+.t-img::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.04) 20px,rgba(255,255,255,.04) 40px);
+}
+.t-img.cricket {background:linear-gradient(135deg,#064e3b,#059669);}
+.t-img.badminton{background:linear-gradient(135deg,#1e3a8a,#3b82f6);}
+.t-img.chess   {background:linear-gradient(135deg,#18181b,#52525b);}
+.t-img.football{background:linear-gradient(135deg,#14532d,#22c55e);}
+
+.t-content{padding:20px;}
+.badge{display:inline-block;padding:5px 14px;border-radius:30px;font-size:12px;font-weight:700;margin-bottom:12px;}
+.badge.open  {background:#dcfce7;color:#166534;}
+.badge.soon  {background:#fef3c7;color:#92400e;}
+.badge.coming{background:#ede9fe;color:#4c1d95;}
+.t-content h3{font-size:16px;font-weight:700;color:#0f172a;margin-bottom:10px;}
+.t-meta{display:flex;flex-direction:column;gap:5px;}
+.t-meta span{font-size:13px;color:#64748b;display:flex;align-items:center;gap:6px;}
+
+/* ─── Sports ──────────────────────────────────────────────────── */
+.sports{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;}
+.sport{
+  background:#eff6ff;padding:22px 14px;text-align:center;border-radius:14px;
+  font-size:13px;font-weight:700;color:#1d4ed8;
+  transition:.25s;cursor:pointer;border:2px solid transparent;
+}
+.sport:hover{background:#1d4ed8;color:#fff;border-color:#1e40af;transform:translateY(-4px);box-shadow:0 8px 22px rgba(29,78,216,.3);}
+.sport .si{font-size:36px;display:block;margin-bottom:8px;}
+
+/* ─── Timeline ────────────────────────────────────────────────── */
+.timeline{position:relative;padding-left:4px;}
+.timeline::before{content:'';position:absolute;left:22px;top:10px;bottom:10px;width:3px;background:linear-gradient(to bottom,#2563eb,#93c5fd);border-radius:2px;}
+.tl-item{display:flex;gap:20px;align-items:flex-start;margin-bottom:24px;position:relative;}
+.tl-dot{
+  width:46px;height:46px;border-radius:50%;
+  background:linear-gradient(135deg,#1d4ed8,#60a5fa);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;z-index:1;
+  box-shadow:0 0 0 5px #eff6ff;
+}
+.tl-body{background:#f8fafc;border:1px solid #e2e8f0;padding:14px 18px;border-radius:10px;flex:1;}
+.tl-date{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#2563eb;}
+.tl-body p{font-size:14px;color:#334155;font-weight:500;margin-top:3px;}
+
+/* ─── Announcements ────────────────────────────────────────────── */
+.ann{
+  padding:15px 18px;background:#fffbeb;border-left:5px solid #f59e0b;
+  margin-bottom:12px;border-radius:0 10px 10px 0;
+  display:flex;align-items:flex-start;gap:12px;transition:background .2s;
+}
+.ann:hover{background:#fef9c3;}
+.ann .ann-ico{font-size:18px;flex-shrink:0;margin-top:1px;}
+.ann .ann-body{flex:1;font-size:14px;color:#451a03;}
+.ann .ann-date{font-size:11px;color:#78350f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;padding-top:2px;}
+
+/* ─── CTA Banner ──────────────────────────────────────────────── */
+.cta{
+  background:linear-gradient(135deg,#1e3a8a,#2563eb 50%,#7c3aed);
+  border-radius:16px;padding:44px;text-align:center;color:#fff;
+  margin-bottom:28px;position:relative;overflow:hidden;
+}
+.cta::before{content:'🏆 🥇 🏅';position:absolute;font-size:100px;opacity:.07;right:20px;top:-10px;pointer-events:none;}
+.cta h2{font-size:28px;font-weight:800;margin-bottom:8px;}
+.cta p{font-size:15px;opacity:.9;margin-bottom:28px;}
+.btn{
+  display:inline-block;padding:13px 30px;border-radius:9px;
+  font-weight:700;font-size:14px;text-decoration:none;cursor:pointer;border:none;transition:.2s;
+}
+.btn-white{background:#fff;color:#1e3a8a;}
+.btn-white:hover{background:#e0e7ff;}
+.btn-outline{background:transparent;border:2px solid rgba(255,255,255,.6);color:#fff;margin-left:14px;}
+.btn-outline:hover{background:rgba(255,255,255,.12);}
+
+/* ─── Gallery ──────────────────────────────────────────────────── */
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
+.gal-item{
+  height:180px;border-radius:12px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:72px;position:relative;cursor:pointer;transition:transform .3s;
+}
+.gal-item:hover{transform:scale(1.04);}
+.gal-item.g1{background:linear-gradient(135deg,#0c4a6e,#0ea5e9);}
+.gal-item.g2{background:linear-gradient(135deg,#14532d,#4ade80);}
+.gal-item.g3{background:linear-gradient(135deg,#581c87,#d946ef);}
+.gal-item.g4{background:linear-gradient(135deg,#7c2d12,#f97316);}
+.gal-item span.icon{position:relative;z-index:1;filter:drop-shadow(0 2px 10px rgba(0,0,0,.3));}
+.gal-item::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(135deg,transparent,transparent 20px,rgba(255,255,255,.03) 20px,rgba(255,255,255,.03) 40px);}
+.gal-lbl{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:linear-gradient(to top,rgba(0,0,0,.65),transparent);color:#fff;font-size:12px;font-weight:600;z-index:2;}
+
+/* ─── Footer ──────────────────────────────────────────────────── */
+footer{background:#0f172a;color:#94a3b8;padding:32px;text-align:center;margin-top:40px;}
+footer span{color:#fff;font-weight:700;}
+
+/* ─── Responsive ──────────────────────────────────────────────── */
+@media(max-width:950px){
+  header{padding:16px 20px;}
+  header nav{display:none;}
+  .hero h1{font-size:28px;}
+  .summary{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:500px){
+  .summary{grid-template-columns:1fr 1fr;}
+  .hero h1{font-size:22px;}
+  .c-unit{min-width:60px;padding:10px 12px;}
+  .c-unit .num{font-size:24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h2>🏆 Mana Community Sports</h2>
+  <nav>
+    <a href="#">Home</a>
+    <a href="#">Announcements</a>
+    <a href="#">Gallery</a>
+    <a href="#">Contact</a>
+  </nav>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div>
+    <h1>Hyderabad Community Sports Festival 2026</h1>
+    <p>15+ Sports &bull; 500+ Participants &bull; Community Celebration</p>
+    <div class="c-label">⏱ Opening Ceremony Starts In:</div>
+    <div class="countdown-wrap">
+      <div class="c-unit"><span class="num" id="cd-d">00</span><span class="lbl">Days</span></div>
+      <div class="c-unit"><span class="num" id="cd-h">00</span><span class="lbl">Hours</span></div>
+      <div class="c-unit"><span class="num" id="cd-m">00</span><span class="lbl">Mins</span></div>
+      <div class="c-unit"><span class="num" id="cd-s">00</span><span class="lbl">Secs</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="summary">
+      <div class="s-box blue"><h2>5</h2><p>Upcoming Tournaments</p></div>
+      <div class="s-box purple"><h2>15</h2><p>Sports Events</p></div>
+      <div class="s-box green"><h2>500+</h2><p>Expected Participants</p></div>
+      <div class="s-box red"><h2>12</h2><p>Announcements</p></div>
+    </div>
+  </div>
+
+  <!-- Upcoming Tournaments -->
+  <div class="card">
+    <h2 class="section-title">Upcoming Tournaments</h2>
+    <div class="tournaments">
+
+      <div class="tournament">
+        <div class="t-img cricket">🏏</div>
+        <div class="t-content">
+          <div class="badge open">Starts in 5 Days</div>
+          <h3>🏏 Summer Cricket Cup</h3>
+          <div class="t-meta">
+            <span>📅 12 Aug 2026</span>
+            <span>📍 Cricket Ground, Block A</span>
+            <span>👥 Men's Teams (Open Age)</span>
+            <span>🏆 Prize Pool ₹50,000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tournament">
+        <div class="t-img badminton">🏸</div>
+        <div class="t-content">
+          <div class="badge soon">Starts in 10 Days</div>
+          <h3>🏸 Badminton Championship</h3>
+          <div class="t-meta">
+            <span>📅 18 Aug 2026</span>
+            <span>📍 Indoor Stadium</span>
+            <span>👨 Men &bull; 👩 Women &bull; 👧 Kids</span>
+            <span>🏆 Trophies + Certificates</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tournament">
+        <div class="t-img chess">♟</div>
+        <div class="t-content">
+          <div class="badge coming">Coming Soon</div>
+          <h3>♟ Community Chess Tournament</h3>
+          <div class="t-meta">
+            <span>📅 22 Aug 2026</span>
+            <span>📍 Club House, Hall 1</span>
+            <span>🧒 Kids &bull; 🧑 Adults &bull; 👴 Seniors</span>
+            <span>🏆 Category-wise Prizes</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Sports Included -->
+  <div class="card">
+    <h2 class="section-title">Sports Included</h2>
+    <div class="sports">
+      <div class="sport"><span class="si">🏏</span>Cricket</div>
+      <div class="sport"><span class="si">🏸</span>Badminton</div>
+      <div class="sport"><span class="si">⚽</span>Football</div>
+      <div class="sport"><span class="si">🏐</span>Volleyball</div>
+      <div class="sport"><span class="si">🏓</span>Table Tennis</div>
+      <div class="sport"><span class="si">♟</span>Chess</div>
+      <div class="sport"><span class="si">🎯</span>Carrom</div>
+      <div class="sport"><span class="si">🎾</span>Tennis</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card">
+    <h2 class="section-title">Tournament Timeline</h2>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot">📢</div>
+        <div class="tl-body"><div class="tl-date">01 Aug 2026</div><p>Tournament Announcement Published</p></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot">📝</div>
+        <div class="tl-body"><div class="tl-date">05 Aug 2026</div><p>Registration Opens for All Categories</p></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot">🔒</div>
+        <div class="tl-body"><div class="tl-date">10 Aug 2026</div><p>Registration Closes — Final Teams Confirmed</p></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot">📋</div>
+        <div class="tl-body"><div class="tl-date">12 Aug 2026</div><p>Match Fixtures Published on Notice Board</p></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot">🎉</div>
+        <div class="tl-body"><div class="tl-date">15 Aug 2026</div><p>Opening Ceremony — Independence Day Special</p></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot">🏆</div>
+        <div class="tl-body"><div class="tl-date">17 Aug 2026</div><p>Finals &amp; Prize Distribution</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Latest Announcements -->
+  <div class="card">
+    <h2 class="section-title">Latest Announcements</h2>
+
+    <div class="ann">
+      <span class="ann-ico">📢</span>
+      <span class="ann-body"><strong>Cricket fixtures</strong> will be published tomorrow on the community notice board.</span>
+      <span class="ann-date">Today</span>
+    </div>
+    <div class="ann">
+      <span class="ann-ico">📢</span>
+      <span class="ann-body"><strong>Chess registration</strong> extended until 14 Aug due to overwhelming demand.</span>
+      <span class="ann-date">Yesterday</span>
+    </div>
+    <div class="ann">
+      <span class="ann-ico">📢</span>
+      <span class="ann-body"><strong>Volleyball venue changed</strong> to Court-3 near the main community gate.</span>
+      <span class="ann-date">2 days ago</span>
+    </div>
+    <div class="ann">
+      <span class="ann-ico">📢</span>
+      <span class="ann-body"><strong>Opening Ceremony</strong> starts at 9:00 AM on 15 Aug. All residents are welcome!</span>
+      <span class="ann-date">3 days ago</span>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h2>Ready to Participate? Register Now!</h2>
+    <p>Join the biggest sports celebration in our community. Limited spots available.</p>
+    <a href="#" class="btn btn-white">Register Now</a>
+    <a href="#" class="btn btn-outline">View Schedule</a>
+  </div>
+
+  <!-- Previous Gallery -->
+  <div class="card">
+    <h2 class="section-title">Previous Tournament Memories</h2>
+    <div class="gallery">
+      <div class="gal-item g1">
+        <span class="icon">🏏</span>
+        <div class="gal-lbl">Cricket Finals 2025</div>
+      </div>
+      <div class="gal-item g2">
+        <span class="icon">⚽</span>
+        <div class="gal-lbl">Football League 2025</div>
+      </div>
+      <div class="gal-item g3">
+        <span class="icon">🏸</span>
+        <div class="gal-lbl">Badminton Open 2025</div>
+      </div>
+      <div class="gal-item g4">
+        <span class="icon">🏆</span>
+        <div class="gal-lbl">Prize Distribution Ceremony</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>&copy; 2026 <span>Mana Community Sports</span> &bull; Bringing Communities Together Through Sports 🏆</p>
+</footer>
+
+<script>
+  // Live countdown to Opening Ceremony: 15 Aug 2026 09:00 AM
+  var target = new Date('2026-08-15T09:00:00').getTime();
+  function tick() {
+    var now = Date.now();
+    var diff = target - now;
+    if (diff < 0) diff = 0;
+    var d = Math.floor(diff / 864e5);
+    var h = Math.floor((diff % 864e5) / 36e5);
+    var m = Math.floor((diff % 36e5) / 6e4);
+    var s = Math.floor((diff % 6e4) / 1e3);
+    document.getElementById('cd-d').textContent = String(d).padStart(2,'0');
+    document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+    document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+    document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
