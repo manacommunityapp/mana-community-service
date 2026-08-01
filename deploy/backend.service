@@ -13,7 +13,7 @@ Environment=SPRING_PROFILES_ACTIVE=dev
 
 # These MUST be set via systemctl edit backend --force (override file)
 # or in /etc/mana-community/env. Never commit real secrets to git.
-EnvironmentFile=-/etc/mana-community/env-dev
+EnvironmentFile=-/etc/mana-community/env
 
 # JASYPT_ENCRYPTOR_PASSWORD is read from /etc/mana-community/env
 # and used to decrypt ENC(...) values in config at startup.

@@ -1,4 +1,4 @@
-package com.manacommunity.api.model;
+﻿package com.manacommunity.api.model;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,13 +6,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "email_theme")
+@Table(name = "email_builder_template")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmailTheme {
+public class EmailBuilderTemplate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,12 +25,29 @@ public class EmailTheme {
     @Column(nullable = false, length = 160)
     private String name;
 
-    @Column(name = "theme_json", columnDefinition = "TEXT", nullable = false)
+    @Column(nullable = false, length = 240)
+    private String subject;
+
+    @Column(name = "html_content", nullable = false, columnDefinition = "TEXT")
+    private String htmlContent;
+
+    @Column(columnDefinition = "TEXT")
+    private String css;
+
+    @Column(name = "layout_json", columnDefinition = "TEXT")
+    private String layoutJson;
+
+    @Column(name = "theme_json", columnDefinition = "TEXT")
     private String themeJson;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     @Builder.Default
-    @Column(name = "is_default", nullable = false)
-    private boolean isDefault = false;
+    private EmailTemplateStatus status = EmailTemplateStatus.DRAFT;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer version = 1;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -43,6 +60,12 @@ public class EmailTheme {
         LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
+        if (status == null) {
+            status = EmailTemplateStatus.DRAFT;
+        }
+        if (version == null) {
+            version = 1;
+        }
     }
 
     @PreUpdate

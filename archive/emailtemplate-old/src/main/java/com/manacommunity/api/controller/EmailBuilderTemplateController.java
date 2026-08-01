@@ -1,4 +1,4 @@
-package com.manacommunity.api.controller;
+﻿package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.email.EmailBuilderTemplateDtos.AssetResponse;
 import com.manacommunity.api.dto.email.EmailBuilderTemplateDtos.TemplateRequest;
@@ -19,7 +19,7 @@ import java.util.Set;
 
 /**
  * Backend for the drag-and-drop email template builder (GrapesJS). Distinct
- * from the code-driven templates under /api/admin/email — these are freeform,
+ * from the code-driven templates under /api/admin/email ΓÇö these are freeform,
  * named templates a community admin composes visually.
  */
 @RestController
@@ -61,7 +61,7 @@ public class EmailBuilderTemplateController {
 
     /**
      * No object storage is wired up in this codebase (see ExpenseService's mocked
-     * receipt URL) — images are inlined as base64 data URIs so the builder canvas
+     * receipt URL) ΓÇö images are inlined as base64 data URIs so the builder canvas
      * and rendered emails actually display them, rather than a link to nowhere.
      */
     @PostMapping(value = "/assets", consumes = "multipart/form-data")

@@ -1,4 +1,4 @@
-package com.manacommunity.api.dto.email;
+﻿package com.manacommunity.api.dto.email;
 
 import com.manacommunity.api.model.EmailTemplateStatus;
 import jakarta.validation.constraints.NotBlank;
