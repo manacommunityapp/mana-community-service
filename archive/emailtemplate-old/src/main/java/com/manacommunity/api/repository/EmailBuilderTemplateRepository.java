@@ -1,4 +1,4 @@
-package com.manacommunity.api.repository;
+﻿package com.manacommunity.api.repository;
 
 import com.manacommunity.api.model.EmailBuilderTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;

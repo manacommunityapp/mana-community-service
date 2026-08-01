@@ -1,4 +1,4 @@
-package com.manacommunity.api.email;
+﻿package com.manacommunity.api.email;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.dto.email.EmailBuilderTemplateDtos.TemplateRequest;
@@ -23,7 +23,7 @@ public class EmailBuilderTemplateService {
     private final CommunityRepository communityRepository;
 
     // No ObjectMapper bean is guaranteed in this context (Jackson autoconfig
-    // isn't always present — see SecurityErrorWriter for the same workaround),
+    // isn't always present ΓÇö see SecurityErrorWriter for the same workaround),
     // so this service carries its own self-contained instance.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -77,7 +77,7 @@ public class EmailBuilderTemplateService {
     private Object readJson(String json) {
         if (json == null || json.isBlank()) return null;
         try {
-            // Plain Map/List (not JsonNode) — this app's response converter
+            // Plain Map/List (not JsonNode) ΓÇö this app's response converter
             // doesn't recognize JsonNode and falls back to bean-reflection on it.
             return objectMapper.readValue(json, Object.class);
         } catch (Exception e) {

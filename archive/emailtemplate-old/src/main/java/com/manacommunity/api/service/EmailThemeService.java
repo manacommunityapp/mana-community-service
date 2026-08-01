@@ -1,4 +1,4 @@
-package com.manacommunity.api.service;
+﻿package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.email.EmailThemeDto;
 import com.manacommunity.api.model.Community;

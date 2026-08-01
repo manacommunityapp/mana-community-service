@@ -27,7 +27,7 @@ import java.util.UUID;
 public class EmailTemplateBuilderService {
 
     private final CustomEmailTemplateRepository repository;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
             "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"

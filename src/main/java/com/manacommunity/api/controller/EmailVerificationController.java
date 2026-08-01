@@ -5,15 +5,20 @@ import com.manacommunity.api.dto.email.EmailTemplateManagementDtos.TemplateSumma
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailProperties;
 import com.manacommunity.api.email.EmailService;
+import com.manacommunity.api.email.EmailTemplate;
 import com.manacommunity.api.email.EmailTemplateManagementService;
+import com.manacommunity.api.email.EmailTemplateRenderer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +34,7 @@ public class EmailVerificationController {
     private final EmailTemplateManagementService templateService;
     private final EmailService emailService;
     private final EmailProperties props;
+    private final EmailTemplateRenderer emailTemplateRenderer;
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -51,6 +57,44 @@ public class EmailVerificationController {
         resp.put("communityId", communityId);
         resp.put("count", templates.size());
         resp.put("templates", templates);
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * The built-in (code-shipped) version of a template — as opposed to
+     * {@link #templates} / {@link #preview}, which serve the DB-stored, per-community
+     * customizable version. Backs the "Default HTML" view in the admin template UI.
+     */
+    @GetMapping("/default-template/{templateCode}")
+    public ResponseEntity<Map<String, Object>> defaultTemplate(@PathVariable String templateCode) {
+        EmailTemplate template;
+        try {
+            template = EmailTemplate.valueOf(templateCode.trim().toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String fileStem = template.templateName().substring("email/".length());
+        String templateFile = fileStem + ".html";
+        String rawHtml;
+        try {
+            rawHtml = new ClassPathResource("templates/email/" + templateFile)
+                    .getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.error("Failed to read default template file {}: {}", templateFile, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+
+        String renderedHtml = emailTemplateRenderer.render(template, sampleVars(template.name()));
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("key", template.name());
+        resp.put("templateName", humanize(template.name()));
+        resp.put("templateFile", templateFile);
+        resp.put("subject", template.defaultSubject());
+        resp.put("category", template.category().name());
+        resp.put("rawHtml", rawHtml);
+        resp.put("renderedHtml", renderedHtml);
         return ResponseEntity.ok(resp);
     }
 
@@ -416,6 +460,35 @@ public class EmailVerificationController {
                 v.put("supportEmail", "sports@manacommunity.app");
                 v.put("supportPhone", "+91 98765 43210");
                 v.put("actionUrl", props.getBaseUrl() + "/sports");
+                v.put("actionButtonText", "Register Now →");
+                v.put("footerText", "Bringing Communities Together Through Sports 🏆");
+                v.put("bannerImage", "");
+                v.put("sportsEvents", List.of(
+                        Map.of("icon", "🏸", "iconBgColor", "#2563eb", "eventName", "Badminton — Men's Singles",
+                                "gender", "Open", "eventDate", "Sat, 20 Jun 2026", "venueName", "Community Sports Arena",
+                                "ageRange", "18+ years"),
+                        Map.of("icon", "🏏", "iconBgColor", "#16a34a", "eventName", "Cricket — Community League",
+                                "gender", "Mixed", "eventDate", "Sun, 21 Jun 2026", "venueName", "Community Sports Arena",
+                                "ageRange", "All ages")
+                ));
+                v.put("sportsIncluded", List.of(
+                        Map.of("icon", "🏸", "sportName", "Badminton"),
+                        Map.of("icon", "🏏", "sportName", "Cricket"),
+                        Map.of("icon", "🏓", "sportName", "Table Tennis")
+                ));
+                v.put("galleryImages", List.of(
+                        Map.of("icon", "🏆", "title", "Last Year's Finals", "bgColor", "#2563eb", "imageUrl", ""),
+                        Map.of("icon", "🎉", "title", "Opening Ceremony", "bgColor", "#16a34a", "imageUrl", "")
+                ));
+                v.put("timeline", List.of(
+                        Map.of("date", "15 Jun", "title", "Registrations Close", "description", "Last day to register your team."),
+                        Map.of("date", "20 Jun", "title", "Tournament Begins", "description", "Opening matches start at 9:00 AM."),
+                        Map.of("date", "28 Jun", "title", "Finals & Prize Ceremony", "description", "")
+                ));
+                v.put("announcements", List.of(
+                        Map.of("icon", "📢", "title", "Venue Update", "content", "Block C courts are now open for warm-ups from 8:00 AM."),
+                        Map.of("icon", "🎽", "title", "", "content", "Team jerseys can be collected from the sports office.")
+                ));
             }
             case "EMAIL_OTP" -> {
                 v.put("otpCode", "428913");
@@ -452,6 +525,18 @@ public class EmailVerificationController {
 
     private String normalizeCode(String templateCode) {
         return templateCode == null ? "" : templateCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String humanize(String enumConstantName) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : enumConstantName.split("_")) {
+            if (!part.isEmpty()) {
+                sb.append(Character.toUpperCase(part.charAt(0)))
+                        .append(part.substring(1).toLowerCase(Locale.ROOT))
+                        .append(' ');
+            }
+        }
+        return sb.toString().trim();
     }
 
     private String stringValue(Map<String, Object> vars, String key) {
