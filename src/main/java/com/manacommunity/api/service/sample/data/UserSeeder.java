@@ -209,7 +209,11 @@ public class UserSeeder {
             AppUser u = new AppUser();
             u.setEmail(email);
             u.setFullName(name);
-            u.setPhone("999" + phoneCounter.incrementAndGet());
+            String phone;
+            do {
+                phone = "999" + phoneCounter.incrementAndGet();
+            } while (userRepo.existsByPhone(phone));
+            u.setPhone(phone);
             u.setRole(role);
             u.setRoleEntity(roleEntity);
             u.setKycStatus("VERIFIED");

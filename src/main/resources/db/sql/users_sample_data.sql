@@ -20,7 +20,7 @@ BEGIN
     -- 1. Super Admin
     IF NOT EXISTS (SELECT 1 FROM app_user WHERE email = 'admin@manacommunity.com') THEN
         INSERT INTO app_user (email, full_name, phone, role, role_id, kyc_status, password_hash, date_of_birth, gender, is_active, block, flat_no)
-        VALUES ('admin@manacommunity.com', 'Super Admin', '9991000001', 'SUPER_ADMIN', sa_role_id, 'VERIFIED', hash_val, '1990-01-01', 'MALE', TRUE, '', '');
+        VALUES ('admin@manacommunity.com', 'Super Admin', '9991000451', 'SUPER_ADMIN', sa_role_id, 'VERIFIED', hash_val, '1990-01-01', 'MALE', TRUE, '', '');
     END IF;
 
     -- 2. Sandeep

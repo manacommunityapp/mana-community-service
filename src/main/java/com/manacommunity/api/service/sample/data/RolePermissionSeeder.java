@@ -79,8 +79,8 @@ public class RolePermissionSeeder {
         Role roleEntity = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(role)
                 .orElseThrow(() -> new IllegalStateException("Global Role " + role + " not found"));
         // Fetch existing permissions once per role instead of calling findAll() per permission
-        List<RolePermission> existingPerms = rolePermissionRepo.findByRoleIgnoreCase(role);
-        for (String perm : permissions) {
+        List<RolePermission> existingPerms = new java.util.ArrayList<>(rolePermissionRepo.findByRoleIgnoreCase(role));
+        for (String perm : permissions.stream().distinct().toList()) {
             boolean exists = existingPerms.stream()
                     .anyMatch(rp -> rp.getPermissionKey().equalsIgnoreCase(perm)
                             && rp.getUser() == null
@@ -93,6 +93,7 @@ public class RolePermissionSeeder {
                         .permissionKey(perm)
                         .build();
                 rolePermissionRepo.save(rp);
+                existingPerms.add(rp);
             }
         }
     }
@@ -103,11 +104,10 @@ public class RolePermissionSeeder {
         appUserRepo.findByEmail("sunil@gmail.com").ifPresent(sunil -> {
             Role adminRole = sunil.getRoleEntity();
             if (adminRole != null) {
-                List<RolePermission> existingPerms = rolePermissionRepo.findByUserId(sunil.getId());
-                for (String perm : ADMIN_PERMISSIONS) {
+                List<RolePermission> existingPerms = new java.util.ArrayList<>(rolePermissionRepo.findByUserId(sunil.getId()));
+                for (String perm : ADMIN_PERMISSIONS.stream().distinct().toList()) {
                     boolean exists = existingPerms.stream()
                             .anyMatch(rp -> rp.getPermissionKey().equalsIgnoreCase(perm)
-                                    && "ADMIN".equalsIgnoreCase(rp.getRole())
                                     && rp.getRoleEntity() != null
                                     && rp.getRoleEntity().getId().equals(adminRole.getId()));
                     if (!exists) {
@@ -118,6 +118,7 @@ public class RolePermissionSeeder {
                                 .user(sunil)
                                 .build();
                         rolePermissionRepo.save(rp);
+                        existingPerms.add(rp);
                     }
                 }
                 log.info("✓ User-specific permissions seeded for Sunil (ADMIN)");

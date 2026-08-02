@@ -226,10 +226,10 @@ public final class PermissionConstants {
                             MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
 
                     List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
-                            MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
                             RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
 
-            ).flatMap(List::stream).toList()
+            ).flatMap(List::stream).distinct().toList()
     );
 
     public static final List<String> ADMIN_PERMISSIONS = Collections.unmodifiableList(
@@ -251,10 +251,10 @@ public final class PermissionConstants {
                             MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
 
                     List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
-                            MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
                             RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
 
-            ).flatMap(List::stream).toList()
+            ).flatMap(List::stream).distinct().toList()
     );
 
     public static final List<String> SPORTS_ADMIN_PERMISSIONS = Collections.unmodifiableList(
