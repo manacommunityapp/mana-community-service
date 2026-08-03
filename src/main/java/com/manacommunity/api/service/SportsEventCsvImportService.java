@@ -113,9 +113,13 @@ public class SportsEventCsvImportService {
                     continue;
                 }
 
-                // Max participants guard
-                if (regRepo.countByEventId(eventId) >= event.getMaxParticipants()) {
-                    skippedReasons.add("Row " + lineNum + ": event is full (max " + event.getMaxParticipants() + ")");
+                // Max participants guard: event value can be null, in which case
+                // fall back to the tournament-level capacity for the same event.
+                Integer maxParticipants = event.getMaxParticipants() != null
+                        ? event.getMaxParticipants()
+                        : (event.getTournament() != null ? event.getTournament().getMaxParticipants() : null);
+                if (maxParticipants != null && regRepo.countByEventId(eventId) >= maxParticipants) {
+                    skippedReasons.add("Row " + lineNum + ": event is full (max " + maxParticipants + ")");
                     break;
                 }
 
