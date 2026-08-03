@@ -86,9 +86,7 @@ public class SmtpEmailService implements EmailService {
     @Override
     public void sendAll(List<EmailMessage> messages) {
         if (messages == null || messages.isEmpty()) return;
-        for (EmailMessage m : messages) {
-            send(m);
-        }
+        messages.parallelStream().forEach(this::send);
     }
 
     private String resolveRecipient(String originalTo) {
