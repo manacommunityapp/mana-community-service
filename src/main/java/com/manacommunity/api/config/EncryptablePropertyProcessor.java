@@ -54,31 +54,68 @@ public class EncryptablePropertyProcessor implements EnvironmentPostProcessor {
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         String masterPassword = resolveMasterPassword(environment);
-        if (masterPassword == null) return;
-
         Map<String, Object> decrypted = new LinkedHashMap<>();
         MutablePropertySources sources = environment.getPropertySources();
+        java.util.List<String> encryptedPropNames = new java.util.ArrayList<>();
 
         for (org.springframework.core.env.PropertySource<?> ps : sources) {
             if (ps instanceof EnumerablePropertySource<?> eps) {
                 for (String name : eps.getPropertyNames()) {
                     Object raw = eps.getProperty(name);
                     if (raw instanceof String s && s.startsWith(ENC_PREFIX) && s.endsWith(ENC_SUFFIX)) {
-                        String cipher = s.substring(ENC_PREFIX.length(), s.length() - ENC_SUFFIX.length());
-                        try {
-                            decrypted.put(name, decrypt(cipher, masterPassword));
-                        } catch (Exception e) {
-                            System.err.println("[EncryptableProperty] Failed to decrypt property '"
-                                    + name + "': " + e.getMessage());
+                        encryptedPropNames.add(name);
+                        if (masterPassword != null && !masterPassword.isBlank()) {
+                            String cipher = s.substring(ENC_PREFIX.length(), s.length() - ENC_SUFFIX.length());
+                            try {
+                                decrypted.put(name, decrypt(cipher, masterPassword));
+                            } catch (Exception e) {
+                                printFatalErrorBanner(
+                                        "FAILED TO DECRYPT PROPERTY '" + name + "'",
+                                        "Property '" + name + "' contains an ENC(...) encrypted value, but decryption failed: " + e.getMessage() + "\n\n" +
+                                        "Please verify that JASYPT_ENCRYPTOR_PASSWORD (or jasypt.encryptor.password) matches the secret key used during encryption."
+                                );
+                                throw new IllegalStateException("[EncryptableProperty] Failed to decrypt property '" + name + "': " + e.getMessage(), e);
+                            }
                         }
                     }
                 }
             }
         }
 
+        if (!encryptedPropNames.isEmpty() && (masterPassword == null || masterPassword.isBlank())) {
+            printFatalErrorBanner(
+                    "MISSING JASYPT ENCRYPTION SECRET (JASYPT_ENCRYPTOR_PASSWORD)",
+                    "Encrypted configuration properties (ENC(...)) were detected on startup:\n" +
+                    "  -> Detected encrypted property/properties: " + String.join(", ", encryptedPropNames) + "\n\n" +
+                    "However, the master encryption password is MISSING.\n" +
+                    "  - Missing Env Var: JASYPT_ENCRYPTOR_PASSWORD\n" +
+                    "  - Missing System Prop: jasypt.encryptor.password\n\n" +
+                    "Impact:\n" +
+                    "  Without this password, database credentials (spring.datasource.password)\n" +
+                    "  and other encrypted secrets remain as raw 'ENC(...)' strings.\n" +
+                    "  HikariCP / Hibernate will fail to establish a database connection, causing boot crashes on Lightsail/EC2.\n\n" +
+                    "Fix:\n" +
+                    "  1. Export JASYPT_ENCRYPTOR_PASSWORD in your environment / systemd service:\n" +
+                    "     export JASYPT_ENCRYPTOR_PASSWORD=your_master_secret\n" +
+                    "  2. Or pass it as a JVM argument on startup:\n" +
+                    "     java -Djasypt.encryptor.password=your_master_secret -jar manacommunity.jar"
+            );
+            throw new IllegalStateException("[EncryptableProperty] Fatal Startup Guard: Encrypted properties detected (" +
+                    String.join(", ", encryptedPropNames) + ") but JASYPT_ENCRYPTOR_PASSWORD environment variable is missing.");
+        }
+
         if (!decrypted.isEmpty()) {
             sources.addFirst(new MapPropertySource("decryptedProperties", decrypted));
         }
+    }
+
+    private void printFatalErrorBanner(String title, String details) {
+        String border = "========================================================================================";
+        System.err.println("\n" + border);
+        System.err.println("  FATAL BOOT ERROR: " + title);
+        System.err.println("----------------------------------------------------------------------------------------");
+        System.err.println(details);
+        System.err.println(border + "\n");
     }
 
     private String resolveMasterPassword(ConfigurableEnvironment env) {
