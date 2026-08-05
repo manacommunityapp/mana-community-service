@@ -56,8 +56,11 @@ public class TicketController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('View Tickets')")
-    public ResponseEntity<TicketResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ticketService.getById(id));
+    public ResponseEntity<TicketResponse> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ticketService.getById(id, user));
     }
 
     @PostMapping
@@ -74,16 +77,20 @@ public class TicketController {
     @PreAuthorize("hasAuthority('Manage Tickets')")
     public ResponseEntity<TicketResponse> updateStatus(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(ticketService.updateStatus(id, body.get("status"), body.get("remarks")));
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ticketService.updateStatus(id, body.get("status"), body.get("remarks"), user));
     }
 
     @PutMapping("/{id}/assign")
     @PreAuthorize("hasAuthority('Manage Tickets')")
     public ResponseEntity<TicketResponse> assign(
             @PathVariable Long id,
-            @RequestBody Map<String, Long> body) {
-        return ResponseEntity.ok(ticketService.assign(id, body.get("assigneeId")));
+            @RequestBody Map<String, Long> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ticketService.assign(id, body.get("assigneeId"), user));
     }
 
     @PostMapping("/{id}/comments")

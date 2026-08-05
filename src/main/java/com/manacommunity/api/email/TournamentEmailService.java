@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.manacommunity.api.email.EmailDeliveryContext.withContext;
+
 /**
  * Handles sending general tournament announcement emails (e.g. registration open announcements).
  */
@@ -254,7 +256,8 @@ public class TournamentEmailService {
             }
         }
 
-        emailService.sendAll(batch);
+        Long communityId = tournament.getCommunity() != null ? tournament.getCommunity().getId() : null;
+        withContext("TOURNAMENT_EMAIL", communityId, () -> emailService.sendAll(batch));
         log.info("Queued {} tournament emails for '{}' using template {}", batch.size(), tournament.getName(), template.name());
     }
 }

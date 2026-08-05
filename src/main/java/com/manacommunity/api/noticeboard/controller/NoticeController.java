@@ -55,8 +55,11 @@ public class NoticeController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('View Notices')")
-    public ResponseEntity<NoticeResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(noticeService.getById(id));
+    public ResponseEntity<NoticeResponse> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(noticeService.getById(id, user));
     }
 
     @PostMapping
@@ -81,14 +84,20 @@ public class NoticeController {
 
     @PutMapping("/{id}/pin")
     @PreAuthorize("hasAuthority('Create Notice')")
-    public ResponseEntity<NoticeResponse> togglePin(@PathVariable Long id) {
-        return ResponseEntity.ok(noticeService.togglePin(id));
+    public ResponseEntity<NoticeResponse> togglePin(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(noticeService.togglePin(id, user));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('Delete Notice')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        noticeService.delete(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        noticeService.delete(id, user);
         return ResponseEntity.noContent().build();
     }
 }

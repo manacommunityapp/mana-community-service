@@ -10,6 +10,20 @@ spring:
   application:
     name: mana-community-service
 
+  # ── Flyway Database Migrations ─────────────────────────────────────────
+  flyway:
+    enabled: true
+    schemas: manacommunity
+    locations:
+      - classpath:db/migration
+      - classpath:db/seed
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "pre-flyway baseline schema"
+    out-of-order: false
+    validate-on-migrate: true
+    clean-disabled: true
+
   # ── AI/Ollama auto-config kill-switch (Spring Boot 4 compatibility) ───
   # Spring AI 1.0.0 targets Boot 3.x: its model auto-configurations reference
   # org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration,

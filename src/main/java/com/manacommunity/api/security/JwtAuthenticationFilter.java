@@ -35,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AppUserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final Environment environment;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
@@ -42,11 +43,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
-                                   Environment environment) {
+                                   Environment environment,
+                                   TokenBlacklistService tokenBlacklistService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.environment = environment;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @PostConstruct
@@ -80,7 +83,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
                 // Only access tokens authenticate API calls; a refresh token presented as a
                 // Bearer credential is rejected (it may only be exchanged at /api/auth/refresh).
-                authenticate(jwtTokenProvider.getUserId(token), request);
+                // Also reject any token whose jti has been explicitly blacklisted (logged-out).
+                String jti = jwtTokenProvider.getJti(token);
+                if (!tokenBlacklistService.isBlacklisted(jti)) {
+                    authenticate(jwtTokenProvider.getUserId(token), request);
+                } else {
+                    log.debug("Rejected blacklisted token jti={}", jti);
+                }
             } else if (mockAuthEnabled && token.startsWith("mock-token-")) {
                 // DEV ONLY — legacy mock token "mock-token-<id>".
                 authenticate(parseLegacyId(token), request);

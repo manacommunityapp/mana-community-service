@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -26,12 +27,25 @@ import java.util.List;
 @Service
 public class SmtpEmailService implements EmailService {
 
+    /**
+     * Callers can set these MDC keys before calling {@code send()} to tag the
+     * delivery log entry with the template type and community — without changing
+     * the {@link EmailMessage} record signature.
+     * Example: {@code MDC.put(SmtpEmailService.MDC_TEMPLATE_TYPE, "OTP");}
+     */
+    public static final String MDC_TEMPLATE_TYPE  = "emailTemplateType";
+    public static final String MDC_COMMUNITY_ID   = "emailCommunityId";
+
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final EmailProperties props;
+    private final EmailDeliveryLogRepository deliveryLogRepo;
 
-    public SmtpEmailService(ObjectProvider<JavaMailSender> mailSenderProvider, EmailProperties props) {
+    public SmtpEmailService(ObjectProvider<JavaMailSender> mailSenderProvider,
+                             EmailProperties props,
+                             EmailDeliveryLogRepository deliveryLogRepo) {
         this.mailSenderProvider = mailSenderProvider;
         this.props = props;
+        this.deliveryLogRepo = deliveryLogRepo;
     }
 
     @Override
@@ -41,17 +55,23 @@ public class SmtpEmailService implements EmailService {
             return;
         }
 
+        // Read optional context tags set by callers via MDC
+        String templateType = MDC.get(MDC_TEMPLATE_TYPE);
+        Long communityId    = parseCommunityId(MDC.get(MDC_COMMUNITY_ID));
+
         JavaMailSender sender = mailSenderProvider.getIfAvailable();
         if (!props.isEnabled() || sender == null) {
             log.info("[EMAIL DISABLED] Would send '{}' to {} ({} chars of HTML)",
                     message.subject(), message.to(),
                     message.htmlBody() == null ? 0 : message.htmlBody().length());
+            persistSafe(EmailDeliveryLog.skipped(message, "Mail disabled or no SMTP sender configured"));
             return;
         }
 
         String effectiveTo = resolveRecipient(message.to());
         if (effectiveTo == null || effectiveTo.isBlank()) {
             log.debug("[EMAIL] Skipped — no effective recipient after mode resolution");
+            persistSafe(EmailDeliveryLog.skipped(message, "No effective recipient after mode resolution"));
             return;
         }
 
@@ -78,8 +98,11 @@ public class SmtpEmailService implements EmailService {
             sender.send(mime);
             log.info("[EMAIL SENT] '{}' -> {}{}", message.subject(), effectiveTo,
                     !effectiveTo.equalsIgnoreCase(message.to()) ? " (redirected from " + message.to() + ")" : "");
+            persistSafe(EmailDeliveryLog.sent(message, templateType, communityId));
+
         } catch (MessagingException | UnsupportedEncodingException e) {
             log.error("[EMAIL FAILED] '{}' -> {}: {}", message.subject(), effectiveTo, e.getMessage(), e);
+            persistSafe(EmailDeliveryLog.failed(message, templateType, e.getMessage(), communityId));
         }
     }
 
@@ -102,5 +125,23 @@ public class SmtpEmailService implements EmailService {
 
     private InternetAddress fromAddress() throws UnsupportedEncodingException {
         return new InternetAddress(props.getFrom(), props.getFromName(), StandardCharsets.UTF_8.name());
+    }
+
+    /**
+     * Persists a delivery log entry, swallowing any exception so that a DB issue
+     * never causes the send() contract ("never throw") to be violated.
+     */
+    private void persistSafe(EmailDeliveryLog entry) {
+        try {
+            deliveryLogRepo.save(entry);
+        } catch (Exception ex) {
+            log.warn("[EMAIL LOG] Failed to persist delivery log entry: {}", ex.getMessage());
+        }
+    }
+
+    private Long parseCommunityId(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return Long.parseLong(value); }
+        catch (NumberFormatException e) { return null; }
     }
 }
