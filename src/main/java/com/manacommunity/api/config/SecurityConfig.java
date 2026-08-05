@@ -33,6 +33,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.http.HttpMethod;
 
 /**
  * BUG FIXES applied:
@@ -237,7 +238,13 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // secure registration form (the registration POST stays authenticated).
                 .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
-                .requestMatchers("/api/communities/**").permitAll()
+                // Communities: only the public GET endpoints used by the registration form
+                // (list all communities, filter by type, and per-community public info) are open.
+                // Any other /api/communities/** operation requires authentication +
+                // method-level @PreAuthorize for role enforcement.
+                .requestMatchers(HttpMethod.GET, "/api/communities").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities/by-type").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities/*/public").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)

@@ -13,6 +13,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Issues and verifies signed JWT access tokens (HMAC-SHA).
@@ -29,11 +30,12 @@ import java.util.Date;
  * </ul>
  * Verification checks the signature, the issuer and the expiry on every request.</p>
  *
- * <p>Two token kinds are issued (stateless — no server-side store):
+ * <p>Two token kinds are issued:
  * a short-lived <b>access</b> token used as the {@code Bearer} credential on every API
  * call, and a long-lived <b>refresh</b> token the client exchanges (via {@code /api/auth/refresh})
- * for a fresh pair when the access token expires. Because there is no store, neither can be
- * revoked before its {@code exp}; logout/ban take effect at most one access-token lifetime later.</p>
+ * for a fresh pair when the access token expires. Every token carries a unique {@code jti}
+ * (JWT ID) claim so it can be explicitly invalidated in the {@code TokenBlacklistService}
+ * on logout, even before expiry.</p>
  */
 @Slf4j
 @Component
@@ -87,6 +89,7 @@ public class JwtTokenProvider {
     private String build(AppUser user, String type, long ttlMs) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString()) // jti — unique token ID for blacklisting
                 .issuer(issuer)
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
@@ -141,6 +144,23 @@ public class JwtTokenProvider {
 
     public String getEmail(String token) {
         return parse(token).getPayload().getSubject();
+    }
+
+    /**
+     * Returns the {@code jti} (JWT ID) claim — the unique identifier stamped on every
+     * token at issuance. Used by {@code TokenBlacklistService} to invalidate a specific token.
+     */
+    public String getJti(String token) {
+        return parse(token).getPayload().getId();
+    }
+
+    /**
+     * Returns the absolute expiry of the token as epoch-milliseconds.
+     * Used by {@code TokenBlacklistService} to set the correct TTL for the blacklist entry.
+     */
+    public long getExpiryMs(String token) {
+        Date exp = parse(token).getPayload().getExpiration();
+        return exp != null ? exp.getTime() : 0L;
     }
 
     private Jws<Claims> parse(String token) {

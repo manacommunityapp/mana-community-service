@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.manacommunity.api.email.EmailDeliveryContext.withContext;
+
 /**
  * Emails confirmed participants that a tournament's match schedule has been published.
  */
@@ -53,7 +55,8 @@ public class ScheduleEmailService {
                 log.error("Failed to build 'schedule published' email for user {}", user.getId(), e);
             }
         }
-        emailService.sendAll(batch);
+        Long communityId = (event != null && event.getCommunity() != null) ? event.getCommunity().getId() : null;
+        withContext("SCHEDULE_PUBLISHED", communityId, () -> emailService.sendAll(batch));
         log.info("Queued {} 'schedule published' emails for tournament '{}'",
                 batch.size(), config.getTournamentName());
 

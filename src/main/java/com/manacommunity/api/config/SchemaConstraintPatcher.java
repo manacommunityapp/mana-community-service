@@ -1213,6 +1213,30 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_email_footer_community_name ON manacommunity.email_footer(community_id, name)");
 
                 log.info("Email template management tables ensured (default header/footer/templates are seeded via EmailTemplateFeeder, not here).");
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_delivery_log (
+                            id            BIGSERIAL PRIMARY KEY,
+                            recipient     VARCHAR(255) NOT NULL,
+                            subject       VARCHAR(500),
+                            template_type VARCHAR(100),
+                            status        VARCHAR(20)  NOT NULL,
+                            error_message TEXT,
+                            tracking_token VARCHAR(64) UNIQUE,
+                            opened_at      TIMESTAMP WITHOUT TIME ZONE,
+                            community_id  BIGINT REFERENCES manacommunity.community(id) ON DELETE SET NULL,
+                            sent_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_log_status ON manacommunity.email_delivery_log(status)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_log_recipient ON manacommunity.email_delivery_log(recipient)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_log_sent_at ON manacommunity.email_delivery_log(sent_at DESC)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_log_community ON manacommunity.email_delivery_log(community_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_log_type ON manacommunity.email_delivery_log(template_type)");
+
+                log.info("Email delivery log table ensured.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher email template management patch failed: {}", e.getMessage(), e);
             }
@@ -1769,6 +1793,89 @@ public class SchemaConstraintPatcher {
                 log.info("VMS (Vendor Management System) tables and indexes ensured.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher VMS patch failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure community-event sub-resource tables exist before Hibernate validates.
+            // These back the EventTask, EventVolunteer, and EventSponsor entities
+            // (endpoints: /api/events/tasks, /api/events/volunteers, /api/events/sponsors).
+            // Idempotent — safe to re-run on every boot.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_task (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            title           VARCHAR(300) NOT NULL,
+                            description     VARCHAR(1000),
+                            phase           VARCHAR(80),
+                            priority        VARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
+                            assignee_name   VARCHAR(200),
+                            assignee_id     BIGINT,
+                            due_date        DATE,
+                            done            BOOLEAN NOT NULL DEFAULT FALSE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_volunteer (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            user_id         BIGINT NOT NULL,
+                            user_name       VARCHAR(200),
+                            role            VARCHAR(100),
+                            zone            VARCHAR(100),
+                            shift           VARCHAR(100),
+                            status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+                            check_in_time   TIMESTAMP,
+                            check_out_time  TIMESTAMP,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_sponsor (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            name            VARCHAR(200) NOT NULL,
+                            tier            VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
+                            amount_pledged  DOUBLE PRECISION,
+                            amount_received DOUBLE PRECISION,
+                            logo_url        VARCHAR(500),
+                            contact_name    VARCHAR(200),
+                            contact_phone   VARCHAR(50),
+                            contact_email   VARCHAR(200),
+                            status          VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_expense (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            description     VARCHAR(500) NOT NULL,
+                            category        VARCHAR(100),
+                            amount          DOUBLE PRECISION NOT NULL,
+                            vendor_name     VARCHAR(200),
+                            receipt_url     VARCHAR(500),
+                            expense_date    DATE,
+                            status          VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+                            created_by_id   BIGINT,
+                            created_by_name VARCHAR(200),
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_task_event ON manacommunity.community_event_task (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_volunteer_event ON manacommunity.community_event_volunteer (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_sponsor_event ON manacommunity.community_event_sponsor (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_expense_event ON manacommunity.community_event_expense (event_id)");
+
+                log.info("community_event sub-resource tables (community_event_task, community_event_volunteer, community_event_sponsor, community_event_expense) ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher community-event sub-resource patch failed: {}", e.getMessage(), e);
             }
         }
     }

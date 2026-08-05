@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import static com.manacommunity.api.email.EmailDeliveryContext.withContext;
+
 /**
  * The single, dedicated email service for the registration process. Both
  * registration steps go through one entry point — {@link #send(SportsEventRegistration, Stage)} —
@@ -108,7 +110,11 @@ public class RegistrationEmailService {
             }
 
             String html = renderer.render(template, vars);
-            emailService.send(new EmailMessage(to, name, subject, html));
+            Long communityId = (event != null && event.getCommunity() != null)
+                    ? event.getCommunity().getId() : null;
+            final String subjectFinal = subject;
+            withContext("REGISTRATION_EMAIL", communityId,
+                    () -> emailService.send(new EmailMessage(to, name, subjectFinal, html)));
 
             persistNotification(reg, stage, subject);
         } catch (Exception e) {

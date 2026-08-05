@@ -8,13 +8,16 @@ import com.manacommunity.api.helpdesk.repository.TicketRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -51,17 +54,31 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public TicketResponse getById(Long id) {
-        return toResponse(repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id)));
+    public TicketResponse getById(Long id, AppUser currentUser) {
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+
+        // ① Enforce tenant boundary — prevent cross-community reads
+        assertSameCommunity(ticket.getCommunity(), currentUser);
+
+        // ② Ownership check — residents can only view their own tickets;
+        //    admins and managers can view all tickets in their community.
+        //    ADMIN, SUPER_ADMIN, COMMUNITY_ADMIN and SPORTS_ADMIN roles all count as managers.
+        String role = currentUser.getRole() != null ? currentUser.getRole().toUpperCase() : "";
+        boolean isManager = Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN", "SPORTS_ADMIN").contains(role);
+        if (!isManager && !ticket.getRaisedBy().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("You can only view your own tickets.");
+        }
+
+        return toResponse(ticket);
     }
 
     @Transactional
     public TicketResponse create(TicketRequest req, AppUser user, Community community) {
         Ticket ticket = Ticket.builder()
                 .ticketNumber(generateTicketNumber())
-                .subject(req.getSubject())
-                .description(req.getDescription())
+                .subject(HtmlSanitizer.sanitizePlainText(req.getSubject()))
+                .description(HtmlSanitizer.sanitizeRichText(req.getDescription()))
                 .category(parseEnumOrDefault(Ticket.TicketCategory.class, req.getCategory(), Ticket.TicketCategory.GENERAL))
                 .priority(parseEnumOrDefault(Ticket.TicketPriority.class, req.getPriority(), Ticket.TicketPriority.MEDIUM))
                 .raisedBy(user)
@@ -72,9 +89,10 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse updateStatus(Long id, String status, String remarks) {
+    public TicketResponse updateStatus(Long id, String status, String remarks, AppUser currentUser) {
         Ticket ticket = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+        assertSameCommunity(ticket.getCommunity(), currentUser);
         Ticket.TicketStatus s = Ticket.TicketStatus.valueOf(status);
         ticket.setStatus(s);
         if (remarks != null) ticket.setAdminRemarks(remarks);
@@ -85,9 +103,10 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse assign(Long id, Long assigneeId) {
+    public TicketResponse assign(Long id, Long assigneeId, AppUser currentUser) {
         Ticket ticket = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+        assertSameCommunity(ticket.getCommunity(), currentUser);
         AppUser assignee = userRepo.findById(assigneeId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + assigneeId));
         ticket.setAssignedTo(assignee);
@@ -101,8 +120,9 @@ public class TicketService {
     public TicketResponse addComment(Long ticketId, String message, AppUser author) {
         Ticket ticket = repo.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + ticketId));
+        assertSameCommunity(ticket.getCommunity(), author);
         TicketComment comment = TicketComment.builder()
-                .message(message)
+                .message(HtmlSanitizer.sanitizeRichText(message))
                 .ticket(ticket)
                 .author(author)
                 .build();
@@ -112,6 +132,19 @@ public class TicketService {
 
     private String generateTicketNumber() {
         return "TKT-" + ThreadLocalRandom.current().nextInt(100000, 999999);
+    }
+
+    /**
+     * Asserts the ticket's community matches the current user's community.
+     * Throws {@link AccessDeniedException} if the user is not in the same community,
+     * preventing cross-tenant data access (IDOR).
+     */
+    private void assertSameCommunity(Community ticketCommunity, AppUser user) {
+        Long userCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long ticketCommunityId = ticketCommunity != null ? ticketCommunity.getId() : null;
+        if (ticketCommunityId == null || !ticketCommunityId.equals(userCommunityId)) {
+            throw new AccessDeniedException("Access denied: resource belongs to a different community.");
+        }
     }
 
     private TicketResponse toResponse(Ticket t) {

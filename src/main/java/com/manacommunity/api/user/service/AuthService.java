@@ -12,8 +12,12 @@ public interface AuthService {
     /** Exchanges a valid refresh token for a fresh access + refresh token pair (rotation). */
     AuthResponse refreshToken(String refreshToken);
 
-    /** Records a logout for audit. Stateless tokens can't be revoked server-side; the client clears them. */
-    void logout(Long userId, String email);
+    /**
+     * Blacklists the given access token and records a logout audit entry.
+     * The token remains cryptographically valid until expiry but will be rejected
+     * by {@code JwtAuthenticationFilter} once added to the blacklist.
+     */
+    void logout(Long userId, String email, String accessToken);
 
     boolean submitKyc(Long userId, KycRequest req);
 }

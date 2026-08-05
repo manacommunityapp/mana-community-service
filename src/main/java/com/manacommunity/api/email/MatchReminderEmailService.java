@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.manacommunity.api.email.EmailDeliveryContext.withContext;
+
 /**
  * Emails a participant a "your match starts soon" reminder shortly before kickoff.
  */
@@ -59,7 +61,7 @@ public class MatchReminderEmailService {
                 log.error("Failed to build 'match reminder' email for user {}", user.getId(), e);
             }
         }
-        emailService.sendAll(batch);
+        withContext("MATCH_REMINDER", () -> emailService.sendAll(batch));
         log.info("Queued {} 'match reminder' emails for match {} ({})",
                 batch.size(), match.getId(), roundName);
 

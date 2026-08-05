@@ -2,6 +2,7 @@ package com.manacommunity.api.service;
 
 import com.manacommunity.api.config.RegistrationSecurityProperties;
 import com.manacommunity.api.dto.otp.OtpResponse;
+import com.manacommunity.api.email.EmailDeliveryContext;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.email.EmailSupport;
@@ -141,8 +142,9 @@ public class OtpService {
             vars.put("otpCode", code);
             vars.put("expiryMinutes", ttlMinutes);
             String html = renderer.render(EmailTemplate.EMAIL_OTP, vars);
-            emailService.send(new EmailMessage(
-                    email, name, EmailTemplate.EMAIL_OTP.defaultSubject(), html));
+            EmailDeliveryContext.withContext("EMAIL_OTP", () ->
+                    emailService.send(new EmailMessage(
+                            email, name, EmailTemplate.EMAIL_OTP.defaultSubject(), html)));
         } catch (Exception e) {
             // Never fail the request because the email layer hiccuped — it logs internally.
             log.error("Failed to send OTP email to {}: {}", maskEmail(email), e.getMessage());

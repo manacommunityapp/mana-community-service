@@ -6,7 +6,9 @@ import com.manacommunity.api.noticeboard.dto.NoticeResponse;
 import com.manacommunity.api.noticeboard.entity.Notice;
 import com.manacommunity.api.noticeboard.repository.NoticeRepository;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,16 +49,19 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public NoticeResponse getById(Long id) {
-        return toResponse(repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Notice not found: " + id)));
+    public NoticeResponse getById(Long id, AppUser currentUser) {
+        Notice notice = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notice not found: " + id));
+        // Enforce tenant boundary — prevent cross-community reads
+        assertSameCommunity(notice.getCommunity(), currentUser);
+        return toResponse(notice);
     }
 
     @Transactional
     public NoticeResponse create(NoticeRequest req, AppUser author, Community community) {
         Notice notice = Notice.builder()
-                .title(req.getTitle())
-                .body(req.getBody())
+                .title(HtmlSanitizer.sanitizePlainText(req.getTitle()))
+                .body(HtmlSanitizer.sanitizeRichText(req.getBody()))
                 .category(parseEnumOrDefault(Notice.NoticeCategory.class, req.getCategory(), Notice.NoticeCategory.GENERAL))
                 .priority(parseEnumOrDefault(Notice.NoticePriority.class, req.getPriority(), Notice.NoticePriority.NORMAL))
                 .pinned(req.isPinned())
@@ -79,8 +84,8 @@ public class NoticeService {
             throw new IllegalArgumentException("You can only edit your own notices");
         }
 
-        notice.setTitle(req.getTitle());
-        notice.setBody(req.getBody());
+        notice.setTitle(HtmlSanitizer.sanitizePlainText(req.getTitle()));
+        notice.setBody(HtmlSanitizer.sanitizeRichText(req.getBody()));
         if (req.getCategory() != null) {
             Notice.NoticeCategory cat = parseEnum(Notice.NoticeCategory.class, req.getCategory());
             if (cat != null) notice.setCategory(cat);
@@ -98,16 +103,32 @@ public class NoticeService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, AppUser currentUser) {
+        Notice notice = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notice not found: " + id));
+        assertSameCommunity(notice.getCommunity(), currentUser);
         repo.deleteById(id);
     }
 
     @Transactional
-    public NoticeResponse togglePin(Long id) {
+    public NoticeResponse togglePin(Long id, AppUser currentUser) {
         Notice notice = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Notice not found: " + id));
+        assertSameCommunity(notice.getCommunity(), currentUser);
         notice.setPinned(!notice.isPinned());
         return toResponse(repo.save(notice));
+    }
+
+    /**
+     * Asserts the notice's community matches the current user's community.
+     * Prevents IDOR cross-tenant access (users from Community A acting on Community B notices).
+     */
+    private void assertSameCommunity(Community noticeCommunity, AppUser user) {
+        Long userCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long noticeCommunityId = noticeCommunity != null ? noticeCommunity.getId() : null;
+        if (noticeCommunityId == null || !noticeCommunityId.equals(userCommunityId)) {
+            throw new AccessDeniedException("Access denied: resource belongs to a different community.");
+        }
     }
 
     private NoticeResponse toResponse(Notice n) {

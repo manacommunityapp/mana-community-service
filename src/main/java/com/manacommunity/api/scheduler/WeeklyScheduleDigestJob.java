@@ -3,6 +3,7 @@ package com.manacommunity.api.scheduler;
 import com.manacommunity.api.model.Community;
 
 import com.manacommunity.api.ai.service.AiWebSocketPushService;
+import com.manacommunity.api.email.EmailDeliveryContext;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailProperties;
 import com.manacommunity.api.email.EmailService;
@@ -161,11 +162,12 @@ public class WeeklyScheduleDigestJob {
             if (!Boolean.TRUE.equals(user.getIsActive())) continue;
 
             String html = buildDigestHtml(user.getFullName(), matches);
-            emailService.send(new EmailMessage(
-                    user.getEmail(), user.getFullName(),
-                    "📅 Your Week Ahead — " + matches.size() + " match"
-                            + (matches.size() > 1 ? "es" : ""),
-                    html));
+            Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            String subject = "📅 Your Week Ahead — " + matches.size() + " match"
+                    + (matches.size() > 1 ? "es" : "");
+            EmailDeliveryContext.withContext("WEEKLY_DIGEST", communityId, () ->
+                    emailService.send(new EmailMessage(
+                            user.getEmail(), user.getFullName(), subject, html)));
 
             // Also push via WebSocket
             try {
