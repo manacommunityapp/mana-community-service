@@ -23,6 +23,7 @@ import com.manacommunity.api.repository.RoleRepository;
 import com.manacommunity.api.security.AuditLogService;
 import com.manacommunity.api.security.JwtTokenProvider;
 import com.manacommunity.api.security.PasswordPolicy;
+import com.manacommunity.api.security.TokenBlacklistService;
 import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.service.CommunityModuleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,11 +31,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -64,6 +67,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
     @Autowired
     private CommunityModuleService communityModuleService;
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional
@@ -218,9 +223,20 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(Long userId, String email) {
-        // Stateless tokens cannot be revoked server-side; the client discards them.
-        // Short access-token lifetimes keep the post-logout exposure window small.
+    public void logout(Long userId, String email, String accessToken) {
+        // Blacklist the access token so it cannot be reused after logout.
+        // The jti uniquely identifies this specific token; entries auto-expire
+        // when the token's own expiry is reached.
+        if (accessToken != null && !accessToken.isBlank()) {
+            try {
+                String jti = jwtTokenProvider.getJti(accessToken);
+                long expiryMs = jwtTokenProvider.getExpiryMs(accessToken);
+                tokenBlacklistService.blacklist(jti, expiryMs);
+            } catch (Exception ex) {
+                // Do not fail logout if the token is already expired or malformed.
+                log.warn("Could not blacklist token on logout for userId={}: {}", userId, ex.getMessage());
+            }
+        }
         auditLog.record(AuditLogService.Action.LOGOUT, userId, email);
         sessionService.endSession(userId);
     }

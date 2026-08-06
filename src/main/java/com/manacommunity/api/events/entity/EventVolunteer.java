@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.entity;
 
+
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
@@ -8,9 +9,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_volunteer", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"event_id", "user_id"})
-})
+@Table(name = "community_event_volunteer", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,6 +22,7 @@ public class EventVolunteer {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
+
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private CommunityEvent event;
@@ -31,25 +31,41 @@ public class EventVolunteer {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
+    private CommunityEvent event;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "user_name", length = 200)
+    private String userName;
+
+
     @Column(length = 100)
     private String role;
 
     @Column(length = 100)
     private String zone;
 
-    @Column(length = 20)
-    private String shift;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
     private VolunteerStatus status = VolunteerStatus.ASSIGNED;
 
+    @Column(length = 100)
+    private String shift;
+
+    @Column(length = 20)
+    @Builder.Default
+    private String status = "ACTIVE";
+
+
     @Column(name = "check_in_time")
     private LocalDateTime checkInTime;
 
     @Column(name = "check_out_time")
     private LocalDateTime checkOutTime;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
@@ -66,4 +82,5 @@ public class EventVolunteer {
     public enum VolunteerStatus {
         ASSIGNED, CHECKED_IN, CHECKED_OUT, NO_SHOW
     }
+
 }

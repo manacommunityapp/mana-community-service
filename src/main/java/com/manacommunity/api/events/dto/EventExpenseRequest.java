@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.dto;
 
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -21,5 +22,6 @@ public class EventExpenseRequest {
     private String vendorName;
     private String receiptUrl;
     private String expenseDate;
+
     private String status;
 }

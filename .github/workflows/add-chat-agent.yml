@@ -12,6 +12,9 @@ on:
         required: false
         default: 'Auto-commit from Claude AI Mobile'
 
+permissions:
+  contents: write
+
 jobs:
   add-chat-agent:
     runs-on: ubuntu-latest
@@ -21,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Git Configuration
         run: |
@@ -128,13 +132,15 @@ jobs:
 
       - name: Stage Changes
         run: |
+          git reset -- .github/workflows/add-chat-agent.yml 2>/dev/null || true
           git add src/main/java/com/manacommunity/modules/chatAgent/
           git add docs/modules/chat-agent/
-          git status
+          echo "Ignoring workflow file in this commit: .github/workflows/add-chat-agent.yml"
+          git status --short -- . ':!./.github/workflows/add-chat-agent.yml'
 
       - name: Commit Changes
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
+          if [ -n "$(git diff --cached --quiet --exit-code; echo $?)" ]; then
             git commit -m "feat: Add AI Chat Agent Module
 
 - Added ChatAgent component with core functionality
@@ -148,12 +154,13 @@ Module: ${{ github.event.inputs.module_name }}
 Description: ${{ github.event.inputs.description }}"
             echo "✅ Changes committed successfully"
           else
-            echo "⚠️ No changes to commit"
+            echo "⚠️ No staged changes to commit"
           fi
 
       - name: Push Changes to Main
         run: |
-          git push origin main
+          git checkout -B main
+          git push origin HEAD:main
           echo "✅ Changes pushed to main branch"
 
       - name: Verify Push

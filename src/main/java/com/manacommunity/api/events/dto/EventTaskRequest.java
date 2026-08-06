@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.dto;
 
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -13,10 +14,14 @@ public class EventTaskRequest {
     @NotBlank
     private String title;
 
+
     private String description;
     private String phase;
     private String priority;
     private String assigneeName;
     private Long assigneeId;
     private String dueDate;
+
+    private LocalDate dueDate;
+
 }

@@ -1,15 +1,19 @@
 package com.manacommunity.api.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -281,6 +285,14 @@ public class GlobalExceptionHandler {
                 "HTTP method '" + ex.getMethod() + "' is not supported for this endpoint.", request, null);
     }
 
+    /** Request body sent with an unsupported Content-Type (e.g. text/plain to a JSON endpoint). */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE",
+                "The request content type is not supported for this endpoint.", request, null);
+    }
+
     /** Unknown route — return JSON 404 instead of the default error page. */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResource(
@@ -299,10 +311,43 @@ public class GlobalExceptionHandler {
 
     // ─── 3b. Persistence Exceptions ──────────────────────────────────────────
 
-    /** DB constraint hit (unique/foreign-key). Never echo the raw SQL to the UI. */
+    /**
+     * A referenced row is missing (EmptyResultDataAccessException, e.g. deleteById
+     * on an id that no longer exists) or a lazy proxy resolved to nothing
+     * (Hibernate EntityNotFoundException). These are 404s, not 500s.
+     */
+    @ExceptionHandler({EmptyResultDataAccessException.class, EntityNotFoundException.class})
+    public ResponseEntity<ErrorResponse> handleEntityMissing(
+            RuntimeException ex, HttpServletRequest request) {
+        log.warn("Entity not found at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
+                "The requested item could not be found.", request, null);
+    }
+
+    /** Concurrent update lost the optimistic-lock race — the client should reload and retry. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            OptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn("Optimistic lock conflict at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.CONFLICT, "CONCURRENT_MODIFICATION",
+                "This record was updated by someone else. Please reload and try again.", request, null);
+    }
+
+    /** DB constraint hit (unique/foreign-key/length). Never echo the raw SQL to the UI. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, HttpServletRequest request) {
+        String cause = ex.getMostSpecificCause() != null
+                ? String.valueOf(ex.getMostSpecificCause().getMessage()) : "";
+
+        // A value-too-long overflow (SQLSTATE 22001) is a bad request, not a
+        // data conflict — report it as 400 with an accurate message.
+        if (cause.contains("22001") || cause.toLowerCase().contains("value too long")) {
+            log.warn("Value too long at {}", request.getRequestURI());
+            return build(HttpStatus.BAD_REQUEST, "VALUE_TOO_LONG",
+                    "One of the provided values is too long. Please shorten it and try again.", request, null);
+        }
+
         String constraintName = extractConstraintName(ex);
         log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName);
         return build(HttpStatus.CONFLICT, "DATA_CONFLICT",

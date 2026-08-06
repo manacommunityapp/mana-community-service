@@ -1,6 +1,8 @@
 package com.manacommunity.api.events.dto;
 
+
 import jakarta.validation.constraints.NotNull;
+
 import lombok.Data;
 
 @Data
@@ -11,6 +13,11 @@ public class EventVolunteerRequest {
 
     @NotNull
     private Long userId;
+
+
+    private Long eventId;
+    private Long userId;
+    private String userName;
 
     private String role;
     private String zone;

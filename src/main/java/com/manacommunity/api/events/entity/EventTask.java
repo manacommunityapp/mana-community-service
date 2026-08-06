@@ -1,7 +1,9 @@
 package com.manacommunity.api.events.entity;
 
+
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_task")
+@Table(name = "community_event_task", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -30,20 +32,25 @@ public class EventTask {
     @Column(length = 1000)
     private String description;
 
-    @Column(length = 50)
-    private String phase;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
     private Priority priority = Priority.MEDIUM;
 
+    @Column(length = 80)
+    private String phase;
+
+
+
     @Column(name = "assignee_name", length = 200)
     private String assigneeName;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     private AppUser assignee;
+
 
     @Column(name = "due_date")
     private LocalDate dueDate;
@@ -59,8 +66,12 @@ public class EventTask {
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
 
+    private Boolean done = false;
+
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -78,5 +89,9 @@ public class EventTask {
 
     public enum Priority {
         LOW, MEDIUM, HIGH
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
     }
 }

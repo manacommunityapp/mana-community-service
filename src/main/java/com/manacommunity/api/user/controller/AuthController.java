@@ -7,6 +7,7 @@ import com.manacommunity.api.user.dto.RefreshTokenRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -48,14 +49,23 @@ public class AuthController {
     }
 
     /**
-     * Logout. Tokens are stateless so the server cannot revoke them — the client must
-     * discard both tokens. This endpoint records the logout for the audit trail.
+     * Logout. Extracts the access token from the Authorization header and records it
+     * in the token blacklist so it cannot be reused within its remaining lifetime.
+     * The client should also discard both access and refresh tokens locally.
      */
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<String> logout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        String accessToken = null;
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            accessToken = authHeader.substring(7).trim();
+        }
         authService.logout(
                 principal != null ? principal.getId() : null,
-                principal != null ? principal.getUsername() : null);
+                principal != null ? principal.getUsername() : null,
+                accessToken);
         return ResponseEntity.ok("Logged out.");
     }
 

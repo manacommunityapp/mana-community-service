@@ -8,7 +8,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_sponsor")
+@Table(name = "community_event_sponsor", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -32,6 +32,11 @@ public class EventSponsor {
     @Column(length = 30)
     @Builder.Default
     private SponsorTier tier = SponsorTier.SILVER;
+
+    @Column(length = 50)
+    @Builder.Default
+    private String tier = "GENERAL";
+
 
     @Column(name = "amount_pledged")
     private Double amountPledged;
@@ -64,8 +69,13 @@ public class EventSponsor {
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
 
+    @Column(length = 30)
+    @Builder.Default
+    private String status = "ACTIVE";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -87,5 +97,9 @@ public class EventSponsor {
 
     public enum SponsorStatus {
         PENDING, CONFIRMED, DECLINED
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
     }
 }

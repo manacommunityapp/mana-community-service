@@ -1,1 +1,0 @@
-2026-06-21 12:23:00.380 INFO  [cid=9bbe1cbe-f42a-4601-86bb-cac7d24d905e uid=1] AUDIT - action=PERMISSION_CHANGED module=ADMIN entity=AppUser entityId=5 userId=1 ip=0:0:0:0:0:0:0:1

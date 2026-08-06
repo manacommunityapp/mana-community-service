@@ -1,11 +1,13 @@
 package com.manacommunity.api.events.dto;
 
+
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
 public class EventVolunteerResponse {
+
 
     private Long id;
     private Long eventId;

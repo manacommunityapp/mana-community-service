@@ -11,7 +11,7 @@ spring:
   application:
     name: mana-community-service
   datasource:
-    url: jdbc:postgresql://3.109.145.130:5432/manacommunity
+    url: jdbc:postgresql://${DB_HOST:3.109.145.130}:${DB_PORT:5432}/manacommunity
     username: ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)
     password: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
     driver-class-name: org.postgresql.Driver
@@ -27,8 +27,13 @@ spring:
         format_sql: false
         use_sql_comments: false
 
+  flyway:
+    enabled: true
+    clean-disabled: true
+    out-of-order: false
+
 server:
-  port: 8080
+  port: 8081
 
 app:
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).

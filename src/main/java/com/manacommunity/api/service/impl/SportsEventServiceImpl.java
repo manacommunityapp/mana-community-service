@@ -71,6 +71,19 @@ public class SportsEventServiceImpl implements SportsEventService {
         }).collect(java.util.stream.Collectors.toList());
     }
 
+    private Integer resolveMaxParticipants(SportsEvent event) {
+        if (event == null) {
+            return null;
+        }
+        if (event.getMaxParticipants() != null) {
+            return event.getMaxParticipants();
+        }
+        if (event.getTournament() != null && event.getTournament().getMaxParticipants() != null) {
+            return event.getTournament().getMaxParticipants();
+        }
+        return null;
+    }
+
     @Transactional
     public SportsEvent createEvent(SportsEventRequest req, Long adminUserId) {
         SportsMeta sport = sportMetaRepo.findById(req.getSportId())
@@ -141,6 +154,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             Tournament tournament = tournamentRepo.findById(req.getTournamentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Tournament", req.getTournamentId()));
             event.setTournament(tournament);
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
         }
 
         SportsEvent saved = eventRepo.save(event);
@@ -186,8 +200,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         long currentCount = regRepo.countByEventId(req.getEventId());
-        if (currentCount >= event.getMaxParticipants())
-            throw new EventFullException(event.getName(), event.getMaxParticipants());
+        Integer maxParticipants = resolveMaxParticipants(event);
+        if (maxParticipants != null && currentCount >= maxParticipants) {
+            throw new EventFullException(event.getName(), maxParticipants);
+        }
 
         PlayerCategory category = categoryRepo.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("PlayerCategory", req.getCategoryId()));
@@ -693,8 +709,12 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Transactional
     public SportsEvent updateEvent(Long eventId, SportsEventRequest req) {
         SportsEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
         
+        if (event.getTournament() != null) {
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), event.getTournament());
+        }
+
         event.setName(req.getName());
         event.setEventDateStart(req.getEventDateStart());
         event.setEventDateEnd(req.getEventDateEnd());
@@ -842,5 +862,28 @@ public class SportsEventServiceImpl implements SportsEventService {
     private String listToCommaString(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return null;
         return ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private void validateEventDatesWithinTournament(LocalDate eventStart, LocalDate eventEnd, Tournament tournament) {
+        if (tournament == null) return;
+        LocalDate tourneyStart = tournament.getEventDateStart();
+        LocalDate tourneyEnd = tournament.getEventDateEnd();
+
+        if (tourneyStart != null) {
+            if (eventStart != null && eventStart.isBefore(tourneyStart)) {
+                throw new InvalidInputException("Event start date cannot be before tournament start date (" + tourneyStart + ")");
+            }
+            if (eventEnd != null && eventEnd.isBefore(tourneyStart)) {
+                throw new InvalidInputException("Event end date cannot be before tournament start date (" + tourneyStart + ")");
+            }
+        }
+        if (tourneyEnd != null) {
+            if (eventStart != null && eventStart.isAfter(tourneyEnd)) {
+                throw new InvalidInputException("Event start date cannot be after tournament end date (" + tourneyEnd + ")");
+            }
+            if (eventEnd != null && eventEnd.isAfter(tourneyEnd)) {
+                throw new InvalidInputException("Event end date cannot be after tournament end date (" + tourneyEnd + ")");
+            }
+        }
     }
 }

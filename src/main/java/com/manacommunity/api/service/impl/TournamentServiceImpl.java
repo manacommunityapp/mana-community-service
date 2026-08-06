@@ -8,11 +8,12 @@ import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.ContactRepository;
 import com.manacommunity.api.dto.ContactDto;
+import com.manacommunity.api.email.TournamentStatusChangedEvent;
 import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.service.TournamentService;
-import com.manacommunity.api.email.TournamentEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +33,7 @@ public class TournamentServiceImpl implements TournamentService {
     private final CommunityRepository communityRepo;
     private final ContactRepository contactRepository;
     private final NotificationManagementService notificationService;
-    private final TournamentEmailService tournamentEmailService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private List<Contact> resolveContacts(List<ContactDto> dtos) {
         if (dtos == null || dtos.isEmpty()) return new ArrayList<>();
@@ -95,7 +96,8 @@ public class TournamentServiceImpl implements TournamentService {
     @Override
     @Transactional
     public Tournament saveTournamentRecord(TournamentRequest req, Boolean allowAdminChat) {
-        // Resolve an existing Tournament if it is linked to any of the selected event IDs
+        // Create/resolve path: reuse an existing Tournament only if one is already
+        // linked to a selected event, otherwise start a fresh record.
         Tournament tournament = null;
         if (req.getSportsEventIds() != null && !req.getSportsEventIds().isEmpty()) {
             for (Long eventId : req.getSportsEventIds()) {
@@ -109,6 +111,23 @@ public class TournamentServiceImpl implements TournamentService {
         if (tournament == null) {
             tournament = new Tournament();
         }
+        return applyTournamentFields(tournament, req, allowAdminChat);
+    }
+
+    @Override
+    @Transactional
+    public Tournament updateTournamentRecord(Long id, TournamentRequest req, Boolean allowAdminChat) {
+        // Update path: the tournament is identified authoritatively by its id (with a
+        // fallback lookup by linked event id for older callers). We NEVER create a new
+        // Tournament here — doing so was the cause of tournaments duplicating on edit.
+        Tournament tournament = tournamentRepo.findById(id)
+                .or(() -> tournamentRepo.findByEventId(id))
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Tournament", id));
+        return applyTournamentFields(tournament, req, allowAdminChat);
+    }
+
+    private Tournament applyTournamentFields(Tournament tournament, TournamentRequest req, Boolean allowAdminChat) {
+        boolean isNew = tournament.getId() == null;
 
         // Map tournament fields directly from TournamentRequest DTO
         tournament.setName(req.getName());
@@ -152,14 +171,32 @@ public class TournamentServiceImpl implements TournamentService {
             }
         }
 
-        // Link new/current events
+        // Link new/current events & sync tournament-level fields
         tournament.setSportsEvents(new ArrayList<>());
         for (SportsEvent ev : sportsEvents) {
             ev.setTournament(tournament);
+            if (req.getEventDateStart() != null) ev.setEventDateStart(req.getEventDateStart());
+            if (req.getEventDateEnd() != null) ev.setEventDateEnd(req.getEventDateEnd());
+            if (req.getRegistrationDateStart() != null) ev.setRegistrationDateStart(req.getRegistrationDateStart());
+            if (req.getRegistrationDateEnd() != null) ev.setRegistrationDateEnd(req.getRegistrationDateEnd());
+            if (req.getMaxParticipants() != null) ev.setMaxParticipants(req.getMaxParticipants());
+            if (req.getDescription() != null) ev.setDescription(req.getDescription());
+            if (req.getStartTime() != null) ev.setStartTime(req.getStartTime());
+            if (req.getDueTime() != null) ev.setDueTime(req.getDueTime());
+            if (req.getBannerImage() != null) ev.setBannerImage(req.getBannerImage());
+            if (req.getContactName() != null) ev.setContactName(req.getContactName());
+            if (req.getContactNumber() != null) ev.setContactNumber(req.getContactNumber());
+            if (req.getContactEmail() != null) ev.setContactEmail(req.getContactEmail());
+            if (req.getOtherContacts() != null) ev.setOtherContacts(req.getOtherContacts());
+            if (req.getTournamentLevel() != null) ev.setTournamentLevel(req.getTournamentLevel());
             tournament.getSportsEvents().add(ev);
             eventRepo.save(ev);
         }
-        tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
+        // Only default to DRAFT for brand-new tournaments; editing must not demote
+        // an already-open/completed tournament back to DRAFT.
+        if (isNew || tournament.getRegistrationStatus() == null) {
+            tournament.setRegistrationStatus(Tournament.EventStatus.DRAFT);
+        }
 
         // Build mainEvent context for sponsors mapping
         SportsEvent mainEvent = null;
@@ -247,11 +284,7 @@ public class TournamentServiceImpl implements TournamentService {
         notifyTournamentParticipants(saved, tournamentStatus);
 
         if (tournamentStatus == Tournament.EventStatus.REGISTRATION_OPEN) {
-            try {
-                tournamentEmailService.sendTournamentRegistrationOpen(saved);
-            } catch (Exception e) {
-                log.error("Failed to send tournament registration open email for tournament {}: {}", saved.getId(), e.getMessage());
-            }
+            eventPublisher.publishEvent(new TournamentStatusChangedEvent(saved.getId(), tournamentStatus));
         }
 
         return saved;

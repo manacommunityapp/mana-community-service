@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: cpn-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cpn_db
+    username: ${DB_USERNAME:cpn_user}
+    password: ${DB_PASSWORD:cpn_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  # Unused for now — RedisConfig/ElasticsearchConfig are commented out, and
+  # the matching starter dependencies are commented out in pom.xml. Re-enable
+  # together when caching/search are actually wired up.
+  # data:
+  #   redis:
+  #     host: ${REDIS_HOST:localhost}
+  #     port: ${REDIS_PORT:6379}
+  #     password: ${REDIS_PASSWORD:}
+  #     timeout: 2000ms
+  # elasticsearch:
+  #   uris: ${ES_URI:http://localhost:9200}
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+cpn:
+  jwt:
+    secret: ${JWT_SECRET:cpn-jwt-secret-key-minimum-256-bits-for-hs256-algorithm}
+    access-token-expiry: 3600000  # 1 hour
+    refresh-token-expiry: 604800000 # 7 days
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  ai:
+    openai-api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+    max-size: 10MB
+  rate-limit:
+    requests-per-minute: 100
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

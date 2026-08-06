@@ -94,8 +94,8 @@ jobs:
             ls -la /var/log/mana-community-dev/
 
             echo ""
-            echo "=== Last 5 lines of mana-service.log ==="
-            tail -5 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
+            echo "=== Last 10 lines of mana-service.log ==="
+            tail -10 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
 
             echo ""
             echo "=== Dev API health check ==="

@@ -49,6 +49,13 @@ public class VenueController {
         return ResponseEntity.ok(venueService.getVenuesByCommunityId(targetCommunityId));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<VenueResponse> getVenueById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(venueService.getVenueResponseById(id));
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SPORTS_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<VenueResponse> createVenue(

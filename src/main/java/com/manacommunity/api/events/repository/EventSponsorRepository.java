@@ -2,6 +2,7 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventSponsor;
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,4 +16,8 @@ public interface EventSponsorRepository extends JpaRepository<EventSponsor, Long
 
     @Query("SELECT COALESCE(SUM(s.amountReceived), 0) FROM EventSponsor s WHERE s.event.community.id = :communityId")
     double sumAmountReceivedByCommunity(@Param("communityId") Long communityId);
+
+    List<EventSponsor> findByEventIdOrderByCreatedAtDesc(Long eventId);
+    List<EventSponsor> findByEventCommunityIdOrderByCreatedAtDesc(Long communityId);
+
 }

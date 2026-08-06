@@ -77,6 +77,11 @@ public class VenueServiceImpl implements VenueService {
     }
 
     @Override
+    public VenueResponse getVenueResponseById(Long id) {
+        return toResponse(getVenueById(id));
+    }
+
+    @Override
     @Transactional
     public VenueResponse createVenue(Long communityId, VenueRequest request) {
         List<Contact> contacts = resolveContacts(request.getContacts());

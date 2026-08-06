@@ -1,0 +1,14 @@
+﻿-- ============================================================================
+-- V1__baseline.sql
+-- Flyway baseline migration — no-op marker.
+--
+-- The manacommunity schema and all existing tables were created before Flyway
+-- was introduced (via Hibernate ddl-auto and manual SQL scripts in db/sql/).
+-- This file marks V1 as the starting point so Flyway does not attempt to
+-- re-run any older scripts.
+--
+-- Configuration counterpart in application.yaml:
+--   spring.flyway.baseline-on-migrate: true
+--   spring.flyway.baseline-version: 1
+-- ============================================================================
+SELECT 1;

@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.dto;
 
+
 import lombok.Builder;
 import lombok.Data;
 

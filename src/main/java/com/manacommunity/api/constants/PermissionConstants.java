@@ -110,6 +110,71 @@ public final class PermissionConstants {
     public static final String CREATE_EVENT   = "Create Event";
     public static final String REGISTER_EVENT = "Register Event";
 
+
+    // ──── SERVICE PLATFORM ────────────────────────────────────────────
+    public static final String VIEW_SERVICE_CATALOG     = "View Service Catalog";
+    public static final String MANAGE_SERVICE_CATALOG   = "Manage Service Catalog";
+    public static final String VIEW_SERVICE_PROVIDERS   = "View Service Providers";
+    public static final String MANAGE_SERVICE_PROVIDERS = "Manage Service Providers";
+    public static final String CREATE_SERVICE_REQUEST   = "Create Service Request";
+    public static final String VIEW_SERVICE_REQUESTS    = "View Service Requests";
+    public static final String MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
+    public static final String VIEW_WORK_ORDERS         = "View Work Orders";
+    public static final String MANAGE_WORK_ORDERS       = "Manage Work Orders";
+
+    // ──── VENDOR MANAGEMENT SYSTEM ─────────────────────────────────
+    public static final String VIEW_VENDOR_MANAGEMENT  = "View Vendor Management";
+    public static final String CREATE_VENDOR           = "Create Vendor";
+    public static final String MANAGE_VENDORS          = "Manage Vendors";
+    public static final String BOOK_VENDOR_SERVICE     = "Book Vendor Service";
+    public static final String MANAGE_PROCUREMENT      = "Manage Procurement";
+    public static final String MANAGE_CONTRACTS        = "Manage Contracts";
+    public static final String MANAGE_VENDOR_PAYMENTS  = "Manage Vendor Payments";
+    public static final String RATE_VENDOR             = "Rate Vendor";
+    public static final String VIEW_VENDOR_ANALYTICS   = "View Vendor Analytics";
+
+
+    // ──── FOOD & LIFESTYLE OS ─────────────────────────────────────
+    public static final String VIEW_FOOD_PROFILE       = "View Food Profile";
+    public static final String MANAGE_FOOD_PROFILE     = "Manage Food Profile";
+    public static final String VIEW_FOOD_RESTAURANTS   = "View Food Restaurants";
+    public static final String MANAGE_FOOD_RESTAURANTS = "Manage Food Restaurants";
+    public static final String VIEW_FOOD_MENU          = "View Food Menu";
+    public static final String MANAGE_FOOD_MENU        = "Manage Food Menu";
+    public static final String VIEW_FOOD_HOME_CHEFS    = "View Food Home Chefs";
+    public static final String MANAGE_FOOD_HOME_CHEFS  = "Manage Food Home Chefs";
+    public static final String VIEW_FOOD_ORDERS        = "View Food Orders";
+    public static final String MANAGE_FOOD_ORDERS      = "Manage Food Orders";
+    public static final String VIEW_FOOD_SUBSCRIPTIONS = "View Food Subscriptions";
+    public static final String MANAGE_FOOD_SUBSCRIPTIONS = "Manage Food Subscriptions";
+    public static final String VIEW_FOOD_DINING        = "View Food Dining";
+    public static final String MANAGE_FOOD_DINING      = "Manage Food Dining";
+    public static final String VIEW_FOOD_GROCERY       = "View Food Grocery";
+    public static final String MANAGE_FOOD_GROCERY     = "Manage Food Grocery";
+    public static final String VIEW_FOOD_RECIPES       = "View Food Recipes";
+    public static final String MANAGE_FOOD_RECIPES     = "Manage Food Recipes";
+    public static final String VIEW_FOOD_NUTRITION     = "View Food Nutrition";
+    public static final String MANAGE_FOOD_NUTRITION   = "Manage Food Nutrition";
+    public static final String VIEW_FOOD_DELIVERY      = "View Food Delivery";
+    public static final String MANAGE_FOOD_DELIVERY    = "Manage Food Delivery";
+    public static final String VIEW_FOOD_COMMUNITY_KITCHEN  = "View Food Community Kitchen";
+    public static final String MANAGE_FOOD_COMMUNITY_KITCHEN = "Manage Food Community Kitchen";
+    public static final String VIEW_FOOD_CATERING      = "View Food Catering";
+    public static final String MANAGE_FOOD_CATERING    = "Manage Food Catering";
+    public static final String VIEW_FOOD_CORPORATE     = "View Food Corporate";
+    public static final String MANAGE_FOOD_CORPORATE   = "Manage Food Corporate";
+    public static final String VIEW_FOOD_EVENTS        = "View Food Events";
+    public static final String MANAGE_FOOD_EVENTS      = "Manage Food Events";
+    public static final String VIEW_FOOD_PANTRY        = "View Food Pantry";
+    public static final String MANAGE_FOOD_PANTRY      = "Manage Food Pantry";
+    public static final String VIEW_FOOD_LOYALTY       = "View Food Loyalty";
+    public static final String MANAGE_FOOD_LOYALTY     = "Manage Food Loyalty";
+    public static final String VIEW_FOOD_ANALYTICS     = "View Food Analytics";
+    public static final String VIEW_FOOD_PAYMENTS      = "View Food Payments";
+    public static final String MANAGE_FOOD_PAYMENTS    = "Manage Food Payments";
+    public static final String VIEW_FOOD_CLOUD_KITCHENS  = "View Food Cloud Kitchens";
+    public static final String MANAGE_FOOD_CLOUD_KITCHENS = "Manage Food Cloud Kitchens";
+
     // ──── ADMIN DASHBOARD ───────────────────────────────────────────
     public static final String VIEW_ADMIN         = "View Admin";
     public static final String VERIFY_KYC         = "Verify KYC";
@@ -154,8 +219,17 @@ public final class PermissionConstants {
                     List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
-                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING)
-            ).flatMap(List::stream).toList()
+                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING),
+
+                    List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
+                            MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
+                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
+
+                    List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+                            MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
+
+            ).flatMap(List::stream).distinct().toList()
     );
 
     public static final List<String> ADMIN_PERMISSIONS = Collections.unmodifiableList(
@@ -170,8 +244,17 @@ public final class PermissionConstants {
                     List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
                     List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
-                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING)
-            ).flatMap(List::stream).toList()
+                    List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING),
+
+                    List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
+                            MANAGE_SERVICE_PROVIDERS, CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS,
+                            MANAGE_SERVICE_REQUESTS, VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS),
+
+                    List.of(VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+                            MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+                            RATE_VENDOR, VIEW_VENDOR_ANALYTICS)
+
+            ).flatMap(List::stream).distinct().toList()
     );
 
     public static final List<String> SPORTS_ADMIN_PERMISSIONS = Collections.unmodifiableList(
@@ -197,13 +280,16 @@ public final class PermissionConstants {
             VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL,
             VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS,
             VIEW_MARKETPLACE,
+            VIEW_VENDOR_MANAGEMENT, BOOK_VENDOR_SERVICE, RATE_VENDOR,
             VIEW_VISITORS, CREATE_VISITOR_PASS,
             VIEW_AMENITIES, BOOK_AMENITY,
             VIEW_NOTICES,
             VIEW_TICKETS, CREATE_TICKET,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, APPLY_JOB,
-            VIEW_EVENTS, REGISTER_EVENT
+            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
+            CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS, VIEW_WORK_ORDERS
     );
 
     public static final List<String> VENDOR_PERMISSIONS = List.of(
@@ -216,7 +302,8 @@ public final class PermissionConstants {
             VIEW_TICKETS, CREATE_TICKET,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, CREATE_JOB,
-            VIEW_EVENTS, REGISTER_EVENT
+            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, MANAGE_VENDOR_PAYMENTS
     );
 
     public static final List<String> CASHIER_PERMISSIONS = List.of(

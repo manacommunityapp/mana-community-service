@@ -83,8 +83,8 @@ jobs:
             ls -la /var/log/mana-community/
 
             echo ""
-            echo "=== Last 5 lines of mana-service.log ==="
-            tail -5 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
+            echo "=== Last 60 lines of mana-service.log ==="
+            tail -60 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
 
             # Cleanup temp files
             rm -rf /tmp/target /tmp/deploy
