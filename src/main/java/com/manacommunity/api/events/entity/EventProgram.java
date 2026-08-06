@@ -1,22 +1,21 @@
 package com.manacommunity.api.events.entity;
 
-
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
-
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
-@Table(name = "community_event_task", schema = "manacommunity")
+@Table(name = "event_program")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EventTask {
+public class EventProgram {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,37 +25,36 @@ public class EventTask {
     @JoinColumn(name = "event_id", nullable = false)
     private CommunityEvent event;
 
-    @Column(nullable = false, length = 300)
+    @Column(name = "day_label", length = 100)
+    private String dayLabel;
+
+    @Column(name = "day_date")
+    private LocalDate dayDate;
+
+    @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(length = 1000)
-    private String description;
+    @Column(name = "program_type", length = 50)
+    private String programType;
 
+    @Column(name = "start_time")
+    private LocalTime startTime;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 30)
+    private String duration;
+
+    @Column(length = 200)
+    private String venue;
+
+    @Column(length = 200)
+    private String performer;
+
+    @Column(length = 200)
+    private String judge;
+
+    @Column(name = "sort_order")
     @Builder.Default
-    private Priority priority = Priority.MEDIUM;
-
-    @Column(length = 80)
-    private String phase;
-
-
-
-    @Column(name = "assignee_name", length = 200)
-    private String assigneeName;
-
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assignee_id")
-    private AppUser assignee;
-
-
-    @Column(name = "due_date")
-    private LocalDate dueDate;
-
-    @Builder.Default
-    private boolean done = false;
+    private int sortOrder = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
@@ -66,12 +64,8 @@ public class EventTask {
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
 
-    private Boolean done = false;
-
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -85,13 +79,5 @@ public class EventTask {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-
-    public enum Priority {
-        LOW, MEDIUM, HIGH
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
     }
 }

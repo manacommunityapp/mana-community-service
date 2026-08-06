@@ -1,7 +1,9 @@
 package com.manacommunity.api.events.service;
 
+import com.manacommunity.api.events.dto.DashboardStatsResponse;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
+import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
@@ -142,12 +144,57 @@ public class EventService {
         return toResponse(eventRepo.findById(eventId).orElseThrow(), user.getId());
     }
 
+    @Transactional(readOnly = true)
+    public DashboardStatsResponse getDashboardStats(Long communityId) {
+        return DashboardStatsResponse.builder()
+                .totalEvents(eventRepo.countByCommunityId(communityId))
+                .upcomingEvents(eventRepo.countUpcomingByCommunity(communityId))
+                .totalRegistrations(regRepo.countByEventCommunityId(communityId))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RegistrationResponse> getEventRegistrations(Long eventId) {
+        return regRepo.findByEventId(eventId).stream()
+                .map(this::toRegistrationResponse)
+                .toList();
+    }
+
+    @Transactional
+    public RegistrationResponse confirmRegistration(Long registrationId) {
+        EventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + registrationId));
+        reg.setStatus(EventRegistration.RegistrationStatus.CONFIRMED);
+        return toRegistrationResponse(regRepo.save(reg));
+    }
+
+    @Transactional
+    public RegistrationResponse rejectRegistration(Long registrationId) {
+        EventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + registrationId));
+        reg.setStatus(EventRegistration.RegistrationStatus.REJECTED);
+        return toRegistrationResponse(regRepo.save(reg));
+    }
+
     @Transactional
     public EventResponse unregister(Long eventId, Long userId) {
         EventRegistration reg = regRepo.findByEventIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new IllegalStateException("Not registered for this event"));
         regRepo.delete(reg);
         return toResponse(eventRepo.findById(eventId).orElseThrow(), userId);
+    }
+
+    private RegistrationResponse toRegistrationResponse(EventRegistration r) {
+        return RegistrationResponse.builder()
+                .id(r.getId())
+                .eventId(r.getEvent().getId())
+                .eventTitle(r.getEvent().getTitle())
+                .userId(r.getUser().getId())
+                .userName(r.getUser().getFullName())
+                .userEmail(r.getUser().getEmail())
+                .status(r.getStatus().name())
+                .registeredAt(formatDt(r.getRegisteredAt()))
+                .build();
     }
 
     private EventResponse toResponse(CommunityEvent e, Long currentUserId) {

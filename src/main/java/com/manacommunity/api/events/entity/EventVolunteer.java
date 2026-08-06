@@ -1,5 +1,8 @@
 package com.manacommunity.api.events.entity;
 
+
+import com.manacommunity.api.model.Community;
+import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,6 +22,15 @@ public class EventVolunteer {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private CommunityEvent event;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AppUser user;
+
     private CommunityEvent event;
 
     @Column(name = "user_id", nullable = false)
@@ -27,11 +39,18 @@ public class EventVolunteer {
     @Column(name = "user_name", length = 200)
     private String userName;
 
+
     @Column(length = 100)
     private String role;
 
     @Column(length = 100)
     private String zone;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private VolunteerStatus status = VolunteerStatus.ASSIGNED;
 
     @Column(length = 100)
     private String shift;
@@ -40,11 +59,17 @@ public class EventVolunteer {
     @Builder.Default
     private String status = "ACTIVE";
 
+
     @Column(name = "check_in_time")
     private LocalDateTime checkInTime;
 
     @Column(name = "check_out_time")
     private LocalDateTime checkOutTime;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id", nullable = false)
+    private Community community;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,4 +78,9 @@ public class EventVolunteer {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
     }
+
+    public enum VolunteerStatus {
+        ASSIGNED, CHECKED_IN, CHECKED_OUT, NO_SHOW
+    }
+
 }

@@ -30,11 +30,20 @@ public class EventRegistration {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private RegistrationStatus status = RegistrationStatus.PENDING;
+
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 
     @PrePersist
     protected void onCreate() {
         registeredAt = LocalDateTime.now();
+    }
+
+    public enum RegistrationStatus {
+        PENDING, CONFIRMED, REJECTED, CANCELLED
     }
 }
