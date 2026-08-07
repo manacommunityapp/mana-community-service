@@ -7,11 +7,7 @@ import java.util.List;
 
 public interface EventProgramRepository extends JpaRepository<EventProgram, Long> {
 
-    List<EventProgram> findByEventIdOrderBySortOrderAsc(Long eventId);
+    List<EventProgram> findByEventIdOrderBySortOrderAscStartTimeAsc(Long eventId);
 
-    List<EventProgram> findByEventIdAndDayLabelOrderBySortOrderAsc(Long eventId, String dayLabel);
-
-    List<EventProgram> findByEventIdAndRequiresRegistrationTrueOrderBySortOrderAsc(Long eventId);
-
-    List<EventProgram> findByEventCommunityIdOrderByCreatedAtDesc(Long communityId);
+    List<EventProgram> findByEventIdAndDayLabelOrderBySortOrderAscStartTimeAsc(Long eventId, String dayLabel);
 }

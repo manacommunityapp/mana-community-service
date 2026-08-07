@@ -24,4 +24,10 @@ public interface CommunityEventRepository extends JpaRepository<CommunityEvent, 
     List<CommunityEvent> findUpcomingByCommunityAndType(
             @Param("communityId") Long communityId,
             @Param("type") CommunityEvent.EventType type);
+
+    long countByCommunityId(Long communityId);
+
+    @Query("SELECT COUNT(e) FROM CommunityEvent e WHERE e.community.id = :communityId " +
+            "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE))")
+    long countUpcomingByCommunity(@Param("communityId") Long communityId);
 }

@@ -1,7 +1,9 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.DashboardStatsResponse;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
+import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.service.EventService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -90,6 +92,37 @@ public class EventController {
         AppUser user = loggedInUserService.resolve(principal);
         eventService.delete(id, user.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/dashboard/stats")
+    @PreAuthorize("hasAuthority('View Events')")
+    public ResponseEntity<DashboardStatsResponse> getDashboardStats(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (communityId == null) return ResponseEntity.ok(DashboardStatsResponse.builder().build());
+        return ResponseEntity.ok(eventService.getDashboardStats(communityId));
+    }
+
+    @GetMapping("/{id}/registrations")
+    @PreAuthorize("hasAuthority('View Events')")
+    public ResponseEntity<List<RegistrationResponse>> getEventRegistrations(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(eventService.getEventRegistrations(id));
+    }
+
+    @PutMapping("/registrations/{regId}/confirm")
+    @PreAuthorize("hasAuthority('Create Event')")
+    public ResponseEntity<RegistrationResponse> confirmRegistration(
+            @PathVariable Long regId) {
+        return ResponseEntity.ok(eventService.confirmRegistration(regId));
+    }
+
+    @PutMapping("/registrations/{regId}/reject")
+    @PreAuthorize("hasAuthority('Create Event')")
+    public ResponseEntity<RegistrationResponse> rejectRegistration(
+            @PathVariable Long regId) {
+        return ResponseEntity.ok(eventService.rejectRegistration(regId));
     }
 
     @PostMapping("/{id}/register")

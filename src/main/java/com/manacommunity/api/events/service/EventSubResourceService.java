@@ -6,27 +6,27 @@ import com.manacommunity.api.events.dto.EventVolunteerRequest;
 import com.manacommunity.api.events.dto.EventVolunteerResponse;
 import com.manacommunity.api.events.dto.EventSponsorRequest;
 import com.manacommunity.api.events.dto.EventSponsorResponse;
+import com.manacommunity.api.events.dto.EventExpenseRequest;
+import com.manacommunity.api.events.dto.EventExpenseResponse;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.entity.EventVolunteer;
 import com.manacommunity.api.events.entity.EventSponsor;
+import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
+import com.manacommunity.api.events.repository.EventExpenseRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import com.manacommunity.api.events.dto.EventExpenseRequest;
-import com.manacommunity.api.events.dto.EventExpenseResponse;
-import com.manacommunity.api.events.entity.EventExpense;
-import com.manacommunity.api.events.repository.EventExpenseRepository;
-import com.manacommunity.api.user.model.AppUser;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +42,12 @@ public class EventSubResourceService {
     private CommunityEvent findEvent(Long eventId) {
         return eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
+    }
+
+    private <E extends Enum<E>> E parseEnum(Class<E> cls, String val, E def) {
+        if (val == null || val.isBlank()) return def;
+        try { return Enum.valueOf(cls, val.toUpperCase()); }
+        catch (IllegalArgumentException e) { return def; }
     }
 
     // ── Tasks ────────────────────────────────────────────────────────────────────
@@ -62,9 +68,8 @@ public class EventSubResourceService {
                 .title(req.getTitle())
                 .description(req.getDescription())
                 .phase(req.getPhase())
-                .priority(req.getPriority() != null ? req.getPriority() : "MEDIUM")
+                .priority(parseEnum(EventTask.Priority.class, req.getPriority(), EventTask.Priority.MEDIUM))
                 .assigneeName(req.getAssigneeName())
-                .assigneeId(req.getAssigneeId())
                 .dueDate(req.getDueDate())
                 .done(false)
                 .build();
@@ -78,9 +83,10 @@ public class EventSubResourceService {
         task.setTitle(req.getTitle());
         task.setDescription(req.getDescription());
         task.setPhase(req.getPhase());
-        if (req.getPriority() != null) task.setPriority(req.getPriority());
+        if (req.getPriority() != null) {
+            task.setPriority(parseEnum(EventTask.Priority.class, req.getPriority(), task.getPriority()));
+        }
         task.setAssigneeName(req.getAssigneeName());
-        task.setAssigneeId(req.getAssigneeId());
         task.setDueDate(req.getDueDate());
         return toTaskResponse(taskRepo.save(task));
     }
@@ -89,7 +95,7 @@ public class EventSubResourceService {
     public EventTaskResponse toggleDone(Long id) {
         EventTask task = taskRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("EventTask", id));
-        task.setDone(!Boolean.TRUE.equals(task.getDone()));
+        task.setDone(!task.isDone());
         return toTaskResponse(taskRepo.save(task));
     }
 
@@ -99,20 +105,20 @@ public class EventSubResourceService {
     }
 
     private EventTaskResponse toTaskResponse(EventTask t) {
-        EventTaskResponse r = new EventTaskResponse();
-        r.setId(t.getId());
-        r.setEventId(t.getEvent().getId());
-        r.setEventTitle(t.getEvent().getTitle());
-        r.setTitle(t.getTitle());
-        r.setDescription(t.getDescription());
-        r.setPhase(t.getPhase());
-        r.setPriority(t.getPriority());
-        r.setAssigneeName(t.getAssigneeName());
-        r.setAssigneeId(t.getAssigneeId());
-        r.setDueDate(t.getDueDate() != null ? t.getDueDate().toString() : null);
-        r.setDone(Boolean.TRUE.equals(t.getDone()));
-        r.setCreatedAt(t.getCreatedAt() != null ? t.getCreatedAt().toString() : null);
-        return r;
+        return EventTaskResponse.builder()
+                .id(t.getId())
+                .eventId(t.getEvent().getId())
+                .eventTitle(t.getEvent().getTitle())
+                .title(t.getTitle())
+                .description(t.getDescription())
+                .phase(t.getPhase())
+                .priority(t.getPriority() != null ? t.getPriority().name() : null)
+                .assigneeName(t.getAssigneeName())
+                .assigneeId(t.getAssignee() != null ? t.getAssignee().getId() : null)
+                .dueDate(t.getDueDate() != null ? t.getDueDate().toString() : null)
+                .done(t.isDone())
+                .createdAt(t.getCreatedAt() != null ? t.getCreatedAt().toString() : null)
+                .build();
     }
 
     // ── Volunteers ───────────────────────────────────────────────────────────────
@@ -155,7 +161,7 @@ public class EventSubResourceService {
         EventVolunteer vol = volunteerRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("EventVolunteer", id));
         vol.setCheckInTime(LocalDateTime.now());
-        vol.setStatus("CHECKED_IN");
+        vol.setVolunteerStatus(EventVolunteer.VolunteerStatus.CHECKED_IN);
         return toVolunteerResponse(volunteerRepo.save(vol));
     }
 
@@ -164,7 +170,7 @@ public class EventSubResourceService {
         EventVolunteer vol = volunteerRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("EventVolunteer", id));
         vol.setCheckOutTime(LocalDateTime.now());
-        vol.setStatus("CHECKED_OUT");
+        vol.setVolunteerStatus(EventVolunteer.VolunteerStatus.CHECKED_OUT);
         return toVolunteerResponse(volunteerRepo.save(vol));
     }
 
@@ -174,20 +180,23 @@ public class EventSubResourceService {
     }
 
     private EventVolunteerResponse toVolunteerResponse(EventVolunteer v) {
-        EventVolunteerResponse r = new EventVolunteerResponse();
-        r.setId(v.getId());
-        r.setEventId(v.getEvent().getId());
-        r.setEventTitle(v.getEvent().getTitle());
-        r.setUserId(v.getUserId());
-        r.setUserName(v.getUserName());
-        r.setRole(v.getRole());
-        r.setZone(v.getZone());
-        r.setShift(v.getShift());
-        r.setStatus(v.getStatus());
-        r.setCheckInTime(v.getCheckInTime() != null ? v.getCheckInTime().toString() : null);
-        r.setCheckOutTime(v.getCheckOutTime() != null ? v.getCheckOutTime().toString() : null);
-        r.setCreatedAt(v.getCreatedAt() != null ? v.getCreatedAt().toString() : null);
-        return r;
+        String statusStr = v.getVolunteerStatus() != null
+                ? v.getVolunteerStatus().name()
+                : (v.getStatus() != null ? v.getStatus() : "ACTIVE");
+        return EventVolunteerResponse.builder()
+                .id(v.getId())
+                .eventId(v.getEvent().getId())
+                .eventTitle(v.getEvent().getTitle())
+                .userId(v.getUserId())
+                .userName(v.getUserName())
+                .role(v.getRole())
+                .zone(v.getZone())
+                .shift(v.getShift())
+                .status(statusStr)
+                .checkInTime(v.getCheckInTime() != null ? v.getCheckInTime().toString() : null)
+                .checkOutTime(v.getCheckOutTime() != null ? v.getCheckOutTime().toString() : null)
+                .createdAt(v.getCreatedAt() != null ? v.getCreatedAt().toString() : null)
+                .build();
     }
 
     // ── Sponsors ─────────────────────────────────────────────────────────────────
@@ -240,21 +249,24 @@ public class EventSubResourceService {
     }
 
     private EventSponsorResponse toSponsorResponse(EventSponsor s) {
-        EventSponsorResponse r = new EventSponsorResponse();
-        r.setId(s.getId());
-        r.setEventId(s.getEvent().getId());
-        r.setEventTitle(s.getEvent().getTitle());
-        r.setName(s.getName());
-        r.setTier(s.getTier());
-        r.setAmountPledged(s.getAmountPledged());
-        r.setAmountReceived(s.getAmountReceived());
-        r.setLogoUrl(s.getLogoUrl());
-        r.setContactName(s.getContactName());
-        r.setContactPhone(s.getContactPhone());
-        r.setContactEmail(s.getContactEmail());
-        r.setStatus(s.getStatus());
-        r.setCreatedAt(s.getCreatedAt() != null ? s.getCreatedAt().toString() : null);
-        return r;
+        // Prefer the enum field name, fall back to plain String tier
+        String tierStr = s.getSponsorTier() != null ? s.getSponsorTier().name() : s.getTier();
+        String statusStr = s.getSponsorStatus() != null ? s.getSponsorStatus().name() : s.getStatus();
+        return EventSponsorResponse.builder()
+                .id(s.getId())
+                .eventId(s.getEvent().getId())
+                .eventTitle(s.getEvent().getTitle())
+                .name(s.getName())
+                .tier(tierStr)
+                .amountPledged(s.getAmountPledged())
+                .amountReceived(s.getAmountReceived())
+                .logoUrl(s.getLogoUrl())
+                .contactName(s.getContactName())
+                .contactPhone(s.getContactPhone())
+                .contactEmail(s.getContactEmail())
+                .status(statusStr)
+                .createdAt(s.getCreatedAt() != null ? s.getCreatedAt().toString() : null)
+                .build();
     }
 
     // ── Expenses ─────────────────────────────────────────────────────────────────
@@ -277,7 +289,7 @@ public class EventSubResourceService {
                 .amount(req.getAmount())
                 .vendorName(req.getVendorName())
                 .receiptUrl(req.getReceiptUrl())
-                .expenseDate(req.getExpenseDate())
+                .expenseDate(req.getExpenseDate() != null ? LocalDate.parse(req.getExpenseDate()) : null)
                 .status(req.getStatus() != null ? req.getStatus() : "PENDING")
                 .createdById(currentUser != null ? currentUser.getId() : null)
                 .createdByName(currentUser != null ? currentUser.getFullName() : "Admin")
@@ -294,7 +306,7 @@ public class EventSubResourceService {
         expense.setAmount(req.getAmount());
         expense.setVendorName(req.getVendorName());
         expense.setReceiptUrl(req.getReceiptUrl());
-        expense.setExpenseDate(req.getExpenseDate());
+        expense.setExpenseDate(req.getExpenseDate() != null ? LocalDate.parse(req.getExpenseDate()) : null);
         if (req.getStatus() != null) expense.setStatus(req.getStatus());
         return toExpenseResponse(expenseRepo.save(expense));
     }
@@ -305,19 +317,19 @@ public class EventSubResourceService {
     }
 
     private EventExpenseResponse toExpenseResponse(EventExpense e) {
-        EventExpenseResponse r = new EventExpenseResponse();
-        r.setId(e.getId());
-        r.setEventId(e.getEvent().getId());
-        r.setEventTitle(e.getEvent().getTitle());
-        r.setDescription(e.getDescription());
-        r.setCategory(e.getCategory());
-        r.setAmount(e.getAmount());
-        r.setVendorName(e.getVendorName());
-        r.setReceiptUrl(e.getReceiptUrl());
-        r.setExpenseDate(e.getExpenseDate() != null ? e.getExpenseDate().toString() : null);
-        r.setStatus(e.getStatus());
-        r.setCreatedByName(e.getCreatedByName());
-        r.setCreatedAt(e.getCreatedAt() != null ? e.getCreatedAt().toString() : null);
-        return r;
+        return EventExpenseResponse.builder()
+                .id(e.getId())
+                .eventId(e.getEvent().getId())
+                .eventTitle(e.getEvent().getTitle())
+                .description(e.getDescription())
+                .category(e.getCategory())
+                .amount(e.getAmount())
+                .vendorName(e.getVendorName())
+                .receiptUrl(e.getReceiptUrl())
+                .expenseDate(e.getExpenseDate() != null ? e.getExpenseDate().toString() : null)
+                .status(e.getStatus())
+                .createdByName(e.getCreatedByName())
+                .createdAt(e.getCreatedAt() != null ? e.getCreatedAt().toString() : null)
+                .build();
     }
 }

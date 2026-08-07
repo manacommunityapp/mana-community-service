@@ -1877,6 +1877,200 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher community-event sub-resource patch failed: {}", e.getMessage(), e);
             }
+
+            // Ensure new enum columns and FK columns added to community_event_* tables
+            // by the recent entity refactor. Idempotent — safe to re-run on every boot.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event_volunteer') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event_volunteer
+                              ADD COLUMN IF NOT EXISTS volunteer_status VARCHAR(20) DEFAULT 'ASSIGNED';
+                            ALTER TABLE manacommunity.community_event_volunteer
+                              ADD COLUMN IF NOT EXISTS community_id BIGINT;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event_sponsor') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event_sponsor
+                              ADD COLUMN IF NOT EXISTS sponsor_tier VARCHAR(30) DEFAULT 'SILVER';
+                            ALTER TABLE manacommunity.community_event_sponsor
+                              ADD COLUMN IF NOT EXISTS sponsor_status VARCHAR(20) DEFAULT 'PENDING';
+                            ALTER TABLE manacommunity.community_event_sponsor
+                              ADD COLUMN IF NOT EXISTS community_id BIGINT;
+                            ALTER TABLE manacommunity.community_event_sponsor
+                              ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.community_event_sponsor
+                              ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event_expense') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event_expense
+                              ADD COLUMN IF NOT EXISTS expense_status VARCHAR(20) DEFAULT 'PENDING';
+                            ALTER TABLE manacommunity.community_event_expense
+                              ADD COLUMN IF NOT EXISTS community_id BIGINT;
+                            ALTER TABLE manacommunity.community_event_expense
+                              ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.community_event_expense
+                              ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event_task') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event_task
+                              ADD COLUMN IF NOT EXISTS community_id BIGINT;
+                            ALTER TABLE manacommunity.community_event_task
+                              ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.community_event_task
+                              ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("community_event sub-resource extra columns ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher community-event extra columns patch failed: {}", e.getMessage(), e);
+            }
+
+            // Ensure the event_program table (EventProgram entity, no schema attribute so
+            // defaults to manacommunity search_path) and community_event_activity_registration
+            // (ActivityRegistration entity) exist before Hibernate validates.
+            // Idempotent — safe to re-run on every boot.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_program (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            day_label       VARCHAR(100),
+                            day_date        DATE,
+                            title           VARCHAR(200) NOT NULL,
+                            program_type    VARCHAR(50),
+                            start_time      TIME,
+                            duration        VARCHAR(30),
+                            venue           VARCHAR(200),
+                            performer       VARCHAR(200),
+                            judge           VARCHAR(200),
+                            sort_order      INT NOT NULL DEFAULT 0,
+                            community_id    BIGINT,
+                            created_by      BIGINT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_activity_registration (
+                            id              BIGSERIAL PRIMARY KEY,
+                            program_id      BIGINT NOT NULL REFERENCES manacommunity.event_program(id) ON DELETE CASCADE,
+                            user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
+                            head_count      INT NOT NULL DEFAULT 1,
+                            status          VARCHAR(20) NOT NULL DEFAULT 'CONFIRMED',
+                            registered_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uq_activity_reg_program_user UNIQUE (program_id, user_id)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_meal_registration (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
+                            meal_date       DATE NOT NULL,
+                            meal_type       VARCHAR(10) NOT NULL,
+                            head_count      INT NOT NULL DEFAULT 1,
+                            dietary_pref    VARCHAR(20) DEFAULT 'VEG',
+                            allergies       VARCHAR(500),
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uq_meal_reg_event_user_date_type UNIQUE (event_id, user_id, meal_date, meal_type)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_donation (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            donor_name      VARCHAR(200) NOT NULL,
+                            donor_email     VARCHAR(200),
+                            donor_phone     VARCHAR(50),
+                            amount          DOUBLE PRECISION NOT NULL,
+                            payment_method  VARCHAR(30) DEFAULT 'CASH',
+                            transaction_ref VARCHAR(100),
+                            note            VARCHAR(500),
+                            anonymous       BOOLEAN NOT NULL DEFAULT FALSE,
+                            community_id    BIGINT,
+                            recorded_by     BIGINT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_gallery_item (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            url             VARCHAR(500) NOT NULL,
+                            thumbnail_url   VARCHAR(500),
+                            media_type      VARCHAR(20) DEFAULT 'PHOTO',
+                            album_name      VARCHAR(100),
+                            caption         VARCHAR(300),
+                            featured        BOOLEAN NOT NULL DEFAULT FALSE,
+                            sort_order      INT NOT NULL DEFAULT 0,
+                            community_id    BIGINT,
+                            uploaded_by     BIGINT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.event_registration') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_registration
+                              ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PENDING';
+                          ELSE
+                            CREATE TABLE IF NOT EXISTS manacommunity.event_registration (
+                                id              BIGSERIAL PRIMARY KEY,
+                                event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                                user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
+                                status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                                registered_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                CONSTRAINT uq_event_reg_event_user UNIQUE (event_id, user_id)
+                            );
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.community_event_activity_registration (program_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.community_event_activity_registration (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_event ON manacommunity.community_event_meal_registration (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_user ON manacommunity.community_event_meal_registration (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_donation_event ON manacommunity.event_donation (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_gallery_event ON manacommunity.event_gallery_item (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_event ON manacommunity.event_registration (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_user ON manacommunity.event_registration (user_id)");
+
+                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration tables ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }

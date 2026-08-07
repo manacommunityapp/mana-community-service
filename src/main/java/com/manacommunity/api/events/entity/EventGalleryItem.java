@@ -5,17 +5,15 @@ import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 @Entity
-@Table(name = "event_program")
+@Table(name = "event_gallery_item")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EventProgram {
+public class EventGalleryItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,34 +21,29 @@ public class EventProgram {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private CommunityEvent event;
 
-    @Column(name = "day_label", length = 100)
-    private String dayLabel;
+    @Column(nullable = false, length = 500)
+    private String url;
 
-    @Column(name = "day_date")
-    private LocalDate dayDate;
+    @Column(name = "thumbnail_url", length = 500)
+    private String thumbnailUrl;
 
-    @Column(nullable = false, length = 200)
-    private String title;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "media_type", length = 20)
+    @Builder.Default
+    private MediaType mediaType = MediaType.PHOTO;
 
-    @Column(name = "program_type", length = 50)
-    private String programType;
+    @Column(name = "album_name", length = 100)
+    private String albumName;
 
-    @Column(name = "start_time")
-    private LocalTime startTime;
+    @Column(length = 300)
+    private String caption;
 
-    @Column(length = 30)
-    private String duration;
-
-    @Column(length = 200)
-    private String venue;
-
-    @Column(length = 200)
-    private String performer;
-
-    @Column(length = 200)
-    private String judge;
+    @Builder.Default
+    private boolean featured = false;
 
     @Column(name = "sort_order")
     @Builder.Default
@@ -61,23 +54,18 @@ public class EventProgram {
     private Community community;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    private AppUser createdBy;
+    @JoinColumn(name = "uploaded_by", nullable = false)
+    private AppUser uploadedBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = createdAt;
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    public enum MediaType {
+        PHOTO, VIDEO
     }
 }

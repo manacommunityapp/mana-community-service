@@ -1,24 +1,25 @@
 package com.manacommunity.api.events.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import java.time.LocalDate;
 
 @Data
 public class EventProgramRequest {
+
+    @NotNull
     private Long eventId;
+
+    @NotBlank
     private String title;
+
     private String dayLabel;
-    private LocalDate dayDate;
+    private String dayDate;
     private String programType;
-    private String activityType;
     private String startTime;
     private String duration;
     private String venue;
     private String performer;
     private String judge;
     private Integer sortOrder;
-    private Integer capacity;
-    private Boolean requiresRegistration;
-    private Boolean waitlistEnabled;
 }

@@ -1,8 +1,8 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.dto.EventProgramRequest;
-import com.manacommunity.api.events.dto.EventProgramResponse;
-import com.manacommunity.api.events.service.EventProgramService;
+import com.manacommunity.api.events.dto.EventSponsorRequest;
+import com.manacommunity.api.events.dto.EventSponsorResponse;
+import com.manacommunity.api.events.service.EventSponsorService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -17,43 +17,49 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/programs")
+@RequestMapping("/api/events/sponsors")
 @RequiredArgsConstructor
-public class EventProgramController {
+public class EventSponsorController {
 
-    private final EventProgramService programService;
+    private final EventSponsorService sponsorService;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Events')")
-    public ResponseEntity<List<EventProgramResponse>> getByEvent(
-            @RequestParam Long eventId,
-            @RequestParam(required = false) String dayLabel) {
-        return ResponseEntity.ok(programService.getByEvent(eventId, dayLabel));
+    public ResponseEntity<List<EventSponsorResponse>> getAll(
+            @RequestParam(required = false) Long eventId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (eventId != null) {
+            return ResponseEntity.ok(sponsorService.getByEvent(eventId));
+        }
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (communityId == null) return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(sponsorService.getByCommunity(communityId));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('Create Event')")
-    public ResponseEntity<EventProgramResponse> create(
-            @Valid @RequestBody EventProgramRequest req,
+    public ResponseEntity<EventSponsorResponse> create(
+            @Valid @RequestBody EventSponsorRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(programService.create(req, user, user.getCommunity()));
+                .body(sponsorService.create(req, user, user.getCommunity()));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('Create Event')")
-    public ResponseEntity<EventProgramResponse> update(
+    public ResponseEntity<EventSponsorResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody EventProgramRequest req) {
-        return ResponseEntity.ok(programService.update(id, req));
+            @Valid @RequestBody EventSponsorRequest req) {
+        return ResponseEntity.ok(sponsorService.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('Create Event')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        programService.delete(id);
+        sponsorService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }
