@@ -1205,6 +1205,19 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_theme (
+                            id              BIGSERIAL       PRIMARY KEY,
+                            community_id    BIGINT          NOT NULL REFERENCES manacommunity.community(id),
+                            name            VARCHAR(160)    NOT NULL,
+                            theme_json      TEXT            NOT NULL,
+                            is_default      BOOLEAN         NOT NULL DEFAULT FALSE,
+                            created_at      TIMESTAMP       NOT NULL DEFAULT now(),
+                            updated_at      TIMESTAMP       NOT NULL DEFAULT now()
+                        )
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_theme_community ON manacommunity.email_theme(community_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_header_community ON manacommunity.email_header(community_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_footer_community ON manacommunity.email_footer(community_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_email_template_community_status ON manacommunity.email_template(community_id, status)");
@@ -2057,6 +2070,42 @@ public class SchemaConstraintPatcher {
                         END $$;
                         """);
 
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_invoice (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id),
+                            created_by      BIGINT REFERENCES manacommunity.app_user(id),
+                            invoice_number  VARCHAR(100),
+                            vendor_name     VARCHAR(200) NOT NULL,
+                            invoice_date    DATE,
+                            due_date        DATE,
+                            amount          NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+                            tax_amount      NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+                            total_amount    NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+                            category        VARCHAR(50) DEFAULT 'OTHER',
+                            status          VARCHAR(20) DEFAULT 'PENDING',
+                            invoice_url     VARCHAR(500),
+                            file_id         BIGINT,
+                            notes           TEXT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.stored_file (
+                            id              BIGSERIAL PRIMARY KEY,
+                            filename        VARCHAR(255) NOT NULL,
+                            original_name   VARCHAR(255) NOT NULL,
+                            content_type    VARCHAR(100) NOT NULL,
+                            size_bytes      BIGINT NOT NULL,
+                            data            BYTEA NOT NULL,
+                            uploaded_by     BIGINT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.community_event_activity_registration (program_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.community_event_activity_registration (user_id)");
@@ -2066,10 +2115,13 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_gallery_event ON manacommunity.event_gallery_item (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_event ON manacommunity.event_registration (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_user ON manacommunity.event_registration (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_invoice_event ON manacommunity.event_invoice (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_invoice_community ON manacommunity.event_invoice (community_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_stored_file_filename ON manacommunity.stored_file (filename)");
 
-                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration tables ensured.");
+                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file tables ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file patch failed: {}", e.getMessage(), e);
             }
         }
     }
