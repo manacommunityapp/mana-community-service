@@ -21,6 +21,7 @@ import java.util.Optional;
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByEmail(String email);
+    Optional<AppUser> findByPhone(String phone);
     boolean existsByEmail(String email);
     boolean existsByPhone(String phone);
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);

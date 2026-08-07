@@ -6,6 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface EventTaskRepository extends JpaRepository<EventTask, Long> {
+
+
+    List<EventTask> findByEventIdOrderByDueDateAsc(Long eventId);
+
+    List<EventTask> findByCommunityIdOrderByDueDateAsc(Long communityId);
+
+    long countByEventIdAndDoneFalse(Long eventId);
+
     List<EventTask> findByEventIdOrderByCreatedAtDesc(Long eventId);
     List<EventTask> findByEventCommunityIdOrderByCreatedAtDesc(Long communityId);
+
 }

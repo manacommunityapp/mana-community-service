@@ -18,8 +18,9 @@ import java.util.List;
  * the catch-all /{id} in EventController because Spring evaluates more-specific
  * (literal) segments first. Having them in a separate controller guarantees ordering.
  */
-@RestController
-@RequestMapping("/api/events")
+// Disabled: Dedicated controllers (EventTaskController, EventVolunteerController, EventSponsorController, EventExpenseController) handle these routes.
+// @RestController
+// @RequestMapping("/api/events")
 @RequiredArgsConstructor
 public class EventSubResourceController {
 

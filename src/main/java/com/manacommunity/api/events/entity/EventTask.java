@@ -1,5 +1,9 @@
 package com.manacommunity.api.events.entity;
 
+
+import com.manacommunity.api.model.Community;
+import com.manacommunity.api.user.model.AppUser;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,30 +32,62 @@ public class EventTask {
     @Column(length = 1000)
     private String description;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private Priority priority = Priority.MEDIUM;
+
     @Column(length = 80)
     private String phase;
 
-    @Column(length = 20)
-    @Builder.Default
-    private String priority = "MEDIUM";
+
 
     @Column(name = "assignee_name", length = 200)
     private String assigneeName;
 
-    @Column(name = "assignee_id")
-    private Long assigneeId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private AppUser assignee;
+
 
     @Column(name = "due_date")
     private LocalDate dueDate;
 
     @Builder.Default
-    private Boolean done = false;
+    private boolean done = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id", nullable = false)
+    private Community community;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", nullable = false)
+    private AppUser createdBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public enum Priority {
+        LOW, MEDIUM, HIGH
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
     }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+
+
 }

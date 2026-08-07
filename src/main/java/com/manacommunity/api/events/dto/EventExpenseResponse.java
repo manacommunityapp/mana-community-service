@@ -1,9 +1,13 @@
 package com.manacommunity.api.events.dto;
 
+
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 public class EventExpenseResponse {
+
     private Long id;
     private Long eventId;
     private String eventTitle;
