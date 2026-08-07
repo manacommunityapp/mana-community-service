@@ -257,6 +257,14 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
+        <!-- AWS SDK v2 S3 client — used by S3FileStorageService (active when app.storage.type=s3).
+             The bean is inactive by default; no AWS credentials are needed unless S3 is enabled. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.26.12</version>
+        </dependency>
+
     </dependencies>
 
     <build>
