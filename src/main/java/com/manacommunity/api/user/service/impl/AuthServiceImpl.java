@@ -143,13 +143,25 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse loginUser(LoginRequest request) {
-        AppUser user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> {
-                    // Audit the attempt, but don't reveal whether the email exists.
-                    auditLog.record(AuditLogService.Action.LOGIN_FAILED, request.getEmail());
-                    return new ManaCommunityException("Invalid email or password.",
-                            HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
-                });
+        String identifier = request.getIdentifier() == null ? "" : request.getIdentifier().trim();
+        boolean isMobile = identifier.matches("\\d{10}");
+
+        AppUser user;
+        if (isMobile) {
+            user = userRepository.findByPhone(identifier).orElseThrow(() -> {
+                auditLog.record(AuditLogService.Action.LOGIN_FAILED, identifier);
+                return new ManaCommunityException(
+                        "Mobile number not found. Please check and try again.",
+                        HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
+            });
+        } else {
+            user = userRepository.findByEmail(identifier).orElseThrow(() -> {
+                auditLog.record(AuditLogService.Action.LOGIN_FAILED, identifier);
+                return new ManaCommunityException(
+                        "Email address not found. Please check and try again.",
+                        HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
+            });
+        }
 
         // 1. Refuse if the account is currently locked.
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
@@ -163,8 +175,10 @@ public class AuthServiceImpl implements AuthService {
         // 2. Wrong password → count the failure and possibly lock.
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             registerFailedAttempt(user);
-            throw new ManaCommunityException("Invalid email or password.",
-                    HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
+            String wrongPwMsg = isMobile
+                    ? "Incorrect password for this mobile number."
+                    : "Incorrect password for this email address.";
+            throw new ManaCommunityException(wrongPwMsg, HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
 
         // 3. Success → clear any prior failures and issue tokens.
