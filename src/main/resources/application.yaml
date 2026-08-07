@@ -64,14 +64,14 @@ spring:
   # ── Upload limits (file-upload hardening / DoS) ───────────────────────
   servlet:
     multipart:
-      max-file-size: ${MAX_FILE_SIZE:5MB}
-      max-request-size: ${MAX_REQUEST_SIZE:6MB}
+      max-file-size: ${MAX_FILE_SIZE:22MB}
+      max-request-size: ${MAX_REQUEST_SIZE:25MB}
 
 # ── HTTP server limits (mitigate large-payload DoS) ─────────────────────
 server:
   tomcat:
-    max-http-form-post-size: 2MB
-    max-swallow-size: 2MB
+    max-http-form-post-size: 25MB
+    max-swallow-size: 25MB
   # Don't advertise the server build in the Server response header.
   server-header: ""
   error:
@@ -181,10 +181,22 @@ app:
       # When false (default), the filter uses the TCP source address directly.
       trust-forwarded-header: ${RATE_LIMIT_TRUST_XFF:false}
 
-    # ── Public event-registration anti-abuse (off by default) ─────────────
-    # Both gates are no-ops unless enabled, so authenticated/admin add flows and
-    # tests are unaffected. Turn on (and supply the reCAPTCHA secret) in prod.
-    registration:
+  # ── File / Invoice Storage ──────────────────────────────────────────────
+  # Two implementations: postgres (default) stores files in the stored_file table.
+  # Switch to S3 by setting app.storage.type=s3 and providing the four S3 properties.
+  storage:
+    # postgres | s3
+    type: ${APP_STORAGE_TYPE:postgres}
+    s3:
+      bucket: ${S3_BUCKET:}
+      region: ${S3_REGION:ap-south-1}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+
+  # ── Public event-registration anti-abuse (off by default) ─────────────
+  # Both gates are no-ops unless enabled, so authenticated/admin add flows and
+  # tests are unaffected. Turn on (and supply the reCAPTCHA secret) in prod.
+  registration:
       recaptcha:
         enabled: ${RECAPTCHA_ENABLED:false}
         secret: ${RECAPTCHA_SECRET:}
