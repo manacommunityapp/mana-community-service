@@ -30,7 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/email")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'COMMUNITY_ADMIN')")
 public class EmailDeliveryLogController {
 
     private final EmailDeliveryLogRepository repo;
