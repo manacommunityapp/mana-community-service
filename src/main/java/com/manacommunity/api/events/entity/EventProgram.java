@@ -56,6 +56,25 @@ public class EventProgram {
     @Builder.Default
     private int sortOrder = 0;
 
+    @Column(name = "capacity")
+    private Integer capacity;
+
+    @Column(name = "requires_registration", nullable = false)
+    @Builder.Default
+    private boolean requiresRegistration = false;
+
+    @Column(name = "requires_approval", nullable = false)
+    @Builder.Default
+    private boolean requiresApproval = false;
+
+    @Column(name = "allow_waitlist", nullable = false)
+    @Builder.Default
+    private boolean allowWaitlist = true;
+
+    @Column(name = "max_per_registration", nullable = false)
+    @Builder.Default
+    private int maxPerRegistration = 10;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;

@@ -1808,6 +1808,30 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher VMS patch failed: {}", e.getMessage(), e);
             }
 
+            // Ensure community_event has category, venue, city, max_attendees, etc. columns before Hibernate validates.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event
+                              ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS venue VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS city VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS max_attendees INT,
+                              ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) DEFAULT 'IN_PERSON',
+                              ADD COLUMN IF NOT EXISTS price_type VARCHAR(10) DEFAULT 'FREE',
+                              ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS organizer_contact VARCHAR(200);
+                          END IF;
+                        END $$;
+                        """);
+                log.info("community_event table columns ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher community_event columns patch failed: {}", e.getMessage(), e);
+            }
+
             // Ensure community-event sub-resource tables exist before Hibernate validates.
             // These back the EventTask, EventVolunteer, and EventSponsor entities
             // (endpoints: /api/events/tasks, /api/events/volunteers, /api/events/sponsors).

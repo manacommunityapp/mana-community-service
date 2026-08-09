@@ -52,6 +52,11 @@ public class EventProgramService {
                 .performer(req.getPerformer())
                 .judge(req.getJudge())
                 .sortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0)
+                .capacity(req.getCapacity())
+                .requiresRegistration(Boolean.TRUE.equals(req.getRequiresRegistration()))
+                .requiresApproval(Boolean.TRUE.equals(req.getRequiresApproval()))
+                .allowWaitlist(req.getAllowWaitlist() == null || Boolean.TRUE.equals(req.getAllowWaitlist()))
+                .maxPerRegistration(req.getMaxPerRegistration() != null && req.getMaxPerRegistration() > 0 ? req.getMaxPerRegistration() : 10)
                 .community(community)
                 .createdBy(user)
                 .build();
@@ -72,6 +77,11 @@ public class EventProgramService {
         program.setPerformer(req.getPerformer());
         program.setJudge(req.getJudge());
         program.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : program.getSortOrder());
+        program.setCapacity(req.getCapacity());
+        if (req.getRequiresRegistration() != null) program.setRequiresRegistration(req.getRequiresRegistration());
+        if (req.getRequiresApproval() != null) program.setRequiresApproval(req.getRequiresApproval());
+        if (req.getAllowWaitlist() != null) program.setAllowWaitlist(req.getAllowWaitlist());
+        if (req.getMaxPerRegistration() != null && req.getMaxPerRegistration() > 0) program.setMaxPerRegistration(req.getMaxPerRegistration());
         return toResponse(programRepo.save(program));
     }
 
@@ -95,6 +105,11 @@ public class EventProgramService {
                 .performer(p.getPerformer())
                 .judge(p.getJudge())
                 .sortOrder(p.getSortOrder())
+                .capacity(p.getCapacity())
+                .requiresRegistration(p.isRequiresRegistration())
+                .requiresApproval(p.isRequiresApproval())
+                .allowWaitlist(p.isAllowWaitlist())
+                .maxPerRegistration(p.getMaxPerRegistration())
                 .createdAt(p.getCreatedAt() != null ? p.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null)
                 .build();
     }

@@ -31,6 +31,41 @@ public class ActivityRegistration {
     @Builder.Default
     private Integer headCount = 1;
 
+    @Column(name = "registration_type", length = 30)
+    @Builder.Default
+    private String registrationType = "individual";
+
+    @Column(name = "primary_name", length = 200)
+    private String primaryName;
+
+    @Column(name = "primary_email", length = 200)
+    private String primaryEmail;
+
+    @Column(name = "primary_phone", length = 50)
+    private String primaryPhone;
+
+    @Column(name = "participant_data", columnDefinition = "TEXT")
+    private String participantData;
+
+    @Column(name = "custom_data", columnDefinition = "TEXT")
+    private String customData;
+
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
+    @Column(name = "waitlist_position")
+    private Integer waitlistPosition;
+
+    @Column(name = "decision_reason", length = 500)
+    private String decisionReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private AppUser approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private ActivityRegStatus status = ActivityRegStatus.CONFIRMED;
@@ -43,5 +78,5 @@ public class ActivityRegistration {
         registeredAt = LocalDateTime.now();
     }
 
-    public enum ActivityRegStatus { CONFIRMED, WAITLISTED, CANCELLED }
+    public enum ActivityRegStatus { PENDING, CONFIRMED, WAITLISTED, DECLINED, CANCELLED }
 }

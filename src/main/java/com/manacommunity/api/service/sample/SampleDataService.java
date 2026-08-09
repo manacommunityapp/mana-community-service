@@ -42,17 +42,11 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
     private final TournamentDataSeeder tournamentDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
+    private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-//        try {
-//            entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
-//            log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully on startup.");
-//        } catch (Exception e) {
-//            log.warn("Could not drop legacy unique constraint on startup: {}", e.getMessage());
-//        }
-
         try {
             entityManager.createNativeQuery("SELECT setval('manacommunity.roles_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.roles), false)").getSingleResult();
             log.info("✓ Roles sequence synchronized to next available value successfully.");
@@ -60,27 +54,18 @@ public class SampleDataService implements ApplicationRunner {
             log.warn("Could not synchronize roles sequence on startup: {}", e.getMessage());
         }
 
-        boolean insertSampleData = environment.getProperty("app.insert-sample-data", Boolean.class, false);
-        String ddlAuto = environment.getProperty("spring.jpa.hibernate.ddl-auto", "none");
-        if ("update".equalsIgnoreCase(ddlAuto)) {
-            log.info("DDL-Auto is 'update'.");
-            if (insertSampleData) {
-                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
-                executeSampleDataSql();
-            }
-        } else if ("create".equalsIgnoreCase(ddlAuto)) {
-            log.info("DDL-Auto is 'create'. Running default data seeding...");
+        long userCount = userRepo.count();
+        log.info("Current AppUser count in database: {}", userCount);
+        if (userCount == 0) {
+            log.info("AppUser table is empty! Executing default user & community seeding...");
             executeDefaultDataSql();
-            if (insertSampleData) {
-                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
-                executeSampleDataSql();
-            }
-        } else {
-            log.info("DDL-Auto is '{}'.", ddlAuto);
-            if (insertSampleData) {
-                log.info("Running sample data seeding as app.insert-sample-data is enabled...");
-                executeSampleDataSql();
-            }
+            userSeeder.seed();
+        }
+
+        boolean insertSampleData = environment.getProperty("app.insert-sample-data", Boolean.class, false);
+        if (insertSampleData) {
+            log.info("Running sample data seeding as app.insert-sample-data is enabled...");
+            executeSampleDataSql();
         }
     }
 
