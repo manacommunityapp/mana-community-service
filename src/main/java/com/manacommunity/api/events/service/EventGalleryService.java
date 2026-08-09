@@ -38,6 +38,14 @@ public class EventGalleryService {
         return galleryRepo.findDistinctAlbumsByEvent(eventId);
     }
 
+    @Transactional(readOnly = true)
+    public List<EventGalleryItemResponse> getByCommunity(Long communityId, String dayTag, String category) {
+        String dt = (dayTag != null && !dayTag.isBlank()) ? dayTag : null;
+        String cat = (category != null && !category.isBlank()) ? category : null;
+        return galleryRepo.findByCommunity(communityId, dt, cat)
+                .stream().map(this::toResponse).toList();
+    }
+
     @Transactional
     public EventGalleryItemResponse create(EventGalleryItemRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
@@ -49,6 +57,8 @@ public class EventGalleryService {
                 .thumbnailUrl(req.getThumbnailUrl())
                 .mediaType(parseEnumOrDefault(EventGalleryItem.MediaType.class, req.getMediaType(), EventGalleryItem.MediaType.PHOTO))
                 .albumName(req.getAlbumName())
+                .dayTag(req.getDayTag())
+                .category(req.getCategory())
                 .caption(req.getCaption())
                 .featured(req.isFeatured())
                 .sortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0)
@@ -66,6 +76,8 @@ public class EventGalleryService {
         item.setThumbnailUrl(req.getThumbnailUrl());
         item.setMediaType(parseEnumOrDefault(EventGalleryItem.MediaType.class, req.getMediaType(), item.getMediaType()));
         item.setAlbumName(req.getAlbumName());
+        item.setDayTag(req.getDayTag());
+        item.setCategory(req.getCategory());
         item.setCaption(req.getCaption());
         item.setFeatured(req.isFeatured());
         item.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : item.getSortOrder());
@@ -85,6 +97,8 @@ public class EventGalleryService {
                 .thumbnailUrl(g.getThumbnailUrl())
                 .mediaType(g.getMediaType().name())
                 .albumName(g.getAlbumName())
+                .dayTag(g.getDayTag())
+                .category(g.getCategory())
                 .caption(g.getCaption())
                 .featured(g.isFeatured())
                 .sortOrder(g.getSortOrder())

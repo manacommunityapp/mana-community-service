@@ -39,6 +39,12 @@ public class EventGalleryItem {
     @Column(name = "album_name", length = 100)
     private String albumName;
 
+    @Column(name = "day_tag", length = 100)
+    private String dayTag;
+
+    @Column(length = 100)
+    private String category;
+
     @Column(length = 300)
     private String caption;
 

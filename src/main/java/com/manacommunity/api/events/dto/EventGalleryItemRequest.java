@@ -16,6 +16,8 @@ public class EventGalleryItemRequest {
     private String thumbnailUrl;
     private String mediaType;
     private String albumName;
+    private String dayTag;
+    private String category;
     private String caption;
     private boolean featured;
     private Integer sortOrder;
