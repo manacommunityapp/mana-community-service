@@ -29,9 +29,8 @@ import java.util.UUID;
  *   3. Restart — S3FileStorageService auto-activates, this bean stays dormant
  */
 @Slf4j
-@Primary
 @Service
-@ConditionalOnProperty(name = "app.storage.type", havingValue = "postgres", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.storage.type", havingValue = "postgres", matchIfMissing = false)
 @RequiredArgsConstructor
 public class PostgresFileStorageService implements FileStorageService {
 

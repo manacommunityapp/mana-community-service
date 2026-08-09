@@ -64,6 +64,13 @@ app:
     allowed-origins: "http://localhost:5173,http://localhost:3000"
   security:
     mock-auth-enabled: true
+  storage:
+    type: s3
+    s3:
+      bucket: ${S3_BUCKET:manacommunityhub}
+      region: ${S3_REGION:ap-south-1}
+      access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
 
   # ── Local email settings ─────────────────────────────────────────────
   # Enabled so emails are actually sent (not just logged).

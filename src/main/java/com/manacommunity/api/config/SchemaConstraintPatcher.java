@@ -1808,6 +1808,39 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher VMS patch failed: {}", e.getMessage(), e);
             }
 
+            // Ensure community_event has category, venue, city, max_attendees, etc. columns before Hibernate validates.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.community_event') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_event
+                              ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PUBLISHED',
+                              ADD COLUMN IF NOT EXISTS type VARCHAR(30) DEFAULT 'GENERAL',
+                              ADD COLUMN IF NOT EXISTS description VARCHAR(3000),
+                              ADD COLUMN IF NOT EXISTS end_date DATE,
+                              ADD COLUMN IF NOT EXISTS start_time TIME,
+                              ADD COLUMN IF NOT EXISTS end_time TIME,
+                              ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION,
+                              ADD COLUMN IF NOT EXISTS capacity INT,
+                              ADD COLUMN IF NOT EXISTS image_url VARCHAR(500),
+                              ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS venue VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS city VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS max_attendees INT,
+                              ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) DEFAULT 'IN_PERSON',
+                              ADD COLUMN IF NOT EXISTS price_type VARCHAR(10) DEFAULT 'FREE',
+                              ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS organizer_contact VARCHAR(200);
+                          END IF;
+                        END $$;
+                        """);
+                log.info("community_event table columns ensured.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher community_event columns patch failed: {}", e.getMessage(), e);
+            }
+
             // Ensure community-event sub-resource tables exist before Hibernate validates.
             // These back the EventTask, EventVolunteer, and EventSponsor entities
             // (endpoints: /api/events/tasks, /api/events/volunteers, /api/events/sponsors).
@@ -2042,6 +2075,8 @@ public class SchemaConstraintPatcher {
                             thumbnail_url   VARCHAR(500),
                             media_type      VARCHAR(20) DEFAULT 'PHOTO',
                             album_name      VARCHAR(100),
+                            day_tag         VARCHAR(100),
+                            category        VARCHAR(100),
                             caption         VARCHAR(300),
                             featured        BOOLEAN NOT NULL DEFAULT FALSE,
                             sort_order      INT NOT NULL DEFAULT 0,
@@ -2049,6 +2084,16 @@ public class SchemaConstraintPatcher {
                             uploaded_by     BIGINT,
                             created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                         )
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.event_gallery_item') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_gallery_item ADD COLUMN IF NOT EXISTS day_tag VARCHAR(100);
+                            ALTER TABLE manacommunity.event_gallery_item ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+                          END IF;
+                        END $$;
                         """);
 
                 stmt.execute("""
@@ -2106,6 +2151,204 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_department (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT,
+                            event_id        BIGINT,
+                            name            VARCHAR(120) NOT NULL,
+                            head_name       VARCHAR(120),
+                            total_target    INT NOT NULL DEFAULT 10,
+                            present_count   INT NOT NULL DEFAULT 0,
+                            color           VARCHAR(30) DEFAULT '#6366f1',
+                            description     TEXT,
+                            active          BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.invoice_category (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT,
+                            name            VARCHAR(120) NOT NULL,
+                            code            VARCHAR(60),
+                            description     TEXT,
+                            active          BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.email_theme (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT NOT NULL,
+                            name            VARCHAR(160) NOT NULL,
+                            theme_json      TEXT NOT NULL,
+                            is_default      BOOLEAN NOT NULL DEFAULT FALSE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.email_builder_template') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.email_builder_template ADD COLUMN IF NOT EXISTS theme_json TEXT;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_venue_config (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT,
+                            community_id    BIGINT,
+                            venue_name      VARCHAR(160),
+                            zones_json      TEXT,
+                            facilities_json TEXT,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_media_day (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
+                            label           VARCHAR(100) NOT NULL,
+                            sort_order      INT NOT NULL DEFAULT 0,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_media_category (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
+                            name            VARCHAR(100) NOT NULL,
+                            sort_order      INT NOT NULL DEFAULT 0,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_auction_item (
+                            id              BIGSERIAL PRIMARY KEY,
+                            community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
+                            event_id        BIGINT REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            name            VARCHAR(200) NOT NULL,
+                            description     TEXT,
+                            category        VARCHAR(100),
+                            base_price      DECIMAL(12,2) NOT NULL DEFAULT 0,
+                            current_bid     DECIMAL(12,2) NOT NULL DEFAULT 0,
+                            min_increment   DECIMAL(12,2) NOT NULL DEFAULT 500,
+                            image_emoji     VARCHAR(10),
+                            image_url       VARCHAR(500),
+                            status          VARCHAR(20) NOT NULL DEFAULT 'UPCOMING',
+                            sort_order      INT NOT NULL DEFAULT 0,
+                            bid_count       INT NOT NULL DEFAULT 0,
+                            leader_name     VARCHAR(200),
+                            closed_at       TIMESTAMP,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_auction_bid (
+                            id              BIGSERIAL PRIMARY KEY,
+                            item_id         BIGINT NOT NULL REFERENCES manacommunity.event_auction_item(id) ON DELETE CASCADE,
+                            community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
+                            event_id        BIGINT REFERENCES manacommunity.community_event(id),
+                            bidder_user_id  BIGINT,
+                            bidder_name     VARCHAR(200) NOT NULL,
+                            amount          DECIMAL(12,2) NOT NULL,
+                            bid_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.media_objects (
+                            id                  BIGSERIAL PRIMARY KEY,
+                            external_id         UUID NOT NULL DEFAULT gen_random_uuid(),
+                            module              VARCHAR(50) NOT NULL,
+                            module_id           VARCHAR(100) NOT NULL,
+                            community_id        BIGINT NOT NULL,
+                            sub_context         VARCHAR(100),
+                            original_file_name  VARCHAR(512) NOT NULL,
+                            stored_file_name    VARCHAR(512) NOT NULL,
+                            mime_type           VARCHAR(128) NOT NULL,
+                            extension           VARCHAR(20) NOT NULL,
+                            file_size           BIGINT NOT NULL,
+                            media_type          VARCHAR(20) NOT NULL,
+                            bucket_name         VARCHAR(255) NOT NULL,
+                            s3_key              VARCHAR(1024) NOT NULL,
+                            thumbnail_key       VARCHAR(1024),
+                            compressed_key      VARCHAR(1024),
+                            medium_key          VARCHAR(1024),
+                            width               INT,
+                            height              INT,
+                            duration_seconds    INT,
+                            status              VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+                            processing_status   VARCHAR(30) DEFAULT 'COMPLETE',
+                            approval_required   BOOLEAN NOT NULL DEFAULT FALSE,
+                            approved_by         BIGINT,
+                            approved_at         TIMESTAMPTZ,
+                            rejection_reason    TEXT,
+                            uploaded_by         BIGINT NOT NULL,
+                            uploaded_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            deleted             BOOLEAN NOT NULL DEFAULT FALSE,
+                            deleted_by          BIGINT,
+                            deleted_at          TIMESTAMPTZ,
+                            caption             TEXT,
+                            alt_text            VARCHAR(512),
+                            featured            BOOLEAN NOT NULL DEFAULT FALSE,
+                            sort_order          INT DEFAULT 0,
+                            created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uq_media_external_id UNIQUE (external_id),
+                            CONSTRAINT uq_media_s3_key UNIQUE (s3_key)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.media_upload_sessions (
+                            id            BIGSERIAL PRIMARY KEY,
+                            session_id    UUID NOT NULL DEFAULT gen_random_uuid(),
+                            module        VARCHAR(50) NOT NULL,
+                            module_id     VARCHAR(100) NOT NULL,
+                            community_id  BIGINT NOT NULL,
+                            sub_context   VARCHAR(100),
+                            uploaded_by   BIGINT NOT NULL,
+                            presigned_key VARCHAR(1024) NOT NULL,
+                            bucket        VARCHAR(255) NOT NULL,
+                            media_type    VARCHAR(20) NOT NULL,
+                            original_name VARCHAR(512),
+                            file_size     BIGINT,
+                            mime_type     VARCHAR(128),
+                            status        VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                            expires_at    TIMESTAMPTZ NOT NULL,
+                            created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uq_upload_session_id UNIQUE (session_id)
+                        )
+                        """);
+
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.media_audit_log (
+                            id         BIGSERIAL PRIMARY KEY,
+                            media_id   BIGINT NOT NULL,
+                            action     VARCHAR(50) NOT NULL,
+                            actor_id   BIGINT NOT NULL,
+                            actor_role VARCHAR(50),
+                            ip_address VARCHAR(45),
+                            detail     TEXT,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """);
+
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.community_event_activity_registration (program_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.community_event_activity_registration (user_id)");
@@ -2118,10 +2361,13 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_invoice_event ON manacommunity.event_invoice (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_invoice_community ON manacommunity.event_invoice (community_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_stored_file_filename ON manacommunity.stored_file (filename)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_auction_bid_item ON manacommunity.event_auction_bid (item_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_module ON manacommunity.media_objects (module, module_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_community ON manacommunity.media_objects (community_id)");
 
-                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file tables ensured.");
+                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log tables ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }
         }
     }

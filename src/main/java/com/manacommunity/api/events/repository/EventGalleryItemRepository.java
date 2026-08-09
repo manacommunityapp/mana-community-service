@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventGalleryItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.Nullable;
 
 import java.util.List;
 
@@ -17,4 +18,13 @@ public interface EventGalleryItemRepository extends JpaRepository<EventGalleryIt
     List<String> findDistinctAlbumsByEvent(@Param("eventId") Long eventId);
 
     long countByEventId(Long eventId);
+
+    @Query("SELECT g FROM EventGalleryItem g WHERE g.community.id = :communityId " +
+           "AND (:dayTag IS NULL OR g.dayTag = :dayTag) " +
+           "AND (:category IS NULL OR g.category = :category) " +
+           "ORDER BY g.sortOrder ASC, g.createdAt DESC")
+    List<EventGalleryItem> findByCommunity(
+            @Param("communityId") Long communityId,
+            @Param("dayTag") String dayTag,
+            @Param("category") String category);
 }

@@ -20,5 +20,10 @@ public class EventProgramResponse {
     private String performer;
     private String judge;
     private int sortOrder;
+    private Integer capacity;
+    private boolean requiresRegistration;
+    private boolean requiresApproval;
+    private boolean allowWaitlist;
+    private int maxPerRegistration;
     private String createdAt;
 }

@@ -22,4 +22,9 @@ public class EventProgramRequest {
     private String performer;
     private String judge;
     private Integer sortOrder;
+    private Integer capacity;
+    private Boolean requiresRegistration;
+    private Boolean requiresApproval;
+    private Boolean allowWaitlist;
+    private Integer maxPerRegistration;
 }

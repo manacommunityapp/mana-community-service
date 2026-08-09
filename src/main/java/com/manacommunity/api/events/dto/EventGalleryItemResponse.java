@@ -13,6 +13,8 @@ public class EventGalleryItemResponse {
     private String thumbnailUrl;
     private String mediaType;
     private String albumName;
+    private String dayTag;
+    private String category;
     private String caption;
     private boolean featured;
     private int sortOrder;

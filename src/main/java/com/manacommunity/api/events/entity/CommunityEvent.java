@@ -72,6 +72,23 @@ public class CommunityEvent {
     @Column(name = "organizer_contact", length = 200)
     private String organizerContact;
 
+    @Column(length = 200)
+    private String venue;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private EventStatus status = EventStatus.PUBLISHED;
+
+    @Column(name = "max_attendees")
+    private Integer maxAttendees;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
@@ -111,5 +128,9 @@ public class CommunityEvent {
 
     public enum PriceType {
         FREE, PAID
+    }
+
+    public enum EventStatus {
+        DRAFT, PUBLISHED, CANCELLED
     }
 }

@@ -23,4 +23,9 @@ public class EventRequest {
     private String imageUrl;
     private String organizerName;
     private String organizerContact;
+    private String venue;
+    private String city;
+    private String category;
+    private String status;
+    private Integer maxAttendees;
 }

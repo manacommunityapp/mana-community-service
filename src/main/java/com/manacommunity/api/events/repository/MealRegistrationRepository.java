@@ -13,6 +13,8 @@ public interface MealRegistrationRepository extends JpaRepository<MealRegistrati
 
     void deleteByEventIdAndUserId(Long eventId, Long userId);
 
+    long countByUserId(Long userId);
+
     @Query("SELECT m FROM MealRegistration m WHERE m.event.id = :eventId ORDER BY m.mealDate, m.mealType")
     List<MealRegistration> findByEventIdOrdered(@Param("eventId") Long eventId);
 }

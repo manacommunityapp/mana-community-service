@@ -32,6 +32,16 @@ public class EventGalleryController {
         return ResponseEntity.ok(galleryService.getByEvent(eventId, albumName));
     }
 
+    @GetMapping("/community")
+    @PreAuthorize("hasAuthority('View Events')")
+    public ResponseEntity<List<EventGalleryItemResponse>> getByCommunity(
+            @RequestParam(required = false) String dayTag,
+            @RequestParam(required = false) String category,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(galleryService.getByCommunity(user.getCommunity().getId(), dayTag, category));
+    }
+
     @GetMapping("/albums")
     @PreAuthorize("hasAuthority('View Events')")
     public ResponseEntity<List<String>> getAlbums(@RequestParam Long eventId) {
