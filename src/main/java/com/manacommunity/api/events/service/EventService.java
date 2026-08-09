@@ -7,7 +7,11 @@ import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventDonationRepository;
+import com.manacommunity.api.events.repository.EventExpenseRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
+import com.manacommunity.api.events.repository.EventSponsorRepository;
+import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,10 @@ public class EventService {
 
     private final CommunityEventRepository eventRepo;
     private final EventRegistrationRepository regRepo;
+    private final EventVolunteerRepository volunteerRepo;
+    private final EventDonationRepository donationRepo;
+    private final EventExpenseRepository expenseRepo;
+    private final EventSponsorRepository sponsorRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -85,6 +93,12 @@ public class EventService {
                 .imageUrl(req.getImageUrl())
                 .organizerName(req.getOrganizerName())
                 .organizerContact(req.getOrganizerContact())
+                .venue(req.getVenue())
+                .city(req.getCity())
+                .category(req.getCategory())
+                .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
+                        CommunityEvent.EventStatus.PUBLISHED))
+                .maxAttendees(req.getMaxAttendees())
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -113,6 +127,14 @@ public class EventService {
         event.setImageUrl(req.getImageUrl());
         event.setOrganizerName(req.getOrganizerName());
         event.setOrganizerContact(req.getOrganizerContact());
+        if (req.getVenue() != null) event.setVenue(req.getVenue());
+        if (req.getCity() != null) event.setCity(req.getCity());
+        if (req.getCategory() != null) event.setCategory(req.getCategory());
+        if (req.getStatus() != null) {
+            CommunityEvent.EventStatus s = parseEnum(CommunityEvent.EventStatus.class, req.getStatus());
+            if (s != null) event.setStatus(s);
+        }
+        if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
         return toResponse(eventRepo.save(event), userId);
     }
 
@@ -146,10 +168,15 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(Long communityId) {
+        double revenue = donationRepo.sumAmountByCommunity(communityId)
+                + sponsorRepo.sumAmountReceivedByCommunity(communityId);
         return DashboardStatsResponse.builder()
                 .totalEvents(eventRepo.countByCommunityId(communityId))
                 .upcomingEvents(eventRepo.countUpcomingByCommunity(communityId))
                 .totalRegistrations(regRepo.countByEventCommunityId(communityId))
+                .totalVolunteers(volunteerRepo.countByCommunityId(communityId))
+                .totalRevenue(revenue)
+                .totalExpenses(expenseRepo.sumAmountByCommunity(communityId))
                 .build();
     }
 
@@ -216,6 +243,11 @@ public class EventService {
                 .imageUrl(e.getImageUrl())
                 .organizerName(e.getOrganizerName())
                 .organizerContact(e.getOrganizerContact())
+                .venue(e.getVenue())
+                .city(e.getCity())
+                .category(e.getCategory())
+                .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
+                .maxAttendees(e.getMaxAttendees())
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
