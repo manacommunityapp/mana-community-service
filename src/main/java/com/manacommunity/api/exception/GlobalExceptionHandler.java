@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -149,6 +150,13 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(MediaStorageException.class)
+    public ResponseEntity<ErrorResponse> handleMediaStorage(
+            MediaStorageException ex, HttpServletRequest request) {
+        log.error("Media storage exception at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(EncryptionException.class)
     public ResponseEntity<ErrorResponse> handleEncryption(
             EncryptionException ex, HttpServletRequest request) {
@@ -267,6 +275,14 @@ public class GlobalExceptionHandler {
         String expected = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
         return build(HttpStatus.BAD_REQUEST, "TYPE_MISMATCH",
                 "Parameter '" + ex.getName() + "' must be of type " + expected + ".", request, null);
+    }
+
+    @ExceptionHandler(DateTimeParseException.class)
+    public ResponseEntity<ErrorResponse> handleDateTimeParse(
+            DateTimeParseException ex, HttpServletRequest request) {
+        log.warn("Invalid date/time format at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "INVALID_DATE_FORMAT",
+                "Invalid date or time format provided. Please use ISO format (e.g. YYYY-MM-DD or HH:mm).", request, null);
     }
 
     /** Missing or malformed JSON request body. */

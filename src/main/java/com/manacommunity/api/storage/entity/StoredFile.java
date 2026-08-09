@@ -35,7 +35,7 @@ public class StoredFile {
     @Column(name = "size_bytes", nullable = false)
     private Long sizeBytes;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.BINARY)
     @Column(nullable = false, columnDefinition = "BYTEA")
     private byte[] data;
 

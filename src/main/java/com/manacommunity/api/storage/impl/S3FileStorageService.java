@@ -5,6 +5,7 @@ import com.manacommunity.api.storage.StoredFileDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -32,6 +33,7 @@ import java.util.UUID;
  * To use presigned URLs instead, replace the URL construction with a presigner call.
  */
 @Slf4j
+@Primary
 @Service
 @ConditionalOnProperty(name = "app.storage.type", havingValue = "s3")
 public class S3FileStorageService implements FileStorageService {
@@ -56,6 +58,7 @@ public class S3FileStorageService implements FileStorageService {
     void init() {
         s3 = S3Client.builder()
                 .region(Region.of(region))
+                .crossRegionAccessEnabled(true)
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))
                 .build();

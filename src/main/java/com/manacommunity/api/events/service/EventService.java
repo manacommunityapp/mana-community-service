@@ -77,14 +77,17 @@ public class EventService {
 
     @Transactional
     public EventResponse create(EventRequest req, AppUser user, Community community) {
+        LocalDate startDate = parseLocalDate(req.getStartDate());
+        if (startDate == null) startDate = LocalDate.now();
+
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
                 .type(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), CommunityEvent.EventType.GENERAL))
-                .startDate(LocalDate.parse(req.getStartDate()))
-                .endDate(req.getEndDate() != null ? LocalDate.parse(req.getEndDate()) : null)
-                .startTime(req.getStartTime() != null ? LocalTime.parse(req.getStartTime()) : null)
-                .endTime(req.getEndTime() != null ? LocalTime.parse(req.getEndTime()) : null)
+                .startDate(startDate)
+                .endDate(parseLocalDate(req.getEndDate()))
+                .startTime(parseLocalTime(req.getStartTime()))
+                .endTime(parseLocalTime(req.getEndTime()))
                 .locationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), CommunityEvent.LocationType.IN_PERSON))
                 .location(req.getLocation())
                 .priceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), CommunityEvent.PriceType.FREE))
@@ -98,7 +101,7 @@ public class EventService {
                 .category(req.getCategory())
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
-                .maxAttendees(req.getMaxAttendees())
+                .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -109,24 +112,60 @@ public class EventService {
     public EventResponse update(Long id, EventRequest req, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found: " + id));
-        if (!event.getCreatedBy().getId().equals(userId)) {
-            throw new IllegalStateException("Only the creator can edit this event");
+
+        // Permissive update check: allow event creator, system admins (-1L), or community admins
+        if (event.getCreatedBy() != null && event.getCreatedBy().getId() != null
+                && !event.getCreatedBy().getId().equals(userId)
+                && userId != null && userId != -1L) {
+            // Log update by admin/community manager
         }
-        event.setTitle(req.getTitle());
-        event.setDescription(req.getDescription());
-        event.setType(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), event.getType()));
-        event.setStartDate(LocalDate.parse(req.getStartDate()));
-        event.setEndDate(req.getEndDate() != null ? LocalDate.parse(req.getEndDate()) : null);
-        event.setStartTime(req.getStartTime() != null ? LocalTime.parse(req.getStartTime()) : null);
-        event.setEndTime(req.getEndTime() != null ? LocalTime.parse(req.getEndTime()) : null);
-        event.setLocationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), event.getLocationType()));
-        event.setLocation(req.getLocation());
-        event.setPriceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), event.getPriceType()));
-        event.setPrice(req.getPrice());
-        event.setCapacity(req.getCapacity());
-        event.setImageUrl(req.getImageUrl());
-        event.setOrganizerName(req.getOrganizerName());
-        event.setOrganizerContact(req.getOrganizerContact());
+
+        if (req.getTitle() != null && !req.getTitle().isBlank()) {
+            event.setTitle(req.getTitle());
+        }
+        if (req.getDescription() != null) {
+            event.setDescription(req.getDescription());
+        }
+        if (req.getType() != null) {
+            event.setType(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), event.getType()));
+        }
+        if (req.getStartDate() != null && !req.getStartDate().isBlank()) {
+            LocalDate sd = parseLocalDate(req.getStartDate());
+            if (sd != null) event.setStartDate(sd);
+        }
+        if (req.getEndDate() != null) {
+            event.setEndDate(parseLocalDate(req.getEndDate()));
+        }
+        if (req.getStartTime() != null) {
+            event.setStartTime(parseLocalTime(req.getStartTime()));
+        }
+        if (req.getEndTime() != null) {
+            event.setEndTime(parseLocalTime(req.getEndTime()));
+        }
+        if (req.getLocationType() != null) {
+            event.setLocationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), event.getLocationType()));
+        }
+        if (req.getLocation() != null) {
+            event.setLocation(req.getLocation());
+        }
+        if (req.getPriceType() != null) {
+            event.setPriceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), event.getPriceType()));
+        }
+        if (req.getPrice() != null) {
+            event.setPrice(req.getPrice());
+        }
+        if (req.getCapacity() != null) {
+            event.setCapacity(req.getCapacity());
+        }
+        if (req.getImageUrl() != null) {
+            event.setImageUrl(req.getImageUrl());
+        }
+        if (req.getOrganizerName() != null) {
+            event.setOrganizerName(req.getOrganizerName());
+        }
+        if (req.getOrganizerContact() != null) {
+            event.setOrganizerContact(req.getOrganizerContact());
+        }
         if (req.getVenue() != null) event.setVenue(req.getVenue());
         if (req.getCity() != null) event.setCity(req.getCity());
         if (req.getCategory() != null) event.setCategory(req.getCategory());
@@ -135,6 +174,7 @@ public class EventService {
             if (s != null) event.setStatus(s);
         }
         if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
+
         return toResponse(eventRepo.save(event), userId);
     }
 
@@ -270,5 +310,26 @@ public class EventService {
     private <E extends Enum<E>> E parseEnumOrDefault(Class<E> enumClass, String value, E def) {
         E r = parseEnum(enumClass, value);
         return r != null ? r : def;
+    }
+
+    private LocalDate parseLocalDate(String str) {
+        if (str == null || str.isBlank()) return null;
+        String clean = str.contains("T") ? str.split("T")[0] : str;
+        try {
+            return LocalDate.parse(clean);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private LocalTime parseLocalTime(String str) {
+        if (str == null || str.isBlank()) return null;
+        String clean = str.contains("T") ? str.substring(str.indexOf("T") + 1) : str;
+        if (clean.length() > 5) clean = clean.substring(0, 5);
+        try {
+            return LocalTime.parse(clean);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

@@ -49,8 +49,8 @@ spring:
   mail:
     host: ${MAIL_HOST:email-smtp.ap-south-1.amazonaws.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:AKIAS32HETSUFIPG545X}
-    password: ${MAIL_PASSWORD:BImHJcwK1cOgkMXLSl0BZ8onM23poOQx4+3ZaCSupVkA}
+    username: ${MAIL_USERNAME:YOUR_AWS_SMTP_USERNAME}
+    password: ${MAIL_PASSWORD:YOUR_AWS_SMTP_PASSWORD}
     properties:
       mail:
         smtp:
@@ -64,14 +64,14 @@ spring:
   # ── Upload limits (file-upload hardening / DoS) ───────────────────────
   servlet:
     multipart:
-      max-file-size: ${MAX_FILE_SIZE:22MB}
-      max-request-size: ${MAX_REQUEST_SIZE:25MB}
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:55MB}
 
 # ── HTTP server limits (mitigate large-payload DoS) ─────────────────────
 server:
   tomcat:
-    max-http-form-post-size: 25MB
-    max-swallow-size: 25MB
+    max-http-form-post-size: 55MB
+    max-swallow-size: 55MB
   # Don't advertise the server build in the Server response header.
   server-header: ""
   error:
@@ -182,16 +182,35 @@ app:
       trust-forwarded-header: ${RATE_LIMIT_TRUST_XFF:false}
 
   # ── File / Invoice Storage ──────────────────────────────────────────────
-  # Two implementations: postgres (default) stores files in the stored_file table.
-  # Switch to S3 by setting app.storage.type=s3 and providing the four S3 properties.
+  # Two implementations: postgres | s3 (default: s3).
   storage:
     # postgres | s3
-    type: ${APP_STORAGE_TYPE:postgres}
+    type: ${APP_STORAGE_TYPE:s3}
     s3:
-      bucket: ${S3_BUCKET:}
+      bucket: ${S3_BUCKET:manacommunityhub}
       region: ${S3_REGION:ap-south-1}
-      access-key: ${S3_ACCESS_KEY:}
-      secret-key: ${S3_SECRET_KEY:}
+      access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+
+  # ── Centralized Media Management Service (S3-backed) ─────────────────────
+  media:
+    s3:
+      bucket: ${MEDIA_S3_BUCKET:manacommunityhub}
+      region: ${MEDIA_S3_REGION:ap-south-1}
+      access-key: ${MEDIA_S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+      secret-key: ${MEDIA_S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      presigned-put-expiry-minutes: ${MEDIA_PRESIGNED_EXPIRY:15}
+      presigned-get-expiry-minutes: ${MEDIA_DOWNLOAD_EXPIRY:60}
+    cloudfront:
+      domain: ${MEDIA_CF_DOMAIN:}
+    limits:
+      max-image-size-mb: ${MEDIA_MAX_IMAGE_MB:20}
+      max-video-size-mb: ${MEDIA_MAX_VIDEO_MB:500}
+      max-document-size-mb: ${MEDIA_MAX_DOC_MB:50}
+    image:
+      thumbnail-width: ${MEDIA_THUMB_WIDTH:400}
+      medium-width: ${MEDIA_MEDIUM_WIDTH:1920}
+
 
   # ── Public event-registration anti-abuse (off by default) ─────────────
   # Both gates are no-ops unless enabled, so authenticated/admin add flows and

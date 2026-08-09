@@ -41,7 +41,7 @@ public class FoodCateringController {
         return ResponseEntity.ok(cateringService.getById(communityId, id));
     }
 
-    @PostMapping("/caterers/register")
+    @PostMapping({"/caterers/register", "/caterers"})
     @PreAuthorize("hasAuthority('Manage Food Catering')")
     public ResponseEntity<?> register(@AuthenticationPrincipal UserPrincipal principal,
                                       @RequestBody Map<String, Object> request) {
@@ -60,7 +60,7 @@ public class FoodCateringController {
     }
 
     @PostMapping("/requests")
-    @PreAuthorize("hasAuthority('Manage Food Catering')")
+    @PreAuthorize("hasAnyAuthority('View Food Catering', 'Manage Food Catering')")
     public ResponseEntity<?> createRequest(@AuthenticationPrincipal UserPrincipal principal,
                                            @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -68,7 +68,7 @@ public class FoodCateringController {
         return ResponseEntity.status(HttpStatus.CREATED).body(cateringService.createRequest(communityId, request, user));
     }
 
-    @GetMapping("/requests")
+    @GetMapping({"/requests", "/requests/mine"})
     @PreAuthorize("hasAuthority('View Food Catering')")
     public ResponseEntity<?> getMyRequests(@AuthenticationPrincipal UserPrincipal principal,
                                            @RequestParam(defaultValue = "0") int page,
@@ -87,6 +87,17 @@ public class FoodCateringController {
         return ResponseEntity.ok(cateringService.submitQuotation(communityId, request));
     }
 
+    @PostMapping("/requests/{requestId}/quotations")
+    @PreAuthorize("hasAuthority('Manage Food Catering')")
+    public ResponseEntity<?> submitQuotationForRequest(@AuthenticationPrincipal UserPrincipal principal,
+                                                       @PathVariable Long requestId,
+                                                       @RequestBody Map<String, Object> request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        request.put("requestId", requestId);
+        return ResponseEntity.ok(cateringService.submitQuotation(communityId, request));
+    }
+
     @GetMapping("/requests/{requestId}/quotations")
     @PreAuthorize("hasAuthority('View Food Catering')")
     public ResponseEntity<?> getQuotations(@AuthenticationPrincipal UserPrincipal principal,
@@ -97,12 +108,22 @@ public class FoodCateringController {
     }
 
     @PostMapping("/quotations/{id}/accept")
-    @PreAuthorize("hasAuthority('Manage Food Catering')")
+    @PreAuthorize("hasAnyAuthority('View Food Catering', 'Manage Food Catering')")
     public ResponseEntity<?> acceptQuotation(@AuthenticationPrincipal UserPrincipal principal,
                                              @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(cateringService.acceptQuotation(communityId, id));
+        return ResponseEntity.ok(cateringService.acceptQuotation(communityId, id, user));
+    }
+
+    @PutMapping("/requests/{requestId}/quotations/{quotationId}/accept")
+    @PreAuthorize("hasAnyAuthority('View Food Catering', 'Manage Food Catering')")
+    public ResponseEntity<?> acceptQuotationForRequest(@AuthenticationPrincipal UserPrincipal principal,
+                                                       @PathVariable Long requestId,
+                                                       @PathVariable Long quotationId) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(cateringService.acceptQuotation(communityId, quotationId, user));
     }
 
     @GetMapping("/orders")

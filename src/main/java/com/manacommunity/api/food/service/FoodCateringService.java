@@ -106,6 +106,8 @@ public class FoodCateringService {
                 .user(user)
                 .occasionType((String) request.get("occasionType"))
                 .eventDate(request.containsKey("eventDate") ? LocalDate.parse((String) request.get("eventDate")) : null)
+                .eventTime(request.containsKey("eventTime") && request.get("eventTime") != null
+                        ? java.time.LocalTime.parse(request.get("eventTime").toString()) : null)
                 .venue((String) request.get("venue"))
                 .guestCount(request.containsKey("guestCount") ? (Integer) request.get("guestCount") : null)
                 .budget(request.containsKey("budget") ? new BigDecimal(request.get("budget").toString()) : null)
@@ -166,14 +168,25 @@ public class FoodCateringService {
     }
 
     @Transactional
-    public Map<String, Object> acceptQuotation(Long communityId, Long quotationId) {
+    public Map<String, Object> acceptQuotation(Long communityId, Long quotationId, AppUser user) {
         FoodCateringQuotation quotation = quotationRepo.findById(quotationId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodCateringQuotation", quotationId));
+        if (!quotation.getCommunity().getId().equals(communityId)) {
+            throw new ResourceNotFoundException("FoodCateringQuotation", quotationId);
+        }
 
         quotation.setStatus(FoodCateringQuotation.QuotationStatus.ACCEPTED);
         quotationRepo.save(quotation);
 
         FoodCateringRequest cateringRequest = quotation.getRequest();
+        boolean requestOwner = cateringRequest.getUser().getId().equals(user.getId());
+        boolean adminLike = user.getRole() != null && (
+                user.getRole().equals("ADMIN")
+                        || user.getRole().equals("SUPER_ADMIN")
+                        || user.getRole().equals("COMMUNITY_ADMIN"));
+        if (!requestOwner && !adminLike) {
+            throw new IllegalStateException("Only the request owner can accept this catering quotation");
+        }
         cateringRequest.setStatus(FoodCateringRequest.CateringRequestStatus.AWARDED);
         cateringRequest.setSelectedCatererId(quotation.getCaterer().getId());
         requestRepo.save(cateringRequest);
@@ -214,7 +227,7 @@ public class FoodCateringService {
 
     @Transactional(readOnly = true)
     public Page<Map<String, Object>> getOrders(Long communityId, Pageable pageable) {
-        Page<FoodCateringOrder> orders = orderRepo.findAll(pageable);
+        Page<FoodCateringOrder> orders = orderRepo.findByCommunityId(communityId, pageable);
         return orders.map(o -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", o.getId());
@@ -250,6 +263,11 @@ public class FoodCateringService {
         map.put("communityId", caterer.getCommunity().getId());
         map.put("createdAt", caterer.getCreatedAt());
         map.put("updatedAt", caterer.getUpdatedAt());
+        List<Map<String, Object>> packages = packageRepo.findByCatererIdAndActive(caterer.getId(), true)
+                .stream()
+                .map(this::toPackageResponse)
+                .collect(Collectors.toList());
+        map.put("packages", packages);
         return map;
     }
 
@@ -259,6 +277,7 @@ public class FoodCateringService {
         map.put("userId", request.getUser().getId());
         map.put("occasionType", request.getOccasionType());
         map.put("eventDate", request.getEventDate());
+        map.put("eventTime", request.getEventTime());
         map.put("venue", request.getVenue());
         map.put("guestCount", request.getGuestCount());
         map.put("budget", request.getBudget());
@@ -269,6 +288,10 @@ public class FoodCateringService {
         map.put("communityId", request.getCommunity().getId());
         map.put("createdAt", request.getCreatedAt());
         map.put("updatedAt", request.getUpdatedAt());
+        map.put("quotations", quotationRepo.findByRequestId(request.getId())
+                .stream()
+                .map(this::toQuotationResponse)
+                .collect(Collectors.toList()));
         return map;
     }
 
@@ -277,6 +300,8 @@ public class FoodCateringService {
         map.put("id", quotation.getId());
         map.put("requestId", quotation.getRequest().getId());
         map.put("catererId", quotation.getCaterer().getId());
+        map.put("catererName", quotation.getCaterer().getName());
+        map.put("catererLogoUrl", quotation.getCaterer().getLogoUrl());
         map.put("menu", quotation.getMenu());
         map.put("pricePerPlate", quotation.getPricePerPlate());
         map.put("totalAmount", quotation.getTotalAmount());
@@ -286,6 +311,25 @@ public class FoodCateringService {
         map.put("communityId", quotation.getCommunity().getId());
         map.put("createdAt", quotation.getCreatedAt());
         map.put("updatedAt", quotation.getUpdatedAt());
+        return map;
+    }
+
+    private Map<String, Object> toPackageResponse(FoodCateringPackage p) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", p.getId());
+        map.put("catererId", p.getCaterer().getId());
+        map.put("name", p.getName());
+        map.put("description", p.getDescription());
+        map.put("occasionType", p.getOccasionType() != null ? p.getOccasionType().name() : null);
+        map.put("itemsPerPlate", p.getItemsPerPlate());
+        map.put("pricePerPlate", p.getPricePerPlate());
+        map.put("minPlates", p.getMinPlates());
+        map.put("includes", p.getIncludes());
+        map.put("imageUrl", p.getImageUrl());
+        map.put("active", p.getActive());
+        map.put("communityId", p.getCommunity().getId());
+        map.put("createdAt", p.getCreatedAt());
+        map.put("updatedAt", p.getUpdatedAt());
         return map;
     }
 }
