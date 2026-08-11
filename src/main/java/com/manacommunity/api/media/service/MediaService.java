@@ -92,7 +92,7 @@ public class MediaService {
         // 6. Stream directly to S3 and verify object persistence in S3 bucket
         try {
             s3Gateway.putObject(bucket, s3Key, file.getInputStream(), mimeType, file.getSize());
-            if (!s3Gateway.doesObjectExist(bucket, s3Key)) {
+            if (!s3Gateway.objectExists(bucket, s3Key)) {
                 throw new IllegalStateException("Object " + s3Key + " was not found in S3 bucket " + bucket + " after upload.");
             }
         } catch (Exception e) {
