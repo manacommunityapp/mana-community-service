@@ -89,11 +89,14 @@ public class MediaService {
 
         String bucket = props.getS3().getBucket();
 
-        // 6. Stream directly to S3 (no temp file created on server disk)
+        // 6. Stream directly to S3 and verify object persistence in S3 bucket
         try {
             s3Gateway.putObject(bucket, s3Key, file.getInputStream(), mimeType, file.getSize());
+            if (!s3Gateway.objectExists(bucket, s3Key)) {
+                throw new IllegalStateException("Object " + s3Key + " was not found in S3 bucket " + bucket + " after upload.");
+            }
         } catch (Exception e) {
-            log.error("S3 upload failed for key={}: {}", s3Key, e.getMessage(), e);
+            log.error("S3 storage upload/verification failed for key={}: {}", s3Key, e.getMessage(), e);
             throw new com.manacommunity.api.exception.MediaStorageException(
                     "Cloud storage upload failed (S3 bucket: " + bucket + "). Database record was NOT created. Details: " + e.getMessage(), e);
         }
@@ -367,7 +370,7 @@ public class MediaService {
         long maxBytes = switch (type) {
             case IMAGE, QR_CODE, CERTIFICATE -> (long) props.getLimits().getMaxImageSizeMb() * 1024 * 1024;
             case VIDEO, AUDIO                -> (long) props.getLimits().getMaxVideoSizeMb() * 1024 * 1024;
-            default                          -> (long) props.getLimits().getMaxDocumentSizeMb() * 1024 * 1024;
+            case DOCUMENT                    -> (long) props.getLimits().getMaxDocumentSizeMb() * 1024 * 1024;
         };
         if (bytes > maxBytes) {
             throw new IllegalArgumentException(

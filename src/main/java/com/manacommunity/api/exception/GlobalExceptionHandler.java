@@ -154,7 +154,35 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMediaStorage(
             MediaStorageException ex, HttpServletRequest request) {
         log.error("Media storage exception at {}: {}", request.getRequestURI(), ex.getMessage());
-        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+        String friendlyMessage = toUserFriendlyS3ErrorMessage(ex.getMessage(), ex.getCause());
+        return build(ex.getStatus(), ex.getErrorCode(), friendlyMessage, request, null);
+    }
+
+    @ExceptionHandler(software.amazon.awssdk.services.s3.model.S3Exception.class)
+    public ResponseEntity<ErrorResponse> handleS3Exception(
+            software.amazon.awssdk.services.s3.model.S3Exception ex, HttpServletRequest request) {
+        log.error("AWS S3 exception at {}: {}", request.getRequestURI(), ex.getMessage());
+        String friendlyMessage = toUserFriendlyS3ErrorMessage(ex.getMessage(), ex);
+        return build(HttpStatus.BAD_GATEWAY, "MEDIA_STORAGE_ERROR", friendlyMessage, request, null);
+    }
+
+    private String toUserFriendlyS3ErrorMessage(String rawMessage, Throwable cause) {
+        String msg = (rawMessage != null ? rawMessage : "") + (cause != null ? " " + cause.getMessage() : "");
+        String lower = msg.toLowerCase();
+
+        if (lower.contains("301") || lower.contains("specified endpoint") || lower.contains("permanentredirect")) {
+            return "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
+        }
+        if (lower.contains("access key") || lower.contains("accessdenied") || lower.contains("invalidaccesskeyid") || lower.contains("signaturedoesnotmatch") || lower.contains("403") || lower.contains("credentials")) {
+            return "Unable to save file to AWS S3: Invalid S3 Access Key or Secret Key. Please verify S3_ACCESS_KEY and S3_SECRET_KEY environment variables.";
+        }
+        if (lower.contains("nosuchbucket") || lower.contains("404")) {
+            return "Unable to save file to AWS S3: Target S3 storage bucket does not exist.";
+        }
+        if (lower.contains("timeout") || lower.contains("connecttimeout") || lower.contains("unknownhost")) {
+            return "Unable to save file to AWS S3: Network connection timeout while reaching S3 cloud storage.";
+        }
+        return "Unable to upload file to AWS S3 cloud storage. No database records were created. Please verify your S3 credentials or try again.";
     }
 
     @ExceptionHandler(EncryptionException.class)

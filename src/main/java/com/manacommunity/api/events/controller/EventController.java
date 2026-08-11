@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
@@ -102,6 +103,16 @@ public class EventController {
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(DashboardStatsResponse.builder().build());
         return ResponseEntity.ok(eventService.getDashboardStats(communityId));
+    }
+
+    @GetMapping("/dashboard/analytics")
+    @PreAuthorize("hasAuthority('View Events')")
+    public ResponseEntity<DashboardAnalyticsResponse> getDashboardAnalytics(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (communityId == null) return ResponseEntity.ok(DashboardAnalyticsResponse.builder().build());
+        return ResponseEntity.ok(eventService.getDashboardAnalytics(communityId));
     }
 
     @GetMapping("/{id}/registrations")
