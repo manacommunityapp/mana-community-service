@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Admin-only endpoint for querying the email delivery log.
@@ -116,4 +119,48 @@ public class EmailDeliveryLogController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    /**
+     * List all registered email templates (from the EmailTemplate enum).
+     * Used by the admin Email Gallery to let admins browse templates by module.
+     *
+     * @param category    optional filter: REGISTRATION | TOURNAMENT | MATCH | PRIZE | ANNOUNCEMENT | AUTH | EVENT
+     * @param communityId optional — reserved for future custom-template lookup; accepted but not yet used
+     */
+    @GetMapping("/templates")
+    public ResponseEntity<Map<String, Object>> getTemplates(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Long communityId) {
+
+        List<EmailTemplateInfo> templates = Arrays.stream(EmailTemplate.values())
+                .filter(t -> category == null || t.category().name().equalsIgnoreCase(category))
+                .map(t -> new EmailTemplateInfo(
+                        t.name(),
+                        t.templateName(),
+                        t.defaultSubject(),
+                        t.category().name(),
+                        t.trigger().menuPath(),
+                        t.trigger().wired(),
+                        t.trigger().description(),
+                        false, null, null, null,
+                        "DEFAULT"))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of("count", templates.size(), "templates", templates));
+    }
+
+    public record EmailTemplateInfo(
+            String key,
+            String templateFile,
+            String subject,
+            String category,
+            String triggerMenuPath,
+            boolean triggerWired,
+            String triggerDescription,
+            boolean customTemplateExists,
+            Long customTemplateId,
+            String customTemplateName,
+            String customTemplateStatus,
+            String appliedSource
+    ) {}
 }
