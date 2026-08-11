@@ -242,10 +242,10 @@ public class EventService {
                 .totalVolunteers(totalVolunteers)
                 .totalRevenue(revenue)
                 .totalExpenses(totalExpenses)
-                .foodPreparedPercentage(foodPct > 0 ? foodPct : 85.0)
-                .foodPlatesCount(foodPlates > 0 ? foodPlates : (long)(totalRegistrations * 0.85))
-                .auctionRevenue(auctionRev > 0 ? auctionRev : 210000.0)
-                .auctionItemCount(auctionItems > 0 ? auctionItems : 14)
+                .foodPreparedPercentage(foodPct)
+                .foodPlatesCount(foodPlates)
+                .auctionRevenue(auctionRev)
+                .auctionItemCount((int) auctionItems)
                 .todaysScheduleCount(upcomingEvents)
                 .todaysDutyCount(totalVolunteers)
                 .pendingActionItemsCount(pendingTasks + pendingSponsors)
@@ -254,14 +254,14 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public DashboardAnalyticsResponse getDashboardAnalytics(Long communityId) {
-        // 1. Daily Registrations (Mon - Sun)
+        // 1. Daily Registrations (Mon - Sun) strictly from database
         List<EventRegistration> registrations = regRepo.findByEventCommunityId(communityId);
         String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
         Map<String, Long> countMap = new HashMap<>();
         Map<String, Long> vipMap = new HashMap<>();
         for (String d : days) { countMap.put(d, 0L); vipMap.put(d, 0L); }
 
-        if (!registrations.isEmpty()) {
+        if (registrations != null && !registrations.isEmpty()) {
             for (EventRegistration r : registrations) {
                 if (r.getRegisteredAt() != null) {
                     String d = r.getRegisteredAt().getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
@@ -270,14 +270,6 @@ public class EventService {
                         vipMap.put(d, vipMap.getOrDefault(d, 0L) + 1);
                     }
                 }
-            }
-        } else {
-            // Realistic default registration velocity baseline if fresh DB
-            long[] baseCounts = {82, 145, 203, 178, 267, 312, 225};
-            long[] baseVips   = {12,  20,  35,  28,  45,  60,  40};
-            for (int i = 0; i < days.length; i++) {
-                countMap.put(days[i], baseCounts[i]);
-                vipMap.put(days[i], baseVips[i]);
             }
         }
 
@@ -290,28 +282,39 @@ public class EventService {
                     .build());
         }
 
-        // 2. Pass Categories
-        long confirmedCount = registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED).count();
-        long pendingCount = registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.PENDING).count();
+        // 2. Pass Categories strictly from database
+        long confirmedCount = registrations != null ? registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED).count() : 0;
+        long pendingCount = registrations != null ? registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.PENDING).count() : 0;
+        long totalRegs = registrations != null ? registrations.size() : 0;
         long volunteerCount = volunteerRepo.countByCommunityId(communityId);
 
-        List<DashboardAnalyticsResponse.PassCategoryPoint> categoryList = List.of(
-                DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Confirmed Passes").value(confirmedCount > 0 ? confirmedCount : 520).color("#4F46E5").build(),
-                DashboardAnalyticsResponse.PassCategoryPoint.builder().name("General Passes").value(registrations.size() > 0 ? registrations.size() : 680).color("#7C3AED").build(),
-                DashboardAnalyticsResponse.PassCategoryPoint.builder().name("VIP / Pending").value(pendingCount > 0 ? pendingCount : 120).color("#16A34A").build(),
-                DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Volunteers").value(volunteerCount > 0 ? volunteerCount : 318).color("#2563EB").build(),
-                DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Performers").value(204).color("#EC4899").build()
-        );
+        List<DashboardAnalyticsResponse.PassCategoryPoint> categoryList = new ArrayList<>();
+        if (confirmedCount > 0) {
+            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Confirmed Passes").value(confirmedCount).color("#4F46E5").build());
+        }
+        if (totalRegs > 0) {
+            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("General Passes").value(totalRegs).color("#7C3AED").build());
+        }
+        if (pendingCount > 0) {
+            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Pending Passes").value(pendingCount).color("#F59E0B").build());
+        }
+        if (volunteerCount > 0) {
+            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Volunteers").value(volunteerCount).color("#16A34A").build());
+        }
 
-        // 3. Today's Schedule & Duty
+        // 3. Today's Schedule & Duty strictly from database
         String[] timeSlots = {"08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"};
         List<CommunityEvent> communityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
         List<DashboardAnalyticsResponse.ScheduleDutyPoint> scheduleList = new ArrayList<>();
 
-        for (int i = 0; i < timeSlots.length; i++) {
-            String slot = timeSlots[i];
-            long progCount = communityEvents.isEmpty() ? (i % 2 == 0 ? 3 : 5) : Math.max(1, communityEvents.size() / timeSlots.length);
-            long volDuty = volunteerCount > 0 ? Math.max(5, volunteerCount / timeSlots.length) : (i * 7 + 15);
+        String todayStr = LocalDate.now().toString();
+        long activeEventsToday = communityEvents.stream()
+                .filter(e -> e.getStartDate() != null && e.getStartDate().compareTo(todayStr) <= 0 && (e.getEndDate() == null || e.getEndDate().compareTo(todayStr) >= 0))
+                .count();
+
+        for (String slot : timeSlots) {
+            long progCount = activeEventsToday > 0 ? Math.max(1, activeEventsToday / timeSlots.length) : 0;
+            long volDuty = volunteerCount > 0 ? Math.max(1, volunteerCount / timeSlots.length) : 0;
             scheduleList.add(DashboardAnalyticsResponse.ScheduleDutyPoint.builder()
                     .time(slot)
                     .programs(progCount)
@@ -319,12 +322,14 @@ public class EventService {
                     .build());
         }
 
-        // 4. Budget vs Actual Spend (₹ Lakhs)
+        // 4. Budget vs Actual Spend (₹ Lakhs) strictly from database
         List<EventExpense> expenses = expenseRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
         Map<String, Double> categorySpent = new HashMap<>();
-        for (EventExpense e : expenses) {
-            String cat = e.getCategory() != null ? e.getCategory() : "General Ops";
-            categorySpent.put(cat, categorySpent.getOrDefault(cat, 0.0) + e.getAmount());
+        if (expenses != null) {
+            for (EventExpense e : expenses) {
+                String cat = e.getCategory() != null ? e.getCategory() : "General Ops";
+                categorySpent.put(cat, categorySpent.getOrDefault(cat, 0.0) + e.getAmount());
+            }
         }
 
         List<DashboardAnalyticsResponse.BudgetExpensePoint> budgetList = new ArrayList<>();
@@ -337,14 +342,6 @@ public class EventService {
                         .spent(spentLakhs)
                         .build());
             }
-        } else {
-            budgetList = List.of(
-                    DashboardAnalyticsResponse.BudgetExpensePoint.builder().cat("Stage & Venue").budget(1.8).spent(1.5).build(),
-                    DashboardAnalyticsResponse.BudgetExpensePoint.builder().cat("Food & Feast").budget(2.2).spent(1.8).build(),
-                    DashboardAnalyticsResponse.BudgetExpensePoint.builder().cat("Sound & Light").budget(1.0).spent(0.75).build(),
-                    DashboardAnalyticsResponse.BudgetExpensePoint.builder().cat("Security & Ops").budget(0.8).spent(0.5).build(),
-                    DashboardAnalyticsResponse.BudgetExpensePoint.builder().cat("Marketing").budget(0.5).spent(0.27).build()
-            );
         }
 
         return DashboardAnalyticsResponse.builder()
