@@ -154,7 +154,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMediaStorage(
             MediaStorageException ex, HttpServletRequest request) {
         log.error("Media storage exception at {}: {}", request.getRequestURI(), ex.getMessage());
-        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+        String friendlyMessage = toUserFriendlyS3ErrorMessage(ex.getMessage(), ex.getCause());
+        return build(ex.getStatus(), ex.getErrorCode(), friendlyMessage, request, null);
+    }
+
+    @ExceptionHandler(software.amazon.awssdk.services.s3.model.S3Exception.class)
+    public ResponseEntity<ErrorResponse> handleS3Exception(
+            software.amazon.awssdk.services.s3.model.S3Exception ex, HttpServletRequest request) {
+        log.error("AWS S3 exception at {}: {}", request.getRequestURI(), ex.getMessage());
+        String friendlyMessage = toUserFriendlyS3ErrorMessage(ex.getMessage(), ex);
+        return build(HttpStatus.BAD_GATEWAY, "MEDIA_STORAGE_ERROR", friendlyMessage, request, null);
+    }
+
+    private String toUserFriendlyS3ErrorMessage(String rawMessage, Throwable cause) {
+        String msg = (rawMessage != null ? rawMessage : "") + (cause != null ? " " + cause.getMessage() : "");
+        if (msg.contains("301") || msg.contains("specified endpoint") || msg.contains("PermanentRedirect")) {
+            return "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
+        }
+        if (msg.contains("AccessDenied") || msg.contains("403") || msg.contains("InvalidAccessKeyId") || msg.contains("SignatureDoesNotMatch")) {
+            return "Unable to save file to AWS S3: Access denied or invalid S3 storage credentials.";
+        }
+        if (msg.contains("NoSuchBucket") || msg.contains("404")) {
+            return "Unable to save file to AWS S3: Target S3 storage bucket does not exist.";
+        }
+        if (msg.contains("Timeout") || msg.contains("ConnectTimeout") || msg.contains("UnknownHost")) {
+            return "Unable to save file to AWS S3: Network connection timeout while reaching cloud storage.";
+        }
+        return "Unable to upload file to AWS S3 cloud storage. No database records were created. Please verify your S3 credentials or try again.";
     }
 
     @ExceptionHandler(EncryptionException.class)
