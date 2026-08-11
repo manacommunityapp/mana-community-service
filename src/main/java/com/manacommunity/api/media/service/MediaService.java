@@ -367,7 +367,7 @@ public class MediaService {
         long maxBytes = switch (type) {
             case IMAGE, QR_CODE, CERTIFICATE -> (long) props.getLimits().getMaxImageSizeMb() * 1024 * 1024;
             case VIDEO, AUDIO                -> (long) props.getLimits().getMaxVideoSizeMb() * 1024 * 1024;
-            default                          -> (long) props.getLimits().getMaxDocumentSizeMb() * 1024 * 1024;
+            case DOCUMENT                    -> (long) props.getLimits().getMaxDocumentSizeMb() * 1024 * 1024;
         };
         if (bytes > maxBytes) {
             throw new IllegalArgumentException(
