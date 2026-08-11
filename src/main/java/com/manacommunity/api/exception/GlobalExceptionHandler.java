@@ -168,17 +168,19 @@ public class GlobalExceptionHandler {
 
     private String toUserFriendlyS3ErrorMessage(String rawMessage, Throwable cause) {
         String msg = (rawMessage != null ? rawMessage : "") + (cause != null ? " " + cause.getMessage() : "");
-        if (msg.contains("301") || msg.contains("specified endpoint") || msg.contains("PermanentRedirect")) {
+        String lower = msg.toLowerCase();
+
+        if (lower.contains("301") || lower.contains("specified endpoint") || lower.contains("permanentredirect")) {
             return "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
         }
-        if (msg.contains("AccessDenied") || msg.contains("403") || msg.contains("InvalidAccessKeyId") || msg.contains("SignatureDoesNotMatch")) {
-            return "Unable to save file to AWS S3: Access denied or invalid S3 storage credentials.";
+        if (lower.contains("access key") || lower.contains("accessdenied") || lower.contains("invalidaccesskeyid") || lower.contains("signaturedoesnotmatch") || lower.contains("403") || lower.contains("credentials")) {
+            return "Unable to save file to AWS S3: Invalid S3 Access Key or Secret Key. Please verify S3_ACCESS_KEY and S3_SECRET_KEY environment variables.";
         }
-        if (msg.contains("NoSuchBucket") || msg.contains("404")) {
+        if (lower.contains("nosuchbucket") || lower.contains("404")) {
             return "Unable to save file to AWS S3: Target S3 storage bucket does not exist.";
         }
-        if (msg.contains("Timeout") || msg.contains("ConnectTimeout") || msg.contains("UnknownHost")) {
-            return "Unable to save file to AWS S3: Network connection timeout while reaching cloud storage.";
+        if (lower.contains("timeout") || lower.contains("connecttimeout") || lower.contains("unknownhost")) {
+            return "Unable to save file to AWS S3: Network connection timeout while reaching S3 cloud storage.";
         }
         return "Unable to upload file to AWS S3 cloud storage. No database records were created. Please verify your S3 credentials or try again.";
     }
