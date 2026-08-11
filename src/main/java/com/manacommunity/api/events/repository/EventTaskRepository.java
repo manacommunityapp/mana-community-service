@@ -15,6 +15,7 @@ public interface EventTaskRepository extends JpaRepository<EventTask, Long> {
     long countByEventIdAndDoneFalse(Long eventId);
 
     List<EventTask> findByEventIdOrderByCreatedAtDesc(Long eventId);
+    long countByCommunityIdAndDoneFalse(Long communityId);
+    long countByDoneFalse();
     List<EventTask> findByEventCommunityIdOrderByCreatedAtDesc(Long communityId);
-
 }
