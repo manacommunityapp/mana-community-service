@@ -307,9 +307,9 @@ public class EventService {
         List<CommunityEvent> communityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
         List<DashboardAnalyticsResponse.ScheduleDutyPoint> scheduleList = new ArrayList<>();
 
-        String todayStr = LocalDate.now().toString();
+        LocalDate today = LocalDate.now();
         long activeEventsToday = communityEvents.stream()
-                .filter(e -> e.getStartDate() != null && e.getStartDate().compareTo(todayStr) <= 0 && (e.getEndDate() == null || e.getEndDate().compareTo(todayStr) >= 0))
+                .filter(e -> e.getStartDate() != null && !e.getStartDate().isAfter(today) && (e.getEndDate() == null || !e.getEndDate().isBefore(today)))
                 .count();
 
         for (String slot : timeSlots) {
