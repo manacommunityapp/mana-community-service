@@ -34,8 +34,19 @@ public class EventTaskService {
 
     @Transactional(readOnly = true)
     public List<EventTaskResponse> getByCommunity(Long communityId) {
-        return taskRepo.findByCommunityIdOrderByDueDateAsc(communityId)
-                .stream().map(this::toResponse).toList();
+        List<EventTask> tasks;
+        if (communityId != null) {
+            tasks = taskRepo.findByCommunityIdOrderByDueDateAsc(communityId);
+            if (tasks.isEmpty()) {
+                tasks = taskRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
+            }
+        } else {
+            tasks = taskRepo.findAll();
+        }
+        if (tasks == null || tasks.isEmpty()) {
+            tasks = taskRepo.findAll();
+        }
+        return tasks.stream().map(this::toResponse).toList();
     }
 
     @Transactional

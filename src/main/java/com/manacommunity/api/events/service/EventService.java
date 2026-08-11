@@ -30,6 +30,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 
+import com.manacommunity.api.repository.AuctionPlayerRepository;
+
 @Service
 @RequiredArgsConstructor
 public class EventService {
@@ -43,6 +45,7 @@ public class EventService {
     private final EventTaskRepository taskRepo;
     private final MealRegistrationRepository mealRegRepo;
     private final EventAuctionItemRepository auctionItemRepo;
+    private final AuctionPlayerRepository auctionPlayerRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -225,15 +228,35 @@ public class EventService {
         long totalVolunteers = volunteerRepo.countByCommunityId(communityId);
         double totalExpenses = expenseRepo.sumAmountByCommunity(communityId);
 
-        long foodPlates = mealRegRepo != null ? mealRegRepo.count() : 0;
-        double foodPct = totalRegistrations > 0 ? Math.min(100.0, Math.round((double) foodPlates / totalRegistrations * 100.0)) : 85.0;
-        long pendingTasks = taskRepo != null ? taskRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId).stream().filter(t -> !t.isDone()).count() : 0;
+        // Live Food Prepared / Plates Count from Database
+        long foodPlates = mealRegRepo != null ? mealRegRepo.sumHeadCountByCommunity(communityId) : 0;
+        if (foodPlates == 0 && mealRegRepo != null) {
+            foodPlates = mealRegRepo.count();
+        }
+        double foodPct = totalRegistrations > 0
+                ? Math.min(100.0, Math.round((double) foodPlates / totalRegistrations * 100.0))
+                : (foodPlates > 0 ? 100.0 : 85.0);
+
+        long pendingTasks = 0;
+        if (taskRepo != null) {
+            pendingTasks = taskRepo.countByCommunityIdAndDoneFalse(communityId);
+            if (pendingTasks == 0) {
+                pendingTasks = taskRepo.countByDoneFalse();
+            }
+        }
         long pendingSponsors = sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId).stream()
                 .filter(s -> "PENDING".equalsIgnoreCase(s.getStatus()))
                 .count();
 
-        double auctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
-        long auctionItems = auctionItemRepo != null ? auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(communityId, 0) : 0;
+        // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
+        double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
+        long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(communityId, 0) : 0;
+
+        long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;
+        long playerAuctionCount = auctionPlayerRepo != null ? auctionPlayerRepo.countSoldByCommunity(communityId) : 0;
+
+        double totalAuctionRev = itemAuctionRev + (double) playerAuctionRev;
+        long totalAuctionItemsSold = itemAuctionCount + playerAuctionCount;
 
         return DashboardStatsResponse.builder()
                 .totalEvents(totalEvents)
@@ -244,8 +267,8 @@ public class EventService {
                 .totalExpenses(totalExpenses)
                 .foodPreparedPercentage(foodPct)
                 .foodPlatesCount(foodPlates)
-                .auctionRevenue(auctionRev)
-                .auctionItemCount((int) auctionItems)
+                .auctionRevenue(totalAuctionRev)
+                .auctionItemCount((int) totalAuctionItemsSold)
                 .todaysScheduleCount(upcomingEvents)
                 .todaysDutyCount(totalVolunteers)
                 .pendingActionItemsCount(pendingTasks + pendingSponsors)
