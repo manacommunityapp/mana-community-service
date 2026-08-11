@@ -89,11 +89,14 @@ public class MediaService {
 
         String bucket = props.getS3().getBucket();
 
-        // 6. Stream directly to S3 (no temp file created on server disk)
+        // 6. Stream directly to S3 and verify object persistence in S3 bucket
         try {
             s3Gateway.putObject(bucket, s3Key, file.getInputStream(), mimeType, file.getSize());
+            if (!s3Gateway.doesObjectExist(bucket, s3Key)) {
+                throw new IllegalStateException("Object " + s3Key + " was not found in S3 bucket " + bucket + " after upload.");
+            }
         } catch (Exception e) {
-            log.error("S3 upload failed for key={}: {}", s3Key, e.getMessage(), e);
+            log.error("S3 storage upload/verification failed for key={}: {}", s3Key, e.getMessage(), e);
             throw new com.manacommunity.api.exception.MediaStorageException(
                     "Cloud storage upload failed (S3 bucket: " + bucket + "). Database record was NOT created. Details: " + e.getMessage(), e);
         }
