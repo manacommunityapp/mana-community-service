@@ -4,6 +4,7 @@ import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
+import com.manacommunity.api.events.dto.PendingActionItemDto;
 import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.service.EventService;
 import com.manacommunity.api.user.model.AppUser;
@@ -113,6 +114,15 @@ public class EventController {
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(DashboardAnalyticsResponse.builder().build());
         return ResponseEntity.ok(eventService.getDashboardAnalytics(communityId));
+    }
+
+    @GetMapping("/dashboard/pending-actions")
+    @PreAuthorize("hasAuthority('View Events')")
+    public ResponseEntity<List<PendingActionItemDto>> getPendingActionItems(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(eventService.getPendingActionItems(communityId));
     }
 
     @GetMapping("/{id}/registrations")

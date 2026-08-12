@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+
+import java.util.LinkedHashMap;
+
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +41,36 @@ import java.util.stream.Collectors;
 public class EmailDeliveryLogController {
 
     private final EmailDeliveryLogRepository repo;
+
+    /**
+     * Get all available system email templates shaped matching frontend EmailTemplateInfo.
+     */
+    @GetMapping("/templates")
+    public ResponseEntity<Map<String, Object>> getEmailTemplates(@RequestParam(required = false) Long communityId) {
+        List<Map<String, Object>> templateList = Arrays.stream(EmailTemplate.values())
+                .map(t -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("key", t.name());
+                    map.put("subject", t.defaultSubject());
+                    map.put("templateFile", t.templateName() + ".html");
+                    map.put("category", t.category().name());
+                    map.put("triggerMenuPath", t.trigger() != null ? t.trigger().menuPath() : null);
+                    map.put("triggerWired", t.trigger() != null && t.trigger().wired());
+                    map.put("triggerDescription", t.trigger() != null ? t.trigger().description() : "");
+                    map.put("customTemplateExists", false);
+                    map.put("customTemplateId", null);
+                    map.put("customTemplateName", null);
+                    map.put("customTemplateStatus", null);
+                    map.put("appliedSource", "DEFAULT");
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of(
+                "count", templateList.size(),
+                "templates", templateList
+        ));
+    }
 
     /**
      * Paginated, filterable delivery log.
