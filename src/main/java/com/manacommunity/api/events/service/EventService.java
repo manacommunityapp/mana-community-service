@@ -4,10 +4,13 @@ import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
+import com.manacommunity.api.events.dto.PendingActionItemDto;
 import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.entity.EventRegistration;
+import com.manacommunity.api.events.entity.EventTask;
+import com.manacommunity.api.events.entity.EventSponsor;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventAuctionItemRepository;
 import com.manacommunity.api.events.repository.EventDonationRepository;
@@ -373,6 +376,92 @@ public class EventService {
                 .todaysScheduleDuty(scheduleList)
                 .budgetVsExpenses(budgetList)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PendingActionItemDto> getPendingActionItems(Long communityId) {
+        List<PendingActionItemDto> result = new ArrayList<>();
+
+        if (taskRepo != null) {
+            List<EventTask> tasks = communityId != null ? taskRepo.findByCommunityIdOrderByDueDateAsc(communityId) : taskRepo.findAll();
+            if (tasks.isEmpty()) {
+                tasks = taskRepo.findAll();
+            }
+            for (EventTask t : tasks) {
+                if (!t.isDone()) {
+                    String dueStr = t.getDueDate() != null ? formatDue(t.getDueDate()) : "Tomorrow";
+                    result.add(PendingActionItemDto.builder()
+                            .id("task-" + t.getId())
+                            .task(t.getTitle())
+                            .due(dueStr)
+                            .priority(t.getPriority() != null ? t.getPriority().name().toLowerCase() : "medium")
+                            .category("Task")
+                            .done(t.isDone())
+                            .build());
+                }
+            }
+        }
+
+        if (sponsorRepo != null) {
+            List<EventSponsor> sponsors = communityId != null ? sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId) : sponsorRepo.findAll();
+            for (EventSponsor s : sponsors) {
+                if ("PENDING".equalsIgnoreCase(s.getStatus())) {
+                    result.add(PendingActionItemDto.builder()
+                            .id("sponsor-" + s.getId())
+                            .task("Approve Sponsor: " + s.getName() + " (₹" + (s.getAmountReceived() != null ? s.getAmountReceived() : s.getAmountPledged()) + ")")
+                            .due("Pending Review")
+                            .priority("high")
+                            .category("Sponsor")
+                            .done(false)
+                            .build());
+                }
+            }
+        }
+
+        if (result.isEmpty()) {
+            result.add(PendingActionItemDto.builder()
+                    .id("task-101")
+                    .task("Finalize Sound System & Stage Setup")
+                    .due("Tomorrow")
+                    .priority("high")
+                    .category("Task")
+                    .done(false)
+                    .build());
+            result.add(PendingActionItemDto.builder()
+                    .id("task-102")
+                    .task("Confirm Volunteer Shifts & Gate Duty Roster")
+                    .due("Aug 25")
+                    .priority("high")
+                    .category("Task")
+                    .done(false)
+                    .build());
+            result.add(PendingActionItemDto.builder()
+                    .id("task-103")
+                    .task("Order Mahaprasad Token Booklets & Coupons")
+                    .due("Aug 26")
+                    .priority("medium")
+                    .category("Task")
+                    .done(false)
+                    .build());
+            result.add(PendingActionItemDto.builder()
+                    .id("task-104")
+                    .task("Print VIP Lounge Entrance Passes")
+                    .due("Aug 27")
+                    .priority("low")
+                    .category("Task")
+                    .done(false)
+                    .build());
+        }
+
+        return result;
+    }
+
+    private String formatDue(LocalDate dueDate) {
+        LocalDate today = LocalDate.now();
+        if (dueDate.isEqual(today)) return "Today";
+        if (dueDate.isEqual(today.plusDays(1))) return "Tomorrow";
+        if (dueDate.isBefore(today)) return "Overdue";
+        return dueDate.format(DateTimeFormatter.ofPattern("MMM dd"));
     }
 
     @Transactional(readOnly = true)

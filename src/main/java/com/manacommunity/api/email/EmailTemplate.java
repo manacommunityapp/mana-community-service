@@ -70,7 +70,47 @@ public enum EmailTemplate {
     /** Tournament has officially started / opening ceremony. */
     TOURNAMENT_START("tournament-start", "Welcome to the tournament! 🚀", EmailCategory.TOURNAMENT,
             new Trigger(null, false,
-                    "Not currently wired to any UI action or automatic job — defined for a future opening-ceremony flow. Reachable only from this admin test-send tool."));
+                    "Not currently wired to any UI action or automatic job — defined for a future opening-ceremony flow. Reachable only from this admin test-send tool.")),
+
+    /** Major community event or festival announcement. */
+    EVENT_ANNOUNCEMENT("event-announcement", "Community Event Announcement 🎆", EmailCategory.EVENT,
+            new Trigger("Events → Announcements", true,
+                    "Fires when a major community event or festival is announced to all members.")),
+
+    /** Upcoming event reminder to registered participants. */
+    EVENT_REMINDER("event-reminder", "Upcoming Event Reminder ⏰", EmailCategory.EVENT,
+            new Trigger("Events → Schedule", true,
+                    "Sent before an upcoming community event to remind attendees of pending actions or timing.")),
+
+    /** Event fundraising / festival contribution appeal. */
+    EVENT_DONATION_APPEAL("event-donation-appeal", "Support Our Festival & Event Drive 🚩", EmailCategory.EVENT,
+            new Trigger("Events → Fundraising", true,
+                    "Fires for donation appeals, festival fundraising, or community contribution drives.")),
+
+    /** Event RSVP / registration confirmation. */
+    EVENT_REGISTRATION_CONFIRMED("event-registration-confirmed", "RSVP Confirmed for Event 🎉", EmailCategory.EVENT,
+            new Trigger("Events → Registration", true,
+                    "Sent immediately after a member registers/RSVPs for a community event.")),
+
+    /** Invite members to volunteer for event operations & committees. */
+    EVENT_VOLUNTEER_INVITATION("event-volunteer-invitation", "Join as a Community Volunteer 🤝", EmailCategory.EVENT,
+            new Trigger("Events → Operations & Volunteers", true,
+                    "Invites members to volunteer for committee responsibilities and event setups.")),
+
+    /** Post-event thank-you note with media links & highlights. */
+    EVENT_THANK_YOU("event-thank-you", "Thank You for Joining Us! ❤️", EmailCategory.EVENT,
+            new Trigger("Events → Media & Reports", true,
+                    "Post-event thank-you email sent to participants with media highlights and highlights reel.")),
+
+    /** Schedule, venue, or itinerary update for an event. */
+    EVENT_SCHEDULE_UPDATE("event-schedule-update", "Important Schedule Update 📅", EmailCategory.EVENT,
+            new Trigger("Events → Schedule", true,
+                    "Notifies registered members of venue, timing, or itinerary changes for an event.")),
+
+    /** Event cancellation or postponement notification. */
+    EVENT_CANCELLATION("event-cancellation", "Event Cancellation Notice ⚠️", EmailCategory.EVENT,
+            new Trigger("Events → Management", true,
+                    "Fires if a community event is cancelled or postponed due to weather/unforeseen reasons."));
 
     private final String templateName;
     private final String defaultSubject;
@@ -108,7 +148,7 @@ public enum EmailTemplate {
     }
 
     public enum EmailCategory {
-        REGISTRATION, TOURNAMENT, MATCH, PRIZE, ANNOUNCEMENT, AUTH
+        REGISTRATION, TOURNAMENT, MATCH, PRIZE, ANNOUNCEMENT, AUTH, EVENT
     }
 
     /**

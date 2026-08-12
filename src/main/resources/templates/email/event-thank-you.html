@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — Thank You for Joining Us!'">Thank You for Joining Us!</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fff7ed;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(234,88,12,0.12);border:1px solid #ffedd5;">
+
+          <!-- Orange Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg, #ea580c, #c2410c);padding:28px 32px;">
+              <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.02em;" th:text="${appName}">Mana Community</span>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding:32px;">
+              <div style="font-size:42px;line-height:1;margin-bottom:12px;">❤️</div>
+              <span style="display:inline-block;padding:4px 12px;background-color:#ffedd5;color:#9a3412;font-size:11px;font-weight:700;border-radius:9999px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Post-Event Reflections</span>
+              <h1 style="margin:0 0 12px;font-size:22px;color:#7c2d12;font-weight:800;line-height:1.3;" th:text="${eventTitle}">Thank You for Making the Event Spectacular!</h1>
+              
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">
+                Dear <strong th:text="${recipientName}">Resident</strong>, thank you for being a part of our festival celebration! Your presence, enthusiasm, and smiles made our event truly memorable and special.
+              </p>
+
+              <!-- Media Highlights Box -->
+              <div style="margin:0 0 24px;padding:20px;background-color:#fff7ed;border-radius:12px;border-left:4px solid #ea580c;">
+                <div style="font-size:12px;font-weight:700;color:#9a3412;text-transform:uppercase;margin-bottom:8px;">Photo & Video Highlights Ready!</div>
+                <p style="margin:0;font-size:13px;color:#7c2d12;line-height:1.5;">
+                  Over 250 high-resolution photos and video highlights of the cultural performances and ceremony are now published in our Community Media Gallery.
+                </p>
+              </div>
+
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+                We'd love to hear your feedback! Please take 1 minute to rate the event experience and share suggestions for our future events.
+              </p>
+
+              <!-- CTA Button -->
+              <a th:href="${actionUrl}" href="#" style="display:inline-block;background:linear-gradient(135deg, #ea580c, #c2410c);color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(234,88,12,0.25);">Explore Media Gallery & Feedback</a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;background-color:#ffedd5;border-top:1px solid #fed7aa;">
+              <p style="margin:0;font-size:12px;color:#9a3412;line-height:1.5;">
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>. See you at the next event!
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

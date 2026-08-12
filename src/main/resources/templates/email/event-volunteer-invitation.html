@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — Volunteer Invitation'">Volunteer Invitation</title>
+</head>
+<body style="margin:0;padding:0;background-color:#eef2ff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2ff;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(79,70,229,0.12);border:1px solid #c7d2fe;">
+
+          <!-- Indigo Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg, #4f46e5, #4338ca);padding:28px 32px;">
+              <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.02em;" th:text="${appName}">Mana Community</span>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding:32px;">
+              <div style="font-size:42px;line-height:1;margin-bottom:12px;">🤝</div>
+              <span style="display:inline-block;padding:4px 12px;background-color:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700;border-radius:9999px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Volunteer Drive</span>
+              <h1 style="margin:0 0 12px;font-size:22px;color:#312e81;font-weight:800;line-height:1.3;" th:text="${eventTitle}">Join the Event Organising Team!</h1>
+              
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">
+                Hello <strong th:text="${recipientName}">Community Member</strong>, building memorable community events requires passionate volunteers like you! We invite resident volunteers for committee roles, stage coordination, guest reception, and food stalls management.
+              </p>
+
+              <!-- Committee Roles Box -->
+              <div style="margin:0 0 24px;padding:20px;background-color:#eef2ff;border-radius:12px;border-left:4px solid #4f46e5;">
+                <div style="font-size:12px;font-weight:700;color:#3730a3;text-transform:uppercase;margin-bottom:8px;">Open Volunteer Roles</div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr><td style="padding:6px 0;color:#312e81;font-size:13px;font-weight:600;">1. Stage & Sound Coordination</td><td style="padding:6px 0;font-size:13px;color:#4338ca;text-align:right;">2 Spots Available</td></tr>
+                  <tr><td style="padding:6px 0;color:#312e81;font-size:13px;font-weight:600;">2. Reception & Check-in Desk</td><td style="padding:6px 0;font-size:13px;color:#4338ca;text-align:right;">4 Spots Available</td></tr>
+                  <tr><td style="padding:6px 0;color:#312e81;font-size:13px;font-weight:600;">3. Mahaprasadam & Catering Team</td><td style="padding:6px 0;font-size:13px;color:#4338ca;text-align:right;">5 Spots Available</td></tr>
+                </table>
+              </div>
+
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+                Volunteers receive official appreciation badges and special recognition at the closing ceremony!
+              </p>
+
+              <!-- CTA Button -->
+              <a th:href="${actionUrl}" href="#" style="display:inline-block;background:linear-gradient(135deg, #4f46e5, #4338ca);color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(79,70,229,0.25);">Sign Up as Volunteer</a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;background-color:#e0e7ff;border-top:1px solid #c7d2fe;">
+              <p style="margin:0;font-size:12px;color:#3730a3;line-height:1.5;">
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>. Together we build a stronger community.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
