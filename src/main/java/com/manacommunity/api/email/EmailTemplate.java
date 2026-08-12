@@ -72,6 +72,7 @@ public enum EmailTemplate {
             new Trigger(null, false,
                     "Not currently wired to any UI action or automatic job — defined for a future opening-ceremony flow. Reachable only from this admin test-send tool.")),
 
+
     /** Major community event or festival announcement. */
     EVENT_ANNOUNCEMENT("event-announcement", "Community Event Announcement 🎆", EmailCategory.EVENT,
             new Trigger("Events → Announcements", true,
@@ -111,6 +112,49 @@ public enum EmailTemplate {
     EVENT_CANCELLATION("event-cancellation", "Event Cancellation Notice ⚠️", EmailCategory.EVENT,
             new Trigger("Events → Management", true,
                     "Fires if a community event is cancelled or postponed due to weather/unforeseen reasons."));
+
+    // ── Events module ──────────────────────────────────────────────────────────
+
+    /** Community event announcement (festival, cultural programme, etc.). */
+    EVENT_ANNOUNCEMENT("event-announcement", "You're Invited — {{eventName}}!", EmailCategory.EVENT,
+            new Trigger("Events → Announcements", true,
+                    "Sent when an admin publishes a new community event or festival announcement to all residents.")),
+
+    /** Reminder before an upcoming event with optional pending-action prompt. */
+    EVENT_REMINDER("event-reminder", "Reminder: {{eventName}} is Coming Up!", EmailCategory.EVENT,
+            new Trigger("Events → Reminders", true,
+                    "Triggered manually by admin or automatically N days before an event's date; sent to invited/registered residents.")),
+
+    /** Donation/contribution appeal for a community event. */
+    EVENT_DONATION_APPEAL("event-donation-appeal", "Support {{eventName}} — Donate Now", EmailCategory.EVENT,
+            new Trigger("Events → Donations", true,
+                    "Sent when an admin opens a donation drive for an upcoming community event.")),
+
+    /** Confirmation that a resident has registered / RSVP'd for an event. */
+    EVENT_REGISTRATION_CONFIRMED("event-registration-confirmed", "You're Registered for {{eventName}}! 🎉", EmailCategory.EVENT,
+            new Trigger("Events → RSVP / Registration", true,
+                    "Auto-sent to the resident immediately after a successful RSVP or registration submission for an event.")),
+
+    /** Invitation to join the organising team as a volunteer. */
+    EVENT_VOLUNTEER_INVITATION("event-volunteer-invitation", "Join Us as a Volunteer for {{eventName}}", EmailCategory.EVENT,
+            new Trigger("Events → Volunteers", true,
+                    "Sent by an admin to residents who are invited to volunteer at a community event.")),
+
+    /** Post-event thank-you with optional highlights and feedback link. */
+    EVENT_THANK_YOU("event-thank-you", "Thank You for Joining {{eventName}}! 🙏", EmailCategory.EVENT,
+            new Trigger("Events → Post-Event", true,
+                    "Sent after an event concludes to attendees and volunteers; may include highlights and a feedback link.")),
+
+    /** Notification that an event's date, time, or venue has changed. */
+    EVENT_SCHEDULE_UPDATE("event-schedule-update", "Update: {{eventName}} Schedule Changed", EmailCategory.EVENT,
+            new Trigger("Events → Admin → Edit Event", false,
+                    "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the schedule-change flow is under development.")),
+
+    /** Notice that a previously announced event has been cancelled. */
+    EVENT_CANCELLATION("event-cancellation", "Important: {{eventName}} Has Been Cancelled", EmailCategory.EVENT,
+            new Trigger("Events → Admin → Cancel Event", false,
+                    "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the cancellation flow is under development."));
+
 
     private final String templateName;
     private final String defaultSubject;

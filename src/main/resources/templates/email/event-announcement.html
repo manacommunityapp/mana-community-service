@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
+
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title th:text="${appName} + ' — Event Announcement'">Event Announcement</title>
@@ -60,5 +61,165 @@
       </td>
     </tr>
   </table>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title th:text="${eventName} + ' — You''re Invited!'">Event Announcement</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fdf6ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e2430;">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fdf6ec;padding:20px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #e7d8b0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(180,120,0,0.10);">
+
+        <!-- Header bar -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#b45309,#f59e0b);padding:16px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:17px;font-weight:700;color:#ffffff;">
+                  <img th:if="${logoUrl != null and !logoUrl.isBlank()}"
+                       th:src="${logoUrl}" alt="Logo"
+                       style="height:24px;vertical-align:middle;margin-right:8px;" />
+                  🕉️ <span th:text="${communityName}">Mana Community</span>
+                </td>
+                <td align="right" style="color:#fff8dc;font-size:12px;font-weight:500;">Community Events</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Banner image (optional) -->
+        <tr th:if="${bannerImage != null and !bannerImage.isBlank()}">
+          <td style="padding:0;">
+            <img th:src="${bannerImage}" alt="Event Banner"
+                 style="width:100%;max-height:220px;object-fit:cover;display:block;" />
+          </td>
+        </tr>
+
+        <!-- Hero section -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#92400e,#d97706,#fbbf24);padding:36px 24px;text-align:center;color:#ffffff;">
+            <div style="font-size:42px;margin-bottom:10px;">🪔</div>
+            <h1 style="font-size:24px;font-weight:800;margin:0 0 8px 0;letter-spacing:0.5px;" th:text="${eventName}">Vinayaka Chavithi 2026</h1>
+            <p style="font-size:13.5px;opacity:0.92;margin:0 0 18px 0;" th:text="${communityName}">Mana Heights Community</p>
+            <div style="display:inline-block;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:6px 18px;font-size:13px;font-weight:600;">
+              📅 <span th:text="${eventDate}">Monday, Sep 14, 2026</span>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:28px 28px 0 28px;">
+            <p style="font-size:16px;margin:0 0 14px 0;color:#78350f;">
+              Dear <strong th:text="${residentName}">Resident</strong>,
+            </p>
+            <p style="font-size:14px;line-height:1.7;color:#44403c;margin:0 0 20px 0;">
+              We are delighted to invite you and your family to celebrate
+              <strong th:text="${eventName}">Vinayaka Chavithi 2026</strong> together.
+              Join us for a joyful puja, cultural programs, and community bonding!
+            </p>
+          </td>
+        </tr>
+
+        <!-- Event details card -->
+        <tr>
+          <td style="padding:0 28px 0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#fffbf0;border:1px solid #f59e0b;border-radius:10px;overflow:hidden;">
+              <tr>
+                <td style="background:#f59e0b;padding:10px 16px;">
+                  <span style="font-size:13px;font-weight:700;color:#ffffff;">📋 EVENT DETAILS</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;width:140px;">📅 Date</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${eventDate}">Monday, Sep 14, 2026</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">⏰ Time</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${eventTime}">9:00 AM onwards</td>
+                    </tr>
+                    <tr th:if="${pujaMuhurat != null and !pujaMuhurat.isBlank()}">
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">🕉️ Puja Muhurat</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${pujaMuhurat}">9:00 AM – 11:00 AM</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">📍 Venue</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${venue}">Community Clubhouse, Block A</td>
+                    </tr>
+                    <tr th:if="${visarjanDate != null and !visarjanDate.isBlank()}">
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">🌊 Visarjan</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${visarjanDate}">Wednesday, Sep 23, 2026</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Custom message (optional) -->
+        <tr th:if="${customMessage != null and !customMessage.isBlank()}">
+          <td style="padding:16px 28px 0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#fff7ed;border-left:4px solid #f59e0b;border-radius:6px;">
+              <tr>
+                <td style="padding:14px;font-size:13.5px;color:#451a03;line-height:1.6;white-space:pre-line;"
+                    th:text="${customMessage}">Additional message here.</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- RSVP CTA -->
+        <tr th:if="${rsvpLink != null and !rsvpLink.isBlank()}">
+          <td style="padding:24px 28px;text-align:center;">
+            <a th:href="${rsvpLink}" href="#"
+               style="display:inline-block;background:linear-gradient(135deg,#d97706,#f59e0b);color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:0.3px;">
+              🎉 RSVP Now
+            </a>
+            <p style="margin:10px 0 0;font-size:12px;color:#78350f;opacity:0.8;">Let us know you're coming!</p>
+          </td>
+        </tr>
+
+        <!-- Sender sign-off -->
+        <tr>
+          <td style="padding:0 28px 24px 28px;">
+            <p style="font-size:13.5px;color:#44403c;margin:0;line-height:1.6;">
+              Warm regards,<br/>
+              <strong th:text="${senderName}">Events Committee, Mana Community</strong>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Support -->
+        <tr th:if="${supportEmail != null and !supportEmail.isBlank()}">
+          <td style="padding:0 28px 16px 28px;font-size:12px;color:#78350f;text-align:center;">
+            Questions? Write to us at
+            <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}"
+               style="color:#d97706;text-decoration:none;font-weight:600;">events@example.com</a>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#92400e,#b45309);padding:18px 24px;text-align:center;font-size:11px;color:#fff8dc;">
+            &copy; <span th:text="${year}">2026</span>
+            <span th:text="${communityName}">Mana Community</span> &bull;
+            <span th:text="${footerText}">Celebrating Traditions Together 🪔</span>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+
 </body>
 </html>
