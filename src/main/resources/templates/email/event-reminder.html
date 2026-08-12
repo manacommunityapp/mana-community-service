@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title th:text="'Reminder: ' + ${eventName}">Event Reminder</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fffbeb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e2430;">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;padding:20px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #fde68a;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(180,140,0,0.10);">
+
+        <!-- Header bar -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#b45309,#d97706);padding:16px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:17px;font-weight:700;color:#ffffff;">
+                  <img th:if="${logoUrl != null and !logoUrl.isBlank()}"
+                       th:src="${logoUrl}" alt="Logo"
+                       style="height:24px;vertical-align:middle;margin-right:8px;" />
+                  ⏰ <span th:text="${communityName}">Mana Community</span>
+                </td>
+                <td align="right" style="color:#fef9c3;font-size:12px;font-weight:500;">Reminder</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Hero section -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#92400e,#d97706,#fbbf24);padding:32px 24px;text-align:center;color:#ffffff;">
+            <div style="font-size:40px;margin-bottom:8px;">📣</div>
+            <h1 style="font-size:22px;font-weight:800;margin:0 0 6px 0;" th:text="'Reminder: ' + ${eventName}">Reminder: Vinayaka Chavithi 2026</h1>
+            <p style="font-size:13px;opacity:0.9;margin:0;" th:text="${communityName}">Mana Heights Community</p>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:28px 28px 0 28px;">
+            <p style="font-size:15px;margin:0 0 12px 0;color:#78350f;">
+              Dear <strong th:text="${residentName}">Resident</strong>,
+            </p>
+          </td>
+        </tr>
+
+        <!-- Reminder highlight box -->
+        <tr>
+          <td style="padding:0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="border:2px dashed #f59e0b;border-radius:10px;background:#fffbeb;">
+              <tr>
+                <td style="padding:20px;font-size:14px;line-height:1.7;color:#44403c;" th:text="${reminderMessage}">
+                  This is a friendly reminder about the upcoming event. Please make the necessary preparations.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Event details snapshot -->
+        <tr>
+          <td style="padding:16px 28px 0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#fffbf0;border:1px solid #f59e0b;border-radius:10px;overflow:hidden;">
+              <tr>
+                <td style="background:#f59e0b;padding:10px 16px;">
+                  <span style="font-size:13px;font-weight:700;color:#ffffff;">📋 EVENT SNAPSHOT</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;width:140px;">📅 Date</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${eventDate}">Sep 14, 2026</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">⏰ Time</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${eventTime}">9:00 AM onwards</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;font-size:13px;color:#78350f;font-weight:600;">📍 Venue</td>
+                      <td style="padding:6px 0;font-size:13.5px;color:#1c1917;" th:text="${venue}">Community Clubhouse</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Pending action -->
+        <tr th:if="${pendingAction != null and !pendingAction.isBlank()}">
+          <td style="padding:16px 28px 0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;">
+              <tr>
+                <td style="padding:14px;">
+                  <p style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 4px 0;">
+                    ⚠️ Action Needed
+                  </p>
+                  <p style="font-size:13.5px;color:#1c1917;margin:0;" th:text="${pendingAction}">Please complete your RSVP before the deadline.</p>
+                  <p th:if="${deadlineDate != null and !deadlineDate.isBlank()}"
+                     style="font-size:12px;color:#78350f;font-weight:600;margin:6px 0 0 0;">
+                    Deadline: <span th:text="${deadlineDate}">Sep 10, 2026</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Action CTA -->
+        <tr th:if="${actionLink != null and !actionLink.isBlank()}">
+          <td style="padding:24px 28px;text-align:center;">
+            <a th:href="${actionLink}" href="#"
+               style="display:inline-block;background:linear-gradient(135deg,#d97706,#f59e0b);color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:700;">
+              <span th:text="${actionButtonText}">Take Action Now →</span>
+            </a>
+          </td>
+        </tr>
+
+        <!-- Sender sign-off -->
+        <tr>
+          <td style="padding:0 28px 24px 28px;">
+            <p style="font-size:13.5px;color:#44403c;margin:0;line-height:1.6;">
+              Warm regards,<br/>
+              <strong th:text="${senderName}">Events Committee, Mana Community</strong>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#92400e,#b45309);padding:18px 24px;text-align:center;font-size:11px;color:#fef9c3;">
+            &copy; <span th:text="${year}">2026</span>
+            <span th:text="${communityName}">Mana Community</span> &bull;
+            <span th:text="${footerText}">Celebrating Traditions Together 🪔</span>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

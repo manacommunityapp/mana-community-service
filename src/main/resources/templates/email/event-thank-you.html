@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title th:text="'Thank You — ' + ${eventName}">Event Thank You</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fff7ed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e2430;">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed;padding:20px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #fdba74;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(194,65,12,0.08);">
+
+        <!-- Header bar -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#9a3412,#ea580c);padding:16px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:17px;font-weight:700;color:#ffffff;">
+                  <img th:if="${logoUrl != null and !logoUrl.isBlank()}"
+                       th:src="${logoUrl}" alt="Logo"
+                       style="height:24px;vertical-align:middle;margin-right:8px;" />
+                  🙏 <span th:text="${communityName}">Mana Community</span>
+                </td>
+                <td align="right" style="color:#fed7aa;font-size:12px;font-weight:500;">Thank You</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Hero section -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#9a3412,#ea580c,#fb923c);padding:36px 24px;text-align:center;color:#ffffff;">
+            <div style="font-size:48px;margin-bottom:10px;">🎊</div>
+            <h1 style="font-size:24px;font-weight:800;margin:0 0 8px 0;">Thank You!</h1>
+            <p style="font-size:13.5px;opacity:0.92;margin:0;" th:text="'For joining us at ' + ${eventName}">For joining us at Vinayaka Chavithi 2026</p>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:28px 28px 0 28px;">
+            <p style="font-size:15px;margin:0 0 12px 0;color:#9a3412;">
+              Dear <strong th:text="${residentName}">Resident</strong>,
+            </p>
+            <p style="font-size:14px;line-height:1.7;color:#3f3f46;margin:0 0 16px 0;">
+              It was wonderful celebrating <strong th:text="${eventName}">Vinayaka Chavithi 2026</strong>
+              with you. Thank you for being part of this special occasion and for making our community event
+              a grand success. Your presence and support mean the world to us!
+            </p>
+          </td>
+        </tr>
+
+        <!-- Thank-you highlight message -->
+        <tr th:if="${thankYouMessage != null and !thankYouMessage.isBlank()}">
+          <td style="padding:0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1px solid #fdba74;border-radius:10px;">
+              <tr>
+                <td style="padding:20px;font-size:14px;line-height:1.8;color:#44403c;font-style:italic;text-align:center;"
+                    th:text="${thankYouMessage}">
+                  "Together we make our community a beautiful place. Thank you for your time, energy, and spirit!"
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Highlights / what was achieved -->
+        <tr th:if="${highlights != null and !highlights.isBlank()}">
+          <td style="padding:16px 28px 0 28px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;overflow:hidden;">
+              <tr>
+                <td style="background:#ea580c;padding:10px 16px;">
+                  <span style="font-size:13px;font-weight:700;color:#ffffff;">🌟 EVENT HIGHLIGHTS</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px;font-size:13.5px;color:#1c1917;line-height:1.8;white-space:pre-line;"
+                    th:text="${highlights}">Highlights of the event.</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Feedback CTA -->
+        <tr th:if="${feedbackLink != null and !feedbackLink.isBlank()}">
+          <td style="padding:24px 28px 12px 28px;text-align:center;">
+            <a th:href="${feedbackLink}" href="#"
+               style="display:inline-block;background:linear-gradient(135deg,#ea580c,#fb923c);color:#ffffff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:700;">
+              ⭐ Share Your Feedback
+            </a>
+            <p style="margin:10px 0 0;font-size:12px;color:#9a3412;">Help us make the next event even better!</p>
+          </td>
+        </tr>
+
+        <!-- Stay connected -->
+        <tr th:if="${nextEventLink != null and !nextEventLink.isBlank()}">
+          <td style="padding:0 28px 24px 28px;text-align:center;">
+            <p style="font-size:13px;color:#44403c;margin:0 0 8px 0;">Don't miss our upcoming events —</p>
+            <a th:href="${nextEventLink}" href="#"
+               style="color:#ea580c;font-weight:600;text-decoration:none;font-size:13.5px;">
+              View Upcoming Events →
+            </a>
+          </td>
+        </tr>
+
+        <!-- Sender sign-off -->
+        <tr>
+          <td style="padding:0 28px 24px 28px;">
+            <p style="font-size:13.5px;color:#44403c;margin:0;line-height:1.6;">
+              With gratitude,<br/>
+              <strong th:text="${senderName}">Events Committee, Mana Community</strong>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:linear-gradient(120deg,#9a3412,#c2410c);padding:18px 24px;text-align:center;font-size:11px;color:#fed7aa;">
+            &copy; <span th:text="${year}">2026</span>
+            <span th:text="${communityName}">Mana Community</span> &bull;
+            <span th:text="${footerText}">Gratitude Binds Communities 🎊</span>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
