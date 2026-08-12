@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 @RestController
 @RequestMapping("/api/admin/email")
 @RequiredArgsConstructor
-public class EmailVerificationController {
+public class MainEmailVerificationController {
 
     private final EmailTemplateManagementService templateService;
     private final EmailService emailService;
