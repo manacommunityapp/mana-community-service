@@ -249,7 +249,7 @@ public class EventService {
         }
         double foodPct = totalRegistrations > 0
                 ? Math.min(100.0, Math.round((double) foodPlates / totalRegistrations * 100.0))
-                : (foodPlates > 0 ? 100.0 : 85.0);
+                : (foodPlates > 0 ? 100.0 : 0.0);
 
         long pendingTasks = 0;
         if (taskRepo != null) {
@@ -272,6 +272,14 @@ public class EventService {
         double totalAuctionRev = itemAuctionRev + (double) playerAuctionRev;
         long totalAuctionItemsSold = itemAuctionCount + playerAuctionCount;
 
+        LocalDate today = LocalDate.now();
+        List<CommunityEvent> allEvents = communityId != null
+                ? eventRepo.findByCommunityIdOrderByStartDateDesc(communityId)
+                : eventRepo.findAll();
+        long todaysEventsCount = allEvents.stream()
+                .filter(e -> e.getStartDate() != null && !e.getStartDate().isAfter(today) && (e.getEndDate() == null || !e.getEndDate().isBefore(today)))
+                .count();
+
         return DashboardStatsResponse.builder()
                 .totalEvents(totalEvents)
                 .upcomingEvents(upcomingEvents)
@@ -283,7 +291,7 @@ public class EventService {
                 .foodPlatesCount(foodPlates)
                 .auctionRevenue(totalAuctionRev)
                 .auctionItemCount((int) totalAuctionItemsSold)
-                .todaysScheduleCount(upcomingEvents)
+                .todaysScheduleCount(todaysEventsCount)
                 .todaysDutyCount(totalVolunteers)
                 .pendingActionItemsCount(pendingTasks + pendingSponsors)
                 .build();
@@ -427,41 +435,6 @@ public class EventService {
                             .build());
                 }
             }
-        }
-
-        if (result.isEmpty()) {
-            result.add(PendingActionItemDto.builder()
-                    .id("task-101")
-                    .task("Finalize Sound System & Stage Setup")
-                    .due("Tomorrow")
-                    .priority("high")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-102")
-                    .task("Confirm Volunteer Shifts & Gate Duty Roster")
-                    .due("Aug 25")
-                    .priority("high")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-103")
-                    .task("Order Mahaprasad Token Booklets & Coupons")
-                    .due("Aug 26")
-                    .priority("medium")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-104")
-                    .task("Print VIP Lounge Entrance Passes")
-                    .due("Aug 27")
-                    .priority("low")
-                    .category("Task")
-                    .done(false)
-                    .build());
         }
 
         return result;

@@ -47,7 +47,7 @@ public class SportsAdminService {
 
     @Transactional(readOnly = true)
     public SportsAdminOverviewResponse getOverview(AppUser user, Long communityId) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long activeCommId = isSuperAdmin ? communityId : (user.getCommunity() != null ? user.getCommunity().getId() : null);
 
         List<Tournament> tournaments = isSuperAdmin && activeCommId == null
@@ -149,7 +149,7 @@ public class SportsAdminService {
 
     @Transactional(readOnly = true)
     public SportsAdminFormDataResponse getFormData(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportOption> sports = sportMetaRepo.findByActiveTrue().stream()

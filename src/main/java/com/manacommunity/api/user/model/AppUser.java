@@ -11,6 +11,10 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * BUG FIX: AppUser was an empty stub class.
@@ -61,9 +65,9 @@ public class AppUser {
     @Column(name = "profile_pic_url", columnDefinition = "TEXT")
     private String profilePicUrl;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 255)
     @Builder.Default
-    private String role = "USER"; // Default role for ALL new registrations. Admin upgrades to MEMBER/STAFF/etc.
+    private String role = "USER";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
@@ -76,6 +80,27 @@ public class AppUser {
     /** ID of the admin user who last changed this user's role. */
     @Column(name = "role_changed_by")
     private Long roleChangedBy;
+
+    /**
+     * Full set of roles assigned to this user, backed by the {@code app_user_roles} join table.
+     *
+     * <p>This is the <em>authoritative</em> store for multi-role membership. The
+     * {@link #role} string column is a denormalised mirror maintained by
+     * {@link #syncRoleString()} — it exists for backward compatibility with code
+     * and JWT claims that still read a comma-separated string.
+     *
+     * <p>Callers that add/remove roles should manipulate this set and then call
+     * {@link #syncRoleString()} (or let {@link #prePersistOrUpdate()} do it).
+     */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "app_user_roles",
+        joinColumns        = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @JsonIgnore
+    @Builder.Default
+    private Set<Role> userRoles = new LinkedHashSet<>();
 
     @Column(name = "kyc_status", nullable = false, length = 20)
     @Builder.Default
@@ -148,14 +173,45 @@ public class AppUser {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * Checks whether this user holds a given role.
+     * Reads from the denormalised {@link #role} comma-string so it works even
+     * when the {@link #userRoles} set has not been initialised (e.g. during
+     * token validation without a full entity load).
+     */
+    public boolean hasRole(String targetRole) {
+        if (role == null || targetRole == null) return false;
+        for (String r : role.split(",")) {
+            if (r.trim().equalsIgnoreCase(targetRole)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Rebuilds the {@link #role} comma-string from the {@link #userRoles} set.
+     * Call this after modifying {@code userRoles} to keep both representations
+     * in sync before saving the entity.
+     * <p>If {@code userRoles} is empty the string is left unchanged so that a
+     * caller that sets only the string (legacy code path) is not overwritten.
+     */
+    public void syncRoleString() {
+        if (userRoles == null || userRoles.isEmpty()) return;
+        role = userRoles.stream()
+                .map(Role::getName)
+                .sorted()
+                .collect(Collectors.joining(", "));
+    }
+
     @PrePersist
     protected void onCreate() {
+        syncRoleString();
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
+        syncRoleString();
         updatedAt = LocalDateTime.now();
     }
 }

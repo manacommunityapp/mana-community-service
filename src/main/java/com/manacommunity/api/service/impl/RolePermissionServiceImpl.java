@@ -104,9 +104,11 @@ public class RolePermissionServiceImpl implements RolePermissionService {
 
         rolePermissionRepo.deleteByUserId(userId);
 
+        // De-duplicate permission keys while preserving encounter order.
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
         List<RolePermission> entities = permissions.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
-                .distinct()
+                .filter(seen::add)   // retains only first occurrence of each key
                 .map(p -> RolePermission.builder()
                         .role(role.toUpperCase())
                         .roleEntity(user.getRoleEntity())

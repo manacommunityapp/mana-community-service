@@ -35,7 +35,7 @@ public class VenueController {
             @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = communityId;
         if (!isSuperAdmin) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
@@ -64,7 +64,7 @@ public class VenueController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         return ResponseEntity.ok(venueService.createVenue(targetCommunityId, request));

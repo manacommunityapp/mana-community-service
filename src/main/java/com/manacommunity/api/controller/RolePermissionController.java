@@ -83,7 +83,7 @@ public class RolePermissionController {
         if (principal == null) return null;
         try {
             AppUser user = loggedInUserService.resolve(principal);
-            if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) return null;
+            if (user.hasRole(ROLE_SUPER_ADMIN)) return null;
             return user.getCommunity() != null ? user.getCommunity().getId() : null;
         } catch (Exception ex) {
             log.warn("Failed to resolve community for principal: {}", ex.getMessage());

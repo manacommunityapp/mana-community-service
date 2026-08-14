@@ -40,7 +40,7 @@ public class LoggedInUserService {
 
     public record ResolvedUser(AppUser user, boolean superAdmin, Long communityId) {
         public static ResolvedUser from(AppUser user) {
-            boolean sa = ROLE_SUPER_ADMIN.equals(user.getRole());
+            boolean sa = user.hasRole(ROLE_SUPER_ADMIN);
             Long cid = user.getCommunity() != null ? user.getCommunity().getId() : null;
             return new ResolvedUser(user, sa, cid);
         }

@@ -183,8 +183,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         AppUser user = cachedDefaultUser;
         if (user == null) {
             List<AppUser> allUsers = userRepository.findAll();
-            user = allUsers.stream().filter(u -> ROLE_SUPER_ADMIN.equalsIgnoreCase(u.getRole())).findFirst()
-                    .orElseGet(() -> allUsers.stream().filter(u -> ROLE_ADMIN.equalsIgnoreCase(u.getRole())).findFirst()
+            user = allUsers.stream().filter(u -> u.hasRole(ROLE_SUPER_ADMIN)).findFirst()
+                    .orElseGet(() -> allUsers.stream().filter(u -> u.hasRole(ROLE_ADMIN)).findFirst()
                     .orElseGet(() -> allUsers.stream().findFirst().orElse(null)));
             cachedDefaultUser = user;
         }

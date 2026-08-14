@@ -88,12 +88,23 @@ public class JwtTokenProvider {
 
     private String build(AppUser user, String type, long ttlMs) {
         Instant now = Instant.now();
+
+        // Build the roles list from the comma-separated role string for structured JWT embedding.
+        java.util.List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
+                ? java.util.Collections.emptyList()
+                : java.util.Arrays.stream(user.getRole().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .collect(java.util.stream.Collectors.toList());
+
         return Jwts.builder()
                 .id(UUID.randomUUID().toString()) // jti — unique token ID for blacklisting
                 .issuer(issuer)
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
-                .claim("role", user.getRole())
+                .claim("role", user.getRole())   // kept for backward compatibility
+                .claim("roles", rolesList)        // structured list for multi-role consumers
                 .claim(TYPE_CLAIM, type)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(ttlMs)))
@@ -144,6 +155,35 @@ public class JwtTokenProvider {
 
     public String getEmail(String token) {
         return parse(token).getPayload().getSubject();
+    }
+
+    /**
+     * Returns the list of roles embedded in the token.
+     * Reads the structured {@code roles} array claim (new tokens); falls back to splitting
+     * the legacy {@code role} comma-string claim for tokens issued before this change.
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.List<String> getRoles(String token) {
+        Claims payload = parse(token).getPayload();
+        Object rolesObj = payload.get("roles");
+        if (rolesObj instanceof java.util.List<?> list && !list.isEmpty()) {
+            return list.stream()
+                    .filter(o -> o instanceof String)
+                    .map(o -> ((String) o).trim().toUpperCase())
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        // Fallback: split the legacy "role" comma-string claim.
+        Object roleObj = payload.get("role");
+        if (roleObj instanceof String roleStr && !roleStr.isBlank()) {
+            return java.util.Arrays.stream(roleStr.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return java.util.Collections.emptyList();
     }
 
     /**

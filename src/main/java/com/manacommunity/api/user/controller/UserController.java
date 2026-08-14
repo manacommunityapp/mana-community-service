@@ -41,9 +41,9 @@ public class UserController {
     }
 
     private java.util.List<String> getPermissionsForUser(AppUser user) {
-        if (user.getRole() == null || user.getRole().isBlank()) {
-            return java.util.Collections.emptyList();
-        }
+        if (user.getId() == null) return java.util.Collections.emptyList();
+
+        // 1. User-specific override rows take priority over role templates.
         java.util.List<com.manacommunity.api.model.RolePermission> userPerms = rolePermissionRepo.findByUserId(user.getId());
         if (!userPerms.isEmpty()) {
             return userPerms.stream()
@@ -51,15 +51,28 @@ public class UserController {
                     .distinct()
                     .toList();
         }
-        java.util.List<String> roles = getRolesList(user.getRole());
-        java.util.List<String> combined = new java.util.ArrayList<>();
-        for (String r : roles) {
-            rolePermissionRepo.findByRoleIgnoreCase(r).stream()
-                    .filter(rp -> rp.getUser() == null)
-                    .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                    .forEach(combined::add);
+
+        // 2. No overrides — fall back to the union of role template permissions.
+        //    Prefer the structured userRoles set (accurate after V51 migration);
+        //    fall back to splitting the comma-string for older rows.
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        java.util.Set<com.manacommunity.api.model.Role> rolesSet = user.getUserRoles();
+        if (rolesSet != null && !rolesSet.isEmpty()) {
+            for (com.manacommunity.api.model.Role r : rolesSet) {
+                rolePermissionRepo.findByRoleIgnoreCase(r.getName()).stream()
+                        .filter(rp -> rp.getUser() == null)
+                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
+                        .forEach(seen::add);
+            }
+        } else {
+            for (String r : getRolesList(user.getRole())) {
+                rolePermissionRepo.findByRoleIgnoreCase(r).stream()
+                        .filter(rp -> rp.getUser() == null)
+                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
+                        .forEach(seen::add);
+            }
         }
-        return combined.stream().distinct().toList();
+        return java.util.List.copyOf(seen);
     }
 
     private java.util.List<String> getEnabledModules(AppUser user) {
@@ -105,7 +118,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         if (targetCommunityId == null) {
@@ -133,7 +146,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
                 throw new com.manacommunity.api.exception.UnauthorizedActionException(
@@ -164,7 +177,7 @@ public class UserController {
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         int safeSize = Math.min(Math.max(size, 1), 200);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
 
@@ -213,7 +226,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         // Non-super-admins may only create users within their own community.
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole()) && loggedInUser.getCommunity() != null) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN) && loggedInUser.getCommunity() != null) {
             req.setCommunityId(loggedInUser.getCommunity().getId());
             req.setInviteCode(null);
         }
@@ -309,7 +322,7 @@ public class UserController {
 
         // Non-super-admins may only change roles within their own community.
         AppUser admin = loggedInUserService.resolve(principal);
-        if (!ROLE_SUPER_ADMIN.equals(admin.getRole())) {
+        if (!admin.hasRole(ROLE_SUPER_ADMIN)) {
             Long adminCommunityId = admin.getCommunity() != null ? admin.getCommunity().getId() : null;
             Long userCommunityId  = user.getCommunity() != null ? user.getCommunity().getId() : null;
             if (adminCommunityId == null || !adminCommunityId.equals(userCommunityId)) {
@@ -318,15 +331,28 @@ public class UserController {
             }
         }
 
-        String normRole = String.join(", ", distinctRoles);
-        user.setRole(normRole);
-
-        // Resolve primary roleEntity scoped to user's community
+        // Resolve ALL role entities and build the authoritative userRoles set.
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        String primaryRoleName = distinctRoles.get(0);
-        com.manacommunity.api.model.Role roleEntity = roleService.findOrCreateRole(primaryRoleName, communityId);
+        java.util.Set<com.manacommunity.api.model.Role> resolvedRoles = new java.util.LinkedHashSet<>();
+        for (String rName : distinctRoles) {
+            com.manacommunity.api.model.Role rEntity = roleService.findOrCreateRole(rName, communityId);
+            if (rEntity != null) resolvedRoles.add(rEntity);
+        }
+
+        // Derive the comma-string from the set (canonical order = sorted names).
+        String normRole = resolvedRoles.stream()
+                .map(com.manacommunity.api.model.Role::getName)
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(", "));
+        user.setRole(normRole);
+        user.setUserRoles(resolvedRoles);
+
+        // Primary roleEntity FK (backward compat — points to the first resolved role).
+        com.manacommunity.api.model.Role roleEntity = resolvedRoles.isEmpty()
+                ? roleService.findOrCreateRole(distinctRoles.get(0), communityId)
+                : resolvedRoles.iterator().next();
         if (roleEntity == null) {
-            throw new com.manacommunity.api.exception.InvalidInputException("Failed to resolve role: " + primaryRoleName);
+            throw new com.manacommunity.api.exception.InvalidInputException("Failed to resolve role: " + distinctRoles.get(0));
         }
         user.setRoleEntity(roleEntity);
 
@@ -336,10 +362,12 @@ public class UserController {
 
         appUserRepo.save(user);
 
-        // Delete old user-specific permissions and replace with combined templates of all assigned roles
+        // Delete old user-specific permissions and replace with combined templates of all assigned roles.
+        // A LinkedHashSet tracks seen keys cross-role to prevent unique-constraint violations.
         rolePermissionRepo.deleteByUserId(user.getId());
         rolePermissionRepo.flush();
 
+        java.util.Set<String> seenPermissions = new java.util.LinkedHashSet<>();
         java.util.List<com.manacommunity.api.model.RolePermission> combinedUserPermissions = new java.util.ArrayList<>();
         for (String rName : distinctRoles) {
             com.manacommunity.api.model.Role rEntity = roleService.findOrCreateRole(rName, communityId);
@@ -350,7 +378,7 @@ public class UserController {
                     .filter(t -> t.getUser() == null)
                     .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
                     .filter(pk -> pk != null && !pk.trim().isEmpty())
-                    .distinct()
+                    .filter(seenPermissions::add)  // de-duplicate across all roles
                     .forEach(pk -> combinedUserPermissions.add(com.manacommunity.api.model.RolePermission.builder()
                             .role(rName)
                             .roleEntity(rEntity)
@@ -407,7 +435,7 @@ public class UserController {
     public ResponseEntity<com.manacommunity.api.user.dto.KycStatsResponse> getKycStats(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
 
         long total;
         long pending;
@@ -436,5 +464,40 @@ public class UserController {
                 .approved(approved)
                 .rejected(rejected)
                 .build());
+    }
+
+    /**
+     * GET /api/users/{id}/roles
+     * Returns the structured list of roles currently assigned to a user,
+     * sourced from the {@code app_user_roles} join table (authoritative).
+     */
+    @GetMapping("/{id}/roles")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getUserRoles(@PathVariable Long id) {
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
+
+        java.util.List<java.util.Map<String, Object>> roleList = user.getUserRoles().stream()
+                .map(r -> java.util.Map.<String, Object>of(
+                        "id",          r.getId(),
+                        "name",        r.getName(),
+                        "communityId", r.getCommunityId() != null ? r.getCommunityId() : java.util.Optional.empty()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(roleList);
+    }
+
+    /**
+     * GET /api/users/{id}/permissions
+     * Returns the effective (merged) permission keys for a user.
+     * User-specific override rows win; otherwise the union of all role templates is returned.
+     */
+    @GetMapping("/{id}/permissions")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<java.util.List<String>> getUserPermissions(@PathVariable Long id) {
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
+        return ResponseEntity.ok(getPermissionsForUser(user));
     }
 }

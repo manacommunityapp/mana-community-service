@@ -34,7 +34,7 @@ public class PermissionCheckService {
      */
     public boolean hasAnyPermission(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
-        if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) {
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);
@@ -56,7 +56,7 @@ public class PermissionCheckService {
      */
     public boolean hasAllPermissions(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
-        if (ROLE_SUPER_ADMIN.equalsIgnoreCase(user.getRole())) {
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);

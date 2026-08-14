@@ -51,6 +51,12 @@ public class AdminCreateUserRequest {
     // ── Account & role ──
     private String password;            // optional; a temporary password is set when blank
     private String role;                // UI role: admin/committee/resident/security/vendor/staff
+    /**
+     * Multi-role assignment at creation time.
+     * When present, supersedes {@link #role}. Each value is a UI role label or
+     * backend role name (e.g. "resident", "SPORTS_ADMIN").
+     */
+    private java.util.List<String> roles;
 
     // ── Notification preferences ──
     private Boolean prefEmail;

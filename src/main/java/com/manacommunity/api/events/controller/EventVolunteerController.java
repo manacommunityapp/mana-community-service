@@ -33,8 +33,7 @@ public class EventVolunteerController {
             return ResponseEntity.ok(volunteerService.getByEvent(eventId));
         }
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (communityId == null) return ResponseEntity.ok(List.of());
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(volunteerService.getByCommunity(communityId));
     }
 

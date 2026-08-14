@@ -30,7 +30,7 @@ public class SportsScheduleAllEventsServiceImpl implements SportsScheduleAllEven
     @Override
     @Transactional(readOnly = true)
     public long getTotalGames(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return isSuperAdmin ? matchRepo.count() : (communityId != null ? matchRepo.countByCommunityId(communityId) : 0L);
     }
@@ -38,7 +38,7 @@ public class SportsScheduleAllEventsServiceImpl implements SportsScheduleAllEven
     @Override
     @Transactional(readOnly = true)
     public long getLiveGames(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return isSuperAdmin ? matchRepo.countByStatus(MatchStatus.LIVE) : (communityId != null ? matchRepo.countByCommunityIdAndStatus(communityId, MatchStatus.LIVE) : 0L);
     }
@@ -46,7 +46,7 @@ public class SportsScheduleAllEventsServiceImpl implements SportsScheduleAllEven
     @Override
     @Transactional(readOnly = true)
     public long getUpcomingGames(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return isSuperAdmin ? matchRepo.countByStatus(MatchStatus.SCHEDULED) : (communityId != null ? matchRepo.countByCommunityIdAndStatus(communityId, MatchStatus.SCHEDULED) : 0L);
     }
@@ -54,7 +54,7 @@ public class SportsScheduleAllEventsServiceImpl implements SportsScheduleAllEven
     @Override
     @Transactional(readOnly = true)
     public long getCompletedGames(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return isSuperAdmin ? matchRepo.countByStatus(MatchStatus.COMPLETED) : (communityId != null ? matchRepo.countByCommunityIdAndStatus(communityId, MatchStatus.COMPLETED) : 0L);
     }
