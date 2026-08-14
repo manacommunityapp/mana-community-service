@@ -150,12 +150,15 @@ public class AdminUserServiceImpl implements AdminUserService {
     /** Maps a UI role (admin/committee/resident/security/vendor/staff) to a backend role. */
     private String mapRole(String uiRole) {
         if (uiRole == null || uiRole.isBlank()) {
-            return ROLE_MEMBER;
+            return ROLE_USER; // All new accounts default to USER until an admin assigns a higher role
         }
         String r = uiRole.trim();
         // "resident" is the standard member role in this system.
         if (r.equalsIgnoreCase("resident") || r.equalsIgnoreCase("member")) {
             return ROLE_MEMBER;
+        }
+        if (r.equalsIgnoreCase("user")) {
+            return ROLE_USER;
         }
         return r.toUpperCase();
     }

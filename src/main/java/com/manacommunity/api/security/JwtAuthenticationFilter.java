@@ -126,13 +126,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void setAuthentication(AppUser user, HttpServletRequest request) {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase()));
+        if (user.getRole() != null) {
+            String[] roles = user.getRole().split(",");
+            for (String r : roles) {
+                String trimmed = r.trim().toUpperCase();
+                if (!trimmed.isEmpty()) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + trimmed));
+                }
+            }
+        }
 
-        // User-specific permissions first, falling back to role-based permissions.
+        // User-specific permissions first, falling back to role-based permissions across assigned roles.
         List<RolePermission> userPerms = rolePermissionRepository.findByUserId(user.getId());
-        List<RolePermission> permissions = userPerms.isEmpty()
-                ? rolePermissionRepository.findByRoleIgnoreCase(user.getRole())
-                : userPerms;
+        List<RolePermission> permissions;
+        if (!userPerms.isEmpty()) {
+            permissions = userPerms;
+        } else {
+            permissions = new ArrayList<>();
+            if (user.getRole() != null) {
+                for (String r : user.getRole().split(",")) {
+                    String trimmed = r.trim();
+                    if (!trimmed.isEmpty()) {
+                        permissions.addAll(rolePermissionRepository.findByRoleIgnoreCase(trimmed));
+                    }
+                }
+            }
+        }
         for (RolePermission perm : permissions) {
             authorities.add(new SimpleGrantedAuthority(perm.getPermissionKey()));
         }

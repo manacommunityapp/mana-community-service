@@ -85,7 +85,7 @@ public class MediaService {
         String s3Key = keyGen.generate(
                 request.getModule(), request.getCommunityId(),
                 request.getModuleId(), request.getSubContext(),
-                mediaType, extension);
+                mediaType, extension, request.getCaption());
 
         String bucket = props.getS3().getBucket();
 
@@ -154,7 +154,7 @@ public class MediaService {
         String s3Key = keyGen.generate(
                 request.getModule(), request.getCommunityId(),
                 request.getModuleId(), request.getSubContext(),
-                request.getMediaType(), extension);
+                request.getMediaType(), extension, request.getCaption());
 
         // Generate presigned PUT URL
         PresignedPutObjectRequest presigned = s3Gateway.presignPut(
@@ -284,6 +284,30 @@ public class MediaService {
         media.setDeletedAt(OffsetDateTime.now());
         mediaRepo.save(media);
         log.info("Media soft-deleted: externalId={} by userId={}", externalId, deletedBy);
+
+        // Physically remove all S3 variants
+        deleteS3Variants(media);
+    }
+
+    /**
+     * Deletes all stored S3 keys for a MediaObject (original, thumbnail, compressed, medium).
+     * Failures are logged but do not propagate — the DB soft-delete is already committed.
+     */
+    private void deleteS3Variants(MediaObject media) {
+        deleteS3Key(media.getBucketName(), media.getS3Key(), "original");
+        deleteS3Key(media.getBucketName(), media.getThumbnailKey(), "thumbnail");
+        deleteS3Key(media.getBucketName(), media.getCompressedKey(), "compressed");
+        deleteS3Key(media.getBucketName(), media.getMediumKey(), "medium");
+    }
+
+    private void deleteS3Key(String bucket, String key, String variant) {
+        if (bucket == null || key == null || key.isBlank()) return;
+        try {
+            s3Gateway.deleteObject(bucket, key);
+            log.info("S3 {} deleted: bucket={} key={}", variant, bucket, key);
+        } catch (Exception ex) {
+            log.warn("Failed to delete S3 {} key={}: {}", variant, key, ex.getMessage());
+        }
     }
 
     @Transactional

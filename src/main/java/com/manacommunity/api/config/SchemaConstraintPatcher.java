@@ -443,11 +443,15 @@ public class SchemaConstraintPatcher {
                               ADD COLUMN IF NOT EXISTS failed_login_attempts integer NOT NULL DEFAULT 0;
                             ALTER TABLE manacommunity.app_user
                               ADD COLUMN IF NOT EXISTS locked_until timestamp;
+                            ALTER TABLE manacommunity.app_user
+                              ADD COLUMN IF NOT EXISTS role_changed_at timestamp;
+                            ALTER TABLE manacommunity.app_user
+                              ADD COLUMN IF NOT EXISTS role_changed_by bigint;
                           END IF;
                         END $$;
                         """);
 
-                log.info("app_user lockout columns (failed_login_attempts, locked_until) ensured.");
+                log.info("app_user lockout and role-tracking columns ensured.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher lockout-column patch failed: {}", e.getMessage(), e);
             }
@@ -2069,20 +2073,21 @@ public class SchemaConstraintPatcher {
 
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_gallery_item (
-                            id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
-                            url             VARCHAR(500) NOT NULL,
-                            thumbnail_url   VARCHAR(500),
-                            media_type      VARCHAR(20) DEFAULT 'PHOTO',
-                            album_name      VARCHAR(100),
-                            day_tag         VARCHAR(100),
-                            category        VARCHAR(100),
-                            caption         VARCHAR(300),
-                            featured        BOOLEAN NOT NULL DEFAULT FALSE,
-                            sort_order      INT NOT NULL DEFAULT 0,
-                            community_id    BIGINT,
-                            uploaded_by     BIGINT,
-                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                            id                  BIGSERIAL PRIMARY KEY,
+                            event_id            BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            url                 VARCHAR(500) NOT NULL,
+                            media_external_id   UUID,
+                            thumbnail_url       VARCHAR(500),
+                            media_type          VARCHAR(20) DEFAULT 'PHOTO',
+                            album_name          VARCHAR(100),
+                            day_tag             VARCHAR(100),
+                            category            VARCHAR(100),
+                            caption             VARCHAR(300),
+                            featured            BOOLEAN NOT NULL DEFAULT FALSE,
+                            sort_order          INT NOT NULL DEFAULT 0,
+                            community_id        BIGINT,
+                            uploaded_by         BIGINT,
+                            created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                         )
                         """);
 
@@ -2092,6 +2097,7 @@ public class SchemaConstraintPatcher {
                           IF to_regclass('manacommunity.event_gallery_item') IS NOT NULL THEN
                             ALTER TABLE manacommunity.event_gallery_item ADD COLUMN IF NOT EXISTS day_tag VARCHAR(100);
                             ALTER TABLE manacommunity.event_gallery_item ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+                            ALTER TABLE manacommunity.event_gallery_item ADD COLUMN IF NOT EXISTS media_external_id UUID;
                           END IF;
                         END $$;
                         """);

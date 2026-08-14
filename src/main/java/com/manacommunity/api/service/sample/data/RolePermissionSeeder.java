@@ -33,7 +33,7 @@ public class RolePermissionSeeder {
         log.info("Seeding role permissions...");
 
         // First, ensure all roles exist in the roles table (global/system roles)
-        List<String> rolesToSeed = List.of(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN, ROLE_MEMBER, ROLE_VENDOR, ROLE_CASHIER, ROLE_STAFF);
+        List<String> rolesToSeed = List.of(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_COMMUNITY_ADMIN, ROLE_SPORTS_ADMIN, ROLE_MEMBER, ROLE_VENDOR, ROLE_CASHIER, ROLE_STAFF);
         for (String roleName : rolesToSeed) {
             if (!roleRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(roleName)) {
                 roleRepo.save(Role.builder().name(roleName.toUpperCase()).build());
@@ -42,6 +42,7 @@ public class RolePermissionSeeder {
 
         saveRolePermissions(ROLE_SUPER_ADMIN, ALL_PERMISSIONS);
         saveRolePermissions(ROLE_ADMIN, ADMIN_PERMISSIONS);
+        saveRolePermissions(ROLE_COMMUNITY_ADMIN, ADMIN_PERMISSIONS);
         saveRolePermissions(ROLE_SPORTS_ADMIN, SPORTS_ADMIN_PERMISSIONS);
         saveRolePermissions(ROLE_MEMBER, MEMBER_PERMISSIONS);
         saveRolePermissions(ROLE_VENDOR, VENDOR_PERMISSIONS);
@@ -56,7 +57,7 @@ public class RolePermissionSeeder {
     public void seed() {
         log.info("Seeding role permissions...");
 
-        List<String> rolesToSeed = List.of(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN, ROLE_MEMBER, ROLE_VENDOR, ROLE_CASHIER, ROLE_STAFF);
+        List<String> rolesToSeed = List.of(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_COMMUNITY_ADMIN, ROLE_SPORTS_ADMIN, ROLE_MEMBER, ROLE_VENDOR, ROLE_CASHIER, ROLE_STAFF);
         for (String roleName : rolesToSeed) {
             if (!roleRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(roleName)) {
                 roleRepo.save(Role.builder().name(roleName.toUpperCase()).build());
@@ -65,6 +66,7 @@ public class RolePermissionSeeder {
 
         saveRolePermissions(ROLE_SUPER_ADMIN, ALL_PERMISSIONS);
         saveRolePermissions(ROLE_ADMIN, ADMIN_PERMISSIONS);
+        saveRolePermissions(ROLE_COMMUNITY_ADMIN, ADMIN_PERMISSIONS);
         saveRolePermissions(ROLE_SPORTS_ADMIN, SPORTS_ADMIN_PERMISSIONS);
         saveRolePermissions(ROLE_MEMBER, MEMBER_PERMISSIONS);
         saveRolePermissions(ROLE_VENDOR, VENDOR_PERMISSIONS);

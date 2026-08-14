@@ -109,21 +109,21 @@ public class AuthServiceImpl implements AuthService {
         user.setGovtIdNumber(maskedAadhar);
         user.setGovtIdType("AADHAAR");
         user.setKycStatus("VERIFIED");
-        user.setRole(ROLE_MEMBER); // Standard role for new users
-        Role memberRole;
+        user.setRole(ROLE_USER); // All new self-registrations start as USER
+        Role userRole;
         if (community != null) {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityId(ROLE_MEMBER, community.getId())
+            userRole = roleRepository.findByNameIgnoreCaseAndCommunityId(ROLE_USER, community.getId())
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name(ROLE_MEMBER)
+                            .name(ROLE_USER)
                             .communityId(community.getId())
                             .build()));
         } else {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_MEMBER)
+            userRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_USER)
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name(ROLE_MEMBER)
+                            .name(ROLE_USER)
                             .build()));
         }
-        user.setRoleEntity(memberRole);
+        user.setRoleEntity(userRole);
         user.setIsActive(true);
         user.setCommunity(community);
         user.setFlatNo(request.getFlatNo());

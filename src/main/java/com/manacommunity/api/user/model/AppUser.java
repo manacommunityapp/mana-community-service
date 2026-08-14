@@ -63,11 +63,19 @@ public class AppUser {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String role = "MEMBER"; // ADMIN, MEMBER, VENDOR
+    private String role = "USER"; // Default role for ALL new registrations. Admin upgrades to MEMBER/STAFF/etc.
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private Role roleEntity;
+
+    /** Timestamp of the last role change — set when an admin assigns a new role. */
+    @Column(name = "role_changed_at")
+    private LocalDateTime roleChangedAt;
+
+    /** ID of the admin user who last changed this user's role. */
+    @Column(name = "role_changed_by")
+    private Long roleChangedBy;
 
     @Column(name = "kyc_status", nullable = false, length = 20)
     @Builder.Default

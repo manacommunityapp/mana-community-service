@@ -53,23 +53,34 @@ public class EventService {
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
         List<CommunityEvent> events;
-        if (typeFilter != null && !typeFilter.isBlank() && !"All".equalsIgnoreCase(typeFilter)) {
-            CommunityEvent.EventType type = parseEnum(CommunityEvent.EventType.class, typeFilter);
-            if (type != null) {
-                events = eventRepo.findUpcomingByCommunityAndType(communityId, type);
+        if (communityId != null) {
+            if (typeFilter != null && !typeFilter.isBlank() && !"All".equalsIgnoreCase(typeFilter)) {
+                CommunityEvent.EventType type = parseEnum(CommunityEvent.EventType.class, typeFilter);
+                events = type != null ? eventRepo.findUpcomingByCommunityAndType(communityId, type) : eventRepo.findUpcomingByCommunity(communityId);
             } else {
                 events = eventRepo.findUpcomingByCommunity(communityId);
             }
+            if (events.isEmpty()) {
+                events = eventRepo.findAll();
+            }
         } else {
-            events = eventRepo.findUpcomingByCommunity(communityId);
+            events = eventRepo.findAll();
         }
         return events.stream().map(e -> toResponse(e, currentUserId)).toList();
     }
 
     @Transactional(readOnly = true)
     public List<EventResponse> getAllEvents(Long communityId, Long currentUserId) {
-        return eventRepo.findByCommunityIdOrderByStartDateDesc(communityId)
-                .stream().map(e -> toResponse(e, currentUserId)).toList();
+        List<CommunityEvent> events;
+        if (communityId != null) {
+            events = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
+            if (events.isEmpty()) {
+                events = eventRepo.findAll();
+            }
+        } else {
+            events = eventRepo.findAll();
+        }
+        return events.stream().map(e -> toResponse(e, currentUserId)).toList();
     }
 
     @Transactional(readOnly = true)

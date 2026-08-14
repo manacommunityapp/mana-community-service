@@ -228,9 +228,9 @@ app:
         max-verify-attempts: ${REGISTRATION_OTP_MAX_ATTEMPTS:3}
         verified-window-minutes: ${REGISTRATION_OTP_VERIFIED_WINDOW:30}
 
-# CORS Configuration for React Frontend
-#cors:
-#  allowed-origins: "http://localhost:3000"
+  # CORS Configuration for React Frontend
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
 
 # ── AI Chat Agent (Ollama — free, runs locally) ──────────────────────
 # Connection settings for the Ollama model. Only takes effect when

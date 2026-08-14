@@ -25,6 +25,7 @@ public final class PermissionConstants {
     public static final String ROLE_COMMUNITY_ADMIN = "COMMUNITY_ADMIN";
     public static final String ROLE_SPORTS_ADMIN   = "SPORTS_ADMIN";
     public static final String ROLE_MEMBER         = "MEMBER";
+    public static final String ROLE_USER           = "USER";   // Default role for all new registrations
     public static final String ROLE_VENDOR         = "VENDOR";
     public static final String ROLE_CASHIER        = "CASHIER";
     public static final String ROLE_STAFF          = "STAFF";
@@ -105,10 +106,39 @@ public final class PermissionConstants {
     public static final String CREATE_JOB = "Create Job";
     public static final String APPLY_JOB  = "Apply Job";
 
-    // ──── EVENTS ────────────────────────────────────────────────────
+    // ──── EVENTS — GRANULAR PERMISSIONS ────
+    // Core
     public static final String VIEW_EVENTS    = "View Events";
     public static final String CREATE_EVENT   = "Create Event";
     public static final String REGISTER_EVENT = "Register Event";
+    // Dashboard
+    public static final String VIEW_EVENT_DASHBOARD        = "View Event Dashboard";
+    public static final String MANAGE_EVENT_DASHBOARD      = "Manage Event Dashboard";
+    // Events & Schedule
+    public static final String VIEW_EVENT_SCHEDULE         = "View Event Schedule";
+    public static final String CREATE_EDIT_EVENT_SCHEDULE  = "Create/Edit Event Schedule";
+    public static final String DELETE_EVENT_SCHEDULE       = "Delete Event Schedule";
+    // Registration
+    public static final String VIEW_EVENT_REGISTRATION     = "View Event Registration";
+    public static final String MANAGE_EVENT_REGISTRATION   = "Manage Event Registration";
+    public static final String EXPORT_EVENT_REGISTRATION   = "Export Event Registration";
+    // People / Volunteers
+    public static final String VIEW_EVENT_PEOPLE           = "View Event People";
+    public static final String MANAGE_EVENT_PEOPLE         = "Manage Event People";
+    // Fundraising / Finance
+    public static final String VIEW_EVENT_FUNDRAISING      = "View Event Fundraising";
+    public static final String MANAGE_EVENT_FUNDRAISING    = "Manage Event Fundraising";
+    // Operations
+    public static final String VIEW_EVENT_OPERATIONS       = "View Event Operations";
+    public static final String MANAGE_EVENT_OPERATIONS     = "Manage Event Operations";
+    // Media & Reports
+    public static final String VIEW_EVENT_MEDIA            = "View Event Media";
+    public static final String MANAGE_EVENT_MEDIA          = "Manage Event Media";
+    public static final String VIEW_EVENT_GALLERY          = "View Event Gallery";
+    public static final String VIEW_EVENT_REPORTS          = "View Event Reports";
+    // Notifications
+    public static final String SEND_EVENT_NOTIFICATIONS    = "Send Event Notifications";
+    public static final String MANAGE_EVENT_NOTIFICATIONS  = "Manage Event Notifications";
 
 
     // ──── SERVICE PLATFORM ────────────────────────────────────────────
@@ -183,6 +213,29 @@ public final class PermissionConstants {
     public static final String MANAGE_ROLES       = "Manage Roles";
     public static final String EDIT_VENUE_TIMING  = "Edit Venue Timing";
 
+    // ──── EVENT PERMISSION GROUPS ───────────────────────────────────
+    /** All 11 View event permissions */
+    public static final List<String> ALL_EVENT_VIEW_PERMISSIONS = List.of(
+            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE,
+            VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
+            VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS,
+            VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS
+    );
+
+    /** All 23 event permissions */
+    public static final List<String> ALL_EVENT_PERMISSIONS = List.of(
+            VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
+            VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+            VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
+            VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
+            VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
+            VIEW_EVENT_FUNDRAISING, MANAGE_EVENT_FUNDRAISING,
+            VIEW_EVENT_OPERATIONS, MANAGE_EVENT_OPERATIONS,
+            VIEW_EVENT_MEDIA, MANAGE_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+            SEND_EVENT_NOTIFICATIONS, MANAGE_EVENT_NOTIFICATIONS
+    );
+
     // ──── SPORTS PERMISSION GROUPS ──────────────────────────────────
     /** All 8 View sports permissions */
     public static final List<String> ALL_SPORTS_VIEW_PERMISSIONS = List.of(
@@ -211,6 +264,7 @@ public final class PermissionConstants {
             Stream.of(
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
+                    ALL_EVENT_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
@@ -218,7 +272,6 @@ public final class PermissionConstants {
                     List.of(VIEW_TICKETS, CREATE_TICKET, MANAGE_TICKETS),
                     List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
-                    List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING),
 
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
@@ -236,6 +289,7 @@ public final class PermissionConstants {
             Stream.of(
                     List.of(VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST),
                     ALL_SPORTS_PERMISSIONS,
+                    ALL_EVENT_PERMISSIONS,
                     List.of(VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE),
                     List.of(VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE),
                     List.of(VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES),
@@ -243,7 +297,6 @@ public final class PermissionConstants {
                     List.of(VIEW_TICKETS, CREATE_TICKET, MANAGE_TICKETS),
                     List.of(VIEW_POLLS, CREATE_POLL, VOTE_POLL),
                     List.of(VIEW_JOBS, CREATE_JOB, APPLY_JOB),
-                    List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
                     List.of(VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_ROLES, EDIT_VENUE_TIMING),
 
                     List.of(VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
@@ -268,7 +321,7 @@ public final class PermissionConstants {
                     List.of(VIEW_TICKETS, CREATE_TICKET),
                     List.of(VIEW_POLLS, VOTE_POLL),
                     List.of(VIEW_JOBS),
-                    List.of(VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT),
+                    List.of(VIEW_EVENTS, REGISTER_EVENT, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS, SEND_EVENT_NOTIFICATIONS),
                     List.of(VIEW_ADMIN, EDIT_VENUE_TIMING)
             ).flatMap(List::stream).toList()
     );
@@ -287,7 +340,7 @@ public final class PermissionConstants {
             VIEW_TICKETS, CREATE_TICKET,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, APPLY_JOB,
-            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_EVENTS, REGISTER_EVENT, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
             VIEW_SERVICE_CATALOG, VIEW_SERVICE_PROVIDERS,
             CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS, VIEW_WORK_ORDERS
     );
@@ -302,7 +355,7 @@ public final class PermissionConstants {
             VIEW_TICKETS, CREATE_TICKET,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS, CREATE_JOB,
-            VIEW_EVENTS, REGISTER_EVENT,
+            VIEW_EVENTS, REGISTER_EVENT, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE,
             VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, MANAGE_VENDOR_PAYMENTS
     );
 
@@ -316,7 +369,7 @@ public final class PermissionConstants {
             VIEW_TICKETS,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS,
-            VIEW_EVENTS
+            VIEW_EVENTS, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION
     );
 
     public static final List<String> STAFF_PERMISSIONS = List.of(
@@ -329,6 +382,20 @@ public final class PermissionConstants {
             VIEW_TICKETS, MANAGE_TICKETS,
             VIEW_POLLS, VOTE_POLL,
             VIEW_JOBS,
-            VIEW_EVENTS
+            VIEW_EVENTS, REGISTER_EVENT, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS
+    );
+
+    /**
+     * Default permissions for a newly registered USER (minimal view-only access).
+     * Admins can upgrade to MEMBER or higher at any time.
+     */
+    public static final List<String> USER_PERMISSIONS = List.of(
+            VIEW_FEED, COMMENT_ON_POST,
+            VIEW_EVENTS, REGISTER_EVENT, VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_GALLERY,
+            VIEW_MARKETPLACE,
+            VIEW_NOTICES,
+            VIEW_POLLS, VOTE_POLL,
+            VIEW_JOBS,
+            VIEW_AMENITIES
     );
 }

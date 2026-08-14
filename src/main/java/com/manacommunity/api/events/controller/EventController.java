@@ -29,28 +29,28 @@ public class EventController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
     public ResponseEntity<List<EventResponse>> getUpcomingEvents(
             @RequestParam(required = false) String type,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (communityId == null) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(eventService.getUpcomingEvents(communityId, type, user.getId()));
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long userId = user != null ? user.getId() : null;
+        return ResponseEntity.ok(eventService.getUpcomingEvents(communityId, type, userId));
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
     public ResponseEntity<List<EventResponse>> getAllEvents(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (communityId == null) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(eventService.getAllEvents(communityId, user.getId()));
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long userId = user != null ? user.getId() : null;
+        return ResponseEntity.ok(eventService.getAllEvents(communityId, userId));
     }
 
     @GetMapping("/mine")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'Register Event')")
     public ResponseEntity<List<EventResponse>> getMyEvents(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -58,7 +58,7 @@ public class EventController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
     public ResponseEntity<EventResponse> getById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -67,7 +67,7 @@ public class EventController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard')")
     public ResponseEntity<EventResponse> create(
             @Valid @RequestBody EventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -77,7 +77,7 @@ public class EventController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard')")
     public ResponseEntity<EventResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventRequest req,
@@ -87,7 +87,7 @@ public class EventController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Delete Event Schedule', 'Manage Event Dashboard')")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -97,7 +97,7 @@ public class EventController {
     }
 
     @GetMapping("/dashboard/stats")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard')")
     public ResponseEntity<DashboardStatsResponse> getDashboardStats(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -107,7 +107,7 @@ public class EventController {
     }
 
     @GetMapping("/dashboard/analytics")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard')")
     public ResponseEntity<DashboardAnalyticsResponse> getDashboardAnalytics(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -117,7 +117,7 @@ public class EventController {
     }
 
     @GetMapping("/dashboard/pending-actions")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard')")
     public ResponseEntity<List<PendingActionItemDto>> getPendingActionItems(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -126,28 +126,28 @@ public class EventController {
     }
 
     @GetMapping("/{id}/registrations")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Registration', 'Manage Event Registration')")
     public ResponseEntity<List<RegistrationResponse>> getEventRegistrations(
             @PathVariable Long id) {
         return ResponseEntity.ok(eventService.getEventRegistrations(id));
     }
 
     @PutMapping("/registrations/{regId}/confirm")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Manage Event Registration')")
     public ResponseEntity<RegistrationResponse> confirmRegistration(
             @PathVariable Long regId) {
         return ResponseEntity.ok(eventService.confirmRegistration(regId));
     }
 
     @PutMapping("/registrations/{regId}/reject")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Manage Event Registration')")
     public ResponseEntity<RegistrationResponse> rejectRegistration(
             @PathVariable Long regId) {
         return ResponseEntity.ok(eventService.rejectRegistration(regId));
     }
 
     @PostMapping("/{id}/register")
-    @PreAuthorize("hasAuthority('Register Event')")
+    @PreAuthorize("hasAnyAuthority('Register Event', 'View Events')")
     public ResponseEntity<EventResponse> register(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -156,7 +156,7 @@ public class EventController {
     }
 
     @DeleteMapping("/{id}/register")
-    @PreAuthorize("hasAuthority('Register Event')")
+    @PreAuthorize("hasAnyAuthority('Register Event', 'View Events')")
     public ResponseEntity<EventResponse> unregister(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

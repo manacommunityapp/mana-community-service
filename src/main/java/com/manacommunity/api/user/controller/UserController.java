@@ -29,25 +29,37 @@ public class UserController {
     private final com.manacommunity.api.service.RoleService roleService;
     private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
 
+    private java.util.List<String> getRolesList(String roleStr) {
+        if (roleStr == null || roleStr.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return java.util.Arrays.stream(roleStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .toList();
+    }
+
     private java.util.List<String> getPermissionsForUser(AppUser user) {
-        if (user.getRole() == null) {
+        if (user.getRole() == null || user.getRole().isBlank()) {
             return java.util.Collections.emptyList();
         }
         java.util.List<com.manacommunity.api.model.RolePermission> userPerms = rolePermissionRepo.findByUserId(user.getId());
         if (!userPerms.isEmpty()) {
             return userPerms.stream()
                     .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
+                    .distinct()
                     .toList();
         }
-        if (user.getRoleEntity() != null) {
-            return user.getRoleEntity().getPermissions().stream()
+        java.util.List<String> roles = getRolesList(user.getRole());
+        java.util.List<String> combined = new java.util.ArrayList<>();
+        for (String r : roles) {
+            rolePermissionRepo.findByRoleIgnoreCase(r).stream()
+                    .filter(rp -> rp.getUser() == null)
                     .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                    .toList();
+                    .forEach(combined::add);
         }
-        return rolePermissionRepo.findByRoleIgnoreCase(user.getRole()).stream()
-                .filter(rp -> rp.getUser() == null)
-                .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                .toList();
+        return combined.stream().distinct().toList();
     }
 
     private java.util.List<String> getEnabledModules(AppUser user) {
@@ -67,6 +79,7 @@ public class UserController {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .role(user.getRole())
+                .roles(getRolesList(user.getRole()))
                 .kycStatus(user.getKycStatus())
                 .profilePicUrl(user.getProfilePicUrl())
                 .gender(user.getGender())
@@ -106,6 +119,7 @@ public class UserController {
                         .email(u.getEmail())
                         .phone(u.getPhone())
                         .role(u.getRole())
+                        .roles(getRolesList(u.getRole()))
                         .communityId(finalCommId)
                         .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
                         .isActive(u.getIsActive())
@@ -134,6 +148,7 @@ public class UserController {
                         .email(u.getEmail())
                         .phone(u.getPhone())
                         .role(u.getRole())
+                        .roles(getRolesList(u.getRole()))
                         .communityId(finalCommId)
                         .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
                         .isActive(u.getIsActive())
@@ -177,6 +192,7 @@ public class UserController {
                         .email(u.getEmail())
                         .phone(u.getPhone())
                         .role(u.getRole())
+                        .roles(getRolesList(u.getRole()))
                         .kycStatus(u.getKycStatus())
                         .profilePicUrl(u.getProfilePicUrl())
                         .gender(u.getGender())
@@ -209,6 +225,7 @@ public class UserController {
                 .email(saved.getEmail())
                 .phone(saved.getPhone())
                 .role(saved.getRole())
+                .roles(getRolesList(saved.getRole()))
                 .kycStatus(saved.getKycStatus())
                 .profilePicUrl(saved.getProfilePicUrl())
                 .gender(saved.getGender())
@@ -236,6 +253,7 @@ public class UserController {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .role(user.getRole())
+                .roles(getRolesList(user.getRole()))
                 .kycStatus(user.getKycStatus())
                 .profilePicUrl(user.getProfilePicUrl())
                 .gender(user.getGender())
@@ -260,53 +278,114 @@ public class UserController {
     }
 
     @PutMapping("/{id}/role")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<Void> updateUserRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+    public ResponseEntity<UserResponse> updateUserRole(
+            @PathVariable Long id,
+            @RequestBody com.manacommunity.api.user.dto.RoleAssignmentRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
-        String newRole = body.get("role");
-        if (newRole == null) {
-            throw new com.manacommunity.api.exception.InvalidInputException("Role is required");
+
+        java.util.List<String> targetRoles = new java.util.ArrayList<>();
+        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
+            req.getRoles().stream()
+                    .map(s -> s == null ? "" : s.trim().toUpperCase())
+                    .filter(s -> !s.isEmpty())
+                    .forEach(targetRoles::add);
+        } else if (req.getRole() != null && !req.getRole().isBlank()) {
+            java.util.Arrays.stream(req.getRole().split(","))
+                    .map(s -> s.trim().toUpperCase())
+                    .filter(s -> !s.isEmpty())
+                    .forEach(targetRoles::add);
         }
-        
-        String normRole = newRole.toUpperCase();
+
+        if (targetRoles.isEmpty()) {
+            throw new com.manacommunity.api.exception.InvalidInputException("At least one role is required");
+        }
+
+        java.util.List<String> distinctRoles = targetRoles.stream().distinct().toList();
+
+        // Non-super-admins may only change roles within their own community.
+        AppUser admin = loggedInUserService.resolve(principal);
+        if (!ROLE_SUPER_ADMIN.equals(admin.getRole())) {
+            Long adminCommunityId = admin.getCommunity() != null ? admin.getCommunity().getId() : null;
+            Long userCommunityId  = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            if (adminCommunityId == null || !adminCommunityId.equals(userCommunityId)) {
+                throw new com.manacommunity.api.exception.UnauthorizedActionException(
+                        "You can only manage roles within your own community.");
+            }
+        }
+
+        String normRole = String.join(", ", distinctRoles);
         user.setRole(normRole);
-        
-        // Resolve and update roleEntity scoped to user's community
+
+        // Resolve primary roleEntity scoped to user's community
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        com.manacommunity.api.model.Role roleEntity = roleService.findOrCreateRole(normRole, communityId);
+        String primaryRoleName = distinctRoles.get(0);
+        com.manacommunity.api.model.Role roleEntity = roleService.findOrCreateRole(primaryRoleName, communityId);
         if (roleEntity == null) {
-            throw new com.manacommunity.api.exception.InvalidInputException("Failed to resolve role: " + normRole);
+            throw new com.manacommunity.api.exception.InvalidInputException("Failed to resolve role: " + primaryRoleName);
         }
         user.setRoleEntity(roleEntity);
+
+        // Track who changed the role and when
+        user.setRoleChangedAt(java.time.LocalDateTime.now());
+        user.setRoleChangedBy(admin.getId());
+
         appUserRepo.save(user);
 
-        // Delete old user-specific permissions
+        // Delete old user-specific permissions and replace with combined templates of all assigned roles
         rolePermissionRepo.deleteByUserId(user.getId());
         rolePermissionRepo.flush();
 
-        // Load standard role permission templates (where user is null) from the resolved roleEntity
-        java.util.Set<com.manacommunity.api.model.RolePermission> templates =
-                roleEntity.getPermissions() != null ? roleEntity.getPermissions() : java.util.Collections.emptySet();
-        
-        // Create and save user-specific role permissions
-        java.util.List<com.manacommunity.api.model.RolePermission> userPermissions = templates.stream()
-                .filter(t -> t.getUser() == null) // copy from generic template
-                .map(t -> t.getPermissionKey())
-                .filter(pk -> pk != null && !pk.trim().isEmpty())
-                .distinct()
-                .map(pk -> com.manacommunity.api.model.RolePermission.builder()
-                        .role(normRole)
-                        .roleEntity(roleEntity)
-                        .permissionKey(pk)
-                        .user(user)
-                        .build())
-                .toList();
-        
-        rolePermissionRepo.saveAll(userPermissions);
-        
-        return ResponseEntity.ok().build();
+        java.util.List<com.manacommunity.api.model.RolePermission> combinedUserPermissions = new java.util.ArrayList<>();
+        for (String rName : distinctRoles) {
+            com.manacommunity.api.model.Role rEntity = roleService.findOrCreateRole(rName, communityId);
+            java.util.Set<com.manacommunity.api.model.RolePermission> templates =
+                    (rEntity != null && rEntity.getPermissions() != null) ? rEntity.getPermissions() : java.util.Collections.emptySet();
+
+            templates.stream()
+                    .filter(t -> t.getUser() == null)
+                    .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
+                    .filter(pk -> pk != null && !pk.trim().isEmpty())
+                    .distinct()
+                    .forEach(pk -> combinedUserPermissions.add(com.manacommunity.api.model.RolePermission.builder()
+                            .role(rName)
+                            .roleEntity(rEntity)
+                            .permissionKey(pk)
+                            .user(user)
+                            .build()));
+        }
+
+        if (!combinedUserPermissions.isEmpty()) {
+            rolePermissionRepo.saveAll(combinedUserPermissions);
+        }
+
+        // Re-fetch fresh permissions to return in response
+        java.util.List<String> freshPerms = getPermissionsForUser(user);
+
+        return ResponseEntity.ok(UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .roles(distinctRoles)
+                .kycStatus(user.getKycStatus())
+                .profilePicUrl(user.getProfilePicUrl())
+                .gender(user.getGender())
+                .dateOfBirth(user.getDateOfBirth())
+                .flatNo(user.getFlatNo())
+                .block(user.getBlock())
+                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
+                .roleId(roleEntity.getId())
+                .isActive(user.getIsActive())
+                .permissions(freshPerms)
+                .roleChangedAt(user.getRoleChangedAt())
+                .roleChangedBy(user.getRoleChangedBy())
+                .build());
     }
 
     @PutMapping("/{id}/kyc")

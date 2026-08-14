@@ -28,6 +28,14 @@ public class EventGalleryItem {
     @Column(nullable = false, length = 500)
     private String url;
 
+    /**
+     * Optional reference to the centralized MediaObject UUID.
+     * When set, EventGalleryService uses MediaUrlService to generate fresh
+     * presigned / CloudFront URLs at read time — preventing expired URL errors.
+     */
+    @Column(name = "media_external_id")
+    private java.util.UUID mediaExternalId;
+
     @Column(name = "thumbnail_url", length = 500)
     private String thumbnailUrl;
 
