@@ -3,8 +3,8 @@ package com.manacommunity.api.service;
 import com.manacommunity.api.dto.AuctionBidResponse;
 import com.manacommunity.api.dto.AuctionStatsResponse;
 import com.manacommunity.api.dto.PlayerWithBidResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -12,10 +12,13 @@ import java.time.LocalDateTime;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuctionWebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
+
+    public AuctionWebSocketService(@Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
 
     public record AuctionEvent(String type, Object payload, LocalDateTime timestamp) {
         public AuctionEvent(String type, Object payload) {
@@ -45,6 +48,10 @@ public class AuctionWebSocketService {
     }
 
     private void send(Long configId, AuctionEvent event) {
+        if (messagingTemplate == null) {
+            log.trace("SimpMessagingTemplate unavailable; skipping STOMP broadcast for auction {}", configId);
+            return;
+        }
         String destination = "/topic/auction/" + configId;
         try {
             messagingTemplate.convertAndSend(destination, event);

@@ -209,7 +209,7 @@ public class TournamentSchedulerController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(user.getRole())) {
+        if (!user.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         }
         if (targetCommunityId == null) {

@@ -66,14 +66,31 @@ public class AdminUserServiceImpl implements AdminUserService {
                 ? DEFAULT_TEMP_PASSWORD : req.getPassword();
         PasswordPolicy.validate(rawPassword, Arrays.asList(email, fullName, phone, community.getName()));
 
-        // 4. Resolve the role (UI value -> backend role) scoped to the community.
-        String backendRole = mapRole(req.getRole());
-        Role roleEntity = roleService.findOrCreateRole(backendRole, community.getId());
-        if (roleEntity == null) {
-            throw new InvalidInputException("Failed to resolve role: " + backendRole);
+        // 4. Resolve role(s) — prefer req.getRoles() list, fall back to req.getRole() string.
+        //    Each UI label is mapped to a backend role name.
+        List<String> rawRoles = resolveRoleList(req);
+        List<String> distinctRoles = rawRoles.stream().distinct().toList();
+
+        // Primary role entity (used for role_id FK on app_user).
+        String primaryRoleName = distinctRoles.get(0);
+        Role primaryRoleEntity = roleService.findOrCreateRole(primaryRoleName, community.getId());
+        if (primaryRoleEntity == null) {
+            throw new InvalidInputException("Failed to resolve role: " + primaryRoleName);
         }
 
-        // 5. Build and persist the user with all captured fields.
+        // 5. Resolve ALL role entities and build the userRoles set that backs app_user_roles.
+        java.util.Set<Role> resolvedRoles = new java.util.LinkedHashSet<>();
+        for (String rName : distinctRoles) {
+            Role rEntity = roleService.findOrCreateRole(rName, community.getId());
+            if (rEntity != null) resolvedRoles.add(rEntity);
+        }
+
+        // Combined role string stored in app_user.role (e.g. "MEMBER, SPORTS_ADMIN").
+        String combinedRoleStr = resolvedRoles.stream()
+                .map(Role::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        // 6. Build and persist the user with all captured fields.
         AppUser user = AppUser.builder()
                 .fullName(fullName)
                 .email(email)
@@ -83,8 +100,9 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .gender(mapGender(req.getGender()))
                 .profilePicUrl(blankToNull(req.getProfilePic()))
                 .employeeId(blankToNull(req.getEmployeeId()))
-                .role(backendRole)
-                .roleEntity(roleEntity)
+                .role(combinedRoleStr)
+                .roleEntity(primaryRoleEntity)
+                .userRoles(resolvedRoles)
                 .kycStatus("VERIFIED") // admin-created accounts are pre-verified (matches self-registration)
                 .community(community)
                 .block(blankToNull(req.getBlock()))
@@ -101,12 +119,31 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         AppUser saved = userRepository.save(user);
 
-        // 6. Copy the role's permission templates onto user-specific rows so the
-        //    new account actually carries its permissions (mirrors updateUserRole).
-        assignRolePermissions(saved, backendRole, roleEntity);
+        // 7. Copy permission templates for ALL assigned roles onto user-specific rows
+        //    so the new account carries the full merged permission set.
+        assignMultiRolePermissions(saved, distinctRoles, community.getId());
 
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
         return saved;
+    }
+
+    /**
+     * Resolves the effective role list from the request.
+     * Prefers {@code req.getRoles()} (multi-role list); falls back to {@code req.getRole()} string.
+     * Each value is mapped from its UI label to a backend role name.
+     * Always returns at least one element (defaults to ROLE_USER).
+     */
+    private List<String> resolveRoleList(AdminCreateUserRequest req) {
+        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
+            List<String> mapped = req.getRoles().stream()
+                    .filter(r -> r != null && !r.isBlank())
+                    .map(this::mapRole)
+                    .distinct()
+                    .toList();
+            if (!mapped.isEmpty()) return mapped;
+        }
+        // Fall back to single role string.
+        return List.of(mapRole(req.getRole()));
     }
 
     private Community resolveCommunity(AdminCreateUserRequest req) {
@@ -121,41 +158,54 @@ public class AdminUserServiceImpl implements AdminUserService {
         throw new InvalidInputException("A community is required (communityId or inviteCode).");
     }
 
-    /** Copies generic role permission templates to user-specific rows (see UserController.updateUserRole). */
-    private void assignRolePermissions(AppUser user, String role, Role roleEntity) {
+    /**
+     * Merges permission templates from every assigned role and saves them as
+     * user-specific rows. Permission keys are de-duplicated across roles so the
+     * unique constraint on (role_id, permission_key, user_id) is never violated.
+     * Each resulting row carries the role name that first contributed that key.
+     */
+    private void assignMultiRolePermissions(AppUser user, List<String> roles, Long communityId) {
         rolePermissionRepo.deleteByUserId(user.getId());
         rolePermissionRepo.flush();
 
-        Set<RolePermission> templates =
-                roleEntity.getPermissions() != null ? roleEntity.getPermissions() : Collections.emptySet();
+        // Track already-seen permission keys to guarantee uniqueness.
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        List<RolePermission> allPermissions = new java.util.ArrayList<>();
 
-        List<RolePermission> userPermissions = templates.stream()
-                .filter(t -> t.getUser() == null) // copy from the generic template rows
-                .map(RolePermission::getPermissionKey)
-                .filter(pk -> pk != null && !pk.trim().isEmpty())
-                .distinct()
-                .map(pk -> RolePermission.builder()
-                        .role(role)
-                        .roleEntity(roleEntity)
-                        .permissionKey(pk)
-                        .user(user)
-                        .build())
-                .toList();
+        for (String roleName : roles) {
+            Role rEntity = roleService.findOrCreateRole(roleName, communityId);
+            if (rEntity == null || rEntity.getPermissions() == null) continue;
 
-        if (!userPermissions.isEmpty()) {
-            rolePermissionRepo.saveAll(userPermissions);
+            rEntity.getPermissions().stream()
+                    .filter(t -> t.getUser() == null)  // template rows only
+                    .map(RolePermission::getPermissionKey)
+                    .filter(pk -> pk != null && !pk.isBlank())
+                    .filter(seen::add)                 // de-duplicate across roles
+                    .forEach(pk -> allPermissions.add(RolePermission.builder()
+                            .role(roleName)
+                            .roleEntity(rEntity)
+                            .permissionKey(pk)
+                            .user(user)
+                            .build()));
+        }
+
+        if (!allPermissions.isEmpty()) {
+            rolePermissionRepo.saveAll(allPermissions);
         }
     }
 
     /** Maps a UI role (admin/committee/resident/security/vendor/staff) to a backend role. */
     private String mapRole(String uiRole) {
         if (uiRole == null || uiRole.isBlank()) {
-            return ROLE_MEMBER;
+            return ROLE_USER; // All new accounts default to USER until an admin assigns a higher role
         }
         String r = uiRole.trim();
         // "resident" is the standard member role in this system.
         if (r.equalsIgnoreCase("resident") || r.equalsIgnoreCase("member")) {
             return ROLE_MEMBER;
+        }
+        if (r.equalsIgnoreCase("user")) {
+            return ROLE_USER;
         }
         return r.toUpperCase();
     }

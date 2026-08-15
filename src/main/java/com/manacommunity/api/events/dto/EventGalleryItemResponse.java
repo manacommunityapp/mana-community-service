@@ -11,6 +11,8 @@ public class EventGalleryItemResponse {
     private Long eventId;
     private String url;
     private String thumbnailUrl;
+    private String compressedUrl;
+    private String mediumUrl;
     private String mediaType;
     private String albumName;
     private String dayTag;
@@ -20,4 +22,10 @@ public class EventGalleryItemResponse {
     private int sortOrder;
     private String uploadedByName;
     private String createdAt;
+
+    /**
+     * UUID of the linked MediaObject. Clients can use this to fetch the media
+     * directly from /api/media/{mediaId} for the freshest URL if needed.
+     */
+    private String mediaId;
 }

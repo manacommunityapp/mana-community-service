@@ -37,6 +37,10 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         return rolePermissionRepo.findAll().stream()
                 .filter(rp -> rp.getUser() == null)
                 .filter(rp -> {
+                    String rName = rp.getRole() != null ? rp.getRole().toUpperCase() : "";
+                    if ("SUPER_ADMIN".equals(rName) || "SUPERADMIN".equals(rName) || "SUPER_ADMINISTRATOR".equals(rName)) {
+                        return false;
+                    }
                     Role roleEntity = rp.getRoleEntity();
                     if (roleEntity == null) return true;
                     if (communityId != null) {
@@ -54,11 +58,22 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     @Override
     @Transactional
     public void updateRolePermissions(String roleName, Long communityId, List<String> permissions) {
-        Role role = communityId != null
-                ? roleRepo.findByNameIgnoreCaseAndCommunityId(roleName, communityId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName))
-                : roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(roleName)
-                        .orElseThrow(() -> new ResourceNotFoundException("Role", "name", roleName));
+        String normalizedRoleName = roleName != null ? roleName.trim().toUpperCase() : "";
+
+        // Find or create the Role entity (community-scoped if communityId provided, else global)
+        Role role = (communityId != null)
+                ? roleRepo.findByNameIgnoreCaseAndCommunityId(normalizedRoleName, communityId)
+                        .orElseGet(() -> roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
+                                .orElseGet(() -> roleRepo.save(Role.builder()
+                                        .name(normalizedRoleName)
+                                        .communityId(communityId)
+                                        .permissions(new java.util.HashSet<>())
+                                        .build())))
+                : roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
+                        .orElseGet(() -> roleRepo.save(Role.builder()
+                                .name(normalizedRoleName)
+                                .permissions(new java.util.HashSet<>())
+                                .build()));
 
         rolePermissionRepo.deleteByRoleEntityIdAndUserIsNull(role.getId());
 
@@ -66,7 +81,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .filter(p -> p != null && !p.trim().isEmpty())
                 .distinct()
                 .map(p -> RolePermission.builder()
-                        .role(roleName.toUpperCase())
+                        .role(normalizedRoleName)
                         .roleEntity(role)
                         .permissionKey(p)
                         .build())
@@ -76,7 +91,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         auditService.record(
                 com.manacommunity.api.security.AuditAction.PERMISSION_CHANGED,
                 com.manacommunity.api.security.AuditModule.ADMIN,
-                "Role", roleName,
+                "Role", normalizedRoleName,
                 null,
                 "permissions=" + entities.size() + " (role-level, community=" + communityId + ")");
     }
@@ -89,9 +104,11 @@ public class RolePermissionServiceImpl implements RolePermissionService {
 
         rolePermissionRepo.deleteByUserId(userId);
 
+        // De-duplicate permission keys while preserving encounter order.
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
         List<RolePermission> entities = permissions.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
-                .distinct()
+                .filter(seen::add)   // retains only first occurrence of each key
                 .map(p -> RolePermission.builder()
                         .role(role.toUpperCase())
                         .roleEntity(user.getRoleEntity())

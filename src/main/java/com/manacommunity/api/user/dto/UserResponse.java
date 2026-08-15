@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -24,4 +25,10 @@ public class UserResponse {
     private Boolean isActive;
     private java.util.List<String> permissions;
     private java.util.List<String> enabledModules;
+    /** Primary / combined assigned roles list for this user. */
+    private java.util.List<String> roles;
+    /** When the role was last changed by an admin. */
+    private LocalDateTime roleChangedAt;
+    /** ID of the admin who last changed this user's role. */
+    private Long roleChangedBy;
 }

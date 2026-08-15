@@ -19,7 +19,12 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public List<Role> getAllRoles() {
-        return roleRepo.findAll();
+        return roleRepo.findAll().stream()
+                .filter(r -> r.getName() != null
+                        && !r.getName().equalsIgnoreCase("SUPER_ADMIN")
+                        && !r.getName().equalsIgnoreCase("SUPERADMIN")
+                        && !r.getName().equalsIgnoreCase("SUPER_ADMINISTRATOR"))
+                .toList();
     }
 
     @Override
@@ -36,6 +41,9 @@ public class RoleServiceImpl implements RoleService {
         }
         
         String normalizedName = name.trim().toUpperCase();
+        if (normalizedName.equals("SUPER_ADMIN") || normalizedName.equals("SUPERADMIN") || normalizedName.equals("SUPER_ADMINISTRATOR")) {
+            throw new InvalidInputException("Creation of Super Admin role is restricted.");
+        }
         boolean exists = (communityId != null)
                 ? roleRepo.existsByNameIgnoreCaseAndCommunityId(normalizedName, communityId)
                 : roleRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(normalizedName);
