@@ -9,6 +9,11 @@ import com.manacommunity.api.events.entity.ActivityRegistration;
 import com.manacommunity.api.events.entity.EventProgram;
 import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
+import com.manacommunity.api.exception.AlreadyRegisteredException;
+import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -43,13 +48,13 @@ public class ActivityRegistrationService {
                 .orElse(null);
         if (existingRegistration != null
                 && existingRegistration.getStatus() != ActivityRegistration.ActivityRegStatus.CANCELLED) {
-            throw new IllegalStateException("Already registered for this activity");
+            throw new AlreadyRegisteredException(program.getTitle());
         }
 
         int headCount = resolveHeadCount(req);
         int maxPerRegistration = program.getMaxPerRegistration() > 0 ? program.getMaxPerRegistration() : 10;
         if (headCount > maxPerRegistration) {
-            throw new IllegalArgumentException("Head count exceeds maximum allowed per registration: " + maxPerRegistration);
+            throw new InvalidInputException("Head count exceeds maximum allowed per registration: " + maxPerRegistration);
         }
 
         ActivityRegistration.ActivityRegStatus status = resolveSubmissionStatus(program, headCount);
@@ -110,7 +115,7 @@ public class ActivityRegistrationService {
                 registration.setDecisionReason("Moved to waitlist because capacity is full");
                 return toResponse(registrationRepo.save(registration));
             }
-            throw new IllegalStateException("Activity is at full capacity");
+            throw new EventFullException(program.getTitle(), program.getCapacity());
         }
         registration.setStatus(ActivityRegistration.ActivityRegStatus.CONFIRMED);
         registration.setApprovedBy(approver);
@@ -137,7 +142,7 @@ public class ActivityRegistrationService {
     public ActivityRegistrationResponse cancel(Long registrationId, AppUser user) {
         ActivityRegistration registration = getRegistration(registrationId);
         if (!registration.getUser().getId().equals(user.getId())) {
-            throw new IllegalStateException("Only the registrant can cancel this activity registration");
+            throw new UnauthorizedActionException("Only the registrant can cancel this activity registration");
         }
         boolean wasConfirmed = registration.getStatus() == ActivityRegistration.ActivityRegStatus.CONFIRMED;
         registration.setStatus(ActivityRegistration.ActivityRegStatus.CANCELLED);
@@ -150,7 +155,7 @@ public class ActivityRegistrationService {
     private ActivityRegistration.ActivityRegStatus resolveSubmissionStatus(EventProgram program, int headCount) {
         if (!hasCapacity(program, headCount)) {
             if (program.isAllowWaitlist()) return ActivityRegistration.ActivityRegStatus.WAITLISTED;
-            throw new IllegalStateException("Activity is at full capacity");
+            throw new EventFullException(program.getTitle(), program.getCapacity());
         }
         return program.isRequiresApproval()
                 ? ActivityRegistration.ActivityRegStatus.PENDING
@@ -204,12 +209,12 @@ public class ActivityRegistrationService {
 
     private EventProgram getProgram(Long programId) {
         return programRepo.findById(programId)
-                .orElseThrow(() -> new IllegalArgumentException("Activity not found: " + programId));
+                .orElseThrow(() -> new ResourceNotFoundException("Activity", programId));
     }
 
     private ActivityRegistration getRegistration(Long registrationId) {
         return registrationRepo.findById(registrationId)
-                .orElseThrow(() -> new IllegalArgumentException("Activity registration not found: " + registrationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Activity registration", registrationId));
     }
 
     private ActivityRegistrationResponse toResponse(ActivityRegistration registration) {
@@ -248,7 +253,7 @@ public class ActivityRegistrationService {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("Invalid registration data", e);
+            throw new InvalidInputException("Invalid registration data");
         }
     }
 

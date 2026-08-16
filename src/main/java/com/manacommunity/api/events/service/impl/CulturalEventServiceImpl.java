@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.CulturalEvent;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.service.CulturalEventService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class CulturalEventServiceImpl implements CulturalEventService {
     @Transactional(readOnly = true)
     public CulturalEvent getCulturalEventById(Long id, Long communityId) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Cultural Event not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Cultural event", id));
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.CompetitionCategory;
 import com.manacommunity.api.events.repository.CompetitionCategoryRepository;
 import com.manacommunity.api.events.service.CompetitionCategoryService;
+import com.manacommunity.api.exception.InvalidInputException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +44,7 @@ public class CompetitionCategoryServiceImpl implements CompetitionCategoryServic
     @Override
     public CompetitionCategory createCompetitionCategory(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Competition category name cannot be empty");
+            throw new InvalidInputException("Competition category name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)

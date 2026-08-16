@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventExpenseRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +40,7 @@ public class EventExpenseService {
     @Transactional
     public EventExpenseResponse create(EventExpenseRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventExpense expense = EventExpense.builder()
                 .event(event)
@@ -59,7 +60,7 @@ public class EventExpenseService {
     @Transactional
     public EventExpenseResponse update(Long id, EventExpenseRequest req) {
         EventExpense e = expenseRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Expense not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Expense", id));
         e.setDescription(req.getDescription());
         e.setCategory(req.getCategory());
         e.setAmount(req.getAmount());

@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     @Transactional(readOnly = true)
     public PoojaSeva getPoojaSevaById(Long id, Long communityId) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pooja / Seva not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
     }
 
     @Override

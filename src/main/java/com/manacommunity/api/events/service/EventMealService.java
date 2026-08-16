@@ -7,6 +7,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.MealRegistration;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.MealRegistrationRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -66,7 +67,7 @@ public class EventMealService {
     @Transactional
     public MealRegistrationResponse saveMeals(Long eventId, MealRegistrationRequest req, AppUser user) {
         CommunityEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + eventId));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
         mealRepo.deleteByEventIdAndUserId(eventId, user.getId());
 

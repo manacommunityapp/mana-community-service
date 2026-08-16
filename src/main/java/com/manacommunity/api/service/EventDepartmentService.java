@@ -2,6 +2,7 @@ package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.EventDepartmentDto;
 import com.manacommunity.api.model.EventDepartment;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.repository.EventDepartmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +36,7 @@ public class EventDepartmentService {
         EventDepartment dept;
         if (dto.getId() != null) {
             dept = repository.findById(dto.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Department not found: " + dto.getId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Department", dto.getId()));
             if (dto.getName() != null) dept.setName(dto.getName());
             if (dto.getHeadName() != null) dept.setHeadName(dto.getHeadName());
             if (dto.getTotalTarget() != null) dept.setTotalTarget(dto.getTotalTarget());

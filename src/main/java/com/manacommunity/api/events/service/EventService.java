@@ -20,6 +20,10 @@ import com.manacommunity.api.events.repository.EventSponsorRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.MealRegistrationRepository;
+import com.manacommunity.api.exception.AlreadyRegisteredException;
+import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -97,7 +101,7 @@ public class EventService {
     @Transactional(readOnly = true)
     public EventResponse getById(Long id, Long currentUserId) {
         CommunityEvent event = eventRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", id));
         return toResponse(event, currentUserId);
     }
 
@@ -137,7 +141,7 @@ public class EventService {
     @Transactional
     public EventResponse update(Long id, EventRequest req, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
         // Permissive update check: allow event creator, system admins (-1L), or community admins
         if (event.getCreatedBy() != null && event.getCreatedBy().getId() != null
@@ -207,9 +211,9 @@ public class EventService {
     @Transactional
     public void delete(Long id, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", id));
         if (!event.getCreatedBy().getId().equals(userId)) {
-            throw new IllegalStateException("Only the creator can delete this event");
+            throw new UnauthorizedActionException("Only the event creator can delete this event");
         }
         eventRepo.delete(event);
     }
@@ -217,12 +221,12 @@ public class EventService {
     @Transactional
     public EventResponse register(Long eventId, AppUser user) {
         CommunityEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + eventId));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
         if (regRepo.existsByEventIdAndUserId(eventId, user.getId())) {
-            throw new IllegalStateException("Already registered for this event");
+            throw new AlreadyRegisteredException(event.getTitle());
         }
         if (event.getCapacity() != null && event.getRegistrations().size() >= event.getCapacity()) {
-            throw new IllegalStateException("Event is at full capacity");
+            throw new EventFullException(event.getTitle(), event.getCapacity());
         }
         EventRegistration reg = EventRegistration.builder()
                 .event(event)
@@ -458,7 +462,7 @@ public class EventService {
     @Transactional
     public RegistrationResponse confirmRegistration(Long registrationId) {
         EventRegistration reg = regRepo.findById(registrationId)
-                .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + registrationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         reg.setStatus(EventRegistration.RegistrationStatus.CONFIRMED);
         return toRegistrationResponse(regRepo.save(reg));
     }
@@ -466,7 +470,7 @@ public class EventService {
     @Transactional
     public RegistrationResponse rejectRegistration(Long registrationId) {
         EventRegistration reg = regRepo.findById(registrationId)
-                .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + registrationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         reg.setStatus(EventRegistration.RegistrationStatus.REJECTED);
         return toRegistrationResponse(regRepo.save(reg));
     }
@@ -474,7 +478,7 @@ public class EventService {
     @Transactional
     public EventResponse unregister(Long eventId, Long userId) {
         EventRegistration reg = regRepo.findByEventIdAndUserId(eventId, userId)
-                .orElseThrow(() -> new IllegalStateException("Not registered for this event"));
+                .orElseThrow(() -> new ResourceNotFoundException("Registration", "eventId and userId", eventId + "/" + userId));
         regRepo.delete(reg);
         return toResponse(eventRepo.findById(eventId).orElseThrow(), userId);
     }

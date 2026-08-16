@@ -5,6 +5,7 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.events.service.EventFamilyMemberService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -130,9 +131,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public EventFamilyMember updateFamilyMember(Long id, EventFamilyMember member, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
+                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
 
         if (member.getName() != null && !member.getName().isBlank()) {
             existing.setName(member.getName());
@@ -155,9 +156,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public void deleteFamilyMember(Long id, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
+                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
 
         repository.delete(existing);
     }

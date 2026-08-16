@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service;
 import com.manacommunity.api.events.dto.EventReportResponse;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.repository.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +25,7 @@ public class EventReportService {
     @Transactional(readOnly = true)
     public EventReportResponse getEventReport(Long eventId) {
         CommunityEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + eventId));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
         long regs = regRepo.findByEventId(eventId).size();
         long volunteers = volunteerRepo.countByEventId(eventId);

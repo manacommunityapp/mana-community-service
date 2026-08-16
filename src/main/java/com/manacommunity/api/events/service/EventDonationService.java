@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventDonation;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventDonationRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class EventDonationService {
     @Transactional
     public EventDonationResponse create(EventDonationRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventDonation donation = EventDonation.builder()
                 .event(event)
@@ -59,7 +60,7 @@ public class EventDonationService {
     @Transactional
     public EventDonationResponse update(Long id, EventDonationRequest req) {
         EventDonation d = donationRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Donation not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Donation", id));
         d.setDonorName(req.getDonorName());
         d.setDonorEmail(req.getDonorEmail());
         d.setDonorPhone(req.getDonorPhone());

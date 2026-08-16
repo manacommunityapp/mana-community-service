@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventSponsor;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class EventSponsorService {
     @Transactional
     public EventSponsorResponse create(EventSponsorRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventSponsor sponsor = EventSponsor.builder()
                 .event(event)
@@ -60,7 +61,7 @@ public class EventSponsorService {
     @Transactional
     public EventSponsorResponse update(Long id, EventSponsorRequest req) {
         EventSponsor s = sponsorRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Sponsor not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Sponsor", id));
         s.setName(req.getName());
         s.setSponsorTier(parseEnumOrDefault(EventSponsor.SponsorTier.class, req.getTier(), s.getSponsorTier()));
         s.setAmountPledged(req.getAmountPledged());

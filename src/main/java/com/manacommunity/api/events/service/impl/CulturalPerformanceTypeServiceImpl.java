@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.CulturalPerformanceType;
 import com.manacommunity.api.events.repository.CulturalPerformanceTypeRepository;
 import com.manacommunity.api.events.service.CulturalPerformanceTypeService;
+import com.manacommunity.api.exception.InvalidInputException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +42,7 @@ public class CulturalPerformanceTypeServiceImpl implements CulturalPerformanceTy
     @Override
     public CulturalPerformanceType createPerformanceType(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Performance type name cannot be empty");
+            throw new InvalidInputException("Performance type name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)

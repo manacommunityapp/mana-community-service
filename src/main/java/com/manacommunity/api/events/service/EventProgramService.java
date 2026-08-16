@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventProgram;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class EventProgramService {
     @Transactional
     public EventProgramResponse create(EventProgramRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventProgram program = EventProgram.builder()
                 .event(event)
@@ -66,7 +67,7 @@ public class EventProgramService {
     @Transactional
     public EventProgramResponse update(Long id, EventProgramRequest req) {
         EventProgram program = programRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Program not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Program", id));
         program.setTitle(req.getTitle());
         program.setDayLabel(req.getDayLabel());
         program.setDayDate(req.getDayDate() != null ? LocalDate.parse(req.getDayDate()) : null);

@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventInvoice;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventInvoiceRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ public class EventInvoiceService {
     @Transactional
     public EventInvoiceResponse create(EventInvoiceRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         BigDecimal amount = req.getAmount() != null ? req.getAmount() : BigDecimal.ZERO;
         BigDecimal tax = req.getTaxAmount() != null ? req.getTaxAmount() : BigDecimal.ZERO;
@@ -70,7 +71,7 @@ public class EventInvoiceService {
     @Transactional
     public EventInvoiceResponse update(Long id, EventInvoiceRequest req) {
         EventInvoice inv = invoiceRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", id));
 
         BigDecimal amount = req.getAmount() != null ? req.getAmount() : inv.getAmount();
         BigDecimal tax = req.getTaxAmount() != null ? req.getTaxAmount() : inv.getTaxAmount();
@@ -95,7 +96,7 @@ public class EventInvoiceService {
     @Transactional
     public EventInvoiceResponse updateStatus(Long id, String status) {
         EventInvoice inv = invoiceRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", id));
         inv.setStatus(status);
         return toResponse(invoiceRepo.save(inv));
     }

@@ -4,6 +4,8 @@ import com.manacommunity.api.events.dto.EventMediaDayRequest;
 import com.manacommunity.api.events.dto.EventMediaDayResponse;
 import com.manacommunity.api.events.entity.EventMediaDay;
 import com.manacommunity.api.events.repository.EventMediaDayRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,9 +40,9 @@ public class EventMediaDayService {
     @Transactional
     public void delete(Long id, Long communityId) {
         EventMediaDay day = dayRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Day tag not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Day tag", id));
         if (!day.getCommunity().getId().equals(communityId)) {
-            throw new IllegalStateException("Not authorized to delete this day tag");
+            throw new UnauthorizedActionException("delete this day tag");
         }
         dayRepo.delete(day);
     }
