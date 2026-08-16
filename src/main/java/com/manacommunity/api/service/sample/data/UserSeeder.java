@@ -4,6 +4,7 @@ import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
+import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -57,7 +58,7 @@ public class UserSeeder {
         Community leCommunity = communitySeeder.getLeCommunity();
 
         AppUser sandeep = createUser(
-                "sandeep@gmail.com", "Sandeep Kamarapu", ROLE_MEMBER, hash,
+                "sandeep@gmail.com", "Sandeep Kamarapu", ROLE_USER, hash,
                 leCommunity, "B", "806", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser sunil = createUser(
@@ -73,14 +74,19 @@ public class UserSeeder {
                 leCommunity, "B", "907", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser mady = createUser(
-                "mady@gmail.com", "Mady", ROLE_MEMBER, hash,
+                "mady@gmail.com", "Mady", ROLE_USER, hash,
                 leCommunity, "D", "107", "MALE", LocalDate.of(1990, 1, 1));
 
         createUser(
-                "user1@gmail.com", "user1", ROLE_MEMBER, hash,
-                leCommunity, "D", "105", "MALE", LocalDate.of(1990, 1, 1));
+                "varshitha@gmail.com", "varshitha", ROLE_EVENTS_ADMIN, hash,
+                leCommunity, "B", "807", "MALE", LocalDate.of(2008, 1, 1));
 
-        createUser("Bhupal@gmail.com", "Bhupal", ROLE_MEMBER, hash, leCommunity, "B", "209", "MALE", LocalDate.of(1986, 11, 14));
+        createUser(
+                "mokshitha@gmail.com", "mokshitha", ROLE_USER, hash,
+                leCommunity, "B", "810", "MALE", LocalDate.of(2008, 1, 1));
+
+
+        createUser("Bhupal@gmail.com", "Bhupal", ROLE_USER, hash, leCommunity, "B", "209", "MALE", LocalDate.of(1986, 11, 14));
 
 
         // 2. Block A Residents
@@ -170,9 +176,9 @@ public class UserSeeder {
                 .orElseThrow(() -> new IllegalStateException("mady has not been seeded yet."));
     }
 
-    public AppUser getUser1() {
-        return userRepo.findByEmail("user1@gmail.com")
-                .orElseThrow(() -> new IllegalStateException("user1 has not been seeded yet."));
+    public AppUser getVarshitha() {
+        return userRepo.findByEmail("varshitha@gmail.com")
+                .orElseThrow(() -> new IllegalStateException("varshitha has not been seeded yet."));
     }
 
     public AppUser getUserByEmail(String email) {
@@ -191,18 +197,39 @@ public class UserSeeder {
     private AppUser createUser(String email, String name, String role, String hash,
                                Community community, String block, String flatNo,
                                String gender, LocalDate dob) {
-        Role roleEntity;
+        String reqRoleUpper = role.trim().toUpperCase();
+
+        Role userRoleEntity;
+        Role primaryRoleEntity;
+
         if (community != null) {
-            roleEntity = roleRepo.findByNameIgnoreCaseAndCommunityId(role, community.getId())
-                    .orElseGet(() -> roleRepo.save(Role.builder()
-                            .name(role.toUpperCase())
-                            .communityId(community.getId())
-                            .build()));
+            userRoleEntity = roleRepo.findByNameIgnoreCaseAndCommunityId(ROLE_USER, community.getId())
+                    .orElseGet(() -> createCommunityRoleWithPermissions(ROLE_USER, community.getId()));
+            if (reqRoleUpper.equals(ROLE_USER)) {
+                primaryRoleEntity = userRoleEntity;
+            } else {
+                primaryRoleEntity = roleRepo.findByNameIgnoreCaseAndCommunityId(reqRoleUpper, community.getId())
+                        .orElseGet(() -> createCommunityRoleWithPermissions(reqRoleUpper, community.getId()));
+            }
         } else {
-            roleEntity = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(role)
+            userRoleEntity = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_USER)
                     .orElseGet(() -> roleRepo.save(Role.builder()
-                            .name(role.toUpperCase())
+                            .name(ROLE_USER)
                             .build()));
+            if (reqRoleUpper.equals(ROLE_USER)) {
+                primaryRoleEntity = userRoleEntity;
+            } else {
+                primaryRoleEntity = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(reqRoleUpper)
+                        .orElseGet(() -> roleRepo.save(Role.builder()
+                                .name(reqRoleUpper)
+                                .build()));
+            }
+        }
+
+        java.util.Set<Role> rolesSet = new java.util.LinkedHashSet<>();
+        rolesSet.add(userRoleEntity);
+        if (primaryRoleEntity != null) {
+            rolesSet.add(primaryRoleEntity);
         }
 
         AppUser savedAppUser = userRepo.findByEmail(email).orElseGet(() -> {
@@ -214,8 +241,9 @@ public class UserSeeder {
                 phone = "999" + phoneCounter.incrementAndGet();
             } while (userRepo.existsByPhone(phone));
             u.setPhone(phone);
-            u.setRole(role);
-            u.setRoleEntity(roleEntity);
+            u.setRoleEntity(primaryRoleEntity);
+            u.setUserRoles(rolesSet);
+            u.syncRoleString();
             u.setKycStatus("VERIFIED");
             u.setPasswordHash(hash);
             u.setDateOfBirth(dob);
@@ -228,5 +256,21 @@ public class UserSeeder {
         });
 
         return savedAppUser;
+    }
+
+    private Role createCommunityRoleWithPermissions(String roleName, Long communityId) {
+        Role role = Role.builder()
+                .name(roleName)
+                .communityId(communityId)
+                .permissions(new java.util.HashSet<>())
+                .build();
+        for (String p : getPermissionsForRole(roleName)) {
+            role.getPermissions().add(RolePermission.builder()
+                    .role(roleName)
+                    .permissionKey(p)
+                    .roleEntity(role)
+                    .build());
+        }
+        return roleRepo.save(role);
     }
 }

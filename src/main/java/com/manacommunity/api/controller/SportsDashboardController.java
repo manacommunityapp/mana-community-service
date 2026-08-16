@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import static com.manacommunity.api.constants.PermissionConstants.VIEW_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 
 @RestController
 @RequestMapping("/api/sports/dashboard")

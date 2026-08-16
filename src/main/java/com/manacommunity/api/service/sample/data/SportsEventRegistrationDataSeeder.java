@@ -110,7 +110,7 @@ public class SportsEventRegistrationDataSeeder {
                 SportsEventRegistration.RegistrationStatus.REGISTERED,
                 "Mady", 28, null, "A-103");
 
-        created += register(badmintonEvent, userSeeder.getUser1(), mensA19,
+        created += register(badmintonEvent, userSeeder.getVarshitha(), mensA19,
                 SportsEvent.MatchFormat.SINGLES,
                 SportsEventRegistration.RegistrationStatus.CONFIRMED,
                 "user1", 28, null, "C-104");

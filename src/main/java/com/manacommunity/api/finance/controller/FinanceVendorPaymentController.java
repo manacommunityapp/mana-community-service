@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import static com.manacommunity.api.constants.PermissionConstants.VIEW_ADMIN;
+import static com.manacommunity.api.constants.permissions.AdminPermissions.VIEW_ADMIN;
 
 @RestController
 @RequestMapping("/api/finance/vendor-payments")

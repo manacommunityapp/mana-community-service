@@ -22,11 +22,11 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
 
     List<RolePermission> findByUserId(Long userId);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM RolePermission rp WHERE rp.user.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM RolePermission rp WHERE rp.roleEntity.id = :roleId AND rp.user IS NULL")
     void deleteByRoleEntityIdAndUserIsNull(@Param("roleId") Long roleId);
 }

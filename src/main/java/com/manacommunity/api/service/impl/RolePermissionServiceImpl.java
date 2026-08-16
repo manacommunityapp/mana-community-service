@@ -6,6 +6,7 @@ import com.manacommunity.api.security.AuditModule;
 
 import com.manacommunity.api.security.AuditService;
 
+import com.manacommunity.api.dto.RoleDetailsResponse;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Role;
@@ -37,8 +38,9 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         return rolePermissionRepo.findAll().stream()
                 .filter(rp -> rp.getUser() == null)
                 .filter(rp -> {
-                    String rName = rp.getRole() != null ? rp.getRole().toUpperCase() : "";
-                    if ("SUPER_ADMIN".equals(rName) || "SUPERADMIN".equals(rName) || "SUPER_ADMINISTRATOR".equals(rName)) {
+                    String rName = rp.getRole() != null ? rp.getRole().trim().toUpperCase() : "";
+                    if ("SUPER_ADMIN".equals(rName) || "SUPERADMIN".equals(rName) || "SUPER_ADMINISTRATOR".equals(rName)
+                            || "COMMUNITY_ADMIN".equals(rName) || "COMMUNITYADMIN".equals(rName) || "COMMUNITY_ADMINISTRATOR".equals(rName) || "COMMUNITY ADMIN".equals(rName)) {
                         return false;
                     }
                     Role roleEntity = rp.getRoleEntity();
@@ -56,44 +58,102 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<RoleDetailsResponse> getRoleDetails(Long communityId) {
+        return roleRepo.findAll().stream()
+                .filter(role -> role.getName() != null && !isSystemReserved(role.getName()))
+                .filter(role -> {
+                    if (communityId != null) {
+                        return communityId.equals(role.getCommunityId())
+                                || role.getCommunityId() == null;
+                    }
+                    return true;
+                })
+                .map(role -> {
+                    List<String> perms = role.getPermissions().stream()
+                            .filter(rp -> rp.getUser() == null)
+                            .map(RolePermission::getPermissionKey)
+                            .distinct()
+                            .sorted()
+                            .toList();
+
+                    long userCount = communityId != null
+                            ? appUserRepo.findByCommunityIdAndUserRoleName(communityId, role.getName()).size()
+                            : appUserRepo.findByUserRoleName(role.getName()).size();
+
+                    return RoleDetailsResponse.builder()
+                            .id(role.getId())
+                            .name(role.getName())
+                            .communityId(role.getCommunityId())
+                            .permissions(perms)
+                            .userCount(userCount)
+                            .build();
+                })
+                .toList();
+    }
+
+    private boolean isSystemReserved(String roleName) {
+        if (roleName == null) return false;
+        String upper = roleName.trim().toUpperCase();
+        return upper.equals("SUPER_ADMIN") || upper.equals("SUPERADMIN") || upper.equals("SUPER_ADMINISTRATOR")
+                || upper.equals("COMMUNITY_ADMIN") || upper.equals("COMMUNITYADMIN")
+                || upper.equals("COMMUNITY_ADMINISTRATOR") || upper.equals("COMMUNITY ADMIN");
+    }
+
+    @Override
     @Transactional
     public void updateRolePermissions(String roleName, Long communityId, List<String> permissions) {
         String normalizedRoleName = roleName != null ? roleName.trim().toUpperCase() : "";
 
-        // Find or create the Role entity (community-scoped if communityId provided, else global)
-        Role role = (communityId != null)
-                ? roleRepo.findByNameIgnoreCaseAndCommunityId(normalizedRoleName, communityId)
-                        .orElseGet(() -> roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
-                                .orElseGet(() -> roleRepo.save(Role.builder()
-                                        .name(normalizedRoleName)
-                                        .communityId(communityId)
-                                        .permissions(new java.util.HashSet<>())
-                                        .build())))
-                : roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
-                        .orElseGet(() -> roleRepo.save(Role.builder()
-                                .name(normalizedRoleName)
-                                .permissions(new java.util.HashSet<>())
-                                .build()));
+        // ── 1. Resolve the Role entity (community-scoped first, then global fallback) ──
+        Role role;
+        if (communityId != null) {
+            role = roleRepo.findByNameIgnoreCaseAndCommunityId(normalizedRoleName, communityId)
+                    .orElseGet(() -> roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
+                            .orElseGet(() -> roleRepo.saveAndFlush(Role.builder()
+                                    .name(normalizedRoleName)
+                                    .communityId(communityId)
+                                    .permissions(new java.util.HashSet<>())
+                                    .build())));
+        } else {
+            role = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
+                    .orElseGet(() -> roleRepo.saveAndFlush(Role.builder()
+                            .name(normalizedRoleName)
+                            .permissions(new java.util.HashSet<>())
+                            .build()));
+        }
 
-        rolePermissionRepo.deleteByRoleEntityIdAndUserIsNull(role.getId());
+        // ── 2. Remove existing role-level permission rows via the collection ─────────
+        // Using the collection (not a bulk JPQL DELETE) keeps the role entity managed
+        // throughout the transaction.  orphanRemoval=true on the OneToMany ensures
+        // the removed RolePermission rows are DELETEd from the DB on flush.
+        role.getPermissions().removeIf(rp -> rp.getUser() == null);
 
-        List<RolePermission> entities = permissions.stream()
+        // Flush the DELETEs first so the unique constraint
+        // (role_id, permission_key, user_id) is not violated by the upcoming INSERTs.
+        roleRepo.saveAndFlush(role);
+
+        // ── 3. Add the updated permissions ────────────────────────────────────────────
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        permissions.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
-                .distinct()
-                .map(p -> RolePermission.builder()
-                        .role(normalizedRoleName)
-                        .roleEntity(role)
-                        .permissionKey(p)
-                        .build())
-                .toList();
+                .filter(seen::add)
+                .forEach(p -> role.getPermissions().add(
+                        RolePermission.builder()
+                                .role(normalizedRoleName)
+                                .roleEntity(role)
+                                .permissionKey(p)
+                                .build()
+                ));
 
-        rolePermissionRepo.saveAll(entities);
+        roleRepo.save(role);
+
         auditService.record(
-                com.manacommunity.api.security.AuditAction.PERMISSION_CHANGED,
-                com.manacommunity.api.security.AuditModule.ADMIN,
+                AuditAction.PERMISSION_CHANGED,
+                AuditModule.ADMIN,
                 "Role", normalizedRoleName,
                 null,
-                "permissions=" + entities.size() + " (role-level, community=" + communityId + ")");
+                "permissions=" + seen.size() + " (role-level, community=" + communityId + ")");
     }
 
     @Override

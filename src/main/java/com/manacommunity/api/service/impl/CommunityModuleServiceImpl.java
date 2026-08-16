@@ -34,10 +34,10 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<String> getEnabledModuleKeys(Long communityId) {
         if (!communityModuleRepo.existsByCommunityId(communityId)) {
-            return List.of();
+            initializeModulesForCommunity(communityId);
         }
         return communityModuleRepo.findEnabledByCommunityId(communityId).stream()
                 .map(CommunityModule::getModuleKey)

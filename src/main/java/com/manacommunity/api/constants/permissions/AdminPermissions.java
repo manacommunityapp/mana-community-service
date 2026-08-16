@@ -12,9 +12,12 @@ public final class AdminPermissions {
     public static final String MANAGE_COMMUNITIES = "Manage Communities";
     public static final String MANAGE_ROLES       = "Manage Roles";
     public static final String EDIT_VENUE_TIMING  = "Edit Venue Timing";
+    public static final String VIEW_ADMIN_DASHBOARD = "View Admin Dashboard";
+    public static final String VIEW_USER_DASHBOARD  = "View User Dashboard";
 
     public static final List<String> ALL = List.of(
             VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD,
-            MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING
+            MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING,
+            VIEW_ADMIN_DASHBOARD, VIEW_USER_DASHBOARD
     );
 }

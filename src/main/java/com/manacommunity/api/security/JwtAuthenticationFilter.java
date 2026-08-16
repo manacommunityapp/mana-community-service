@@ -1,11 +1,13 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.api.constants.ModuleConstants;
 import com.manacommunity.api.user.security.UserPrincipal;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.repository.CommunityModuleRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
@@ -26,6 +28,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -34,6 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final AppUserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final CommunityModuleRepository communityModuleRepository;
     private final Environment environment;
     private final TokenBlacklistService tokenBlacklistService;
 
@@ -43,11 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
+                                   CommunityModuleRepository communityModuleRepository,
                                    Environment environment,
                                    TokenBlacklistService tokenBlacklistService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.communityModuleRepository = communityModuleRepository;
         this.environment = environment;
         this.tokenBlacklistService = tokenBlacklistService;
     }
@@ -81,9 +88,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7).trim();
 
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
-                // Only access tokens authenticate API calls; a refresh token presented as a
-                // Bearer credential is rejected (it may only be exchanged at /api/auth/refresh).
-                // Also reject any token whose jti has been explicitly blacklisted (logged-out).
                 String jti = jwtTokenProvider.getJti(token);
                 if (!tokenBlacklistService.isBlacklisted(jti)) {
                     authenticate(jwtTokenProvider.getUserId(token), request);
@@ -91,23 +95,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     log.debug("Rejected blacklisted token jti={}", jti);
                 }
             } else if (mockAuthEnabled && token.startsWith("mock-token-")) {
-                // DEV ONLY — legacy mock token "mock-token-<id>".
                 authenticate(parseLegacyId(token), request);
             }
-            // An invalid/expired token simply leaves the request unauthenticated;
-            // protected endpoints then return 401/403 via Spring Security.
         } else if (mockAuthEnabled && !isDocsPath(request)) {
-            // DEV ONLY — no token: authenticate a default admin for convenience.
-            // EXCEPT for the API-docs / Swagger UI paths: those are SUPER_ADMIN-only
-            // and a tokenless (e.g. plain browser) request must NOT be auto-elevated
-            // to the default super-admin, otherwise anyone could open Swagger in dev.
             authenticateDefaultUser(request);
         }
 
         filterChain.doFilter(request, response);
     }
 
-    /** API-docs / Swagger UI paths — excluded from the dev mock-auth default-user fallback. */
     private boolean isDocsPath(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return uri.startsWith("/swagger-ui")
@@ -116,7 +112,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || uri.startsWith("/webjars");
     }
 
-    /** Builds the SecurityContext from a resolved user id. */
     private void authenticate(Long userId, HttpServletRequest request) {
         if (userId == null) return;
         AppUser user = userRepository.findById(userId).orElse(null);
@@ -126,17 +121,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void setAuthentication(AppUser user, HttpServletRequest request) {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        boolean isSuperAdmin = false;
         if (user.getRole() != null) {
             String[] roles = user.getRole().split(",");
             for (String r : roles) {
                 String trimmed = r.trim().toUpperCase();
                 if (!trimmed.isEmpty()) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_" + trimmed));
+                    if (ROLE_SUPER_ADMIN.equals(trimmed)) {
+                        isSuperAdmin = true;
+                    }
                 }
             }
         }
 
-        // User-specific permissions first, falling back to role-based permissions across assigned roles.
         List<RolePermission> userPerms = rolePermissionRepository.findByUserId(user.getId());
         List<RolePermission> permissions;
         if (!userPerms.isEmpty()) {
@@ -152,8 +150,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         }
+
+        Set<String> enabledModules = null;
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (!isSuperAdmin && communityId != null) {
+            enabledModules = communityModuleRepository.findEnabledByCommunityId(communityId)
+                    .stream()
+                    .map(cm -> cm.getModuleKey())
+                    .collect(Collectors.toSet());
+        }
+
         for (RolePermission perm : permissions) {
-            authorities.add(new SimpleGrantedAuthority(perm.getPermissionKey()));
+            String permKey = perm.getPermissionKey();
+            if (isSuperAdmin || isPermissionAllowedByModule(permKey, enabledModules)) {
+                authorities.add(new SimpleGrantedAuthority(permKey));
+            }
         }
 
         UserPrincipal principal = new UserPrincipal(
@@ -164,9 +175,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authToken);
 
-        // Expose the authenticated user id to logs for this request. CorrelationIdFilter
-        // owns the MDC lifecycle and clears this key after the request completes.
         org.slf4j.MDC.put(CorrelationIdFilter.MDC_USER_ID, String.valueOf(user.getId()));
+    }
+
+    private boolean isPermissionAllowedByModule(String permissionKey, Set<String> enabledModules) {
+        if (enabledModules == null) {
+            return true;
+        }
+        String moduleKey = ModuleConstants.getModuleForPermission(permissionKey);
+        return moduleKey == null || enabledModules.contains(moduleKey);
     }
 
     private Long parseLegacyId(String token) {

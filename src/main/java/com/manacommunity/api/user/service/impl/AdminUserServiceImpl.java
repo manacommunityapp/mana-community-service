@@ -69,7 +69,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 4. Resolve role(s) — prefer req.getRoles() list, fall back to req.getRole() string.
         //    Each UI label is mapped to a backend role name.
         List<String> rawRoles = resolveRoleList(req);
-        List<String> distinctRoles = rawRoles.stream().distinct().toList();
+        java.util.List<String> distinctRoles = new java.util.ArrayList<>(rawRoles.stream().distinct().toList());
+        if (distinctRoles.stream().noneMatch(r -> r.equalsIgnoreCase(ROLE_USER))) {
+            distinctRoles.add(ROLE_USER);
+        }
 
         // Primary role entity (used for role_id FK on app_user).
         String primaryRoleName = distinctRoles.get(0);

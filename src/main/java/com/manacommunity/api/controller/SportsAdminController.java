@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.manacommunity.api.constants.PermissionConstants.VIEW_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 
 /**
  * Lean aggregation endpoints for the Sports Admin page:

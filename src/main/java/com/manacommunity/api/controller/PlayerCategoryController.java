@@ -17,6 +17,11 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.DELETE_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MENU;
 
 @RestController
 @RequestMapping("/api/player-categories")

@@ -15,9 +15,9 @@ spring:
 
   jpa:
     hibernate:
-      # Flyway owns database schema migrations. Hibernate is set to 'validate'
+      # Flyway owns database schema migrations.create,update Hibernate is set to 'validate'
       # so it verifies schema consistency without altering tables.
-      ddl-auto: validate
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
@@ -55,7 +55,7 @@ server:
   port: 8082
 
 app:
-  insert-sample-data: false
+  insert-sample-data: true # For inserting the sample data to a commmunity and other details for testing
   # AI/Ollama integration — temporarily OFF. Flip to true only after starting a
   # local Ollama server (`ollama pull llama3.1 && ollama serve`).
   ai:
@@ -68,17 +68,17 @@ app:
     type: s3
     s3:
       bucket: ${S3_BUCKET:manacommunityhub}
-      region: ${S3_REGION:ap-south-1}
-      access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
-      secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      region: ${S3_REGION:eu-north-1}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
 
   # ── Centralized Media Service (S3-backed for Local Dev) ─────────────
   media:
     s3:
       bucket: ${MEDIA_S3_BUCKET:manacommunityhub}
-      region: ${MEDIA_S3_REGION:ap-south-1}
-      access-key: ${MEDIA_S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
-      secret-key: ${MEDIA_S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      region: ${MEDIA_S3_REGION:eu-north-1}
+      access-key: ${MEDIA_S3_ACCESS_KEY:}
+      secret-key: ${MEDIA_S3_SECRET_KEY:}
       presigned-put-expiry-minutes: ${MEDIA_PRESIGNED_EXPIRY:15}
       presigned-get-expiry-minutes: ${MEDIA_DOWNLOAD_EXPIRY:60}
 

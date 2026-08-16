@@ -25,6 +25,8 @@ public class UserResponse {
     private Boolean isActive;
     private java.util.List<String> permissions;
     private java.util.List<String> enabledModules;
+    /** Viewable menu permissions for the user's role (menuKey → CRUD flags). */
+    private java.util.List<MenuRolePermissionResponse> menuPermissions;
     /** Primary / combined assigned roles list for this user. */
     private java.util.List<String> roles;
     /** When the role was last changed by an admin. */

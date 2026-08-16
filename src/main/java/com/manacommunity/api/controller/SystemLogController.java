@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import static com.manacommunity.api.constants.PermissionConstants.VIEW_ADMIN;
+import static com.manacommunity.api.constants.permissions.AdminPermissions.VIEW_ADMIN;
 
 @RestController
 @RequestMapping("/api/admin")

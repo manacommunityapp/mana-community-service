@@ -28,6 +28,7 @@ public class UserController {
     private final com.manacommunity.api.repository.RolePermissionRepository rolePermissionRepo;
     private final com.manacommunity.api.service.RoleService roleService;
     private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
+    private final com.manacommunity.api.user.service.MenuRolePermissionService menuRolePermissionService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -75,7 +76,23 @@ public class UserController {
         return java.util.List.copyOf(seen);
     }
 
+    private java.util.List<com.manacommunity.api.user.dto.MenuRolePermissionResponse> getMenuPermissions(AppUser user) {
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
+            return java.util.Collections.emptyList();
+        }
+        Role roleEntity = user.getRoleEntity();
+        if (roleEntity == null) {
+            return java.util.Collections.emptyList();
+        }
+        return menuRolePermissionService.getViewableMenus(roleEntity.getId());
+    }
+
     private java.util.List<String> getEnabledModules(AppUser user) {
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
+            return com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
+                    .map(com.manacommunity.api.constants.ModuleConstants.ModuleDef::key)
+                    .toList();
+        }
         if (user.getCommunity() == null) {
             return java.util.Collections.emptyList();
         }
@@ -103,6 +120,7 @@ public class UserController {
                 .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
                 .permissions(getPermissionsForUser(user))
                 .enabledModules(getEnabledModules(user))
+                .menuPermissions(getMenuPermissions(user))
                 .build();
 
         return ResponseEntity.ok(response);
@@ -318,7 +336,11 @@ public class UserController {
             throw new com.manacommunity.api.exception.InvalidInputException("At least one role is required");
         }
 
-        java.util.List<String> distinctRoles = targetRoles.stream().distinct().toList();
+        java.util.List<String> distinctRoles = new java.util.ArrayList<>(targetRoles.stream().distinct().toList());
+        // Every user always retains the USER base role
+        if (distinctRoles.stream().noneMatch(r -> r.equalsIgnoreCase("USER"))) {
+            distinctRoles.add("USER");
+        }
 
         // Non-super-admins may only change roles within their own community.
         AppUser admin = loggedInUserService.resolve(principal);
@@ -478,6 +500,7 @@ public class UserController {
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
 
         java.util.List<java.util.Map<String, Object>> roleList = user.getUserRoles().stream()
+                .filter(r -> r.getName() != null && !isRestrictedRoleName(r.getName()))
                 .map(r -> java.util.Map.<String, Object>of(
                         "id",          r.getId(),
                         "name",        r.getName(),
@@ -486,6 +509,13 @@ public class UserController {
                 .toList();
 
         return ResponseEntity.ok(roleList);
+    }
+
+    private boolean isRestrictedRoleName(String roleName) {
+        if (roleName == null) return false;
+        String upper = roleName.trim().toUpperCase();
+        return upper.equals("SUPER_ADMIN") || upper.equals("SUPERADMIN") || upper.equals("SUPER_ADMINISTRATOR")
+                || upper.equals("COMMUNITY_ADMIN") || upper.equals("COMMUNITYADMIN") || upper.equals("COMMUNITY_ADMINISTRATOR") || upper.equals("COMMUNITY ADMIN");
     }
 
     /**

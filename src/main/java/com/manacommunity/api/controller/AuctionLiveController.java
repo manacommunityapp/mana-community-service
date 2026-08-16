@@ -11,6 +11,10 @@ import com.manacommunity.api.service.AuctionTeamService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import static com.manacommunity.api.constants.PermissionConstants.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_LIVE_AUCTION;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_LIVE_AUCTION;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

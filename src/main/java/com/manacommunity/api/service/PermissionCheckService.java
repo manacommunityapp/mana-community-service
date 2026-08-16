@@ -1,10 +1,12 @@
 package com.manacommunity.api.service;
 
+import com.manacommunity.api.constants.ModuleConstants;
 import com.manacommunity.api.user.service.LoggedInUserService;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.RolePermission;
+import com.manacommunity.api.repository.CommunityModuleRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -16,34 +18,25 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * PermissionCheckService — Centralized programmatic permission checking.
- * Queries the database on every call to verify the user's permissions.
- * SUPER_ADMIN bypasses all checks.
- */
 @Service
 @RequiredArgsConstructor
 public class PermissionCheckService {
 
     private final RolePermissionRepository rolePermissionRepository;
+    private final CommunityModuleRepository communityModuleRepository;
     private final LoggedInUserService loggedInUserService;
 
-    /**
-     * Check if the user has ANY of the required permissions.
-     * SUPER_ADMIN always returns true.
-     */
     public boolean hasAnyPermission(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
         if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);
-        return Arrays.stream(requiredPermissions).anyMatch(userPerms::contains);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return Arrays.stream(requiredPermissions)
+                .anyMatch(p -> userPerms.contains(p) && isModuleEnabledForPermission(communityId, p));
     }
 
-    /**
-     * Same as hasAnyPermission but throws AccessDeniedException if check fails.
-     */
     public void requireAnyPermission(UserPrincipal principal, String... requiredPermissions) {
         if (!hasAnyPermission(principal, requiredPermissions)) {
             throw new AccessDeniedException("Insufficient permissions. Required any of: "
@@ -51,31 +44,32 @@ public class PermissionCheckService {
         }
     }
 
-    /**
-     * Check if the user has ALL of the required permissions.
-     */
     public boolean hasAllPermissions(UserPrincipal principal, String... requiredPermissions) {
         AppUser user = loggedInUserService.resolve(principal);
         if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return true;
         }
         Set<String> userPerms = loadPermissionsFromDB(user);
-        return Arrays.stream(requiredPermissions).allMatch(userPerms::contains);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return Arrays.stream(requiredPermissions)
+                .allMatch(p -> userPerms.contains(p) && isModuleEnabledForPermission(communityId, p));
     }
 
-    /**
-     * Load the user's effective permissions from the database.
-     * Priority: user-specific permissions > role-based permissions.
-     */
+    private boolean isModuleEnabledForPermission(Long communityId, String permissionKey) {
+        String moduleKey = ModuleConstants.getModuleForPermission(permissionKey);
+        if (moduleKey == null || communityId == null) {
+            return true;
+        }
+        return communityModuleRepository.isModuleEnabled(communityId, moduleKey);
+    }
+
     private Set<String> loadPermissionsFromDB(AppUser user) {
-        // 1. Check user-specific permissions first
         List<RolePermission> userPerms = rolePermissionRepository.findByUserId(user.getId());
         if (!userPerms.isEmpty()) {
             return userPerms.stream()
                     .map(RolePermission::getPermissionKey)
                     .collect(Collectors.toSet());
         }
-        // 2. Fall back to role-based permissions
         List<RolePermission> rolePerms = rolePermissionRepository.findByRoleIgnoreCase(user.getRole());
         return rolePerms.stream()
                 .map(RolePermission::getPermissionKey)

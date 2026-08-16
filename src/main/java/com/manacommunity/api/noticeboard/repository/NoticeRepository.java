@@ -29,4 +29,6 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     List<Notice> findByAuthorIdOrderByCreatedAtDesc(Long authorId);
 
     List<Notice> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
+
+    long countByCommunityId(Long communityId);
 }

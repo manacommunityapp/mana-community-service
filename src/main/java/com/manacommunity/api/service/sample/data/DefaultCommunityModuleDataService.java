@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -23,6 +24,11 @@ public class DefaultCommunityModuleDataService {
 
     @Transactional
     public void seedDefaultModulesForCommunity(Long communityId) {
+        seedModulesForCommunity(communityId, Set.of());
+    }
+
+    @Transactional
+    public void seedModulesForCommunity(Long communityId, Set<String> enabledModuleKeys) {
         if (communityModuleRepository.existsByCommunityId(communityId)) {
             log.info("Modules already initialized for community ID: {}", communityId);
             return;
@@ -37,8 +43,7 @@ public class DefaultCommunityModuleDataService {
                         .community(community)
                         .moduleKey(def.key())
                         .moduleLabel(def.label())
-                        .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB")
-                                || def.key().equals("SPORTS"))
+                        .isEnabled(enabledModuleKeys.contains(def.key()))
                         .sortOrder(def.sortOrder())
                         .createdAt(now)
                         .updatedAt(now)
@@ -46,6 +51,7 @@ public class DefaultCommunityModuleDataService {
                 .toList();
 
         communityModuleRepository.saveAll(modules);
-        log.info("Successfully seeded default modules for community '{}' with ID: {}", community.getName(), communityId);
+        log.info("Seeded modules for community '{}' (ID: {}), enabled: {}",
+                community.getName(), communityId, enabledModuleKeys);
     }
 }

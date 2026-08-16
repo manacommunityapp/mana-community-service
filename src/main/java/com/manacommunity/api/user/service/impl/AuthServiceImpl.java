@@ -124,6 +124,11 @@ public class AuthServiceImpl implements AuthService {
                             .build()));
         }
         user.setRoleEntity(userRole);
+        if (user.getUserRoles() == null) {
+            user.setUserRoles(new java.util.LinkedHashSet<>());
+        }
+        user.getUserRoles().add(userRole);
+        user.syncRoleString();
         user.setIsActive(true);
         user.setCommunity(community);
         user.setFlatNo(request.getFlatNo());
@@ -269,9 +274,16 @@ public class AuthServiceImpl implements AuthService {
         );
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
         
-        java.util.List<String> enabledModules = user.getCommunity() != null 
-                ? communityModuleService.getEnabledModuleKeys(user.getCommunity().getId()) 
-                : java.util.Collections.emptyList();
+        java.util.List<String> enabledModules;
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
+            enabledModules = com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
+                    .map(com.manacommunity.api.constants.ModuleConstants.ModuleDef::key)
+                    .toList();
+        } else {
+            enabledModules = user.getCommunity() != null
+                    ? communityModuleService.getEnabledModuleKeys(user.getCommunity().getId())
+                    : java.util.Collections.emptyList();
+        }
         response.setEnabledModules(enabledModules);
         
         return response;

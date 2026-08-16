@@ -4,7 +4,7 @@ import com.manacommunity.api.cfbos.accounting.dto.*;
 import com.manacommunity.api.cfbos.accounting.engine.AccountingEngine;
 import com.manacommunity.api.cfbos.accounting.entity.JournalEntry;
 import com.manacommunity.api.cfbos.accounting.service.*;
-import com.manacommunity.api.constants.PermissionConstants;
+import com.manacommunity.api.constants.permissions.AdminPermissions;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +33,7 @@ public class AccountingController {
     @GetMapping("/accounts")
     public ResponseEntity<List<AccountTreeNodeDto>> getAccountTree(
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(chartOfAccountsService.getAccountTree());
     }
 
@@ -41,7 +41,7 @@ public class AccountingController {
     public ResponseEntity<AccountDto> createAccount(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody AccountDto dto) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(chartOfAccountsService.createAccount(dto));
     }
 
@@ -49,7 +49,7 @@ public class AccountingController {
     public ResponseEntity<AccountDto> getAccount(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(chartOfAccountsService.getAccount(id));
     }
 
@@ -57,7 +57,7 @@ public class AccountingController {
     public ResponseEntity<JournalEntryDto> createJournalEntry(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody JournalEntryRequest request) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         JournalEntry entry = accountingEngine.createAndPostJournalEntry(request);
         return ResponseEntity.ok(journalEntryService.getById(entry.getId()));
     }
@@ -68,7 +68,7 @@ public class AccountingController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             Pageable pageable) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(journalEntryService.list(from, to, pageable));
     }
 
@@ -76,7 +76,7 @@ public class AccountingController {
     public ResponseEntity<JournalEntryDto> getJournalEntry(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(journalEntryService.getById(id));
     }
 
@@ -85,7 +85,7 @@ public class AccountingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
             @RequestParam String reason) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         JournalEntry reversal = accountingEngine.reverseJournalEntry(id, reason);
         return ResponseEntity.ok(journalEntryService.getById(reversal.getId()));
     }
@@ -93,7 +93,7 @@ public class AccountingController {
     @GetMapping("/fiscal-years")
     public ResponseEntity<List<FiscalYearDto>> getFiscalYears(
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(fiscalYearService.getAll());
     }
 
@@ -101,7 +101,7 @@ public class AccountingController {
     public ResponseEntity<FiscalYearDto> createFiscalYear(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody FiscalYearDto dto) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(fiscalYearService.create(dto));
     }
 
@@ -109,7 +109,7 @@ public class AccountingController {
     public ResponseEntity<TrialBalanceDto> getTrialBalance(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam Long fiscalYearId) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(trialBalanceService.generate(fiscalYearId));
     }
 }
