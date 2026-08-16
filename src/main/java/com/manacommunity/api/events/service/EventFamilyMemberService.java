@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.events.service;
+package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.user.model.AppUser;

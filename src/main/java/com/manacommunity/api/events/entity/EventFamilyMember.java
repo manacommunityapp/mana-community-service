@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.events.entity;
+package com.manacommunity.api.events.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.manacommunity.api.model.Community;
