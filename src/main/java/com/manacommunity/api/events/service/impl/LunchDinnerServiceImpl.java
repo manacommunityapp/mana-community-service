@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.service.LunchDinnerService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Transactional(readOnly = true)
     public LunchDinner getLunchDinnerById(Long id, Long communityId) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Lunch / Dinner event not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Lunch/Dinner event", id));
     }
 
     @Override

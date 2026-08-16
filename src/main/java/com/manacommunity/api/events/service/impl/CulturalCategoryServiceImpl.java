@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.CulturalCategory;
 import com.manacommunity.api.events.repository.CulturalCategoryRepository;
 import com.manacommunity.api.events.service.CulturalCategoryService;
+import com.manacommunity.api.exception.InvalidInputException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +44,7 @@ public class CulturalCategoryServiceImpl implements CulturalCategoryService {
     @Override
     public CulturalCategory createCulturalCategory(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Category name cannot be empty");
+            throw new InvalidInputException("Category name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)

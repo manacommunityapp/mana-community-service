@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.service.CompetitionService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional(readOnly = true)
     public Competition getCompetitionById(Long id, Long communityId) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Competition not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Competition", id));
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventGalleryItem;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventGalleryItemRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
@@ -67,7 +68,7 @@ public class EventGalleryService {
     @Transactional
     public EventGalleryItemResponse create(EventGalleryItemRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         // Resolve MediaObject UUID if the client supplied one
         UUID mediaExternalId = null;
@@ -100,7 +101,7 @@ public class EventGalleryService {
     @Transactional
     public EventGalleryItemResponse update(Long id, EventGalleryItemRequest req) {
         EventGalleryItem item = galleryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Gallery item not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Gallery item", id));
         item.setUrl(req.getUrl());
         item.setThumbnailUrl(req.getThumbnailUrl());
         item.setMediaType(parseEnumOrDefault(EventGalleryItem.MediaType.class, req.getMediaType(), item.getMediaType()));
@@ -126,7 +127,7 @@ public class EventGalleryService {
     @Transactional
     public void delete(Long id) {
         EventGalleryItem item = galleryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Gallery item not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Gallery item", id));
 
         if (item.getMediaExternalId() != null) {
             try {

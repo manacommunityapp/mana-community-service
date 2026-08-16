@@ -6,6 +6,7 @@ import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
@@ -52,7 +53,7 @@ public class EventTaskService {
     @Transactional
     public EventTaskResponse create(EventTaskRequest req, AppUser user, Community community) {
         CommunityEvent event = eventRepo.findById(req.getEventId())
-                .orElseThrow(() -> new IllegalArgumentException("Event not found: " + req.getEventId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventTask task = EventTask.builder()
                 .event(event)
@@ -72,7 +73,7 @@ public class EventTaskService {
     @Transactional
     public EventTaskResponse update(Long id, EventTaskRequest req) {
         EventTask task = taskRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
         task.setTitle(req.getTitle());
         task.setDescription(req.getDescription());
         task.setPhase(req.getPhase());
@@ -86,7 +87,7 @@ public class EventTaskService {
     @Transactional
     public EventTaskResponse toggleDone(Long id) {
         EventTask task = taskRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
         task.setDone(!task.isDone());
         return toResponse(taskRepo.save(task));
     }

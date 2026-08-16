@@ -4,6 +4,8 @@ import com.manacommunity.api.events.dto.EventMediaCategoryRequest;
 import com.manacommunity.api.events.dto.EventMediaCategoryResponse;
 import com.manacommunity.api.events.entity.EventMediaCategory;
 import com.manacommunity.api.events.repository.EventMediaCategoryRepository;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,9 +40,9 @@ public class EventMediaCategoryService {
     @Transactional
     public void delete(Long id, Long communityId) {
         EventMediaCategory cat = categoryRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
         if (!cat.getCommunity().getId().equals(communityId)) {
-            throw new IllegalStateException("Not authorized to delete this category");
+            throw new UnauthorizedActionException("delete this category");
         }
         categoryRepo.delete(cat);
     }

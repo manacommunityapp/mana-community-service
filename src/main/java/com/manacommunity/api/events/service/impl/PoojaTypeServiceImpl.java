@@ -3,6 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.PoojaType;
 import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.PoojaTypeService;
+import com.manacommunity.api.exception.InvalidInputException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +50,7 @@ public class PoojaTypeServiceImpl implements PoojaTypeService {
     @Override
     public PoojaType createPoojaType(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Pooja type name cannot be empty");
+            throw new InvalidInputException("Pooja type name cannot be empty");
         }
         String cleanName = name.trim();
         return poojaTypeRepository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
