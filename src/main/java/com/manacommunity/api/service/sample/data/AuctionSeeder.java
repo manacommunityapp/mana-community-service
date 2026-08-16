@@ -40,7 +40,7 @@ public class AuctionSeeder {
         AppUser superAdmin = userSeeder.getSuperAdmin();
         AppUser sunil = userSeeder.getSunil();
         AppUser ramesh = userSeeder.getRamesh();
-        AppUser user1 = userSeeder.getUser1();
+        AppUser user1 = userSeeder.getVarshitha();
         AppUser user6 = userSeeder.getUserByEmail("vikram.singh@gmail.com");
         AppUser user8 = userSeeder.getUserByEmail("rohit.verma@gmail.com");
 

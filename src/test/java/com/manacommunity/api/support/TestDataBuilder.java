@@ -99,7 +99,7 @@ public final class TestDataBuilder {
 
     public static LoginRequest loginRequest(String email, String password) {
         LoginRequest req = new LoginRequest();
-        req.setEmail(email);
+        req.setIdentifier(email);
         req.setPassword(password);
         return req;
     }

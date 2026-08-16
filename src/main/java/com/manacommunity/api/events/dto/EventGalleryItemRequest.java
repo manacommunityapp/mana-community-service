@@ -21,4 +21,12 @@ public class EventGalleryItemRequest {
     private String caption;
     private boolean featured;
     private Integer sortOrder;
+
+    /**
+     * Optional UUID of the MediaObject created by the Media Service upload.
+     * When provided, EventGalleryService will look up the MediaObject and
+     * use MediaUrlService to regenerate fresh presigned/CloudFront URLs at
+     * read time instead of storing the expiring presigned URL.
+     */
+    private String mediaId;
 }

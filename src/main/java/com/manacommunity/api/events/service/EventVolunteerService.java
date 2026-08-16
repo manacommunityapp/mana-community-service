@@ -33,8 +33,16 @@ public class EventVolunteerService {
 
     @Transactional(readOnly = true)
     public List<EventVolunteerResponse> getByCommunity(Long communityId) {
-        return volunteerRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
-                .stream().map(this::toResponse).toList();
+        List<EventVolunteer> list;
+        if (communityId != null) {
+            list = volunteerRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
+            if (list.isEmpty()) {
+                list = volunteerRepo.findAll();
+            }
+        } else {
+            list = volunteerRepo.findAll();
+        }
+        return list.stream().map(this::toResponse).toList();
     }
 
     @Transactional

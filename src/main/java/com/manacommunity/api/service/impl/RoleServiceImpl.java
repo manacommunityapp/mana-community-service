@@ -17,9 +17,18 @@ public class RoleServiceImpl implements RoleService {
     @Autowired
     private RoleRepository roleRepo;
 
+    private boolean isRestrictedRole(String roleName) {
+        if (roleName == null) return false;
+        String upper = roleName.trim().toUpperCase();
+        return upper.equals("SUPER_ADMIN") || upper.equals("SUPERADMIN") || upper.equals("SUPER_ADMINISTRATOR")
+                || upper.equals("COMMUNITY_ADMIN") || upper.equals("COMMUNITYADMIN") || upper.equals("COMMUNITY_ADMINISTRATOR") || upper.equals("COMMUNITY ADMIN");
+    }
+
     @Override
     public List<Role> getAllRoles() {
-        return roleRepo.findAll();
+        return roleRepo.findAll().stream()
+                .filter(r -> r.getName() != null && !isRestrictedRole(r.getName()))
+                .toList();
     }
 
     @Override
@@ -36,6 +45,9 @@ public class RoleServiceImpl implements RoleService {
         }
         
         String normalizedName = name.trim().toUpperCase();
+        if (isRestrictedRole(normalizedName)) {
+            throw new InvalidInputException("Creation of system administrative roles is restricted.");
+        }
         boolean exists = (communityId != null)
                 ? roleRepo.existsByNameIgnoreCaseAndCommunityId(normalizedName, communityId)
                 : roleRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(normalizedName);

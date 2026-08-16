@@ -26,7 +26,7 @@ public class PlayerCategoryServiceImpl implements PlayerCategoryService {
     @Override
     @Transactional(readOnly = true)
     public List<PlayerCategory> getCategories(AppUser user) {
-        if (ROLE_SUPER_ADMIN.equals(user.getRole())) {
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return categoryRepo.findAll();
         }
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;

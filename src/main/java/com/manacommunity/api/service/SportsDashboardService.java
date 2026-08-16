@@ -36,7 +36,7 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public Stats getStats(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
 
         List<SportsEvent> openEvents = isSuperAdmin
@@ -74,7 +74,7 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public List<TournamentCard> getOpenTournaments(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
@@ -95,7 +95,7 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public List<TournamentCard> getClosedTournaments(AppUser user) {
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(user.getRole());
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 

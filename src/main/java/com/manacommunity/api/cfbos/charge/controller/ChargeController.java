@@ -4,7 +4,7 @@ import com.manacommunity.api.cfbos.charge.dto.*;
 import com.manacommunity.api.cfbos.charge.engine.ChargeCalculationEngine;
 import com.manacommunity.api.cfbos.charge.service.FormulaService;
 import com.manacommunity.api.cfbos.charge.service.SlabConfigService;
-import com.manacommunity.api.constants.PermissionConstants;
+import com.manacommunity.api.constants.permissions.AdminPermissions;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +30,7 @@ public class ChargeController {
     public ResponseEntity<ChargeCalculationResult> calculate(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody ChargeCalculationRequest request) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(chargeCalculationEngine.calculate(
                 request.getMethod(), request.getFixedAmount(),
                 request.getRatePerUnit(), request.getPropertyContext()));
@@ -41,21 +41,21 @@ public class ChargeController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam String expression,
             @RequestBody Map<String, Object> variables) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(chargeCalculationEngine.evaluateFormula(expression, variables));
     }
 
     @GetMapping("/formulas")
     public ResponseEntity<List<FormulaDto>> getFormulas(
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(formulaService.getAll());
     }
 
     @GetMapping("/slabs")
     public ResponseEntity<List<SlabConfigDto>> getSlabConfigs(
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, PermissionConstants.VIEW_ADMIN);
+        permissionCheckService.requireAnyPermission(principal, AdminPermissions.VIEW_ADMIN);
         return ResponseEntity.ok(slabConfigService.getAll());
     }
 }

@@ -24,20 +24,15 @@ public class CommunitySeeder {
         log.info("Seeding default communities...");
         Community general = getOrCreateCommunity(
                 "GENERAL", "GENERAL", "Hyderabad", "Telangana", "Miaypur", "GENERAL", "GENERAL");
-        communityRoleInitializer.initializeCommunityRoles(general);
-
         log.info("✓ Communities seeded: GENERAL (id={})", general.getId());
     }
 
     @Transactional
     public void seed() {
-        log.info("Seeding default communities...");
-
+        log.info("Seeding Lakshmi's Emperia community...");
         Community le = getOrCreateCommunity(
                 "Lakshmi's Emperia", "APARTMENT", "Hyderabad", "Telangana", "Miaypur", "Gated Community", "LE-MY-HYD");
-        communityRoleInitializer.initializeCommunityRoles(le);
-
-        log.info("✓ Communities seeded:   Lakshmi's Emperia (id={})",  le.getId());
+        log.info("✓ Communities seeded: Lakshmi's Emperia (id={})", le.getId());
     }
 
     public Community getGeneralCommunity() {

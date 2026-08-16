@@ -61,7 +61,7 @@ public class TournamentController {
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
 

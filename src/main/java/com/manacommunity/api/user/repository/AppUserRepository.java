@@ -4,8 +4,11 @@ import com.manacommunity.api.user.model.AppUser;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -33,4 +36,30 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+
+    /**
+     * Returns every user in the given community who has the specified role
+     * assigned via the {@code app_user_roles} join table.
+     * Role comparison is case-insensitive.
+     */
+    @Query("""
+            SELECT DISTINCT u FROM AppUser u
+            JOIN u.userRoles r
+            WHERE UPPER(r.name) = UPPER(:roleName)
+              AND u.community.id = :communityId
+            """)
+    List<AppUser> findByCommunityIdAndUserRoleName(
+            @Param("communityId") Long communityId,
+            @Param("roleName")    String roleName);
+
+    /**
+     * Returns every user (across all communities) who has the specified role
+     * assigned via the {@code app_user_roles} join table (SUPER_ADMIN view).
+     */
+    @Query("""
+            SELECT DISTINCT u FROM AppUser u
+            JOIN u.userRoles r
+            WHERE UPPER(r.name) = UPPER(:roleName)
+            """)
+    List<AppUser> findByUserRoleName(@Param("roleName") String roleName);
 }

@@ -38,7 +38,7 @@ import java.util.Map;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
-import static com.manacommunity.api.constants.PermissionConstants.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
 @RestController
 @RequestMapping("/api/sports")

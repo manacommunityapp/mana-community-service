@@ -109,21 +109,26 @@ public class AuthServiceImpl implements AuthService {
         user.setGovtIdNumber(maskedAadhar);
         user.setGovtIdType("AADHAAR");
         user.setKycStatus("VERIFIED");
-        user.setRole(ROLE_MEMBER); // Standard role for new users
-        Role memberRole;
+        user.setRole(ROLE_USER); // All new self-registrations start as USER
+        Role userRole;
         if (community != null) {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityId(ROLE_MEMBER, community.getId())
+            userRole = roleRepository.findByNameIgnoreCaseAndCommunityId(ROLE_USER, community.getId())
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name(ROLE_MEMBER)
+                            .name(ROLE_USER)
                             .communityId(community.getId())
                             .build()));
         } else {
-            memberRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_MEMBER)
+            userRole = roleRepository.findByNameIgnoreCaseAndCommunityIdIsNull(ROLE_USER)
                     .orElseGet(() -> roleRepository.save(Role.builder()
-                            .name(ROLE_MEMBER)
+                            .name(ROLE_USER)
                             .build()));
         }
-        user.setRoleEntity(memberRole);
+        user.setRoleEntity(userRole);
+        if (user.getUserRoles() == null) {
+            user.setUserRoles(new java.util.LinkedHashSet<>());
+        }
+        user.getUserRoles().add(userRole);
+        user.syncRoleString();
         user.setIsActive(true);
         user.setCommunity(community);
         user.setFlatNo(request.getFlatNo());
@@ -269,9 +274,16 @@ public class AuthServiceImpl implements AuthService {
         );
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
         
-        java.util.List<String> enabledModules = user.getCommunity() != null 
-                ? communityModuleService.getEnabledModuleKeys(user.getCommunity().getId()) 
-                : java.util.Collections.emptyList();
+        java.util.List<String> enabledModules;
+        if (user.hasRole(ROLE_SUPER_ADMIN)) {
+            enabledModules = com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
+                    .map(com.manacommunity.api.constants.ModuleConstants.ModuleDef::key)
+                    .toList();
+        } else {
+            enabledModules = user.getCommunity() != null
+                    ? communityModuleService.getEnabledModuleKeys(user.getCommunity().getId())
+                    : java.util.Collections.emptyList();
+        }
         response.setEnabledModules(enabledModules);
         
         return response;

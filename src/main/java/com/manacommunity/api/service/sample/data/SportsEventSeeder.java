@@ -97,7 +97,7 @@ public class SportsEventSeeder {
         createRegistration(summerCup, userSeeder.getSandeep(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sandeep Kamarapu", 36, "All-rounder");
         createRegistration(summerCup, userSeeder.getSunil(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sunil Kanthala", 36, "Batsman");
         createRegistration(summerCup, ramesh, mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Ramesh Korlakunta", 36, "Bowler");
-        createRegistration(summerCup, userSeeder.getUser1(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "user1", 36, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getVarshitha(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "user1", 36, "Wicket Keeper");
 
         // Block A
         createRegistration(summerCup, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rahul Sharma", 38, "All-rounder");

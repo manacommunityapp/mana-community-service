@@ -9,6 +9,12 @@ import com.manacommunity.api.service.AuctionTeamService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import static com.manacommunity.api.constants.PermissionConstants.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_PLAYER_POOL;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_TEAMS_DASHBOARD;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_PLAYER_POOL;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_TEAMS_DASHBOARD;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

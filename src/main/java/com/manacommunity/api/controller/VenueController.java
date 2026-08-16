@@ -2,7 +2,7 @@ package com.manacommunity.api.controller;
 
 import static com.manacommunity.api.constants.PermissionConstants.*;
 
-import com.manacommunity.api.constants.PermissionConstants;
+import com.manacommunity.api.constants.permissions.AdminPermissions;
 import com.manacommunity.api.dto.VenueRequest;
 import com.manacommunity.api.dto.VenueResponse;
 import com.manacommunity.api.user.model.AppUser;
@@ -35,7 +35,7 @@ public class VenueController {
             @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        boolean isSuperAdmin = ROLE_SUPER_ADMIN.equals(loggedInUser.getRole());
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = communityId;
         if (!isSuperAdmin) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
@@ -64,7 +64,7 @@ public class VenueController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
-        if (!ROLE_SUPER_ADMIN.equals(loggedInUser.getRole())) {
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
         return ResponseEntity.ok(venueService.createVenue(targetCommunityId, request));
@@ -81,7 +81,7 @@ public class VenueController {
         boolean timingChanged = !Objects.equals(existing.getOpeningTime(), request.getOpeningTime())
                 || !Objects.equals(existing.getClosingTime(), request.getClosingTime());
         if (timingChanged) {
-            permissionCheckService.requireAnyPermission(principal, PermissionConstants.EDIT_VENUE_TIMING);
+            permissionCheckService.requireAnyPermission(principal, AdminPermissions.EDIT_VENUE_TIMING);
         }
 
         return ResponseEntity.ok(venueService.updateVenue(id, request));

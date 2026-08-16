@@ -34,10 +34,10 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<String> getEnabledModuleKeys(Long communityId) {
         if (!communityModuleRepo.existsByCommunityId(communityId)) {
-            return List.of();
+            initializeModulesForCommunity(communityId);
         }
         return communityModuleRepo.findEnabledByCommunityId(communityId).stream()
                 .map(CommunityModule::getModuleKey)
@@ -61,7 +61,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                             .community(community)
                             .moduleKey(def.key())
                             .moduleLabel(def.label())
-                            .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
+                            .isEnabled(false)
                             .sortOrder(def.sortOrder())
                             .createdAt(now)
                             .updatedAt(now)
@@ -91,7 +91,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                                 .community(community)
                                 .moduleKey(def.key())
                                 .moduleLabel(def.label())
-                                .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
+                                .isEnabled(false)
                                 .sortOrder(def.sortOrder())
                                 .createdAt(now)
                                 .updatedAt(now)
@@ -121,7 +121,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                         .community(community)
                         .moduleKey(def.key())
                         .moduleLabel(def.label())
-                        .isEnabled(def.key().equals("COMMUNITY_FEED") || def.key().equals("ADMIN_HUB"))
+                        .isEnabled(false)
                         .sortOrder(def.sortOrder())
                         .createdAt(now)
                         .updatedAt(now)

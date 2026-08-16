@@ -1,5 +1,7 @@
 package com.manacommunity.api.service.sample;
 
+import com.manacommunity.api.constants.ModuleConstants;
+import com.manacommunity.api.model.Community;
 import com.manacommunity.api.service.sample.data.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +10,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
 
 /**
  * SampleDataService — Seeds the database with baseline data matching
@@ -76,6 +80,11 @@ public class SampleDataService implements ApplicationRunner {
             rolePermissionSeeder.defaultSeed();
             userSeeder.defaultSeed();
 
+            Community general = communitySeeder.getGeneralCommunity();
+            defaultCommunityModuleDataService.seedModulesForCommunity(
+                    general.getId(),
+                    Set.of(ModuleConstants.MODULE_COMMUNITY_FEED, ModuleConstants.MODULE_ADMIN_HUB));
+
             sportsMetaSeeder.defaultSeed();
             playerCategorySeeder.defaultSeed();
 
@@ -111,7 +120,13 @@ public class SampleDataService implements ApplicationRunner {
             playerCategorySeeder.seed();
             venueSeeder.seed();
             //inventorySeeder.seed();
-            defaultCommunityModuleDataService.seedDefaultModulesForCommunity(2L);
+            Community le = communitySeeder.getLeCommunity();
+            defaultCommunityModuleDataService.seedModulesForCommunity(
+                    le.getId(),
+                    Set.of(ModuleConstants.MODULE_COMMUNITY_FEED,
+                           ModuleConstants.MODULE_SPORTS,
+                           ModuleConstants.MODULE_EVENTS,
+                           ModuleConstants.MODULE_ADMIN_HUB));
             communityLeaderSeeder.seed();
             //emailTemplateFeeder.seed();
             //sportsEventSeeder.seed();
