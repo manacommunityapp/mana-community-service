@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.events.service.impl;
+package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
