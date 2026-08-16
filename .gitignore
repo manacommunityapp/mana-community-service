@@ -41,3 +41,8 @@ build/
 deploy/env
 *.env
 !deploy/env.example
+src/main/resources/application-local.yaml
+src/main/resources/application-local.properties
+**/application-local.yaml
+**/application-local.properties
+
