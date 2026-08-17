@@ -33,7 +33,7 @@ public class EventMediaCategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<EventMediaCategoryResponse> create(
             @Valid @RequestBody EventMediaCategoryRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -43,7 +43,7 @@ public class EventMediaCategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

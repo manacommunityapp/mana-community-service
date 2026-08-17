@@ -49,7 +49,7 @@ public class EventGalleryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<EventGalleryItemResponse> create(
             @Valid @RequestBody EventGalleryItemRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -59,7 +59,7 @@ public class EventGalleryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<EventGalleryItemResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventGalleryItemRequest req) {
@@ -67,7 +67,7 @@ public class EventGalleryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         galleryService.delete(id);
         return ResponseEntity.noContent().build();

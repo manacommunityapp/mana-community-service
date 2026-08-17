@@ -33,7 +33,7 @@ public class EventMediaDayController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<EventMediaDayResponse> create(
             @Valid @RequestBody EventMediaDayRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -43,7 +43,7 @@ public class EventMediaDayController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAuthority('Manage Event Media')")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
