@@ -67,6 +67,11 @@ public class S3FileStorageService implements FileStorageService {
 
     @Override
     public StoredFileDto store(MultipartFile file, Long uploadedByUserId) {
+        return store(file, uploadedByUserId, null);
+    }
+
+    @Override
+    public StoredFileDto store(MultipartFile file, Long uploadedByUserId, String customPath) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File must not be empty");
         }
@@ -76,7 +81,16 @@ public class S3FileStorageService implements FileStorageService {
 
         try {
             String ext = extractExtension(file.getOriginalFilename());
-            String key = "invoices/" + UUID.randomUUID() + ext;
+            String key;
+            if (customPath != null && !customPath.isBlank()) {
+                String cleanPath = customPath.trim();
+                if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+                if (cleanPath.endsWith("/")) cleanPath = cleanPath.substring(0, cleanPath.length() - 1);
+                String fileName = "payment_screenshot_" + System.currentTimeMillis() + ext;
+                key = cleanPath + "/" + fileName;
+            } else {
+                key = "invoices/" + UUID.randomUUID() + ext;
+            }
             String contentType = resolveContentType(file);
 
             PutObjectRequest put = PutObjectRequest.builder()
@@ -98,8 +112,9 @@ public class S3FileStorageService implements FileStorageService {
                     contentType,
                     file.getSize()
             );
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read uploaded file bytes", e);
+        } catch (Exception e) {
+            log.error("Failed to upload to S3: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
         }
     }
 

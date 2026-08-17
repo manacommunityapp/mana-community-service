@@ -33,6 +33,41 @@ public class FileStorageController {
     }
 
     /**
+     * Upload an event payment screenshot with hierarchical S3 path:
+     * events/{eventId}/{eventName}/{block}/{flatNo}/payment_screenshot_{timestamp}.{ext}
+     */
+    @PostMapping(value = "/upload/event-payment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<StoredFileDto> uploadEventPaymentScreenshot(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "eventId", required = false) String eventId,
+            @RequestParam(value = "eventName", required = false) String eventName,
+            @RequestParam(value = "block", required = false) String block,
+            @RequestParam(value = "flatNo", required = false) String flatNo,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = principal != null ? principal.getId() : null;
+
+        String safeEventId = (eventId != null && !eventId.isBlank()) ? sanitizePathSegment(eventId) : "event";
+        String safeEventName = (eventName != null && !eventName.isBlank()) ? sanitizePathSegment(eventName) : "general-event";
+        String safeBlock = (block != null && !block.isBlank()) ? sanitizePathSegment(block) : "general-block";
+        String safeFlatNo = (flatNo != null && !flatNo.isBlank()) ? sanitizePathSegment(flatNo) : "general-flat";
+
+        // S3 Path: events/{eventId}/{eventName}/{block}/{flatNo}
+        String customPath = String.format("events/%s/%s/%s/%s", safeEventId, safeEventName, safeBlock, safeFlatNo);
+
+        StoredFileDto dto = storageService.store(file, userId, customPath);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    }
+
+    private String sanitizePathSegment(String input) {
+        if (input == null) return "na";
+        String clean = input.trim()
+                .toLowerCase()
+                .replaceAll("[^a-zA-Z0-9_-]+", "-")
+                .replaceAll("^-+|-+$", "");
+        return clean.isBlank() ? "na" : clean;
+    }
+
+    /**
      * Serve a Postgres-stored file by id.
      * Not called for S3 files — those are served directly from the S3 URL.
      */

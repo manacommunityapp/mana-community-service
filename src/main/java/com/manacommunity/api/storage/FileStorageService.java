@@ -30,6 +30,13 @@ public interface FileStorageService {
     StoredFileDto store(MultipartFile file, Long uploadedByUserId);
 
     /**
+     * Store a file with a custom hierarchical S3 folder path prefix.
+     */
+    default StoredFileDto store(MultipartFile file, Long uploadedByUserId, String customPath) {
+        return store(file, uploadedByUserId);
+    }
+
+    /**
      * Delete a previously stored file. No-op if the id does not exist.
      * For S3 files the id is ignored — pass the full URL via a separate call
      * if you need S3 deletion (not implemented by default; safe to extend).

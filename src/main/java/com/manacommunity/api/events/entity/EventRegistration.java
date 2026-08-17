@@ -35,6 +35,9 @@ public class EventRegistration {
     @Builder.Default
     private RegistrationStatus status = RegistrationStatus.PENDING;
 
+    @Column(name = "gotram", length = 100)
+    private String gotram;
+
     @Column(name = "payment_receipt_url", length = 1000)
     private String paymentReceiptUrl;
 

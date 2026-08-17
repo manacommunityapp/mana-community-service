@@ -20,6 +20,7 @@ public class ActivityRegistrationResponse {
     private String primaryName;
     private String primaryEmail;
     private String primaryPhone;
+    private String gotram;
     private String status;
     private int spotsLeft;
     private Integer waitlistPosition;

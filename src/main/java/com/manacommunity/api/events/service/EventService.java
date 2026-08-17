@@ -153,6 +153,7 @@ public class EventService {
                 .category(req.getCategory())
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
+                .paymentModes(req.getPaymentModes())
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .createdBy(user)
                 .community(community)
@@ -233,6 +234,7 @@ public class EventService {
             CommunityEvent.EventStatus s = parseEnum(CommunityEvent.EventStatus.class, req.getStatus());
             if (s != null) event.setStatus(s);
         }
+        if (req.getPaymentModes() != null) event.setPaymentModes(req.getPaymentModes());
         if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
 
         CommunityEvent saved = eventRepo.save(event);
@@ -555,6 +557,7 @@ public class EventService {
                 .city(e.getCity())
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
+                .paymentModes(e.getPaymentModes())
                 .maxAttendees(e.getMaxAttendees())
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())

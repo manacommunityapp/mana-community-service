@@ -28,5 +28,6 @@ public class EventRequest {
     private String city;
     private String category;
     private String status;
+    private String paymentModes;
     private Integer maxAttendees;
 }

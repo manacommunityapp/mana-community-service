@@ -28,6 +28,7 @@ public class EventResponse {
     private String city;
     private String category;
     private String status;
+    private String paymentModes;
     private Integer maxAttendees;
     private Long createdById;
     private String createdByName;
