@@ -100,4 +100,18 @@ public class CommunityController {
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(communityService.updateEnabledModules(id, body.get("modules")));
     }
+
+    /**
+     * GET /api/communities/check-unit
+     * Public check to verify if a Block/Wing and Flat Number is already registered in a community.
+     */
+    @GetMapping("/check-unit")
+    public ResponseEntity<java.util.Map<String, Object>> checkUnitExists(
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String inviteCode,
+            @RequestParam String block,
+            @RequestParam String flatNo) {
+        boolean exists = communityService.checkUnitExists(communityId, inviteCode, block, flatNo);
+        return ResponseEntity.ok(java.util.Map.of("exists", exists));
+    }
 }

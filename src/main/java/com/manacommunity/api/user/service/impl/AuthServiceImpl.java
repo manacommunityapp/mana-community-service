@@ -85,6 +85,19 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
 
+        // 2c. Check if block & flat number combination is already registered in this community
+        if (community != null && request.getBlock() != null && !request.getBlock().trim().isEmpty()
+                && request.getFlatNo() != null && !request.getFlatNo().trim().isEmpty()) {
+            boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                    community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+            );
+            if (unitExists) {
+                throw new ManaCommunityException(
+                        "Unit Block " + request.getBlock().trim().toUpperCase() + " Flat " + request.getFlatNo().trim() + " is already registered in this community.",
+                        HttpStatus.CONFLICT, "DUPLICATE_UNIT");
+            }
+        }
+
         // 2b. Enforce password strength before hashing — also reject passwords
         // derived from the user's own data (email, name, phone, community).
         // Arrays.asList permits nulls; the evaluator skips null/blank tokens.

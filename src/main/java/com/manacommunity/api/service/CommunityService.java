@@ -23,4 +23,7 @@ public interface CommunityService {
 
     /** Updates the list of enabled feature modules for a community. */
     CommunityResponse updateEnabledModules(Long id, List<String> modules);
+
+    /** Checks if a block and flat number is already registered in a community. */
+    boolean checkUnitExists(Long communityId, String inviteCode, String block, String flatNo);
 }

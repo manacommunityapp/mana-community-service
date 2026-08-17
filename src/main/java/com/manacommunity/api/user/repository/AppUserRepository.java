@@ -36,6 +36,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+    boolean existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(Long communityId, String block, String flatNo);
 
     /**
      * Returns every user in the given community who has the specified role
