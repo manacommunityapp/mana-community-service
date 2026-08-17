@@ -31,6 +31,12 @@ public class PoojaSeva {
     @Column(name = "date")
     private LocalDate date;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(name = "multi_day")
+    private Boolean multiDay = false;
+
     @Column(name = "start_time")
     private LocalTime startTime;
 
@@ -92,6 +98,12 @@ public class PoojaSeva {
 
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
+
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public Boolean getMultiDay() { return multiDay; }
+    public void setMultiDay(Boolean multiDay) { this.multiDay = multiDay; }
 
     public LocalTime getStartTime() { return startTime; }
     public void setStartTime(LocalTime startTime) { this.startTime = startTime; }

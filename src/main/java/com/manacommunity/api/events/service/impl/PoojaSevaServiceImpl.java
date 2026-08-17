@@ -48,6 +48,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setName(updated.getName());
         existing.setType(updated.getType());
         existing.setDate(updated.getDate());
+        existing.setEndDate(updated.getEndDate());
+        existing.setMultiDay(updated.getMultiDay());
         existing.setStartTime(updated.getStartTime());
         existing.setDuration(updated.getDuration());
         existing.setMandap(updated.getMandap());
