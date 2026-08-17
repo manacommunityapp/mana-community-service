@@ -31,7 +31,7 @@ server:
   port: 8081
 
 app:
-  insert-sample-data: insert
+  insert-sample-data: ${APP_INSERT_SAMPLE_DATA:false}
   # AI/Ollama integration — temporarily OFF (no Ollama server in the dev env).
   ai:
     enabled: false

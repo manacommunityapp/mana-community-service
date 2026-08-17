@@ -5,17 +5,22 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.events.service.EventFamilyMemberService;
-import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
+
+    private static final Set<String> DUMMY_NAMES = Set.of(
+            "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+            "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+    );
 
     private final EventFamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
@@ -32,77 +37,20 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
             if (communityId != null) {
                 return repository.findByCommunityIdOrderByCreatedAtAsc(communityId);
             }
-            return repository.findAll();
+            return Collections.emptyList();
         }
 
-        List<EventFamilyMember> existing = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
-        if (!existing.isEmpty()) {
-            return existing;
+        List<EventFamilyMember> list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        List<EventFamilyMember> toDelete = list.stream()
+                .filter(m -> m.getName() != null && DUMMY_NAMES.contains(m.getName().trim()))
+                .toList();
+
+        if (!toDelete.isEmpty()) {
+            repository.deleteAll(toDelete);
+            list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
         }
 
-        Community comm = user.getCommunity();
-        if (comm == null && communityId != null) {
-            comm = communityRepository.findById(communityId).orElse(null);
-        }
-
-        String primaryName = (user.getFullName() != null && !user.getFullName().isBlank())
-                ? user.getFullName()
-                : (user.getEmail() != null ? user.getEmail().split("@")[0] : "Devotee (Self)");
-
-        List<EventFamilyMember> seeded = new ArrayList<>();
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name(primaryName)
-                .relation("Self")
-                .age(34)
-                .avatar("👤")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build());
-
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Sunita Sharma")
-                .relation("Spouse")
-                .age(31)
-                .avatar("👩")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(1))
-                .updatedAt(LocalDateTime.now().plusSeconds(1))
-                .build());
-
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Aarav Sharma")
-                .relation("Son")
-                .age(8)
-                .avatar("👦")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(2))
-                .updatedAt(LocalDateTime.now().plusSeconds(2))
-                .build());
-
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Ananya Sharma")
-                .relation("Daughter")
-                .age(5)
-                .avatar("👧")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(3))
-                .updatedAt(LocalDateTime.now().plusSeconds(3))
-                .build());
-
-        return repository.saveAll(seeded);
+        return list;
     }
 
     @Override
@@ -131,9 +79,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public EventFamilyMember updateFamilyMember(Long id, EventFamilyMember member, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
 
         if (member.getName() != null && !member.getName().isBlank()) {
             existing.setName(member.getName());
@@ -156,9 +104,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public void deleteFamilyMember(Long id, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
 
         repository.delete(existing);
     }
