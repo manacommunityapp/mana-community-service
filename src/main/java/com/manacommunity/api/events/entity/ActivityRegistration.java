@@ -44,6 +44,9 @@ public class ActivityRegistration {
     @Column(name = "primary_phone", length = 50)
     private String primaryPhone;
 
+    @Column(name = "gotram", length = 100)
+    private String gotram;
+
     @Column(name = "participant_data", columnDefinition = "TEXT")
     private String participantData;
 

@@ -18,6 +18,7 @@ public class ActivityRegistrationRequest {
     @Email
     private String primaryEmail;
     private String primaryPhone;
+    private String gotram;
     private String idempotencyKey;
     private Map<String, Object> customData;
     @Valid

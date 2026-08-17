@@ -45,6 +45,9 @@ public class EventBookingRegistration {
     @Column(name = "participant_name", nullable = false, length = 255)
     private String participantName;
 
+    @Column(name = "gotram", length = 100)
+    private String gotram;
+
     @Column(name = "attending_devotees", columnDefinition = "TEXT")
     private String attendingDevotees;
 

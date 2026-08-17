@@ -90,6 +90,9 @@ public class CommunityEvent {
     @Builder.Default
     private EventStatus status = EventStatus.PUBLISHED;
 
+    @Column(name = "payment_modes", length = 255)
+    private String paymentModes;
+
     @Column(name = "max_attendees")
     private Integer maxAttendees;
 
