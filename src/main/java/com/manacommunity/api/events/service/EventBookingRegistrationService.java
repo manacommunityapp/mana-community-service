@@ -9,6 +9,8 @@ public interface EventBookingRegistrationService {
 
     EventBookingRegistration createRegistration(EventBookingRegistration registration, AppUser user, Long communityId);
 
+    EventBookingRegistration updateRegistration(Long id, EventBookingRegistration patch, AppUser user);
+
     List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId);
 
     List<EventBookingRegistration> getRegistrationsByCommunity(Long communityId);

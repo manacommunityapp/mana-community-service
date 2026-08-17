@@ -193,4 +193,38 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         reg.setUpdatedAt(LocalDateTime.now());
         repository.save(reg);
     }
+
+    @Override
+    @Transactional
+    public EventBookingRegistration updateRegistration(Long id, EventBookingRegistration patch, AppUser user) {
+        EventBookingRegistration reg = getRegistrationById(id, user);
+
+        // Only allow update if not already cancelled
+        if ("CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+            throw new IllegalStateException("Cannot update a cancelled registration");
+        }
+
+        // Patch only the mutable fields the user is allowed to change
+        if (patch.getParticipantName() != null && !patch.getParticipantName().isBlank()) {
+            reg.setParticipantName(patch.getParticipantName().trim());
+        }
+        if (patch.getAttendingDevotees() != null) {
+            reg.setAttendingDevotees(patch.getAttendingDevotees());
+        }
+        if (patch.getDevoteeCount() != null && patch.getDevoteeCount() > 0) {
+            reg.setDevoteeCount(patch.getDevoteeCount());
+        }
+        if (patch.getPaymentReceiptUrl() != null) {
+            reg.setPaymentReceiptUrl(patch.getPaymentReceiptUrl());
+        }
+        if (patch.getTransactionId() != null) {
+            reg.setTransactionId(patch.getTransactionId());
+        }
+        if (patch.getPaymentMethod() != null) {
+            reg.setPaymentMethod(patch.getPaymentMethod());
+        }
+
+        reg.setUpdatedAt(LocalDateTime.now());
+        return repository.save(reg);
+    }
 }
