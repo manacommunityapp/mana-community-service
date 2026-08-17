@@ -5,7 +5,6 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.events.service.EventFamilyMemberService;
-import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,62 +46,22 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
 
         String primaryName = (user.getFullName() != null && !user.getFullName().isBlank())
                 ? user.getFullName()
-                : (user.getEmail() != null ? user.getEmail().split("@")[0] : "Devotee (Self)");
+                : (user.getEmail() != null ? user.getEmail().split("@")[0] : "Myself (Head)");
 
-        List<EventFamilyMember> seeded = new ArrayList<>();
-        seeded.add(EventFamilyMember.builder()
+        List<EventFamilyMember> initialList = new ArrayList<>();
+        initialList.add(EventFamilyMember.builder()
                 .user(user)
                 .community(comm)
                 .name(primaryName)
-                .relation("Self")
-                .age(34)
+                .relation("Myself (Head)")
+                .age(30)
                 .avatar("👤")
-                .gothram("Kashyapa")
                 .status("ACTIVE")
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build());
 
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Sunita Sharma")
-                .relation("Spouse")
-                .age(31)
-                .avatar("👩")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(1))
-                .updatedAt(LocalDateTime.now().plusSeconds(1))
-                .build());
-
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Aarav Sharma")
-                .relation("Son")
-                .age(8)
-                .avatar("👦")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(2))
-                .updatedAt(LocalDateTime.now().plusSeconds(2))
-                .build());
-
-        seeded.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name("Ananya Sharma")
-                .relation("Daughter")
-                .age(5)
-                .avatar("👧")
-                .gothram("Kashyapa")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now().plusSeconds(3))
-                .updatedAt(LocalDateTime.now().plusSeconds(3))
-                .build());
-
-        return repository.saveAll(seeded);
+        return repository.saveAll(initialList);
     }
 
     @Override
@@ -131,9 +90,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public EventFamilyMember updateFamilyMember(Long id, EventFamilyMember member, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
 
         if (member.getName() != null && !member.getName().isBlank()) {
             existing.setName(member.getName());
@@ -156,9 +115,9 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     public void deleteFamilyMember(Long id, AppUser user, Long communityId) {
         EventFamilyMember existing = (user != null && user.getId() != null)
                 ? repository.findByIdAndUserId(id, user.getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id))
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id))
                 : repository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Family member", id));
+                    .orElseThrow(() -> new IllegalArgumentException("Family member not found: " + id));
 
         repository.delete(existing);
     }
