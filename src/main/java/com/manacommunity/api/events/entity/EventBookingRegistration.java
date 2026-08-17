@@ -69,6 +69,15 @@ public class EventBookingRegistration {
     @Builder.Default
     private String paymentStatus = "PAID";
 
+    @Column(name = "payment_receipt_url", length = 1000)
+    private String paymentReceiptUrl;
+
+    @Column(name = "transaction_id", length = 100)
+    private String transactionId;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
     @Column(name = "status", length = 30)
     @Builder.Default
     private String status = "CONFIRMED";

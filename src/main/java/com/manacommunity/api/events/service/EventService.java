@@ -36,6 +36,8 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
+import com.manacommunity.api.events.entity.EventVenue;
+import com.manacommunity.api.events.repository.EventVenueRepository;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.repository.AuctionPlayerRepository;
@@ -57,6 +59,7 @@ public class EventService {
     private final AuctionPlayerRepository auctionPlayerRepo;
     private final AppUserRepository userRepo;
     private final EmailService emailService;
+    private final EventVenueRepository venueRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -118,6 +121,16 @@ public class EventService {
         LocalDate startDate = parseLocalDate(req.getStartDate());
         if (startDate == null) startDate = LocalDate.now();
 
+        EventVenue eventVenue = null;
+        if (req.getVenueId() != null) {
+            eventVenue = venueRepo.findById(req.getVenueId()).orElse(null);
+        }
+
+        String venueName = req.getVenue();
+        if ((venueName == null || venueName.isBlank()) && eventVenue != null) {
+            venueName = eventVenue.getName();
+        }
+
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
@@ -134,7 +147,8 @@ public class EventService {
                 .imageUrl(req.getImageUrl())
                 .organizerName(req.getOrganizerName())
                 .organizerContact(req.getOrganizerContact())
-                .venue(req.getVenue())
+                .eventVenue(eventVenue)
+                .venue(venueName)
                 .city(req.getCity())
                 .category(req.getCategory())
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
@@ -157,6 +171,14 @@ public class EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
         CommunityEvent.EventStatus oldStatus = event.getStatus();
+
+        if (req.getVenueId() != null) {
+            EventVenue eventVenue = venueRepo.findById(req.getVenueId()).orElse(null);
+            event.setEventVenue(eventVenue);
+            if (eventVenue != null && (req.getVenue() == null || req.getVenue().isBlank())) {
+                event.setVenue(eventVenue.getName());
+            }
+        }
 
         if (req.getTitle() != null && !req.getTitle().isBlank()) {
             event.setTitle(req.getTitle());
@@ -528,7 +550,8 @@ public class EventService {
                 .imageUrl(e.getImageUrl())
                 .organizerName(e.getOrganizerName())
                 .organizerContact(e.getOrganizerContact())
-                .venue(e.getVenue())
+                .venueId(e.getEventVenue() != null ? e.getEventVenue().getId() : null)
+                .venue(e.getEventVenue() != null ? e.getEventVenue().getName() : e.getVenue())
                 .city(e.getCity())
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())

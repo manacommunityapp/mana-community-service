@@ -32,6 +32,11 @@ public class EventFamilyMember {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Community community;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "createdBy", "community"})
+    private CommunityEvent event;
+
     @Column(nullable = false, length = 150)
     private String name;
 

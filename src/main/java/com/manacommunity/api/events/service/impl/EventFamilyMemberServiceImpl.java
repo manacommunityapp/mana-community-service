@@ -14,6 +14,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.repository.CommunityEventRepository;
+
 @Service
 public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
 
@@ -24,30 +27,55 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
 
     private final EventFamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
+    private final CommunityEventRepository eventRepository;
 
-    public EventFamilyMemberServiceImpl(EventFamilyMemberRepository repository, CommunityRepository communityRepository) {
+    public EventFamilyMemberServiceImpl(
+            EventFamilyMemberRepository repository,
+            CommunityRepository communityRepository,
+            CommunityEventRepository eventRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
+        this.eventRepository = eventRepository;
     }
 
     @Override
     @Transactional
     public List<EventFamilyMember> getFamilyMembers(AppUser user, Long communityId) {
+        return getFamilyMembers(user, communityId, null);
+    }
+
+    @Override
+    @Transactional
+    public List<EventFamilyMember> getFamilyMembers(AppUser user, Long communityId, Long eventId) {
         if (user == null || user.getId() == null) {
+            if (eventId != null) {
+                return repository.findByEventIdOrderByCreatedAtAsc(eventId);
+            }
             if (communityId != null) {
                 return repository.findByCommunityIdOrderByCreatedAtAsc(communityId);
             }
             return Collections.emptyList();
         }
 
-        List<EventFamilyMember> list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        List<EventFamilyMember> list;
+        if (eventId != null) {
+            list = repository.findByUserIdAndEventIdOrderByCreatedAtAsc(user.getId(), eventId);
+            if (list.isEmpty()) {
+                list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+            }
+        } else {
+            list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        }
+
         List<EventFamilyMember> toDelete = list.stream()
                 .filter(m -> m.getName() != null && DUMMY_NAMES.contains(m.getName().trim()))
                 .toList();
 
         if (!toDelete.isEmpty()) {
             repository.deleteAll(toDelete);
-            list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+            list = (eventId != null)
+                    ? repository.findByUserIdAndEventIdOrderByCreatedAtAsc(user.getId(), eventId)
+                    : repository.findByUserIdOrderByCreatedAtAsc(user.getId());
         }
 
         return list;
@@ -56,13 +84,24 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     @Override
     @Transactional
     public EventFamilyMember addFamilyMember(EventFamilyMember member, AppUser user, Long communityId) {
+        return addFamilyMember(member, user, communityId, null);
+    }
+
+    @Override
+    @Transactional
+    public EventFamilyMember addFamilyMember(EventFamilyMember member, AppUser user, Long communityId, Long eventId) {
         Community comm = (user != null && user.getCommunity() != null)
                 ? user.getCommunity()
                 : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
 
+        CommunityEvent event = (eventId != null)
+                ? eventRepository.findById(eventId).orElse(null)
+                : null;
+
         member.setId(null);
         member.setUser(user);
         member.setCommunity(comm);
+        member.setEvent(event);
         if (member.getStatus() == null || member.getStatus().isBlank()) {
             member.setStatus("ACTIVE");
         }
