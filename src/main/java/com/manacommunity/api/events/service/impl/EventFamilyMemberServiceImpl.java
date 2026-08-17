@@ -12,9 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
+
+    private static final Set<String> DUMMY_NAMES = Set.of(
+            "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+            "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+    );
 
     private final EventFamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
@@ -25,7 +31,7 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<EventFamilyMember> getFamilyMembers(AppUser user, Long communityId) {
         if (user == null || user.getId() == null) {
             if (communityId != null) {
@@ -34,7 +40,17 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
             return Collections.emptyList();
         }
 
-        return repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        List<EventFamilyMember> list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        List<EventFamilyMember> toDelete = list.stream()
+                .filter(m -> m.getName() != null && DUMMY_NAMES.contains(m.getName().trim()))
+                .toList();
+
+        if (!toDelete.isEmpty()) {
+            repository.deleteAll(toDelete);
+            list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        }
+
+        return list;
     }
 
     @Override
