@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -25,43 +25,16 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<EventFamilyMember> getFamilyMembers(AppUser user, Long communityId) {
         if (user == null || user.getId() == null) {
             if (communityId != null) {
                 return repository.findByCommunityIdOrderByCreatedAtAsc(communityId);
             }
-            return repository.findAll();
+            return Collections.emptyList();
         }
 
-        List<EventFamilyMember> existing = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
-        if (!existing.isEmpty()) {
-            return existing;
-        }
-
-        Community comm = user.getCommunity();
-        if (comm == null && communityId != null) {
-            comm = communityRepository.findById(communityId).orElse(null);
-        }
-
-        String primaryName = (user.getFullName() != null && !user.getFullName().isBlank())
-                ? user.getFullName()
-                : (user.getEmail() != null ? user.getEmail().split("@")[0] : "Myself (Head)");
-
-        List<EventFamilyMember> initialList = new ArrayList<>();
-        initialList.add(EventFamilyMember.builder()
-                .user(user)
-                .community(comm)
-                .name(primaryName)
-                .relation("Myself (Head)")
-                .age(30)
-                .avatar("👤")
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build());
-
-        return repository.saveAll(initialList);
+        return repository.findByUserIdOrderByCreatedAtAsc(user.getId());
     }
 
     @Override
