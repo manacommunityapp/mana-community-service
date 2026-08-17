@@ -81,6 +81,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             registration.setPaymentStatus((registration.getBookingFee() != null && registration.getBookingFee() > 0) ? "PAID" : "FREE");
         }
 
+        registration.setDevoteeCount(computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees()));
+
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
 
@@ -90,6 +92,33 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         decrementActivitySlots(saved);
 
         return saved;
+    }
+
+    private int computeDevoteeCount(Integer currentCount, String attendingDevotees) {
+        if (attendingDevotees != null && !attendingDevotees.isBlank()) {
+            String trimmed = attendingDevotees.trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                int count = 0;
+                boolean inString = false;
+                for (int i = 0; i < trimmed.length(); i++) {
+                    char c = trimmed.charAt(i);
+                    if (c == '"' && (i == 0 || trimmed.charAt(i - 1) != '\\')) {
+                        inString = !inString;
+                    } else if (!inString && c == '{') {
+                        count++;
+                    }
+                }
+                if (count > 0) return count;
+            } else {
+                String[] parts = trimmed.split(",");
+                int validParts = 0;
+                for (String p : parts) {
+                    if (!p.trim().isEmpty()) validParts++;
+                }
+                if (validParts > 0) return validParts;
+            }
+        }
+        return (currentCount != null && currentCount > 0) ? currentCount : 1;
     }
 
     private void decrementActivitySlots(EventBookingRegistration registration) {
@@ -213,6 +242,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
         if (patch.getDevoteeCount() != null && patch.getDevoteeCount() > 0) {
             reg.setDevoteeCount(patch.getDevoteeCount());
+        } else if (patch.getAttendingDevotees() != null) {
+            reg.setDevoteeCount(computeDevoteeCount(reg.getDevoteeCount(), patch.getAttendingDevotees()));
         }
         if (patch.getPaymentReceiptUrl() != null) {
             reg.setPaymentReceiptUrl(patch.getPaymentReceiptUrl());
