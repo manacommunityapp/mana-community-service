@@ -33,7 +33,7 @@ import java.util.Set;
 public class AdminUserServiceImpl implements AdminUserService {
 
     /** Used when the admin leaves the password blank; the user resets it later. */
-    private static final String DEFAULT_TEMP_PASSWORD = "TempPass123!";
+    private static final String DEFAULT_TEMP_PASSWORD = "Pass1234";
 
     private final AppUserRepository userRepository;
     private final CommunityRepository communityRepository;
