@@ -63,6 +63,11 @@ public class PoojaSeva {
     @Column(name = "item_name")
     private List<String> items = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "event_pooja_seva_start_times", joinColumns = @JoinColumn(name = "pooja_seva_id"))
+    @Column(name = "start_time_slot")
+    private List<String> startTimes = new ArrayList<>();
+
     @Column(name = "notes", length = 1000)
     private String notes;
 
@@ -128,6 +133,16 @@ public class PoojaSeva {
 
     public List<String> getItems() { return items; }
     public void setItems(List<String> items) { this.items = items; }
+
+    public List<String> getStartTimes() { return startTimes; }
+    public void setStartTimes(List<String> startTimes) {
+        this.startTimes = startTimes != null ? startTimes : new ArrayList<>();
+        if (this.startTime == null && !this.startTimes.isEmpty()) {
+            try {
+                this.startTime = LocalTime.parse(this.startTimes.get(0));
+            } catch (Exception ignored) {}
+        }
+    }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

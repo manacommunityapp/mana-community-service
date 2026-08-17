@@ -60,6 +60,9 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         if (updated.getItems() != null) {
             existing.setItems(updated.getItems());
         }
+        if (updated.getStartTimes() != null) {
+            existing.setStartTimes(updated.getStartTimes());
+        }
         existing.setNotes(updated.getNotes());
         return repository.save(existing);
     }
