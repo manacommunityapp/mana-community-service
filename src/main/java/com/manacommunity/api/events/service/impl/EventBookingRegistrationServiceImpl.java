@@ -1,7 +1,15 @@
 package com.manacommunity.api.events.service.impl;
 
+import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
+import com.manacommunity.api.events.entity.LunchDinner;
+import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.LunchDinnerRepository;
+import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -19,10 +27,24 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
     private final EventBookingRegistrationRepository repository;
     private final CommunityRepository communityRepository;
+    private final PoojaSevaRepository poojaSevaRepository;
+    private final LunchDinnerRepository lunchDinnerRepository;
+    private final CompetitionRepository competitionRepository;
+    private final CommunityEventRepository communityEventRepository;
 
-    public EventBookingRegistrationServiceImpl(EventBookingRegistrationRepository repository, CommunityRepository communityRepository) {
+    public EventBookingRegistrationServiceImpl(
+            EventBookingRegistrationRepository repository,
+            CommunityRepository communityRepository,
+            PoojaSevaRepository poojaSevaRepository,
+            LunchDinnerRepository lunchDinnerRepository,
+            CompetitionRepository competitionRepository,
+            CommunityEventRepository communityEventRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
+        this.poojaSevaRepository = poojaSevaRepository;
+        this.lunchDinnerRepository = lunchDinnerRepository;
+        this.competitionRepository = competitionRepository;
+        this.communityEventRepository = communityEventRepository;
     }
 
     @Override
@@ -62,7 +84,72 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
 
-        return repository.save(registration);
+        EventBookingRegistration saved = repository.save(registration);
+
+        // Decrement slots / capacity for the booked activity
+        decrementActivitySlots(saved);
+
+        return saved;
+    }
+
+    private void decrementActivitySlots(EventBookingRegistration registration) {
+        String actId = registration.getActivityId();
+        if (actId == null || actId.isBlank()) return;
+
+        int booked = (registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0)
+                ? registration.getDevoteeCount()
+                : 1;
+
+        try {
+            if (actId.startsWith("pooja-")) {
+                Long id = Long.parseLong(actId.replace("pooja-", ""));
+                poojaSevaRepository.findById(id).ifPresent(p -> {
+                    int current = p.getSlots() != null ? p.getSlots() : 20;
+                    p.setSlots(Math.max(0, current - booked));
+                    poojaSevaRepository.save(p);
+                });
+            } else if (actId.startsWith("food-")) {
+                Long id = Long.parseLong(actId.replace("food-", ""));
+                lunchDinnerRepository.findById(id).ifPresent(m -> {
+                    int current = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
+                    m.setTargetPlates(Math.max(0, current - booked));
+                    lunchDinnerRepository.save(m);
+                });
+            } else if (actId.startsWith("comp-")) {
+                Long id = Long.parseLong(actId.replace("comp-", ""));
+                competitionRepository.findById(id).ifPresent(c -> {
+                    int current = c.getMaxParticipants() != null ? c.getMaxParticipants() : 50;
+                    c.setMaxParticipants(Math.max(0, current - booked));
+                    competitionRepository.save(c);
+                });
+            } else if (actId.startsWith("event-")) {
+                Long id = Long.parseLong(actId.replace("event-", ""));
+                communityEventRepository.findById(id).ifPresent(ev -> {
+                    if (ev.getCapacity() != null) {
+                        ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
+                    }
+                    if (ev.getMaxAttendees() != null) {
+                        ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
+                    }
+                    communityEventRepository.save(ev);
+                });
+            } else {
+                try {
+                    Long id = Long.parseLong(actId);
+                    communityEventRepository.findById(id).ifPresent(ev -> {
+                        if (ev.getCapacity() != null) {
+                            ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
+                        }
+                        if (ev.getMaxAttendees() != null) {
+                            ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
+                        }
+                        communityEventRepository.save(ev);
+                    });
+                } catch (NumberFormatException ignored) {}
+            }
+        } catch (Exception ex) {
+            // Non-critical slot decrement failure
+        }
     }
 
     @Override
@@ -105,5 +192,39 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         reg.setStatus("CANCELLED");
         reg.setUpdatedAt(LocalDateTime.now());
         repository.save(reg);
+    }
+
+    @Override
+    @Transactional
+    public EventBookingRegistration updateRegistration(Long id, EventBookingRegistration patch, AppUser user) {
+        EventBookingRegistration reg = getRegistrationById(id, user);
+
+        // Only allow update if not already cancelled
+        if ("CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+            throw new IllegalStateException("Cannot update a cancelled registration");
+        }
+
+        // Patch only the mutable fields the user is allowed to change
+        if (patch.getParticipantName() != null && !patch.getParticipantName().isBlank()) {
+            reg.setParticipantName(patch.getParticipantName().trim());
+        }
+        if (patch.getAttendingDevotees() != null) {
+            reg.setAttendingDevotees(patch.getAttendingDevotees());
+        }
+        if (patch.getDevoteeCount() != null && patch.getDevoteeCount() > 0) {
+            reg.setDevoteeCount(patch.getDevoteeCount());
+        }
+        if (patch.getPaymentReceiptUrl() != null) {
+            reg.setPaymentReceiptUrl(patch.getPaymentReceiptUrl());
+        }
+        if (patch.getTransactionId() != null) {
+            reg.setTransactionId(patch.getTransactionId());
+        }
+        if (patch.getPaymentMethod() != null) {
+            reg.setPaymentMethod(patch.getPaymentMethod());
+        }
+
+        reg.setUpdatedAt(LocalDateTime.now());
+        return repository.save(reg);
     }
 }

@@ -31,6 +31,12 @@ public class PoojaSeva {
     @Column(name = "date")
     private LocalDate date;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(name = "multi_day")
+    private Boolean multiDay = false;
+
     @Column(name = "start_time")
     private LocalTime startTime;
 
@@ -56,6 +62,11 @@ public class PoojaSeva {
     @CollectionTable(name = "event_pooja_seva_items", joinColumns = @JoinColumn(name = "pooja_seva_id"))
     @Column(name = "item_name")
     private List<String> items = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "event_pooja_seva_start_times", joinColumns = @JoinColumn(name = "pooja_seva_id"))
+    @Column(name = "start_time_slot")
+    private List<String> startTimes = new ArrayList<>();
 
     @Column(name = "notes", length = 1000)
     private String notes;
@@ -93,6 +104,12 @@ public class PoojaSeva {
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
 
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public Boolean getMultiDay() { return multiDay; }
+    public void setMultiDay(Boolean multiDay) { this.multiDay = multiDay; }
+
     public LocalTime getStartTime() { return startTime; }
     public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
 
@@ -116,6 +133,16 @@ public class PoojaSeva {
 
     public List<String> getItems() { return items; }
     public void setItems(List<String> items) { this.items = items; }
+
+    public List<String> getStartTimes() { return startTimes; }
+    public void setStartTimes(List<String> startTimes) {
+        this.startTimes = startTimes != null ? startTimes : new ArrayList<>();
+        if (this.startTime == null && !this.startTimes.isEmpty()) {
+            try {
+                this.startTime = LocalTime.parse(this.startTimes.get(0));
+            } catch (Exception ignored) {}
+        }
+    }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

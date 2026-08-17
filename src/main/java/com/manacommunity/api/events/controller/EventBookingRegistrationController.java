@@ -56,6 +56,16 @@ public class EventBookingRegistrationController {
         return ResponseEntity.ok(service.getRegistrationById(id, user));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<EventBookingRegistration> updateRegistration(
+            @PathVariable Long id,
+            @RequestBody EventBookingRegistration patch,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        EventBookingRegistration updated = service.updateRegistration(id, patch, user);
+        return ResponseEntity.ok(updated);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelRegistration(
             @PathVariable Long id,
