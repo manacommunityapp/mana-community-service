@@ -115,17 +115,54 @@ class AuthControllerTest extends BaseWebMvcTest {
         }
 
         @Test
-        @DisplayName("wrong password returns 401")
+        @DisplayName("wrong password returns 401 with user-defined exception message")
         void wrongPassword_returns401() throws Exception {
             LoginRequest req = TestDataBuilder.loginRequest("x@x.com", "wrong");
             when(authService.loginUser(any()))
-                    .thenThrow(new ManaCommunityException("Invalid password",
+                    .thenThrow(new ManaCommunityException("Incorrect password for this email address.",
                             HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS"));
 
             mockMvc.perform(post("/api/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(req)))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.status").value(401))
+                    .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"))
+                    .andExpect(jsonPath("$.message").value("Incorrect password for this email address."));
+        }
+
+        @Test
+        @DisplayName("unknown identifier returns 401 with user-defined message")
+        void unknownIdentifier_returns401() throws Exception {
+            LoginRequest req = TestDataBuilder.loginRequest("unknown@test.com", "password");
+            when(authService.loginUser(any()))
+                    .thenThrow(new ManaCommunityException("Email address not found. Please check and try again.",
+                            HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS"));
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(toJson(req)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.status").value(401))
+                    .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"))
+                    .andExpect(jsonPath("$.message").value("Email address not found. Please check and try again."));
+        }
+
+        @Test
+        @DisplayName("locked account returns 423 with lockout message")
+        void lockedAccount_returns423() throws Exception {
+            LoginRequest req = TestDataBuilder.loginRequest("admin@test.com", "password");
+            when(authService.loginUser(any()))
+                    .thenThrow(new ManaCommunityException("Account locked due to too many failed attempts. Try again in 15 minute(s).",
+                            HttpStatus.LOCKED, "ACCOUNT_LOCKED"));
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(toJson(req)))
+                    .andExpect(status().isLocked())
+                    .andExpect(jsonPath("$.status").value(423))
+                    .andExpect(jsonPath("$.error").value("ACCOUNT_LOCKED"))
+                    .andExpect(jsonPath("$.message").value("Account locked due to too many failed attempts. Try again in 15 minute(s)."));
         }
     }
 }

@@ -38,6 +38,13 @@ class AuthServiceTest {
     @Mock CommunityRepository communityRepository;
     @Mock RoleRepository roleRepository;
     @Mock PasswordEncoder passwordEncoder;
+    @Mock com.manacommunity.api.security.JwtTokenProvider jwtTokenProvider;
+    @Mock com.manacommunity.api.security.AuditLogService auditLog;
+    @Mock com.manacommunity.api.security.AuditService auditService;
+    @Mock com.manacommunity.api.user.security.SessionService sessionService;
+    @Mock com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
+    @Mock com.manacommunity.api.service.CommunityModuleService communityModuleService;
+    @Mock com.manacommunity.api.security.TokenBlacklistService tokenBlacklistService;
 
     @InjectMocks AuthServiceImpl authService;
 
@@ -59,6 +66,8 @@ class AuthServiceTest {
             when(userRepository.existsByPhone(req.getPhone())).thenReturn(false);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId("MEMBER", 1L)).thenReturn(Optional.of(role));
+            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);
                 u.setId(99L);
@@ -121,6 +130,8 @@ class AuthServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong()))
                     .thenReturn(Optional.of(TestDataBuilder.memberRole()));
+            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);
                 u.setId(1L);
@@ -151,6 +162,8 @@ class AuthServiceTest {
 
             when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
+            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
 
             AuthResponse response = authService.loginUser(req);
 
@@ -170,16 +183,28 @@ class AuthServiceTest {
             when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
             assertThatThrownBy(() -> authService.loginUser(req))
-                    .isInstanceOf(ManaCommunityException.class);
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessage("Incorrect password for this email address.");
         }
 
         @Test
-        @DisplayName("unknown email throws ResourceNotFoundException")
+        @DisplayName("unknown email throws ManaCommunityException with 401")
         void unknownEmail() {
             when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.loginUser(TestDataBuilder.loginRequest("x@x.com", "p")))
-                    .isInstanceOf(ResourceNotFoundException.class);
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessage("Email address not found. Please check and try again.");
+        }
+
+        @Test
+        @DisplayName("unknown mobile throws ManaCommunityException with 401")
+        void unknownMobile() {
+            when(userRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> authService.loginUser(TestDataBuilder.loginRequest("9876543210", "p")))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessage("Mobile number not found. Please check and try again.");
         }
     }
 }
