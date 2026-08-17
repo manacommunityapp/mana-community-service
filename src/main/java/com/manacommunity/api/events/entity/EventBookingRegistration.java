@@ -51,6 +51,9 @@ public class EventBookingRegistration {
     @Column(name = "attending_devotees", columnDefinition = "TEXT")
     private String attendingDevotees;
 
+    @Column(name = "members_json", columnDefinition = "TEXT")
+    private String membersJson;
+
     @Column(name = "devotee_count")
     @Builder.Default
     private Integer devoteeCount = 1;

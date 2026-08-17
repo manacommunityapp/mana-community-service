@@ -81,7 +81,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             registration.setPaymentStatus((registration.getBookingFee() != null && registration.getBookingFee() > 0) ? "PAID" : "FREE");
         }
 
-        registration.setDevoteeCount(computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees()));
+        registration.setDevoteeCount(computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson()));
 
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
@@ -94,7 +94,25 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         return saved;
     }
 
-    private int computeDevoteeCount(Integer currentCount, String attendingDevotees) {
+    private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {
+        int best = (currentCount != null && currentCount > 0) ? currentCount : 1;
+
+        // Parse membersJson (JSON array of member objects [{name,age,...}])
+        if (membersJson != null && !membersJson.isBlank()) {
+            String mj = membersJson.trim();
+            if (mj.startsWith("[") && mj.endsWith("]")) {
+                int count = 0;
+                boolean inString = false;
+                for (int i = 0; i < mj.length(); i++) {
+                    char c = mj.charAt(i);
+                    if (c == '"' && (i == 0 || mj.charAt(i - 1) != '\\')) inString = !inString;
+                    else if (!inString && c == '{') count++;
+                }
+                if (count > best) best = count;
+            }
+        }
+
+        // Parse attendingDevotees (comma-separated names or JSON array of strings)
         if (attendingDevotees != null && !attendingDevotees.isBlank()) {
             String trimmed = attendingDevotees.trim();
             if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
@@ -108,17 +126,29 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                         count++;
                     }
                 }
-                if (count > 0) return count;
+                // If no objects found, count quoted strings (array of names)
+                if (count == 0) {
+                    String inner = trimmed.substring(1, trimmed.length() - 1).trim();
+                    if (!inner.isEmpty()) {
+                        String[] parts = inner.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+                        count = 0;
+                        for (String p : parts) {
+                            if (!p.trim().replace("\"", "").trim().isEmpty()) count++;
+                        }
+                    }
+                }
+                if (count > best) best = count;
             } else {
                 String[] parts = trimmed.split(",");
                 int validParts = 0;
                 for (String p : parts) {
                     if (!p.trim().isEmpty()) validParts++;
                 }
-                if (validParts > 0) return validParts;
+                if (validParts > best) best = validParts;
             }
         }
-        return (currentCount != null && currentCount > 0) ? currentCount : 1;
+
+        return best;
     }
 
     private void decrementActivitySlots(EventBookingRegistration registration) {
@@ -240,11 +270,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         if (patch.getAttendingDevotees() != null) {
             reg.setAttendingDevotees(patch.getAttendingDevotees());
         }
+        if (patch.getMembersJson() != null) {
+            reg.setMembersJson(patch.getMembersJson());
+        }
         if (patch.getDevoteeCount() != null && patch.getDevoteeCount() > 0) {
             reg.setDevoteeCount(patch.getDevoteeCount());
-        } else if (patch.getAttendingDevotees() != null) {
-            reg.setDevoteeCount(computeDevoteeCount(reg.getDevoteeCount(), patch.getAttendingDevotees()));
         }
+        // Always recompute devoteeCount from all available sources to get the max
+        reg.setDevoteeCount(computeDevoteeCount(reg.getDevoteeCount(), reg.getAttendingDevotees(), reg.getMembersJson()));
         if (patch.getPaymentReceiptUrl() != null) {
             reg.setPaymentReceiptUrl(patch.getPaymentReceiptUrl());
         }
