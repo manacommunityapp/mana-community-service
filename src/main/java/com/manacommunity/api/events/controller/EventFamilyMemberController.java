@@ -28,21 +28,23 @@ public class EventFamilyMemberController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<EventFamilyMember>> getFamilyMembers(
+            @RequestParam(required = false) Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
-        List<EventFamilyMember> list = service.getFamilyMembers(user, communityId);
+        List<EventFamilyMember> list = service.getFamilyMembers(user, communityId, eventId);
         return ResponseEntity.ok(list);
     }
 
     @PostMapping
     @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<EventFamilyMember> addFamilyMember(
+            @RequestParam(required = false) Long eventId,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody EventFamilyMember member) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
-        EventFamilyMember created = service.addFamilyMember(member, user, communityId);
+        EventFamilyMember created = service.addFamilyMember(member, user, communityId, eventId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

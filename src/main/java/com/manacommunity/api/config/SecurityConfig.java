@@ -244,6 +244,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // method-level @PreAuthorize for role enforcement.
                 .requestMatchers(HttpMethod.GET, "/api/communities").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/by-type").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities/check-unit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/*/public").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()

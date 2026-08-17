@@ -36,8 +36,12 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
-
+import com.manacommunity.api.events.entity.EventVenue;
+import com.manacommunity.api.events.repository.EventVenueRepository;
+import com.manacommunity.api.email.EmailMessage;
+import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.repository.AuctionPlayerRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +57,9 @@ public class EventService {
     private final MealRegistrationRepository mealRegRepo;
     private final EventAuctionItemRepository auctionItemRepo;
     private final AuctionPlayerRepository auctionPlayerRepo;
+    private final AppUserRepository userRepo;
+    private final EmailService emailService;
+    private final EventVenueRepository venueRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -70,7 +77,11 @@ public class EventService {
         } else {
             events = eventRepo.findAll();
         }
-        return events.stream().map(e -> toResponse(e, currentUserId)).toList();
+        return events.stream()
+                .filter(e -> e.getStatus() == null || e.getStatus() == CommunityEvent.EventStatus.PUBLISHED
+                        || (currentUserId != null && e.getCreatedBy() != null && e.getCreatedBy().getId().equals(currentUserId)))
+                .map(e -> toResponse(e, currentUserId))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +121,16 @@ public class EventService {
         LocalDate startDate = parseLocalDate(req.getStartDate());
         if (startDate == null) startDate = LocalDate.now();
 
+        EventVenue eventVenue = null;
+        if (req.getVenueId() != null) {
+            eventVenue = venueRepo.findById(req.getVenueId()).orElse(null);
+        }
+
+        String venueName = req.getVenue();
+        if ((venueName == null || venueName.isBlank()) && eventVenue != null) {
+            venueName = eventVenue.getName();
+        }
+
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
@@ -126,7 +147,8 @@ public class EventService {
                 .imageUrl(req.getImageUrl())
                 .organizerName(req.getOrganizerName())
                 .organizerContact(req.getOrganizerContact())
-                .venue(req.getVenue())
+                .eventVenue(eventVenue)
+                .venue(venueName)
                 .city(req.getCity())
                 .category(req.getCategory())
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
@@ -135,7 +157,12 @@ public class EventService {
                 .createdBy(user)
                 .community(community)
                 .build();
-        return toResponse(eventRepo.save(event), user.getId());
+
+        CommunityEvent saved = eventRepo.save(event);
+        if (saved.getStatus() == CommunityEvent.EventStatus.PUBLISHED) {
+            sendEventPublishedEmail(saved);
+        }
+        return toResponse(saved, user.getId());
     }
 
     @Transactional
@@ -143,11 +170,14 @@ public class EventService {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
-        // Permissive update check: allow event creator, system admins (-1L), or community admins
-        if (event.getCreatedBy() != null && event.getCreatedBy().getId() != null
-                && !event.getCreatedBy().getId().equals(userId)
-                && userId != null && userId != -1L) {
-            // Log update by admin/community manager
+        CommunityEvent.EventStatus oldStatus = event.getStatus();
+
+        if (req.getVenueId() != null) {
+            EventVenue eventVenue = venueRepo.findById(req.getVenueId()).orElse(null);
+            event.setEventVenue(eventVenue);
+            if (eventVenue != null && (req.getVenue() == null || req.getVenue().isBlank())) {
+                event.setVenue(eventVenue.getName());
+            }
         }
 
         if (req.getTitle() != null && !req.getTitle().isBlank()) {
@@ -205,7 +235,12 @@ public class EventService {
         }
         if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
 
-        return toResponse(eventRepo.save(event), userId);
+        CommunityEvent saved = eventRepo.save(event);
+        if (oldStatus != CommunityEvent.EventStatus.PUBLISHED && saved.getStatus() == CommunityEvent.EventStatus.PUBLISHED) {
+            sendEventPublishedEmail(saved);
+        }
+
+        return toResponse(saved, userId);
     }
 
     @Transactional
@@ -515,7 +550,8 @@ public class EventService {
                 .imageUrl(e.getImageUrl())
                 .organizerName(e.getOrganizerName())
                 .organizerContact(e.getOrganizerContact())
-                .venue(e.getVenue())
+                .venueId(e.getEventVenue() != null ? e.getEventVenue().getId() : null)
+                .venue(e.getEventVenue() != null ? e.getEventVenue().getName() : e.getVenue())
                 .city(e.getCity())
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
@@ -562,6 +598,83 @@ public class EventService {
             return LocalTime.parse(clean);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private void sendEventPublishedEmail(CommunityEvent event) {
+        if (event == null || emailService == null || userRepo == null) return;
+        try {
+            Long commId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+            List<AppUser> recipients = commId != null
+                    ? userRepo.findByCommunityIdAndIsActiveTrue(commId)
+                    : userRepo.findAll();
+
+            if (recipients.isEmpty()) return;
+
+            String eventDateStr = event.getStartDate() != null ? event.getStartDate().toString() : "Upcoming";
+            String eventTimeStr = event.getStartTime() != null ? event.getStartTime().toString() : "";
+            String venueStr = event.getVenue() != null ? event.getVenue() : (event.getLocation() != null ? event.getLocation() : "Community Center");
+            String feeStr = (event.getPrice() != null && event.getPrice() > 0) ? "₹" + event.getPrice() : "FREE";
+
+            List<EmailMessage> messages = new ArrayList<>();
+            for (AppUser recipient : recipients) {
+                if (recipient.getEmail() == null || recipient.getEmail().isBlank()) continue;
+                String recipientName = recipient.getFullName() != null && !recipient.getFullName().isBlank()
+                        ? recipient.getFullName()
+                        : "Community Member";
+
+                String html = """
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+                      <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 24px; border-radius: 8px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 22px;">🎉 New Event Announced!</h2>
+                        <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9;">Mana Community Event Invitation</p>
+                      </div>
+                      <div style="padding: 24px 8px;">
+                        <p style="font-size: 15px; color: #334155;">Hello <strong>%s</strong>,</p>
+                        <p style="font-size: 14px; color: #475569;">A new community event <strong>"%s"</strong> has been published and is now open for registration!</p>
+                        
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0;">
+                          <p style="margin: 4px 0; font-size: 13px; color: #334155;">📅 <strong>Date:</strong> %s</p>
+                          <p style="margin: 4px 0; font-size: 13px; color: #334155;">🕒 <strong>Time:</strong> %s</p>
+                          <p style="margin: 4px 0; font-size: 13px; color: #334155;">📍 <strong>Venue:</strong> %s</p>
+                          <p style="margin: 4px 0; font-size: 13px; color: #334155;">🎟️ <strong>Registration Fee:</strong> %s</p>
+                        </div>
+                        
+                        <p style="font-size: 13px; color: #64748b;">%s</p>
+                        
+                        <div style="text-align: center; margin: 24px 0;">
+                          <a href="http://localhost:5173/events" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">
+                            Register on Dashboard
+                          </a>
+                        </div>
+                      </div>
+                      <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 11px; color: #94a3b8; text-align: center;">
+                        Sent by Mana Community Management • You received this because you are a registered community member.
+                      </div>
+                    </div>
+                """.formatted(
+                        recipientName,
+                        event.getTitle() != null ? event.getTitle() : "Community Event",
+                        eventDateStr,
+                        eventTimeStr.isBlank() ? "Schedule on Dashboard" : eventTimeStr,
+                        venueStr,
+                        feeStr,
+                        event.getDescription() != null ? event.getDescription() : ""
+                );
+
+                messages.add(new EmailMessage(
+                        recipient.getEmail(),
+                        recipientName,
+                        "🎉 New Event: " + (event.getTitle() != null ? event.getTitle() : "Community Event"),
+                        html
+                ));
+            }
+
+            if (!messages.isEmpty()) {
+                emailService.sendAll(messages);
+            }
+        } catch (Exception ex) {
+            System.err.println("Failed to send event announcement emails: " + ex.getMessage());
         }
     }
 }

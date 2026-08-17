@@ -35,6 +35,15 @@ public class EventRegistration {
     @Builder.Default
     private RegistrationStatus status = RegistrationStatus.PENDING;
 
+    @Column(name = "payment_receipt_url", length = 1000)
+    private String paymentReceiptUrl;
+
+    @Column(name = "transaction_id", length = 100)
+    private String transactionId;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 

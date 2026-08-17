@@ -72,6 +72,10 @@ public class CommunityEvent {
     @Column(name = "organizer_contact", length = 200)
     private String organizerContact;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "venue_id")
+    private EventVenue eventVenue;
+
     @Column(length = 200)
     private String venue;
 

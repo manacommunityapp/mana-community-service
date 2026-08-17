@@ -95,6 +95,27 @@ public class CommunityServiceImpl implements CommunityService {
         communityRepository.save(community);
     }
 
+    @Autowired
+    private com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
+
+    @Override
+    public boolean checkUnitExists(Long communityId, String inviteCode, String block, String flatNo) {
+        if (block == null || flatNo == null || block.isBlank() || flatNo.isBlank()) {
+            return false;
+        }
+        Long targetCommunityId = communityId;
+        if (targetCommunityId == null && inviteCode != null && !inviteCode.isBlank()) {
+            targetCommunityId = communityRepository.findByInviteCode(inviteCode)
+                    .map(Community::getId)
+                    .orElse(null);
+        }
+        if (targetCommunityId == null) {
+            return false;
+        }
+        return appUserRepo.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                targetCommunityId, block.trim(), flatNo.trim());
+    }
+
     private Community toEntity(CommunityResponse r) {
         return Community.builder()
                 .name(r.getName())
@@ -117,7 +138,7 @@ public class CommunityServiceImpl implements CommunityService {
                 c.getState(),
                 c.getArea(),
                 c.getSubtype(),
-                null,
+                c.getInviteCode(),
                 c.getActive(),
                 modules
         );

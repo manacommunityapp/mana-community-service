@@ -23,6 +23,7 @@ public class EventRequest {
     private String imageUrl;
     private String organizerName;
     private String organizerContact;
+    private Long venueId;
     private String venue;
     private String city;
     private String category;
