@@ -17,4 +17,8 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
     Optional<EventBookingRegistration> findByRegCode(String regCode);
 
     Optional<EventBookingRegistration> findByIdAndUserId(Long id, Long userId);
+
+    List<EventBookingRegistration> findByActivityId(String activityId);
+
+    List<EventBookingRegistration> findByActivityTitle(String activityTitle);
 }
