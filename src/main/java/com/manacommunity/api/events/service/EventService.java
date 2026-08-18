@@ -154,6 +154,11 @@ public class EventService {
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
                 .paymentModes(req.getPaymentModes())
+                .upiId(req.getUpiId())
+                .scannerUrl(req.getScannerUrl())
+                .notes(req.getNotes())
+                .contactsJson(req.getContactsJson())
+                .paymentInstructions(req.getPaymentInstructions())
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .createdBy(user)
                 .community(community)
@@ -235,6 +240,11 @@ public class EventService {
             if (s != null) event.setStatus(s);
         }
         if (req.getPaymentModes() != null) event.setPaymentModes(req.getPaymentModes());
+        if (req.getUpiId() != null) event.setUpiId(req.getUpiId());
+        if (req.getScannerUrl() != null) event.setScannerUrl(req.getScannerUrl());
+        if (req.getNotes() != null) event.setNotes(req.getNotes());
+        if (req.getContactsJson() != null) event.setContactsJson(req.getContactsJson());
+        if (req.getPaymentInstructions() != null) event.setPaymentInstructions(req.getPaymentInstructions());
         if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
 
         CommunityEvent saved = eventRepo.save(event);
@@ -558,6 +568,11 @@ public class EventService {
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
                 .paymentModes(e.getPaymentModes())
+                .upiId(e.getUpiId())
+                .scannerUrl(e.getScannerUrl())
+                .notes(e.getNotes())
+                .contactsJson(e.getContactsJson())
+                .paymentInstructions(e.getPaymentInstructions())
                 .maxAttendees(e.getMaxAttendees())
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
