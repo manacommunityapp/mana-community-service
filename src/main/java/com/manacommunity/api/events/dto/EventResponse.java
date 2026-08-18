@@ -29,6 +29,11 @@ public class EventResponse {
     private String category;
     private String status;
     private String paymentModes;
+    private String upiId;
+    private String scannerUrl;
+    private String notes;
+    private String contactsJson;
+    private String paymentInstructions;
     private Integer maxAttendees;
     private Long createdById;
     private String createdByName;

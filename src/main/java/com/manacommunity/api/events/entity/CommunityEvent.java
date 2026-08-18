@@ -93,6 +93,21 @@ public class CommunityEvent {
     @Column(name = "payment_modes", length = 255)
     private String paymentModes;
 
+    @Column(name = "upi_id", length = 100)
+    private String upiId;
+
+    @Column(name = "scanner_url", length = 500)
+    private String scannerUrl;
+
+    @Column(length = 3000)
+    private String notes;
+
+    @Column(name = "contacts_json", length = 3000)
+    private String contactsJson;
+
+    @Column(name = "payment_instructions", length = 2000)
+    private String paymentInstructions;
+
     @Column(name = "max_attendees")
     private Integer maxAttendees;
 
