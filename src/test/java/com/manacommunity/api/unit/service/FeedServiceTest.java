@@ -4,6 +4,7 @@ import com.manacommunity.api.dto.PostRequest;
 import com.manacommunity.api.dto.PostResponse;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Post;
 import com.manacommunity.api.model.PostType;
@@ -104,8 +105,11 @@ class FeedServiceTest {
     class ModifyPost {
 
         @Test
-        @DisplayName("createPost creates new post with hashtags")
+        @DisplayName("createPost creates new post when caller is admin")
         void createPost_success() {
+            AppUser admin = TestDataBuilder.adminUser();
+            admin.setCommunity(community);
+
             PostRequest req = new PostRequest(
                     "Hello Mana Community! #welcome",
                     "Welcome",
@@ -138,10 +142,24 @@ class FeedServiceTest {
                 return p;
             });
 
-            PostResponse response = feedService.createPost(user, req);
+            PostResponse response = feedService.createPost(admin, req);
 
             assertThat(response).isNotNull();
             verify(postRepository).save(any(Post.class));
+        }
+
+        @Test
+        @DisplayName("createPost throws UnauthorizedActionException for MEMBER role")
+        void createPost_memberForbidden() {
+            PostRequest req = new PostRequest(
+                    "Hello!", null, null, PostType.GENERAL,
+                    null, null, null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null, null, null
+            );
+
+            assertThatThrownBy(() -> feedService.createPost(user, req))
+                    .isInstanceOf(UnauthorizedActionException.class)
+                    .hasMessageContaining("Only admins and event admins can create posts");
         }
 
         @Test
