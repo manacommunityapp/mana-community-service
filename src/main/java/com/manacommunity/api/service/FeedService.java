@@ -75,6 +75,9 @@ public class FeedService {
         if (currentUser.getCommunity() == null) {
             throw new InvalidInputException("User is not associated with any community.");
         }
+        if (!canCreatePost(currentUser.getRole())) {
+            throw new UnauthorizedActionException("Only admins and event admins can create posts in the community feed.");
+        }
         boolean isOfficial = isAdminRole(currentUser.getRole());
         PostType type = request.type() != null ? request.type() : PostType.GENERAL;
         PostVisibility visibility = request.visibility() != null ? request.visibility() : PostVisibility.COMMUNITY;
@@ -607,8 +610,19 @@ public class FeedService {
 
     private static final Set<String> ADMIN_ROLES = Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN");
 
+    private static final Set<String> POST_ALLOWED_ROLES =
+            Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN", "EVENT_ADMIN", "EVENTS_ADMIN");
+
     private boolean isAdminRole(String role) {
         return role != null && ADMIN_ROLES.contains(role.toUpperCase());
+    }
+
+    private boolean canCreatePost(String role) {
+        if (role == null) return false;
+        for (String r : role.split(",")) {
+            if (POST_ALLOWED_ROLES.contains(r.trim().toUpperCase())) return true;
+        }
+        return false;
     }
 
     private String mapRole(AppUser user) {
@@ -625,6 +639,7 @@ public class FeedService {
 
         String rawRole = user.getRole();
         if (isAdminRole(rawRole)) return "Admin";
+        if (rawRole != null && (rawRole.equalsIgnoreCase("EVENT_ADMIN") || rawRole.equalsIgnoreCase("EVENTS_ADMIN"))) return "Event Admin";
         if ("COMMITTEE".equalsIgnoreCase(rawRole)) return "Committee Member";
         return "Verified Member";
     }

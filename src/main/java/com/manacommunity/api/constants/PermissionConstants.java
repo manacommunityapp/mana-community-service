@@ -349,6 +349,8 @@ public final class PermissionConstants {
                     COMMON_MODULE_ADMIN_BASE_PERMISSIONS,
                     SportsPermissions.VIEW_ALL,
                     List.of(AdminPermissions.VIEW_ADMIN),
+                    List.of(CommunityFeedPermissions.CREATE_POST,
+                            CommunityFeedPermissions.DELETE_POST),
                     List.of(ServicePlatformPermissions.VIEW_SERVICE_CATALOG,
                             ServicePlatformPermissions.VIEW_SERVICE_PROVIDERS,
                             ServicePlatformPermissions.VIEW_SERVICE_REQUESTS,
