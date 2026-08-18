@@ -73,6 +73,11 @@ public class PoojaSeva {
     @jakarta.persistence.OrderBy("slotDate ASC")
     private List<PoojaSevaDaySlot> daySlots = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "event_pooja_seva_time_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
+    @jakarta.persistence.OrderBy("slotDate ASC, startTime ASC")
+    private List<PoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
+
     @Column(name = "notes", length = 1000)
     private String notes;
 
@@ -152,6 +157,11 @@ public class PoojaSeva {
     public List<PoojaSevaDaySlot> getDaySlots() { return daySlots; }
     public void setDaySlots(List<PoojaSevaDaySlot> daySlots) {
         this.daySlots = daySlots != null ? daySlots : new ArrayList<>();
+    }
+
+    public List<PoojaSevaDayTimeSlot> getTimeSlotConfig() { return timeSlotConfig; }
+    public void setTimeSlotConfig(List<PoojaSevaDayTimeSlot> timeSlotConfig) {
+        this.timeSlotConfig = timeSlotConfig != null ? timeSlotConfig : new ArrayList<>();
     }
 
     public String getNotes() { return notes; }
