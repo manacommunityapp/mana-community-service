@@ -51,7 +51,7 @@
             Re-enable tests for a single command:  ./mvnw -Dmaven.test.skip=false test
             Re-enable permanently:                 remove this property.
         -->
-        <maven.test.skip>true</maven.test.skip>
+        <maven.test.skip>false</maven.test.skip>
         <spring-ai.version>1.0.0</spring-ai.version>
     </properties>
 
@@ -299,6 +299,31 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <includes>
+                        <!-- 1. User & Auth related tests -->
+                        <include>**/unit/service/*Auth*Test.java</include>
+                        <include>**/unit/service/*User*Test.java</include>
+                        <include>**/unit/service/*Role*Test.java</include>
+                        <include>**/unit/service/*Permission*Test.java</include>
+                        <include>**/slice/controller/*Auth*Test.java</include>
+                        <include>**/slice/controller/*User*Test.java</include>
+                        <include>**/slice/repository/*User*Test.java</include>
+
+                        <!-- 2. Community Feed related tests -->
+                        <include>**/unit/service/*Feed*Test.java</include>
+                        <include>**/slice/controller/*Feed*Test.java</include>
+                        <include>**/slice/repository/*Feed*Test.java</include>
+                        <include>**/slice/repository/*Post*Test.java</include>
+
+                        <!-- 3. Event related tests -->
+                        <include>**/unit/service/*Event*Test.java</include>
+                        <include>**/unit/service/*Donation*Test.java</include>
+                        <include>**/unit/service/*Volunteer*Test.java</include>
+                        <include>**/slice/controller/*Event*Test.java</include>
+                        <include>**/slice/controller/*Donation*Test.java</include>
+                        <include>**/slice/controller/*Volunteer*Test.java</include>
+                        <include>**/slice/repository/*Event*Test.java</include>
+                    </includes>
                 </configuration>
             </plugin>
             <plugin>
