@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface MealRegistrationRepository extends JpaRepository<MealRegistration, Long> {
 
+    List<MealRegistration> findByEventId(Long eventId);
+
     List<MealRegistration> findByEventIdAndUserId(Long eventId, Long userId);
 
     void deleteByEventIdAndUserId(Long eventId, Long userId);
