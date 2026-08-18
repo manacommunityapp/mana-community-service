@@ -38,6 +38,9 @@ import java.time.format.TextStyle;
 import java.util.*;
 import com.manacommunity.api.events.entity.EventVenue;
 import com.manacommunity.api.events.repository.EventVenueRepository;
+import com.manacommunity.api.events.repository.EventInvoiceRepository;
+import com.manacommunity.api.events.repository.EventGalleryItemRepository;
+import com.manacommunity.api.events.repository.EventProgramRepository;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.repository.AuctionPlayerRepository;
@@ -60,6 +63,9 @@ public class EventService {
     private final AppUserRepository userRepo;
     private final EmailService emailService;
     private final EventVenueRepository venueRepo;
+    private final EventInvoiceRepository invoiceRepo;
+    private final EventGalleryItemRepository galleryRepo;
+    private final EventProgramRepository programRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -259,9 +265,60 @@ public class EventService {
     public void delete(Long id, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
-        if (!event.getCreatedBy().getId().equals(userId)) {
-            throw new UnauthorizedActionException("Only the event creator can delete this event");
+
+        if (event.getCreatedBy() != null && userId != null) {
+            boolean isCreator = event.getCreatedBy().getId().equals(userId);
+            AppUser currentUser = userRepo.findById(userId).orElse(null);
+            boolean isAuthorizedAdmin = false;
+            if (currentUser != null) {
+                if (currentUser.getRole() != null) {
+                    String roleStr = currentUser.getRole().toUpperCase();
+                    isAuthorizedAdmin = roleStr.contains("ADMIN") || roleStr.contains("ORGANIZER") || roleStr.contains("MANAGER");
+                }
+                if (!isAuthorizedAdmin && currentUser.getUserRoles() != null) {
+                    isAuthorizedAdmin = currentUser.getUserRoles().stream().anyMatch(r -> {
+                        String rName = r != null && r.getName() != null ? r.getName().toUpperCase() : "";
+                        return rName.contains("ADMIN") || rName.contains("ORGANIZER") || rName.contains("MANAGER");
+                    });
+                }
+            }
+            if (!isCreator && !isAuthorizedAdmin) {
+                throw new UnauthorizedActionException("Only the event creator or authorized admin can delete this event");
+            }
         }
+
+        // Clean up child relations to prevent foreign key constraint failures
+        try {
+            regRepo.deleteAll(regRepo.findByEventId(id));
+        } catch (Exception ignored) {}
+        try {
+            volunteerRepo.deleteAll(volunteerRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            donationRepo.deleteAll(donationRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            expenseRepo.deleteAll(expenseRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            sponsorRepo.deleteAll(sponsorRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            taskRepo.deleteAll(taskRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            mealRegRepo.deleteAll(mealRegRepo.findByEventIdOrdered(id));
+        } catch (Exception ignored) {}
+        try {
+            if (invoiceRepo != null) invoiceRepo.deleteAll(invoiceRepo.findByEventIdOrderByCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            if (galleryRepo != null) galleryRepo.deleteAll(galleryRepo.findByEventIdOrderBySortOrderAscCreatedAtDesc(id));
+        } catch (Exception ignored) {}
+        try {
+            if (programRepo != null) programRepo.deleteAll(programRepo.findByEventIdOrderBySortOrderAscStartTimeAsc(id));
+        } catch (Exception ignored) {}
+
         eventRepo.delete(event);
     }
 
