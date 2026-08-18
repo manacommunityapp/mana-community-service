@@ -11,6 +11,8 @@ public interface EventAuctionItemRepository extends JpaRepository<EventAuctionIt
 
     List<EventAuctionItem> findByCommunityIdOrderBySortOrderAsc(Long communityId);
 
+    List<EventAuctionItem> findByEventId(Long eventId);
+
     @Query("SELECT COALESCE(SUM(a.currentBid), 0) FROM EventAuctionItem a WHERE a.community.id = :communityId AND a.bidCount > 0")
     double sumCurrentBidsByCommunity(@Param("communityId") Long communityId);
 

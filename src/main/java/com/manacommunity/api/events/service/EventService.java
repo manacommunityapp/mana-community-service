@@ -41,6 +41,12 @@ import com.manacommunity.api.events.repository.EventVenueRepository;
 import com.manacommunity.api.events.repository.EventInvoiceRepository;
 import com.manacommunity.api.events.repository.EventGalleryItemRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
+import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.repository.CulturalEventRepository;
+import com.manacommunity.api.events.repository.LunchDinnerRepository;
+import com.manacommunity.api.events.repository.CompetitionRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.email.EmailMessage;
 import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.repository.AuctionPlayerRepository;
@@ -66,6 +72,12 @@ public class EventService {
     private final EventInvoiceRepository invoiceRepo;
     private final EventGalleryItemRepository galleryRepo;
     private final EventProgramRepository programRepo;
+    private final PoojaSevaRepository poojaSevaRepo;
+    private final CulturalEventRepository culturalEventRepo;
+    private final LunchDinnerRepository lunchDinnerRepo;
+    private final CompetitionRepository competitionRepo;
+    private final EventBookingRegistrationRepository eventBookingRegRepo;
+    private final EventFamilyMemberRepository familyMemberRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -287,36 +299,148 @@ public class EventService {
             }
         }
 
-        // Clean up child relations to prevent foreign key constraint failures
+        String eventTitle = event.getTitle();
+        String eventIdStr = String.valueOf(id);
+        String eventPrefixedId = "event-" + id;
+
+        // 1. Clean up sub-activities (Pooja Sevas, Cultural Events, Meals, Competitions) created under this event
+        try {
+            if (poojaSevaRepo != null) {
+                var poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+                for (var p : poojas) {
+                    try {
+                        if (eventBookingRegRepo != null) {
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(String.valueOf(p.getId())));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId("pooja-" + p.getId()));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityTitle(p.getName()));
+                        }
+                    } catch (Exception ignored) {}
+                }
+                poojaSevaRepo.deleteAll(poojas);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (culturalEventRepo != null) {
+                var cults = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+                for (var c : cults) {
+                    try {
+                        if (eventBookingRegRepo != null) {
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(String.valueOf(c.getId())));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId("cult-" + c.getId()));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityTitle(c.getName()));
+                        }
+                    } catch (Exception ignored) {}
+                }
+                culturalEventRepo.deleteAll(cults);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (lunchDinnerRepo != null) {
+                var meals = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+                for (var m : meals) {
+                    try {
+                        if (eventBookingRegRepo != null) {
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(String.valueOf(m.getId())));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId("meal-" + m.getId()));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityTitle(m.getName()));
+                        }
+                    } catch (Exception ignored) {}
+                }
+                lunchDinnerRepo.deleteAll(meals);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (competitionRepo != null) {
+                var comps = competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+                for (var cp : comps) {
+                    try {
+                        if (eventBookingRegRepo != null) {
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(String.valueOf(cp.getId())));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId("comp-" + cp.getId()));
+                            eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityTitle(cp.getName()));
+                        }
+                    } catch (Exception ignored) {}
+                }
+                competitionRepo.deleteAll(comps);
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Clean up Unified Event Booking Registrations & Passes
+        try {
+            if (eventBookingRegRepo != null) {
+                eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(eventIdStr));
+                eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityId(eventPrefixedId));
+                if (eventTitle != null && !eventTitle.isBlank()) {
+                    eventBookingRegRepo.deleteAll(eventBookingRegRepo.findByActivityTitle(eventTitle));
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 3. Clean up standard Event Registrations & Attendee Passes
         try {
             regRepo.deleteAll(regRepo.findByEventId(id));
         } catch (Exception ignored) {}
+
+        // 4. Clean up Event Family Members
+        try {
+            if (familyMemberRepo != null) {
+                familyMemberRepo.deleteAll(familyMemberRepo.findByEventIdOrderByCreatedAtAsc(id));
+            }
+        } catch (Exception ignored) {}
+
+        // 5. Clean up Volunteers
         try {
             volunteerRepo.deleteAll(volunteerRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 6. Clean up Donations
         try {
             donationRepo.deleteAll(donationRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 7. Clean up Expenses & Ledger
         try {
             expenseRepo.deleteAll(expenseRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 8. Clean up Sponsors
         try {
             sponsorRepo.deleteAll(sponsorRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 9. Clean up Tasks & Planning Items
         try {
             taskRepo.deleteAll(taskRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 10. Clean up Meal Registrations
         try {
             mealRegRepo.deleteAll(mealRegRepo.findByEventIdOrdered(id));
         } catch (Exception ignored) {}
+
+        // 11. Clean up Invoices & Bills
         try {
             if (invoiceRepo != null) invoiceRepo.deleteAll(invoiceRepo.findByEventIdOrderByCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 12. Clean up Gallery Media & Photos
         try {
             if (galleryRepo != null) galleryRepo.deleteAll(galleryRepo.findByEventIdOrderBySortOrderAscCreatedAtDesc(id));
         } catch (Exception ignored) {}
+
+        // 13. Clean up Day Programs & Timelines
         try {
             if (programRepo != null) programRepo.deleteAll(programRepo.findByEventIdOrderBySortOrderAscStartTimeAsc(id));
+        } catch (Exception ignored) {}
+
+        // 14. Clean up Auction Items & Bids
+        try {
+            if (auctionItemRepo != null) {
+                auctionItemRepo.deleteAll(auctionItemRepo.findByEventId(id));
+            }
         } catch (Exception ignored) {}
 
         eventRepo.delete(event);
