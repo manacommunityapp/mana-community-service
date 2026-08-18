@@ -68,6 +68,11 @@ public class PoojaSeva {
     @Column(name = "start_time_slot")
     private List<String> startTimes = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "event_pooja_seva_day_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
+    @jakarta.persistence.OrderBy("slotDate ASC")
+    private List<PoojaSevaDaySlot> daySlots = new ArrayList<>();
+
     @Column(name = "notes", length = 1000)
     private String notes;
 
@@ -142,6 +147,11 @@ public class PoojaSeva {
                 this.startTime = LocalTime.parse(this.startTimes.get(0));
             } catch (Exception ignored) {}
         }
+    }
+
+    public List<PoojaSevaDaySlot> getDaySlots() { return daySlots; }
+    public void setDaySlots(List<PoojaSevaDaySlot> daySlots) {
+        this.daySlots = daySlots != null ? daySlots : new ArrayList<>();
     }
 
     public String getNotes() { return notes; }
