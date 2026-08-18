@@ -129,4 +129,46 @@ public final class TestDataBuilder {
                 .status(MatchStatus.SCHEDULED)
                 .build();
     }
+
+    // ── CommunityEvent ───────────────────────────────────────────────
+
+    public static com.manacommunity.api.events.entity.CommunityEvent communityEvent(Long id, Community community, AppUser user) {
+        return com.manacommunity.api.events.entity.CommunityEvent.builder()
+                .id(id)
+                .title("Annual Sports Meet")
+                .description("Community annual sports day")
+                .type(com.manacommunity.api.events.entity.CommunityEvent.EventType.SPORTS)
+                .status(com.manacommunity.api.events.entity.CommunityEvent.EventStatus.PUBLISHED)
+                .startDate(LocalDate.now().plusDays(10))
+                .capacity(100)
+                .priceType(com.manacommunity.api.events.entity.CommunityEvent.PriceType.FREE)
+                .community(community != null ? community : community())
+                .createdBy(user != null ? user : adminUser())
+                .registrations(new java.util.ArrayList<>())
+                .build();
+    }
+
+    public static com.manacommunity.api.events.dto.EventRequest eventRequest(String title) {
+        com.manacommunity.api.events.dto.EventRequest req = new com.manacommunity.api.events.dto.EventRequest();
+        req.setTitle(title);
+        req.setDescription("Event description");
+        req.setType("SPORTS");
+        req.setStartDate(LocalDate.now().plusDays(5).toString());
+        req.setCapacity(50);
+        req.setPriceType("FREE");
+        req.setLocationType("IN_PERSON");
+        req.setLocation("Clubhouse");
+        return req;
+    }
+
+    public static com.manacommunity.api.events.entity.EventRegistration eventRegistration(
+            Long id, com.manacommunity.api.events.entity.CommunityEvent event, AppUser user) {
+        return com.manacommunity.api.events.entity.EventRegistration.builder()
+                .id(id)
+                .event(event)
+                .user(user)
+                .status(com.manacommunity.api.events.entity.EventRegistration.RegistrationStatus.CONFIRMED)
+                .registeredAt(LocalDateTime.now())
+                .build();
+    }
 }
