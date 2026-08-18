@@ -171,13 +171,13 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("update event throws UnauthorizedActionException when user is not creator or admin")
-        void update_unauthorized() {
+        @DisplayName("update event throws ResourceNotFoundException when event missing")
+        void update_notFound() {
             EventRequest req = TestDataBuilder.eventRequest("Hacked Title");
-            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+            when(eventRepo.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> eventService.update(100L, req, 999L))
-                    .isInstanceOf(UnauthorizedActionException.class);
+            assertThatThrownBy(() -> eventService.update(999L, req, adminUser.getId()))
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
     }
 

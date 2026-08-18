@@ -126,11 +126,9 @@ class EventDonationServiceTest {
         @Test
         @DisplayName("delete removes existing donation")
         void delete_success() {
-            when(donationRepo.findById(10L)).thenReturn(Optional.of(donation));
-
             donationService.delete(10L);
 
-            verify(donationRepo).delete(donation);
+            verify(donationRepo).deleteById(10L);
         }
     }
 }

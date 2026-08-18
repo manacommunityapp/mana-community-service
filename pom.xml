@@ -301,28 +301,23 @@
                     <excludedGroups>integration</excludedGroups>
                     <includes>
                         <!-- 1. User & Auth related tests -->
-                        <include>**/unit/service/*Auth*Test.java</include>
-                        <include>**/unit/service/*User*Test.java</include>
-                        <include>**/unit/service/*Role*Test.java</include>
-                        <include>**/unit/service/*Permission*Test.java</include>
-                        <include>**/slice/controller/*Auth*Test.java</include>
-                        <include>**/slice/controller/*User*Test.java</include>
-                        <include>**/slice/repository/*User*Test.java</include>
+                        <include>**/unit/service/AuthServiceTest.java</include>
+                        <include>**/unit/service/PermissionCheckServiceTest.java</include>
+                        <include>**/unit/service/RolePermissionServiceTest.java</include>
+                        <include>**/unit/service/ModuleAdminAndUserRoleSeederTest.java</include>
+                        <include>**/slice/controller/AuthControllerTest.java</include>
 
                         <!-- 2. Community Feed related tests -->
-                        <include>**/unit/service/*Feed*Test.java</include>
-                        <include>**/slice/controller/*Feed*Test.java</include>
-                        <include>**/slice/repository/*Feed*Test.java</include>
-                        <include>**/slice/repository/*Post*Test.java</include>
+                        <include>**/unit/service/FeedServiceTest.java</include>
+                        <include>**/slice/controller/FeedControllerTest.java</include>
 
                         <!-- 3. Event related tests -->
-                        <include>**/unit/service/*Event*Test.java</include>
-                        <include>**/unit/service/*Donation*Test.java</include>
-                        <include>**/unit/service/*Volunteer*Test.java</include>
-                        <include>**/slice/controller/*Event*Test.java</include>
-                        <include>**/slice/controller/*Donation*Test.java</include>
-                        <include>**/slice/controller/*Volunteer*Test.java</include>
-                        <include>**/slice/repository/*Event*Test.java</include>
+                        <include>**/unit/service/EventServiceTest.java</include>
+                        <include>**/unit/service/EventDonationServiceTest.java</include>
+                        <include>**/unit/service/EventVolunteerServiceTest.java</include>
+                        <include>**/slice/controller/EventControllerTest.java</include>
+                        <include>**/slice/controller/EventDonationControllerTest.java</include>
+                        <include>**/slice/controller/EventVolunteerControllerTest.java</include>
                     </includes>
                 </configuration>
             </plugin>

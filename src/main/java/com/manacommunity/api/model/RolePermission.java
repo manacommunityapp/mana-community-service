@@ -37,6 +37,7 @@ public class RolePermission {
     private Role roleEntity;
 
     @Column(name = "permission_key", nullable = false, length = 100)
+    @EqualsAndHashCode.Include
     private String permissionKey; // e.g. "View Feed", "Create Post", "View Sports", etc.
 
     @ManyToOne(fetch = FetchType.LAZY)

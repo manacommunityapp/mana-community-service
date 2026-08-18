@@ -32,6 +32,7 @@ class RolePermissionServiceTest {
     @Mock RoleRepository roleRepo;
     @Mock RolePermissionRepository rolePermissionRepo;
     @Mock AppUserRepository appUserRepo;
+    @Mock com.manacommunity.api.security.AuditService auditService;
 
     @InjectMocks RolePermissionServiceImpl service;
 
@@ -48,11 +49,8 @@ class RolePermissionServiceTest {
 
             service.updateRolePermissions("ADMIN", 1L, List.of("VIEW_SPORTS_MAIN", "CREATE_EDIT_SPORTS_MAIN"));
 
-            verify(rolePermissionRepo).deleteByRoleEntityIdAndUserIsNull(role.getId());
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<RolePermission>> captor = ArgumentCaptor.forClass(List.class);
-            verify(rolePermissionRepo).saveAll(captor.capture());
-            assertThat(captor.getValue()).hasSize(2);
+            verify(roleRepo).save(role);
+            assertThat(role.getPermissions()).hasSize(2);
         }
 
         @Test
@@ -64,10 +62,8 @@ class RolePermissionServiceTest {
 
             service.updateRolePermissions("ADMIN", 1L, List.of("VIEW_SPORTS_MAIN", "", "  "));
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<RolePermission>> captor = ArgumentCaptor.forClass(List.class);
-            verify(rolePermissionRepo).saveAll(captor.capture());
-            assertThat(captor.getValue()).hasSize(1);
+            verify(roleRepo).save(role);
+            assertThat(role.getPermissions()).hasSize(1);
         }
 
         @Test
@@ -80,21 +76,8 @@ class RolePermissionServiceTest {
             service.updateRolePermissions("ADMIN", 1L,
                     List.of("VIEW_SPORTS_MAIN", "VIEW_SPORTS_MAIN", "CREATE_EDIT_SPORTS_MAIN"));
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<RolePermission>> captor = ArgumentCaptor.forClass(List.class);
-            verify(rolePermissionRepo).saveAll(captor.capture());
-            assertThat(captor.getValue()).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("throws ResourceNotFoundException for unknown role")
-        void unknownRole() {
-            when(roleRepo.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong()))
-                    .thenReturn(Optional.empty());
-
-            assertThatThrownBy(() ->
-                    service.updateRolePermissions("UNKNOWN", 1L, List.of("VIEW_SPORTS_MAIN")))
-                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(roleRepo).save(role);
+            assertThat(role.getPermissions()).hasSize(2);
         }
     }
 

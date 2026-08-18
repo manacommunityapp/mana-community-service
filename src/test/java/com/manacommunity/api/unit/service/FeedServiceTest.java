@@ -6,7 +6,9 @@ import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.Hashtag;
 import com.manacommunity.api.model.Post;
+import com.manacommunity.api.model.PostHashtag;
 import com.manacommunity.api.model.PostType;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.FeedService;
@@ -141,11 +143,13 @@ class FeedServiceTest {
                 p.setId(101L);
                 return p;
             });
+            when(hashtagRepository.save(any(Hashtag.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(postHashtagRepository.save(any(PostHashtag.class))).thenAnswer(inv -> inv.getArgument(0));
 
             PostResponse response = feedService.createPost(admin, req);
 
             assertThat(response).isNotNull();
-            verify(postRepository).save(any(Post.class));
+            verify(postRepository, atLeastOnce()).save(any(Post.class));
         }
 
         @Test

@@ -65,7 +65,7 @@ class AuthServiceTest {
             when(userRepository.existsByEmail(req.getEmail())).thenReturn(false);
             when(userRepository.existsByPhone(req.getPhone())).thenReturn(false);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
-            when(roleRepository.findByNameIgnoreCaseAndCommunityId("MEMBER", 1L)).thenReturn(Optional.of(role));
+            when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
             when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
