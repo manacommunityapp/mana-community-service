@@ -2,13 +2,17 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventSponsor;
 import org.springframework.data.jpa.repository.JpaRepository;
-
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface EventSponsorRepository extends JpaRepository<EventSponsor, Long> {
+
+    @Modifying
+    void deleteByEventId(Long eventId);
+
 
     List<EventSponsor> findByEventIdOrderByTierAscNameAsc(Long eventId);
 

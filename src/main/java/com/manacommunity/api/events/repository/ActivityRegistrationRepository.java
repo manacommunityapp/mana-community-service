@@ -2,6 +2,7 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.ActivityRegistration;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -9,6 +10,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ActivityRegistrationRepository extends JpaRepository<ActivityRegistration, Long> {
+
+    @Modifying
+    @Query("DELETE FROM ActivityRegistration r WHERE r.program.id IN (SELECT p.id FROM EventProgram p WHERE p.event.id = :eventId)")
+    void deleteByProgramEventId(@Param("eventId") Long eventId);
 
     List<ActivityRegistration> findByProgramIdOrderByRegisteredAtDesc(Long programId);
 

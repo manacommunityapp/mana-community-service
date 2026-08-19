@@ -2,6 +2,7 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventGalleryItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.lang.Nullable;
@@ -9,6 +10,10 @@ import org.springframework.lang.Nullable;
 import java.util.List;
 
 public interface EventGalleryItemRepository extends JpaRepository<EventGalleryItem, Long> {
+
+    @Modifying
+    void deleteByEventId(Long eventId);
+
 
     List<EventGalleryItem> findByEventIdOrderBySortOrderAscCreatedAtDesc(Long eventId);
 
