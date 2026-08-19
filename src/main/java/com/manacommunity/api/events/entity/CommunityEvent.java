@@ -66,6 +66,9 @@ public class CommunityEvent {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "image_media_external_id")
+    private java.util.UUID imageMediaExternalId;
+
     @Column(name = "organizer_name", length = 200)
     private String organizerName;
 
@@ -98,6 +101,9 @@ public class CommunityEvent {
 
     @Column(name = "scanner_url", length = 500)
     private String scannerUrl;
+
+    @Column(name = "scanner_media_external_id")
+    private java.util.UUID scannerMediaExternalId;
 
     @Column(length = 3000)
     private String notes;

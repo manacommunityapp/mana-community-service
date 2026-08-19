@@ -42,6 +42,7 @@ public final class TestDataBuilder {
                 .id(id)
                 .name(name)
                 .communityId(communityId)
+                .permissions(new java.util.HashSet<>())
                 .build();
     }
 

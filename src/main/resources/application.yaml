@@ -24,24 +24,6 @@ spring:
     validate-on-migrate: true
     clean-disabled: true
 
-  # ── AI/Ollama auto-config kill-switch (Spring Boot 4 compatibility) ───
-  # Spring AI 1.0.0 targets Boot 3.x: its model auto-configurations reference
-  # org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration,
-  # a class Boot 4 relocated — so with the Ollama starter on the classpath the
-  # context fails to start (ClassNotFoundException) EVEN when app.ai.enabled is
-  # false, because Spring AI's own auto-config loads independently of our beans.
-  # While the AI integration is OFF we exclude those auto-configs so startup is
-  # clean. To RE-ENABLE AI: upgrade Spring AI to a Boot-4-compatible release,
-  # remove this exclude list, and set AI_ENABLED=true (see app.ai.enabled).
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
-      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
-      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
-      - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
-      - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration
-      - org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration
-      - org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration
 
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
   # AWS SES SMTP via IAM user 'mailuser'. Real delivery only happens when

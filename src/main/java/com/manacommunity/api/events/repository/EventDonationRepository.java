@@ -2,12 +2,16 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventDonation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface EventDonationRepository extends JpaRepository<EventDonation, Long> {
+
+    @Modifying
+    void deleteByEventId(Long eventId);
 
     List<EventDonation> findByEventIdOrderByCreatedAtDesc(Long eventId);
 

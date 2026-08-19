@@ -8,6 +8,12 @@ import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.media.entity.MediaModule;
+import com.manacommunity.api.media.entity.MediaObject;
+import com.manacommunity.api.media.entity.MediaStatus;
+import com.manacommunity.api.media.entity.MediaType;
+import com.manacommunity.api.media.repository.MediaRepository;
+import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.support.TestDataBuilder;
 import com.manacommunity.api.user.model.AppUser;
@@ -56,6 +62,8 @@ class EventServiceTest {
     @Mock CompetitionRepository competitionRepo;
     @Mock EventBookingRegistrationRepository eventBookingRegRepo;
     @Mock EventFamilyMemberRepository familyMemberRepo;
+    @Mock MediaRepository mediaRepo;
+    @Mock MediaUrlService mediaUrlService;
 
     @InjectMocks EventService eventService;
 
@@ -158,6 +166,81 @@ class EventServiceTest {
         }
 
         @Test
+        @DisplayName("create event links uploaded cover and scanner media")
+        void create_withMediaReferences() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            MediaObject cover = mediaObject(UUID.randomUUID(), MediaType.IMAGE);
+            MediaObject scanner = mediaObject(UUID.randomUUID(), MediaType.QR_CODE);
+            req.setImageMediaId(cover.getExternalId().toString());
+            req.setScannerMediaId(scanner.getExternalId().toString());
+            req.setImageUrl("https://temporary-upload-url.example/cover");
+            req.setScannerUrl("https://temporary-upload-url.example/scanner");
+
+            when(mediaRepo.findByExternalIdAndDeletedFalse(cover.getExternalId())).thenReturn(Optional.of(cover));
+            when(mediaRepo.findByExternalIdAndDeletedFalse(scanner.getExternalId())).thenReturn(Optional.of(scanner));
+            when(mediaUrlService.generateUrl(cover)).thenReturn("https://cdn.example/events/200/cover.jpg");
+            when(mediaUrlService.generateUrl(scanner)).thenReturn("https://cdn.example/events/200/scanner.png");
+            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> {
+                CommunityEvent e = inv.getArgument(0);
+                e.setId(200L);
+                return e;
+            });
+
+            EventResponse response = eventService.create(req, adminUser, community);
+
+            assertThat(response.getImageMediaId()).isEqualTo(cover.getExternalId().toString());
+            assertThat(response.getScannerMediaId()).isEqualTo(scanner.getExternalId().toString());
+            assertThat(response.getImageUrl()).isEqualTo("https://cdn.example/events/200/cover.jpg");
+            assertThat(response.getScannerUrl()).isEqualTo("https://cdn.example/events/200/scanner.png");
+            assertThat(cover.getModuleId()).isEqualTo("200");
+            assertThat(cover.getSubContext()).isEqualTo("cover");
+            assertThat(cover.isFeatured()).isTrue();
+            assertThat(scanner.getModuleId()).isEqualTo("200");
+            assertThat(scanner.getSubContext()).isEqualTo("payment-scanner");
+            verify(mediaRepo).save(cover);
+            verify(mediaRepo).save(scanner);
+        }
+
+        @Test
+        @DisplayName("create event rejects media from a different community")
+        void create_rejectsDifferentCommunityMedia() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            MediaObject cover = mediaObject(UUID.randomUUID(), MediaType.IMAGE);
+            cover.setCommunityId(999L);
+            req.setImageMediaId(cover.getExternalId().toString());
+            when(mediaRepo.findByExternalIdAndDeletedFalse(cover.getExternalId())).thenReturn(Optional.of(cover));
+
+            assertThatThrownBy(() -> eventService.create(req, adminUser, community))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("same community");
+            verify(eventRepo, never()).save(any(CommunityEvent.class));
+        }
+
+        @Test
+        @DisplayName("create event rejects missing startDate")
+        void create_missingStartDate() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            req.setStartDate(null);
+
+            assertThatThrownBy(() -> eventService.create(req, adminUser, community))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("startDate is required");
+            verify(eventRepo, never()).save(any(CommunityEvent.class));
+        }
+
+        @Test
+        @DisplayName("create event rejects invalid startDate")
+        void create_invalidStartDate() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            req.setStartDate("not-a-date");
+
+            assertThatThrownBy(() -> eventService.create(req, adminUser, community))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("startDate must be a valid ISO date");
+            verify(eventRepo, never()).save(any(CommunityEvent.class));
+        }
+
+        @Test
         @DisplayName("update event modifies details when user is authorized")
         void update_success() {
             EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");
@@ -171,13 +254,35 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("update event throws UnauthorizedActionException when user is not creator or admin")
-        void update_unauthorized() {
-            EventRequest req = TestDataBuilder.eventRequest("Hacked Title");
-            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+        @DisplayName("update event replaces legacy image URL with media-backed URL")
+        void update_withMediaReference() {
+            EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");
+            MediaObject cover = mediaObject(UUID.randomUUID(), MediaType.IMAGE);
+            req.setImageMediaId(cover.getExternalId().toString());
+            req.setImageUrl("https://temporary-upload-url.example/cover");
 
-            assertThatThrownBy(() -> eventService.update(100L, req, 999L))
-                    .isInstanceOf(UnauthorizedActionException.class);
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+            when(mediaRepo.findByExternalIdAndDeletedFalse(cover.getExternalId())).thenReturn(Optional.of(cover));
+            when(mediaUrlService.generateUrl(cover)).thenReturn("https://cdn.example/events/100/cover.jpg");
+            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            EventResponse response = eventService.update(100L, req, adminUser.getId());
+
+            assertThat(response.getImageMediaId()).isEqualTo(cover.getExternalId().toString());
+            assertThat(response.getImageUrl()).isEqualTo("https://cdn.example/events/100/cover.jpg");
+            assertThat(event.getImageUrl()).isNull();
+            assertThat(cover.getModuleId()).isEqualTo("100");
+            verify(mediaRepo).save(cover);
+        }
+
+        @Test
+        @DisplayName("update event throws ResourceNotFoundException when event missing")
+        void update_notFound() {
+            EventRequest req = TestDataBuilder.eventRequest("Hacked Title");
+            when(eventRepo.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> eventService.update(999L, req, adminUser.getId()))
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
     }
 
@@ -332,5 +437,25 @@ class EventServiceTest {
             assertThat(stats.getTotalRevenue()).isGreaterThan(0.0);
             assertThat(stats.getTotalExpenses()).isEqualTo(5000.0);
         }
+    }
+
+    private MediaObject mediaObject(UUID externalId, MediaType mediaType) {
+        return MediaObject.builder()
+                .externalId(externalId)
+                .module(MediaModule.EVENT)
+                .moduleId("pending")
+                .communityId(community.getId())
+                .subContext("pending")
+                .originalFileName("event-image.png")
+                .storedFileName(externalId + ".png")
+                .mimeType(mediaType == MediaType.QR_CODE ? "image/png" : "image/jpeg")
+                .extension(mediaType == MediaType.QR_CODE ? "png" : "jpg")
+                .fileSize(1024L)
+                .mediaType(mediaType)
+                .bucketName("test-bucket")
+                .s3Key("events/pending/" + externalId)
+                .uploadedBy(adminUser.getId())
+                .status(MediaStatus.ACTIVE)
+                .build();
     }
 }

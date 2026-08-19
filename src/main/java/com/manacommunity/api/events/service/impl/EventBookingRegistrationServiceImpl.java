@@ -5,6 +5,7 @@ import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
@@ -17,9 +18,14 @@ import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 @Service
@@ -163,8 +169,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             if (actId.startsWith("pooja-")) {
                 Long id = Long.parseLong(actId.replace("pooja-", ""));
                 poojaSevaRepository.findById(id).ifPresent(p -> {
-                    int current = p.getSlots() != null ? p.getSlots() : 20;
-                    p.setSlots(Math.max(0, current - booked));
+                    if (!decrementPoojaTimeSlot(p, registration, booked)) {
+                        int current = p.getSlots() != null ? p.getSlots() : 20;
+                        p.setSlots(Math.max(0, current - booked));
+                    }
                     poojaSevaRepository.save(p);
                 });
             } else if (actId.startsWith("food-")) {
@@ -209,6 +217,66 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         } catch (Exception ex) {
             // Non-critical slot decrement failure
         }
+    }
+
+    private boolean decrementPoojaTimeSlot(PoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
+        if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
+        if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
+
+        LocalDate bookedDate = parseBookingDate(registration.getEventDate());
+        LocalTime bookedTime = parseBookingTime(registration.getEventTime());
+        if (bookedDate == null || bookedTime == null) return false;
+
+        for (PoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
+            if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
+            LocalTime slotTime = parseBookingTime(slot.getStartTime());
+            if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
+                int current = slot.getSlotCount() != null ? slot.getSlotCount() : defaultPoojaSlotCount(poojaSeva);
+                slot.setSlotCount(Math.max(0, current - booked));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private int defaultPoojaSlotCount(PoojaSeva poojaSeva) {
+        return poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 20;
+    }
+
+    private LocalDate parseBookingDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        String clean = value.trim();
+        if (clean.contains("T")) clean = clean.substring(0, clean.indexOf('T'));
+        try {
+            return LocalDate.parse(clean);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private LocalTime parseBookingTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        String clean = value.trim();
+        if (clean.contains("T")) clean = clean.substring(clean.indexOf('T') + 1);
+        if (clean.length() >= 8 && clean.charAt(2) == ':' && clean.charAt(5) == ':') {
+            clean = clean.substring(0, 8);
+        }
+
+        List<DateTimeFormatter> formats = List.of(
+                DateTimeFormatter.ISO_LOCAL_TIME,
+                DateTimeFormatter.ofPattern("H:mm"),
+                DateTimeFormatter.ofPattern("HH:mm"),
+                DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
+                DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH)
+        );
+        for (DateTimeFormatter format : formats) {
+            try {
+                return LocalTime.parse(clean.toUpperCase(Locale.ENGLISH), format);
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+        return null;
     }
 
     @Override

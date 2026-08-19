@@ -21,6 +21,7 @@ public class EventResponse {
     private Double price;
     private Integer capacity;
     private String imageUrl;
+    private String imageMediaId;
     private String organizerName;
     private String organizerContact;
     private Long venueId;
@@ -31,6 +32,7 @@ public class EventResponse {
     private String paymentModes;
     private String upiId;
     private String scannerUrl;
+    private String scannerMediaId;
     private String notes;
     private String contactsJson;
     private String paymentInstructions;
