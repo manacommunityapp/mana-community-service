@@ -154,6 +154,55 @@ public class FeedService {
         postRepository.save(post);
     }
 
+    private static final Set<String> EDIT_ALLOWED_ROLES = Set.of(
+            "ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN",
+            "EVENTS_ADMIN", "EVENT_ADMIN", "SPORTS_ADMIN");
+
+    private boolean canEditPost(String role) {
+        if (role == null) return false;
+        for (String r : role.split(",")) {
+            if (EDIT_ALLOWED_ROLES.contains(r.trim().toUpperCase())) return true;
+        }
+        return false;
+    }
+
+    @Transactional
+    public PostResponse updatePost(AppUser currentUser, Long postId, UpdatePostRequest request) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+
+        boolean isAuthor = post.getUser().getId().equals(currentUser.getId());
+        boolean hasEditRole = canEditPost(currentUser.getRole());
+
+        if (!isAuthor && !hasEditRole) {
+            throw new UnauthorizedActionException("edit post " + postId);
+        }
+
+        if (request.content() != null && !request.content().isBlank()) {
+            post.setContent(request.content().trim());
+        }
+        if (request.title() != null) {
+            post.setTitle(request.title().isBlank() ? null : request.title().trim());
+        }
+        if (request.imageUrl() != null) {
+            post.setImageUrl(request.imageUrl().isBlank() ? null : request.imageUrl().trim());
+        }
+        if (request.eventDate() != null)    post.setEventDate(request.eventDate());
+        if (request.eventEndDate() != null) post.setEventEndDate(request.eventEndDate());
+        if (request.eventVenue() != null) {
+            post.setEventVenue(request.eventVenue().isBlank() ? null : request.eventVenue().trim());
+        }
+        if (request.location() != null) {
+            post.setLocation(request.location().isBlank() ? null : request.location().trim());
+        }
+        if (request.price() != null) {
+            post.setPrice(request.price());
+        }
+
+        Post saved = postRepository.save(post);
+        return toPostResponse(saved, currentUser.getId());
+    }
+
     @Transactional
     public PostResponse pinPost(AppUser currentUser, Long postId) {
         if (!isAdminRole(currentUser.getRole())) {

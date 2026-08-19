@@ -80,6 +80,16 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<PostResponse> updatePost(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody UpdatePostRequest request) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        PostResponse response = feedService.updatePost(currentUser, id, request);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(
             @AuthenticationPrincipal UserPrincipal principal,
