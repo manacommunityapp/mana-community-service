@@ -50,6 +50,7 @@ class EventServiceTest {
     @Mock MealRegistrationRepository mealRegRepo;
     @Mock EventAuctionItemRepository auctionItemRepo;
     @Mock AuctionPlayerRepository auctionPlayerRepo;
+    @Mock ActivityRegistrationRepository activityRegRepo;
     @Mock AppUserRepository userRepo;
     @Mock EmailService emailService;
     @Mock EventVenueRepository venueRepo;
@@ -296,17 +297,22 @@ class EventServiceTest {
         @DisplayName("delete cascades cleanup for registrations, volunteers, auction items, and deletes event")
         void delete_success() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.findByEventId(100L)).thenReturn(Collections.emptyList());
-            when(volunteerRepo.findByEventIdOrderByCreatedAtDesc(100L)).thenReturn(Collections.emptyList());
-            when(donationRepo.findByEventIdOrderByCreatedAtDesc(100L)).thenReturn(Collections.emptyList());
-            when(expenseRepo.findByEventIdOrderByCreatedAtDesc(100L)).thenReturn(Collections.emptyList());
-            when(sponsorRepo.findByEventIdOrderByCreatedAtDesc(100L)).thenReturn(Collections.emptyList());
-            when(taskRepo.findByEventIdOrderByCreatedAtDesc(100L)).thenReturn(Collections.emptyList());
-            when(mealRegRepo.findByEventIdOrdered(100L)).thenReturn(Collections.emptyList());
-            when(auctionItemRepo.findByEventId(100L)).thenReturn(Collections.emptyList());
 
             eventService.delete(100L, adminUser.getId());
 
+            verify(activityRegRepo).deleteByProgramEventId(100L);
+            verify(auctionItemRepo).deleteAuctionBidsByEventId(100L);
+            verify(regRepo).deleteByEventId(100L);
+            verify(volunteerRepo).deleteByEventId(100L);
+            verify(donationRepo).deleteByEventId(100L);
+            verify(expenseRepo).deleteByEventId(100L);
+            verify(sponsorRepo).deleteByEventId(100L);
+            verify(taskRepo).deleteByEventId(100L);
+            verify(mealRegRepo).deleteByEventId(100L);
+            verify(galleryRepo).deleteByEventId(100L);
+            verify(invoiceRepo).deleteByEventId(100L);
+            verify(auctionItemRepo).deleteByEventId(100L);
+            verify(programRepo).deleteByEventId(100L);
             verify(eventRepo).delete(event);
         }
 
