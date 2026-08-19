@@ -158,6 +158,30 @@ class EventServiceTest {
         }
 
         @Test
+        @DisplayName("create event rejects missing startDate")
+        void create_missingStartDate() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            req.setStartDate(null);
+
+            assertThatThrownBy(() -> eventService.create(req, adminUser, community))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("startDate is required");
+            verify(eventRepo, never()).save(any(CommunityEvent.class));
+        }
+
+        @Test
+        @DisplayName("create event rejects invalid startDate")
+        void create_invalidStartDate() {
+            EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
+            req.setStartDate("not-a-date");
+
+            assertThatThrownBy(() -> eventService.create(req, adminUser, community))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("startDate must be a valid ISO date");
+            verify(eventRepo, never()).save(any(CommunityEvent.class));
+        }
+
+        @Test
         @DisplayName("update event modifies details when user is authorized")
         void update_success() {
             EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");

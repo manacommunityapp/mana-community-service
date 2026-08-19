@@ -6,12 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CommunityEventRepository extends JpaRepository<CommunityEvent, Long> {
 
     List<CommunityEvent> findByCommunityIdOrderByStartDateDesc(Long communityId);
 
     List<CommunityEvent> findByCreatedByIdOrderByCreatedAtDesc(Long userId);
+
+    Optional<CommunityEvent> findByIdAndCommunity_Id(Long id, Long communityId);
 
     @Query("SELECT e FROM CommunityEvent e WHERE e.community.id = :communityId " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE)) " +

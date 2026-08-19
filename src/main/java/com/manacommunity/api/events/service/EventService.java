@@ -136,8 +136,7 @@ public class EventService {
 
     @Transactional
     public EventResponse create(EventRequest req, AppUser user, Community community) {
-        LocalDate startDate = parseLocalDate(req.getStartDate());
-        if (startDate == null) startDate = LocalDate.now();
+        LocalDate startDate = requireStartDate(req.getStartDate());
 
         EventVenue eventVenue = null;
         if (req.getVenueId() != null) {
@@ -787,6 +786,17 @@ public class EventService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private LocalDate requireStartDate(String str) {
+        if (str == null || str.isBlank()) {
+            throw new IllegalArgumentException("startDate is required");
+        }
+        LocalDate startDate = parseLocalDate(str);
+        if (startDate == null) {
+            throw new IllegalArgumentException("startDate must be a valid ISO date (yyyy-MM-dd)");
+        }
+        return startDate;
     }
 
     private LocalTime parseLocalTime(String str) {
