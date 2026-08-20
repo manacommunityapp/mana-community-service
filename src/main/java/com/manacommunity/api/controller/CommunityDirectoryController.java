@@ -102,6 +102,23 @@ public class CommunityDirectoryController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/designations")
+    public ResponseEntity<List<com.manacommunity.api.dto.CommunityDesignationResponse>> getDesignations(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(directoryService.getDesignations(communityId));
+    }
+
+    @PostMapping("/designations")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<com.manacommunity.api.dto.CommunityDesignationResponse> addDesignation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody com.manacommunity.api.dto.CommunityDesignationRequest req) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(directoryService.addDesignation(communityId, req));
+    }
+
     private Long resolveCommunityId(UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return user.getCommunity().getId();

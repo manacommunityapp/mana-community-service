@@ -731,21 +731,44 @@ public class FeedService {
     }
 
     private String mapRole(AppUser user) {
-        if (communityLeaderRepository != null) {
+        if (user == null) return "Verified Member";
+
+        // 1. Check CommunityLeader table for active community post / designation
+        if (communityLeaderRepository != null && user.getId() != null) {
             List<CommunityLeader> leaders = communityLeaderRepository.findByUserIdAndIsActiveTrue(user.getId());
             if (!leaders.isEmpty()) {
                 CommunityLeader leader = leaders.get(0);
-                if (leader.getCommittee() != null && !leader.getCommittee().isBlank()) {
-                    return leader.getDesignation() + " (" + leader.getCommittee() + ")";
+                if (leader.getDesignation() != null && !leader.getDesignation().isBlank()) {
+                    String designation = leader.getDesignation().trim();
+                    if (leader.getCommittee() != null && !leader.getCommittee().isBlank()
+                            && !leader.getCommittee().trim().equalsIgnoreCase(designation)) {
+                        return designation + " (" + leader.getCommittee().trim() + ")";
+                    }
+                    return designation;
                 }
-                return leader.getDesignation();
             }
         }
 
+        // 2. Check user roles (e.g. Admin, Event Admin, Moderator, Committee Member, custom designation)
         String rawRole = user.getRole();
-        if (isAdminRole(rawRole)) return "Admin";
-        if (rawRole != null && (rawRole.equalsIgnoreCase("EVENT_ADMIN") || rawRole.equalsIgnoreCase("EVENTS_ADMIN"))) return "Event Admin";
-        if ("COMMITTEE".equalsIgnoreCase(rawRole)) return "Committee Member";
+        if (rawRole != null && !rawRole.isBlank()) {
+            String upper = rawRole.toUpperCase().trim();
+            if (isAdminRole(upper)) return "Admin";
+            if (upper.contains("EVENT_ADMIN") || upper.contains("EVENTS_ADMIN")) return "Event Admin";
+            if (upper.contains("MODERATOR")) return "Moderator";
+            if (upper.contains("PRESIDENT")) return "President";
+            if (upper.contains("SECRETARY")) return "Secretary";
+            if (upper.contains("TREASURER")) return "Treasurer";
+            if (upper.contains("COMMITTEE")) return "Committee Member";
+            if (!upper.equals("USER") && !upper.equals("MEMBER") && !upper.equals("ROLE_USER")) {
+                return Arrays.stream(rawRole.split("[_,\\s]+"))
+                        .filter(s -> !s.isBlank())
+                        .map(s -> s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase())
+                        .reduce((a, b) -> a + " " + b)
+                        .orElse("Verified Member");
+            }
+        }
+
         return "Verified Member";
     }
 }
