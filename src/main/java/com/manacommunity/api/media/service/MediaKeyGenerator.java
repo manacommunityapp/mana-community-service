@@ -98,7 +98,7 @@ public class MediaKeyGenerator {
             case MARKETPLACE -> "marketplace/"   + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case SPORTS      -> "sports/"        + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case HEALTHCARE  -> "healthcare/"    + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
-            case COMMUNITY   -> "communities/"   + communityId + "/" + slugSegment + ctx + "/original";
+            case COMMUNITY   -> "communities/"   + communityId + "/" + ctx + "/" + moduleId + "/original";
             case VISITOR     -> "visitor/"       + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case FINANCE     -> "finance/"       + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case COMPLAINT   -> "complaints/"    + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
