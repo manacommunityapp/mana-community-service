@@ -28,6 +28,9 @@ import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.media.entity.MediaObject;
+import com.manacommunity.api.media.repository.MediaRepository;
+import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +64,8 @@ public class EventService {
     private final EventProgramRepository programRepo;
     private final EventGalleryItemRepository galleryRepo;
     private final EventInvoiceRepository invoiceRepo;
+    private final MediaRepository mediaRepo;
+    private final MediaUrlService mediaUrlService;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -107,6 +112,10 @@ public class EventService {
         LocalDate startDate = parseLocalDate(req.getStartDate());
         if (startDate == null) startDate = LocalDate.now();
 
+        // Verify image and scanner media exist in S3 before saving the event
+        UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image");
+        UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner");
+
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
@@ -121,6 +130,9 @@ public class EventService {
                 .price(req.getPrice())
                 .capacity(req.getCapacity())
                 .imageUrl(req.getImageUrl())
+                .imageMediaExternalId(imageMediaExternalId)
+                .scannerUrl(req.getScannerUrl())
+                .scannerMediaExternalId(scannerMediaExternalId)
                 .organizerName(req.getOrganizerName())
                 .organizerContact(req.getOrganizerContact())
                 .venue(req.getVenue())
@@ -185,7 +197,16 @@ public class EventService {
             event.setCapacity(req.getCapacity());
         }
         if (req.getImageUrl() != null) {
-            event.setImageUrl(req.getImageUrl());
+            event.setImageUrl(req.getImageUrl().isBlank() ? null : req.getImageUrl());
+        }
+        if (req.getImageMediaId() != null && !req.getImageMediaId().isBlank()) {
+            event.setImageMediaExternalId(verifyAndParseMediaId(req.getImageMediaId(), "event cover image"));
+        }
+        if (req.getScannerUrl() != null) {
+            event.setScannerUrl(req.getScannerUrl().isBlank() ? null : req.getScannerUrl());
+        }
+        if (req.getScannerMediaId() != null && !req.getScannerMediaId().isBlank()) {
+            event.setScannerMediaExternalId(verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner"));
         }
         if (req.getOrganizerName() != null) {
             event.setOrganizerName(req.getOrganizerName());
@@ -542,6 +563,20 @@ public class EventService {
 
     private EventResponse toResponse(CommunityEvent e, Long currentUserId) {
         boolean isRegistered = currentUserId != null && regRepo.existsByEventIdAndUserId(e.getId(), currentUserId);
+
+        // Generate fresh S3/CloudFront URLs from stored media objects at read time
+        java.util.Optional<MediaObject> imageMOpt = e.getImageMediaExternalId() != null
+                ? mediaRepo.findByExternalIdAndDeletedFalse(e.getImageMediaExternalId())
+                : java.util.Optional.empty();
+        String imageUrl   = imageMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getImageUrl());
+        String imageMediaId = imageMOpt.map(m -> m.getExternalId().toString()).orElse(null);
+
+        java.util.Optional<MediaObject> scannerMOpt = e.getScannerMediaExternalId() != null
+                ? mediaRepo.findByExternalIdAndDeletedFalse(e.getScannerMediaExternalId())
+                : java.util.Optional.empty();
+        String scannerUrl   = scannerMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getScannerUrl());
+        String scannerMediaId = scannerMOpt.map(m -> m.getExternalId().toString()).orElse(null);
+
         return EventResponse.builder()
                 .id(e.getId())
                 .title(e.getTitle())
@@ -556,7 +591,10 @@ public class EventService {
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
                 .capacity(e.getCapacity())
-                .imageUrl(e.getImageUrl())
+                .imageUrl(imageUrl)
+                .imageMediaId(imageMediaId)
+                .scannerUrl(scannerUrl)
+                .scannerMediaId(scannerMediaId)
                 .organizerName(e.getOrganizerName())
                 .organizerContact(e.getOrganizerContact())
                 .venue(e.getVenue())
@@ -571,6 +609,19 @@ public class EventService {
                 .isRegistered(isRegistered)
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
+    }
+
+    private UUID verifyAndParseMediaId(String mediaId, String context) {
+        if (mediaId == null || mediaId.isBlank()) return null;
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(mediaId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResourceNotFoundException("MediaObject", "id", mediaId);
+        }
+        mediaRepo.findByExternalIdAndDeletedFalse(uuid)
+                .orElseThrow(() -> new ResourceNotFoundException("MediaObject", "id", uuid.toString()));
+        return uuid;
     }
 
     private String formatDt(LocalDateTime dt) {

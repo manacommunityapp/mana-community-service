@@ -129,6 +129,12 @@ public class FeedService {
             int order = 0;
             for (PostRequest.MediaAttachment ma : request.mediaAttachments()) {
                 UUID mediaObjectId = parseUuid(ma.mediaObjectId());
+                // Verify media was confirmed in S3 before saving the post media record
+                if (mediaObjectId != null) {
+                    mediaRepository.findByExternalIdAndDeletedFalse(mediaObjectId)
+                            .orElseThrow(() -> new InvalidInputException(
+                                    "Media " + mediaObjectId + " was not found. Upload the file first."));
+                }
                 PostMedia media = PostMedia.builder()
                         .post(savedPost)
                         .mediaUrl(ma.mediaUrl())
@@ -214,6 +220,12 @@ public class FeedService {
             for (UpdatePostRequest.MediaAttachment ma : request.mediaAttachments()) {
                 if (ma.mediaUrl() == null || ma.mediaUrl().isBlank()) continue;
                 UUID mediaObjectId = parseUuid(ma.mediaObjectId());
+                // Verify media was confirmed in S3 before saving the updated post media record
+                if (mediaObjectId != null) {
+                    mediaRepository.findByExternalIdAndDeletedFalse(mediaObjectId)
+                            .orElseThrow(() -> new InvalidInputException(
+                                    "Media " + mediaObjectId + " was not found. Upload the file first."));
+                }
                 PostMedia pm = PostMedia.builder()
                         .post(saved)
                         .mediaUrl(ma.mediaUrl())

@@ -10,10 +10,10 @@ import org.springframework.http.HttpStatus;
 public class MediaStorageException extends ManaCommunityException {
 
     public MediaStorageException(String message) {
-        super(message, HttpStatus.BAD_REQUEST, "MEDIA_STORAGE_ERROR");
+        super(message, HttpStatus.BAD_GATEWAY, "MEDIA_STORAGE_ERROR");
     }
 
     public MediaStorageException(String message, Throwable cause) {
-        super(message, HttpStatus.BAD_REQUEST, "MEDIA_STORAGE_ERROR", cause);
+        super(message, HttpStatus.BAD_GATEWAY, "MEDIA_STORAGE_ERROR", cause);
     }
 }
