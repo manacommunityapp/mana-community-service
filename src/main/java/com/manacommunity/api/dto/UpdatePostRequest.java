@@ -1,6 +1,7 @@
 package com.manacommunity.api.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Partial-update DTO for PATCH /api/posts/{id}.
@@ -14,5 +15,15 @@ public record UpdatePostRequest(
     LocalDateTime eventEndDate,
     String eventVenue,
     String location,
-    Double price
-) {}
+    Double price,
+    List<MediaAttachment> mediaAttachments
+) {
+    public record MediaAttachment(
+        String mediaUrl,
+        String mediaType,
+        String thumbnailUrl,
+        String altText,
+        Integer sortOrder,
+        String mediaObjectId
+    ) {}
+}

@@ -50,6 +50,10 @@ public class PostMedia {
     @Column(name = "duration")
     private Integer duration;
 
+    /** UUID of the MediaObject that originally stored this file. Used to regenerate fresh access URLs. */
+    @Column(name = "media_object_id", columnDefinition = "uuid")
+    private java.util.UUID mediaObjectExternalId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
