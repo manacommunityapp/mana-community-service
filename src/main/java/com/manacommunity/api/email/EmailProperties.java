@@ -22,7 +22,7 @@ public class EmailProperties {
     private boolean enabled = false;
 
     /** Envelope "from" address. */
-    private String from = "no-reply@manacommunity.app";
+    private String from = "noreply@manacommunityhub.com";
 
     /** Friendly display name shown next to the from address. */
     private String fromName = "Mana Community";

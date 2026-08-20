@@ -18,15 +18,16 @@ public class BudgetService {
         this.budgetAllocationRepository = budgetAllocationRepository;
     }
 
-    public List<BudgetAllocation> getAllocations(String financialYear) {
-        return budgetAllocationRepository.findByFinancialYearOrderByCategoryAsc(financialYear);
+    public List<BudgetAllocation> getAllocations(Long communityId, String financialYear) {
+        return budgetAllocationRepository.findByCommunityIdAndFinancialYearOrderByCategoryAsc(communityId, financialYear);
     }
 
     @Transactional
-    public BudgetAllocation upsertAllocation(BudgetAllocationRequest request) {
+    public BudgetAllocation upsertAllocation(Long communityId, BudgetAllocationRequest request) {
         BudgetAllocation allocation = budgetAllocationRepository
-                .findByFinancialYearAndCategory(request.getFinancialYear(), request.getCategory())
+                .findByCommunityIdAndFinancialYearAndCategory(communityId, request.getFinancialYear(), request.getCategory())
                 .orElseGet(BudgetAllocation::new);
+        allocation.setCommunityId(communityId);
         allocation.setFinancialYear(request.getFinancialYear());
         allocation.setCategory(request.getCategory());
         allocation.setAllocatedAmount(request.getAllocatedAmount());
