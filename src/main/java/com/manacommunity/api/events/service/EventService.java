@@ -105,7 +105,12 @@ public class EventService {
     @Transactional
     public EventResponse create(EventRequest req, AppUser user, Community community) {
         LocalDate startDate = parseLocalDate(req.getStartDate());
-        if (startDate == null) startDate = LocalDate.now();
+        if (startDate == null) {
+            if (req.getStartDate() != null && !req.getStartDate().isBlank()) {
+                throw new IllegalArgumentException("Invalid event start date: " + req.getStartDate());
+            }
+            throw new IllegalArgumentException("Event start date is required");
+        }
 
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
