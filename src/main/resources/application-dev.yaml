@@ -49,6 +49,17 @@ server:
 app:
   #insert-sample-data: ${APP_INSERT_SAMPLE_DATA:false}
   insert-sample-data: false
+
+  # ── Outbound mail (Brevo relay for Lightsail Dev) ────────────────────────
+  # SMTP transport is configured above under spring.mail.
+  # These flags control the app-level delivery logic on top of SMTP.
+  mail:
+    enabled: true
+    from: ${APP_MAIL_FROM:no-reply@manacommunity.app}
+    from-name: ${APP_MAIL_FROM_NAME:Mana Community}
+    base-url: ${APP_MAIL_BASE_URL:https://manacommunityhub.com}
+    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
+    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:manacommunityapp@gmail.com}
   # AI/Ollama integration — temporarily OFF (no Ollama server in the dev env).
   ai:
     enabled: false
