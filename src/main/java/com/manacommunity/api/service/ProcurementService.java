@@ -24,19 +24,20 @@ public class ProcurementService {
         this.vendorRepository = vendorRepository;
     }
 
-    public List<PurchaseRequest> getRequests(ProcurementStatus status) {
+    public List<PurchaseRequest> getRequests(Long communityId, ProcurementStatus status) {
         return status == null
-                ? purchaseRequestRepository.findAllByOrderByCreatedAtDesc()
-                : purchaseRequestRepository.findByStatusOrderByCreatedAtDesc(status);
+                ? purchaseRequestRepository.findByCommunityIdOrderByCreatedAtDesc(communityId)
+                : purchaseRequestRepository.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status);
     }
 
-    public Optional<PurchaseRequest> getRequest(Long id) {
-        return purchaseRequestRepository.findById(id);
+    public Optional<PurchaseRequest> getRequest(Long id, Long communityId) {
+        return purchaseRequestRepository.findByIdAndCommunityId(id, communityId);
     }
 
     @Transactional
-    public PurchaseRequest createRequest(PurchaseRequestDto dto) {
+    public PurchaseRequest createRequest(PurchaseRequestDto dto, Long communityId) {
         PurchaseRequest request = PurchaseRequest.builder()
+                .communityId(communityId)
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .category(dto.getCategory())
@@ -50,8 +51,8 @@ public class ProcurementService {
     }
 
     @Transactional
-    public Optional<PurchaseRequest> updateStatus(Long id, ProcurementStatus status, PurchaseRequestDto dto) {
-        return purchaseRequestRepository.findById(id).map(request -> {
+    public Optional<PurchaseRequest> updateStatus(Long id, Long communityId, ProcurementStatus status, PurchaseRequestDto dto) {
+        return purchaseRequestRepository.findByIdAndCommunityId(id, communityId).map(request -> {
             request.setStatus(status);
             if (dto != null) {
                 request.setApprovalNotes(dto.getApprovalNotes());

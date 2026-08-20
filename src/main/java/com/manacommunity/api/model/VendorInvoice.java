@@ -115,6 +115,9 @@ public class VendorInvoice {
     @Builder.Default
     private List<InvoiceLineItem> lineItems = new ArrayList<>();
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

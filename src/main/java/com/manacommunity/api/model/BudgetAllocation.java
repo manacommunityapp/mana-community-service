@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "budget_allocations",
-        uniqueConstraints = @UniqueConstraint(name = "uk_budget_financial_year_category",
-                columnNames = {"financial_year", "category"}))
+        uniqueConstraints = @UniqueConstraint(name = "uk_budget_community_year_category",
+                columnNames = {"community_id", "financial_year", "category"}))
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,6 +19,9 @@ public class BudgetAllocation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "community_id")
+    private Long communityId;
 
     @Column(name = "financial_year", nullable = false, length = 20)
     private String financialYear;

@@ -13,6 +13,7 @@ import com.manacommunity.api.user.dto.AuthResponse;
 import com.manacommunity.api.user.dto.KycRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
+import com.manacommunity.api.user.dto.ResetPasswordRequest;
 import com.manacommunity.api.exception.*;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
@@ -26,6 +27,7 @@ import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.security.TokenBlacklistService;
 import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.service.OtpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -69,6 +71,8 @@ public class AuthServiceImpl implements AuthService {
     private CommunityModuleService communityModuleService;
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
+    @Autowired
+    private OtpService otpService;
 
     @Override
     @Transactional
@@ -316,6 +320,76 @@ public class AuthServiceImpl implements AuthService {
         user.setKycStatus("PENDING");
         userRepository.save(user);
         return true;
+    }
+
+    @Override
+    @Transactional
+    public void sendPasswordResetOtp(String rawEmail) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+                new ManaCommunityException("No account found with email address: " + email,
+                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new ManaCommunityException("This account has been deactivated. Please contact your community administrator.",
+                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(user.getEmail(), user.getFullName());
+        if (!otpResp.success()) {
+            throw new ManaCommunityException(otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
+                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        if (req.getEmail() == null || req.getEmail().trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = req.getEmail().trim().toLowerCase();
+        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+                new ManaCommunityException("No account found with email address: " + email,
+                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new ManaCommunityException("This account has been deactivated. Please contact support.",
+                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
+        }
+
+        // Verify the submitted OTP code
+        com.manacommunity.api.dto.otp.OtpResponse verifyResp = otpService.verify(email, req.getOtpCode());
+        if (!verifyResp.success() || !verifyResp.verified()) {
+            throw new ManaCommunityException(
+                    verifyResp.message() != null ? verifyResp.message() : "Invalid or expired verification code.",
+                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
+
+        // Validate password strength against policy and user personal tokens
+        PasswordPolicy.validate(req.getNewPassword(), java.util.Arrays.asList(
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getCommunity() != null ? user.getCommunity().getName() : null
+        ));
+
+        // Update password and clear lockout / failure attempts
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+
+        auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.USER_UPDATED,
+                com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
+                "AppUser", String.valueOf(user.getId()),
+                null,
+                "Password reset via OTP verification");
     }
 
     private String maskAadharNumber(String aadhar) {

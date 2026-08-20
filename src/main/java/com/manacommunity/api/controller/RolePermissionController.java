@@ -135,10 +135,10 @@ public class RolePermissionController {
             @RequestParam(required = false) Long userId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
+        Long communityId = resolveCommunityId(principal);
         if (userId != null) {
-            rolePermissionService.updateUserPermissions(userId, role, permissions);
+            rolePermissionService.updateUserPermissions(userId, role, permissions, communityId);
         } else {
-            Long communityId = resolveCommunityId(principal);
             rolePermissionService.updateRolePermissions(role, communityId, permissions);
         }
         return ResponseEntity.ok().build();

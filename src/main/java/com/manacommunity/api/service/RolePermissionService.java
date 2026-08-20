@@ -24,8 +24,9 @@ public interface RolePermissionService {
      */
     void updateRolePermissions(String roleName, Long communityId, List<String> permissions);
 
-    /** Overwrites user-specific permission overrides for the given user. */
-    void updateUserPermissions(Long userId, String role, List<String> permissions);
+    /** Overwrites user-specific permission overrides for the given user.
+     *  callerCommunityId is used to verify the target user belongs to the caller's community. */
+    void updateUserPermissions(Long userId, String role, List<String> permissions, Long callerCommunityId);
 
     /** Returns the user-specific permission keys for a given user. */
     List<String> getUserPermissions(Long userId);
