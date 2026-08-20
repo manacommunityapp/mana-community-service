@@ -63,9 +63,9 @@ app:
   media:
     s3:
       bucket: ${MEDIA_S3_BUCKET:manacommunityhub}
-      region: ${MEDIA_S3_REGION:ap-south-1}
-      access-key: ${MEDIA_S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
-      secret-key: ${MEDIA_S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      region: ${MEDIA_S3_REGION:eu-north-1}
+      access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
       presigned-put-expiry-minutes: ${MEDIA_PRESIGNED_EXPIRY:15}
       presigned-get-expiry-minutes: ${MEDIA_DOWNLOAD_EXPIRY:60}
     cloudfront:
