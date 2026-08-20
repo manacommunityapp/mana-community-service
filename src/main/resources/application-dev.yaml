@@ -76,10 +76,23 @@ app:
     s3:
       bucket: ${MEDIA_S3_BUCKET:manacommunityhub}
       region: ${MEDIA_S3_REGION:eu-north-1}
-      access-key: ${MEDIA_S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
-      secret-key: ${MEDIA_S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
       presigned-put-expiry-minutes: ${MEDIA_PRESIGNED_EXPIRY:15}
       presigned-get-expiry-minutes: ${MEDIA_DOWNLOAD_EXPIRY:60}
+      # ── S3 key path patterns (defined in MediaKeyGenerator.java) ──────────
+      # Variant sub-folders: original | thumbnail | medium | compressed
+      #
+      # events/      {communityId}/{eventId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # communities/ {communityId}/{subContext}/{moduleId}/original/{uuid}_{epochMs}.{ext}
+      #   feed post example: communities/2/feed_post/{postId}/original/{uuid}_{epochMs}.jpg
+      # users/       {userId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # marketplace/ {communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # sports/      {communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # finance/     {communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # complaints/  {communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # announcements/{communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
+      # documents/   {communityId}/{moduleId}/{titleSlug?}/{subContext}/original/{uuid}_{epochMs}.{ext}
     cloudfront:
       domain: ${MEDIA_CF_DOMAIN:}
     limits:
