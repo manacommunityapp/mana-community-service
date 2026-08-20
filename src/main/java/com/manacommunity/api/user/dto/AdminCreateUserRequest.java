@@ -27,11 +27,11 @@ public class AdminCreateUserRequest {
     private String email;
     @NotBlank
     private String phone;
-    @NotNull
-    @Past
     private LocalDate dateOfBirth;
-    @NotBlank
     private String gender;              // UI label: Male / Female / Other / Prefer not to say
+
+    private String govtIdType;          // Aadhaar Card, PAN Card, Passport, etc.
+    private String govtIdNumber;        // ID document number
 
     private String profilePic;          // URL or inline base64 data-URI
     private String employeeId;          // external Resident/Employee ID
