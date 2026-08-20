@@ -6,6 +6,9 @@ import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.media.entity.MediaObject;
+import com.manacommunity.api.media.repository.MediaRepository;
+import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,8 @@ public class FeedService {
     private final PostHashtagRepository postHashtagRepository;
     private final HashtagRepository hashtagRepository;
     private final CommunityLeaderRepository communityLeaderRepository;
+    private final MediaRepository mediaRepository;
+    private final MediaUrlService mediaUrlService;
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
 
@@ -123,6 +128,7 @@ public class FeedService {
         if (request.mediaAttachments() != null && !request.mediaAttachments().isEmpty()) {
             int order = 0;
             for (PostRequest.MediaAttachment ma : request.mediaAttachments()) {
+                UUID mediaObjectId = parseUuid(ma.mediaObjectId());
                 PostMedia media = PostMedia.builder()
                         .post(savedPost)
                         .mediaUrl(ma.mediaUrl())
@@ -130,6 +136,7 @@ public class FeedService {
                         .thumbnailUrl(ma.thumbnailUrl())
                         .altText(ma.altText())
                         .sortOrder(ma.sortOrder() != null ? ma.sortOrder() : order++)
+                        .mediaObjectExternalId(mediaObjectId)
                         .build();
                 postMediaRepository.save(media);
             }
@@ -200,6 +207,26 @@ public class FeedService {
         }
 
         Post saved = postRepository.save(post);
+
+        if (request.mediaAttachments() != null) {
+            postMediaRepository.deleteByPostId(saved.getId());
+            int order = 0;
+            for (UpdatePostRequest.MediaAttachment ma : request.mediaAttachments()) {
+                if (ma.mediaUrl() == null || ma.mediaUrl().isBlank()) continue;
+                UUID mediaObjectId = parseUuid(ma.mediaObjectId());
+                PostMedia pm = PostMedia.builder()
+                        .post(saved)
+                        .mediaUrl(ma.mediaUrl())
+                        .mediaType(ma.mediaType() != null ? ma.mediaType() : "IMAGE")
+                        .thumbnailUrl(ma.thumbnailUrl())
+                        .altText(ma.altText())
+                        .sortOrder(ma.sortOrder() != null ? ma.sortOrder() : order++)
+                        .mediaObjectExternalId(mediaObjectId)
+                        .build();
+                postMediaRepository.save(pm);
+            }
+        }
+
         return toPostResponse(saved, currentUser.getId());
     }
 
@@ -543,8 +570,20 @@ public class FeedService {
 
         List<PostMedia> mediaList = postMediaRepository.findByPostIdOrderBySortOrderAsc(post.getId());
         List<PostResponse.MediaResponse> mediaResponses = mediaList.stream()
-                .map(m -> new PostResponse.MediaResponse(m.getId(), m.getMediaUrl(), m.getMediaType(),
-                        m.getThumbnailUrl(), m.getAltText(), m.getSortOrder()))
+                .map(m -> {
+                    String url = m.getMediaUrl();
+                    String thumbUrl = m.getThumbnailUrl();
+                    if (m.getMediaObjectExternalId() != null) {
+                        Optional<MediaObject> mo = mediaRepository.findByExternalIdAndDeletedFalse(m.getMediaObjectExternalId());
+                        if (mo.isPresent()) {
+                            url = mediaUrlService.generateUrl(mo.get());
+                            String freshThumb = mediaUrlService.generateThumbnailUrl(mo.get());
+                            if (freshThumb != null) thumbUrl = freshThumb;
+                        }
+                    }
+                    String mediaObjectIdStr = m.getMediaObjectExternalId() != null ? m.getMediaObjectExternalId().toString() : null;
+                    return new PostResponse.MediaResponse(m.getId(), url, m.getMediaType(), thumbUrl, m.getAltText(), m.getSortOrder(), mediaObjectIdStr);
+                })
                 .toList();
 
         PostResponse.GroupSummary groupSummary = null;
@@ -648,6 +687,11 @@ public class FeedService {
                 comment.isAcceptedAnswer(),
                 replyResponses
         );
+    }
+
+    private UUID parseUuid(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return UUID.fromString(value); } catch (IllegalArgumentException e) { return null; }
     }
 
     private String getInitials(String fullName) {

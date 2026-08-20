@@ -38,6 +38,8 @@ public record PostRequest(
         String mediaType,
         String thumbnailUrl,
         String altText,
-        Integer sortOrder
+        Integer sortOrder,
+        /** UUID of the MediaObject — used to regenerate fresh S3/CloudFront URLs at read time. */
+        String mediaObjectId
     ) {}
 }

@@ -61,7 +61,8 @@ public record PostResponse(
         String mediaType,
         String thumbnailUrl,
         String altText,
-        int sortOrder
+        int sortOrder,
+        String mediaObjectId
     ) {}
 
     public record GroupSummary(
