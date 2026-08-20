@@ -70,15 +70,8 @@ public class EventGalleryService {
         CommunityEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
-        // Resolve MediaObject UUID if the client supplied one
-        UUID mediaExternalId = null;
-        if (req.getMediaId() != null && !req.getMediaId().isBlank()) {
-            try {
-                mediaExternalId = UUID.fromString(req.getMediaId());
-            } catch (IllegalArgumentException ex) {
-                log.warn("Invalid mediaId UUID supplied to gallery create: {}", req.getMediaId());
-            }
-        }
+        // Resolve MediaObject UUID and verify it was successfully uploaded to S3
+        final UUID mediaExternalId = parseAndVerifyMediaId(req.getMediaId(), "gallery create");
 
         EventGalleryItem item = EventGalleryItem.builder()
                 .event(event)
@@ -112,13 +105,10 @@ public class EventGalleryService {
         item.setFeatured(req.isFeatured());
         item.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : item.getSortOrder());
 
-        // Update mediaExternalId if a new one is supplied
+        // Update mediaExternalId if a new one is supplied — verify S3 upload before committing
         if (req.getMediaId() != null && !req.getMediaId().isBlank()) {
-            try {
-                item.setMediaExternalId(UUID.fromString(req.getMediaId()));
-            } catch (IllegalArgumentException ex) {
-                log.warn("Invalid mediaId UUID supplied to gallery update: {}", req.getMediaId());
-            }
+            UUID newMediaId = parseAndVerifyMediaId(req.getMediaId(), "gallery update");
+            if (newMediaId != null) item.setMediaExternalId(newMediaId);
         }
 
         return toResponse(galleryRepo.save(item));
@@ -174,6 +164,20 @@ public class EventGalleryService {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private UUID parseAndVerifyMediaId(String mediaId, String context) {
+        if (mediaId == null || mediaId.isBlank()) return null;
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(mediaId);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Invalid mediaId UUID supplied to {}: {}", context, mediaId);
+            return null;
+        }
+        mediaRepo.findByExternalIdAndDeletedFalse(uuid)
+                .orElseThrow(() -> new ResourceNotFoundException("MediaObject", "id", uuid.toString()));
+        return uuid;
+    }
 
     /**
      * Maps a gallery item to its response DTO.
