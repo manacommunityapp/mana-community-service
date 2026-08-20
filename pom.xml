@@ -279,6 +279,13 @@
             <version>2.9.2</version>
         </dependency>
 
+        <!-- Razorpay Java SDK — used only by the payment module (gated by app.razorpay.enabled). -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.5</version>
+        </dependency>
+
     </dependencies>
 
     <build>

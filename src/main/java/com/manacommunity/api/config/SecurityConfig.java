@@ -246,6 +246,9 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers(HttpMethod.GET, "/api/communities/by-type").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/check-unit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/*/public").permitAll()
+                // Razorpay webhook — no JWT (Razorpay is the caller). Signature is
+                // verified inside RazorpayPaymentService via HMAC-SHA256.
+                .requestMatchers(HttpMethod.POST, "/api/payments/razorpay/webhook").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
