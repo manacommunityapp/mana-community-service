@@ -122,8 +122,8 @@ public class BillingService {
      * Marks an invoice as paid.
      */
     @Transactional
-    public Invoice markAsPaid(Long invoiceId) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
+    public Invoice markAsPaid(Long invoiceId, Long communityId) {
+        Invoice invoice = invoiceRepository.findByIdAndCommunityId(invoiceId, communityId)
                 .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + invoiceId));
         invoice.setStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());

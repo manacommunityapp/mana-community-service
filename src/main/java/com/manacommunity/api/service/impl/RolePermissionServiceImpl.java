@@ -158,9 +158,19 @@ public class RolePermissionServiceImpl implements RolePermissionService {
 
     @Override
     @Transactional
-    public void updateUserPermissions(Long userId, String role, List<String> permissions) {
+    public void updateUserPermissions(Long userId, String role, List<String> permissions, Long callerCommunityId) {
         AppUser user = appUserRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        // Prevent cross-community permission tampering: non-SUPER_ADMIN callers may only
+        // modify users in their own community.
+        if (callerCommunityId != null) {
+            Long targetCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            if (!callerCommunityId.equals(targetCommunityId)) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Cannot modify permissions for a user in a different community.");
+            }
+        }
 
         rolePermissionRepo.deleteByUserId(userId);
 

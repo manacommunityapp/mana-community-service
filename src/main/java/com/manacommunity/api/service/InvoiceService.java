@@ -41,22 +41,23 @@ public class InvoiceService {
     @Autowired
     private PurchaseRequestRepository purchaseRequestRepository;
 
-    public List<VendorInvoice> getAllInvoices() {
-        return vendorInvoiceRepository.findAll();
+    public List<VendorInvoice> getAllInvoices(Long communityId) {
+        return vendorInvoiceRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
     }
 
-    public Optional<VendorInvoice> getInvoiceById(Long id) {
-        return vendorInvoiceRepository.findById(id);
+    public Optional<VendorInvoice> getInvoiceById(Long id, Long communityId) {
+        return vendorInvoiceRepository.findByIdAndCommunityId(id, communityId);
     }
 
     @Transactional
-    public VendorInvoice createInvoiceFromOcr(InvoiceDto dto) {
+    public VendorInvoice createInvoiceFromOcr(InvoiceDto dto, Long communityId) {
         Vendor vendor = dto.getVendorId() == null
                 ? null
                 : vendorRepository.findById(dto.getVendorId()).orElse(null);
         ExpenseCategory invoiceCategory = parseCategory(dto.getExpenseCategory());
 
         VendorInvoice invoice = VendorInvoice.builder()
+                .communityId(communityId)
                 .invoiceNumber(dto.getInvoiceNumber())
                 .invoiceDate(dto.getInvoiceDate())
                 .vendor(vendor)
@@ -137,8 +138,8 @@ public class InvoiceService {
     }
 
     @Transactional
-    public Optional<VendorInvoice> approveInvoice(Long id, String notes) {
-        return vendorInvoiceRepository.findById(id).map(invoice -> {
+    public Optional<VendorInvoice> approveInvoice(Long id, Long communityId, String notes) {
+        return vendorInvoiceRepository.findByIdAndCommunityId(id, communityId).map(invoice -> {
             invoice.setStatus(InvoiceStatus.APPROVED);
             invoice.setApprovalNotes(notes);
             invoice.setApprovedAt(LocalDateTime.now());
@@ -155,9 +156,9 @@ public class InvoiceService {
                 }
             }
 
-            if (invoice.getExpenseCategory() != null) {
+            if (invoice.getExpenseCategory() != null && invoice.getCommunityId() != null) {
                 budgetAllocationRepository
-                        .findByFinancialYearAndCategory(resolveFinancialYear(invoice), invoice.getExpenseCategory())
+                        .findByCommunityIdAndFinancialYearAndCategory(invoice.getCommunityId(), resolveFinancialYear(invoice), invoice.getExpenseCategory())
                         .ifPresent(budget -> {
                             budget.setSpentAmount(budget.getSpentAmount().add(invoice.getTotalAmount()));
                             budgetAllocationRepository.save(budget);
@@ -176,8 +177,8 @@ public class InvoiceService {
     }
 
     @Transactional
-    public Optional<VendorInvoice> rejectInvoice(Long id, String notes) {
-        return vendorInvoiceRepository.findById(id).map(invoice -> {
+    public Optional<VendorInvoice> rejectInvoice(Long id, Long communityId, String notes) {
+        return vendorInvoiceRepository.findByIdAndCommunityId(id, communityId).map(invoice -> {
             invoice.setStatus(InvoiceStatus.REJECTED);
             invoice.setApprovalNotes(notes);
             invoice.setRejectedAt(LocalDateTime.now());
@@ -186,8 +187,8 @@ public class InvoiceService {
     }
 
     @Transactional
-    public Optional<VendorInvoice> markPaid(Long id, PaymentRequest request) {
-        return vendorInvoiceRepository.findById(id).map(invoice -> {
+    public Optional<VendorInvoice> markPaid(Long id, Long communityId, PaymentRequest request) {
+        return vendorInvoiceRepository.findByIdAndCommunityId(id, communityId).map(invoice -> {
             invoice.setStatus(InvoiceStatus.PAID);
             invoice.setPaymentStatus(PaymentStatus.PAID);
             invoice.setPaymentMode(request.getPaymentMode());

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import java.math.BigDecimal;
 
 public interface VendorInvoiceRepository extends JpaRepository<VendorInvoice, Long> {
+    java.util.List<VendorInvoice> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
+    java.util.Optional<VendorInvoice> findByIdAndCommunityId(Long id, Long communityId);
     long countByStatus(com.manacommunity.api.model.InvoiceStatus status);
 
     long countByPaymentStatus(com.manacommunity.api.model.PaymentStatus paymentStatus);
