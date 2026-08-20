@@ -30,6 +30,10 @@ public class MediaValidator {
             "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "image/avif", "image/svg+xml"
     );
 
+    // Java's standard ImageIO does not support these formats natively (no plugin installed).
+    // Tika byte-level detection already confirms authenticity; skip the decode step.
+    private static final Set<String> IMAGEIO_UNSUPPORTED = Set.of("image/webp", "image/avif");
+
     private static final Set<String> ALLOWED_VIDEO_MIMES = Set.of(
             "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/3gpp", "video/ogg"
     );
@@ -52,8 +56,9 @@ public class MediaValidator {
                     + ". Allowed formats: JPG, PNG, GIF, WebP, BMP, AVIF, SVG.");
         }
 
-        // SVG files cannot be parsed by ImageIO — return default dimensions
-        if ("image/svg+xml".equalsIgnoreCase(detectedMime)) {
+        // SVG, WebP, and AVIF cannot be decoded by standard Java ImageIO (no plugin installed).
+        // Tika's byte-level detection already verified the format; return default dimensions.
+        if ("image/svg+xml".equalsIgnoreCase(detectedMime) || IMAGEIO_UNSUPPORTED.contains(detectedMime)) {
             return new ImageDimensions(0, 0);
         }
 
