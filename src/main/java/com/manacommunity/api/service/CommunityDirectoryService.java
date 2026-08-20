@@ -17,6 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import com.manacommunity.api.dto.CommunityDesignationRequest;
+import com.manacommunity.api.dto.CommunityDesignationResponse;
+import com.manacommunity.api.model.CommunityDesignation;
+import com.manacommunity.api.repository.CommunityDesignationRepository;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -28,6 +32,7 @@ public class CommunityDirectoryService {
     private final CommunityLeaderRepository leaderRepo;
     private final CommunityRepository communityRepo;
     private final AppUserRepository userRepo;
+    private final CommunityDesignationRepository designationRepo;
 
     @Transactional(readOnly = true)
     public List<CommunityLeaderResponse> getActiveLeaders(Long communityId) {
@@ -179,6 +184,72 @@ public class CommunityDirectoryService {
         }
         leaderRepo.saveAll(leaders);
         log.info("Reordered {} leaders for community {}", orderedIds.size(), communityId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommunityDesignationResponse> getDesignations(Long communityId) {
+        List<CommunityDesignation> list = designationRepo.findAvailableDesignations(communityId);
+        if (list.isEmpty()) {
+            seedDefaultDesignations();
+            list = designationRepo.findAvailableDesignations(communityId);
+        }
+        return list.stream()
+                .map(d -> new CommunityDesignationResponse(
+                        d.getId(),
+                        d.getName(),
+                        d.getCommunityId(),
+                        d.getDisplayOrder(),
+                        d.getIsDefault()))
+                .toList();
+    }
+
+    @Transactional
+    public CommunityDesignationResponse addDesignation(Long communityId, CommunityDesignationRequest req) {
+        String trimmedName = req.name() != null ? req.name().trim() : "";
+        if (trimmedName.isEmpty()) {
+            throw new InvalidInputException("Designation name cannot be blank.");
+        }
+        if (designationRepo.existsByNameIgnoreCaseAndCommunityId(trimmedName, communityId)
+                || designationRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(trimmedName)) {
+            throw new DuplicateResourceException("CommunityDesignation", "name", trimmedName);
+        }
+
+        CommunityDesignation designation = CommunityDesignation.builder()
+                .communityId(communityId)
+                .name(trimmedName)
+                .displayOrder(req.displayOrder() != null ? req.displayOrder() : 0)
+                .isDefault(false)
+                .build();
+
+        CommunityDesignation saved = designationRepo.save(designation);
+        log.info("Added new community designation '{}' for community {}", trimmedName, communityId);
+        return new CommunityDesignationResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getCommunityId(),
+                saved.getDisplayOrder(),
+                saved.getIsDefault()
+        );
+    }
+
+    private void seedDefaultDesignations() {
+        String[] defaults = {
+                "President", "Vice President", "Secretary", "Joint Secretary", "Treasurer",
+                "Sports Director", "Director", "Chairman", "Chairperson",
+                "Cultural Head", "Maintenance Head", "Security Head", "Grievance Officer",
+                "Committee Member", "Member"
+        };
+        int order = 1;
+        for (String def : defaults) {
+            if (!designationRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(def)) {
+                designationRepo.save(CommunityDesignation.builder()
+                        .name(def)
+                        .displayOrder(order++)
+                        .isDefault(true)
+                        .communityId(null)
+                        .build());
+            }
+        }
     }
 
     private CommunityLeaderResponse toResponse(CommunityLeader l) {
