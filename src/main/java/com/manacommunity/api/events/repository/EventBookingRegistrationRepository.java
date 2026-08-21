@@ -20,5 +20,9 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
 
     List<EventBookingRegistration> findByActivityId(String activityId);
 
+    boolean existsByActivityIdAndStatusNot(String activityId, String status);
+
+    long countByActivityIdAndStatusNot(String activityId, String status);
+
     List<EventBookingRegistration> findByActivityTitle(String activityTitle);
 }

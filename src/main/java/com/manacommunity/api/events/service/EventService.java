@@ -26,14 +26,18 @@ import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.MealRegistrationRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.notification.event.EventCancelledEvent;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +70,7 @@ public class EventService {
     private final EventInvoiceRepository invoiceRepo;
     private final MediaRepository mediaRepo;
     private final MediaUrlService mediaUrlService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -112,9 +117,33 @@ public class EventService {
         LocalDate startDate = parseLocalDate(req.getStartDate());
         if (startDate == null) {
             if (req.getStartDate() != null && !req.getStartDate().isBlank()) {
-                throw new IllegalArgumentException("Invalid event start date: " + req.getStartDate());
+                throw new ManaCommunityException("Invalid event start date: " + req.getStartDate(),
+                        HttpStatus.BAD_REQUEST, "INVALID_EVENT_DATE");
             }
-            throw new IllegalArgumentException("Event start date is required");
+            throw new ManaCommunityException("Event start date is required",
+                    HttpStatus.BAD_REQUEST, "MISSING_EVENT_DATE");
+        }
+
+        LocalDate endDate = parseLocalDate(req.getEndDate());
+        if (endDate != null && endDate.isBefore(startDate)) {
+            throw new ManaCommunityException("End date must not be before start date",
+                    HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
+
+        LocalTime startTime = parseLocalTime(req.getStartTime());
+        LocalTime endTime = parseLocalTime(req.getEndTime());
+        if (startTime != null && endTime != null && endDate == null
+                && endTime.isBefore(startTime)) {
+            throw new ManaCommunityException("End time must not be before start time",
+                    HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE");
+        }
+
+        CommunityEvent.PriceType priceType = parseEnumOrDefault(
+                CommunityEvent.PriceType.class, req.getPriceType(), CommunityEvent.PriceType.FREE);
+        if (priceType == CommunityEvent.PriceType.PAID
+                && (req.getPrice() == null || req.getPrice() <= 0)) {
+            throw new ManaCommunityException("Price is required and must be greater than zero for paid events",
+                    HttpStatus.BAD_REQUEST, "MISSING_EVENT_PRICE");
         }
 
         // Verify image and scanner media exist in S3 before saving the event
@@ -126,12 +155,12 @@ public class EventService {
                 .description(req.getDescription())
                 .type(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), CommunityEvent.EventType.GENERAL))
                 .startDate(startDate)
-                .endDate(parseLocalDate(req.getEndDate()))
-                .startTime(parseLocalTime(req.getStartTime()))
-                .endTime(parseLocalTime(req.getEndTime()))
+                .endDate(endDate)
+                .startTime(startTime)
+                .endTime(endTime)
                 .locationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), CommunityEvent.LocationType.IN_PERSON))
                 .location(req.getLocation())
-                .priceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), CommunityEvent.PriceType.FREE))
+                .priceType(priceType)
                 .price(req.getPrice())
                 .capacity(req.getCapacity())
                 .imageUrl(req.getImageUrl())
@@ -157,11 +186,10 @@ public class EventService {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
-        // Permissive update check: allow event creator, system admins (-1L), or community admins
-        if (event.getCreatedBy() != null && event.getCreatedBy().getId() != null
-                && !event.getCreatedBy().getId().equals(userId)
-                && userId != null && userId != -1L) {
-            // Log update by admin/community manager
+        // Cancelled events are frozen — only an explicit status change (to re-open) is allowed
+        if (event.getStatus() == CommunityEvent.EventStatus.CANCELLED && req.getStatus() == null) {
+            throw new ManaCommunityException("Cannot modify a cancelled event",
+                    HttpStatus.CONFLICT, "EVENT_CANCELLED");
         }
 
         if (req.getTitle() != null && !req.getTitle().isBlank()) {
@@ -173,13 +201,30 @@ public class EventService {
         if (req.getType() != null) {
             event.setType(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), event.getType()));
         }
+
+        // Date updates — validate order after applying both sides
+        LocalDate newStartDate = event.getStartDate();
+        LocalDate newEndDate = event.getEndDate();
         if (req.getStartDate() != null && !req.getStartDate().isBlank()) {
             LocalDate sd = parseLocalDate(req.getStartDate());
-            if (sd != null) event.setStartDate(sd);
+            if (sd == null) throw new ManaCommunityException("Invalid start date: " + req.getStartDate(),
+                    HttpStatus.BAD_REQUEST, "INVALID_EVENT_DATE");
+            newStartDate = sd;
         }
         if (req.getEndDate() != null) {
-            event.setEndDate(parseLocalDate(req.getEndDate()));
+            newEndDate = req.getEndDate().isBlank() ? null : parseLocalDate(req.getEndDate());
+            if (req.getEndDate() != null && !req.getEndDate().isBlank() && newEndDate == null) {
+                throw new ManaCommunityException("Invalid end date: " + req.getEndDate(),
+                        HttpStatus.BAD_REQUEST, "INVALID_EVENT_DATE");
+            }
         }
+        if (newEndDate != null && newEndDate.isBefore(newStartDate)) {
+            throw new ManaCommunityException("End date must not be before start date",
+                    HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
+        event.setStartDate(newStartDate);
+        event.setEndDate(newEndDate);
+
         if (req.getStartTime() != null) {
             event.setStartTime(parseLocalTime(req.getStartTime()));
         }
@@ -196,9 +241,19 @@ public class EventService {
             event.setPriceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), event.getPriceType()));
         }
         if (req.getPrice() != null) {
+            if (req.getPrice() < 0) throw new ManaCommunityException("Price must not be negative",
+                    HttpStatus.BAD_REQUEST, "INVALID_EVENT_PRICE");
             event.setPrice(req.getPrice());
         }
         if (req.getCapacity() != null) {
+            long currentRegs = regRepo.countByEventId(id);
+            if (req.getCapacity() < currentRegs) {
+                throw new ManaCommunityException(
+                        "Capacity cannot be less than current registrations (" + currentRegs + ")",
+                        HttpStatus.CONFLICT,
+                        "CAPACITY_BELOW_REGISTRATIONS"
+                );
+            }
             event.setCapacity(req.getCapacity());
         }
         if (req.getImageUrl() != null) {
@@ -222,11 +277,41 @@ public class EventService {
         if (req.getVenue() != null) event.setVenue(req.getVenue());
         if (req.getCity() != null) event.setCity(req.getCity());
         if (req.getCategory() != null) event.setCategory(req.getCategory());
+
         if (req.getStatus() != null) {
-            CommunityEvent.EventStatus s = parseEnum(CommunityEvent.EventStatus.class, req.getStatus());
-            if (s != null) event.setStatus(s);
+            CommunityEvent.EventStatus newStatus = parseEnum(CommunityEvent.EventStatus.class, req.getStatus());
+            if (newStatus != null && newStatus != event.getStatus()) {
+                boolean becomingCancelled = newStatus == CommunityEvent.EventStatus.CANCELLED;
+                event.setStatus(newStatus);
+                if (becomingCancelled) {
+                    CommunityEvent saved = eventRepo.save(event);
+                    // Notify registered users about cancellation (async, after TX commit)
+                    List<Long> affectedUserIds = regRepo.findByEventId(id).stream()
+                            .map(r -> r.getUser().getId())
+                            .toList();
+                    eventPublisher.publishEvent(new EventCancelledEvent(
+                            saved.getId(),
+                            saved.getTitle(),
+                            saved.getStartDate() != null
+                                    ? saved.getStartDate().atStartOfDay()
+                                    : java.time.LocalDateTime.now(),
+                            affectedUserIds));
+                    return toResponse(saved, userId);
+                }
+            }
         }
-        if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
+
+        if (req.getMaxAttendees() != null) {
+            long currentRegs = regRepo.countByEventId(id);
+            if (req.getMaxAttendees() < currentRegs) {
+                throw new ManaCommunityException(
+                        "Max attendees cannot be less than current registrations (" + currentRegs + ")",
+                        HttpStatus.CONFLICT,
+                        "CAPACITY_BELOW_REGISTRATIONS"
+                );
+            }
+            event.setMaxAttendees(req.getMaxAttendees());
+        }
 
         return toResponse(eventRepo.save(event), userId);
     }
@@ -235,8 +320,21 @@ public class EventService {
     public void delete(Long id, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
-        if (!event.getCreatedBy().getId().equals(userId)) {
+        boolean isAdmin = userId != null && userId == -1L;
+        boolean isCreator = event.getCreatedBy() != null
+                && event.getCreatedBy().getId() != null
+                && event.getCreatedBy().getId().equals(userId);
+        if (!isCreator && !isAdmin) {
             throw new UnauthorizedActionException("Only the event creator can delete this event");
+        }
+
+        long registrationCount = regRepo.countByEventId(id);
+        if (registrationCount > 0) {
+            throw new ManaCommunityException(
+                    "Cannot delete event with " + registrationCount + " registered user(s). Cancel the event instead.",
+                    HttpStatus.CONFLICT,
+                    "EVENT_HAS_REGISTRATIONS"
+            );
         }
 
         // Delete leaf-level records first (children of EventProgram)
@@ -265,12 +363,40 @@ public class EventService {
     public EventResponse register(Long eventId, AppUser user) {
         CommunityEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
+
+        if (event.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            throw new ManaCommunityException("Cannot register for a cancelled event",
+                    HttpStatus.CONFLICT, "EVENT_CANCELLED");
+        }
+        if (event.getStatus() == CommunityEvent.EventStatus.DRAFT) {
+            throw new ManaCommunityException("Cannot register for a draft event",
+                    HttpStatus.CONFLICT, "EVENT_NOT_PUBLISHED");
+        }
+
+        // Reject registration if the event has already ended
+        LocalDate today = LocalDate.now();
+        if (event.getEndDate() != null && event.getEndDate().isBefore(today)) {
+            throw new ManaCommunityException("Cannot register for an event that has already ended",
+                    HttpStatus.CONFLICT, "EVENT_ENDED");
+        }
+        if (event.getEndDate() == null && event.getStartDate() != null
+                && event.getStartDate().isBefore(today)) {
+            throw new ManaCommunityException("Cannot register for an event that has already passed",
+                    HttpStatus.CONFLICT, "EVENT_ENDED");
+        }
+
         if (regRepo.existsByEventIdAndUserId(eventId, user.getId())) {
             throw new AlreadyRegisteredException(event.getTitle());
         }
-        if (event.getCapacity() != null && event.getRegistrations().size() >= event.getCapacity()) {
-            throw new EventFullException(event.getTitle(), event.getCapacity());
+
+        // Use DB count for concurrent-safe capacity check
+        if (event.getCapacity() != null) {
+            long currentCount = regRepo.countByEventId(eventId);
+            if (currentCount >= event.getCapacity()) {
+                throw new EventFullException(event.getTitle(), event.getCapacity());
+            }
         }
+
         EventRegistration reg = EventRegistration.builder()
                 .event(event)
                 .user(user)
@@ -476,41 +602,6 @@ public class EventService {
             }
         }
 
-        if (result.isEmpty()) {
-            result.add(PendingActionItemDto.builder()
-                    .id("task-101")
-                    .task("Finalize Sound System & Stage Setup")
-                    .due("Tomorrow")
-                    .priority("high")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-102")
-                    .task("Confirm Volunteer Shifts & Gate Duty Roster")
-                    .due("Aug 25")
-                    .priority("high")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-103")
-                    .task("Order Mahaprasad Token Booklets & Coupons")
-                    .due("Aug 26")
-                    .priority("medium")
-                    .category("Task")
-                    .done(false)
-                    .build());
-            result.add(PendingActionItemDto.builder()
-                    .id("task-104")
-                    .task("Print VIP Lounge Entrance Passes")
-                    .due("Aug 27")
-                    .priority("low")
-                    .category("Task")
-                    .done(false)
-                    .build());
-        }
-
         return result;
     }
 
@@ -546,6 +637,15 @@ public class EventService {
     }
 
     @Transactional
+    public RegistrationResponse toggleCheckIn(Long registrationId, boolean checkedIn) {
+        EventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+        reg.setCheckedIn(checkedIn);
+        reg.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
+        return toRegistrationResponse(regRepo.save(reg));
+    }
+
+    @Transactional
     public EventResponse unregister(Long eventId, Long userId) {
         EventRegistration reg = regRepo.findByEventIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", "eventId and userId", eventId + "/" + userId));
@@ -563,6 +663,8 @@ public class EventService {
                 .userEmail(r.getUser().getEmail())
                 .status(r.getStatus().name())
                 .registeredAt(formatDt(r.getRegisteredAt()))
+                .checkedIn(Boolean.TRUE.equals(r.getCheckedIn()))
+                .checkedInAt(r.getCheckedInAt() != null ? formatDt(r.getCheckedInAt()) : null)
                 .build();
     }
 
