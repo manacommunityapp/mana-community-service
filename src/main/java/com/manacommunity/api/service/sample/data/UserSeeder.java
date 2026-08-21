@@ -58,7 +58,7 @@ public class UserSeeder {
         Community leCommunity = communitySeeder.getLeCommunity();
 
         AppUser sandeep = createUser(
-                "sandeep@gmail.com", "Sandeep Kamarapu", ROLE_USER, hash,
+                "sandeep60.kamarapu@gmail.com", "Sandeep Kamarapu", ROLE_USER, hash,
                 leCommunity, "B", "806", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser sunil = createUser(
@@ -78,12 +78,12 @@ public class UserSeeder {
                 leCommunity, "D", "107", "MALE", LocalDate.of(1990, 1, 1));
 
         createUser(
-                "varshitha@gmail.com", "varshitha", ROLE_EVENTS_ADMIN, hash,
-                leCommunity, "B", "807", "MALE", LocalDate.of(2008, 1, 1));
+                "kusivarshitha23@gmail.com", "varshitha kusi", ROLE_EVENTS_ADMIN, hash,
+                leCommunity, "B", "807", "MALE", LocalDate.of(2007, 6, 14));
 
         createUser(
-                "mokshitha@gmail.com", "mokshitha", ROLE_USER, hash,
-                leCommunity, "B", "810", "MALE", LocalDate.of(2008, 1, 1));
+                "mokshitagali@gmail.com", "sai mokshitha gali", ROLE_USER, hash,
+                leCommunity, "B", "810", "MALE", LocalDate.of(2007, 01, 8));
 
 
         createUser("Bhupal@gmail.com", "Bhupal", ROLE_USER, hash, leCommunity, "B", "209", "MALE", LocalDate.of(1986, 11, 14));

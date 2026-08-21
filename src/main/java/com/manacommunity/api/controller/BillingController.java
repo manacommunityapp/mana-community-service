@@ -74,8 +74,12 @@ public class BillingController {
 
     @PostMapping("/invoices/{id}/pay")
     @PreAuthorize("hasAuthority('View Admin')")
-    public ResponseEntity<InvoiceResponse> markAsPaid(@PathVariable Long id) {
-        Invoice invoice = billingService.markAsPaid(id);
+    public ResponseEntity<InvoiceResponse> markAsPaid(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Invoice invoice = billingService.markAsPaid(id, communityId);
         return ResponseEntity.ok(toInvoiceResponse(invoice));
     }
 

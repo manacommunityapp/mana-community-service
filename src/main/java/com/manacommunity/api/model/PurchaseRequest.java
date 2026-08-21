@@ -52,6 +52,9 @@ public class PurchaseRequest {
     @Column(name = "purchase_order_number", length = 80)
     private String purchaseOrderNumber;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

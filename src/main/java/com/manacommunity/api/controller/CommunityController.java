@@ -9,6 +9,7 @@ import com.manacommunity.api.service.CommunityService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
@@ -72,6 +73,7 @@ public class CommunityController {
             @PathVariable Long id,
             @Valid @RequestBody CommunityResponse request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        assertCommunityOwnership(id, principal);
         return ResponseEntity.ok(communityService.updateCommunity(id, request));
     }
 
@@ -84,6 +86,7 @@ public class CommunityController {
     public ResponseEntity<Void> deleteCommunity(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
+        assertCommunityOwnership(id, principal);
         communityService.deleteCommunity(id);
         return ResponseEntity.noContent().build();
     }
@@ -99,6 +102,16 @@ public class CommunityController {
             @RequestBody java.util.Map<String, java.util.List<String>> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(communityService.updateEnabledModules(id, body.get("modules")));
+    }
+
+    // SUPER_ADMIN may act on any community; ADMIN is restricted to their own.
+    private void assertCommunityOwnership(Long communityId, UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        if (user.hasRole("SUPER_ADMIN")) return;
+        Long callerCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (!communityId.equals(callerCommunityId)) {
+            throw new AccessDeniedException("You may only modify your own community.");
+        }
     }
 
     /**

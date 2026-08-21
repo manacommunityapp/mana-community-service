@@ -4,6 +4,7 @@ import com.manacommunity.api.user.dto.AuthResponse;
 import com.manacommunity.api.user.dto.KycRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
+import com.manacommunity.api.user.dto.ResetPasswordRequest;
 
 public interface AuthService {
     AuthResponse registerUser(RegisterRequest request) throws Exception;
@@ -20,4 +21,10 @@ public interface AuthService {
     void logout(Long userId, String email, String accessToken);
 
     boolean submitKyc(Long userId, KycRequest req);
+
+    /** Sends a 6-digit OTP verification code to the user''s registered email address for password reset. */
+    void sendPasswordResetOtp(String email);
+
+    /** Verifies OTP, checks password strength against policy, and updates the user''s password. */
+    void resetPassword(ResetPasswordRequest req);
 }

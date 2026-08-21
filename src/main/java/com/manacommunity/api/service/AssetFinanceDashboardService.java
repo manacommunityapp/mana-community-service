@@ -31,12 +31,12 @@ public class AssetFinanceDashboardService {
         this.purchaseRequestRepository = purchaseRequestRepository;
     }
 
-    public AssetFinanceDashboardResponse getDashboard(String financialYear) {
-        BigDecimal annualBudget = budgetAllocationRepository.findByFinancialYearOrderByCategoryAsc(financialYear)
+    public AssetFinanceDashboardResponse getDashboard(Long communityId, String financialYear) {
+        BigDecimal annualBudget = budgetAllocationRepository.findByCommunityIdAndFinancialYearOrderByCategoryAsc(communityId, financialYear)
                 .stream()
                 .map(b -> b.getAllocatedAmount() != null ? b.getAllocatedAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal budgetSpent = budgetAllocationRepository.findByFinancialYearOrderByCategoryAsc(financialYear)
+        BigDecimal budgetSpent = budgetAllocationRepository.findByCommunityIdAndFinancialYearOrderByCategoryAsc(communityId, financialYear)
                 .stream()
                 .map(b -> b.getSpentAmount() != null ? b.getSpentAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

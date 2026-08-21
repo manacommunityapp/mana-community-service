@@ -96,7 +96,7 @@ app:
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}
-    from: ${APP_MAIL_FROM:no-reply@manacommunity.app}
+    from: ${APP_MAIL_FROM:noreply@manacommunityhub.com}
     from-name: ${APP_MAIL_FROM_NAME:Mana Community}
     # Public base URL of the React app — used to build action links in emails.
     base-url: ${APP_MAIL_BASE_URL:http://localhost:5173}
@@ -106,9 +106,9 @@ app:
     #   NONE     — send to the real recipient (production default)
     #   REDIRECT — send ALL emails to default-recipient instead of the real user
     #   CC       — send to the real recipient AND CC default-recipient
-    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:REDIRECT}
+    recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
     # Default recipient address used when recipient-mode is REDIRECT or CC.
-    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:manacommunityapp@gmail.com}
+    default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:}
 
   # ── SMS & WhatsApp (Twilio) ──────────────────────────────────────
   # When disabled (default), messages are logged but not sent — safe for dev.
@@ -120,6 +120,23 @@ app:
     from-number: ${TWILIO_FROM_NUMBER:}
     whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
     default-country-code: ${SMS_DEFAULT_COUNTRY_CODE:+91}
+    provider: ${SMS_PROVIDER:MOCK}
+    retry-scheduler-delay-ms: ${SMS_RETRY_DELAY_MS:120000}
+    retry:
+      max-attempts: ${SMS_RETRY_MAX:3}
+      initial-delay-seconds: ${SMS_RETRY_INITIAL_DELAY:30}
+      max-delay-seconds: ${SMS_RETRY_MAX_DELAY:600}
+      backoff-multiplier: ${SMS_RETRY_BACKOFF:4.0}
+    otp:
+      length: ${SMS_OTP_LENGTH:6}
+      expiry-minutes: ${SMS_OTP_EXPIRY_MINUTES:5}
+      max-attempts: ${SMS_OTP_MAX_ATTEMPTS:5}
+      max-sends-per-hour: ${SMS_OTP_MAX_SENDS_HOUR:5}
+    rate-limit:
+      enabled: ${SMS_RATE_LIMIT_ENABLED:true}
+      per-user-per-minute: ${SMS_RATE_PER_USER:2}
+      per-phone-per-minute: ${SMS_RATE_PER_PHONE:2}
+      per-ip-per-minute: ${SMS_RATE_PER_IP:10}
 
   # ── Weekly Schedule Digest ───────────────────────────────────────
   # Cron expression for the digest email job (default: Monday 7:00 AM).
