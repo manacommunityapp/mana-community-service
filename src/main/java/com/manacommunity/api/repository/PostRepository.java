@@ -4,22 +4,37 @@ import com.manacommunity.api.model.Post;
 import com.manacommunity.api.model.PostType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdOrderByCreatedAtDesc(Long communityId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdAndPostTypeOrderByCreatedAtDesc(Long communityId, PostType postType, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdAndOfficialTrueOrderByCreatedAtDesc(Long communityId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(Long communityId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdAndPostTypeAndDeletedFalseOrderByCreatedAtDesc(Long communityId, PostType postType, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByCommunityIdAndOfficialTrueAndDeletedFalseOrderByCreatedAtDesc(Long communityId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "group"})
     Page<Post> findByGroupIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(Long groupId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "group"})
     @Query("SELECT p FROM Post p JOIN PostBookmark b ON b.post.id = p.id WHERE b.user.id = :userId AND p.deleted = false ORDER BY b.createdAt DESC")
     Page<Post> findBookmarkedByUser(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "group"})
     @Query("SELECT p FROM Post p WHERE p.community.id = :communityId AND p.deleted = false AND (LOWER(p.content) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.hashtags) LIKE LOWER(CONCAT('%', :query, '%'))) ORDER BY p.createdAt DESC")
     Page<Post> searchPosts(Long communityId, String query, Pageable pageable);
 

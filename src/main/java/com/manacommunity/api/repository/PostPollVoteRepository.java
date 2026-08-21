@@ -4,6 +4,7 @@ import com.manacommunity.api.model.PollVote;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,4 +22,10 @@ public interface PostPollVoteRepository extends JpaRepository<PollVote, Long> {
 
     @Query("SELECT pv.selectedOption, COUNT(pv) FROM PollVote pv WHERE pv.post.id = :postId GROUP BY pv.selectedOption")
     List<Object[]> countVotesGroupByOption(@Param("postId") Long postId);
+
+    @Query("SELECT pv.post.id, pv.selectedOption, COUNT(pv) FROM PollVote pv WHERE pv.post.id IN :postIds GROUP BY pv.post.id, pv.selectedOption")
+    List<Object[]> countVotesByPostIdInGroupByOption(@Param("postIds") Collection<Long> postIds);
+
+    @Query("SELECT pv.post.id, pv.selectedOption FROM PollVote pv WHERE pv.user.id = :userId AND pv.post.id IN :postIds")
+    List<Object[]> findUserVotesByUserIdAndPostIdIn(@Param("userId") Long userId, @Param("postIds") Collection<Long> postIds);
 }

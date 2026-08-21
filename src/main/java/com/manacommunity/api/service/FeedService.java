@@ -67,14 +67,14 @@ public class FeedService {
                 posts = postRepository.findByCommunityIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(communityId, pageable);
             }
         }
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional(readOnly = true)
     public Page<PostResponse> getGroupFeed(AppUser currentUser, Long groupId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.findByGroupIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(groupId, pageable);
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional
@@ -337,8 +337,8 @@ public class FeedService {
     @Transactional(readOnly = true)
     public Page<PostResponse> getBookmarkedPosts(AppUser currentUser, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<PostBookmark> bookmarks = postBookmarkRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId(), pageable);
-        return bookmarks.map(bm -> toPostResponse(bm.getPost(), currentUser.getId()));
+        Page<Post> posts = postRepository.findBookmarkedByUser(currentUser.getId(), pageable);
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional
@@ -668,7 +668,189 @@ public class FeedService {
         }
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.searchPosts(currentUser.getCommunity().getId(), query, pageable);
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
+    }
+
+    private Page<PostResponse> toPostResponsePage(Page<Post> postsPage, Long currentUserId) {
+        List<Post> posts = postsPage.getContent();
+        if (posts.isEmpty()) {
+            return postsPage.map(p -> null);
+        }
+
+        List<Long> postIds = posts.stream().map(Post::getId).toList();
+
+        // 1. Batch Likes for this user
+        Set<Long> likedPostIds = (currentUserId != null)
+                ? postLikeRepository.findLikedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 2. Batch Bookmarks for this user
+        Set<Long> bookmarkedPostIds = (currentUserId != null)
+                ? postBookmarkRepository.findBookmarkedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 3. Batch Reaction Counts: Map<PostId, Map<ReactionTypeStr, Count>>
+        Map<Long, Map<String, Long>> reactionCountsByPostId = new HashMap<>();
+        List<Object[]> rawReactionCounts = postReactionRepository.countReactionsByPostIdInGroupByReactionType(postIds);
+        for (Object[] row : rawReactionCounts) {
+            Long pid = (Long) row[0];
+            ReactionType rt = (ReactionType) row[1];
+            Long count = (Long) row[2];
+            reactionCountsByPostId.computeIfAbsent(pid, k -> new LinkedHashMap<>()).put(rt.name(), count);
+        }
+
+        // 4. Batch User Reactions: Map<PostId, ReactionType>
+        Map<Long, ReactionType> userReactionsByPostId = new HashMap<>();
+        if (currentUserId != null) {
+            List<Object[]> rawUserReactions = postReactionRepository.findUserReactionsByUserIdAndPostIdIn(currentUserId, postIds);
+            for (Object[] row : rawUserReactions) {
+                Long pid = (Long) row[0];
+                ReactionType rt = (ReactionType) row[1];
+                userReactionsByPostId.put(pid, rt);
+            }
+        }
+
+        // 5. Batch Media Attachments: Map<PostId, List<PostMedia>>
+        Map<Long, List<PostMedia>> mediaByPostId = new HashMap<>();
+        List<PostMedia> allMedia = postMediaRepository.findByPostIdInOrderBySortOrderAsc(postIds);
+        for (PostMedia pm : allMedia) {
+            mediaByPostId.computeIfAbsent(pm.getPost().getId(), k -> new ArrayList<>()).add(pm);
+        }
+
+        // 6. Batch Polls (only for POLL posts)
+        List<Long> pollPostIds = posts.stream()
+                .filter(p -> p.getPostType() == PostType.POLL)
+                .map(Post::getId)
+                .toList();
+
+        Map<Long, Map<String, Long>> pollVotesByPostId = new HashMap<>();
+        Map<Long, String> userPollVotesByPostId = new HashMap<>();
+
+        if (!pollPostIds.isEmpty()) {
+            List<Object[]> aggregatedVotes = pollVoteRepository.countVotesByPostIdInGroupByOption(pollPostIds);
+            for (Object[] row : aggregatedVotes) {
+                Long pid = (Long) row[0];
+                String opt = (String) row[1];
+                Long count = (Long) row[2];
+                pollVotesByPostId.computeIfAbsent(pid, k -> new HashMap<>()).put(opt, count);
+            }
+
+            if (currentUserId != null) {
+                List<Object[]> userVotes = pollVoteRepository.findUserVotesByUserIdAndPostIdIn(currentUserId, pollPostIds);
+                for (Object[] row : userVotes) {
+                    Long pid = (Long) row[0];
+                    String opt = (String) row[1];
+                    userPollVotesByPostId.put(pid, opt);
+                }
+            }
+        }
+
+        return postsPage.map(post -> {
+            Long pid = post.getId();
+            AppUser author = post.getUser();
+            String initials = author != null ? getInitials(author.getFullName()) : "??";
+            boolean liked = likedPostIds.contains(pid);
+            boolean bookmarked = bookmarkedPostIds.contains(pid);
+
+            Map<String, Long> reactionCounts = reactionCountsByPostId.getOrDefault(pid, Collections.emptyMap());
+            Optional<ReactionType> userReaction = Optional.ofNullable(userReactionsByPostId.get(pid));
+
+            List<String> optionsList = null;
+            Map<String, Long> pollVotes = null;
+            String userVotedOption = null;
+
+            if (post.getPostType() == PostType.POLL) {
+                if (post.getPollOptions() != null) {
+                    optionsList = Arrays.stream(post.getPollOptions().split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList();
+                }
+
+                pollVotes = new HashMap<>();
+                if (optionsList != null) {
+                    for (String opt : optionsList) {
+                        pollVotes.put(opt, 0L);
+                    }
+                }
+                Map<String, Long> actualVotes = pollVotesByPostId.get(pid);
+                if (actualVotes != null) {
+                    pollVotes.putAll(actualVotes);
+                }
+                userVotedOption = userPollVotesByPostId.get(pid);
+            }
+
+            List<PostMedia> mediaList = mediaByPostId.getOrDefault(pid, Collections.emptyList());
+            List<PostResponse.MediaResponse> mediaResponses = mediaList.stream()
+                    .map(m -> {
+                        String url = m.getMediaUrl();
+                        String thumbUrl = m.getThumbnailUrl();
+                        if (m.getMediaObjectExternalId() != null) {
+                            Optional<MediaObject> mo = mediaRepository.findByExternalIdAndDeletedFalse(m.getMediaObjectExternalId());
+                            if (mo.isPresent()) {
+                                url = mediaUrlService.generateUrl(mo.get());
+                                String freshThumb = mediaUrlService.generateThumbnailUrl(mo.get());
+                                if (freshThumb != null) thumbUrl = freshThumb;
+                            }
+                        }
+                        String mediaObjectIdStr = m.getMediaObjectExternalId() != null ? m.getMediaObjectExternalId().toString() : null;
+                        return new PostResponse.MediaResponse(m.getId(), url, m.getMediaType(), thumbUrl, m.getAltText(), m.getSortOrder(), mediaObjectIdStr);
+                    })
+                    .toList();
+
+            PostResponse.GroupSummary groupSummary = null;
+            if (post.getGroup() != null) {
+                CommunityGroup g = post.getGroup();
+                groupSummary = new PostResponse.GroupSummary(g.getId(), g.getName(), g.getSlug(), g.getIconUrl(), g.getGroupType());
+            }
+
+            return new PostResponse(
+                    post.getId(),
+                    post.getContent(),
+                    post.getTitle(),
+                    post.getImageUrl(),
+                    post.isOfficial(),
+                    post.isPinned(),
+                    post.getLikesCount(),
+                    post.getCommentsCount(),
+                    post.getSharesCount(),
+                    post.getBookmarksCount(),
+                    post.getViewsCount(),
+                    liked,
+                    bookmarked,
+                    userReaction.orElse(null),
+                    reactionCounts,
+                    author != null ? author.getId() : null,
+                    author != null ? author.getFullName() : "",
+                    initials,
+                    author != null ? mapRole(author) : "",
+                    author != null ? author.getProfilePicUrl() : null,
+                    post.getCreatedAt(),
+                    post.getPostType(),
+                    post.getVisibility(),
+                    post.getPriority(),
+                    post.getPrice(),
+                    post.getLocation(),
+                    post.getPollQuestion(),
+                    optionsList,
+                    pollVotes,
+                    userVotedOption,
+                    post.getPollEndDate(),
+                    post.isPollAnonymous(),
+                    post.getHashtags(),
+                    post.getMentions(),
+                    post.getLinkUrl(),
+                    post.getLinkTitle(),
+                    post.getLinkDescription(),
+                    post.getLinkImage(),
+                    post.getEventDate(),
+                    post.getEventEndDate(),
+                    post.getEventVenue(),
+                    mediaResponses,
+                    groupSummary,
+                    post.getModerationStatus()
+            );
+        });
     }
 
     private void processHashtags(Post post) {
