@@ -12,4 +12,8 @@ public interface CommunityWhoToCallRepository extends JpaRepository<CommunityWho
     List<CommunityWhoToCall> findByCommunityIdAndIsActiveTrueOrderByDisplayOrderAsc(Long communityId);
 
     List<CommunityWhoToCall> findByCommunityIdOrderByDisplayOrderAsc(Long communityId);
+
+    long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    long countByCommunityId(Long communityId);
 }
