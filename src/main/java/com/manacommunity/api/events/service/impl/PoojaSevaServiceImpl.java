@@ -5,6 +5,7 @@ import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.entity.PoojaSevaDaySlot;
 import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.exception.ManaCommunityException;
@@ -22,10 +23,14 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
 
     private final PoojaSevaRepository repository;
     private final CommunityEventRepository eventRepository;
+    private final EventBookingRegistrationRepository bookingRepo;
 
-    public PoojaSevaServiceImpl(PoojaSevaRepository repository, CommunityEventRepository eventRepository) {
+    public PoojaSevaServiceImpl(PoojaSevaRepository repository,
+                                CommunityEventRepository eventRepository,
+                                EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
+        this.bookingRepo = bookingRepo;
     }
 
     @Override
@@ -98,6 +103,17 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setDuration(updated.getDuration());
         existing.setMandap(updated.getMandap());
         existing.setPandit(updated.getPandit());
+        if (updated.getSlots() != null) {
+            String activityId = "pooja-" + existing.getId();
+            long activeBookings = bookingRepo.countByActivityIdAndStatusNot(activityId, "CANCELLED");
+            if (updated.getSlots() < activeBookings) {
+                throw new ManaCommunityException(
+                        "Slots cannot be less than active bookings (" + activeBookings + ")",
+                        HttpStatus.CONFLICT,
+                        "SLOTS_BELOW_BOOKINGS"
+                );
+            }
+        }
         existing.setSlots(updated.getSlots());
         existing.setFee(updated.getFee());
         existing.setIsFree(updated.getIsFree());
@@ -124,6 +140,14 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     @Override
     public void deletePoojaSeva(Long id, Long communityId) {
         PoojaSeva existing = getPoojaSevaById(id, communityId);
+        String activityId = "pooja-" + existing.getId();
+        if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
+            throw new ManaCommunityException(
+                    "Cannot delete pooja/seva with active bookings. Cancel the bookings first.",
+                    HttpStatus.CONFLICT,
+                    "POOJA_HAS_BOOKINGS"
+            );
+        }
         repository.delete(existing);
     }
 
