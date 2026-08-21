@@ -1,5 +1,9 @@
 package com.manacommunity.api.email;
 
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -12,27 +16,17 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-
 import java.util.LinkedHashMap;
-
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Admin-only endpoint for querying the email delivery log.
+ * Admin-only endpoint for querying the email delivery log and managing dispatches.
  *
- * <p>All operations require {@code ROLE_ADMIN} or {@code ROLE_SUPER_ADMIN}.
+ * <p>All operations require {@code ROLE_ADMIN}, {@code ROLE_SUPER_ADMIN}, or {@code ROLE_COMMUNITY_ADMIN}.
  * Results are paginated, newest first, and filterable by status, template type,
- * community, recipient email fragment, and date range.</p>
- *
- * <p>Example queries:</p>
- * <ul>
- *   <li>All failures today: {@code GET /api/admin/email/delivery-log?status=FAILED&from=2026-08-05}</li>
- *   <li>OTP emails to a user: {@code GET /api/admin/email/delivery-log?templateType=OTP&recipient=ravi@gmail.com}</li>
- *   <li>Community-scoped view: {@code GET /api/admin/email/delivery-log?communityId=3}</li>
- * </ul>
+ * community, recipient email fragment / keyword, and date range.</p>
  */
 @RestController
 @RequestMapping("/api/admin/email")
@@ -41,18 +35,10 @@ import java.util.stream.Collectors;
 public class EmailDeliveryLogController {
 
     private final EmailDeliveryLogRepository repo;
+    private final EmailService emailService;
 
     /**
      * Paginated, filterable delivery log.
-     *
-     * @param status       filter by status: SENT | FAILED | SKIPPED (optional)
-     * @param templateType filter by template type, e.g. OTP, MATCH_REMINDER (optional)
-     * @param communityId  restrict to a specific community (optional)
-     * @param recipient    partial email address match, case-insensitive (optional)
-     * @param from         include only emails sent on or after this date (optional, yyyy-MM-dd)
-     * @param to           include only emails sent on or before this date (optional, yyyy-MM-dd)
-     * @param page         0-based page index (default 0)
-     * @param size         page size, max 200 (default 50)
      */
     @GetMapping("/delivery-log")
     public ResponseEntity<Page<EmailDeliveryLogDto>> getDeliveryLog(
@@ -60,6 +46,7 @@ public class EmailDeliveryLogController {
             @RequestParam(required = false) String templateType,
             @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) String recipient,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") int page,
@@ -71,12 +58,14 @@ public class EmailDeliveryLogController {
         LocalDateTime fromDt = from != null ? from.atStartOfDay() : null;
         LocalDateTime toDt   = to   != null ? to.atTime(23, 59, 59) : null;
 
+        String effectiveKeyword = keyword != null && !keyword.isBlank() ? keyword.trim() : (recipient != null && !recipient.isBlank() ? recipient.trim() : null);
+
         Page<EmailDeliveryLogDto> result = repo
                 .findFiltered(
-                        status       != null ? status.toUpperCase() : null,
-                        templateType,
+                        status       != null && !status.equalsIgnoreCase("ALL") ? status.toUpperCase() : null,
+                        templateType != null && !templateType.equalsIgnoreCase("ALL") ? templateType : null,
                         communityId,
-                        recipient,
+                        effectiveKeyword,
                         fromDt,
                         toDt,
                         pageable)
@@ -86,11 +75,7 @@ public class EmailDeliveryLogController {
     }
 
     /**
-     * Summary counts for admin dashboard widgets.
-     * Returns total sent/failed/skipped counts for a community in the last N days.
-     *
-     * @param communityId  the community to summarise
-     * @param days         look-back window in days (default 7)
+     * Summary counts for admin dashboard widgets with delivery rate, open rate, and category breakdown.
      */
     @GetMapping("/delivery-log/summary")
     public ResponseEntity<Map<String, Object>> getSummary(
@@ -102,19 +87,37 @@ public class EmailDeliveryLogController {
         long sent    = repo.countByCommunityIdAndStatusAndSentAtAfter(communityId, EmailDeliveryLog.STATUS_SENT,    since);
         long failed  = repo.countByCommunityIdAndStatusAndSentAtAfter(communityId, EmailDeliveryLog.STATUS_FAILED,  since);
         long skipped = repo.countByCommunityIdAndStatusAndSentAtAfter(communityId, EmailDeliveryLog.STATUS_SKIPPED, since);
+        long opened  = repo.countByCommunityIdAndOpenedAtIsNotNullAndSentAtAfter(communityId, since);
+        long total   = sent + failed + skipped;
 
-        return ResponseEntity.ok(Map.of(
-                "communityId", communityId,
-                "periodDays",  days,
-                "sent",        sent,
-                "failed",      failed,
-                "skipped",     skipped,
-                "total",       sent + failed + skipped
-        ));
+        double deliveryRate = total > 0 ? ((double) sent / total) * 100.0 : 100.0;
+        double openRate     = sent > 0 ? ((double) opened / sent) * 100.0 : 0.0;
+
+        List<Object[]> typeDistribution = repo.countByTemplateTypeGrouped(communityId, since);
+        Map<String, Long> categoryCounts = new LinkedHashMap<>();
+        for (Object[] row : typeDistribution) {
+            String type = row[0] != null ? (String) row[0] : "GENERAL";
+            Long count = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            categoryCounts.put(type, count);
+        }
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("communityId", communityId);
+        resp.put("periodDays", days);
+        resp.put("sent", sent);
+        resp.put("failed", failed);
+        resp.put("skipped", skipped);
+        resp.put("opened", opened);
+        resp.put("total", total);
+        resp.put("deliveryRate", Math.round(deliveryRate * 10.0) / 10.0);
+        resp.put("openRate", Math.round(openRate * 10.0) / 10.0);
+        resp.put("categoryCounts", categoryCounts);
+
+        return ResponseEntity.ok(resp);
     }
 
     /**
-     * Get a single delivery log entry by id (for admin drill-down).
+     * Get a single delivery log entry by id (with full HTML body for admin preview).
      */
     @GetMapping("/delivery-log/{id}")
     public ResponseEntity<EmailDeliveryLogDto> getOne(@PathVariable Long id) {
@@ -125,11 +128,98 @@ public class EmailDeliveryLogController {
     }
 
     /**
+     * Resend an email from the delivery log (optionally to an override address).
+     */
+    @PostMapping("/delivery-log/{id}/resend")
+    public ResponseEntity<Map<String, Object>> resendEmail(
+            @PathVariable Long id,
+            @RequestBody(required = false) ResendEmailRequest request) {
+        EmailDeliveryLog existing = repo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EmailDeliveryLog", id));
+
+        String targetRecipient = (request != null && request.overrideRecipient() != null && !request.overrideRecipient().isBlank())
+                ? request.overrideRecipient().trim()
+                : existing.getRecipient();
+
+        String body = existing.getBody();
+        if (body == null || body.isBlank()) {
+            body = "<p>" + (existing.getSubject() != null ? existing.getSubject() : "Notification") + "</p>";
+        }
+
+        EmailMessage msg = EmailMessage.builder()
+                .to(targetRecipient)
+                .subject(existing.getSubject() != null ? existing.getSubject() : "Community Notification")
+                .htmlBody(body)
+                .build();
+
+        if (existing.getTemplateType() != null) {
+            org.slf4j.MDC.put(SmtpEmailService.MDC_TEMPLATE_TYPE, existing.getTemplateType());
+        }
+        if (existing.getCommunityId() != null) {
+            org.slf4j.MDC.put(SmtpEmailService.MDC_COMMUNITY_ID, String.valueOf(existing.getCommunityId()));
+        }
+
+        try {
+            emailService.send(msg);
+            return ResponseEntity.ok(Map.of(
+                    "status", "SUCCESS",
+                    "message", "Email re-dispatched to " + targetRecipient,
+                    "recipient", targetRecipient
+            ));
+        } finally {
+            org.slf4j.MDC.remove(SmtpEmailService.MDC_TEMPLATE_TYPE);
+            org.slf4j.MDC.remove(SmtpEmailService.MDC_COMMUNITY_ID);
+        }
+    }
+
+    /**
+     * Send an on-demand custom notification/test email directly from the admin hub.
+     */
+    @PostMapping("/send-custom")
+    public ResponseEntity<Map<String, Object>> sendCustomEmail(
+            @RequestBody @Valid SendCustomEmailRequest request) {
+        if (request.to() == null || request.to().isBlank()) {
+            throw new InvalidInputException("Recipient email address is required");
+        }
+        if (request.subject() == null || request.subject().isBlank()) {
+            throw new InvalidInputException("Subject is required");
+        }
+        if (request.body() == null || request.body().isBlank()) {
+            throw new InvalidInputException("Email body message is required");
+        }
+
+        String templateType = request.templateType() != null && !request.templateType().isBlank()
+                ? request.templateType().trim()
+                : "CUSTOM_COMMUNICATION";
+
+        if (templateType != null) {
+            org.slf4j.MDC.put(SmtpEmailService.MDC_TEMPLATE_TYPE, templateType);
+        }
+        if (request.communityId() != null) {
+            org.slf4j.MDC.put(SmtpEmailService.MDC_COMMUNITY_ID, String.valueOf(request.communityId()));
+        }
+
+        EmailMessage msg = EmailMessage.builder()
+                .to(request.to().trim())
+                .subject(request.subject().trim())
+                .htmlBody(request.body())
+                .build();
+
+        try {
+            emailService.send(msg);
+            return ResponseEntity.ok(Map.of(
+                    "status", "SUCCESS",
+                    "message", "Custom email sent successfully to " + request.to(),
+                    "recipient", request.to()
+            ));
+        } finally {
+            org.slf4j.MDC.remove(SmtpEmailService.MDC_TEMPLATE_TYPE);
+            org.slf4j.MDC.remove(SmtpEmailService.MDC_COMMUNITY_ID);
+        }
+    }
+
+    /**
      * List all registered email templates (from the EmailTemplate enum).
-     * Used by the admin Email Gallery to let admins browse templates by module.
-     *
-     * @param category    optional filter: REGISTRATION | TOURNAMENT | MATCH | PRIZE | ANNOUNCEMENT | AUTH | EVENT
-     * @param communityId optional — reserved for future custom-template lookup; accepted but not yet used
      */
     @GetMapping("/system-templates")
     public ResponseEntity<Map<String, Object>> getTemplates(
@@ -152,6 +242,16 @@ public class EmailDeliveryLogController {
 
         return ResponseEntity.ok(Map.of("count", templates.size(), "templates", templates));
     }
+
+    public record ResendEmailRequest(String overrideRecipient) {}
+
+    public record SendCustomEmailRequest(
+            @NotBlank String to,
+            @NotBlank String subject,
+            @NotBlank String body,
+            String templateType,
+            Long communityId
+    ) {}
 
     public record EmailTemplateInfo(
             String key,

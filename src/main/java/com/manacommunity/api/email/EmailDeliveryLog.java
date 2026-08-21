@@ -57,6 +57,14 @@ public class EmailDeliveryLog {
     @Column(name = "tracking_token", length = 64, unique = true)
     private String trackingToken;
 
+    /** Sender address / display name (e.g., "Mana Community <support@manacommunity.com>"). */
+    @Column(name = "sender", length = 255)
+    private String sender;
+
+    /** Full rendered HTML or text body of the email for preview & resending. */
+    @Column(name = "body", columnDefinition = "TEXT")
+    private String body;
+
     /** Timestamp when the recipient opened the email (pixel loaded). Null until then. */
     @Column(name = "opened_at")
     private LocalDateTime openedAt;
@@ -87,8 +95,10 @@ public class EmailDeliveryLog {
 
     public static EmailDeliveryLog sent(EmailMessage msg, String templateType, Long communityId) {
         return EmailDeliveryLog.builder()
+                .sender(msg.from() != null ? msg.from() : null)
                 .recipient(msg.to())
                 .subject(msg.subject())
+                .body(msg.htmlBody())
                 .templateType(templateType)
                 .status(STATUS_SENT)
                 .communityId(communityId)
@@ -99,8 +109,10 @@ public class EmailDeliveryLog {
     public static EmailDeliveryLog failed(EmailMessage msg, String templateType,
                                           String errorMessage, Long communityId) {
         return EmailDeliveryLog.builder()
+                .sender(msg.from() != null ? msg.from() : null)
                 .recipient(msg.to())
                 .subject(msg.subject())
+                .body(msg.htmlBody())
                 .templateType(templateType)
                 .status(STATUS_FAILED)
                 .errorMessage(errorMessage)
@@ -111,8 +123,10 @@ public class EmailDeliveryLog {
 
     public static EmailDeliveryLog skipped(EmailMessage msg, String reason) {
         return EmailDeliveryLog.builder()
+                .sender(msg.from() != null ? msg.from() : null)
                 .recipient(msg.to() != null ? msg.to() : "unknown")
                 .subject(msg.subject())
+                .body(msg.htmlBody())
                 .status(STATUS_SKIPPED)
                 .errorMessage(reason)
                 .sentAt(LocalDateTime.now())

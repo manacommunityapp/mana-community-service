@@ -48,4 +48,15 @@ public class EmailProperties {
     private String defaultRecipient;
 
     public enum RecipientMode { NONE, REDIRECT, CC }
+
+    /** Brevo (Sendinblue) Cloud API Integration Settings. */
+    private Brevo brevo = new Brevo();
+
+    @Getter
+    @Setter
+    public static class Brevo {
+        private boolean enabled = true;
+        private String apiKey = "";
+        private String baseUrl = "https://api.brevo.com/v3";
+    }
 }
