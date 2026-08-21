@@ -246,6 +246,14 @@ public class EventService {
             event.setPrice(req.getPrice());
         }
         if (req.getCapacity() != null) {
+            long currentRegs = regRepo.countByEventId(id);
+            if (req.getCapacity() < currentRegs) {
+                throw new ManaCommunityException(
+                        "Capacity cannot be less than current registrations (" + currentRegs + ")",
+                        HttpStatus.CONFLICT,
+                        "CAPACITY_BELOW_REGISTRATIONS"
+                );
+            }
             event.setCapacity(req.getCapacity());
         }
         if (req.getImageUrl() != null) {
@@ -293,7 +301,17 @@ public class EventService {
             }
         }
 
-        if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
+        if (req.getMaxAttendees() != null) {
+            long currentRegs = regRepo.countByEventId(id);
+            if (req.getMaxAttendees() < currentRegs) {
+                throw new ManaCommunityException(
+                        "Max attendees cannot be less than current registrations (" + currentRegs + ")",
+                        HttpStatus.CONFLICT,
+                        "CAPACITY_BELOW_REGISTRATIONS"
+                );
+            }
+            event.setMaxAttendees(req.getMaxAttendees());
+        }
 
         return toResponse(eventRepo.save(event), userId);
     }
@@ -308,6 +326,15 @@ public class EventService {
                 && event.getCreatedBy().getId().equals(userId);
         if (!isCreator && !isAdmin) {
             throw new UnauthorizedActionException("Only the event creator can delete this event");
+        }
+
+        long registrationCount = regRepo.countByEventId(id);
+        if (registrationCount > 0) {
+            throw new ManaCommunityException(
+                    "Cannot delete event with " + registrationCount + " registered user(s). Cancel the event instead.",
+                    HttpStatus.CONFLICT,
+                    "EVENT_HAS_REGISTRATIONS"
+            );
         }
 
         // Delete leaf-level records first (children of EventProgram)

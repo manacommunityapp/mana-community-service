@@ -8,12 +8,12 @@ import java.util.List;
 /**
  * Centralised password policy rules.
  *
- * <p>Requirements: 4 to 8 characters with a combination of alphabets and numbers.</p>
+ * <p>Requirements: 6 to 20 characters with a combination of alphabets and numbers.</p>
  */
 public final class PasswordPolicy {
 
-    public static final int MIN_LENGTH = 4;
-    public static final int MAX_LENGTH = 8;
+    public static final int MIN_LENGTH = 6;
+    public static final int MAX_LENGTH = 20;
 
     private PasswordPolicy() {
     }
@@ -27,7 +27,7 @@ public final class PasswordPolicy {
     }
 
     /**
-     * Validates password meets 4–8 characters length and contains both alphabets and numbers.
+     * Validates password meets 6–20 characters length and contains both alphabets and numbers.
      */
     public static void validate(String raw, List<String> userInputs) {
         if (raw == null || raw.isBlank()) {
