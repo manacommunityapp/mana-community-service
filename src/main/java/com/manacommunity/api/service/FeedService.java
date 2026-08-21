@@ -39,6 +39,8 @@ public class FeedService {
     private final CommunityLeaderRepository communityLeaderRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;
+    private final PostCommentLikeRepository postCommentLikeRepository;
+    private final PostCommentReactionRepository postCommentReactionRepository;
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
 
@@ -385,7 +387,162 @@ public class FeedService {
     }
 
     @Transactional(readOnly = true)
-    public List<CommentResponse> getComments(Long postId) {
+    public List<PostLikerResponse> getPostLikers(Long postId) {
+        if (!postRepository.existsById(postId)) {
+            throw new ResourceNotFoundException("Post", postId);
+        }
+        Map<Long, PostLikerResponse> likersMap = new LinkedHashMap<>();
+
+        // 1. Reactions (LOVE, CELEBRATE, HELPFUL, etc.)
+        List<PostReaction> reactions = postReactionRepository.findByPostId(postId);
+        for (PostReaction r : reactions) {
+            AppUser u = r.getUser();
+            if (u != null) {
+                likersMap.put(u.getId(), new PostLikerResponse(
+                        u.getId(),
+                        u.getFullName(),
+                        u.getProfilePicUrl(),
+                        mapRole(u),
+                        r.getReactionType() != null ? r.getReactionType().name() : "LIKE",
+                        r.getCreatedAt()
+                ));
+            }
+        }
+
+        // 2. Direct Likes (from post_like table)
+        List<PostLike> likes = postLikeRepository.findByPostIdOrderByCreatedAtDesc(postId);
+        for (PostLike l : likes) {
+            AppUser u = l.getUser();
+            if (u != null && !likersMap.containsKey(u.getId())) {
+                likersMap.put(u.getId(), new PostLikerResponse(
+                        u.getId(),
+                        u.getFullName(),
+                        u.getProfilePicUrl(),
+                        mapRole(u),
+                        "LIKE",
+                        l.getCreatedAt()
+                ));
+            }
+        }
+
+        return new ArrayList<>(likersMap.values());
+    }
+
+    @Transactional
+    public CommentLikeToggleResponse toggleCommentLike(AppUser currentUser, Long commentId) {
+        PostComment comment = postCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
+
+        Optional<PostCommentLike> existing = postCommentLikeRepository.findByCommentIdAndUserId(commentId, currentUser.getId());
+        boolean liked;
+        if (existing.isPresent()) {
+            postCommentLikeRepository.delete(existing.get());
+            comment.setLikesCount(Math.max(0, comment.getLikesCount() - 1));
+            liked = false;
+        } else {
+            PostCommentLike newLike = PostCommentLike.builder()
+                    .comment(comment)
+                    .user(currentUser)
+                    .build();
+            postCommentLikeRepository.save(newLike);
+            comment.setLikesCount(comment.getLikesCount() + 1);
+            liked = true;
+        }
+        postCommentRepository.save(comment);
+        return new CommentLikeToggleResponse(commentId, comment.getLikesCount(), liked);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentLikerResponse> getCommentLikers(Long commentId) {
+        if (!postCommentRepository.existsById(commentId)) {
+            throw new ResourceNotFoundException("Comment", commentId);
+        }
+        List<PostCommentLike> likes = postCommentLikeRepository.findByCommentIdOrderByCreatedAtDesc(commentId);
+        return likes.stream()
+                .filter(l -> l.getUser() != null)
+                .map(l -> {
+                    AppUser u = l.getUser();
+                    return new CommentLikerResponse(
+                            u.getId(),
+                            u.getFullName(),
+                            u.getProfilePicUrl(),
+                            mapRole(u),
+                            l.getCreatedAt()
+                    );
+                })
+                .toList();
+    }
+
+    /**
+     * Toggle a rich comment reaction (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS).
+     * - Same reaction → remove (un-react).
+     * - Different reaction → change to new type.
+     * - No existing reaction → add new.
+     * Also syncs the comment's likesCount with the total reactions in post_comment_reaction.
+     */
+    @Transactional
+    public CommentReactionToggleResponse toggleCommentReaction(AppUser currentUser, Long commentId, CommentReactionType reactionType) {
+        PostComment comment = postCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
+
+        Optional<PostCommentReaction> existing =
+                postCommentReactionRepository.findByCommentIdAndUserId(commentId, currentUser.getId());
+
+        String userReaction = null;
+        if (existing.isPresent()) {
+            PostCommentReaction reaction = existing.get();
+            if (reaction.getReactionType() == reactionType) {
+                // Same → remove
+                postCommentReactionRepository.delete(reaction);
+            } else {
+                // Different → change
+                reaction.setReactionType(reactionType);
+                postCommentReactionRepository.save(reaction);
+                userReaction = reactionType.name();
+            }
+        } else {
+            PostCommentReaction newReaction = PostCommentReaction.builder()
+                    .comment(comment)
+                    .user(currentUser)
+                    .reactionType(reactionType)
+                    .build();
+            postCommentReactionRepository.save(newReaction);
+            userReaction = reactionType.name();
+        }
+
+        // Sync likesCount to total reactions in the rich-reaction table
+        Map<String, Long> counts = getCommentReactionCountsMap(commentId);
+        int total = counts.values().stream().mapToInt(Long::intValue).sum();
+        comment.setLikesCount(total);
+        postCommentRepository.save(comment);
+
+        return new CommentReactionToggleResponse(commentId, total, userReaction, counts);
+    }
+
+    /**
+     * Returns per-type reaction counts for a given comment.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Long> getCommentReactionCounts(Long commentId) {
+        if (!postCommentRepository.existsById(commentId)) {
+            throw new ResourceNotFoundException("Comment", commentId);
+        }
+        return getCommentReactionCountsMap(commentId);
+    }
+
+    private Map<String, Long> getCommentReactionCountsMap(Long commentId) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        List<Object[]> rows = postCommentReactionRepository.countReactionsByCommentId(commentId);
+        for (Object[] row : rows) {
+            CommentReactionType rt = (CommentReactionType) row[0];
+            Long count = (Long) row[1];
+            counts.put(rt.name(), count);
+        }
+        return counts;
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getComments(Long postId, Long currentUserId) {
         if (!postRepository.existsById(postId)) {
             throw new ResourceNotFoundException("Post", postId);
         }
@@ -402,9 +559,35 @@ public class FeedService {
             }
         }
 
+        Set<Long> likedCommentIds = (currentUserId != null && !allComments.isEmpty())
+                ? new HashSet<>(allComments.stream()
+                .filter(c -> postCommentLikeRepository.existsByCommentIdAndUserId(c.getId(), currentUserId))
+                .map(PostComment::getId)
+                .toList())
+                : Collections.emptySet();
+
+        // Build per-comment rich reaction maps (user's reaction type + counts)
+        Map<Long, String> userReactionPerComment = new HashMap<>();
+        Map<Long, Map<String, Long>> reactionCountsPerComment = new HashMap<>();
+        if (!allComments.isEmpty()) {
+            for (PostComment c : allComments) {
+                reactionCountsPerComment.put(c.getId(), getCommentReactionCountsMap(c.getId()));
+                if (currentUserId != null) {
+                    postCommentReactionRepository.findByCommentIdAndUserId(c.getId(), currentUserId)
+                            .ifPresent(r -> userReactionPerComment.put(c.getId(), r.getReactionType().name()));
+                }
+            }
+        }
+
         return topLevel.stream()
-                .map(c -> toCommentResponseWithReplies(c, repliesMap))
+                .map(c -> toCommentResponseWithReplies(c, repliesMap, likedCommentIds,
+                        userReactionPerComment, reactionCountsPerComment))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getComments(Long postId) {
+        return getComments(postId, null);
     }
 
     @Transactional
@@ -674,13 +857,29 @@ public class FeedService {
         );
     }
 
-    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap) {
+    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap, Set<Long> likedCommentIds) {
+        return toCommentResponseWithReplies(comment, repliesMap, likedCommentIds,
+                Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    private CommentResponse toCommentResponseWithReplies(
+            PostComment comment,
+            Map<Long, List<PostComment>> repliesMap,
+            Set<Long> likedCommentIds,
+            Map<Long, String> userReactionPerComment,
+            Map<Long, Map<String, Long>> reactionCountsPerComment) {
+
         AppUser author = comment.getUser();
         String initials = getInitials(author.getFullName());
         List<PostComment> replies = repliesMap.getOrDefault(comment.getId(), List.of());
         List<CommentResponse> replyResponses = replies.stream()
-                .map(r -> toCommentResponseWithReplies(r, repliesMap))
+                .map(r -> toCommentResponseWithReplies(r, repliesMap, likedCommentIds,
+                        userReactionPerComment, reactionCountsPerComment))
                 .toList();
+
+        boolean isLiked = likedCommentIds != null && likedCommentIds.contains(comment.getId());
+        String userReaction = userReactionPerComment.get(comment.getId());
+        Map<String, Long> reactionCounts = reactionCountsPerComment.getOrDefault(comment.getId(), Collections.emptyMap());
 
         return new CommentResponse(
                 comment.getId(),
@@ -697,8 +896,15 @@ public class FeedService {
                 comment.getRepliesCount(),
                 comment.isPinned(),
                 comment.isAcceptedAnswer(),
-                replyResponses
+                replyResponses,
+                isLiked,
+                userReaction,
+                reactionCounts.isEmpty() ? null : reactionCounts
         );
+    }
+
+    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap) {
+        return toCommentResponseWithReplies(comment, repliesMap, Collections.emptySet());
     }
 
     private UUID parseUuid(String value) {

@@ -91,6 +91,13 @@ public class EventBookingRegistration {
     @Column(name = "qr_code_url", length = 500)
     private String qrCodeUrl;
 
+    @Column(name = "checked_in")
+    @Builder.Default
+    private Boolean checkedIn = false;
+
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

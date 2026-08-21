@@ -50,6 +50,7 @@ class FeedServiceTest {
     @Mock PostHashtagRepository postHashtagRepository;
     @Mock HashtagRepository hashtagRepository;
     @Mock CommunityLeaderRepository communityLeaderRepository;
+    @Mock PostCommentLikeRepository postCommentLikeRepository;
 
     @InjectMocks FeedService feedService;
 
@@ -185,6 +186,134 @@ class FeedServiceTest {
 
             assertThatThrownBy(() -> feedService.deletePost(user, 999L))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Likes and Likers")
+    class LikesAndLikers {
+
+        @Test
+        @DisplayName("getPostLikers returns combined list of reacting and liking users")
+        void getPostLikers_success() {
+            when(postRepository.existsById(100L)).thenReturn(true);
+            when(postReactionRepository.findByPostId(100L)).thenReturn(List.of());
+            when(postLikeRepository.findByPostIdOrderByCreatedAtDesc(100L)).thenReturn(List.of(
+                    com.manacommunity.api.model.PostLike.builder()
+                            .id(1L)
+                            .post(post)
+                            .user(user)
+                            .createdAt(LocalDateTime.now())
+                            .build()
+            ));
+
+            var likers = feedService.getPostLikers(100L);
+
+            assertThat(likers).hasSize(1);
+            assertThat(likers.get(0).fullName()).isEqualTo(user.getFullName());
+            assertThat(likers.get(0).reactionType()).isEqualTo("LIKE");
+        }
+
+        @Test
+        @DisplayName("toggleCommentLike toggles like on comment and persists in post_comment_like")
+        void toggleCommentLike_addAndRemove() {
+            var comment = com.manacommunity.api.model.PostComment.builder()
+                    .id(200L)
+                    .post(post)
+                    .user(user)
+                    .content("Great post!")
+                    .likesCount(0)
+                    .build();
+
+            when(postCommentRepository.findById(200L)).thenReturn(Optional.of(comment));
+            when(postCommentLikeRepository.findByCommentIdAndUserId(200L, user.getId())).thenReturn(Optional.empty());
+
+            var res = feedService.toggleCommentLike(user, 200L);
+
+            assertThat(res.liked()).isTrue();
+            assertThat(res.likesCount()).isEqualTo(1);
+            verify(postCommentLikeRepository).save(any(com.manacommunity.api.model.PostCommentLike.class));
+            verify(postCommentRepository).save(comment);
+        }
+
+        @Test
+        @DisplayName("getCommentLikers returns users who liked the comment")
+        void getCommentLikers_success() {
+            when(postCommentRepository.existsById(200L)).thenReturn(true);
+            when(postCommentLikeRepository.findByCommentIdOrderByCreatedAtDesc(200L)).thenReturn(List.of(
+                    com.manacommunity.api.model.PostCommentLike.builder()
+                            .id(1L)
+                            .user(user)
+                            .createdAt(LocalDateTime.now())
+                            .build()
+            ));
+
+            var likers = feedService.getCommentLikers(200L);
+
+            assertThat(likers).hasSize(1);
+            assertThat(likers.get(0).fullName()).isEqualTo(user.getFullName());
+        }
+    }
+
+    @Nested
+    @DisplayName("Bookmarks / Saved Posts")
+    class Bookmarks {
+
+        @Test
+        @DisplayName("toggleBookmark adds bookmark when none exists and updates database")
+        void toggleBookmark_addsBookmark() {
+            when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+            when(postBookmarkRepository.findByPostIdAndUserId(100L, user.getId())).thenReturn(Optional.empty());
+            when(postBookmarkRepository.existsByPostIdAndUserId(100L, user.getId())).thenReturn(true);
+
+            PostResponse response = feedService.toggleBookmark(user, 100L);
+
+            assertThat(post.getBookmarksCount()).isEqualTo(1);
+            assertThat(response.bookmarkedByCurrentUser()).isTrue();
+            verify(postBookmarkRepository).save(any(com.manacommunity.api.model.PostBookmark.class));
+            verify(postRepository).save(post);
+        }
+
+        @Test
+        @DisplayName("toggleBookmark removes bookmark when it already exists in database")
+        void toggleBookmark_removesBookmark() {
+            post.setBookmarksCount(1);
+            var bookmark = com.manacommunity.api.model.PostBookmark.builder()
+                    .id(10L)
+                    .post(post)
+                    .user(user)
+                    .build();
+
+            when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+            when(postBookmarkRepository.findByPostIdAndUserId(100L, user.getId())).thenReturn(Optional.of(bookmark));
+            when(postBookmarkRepository.existsByPostIdAndUserId(100L, user.getId())).thenReturn(false);
+
+            PostResponse response = feedService.toggleBookmark(user, 100L);
+
+            assertThat(post.getBookmarksCount()).isEqualTo(0);
+            assertThat(response.bookmarkedByCurrentUser()).isFalse();
+            verify(postBookmarkRepository).delete(bookmark);
+            verify(postRepository).save(post);
+        }
+
+        @Test
+        @DisplayName("getBookmarkedPosts fetches saved posts for user ordered by creation")
+        void getBookmarkedPosts_success() {
+            var bookmark = com.manacommunity.api.model.PostBookmark.builder()
+                    .id(10L)
+                    .post(post)
+                    .user(user)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            when(postBookmarkRepository.findByUserIdOrderByCreatedAtDesc(eq(user.getId()), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(bookmark)));
+
+            Page<PostResponse> result = feedService.getBookmarkedPosts(user, 0, 10);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).id()).isEqualTo(100L);
         }
     }
 }
