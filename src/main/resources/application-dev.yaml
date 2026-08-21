@@ -18,7 +18,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
@@ -48,7 +48,7 @@ server:
 
 app:
   #insert-sample-data: ${APP_INSERT_SAMPLE_DATA:false}
-  insert-sample-data: false
+  insert-sample-data: true
   # AI/Ollama integration — temporarily OFF (no Ollama server in the dev env).
   ai:
     enabled: false
