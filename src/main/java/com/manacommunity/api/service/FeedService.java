@@ -35,6 +35,7 @@ public class FeedService {
     private final PostBookmarkRepository postBookmarkRepository;
     private final PostMediaRepository postMediaRepository;
     private final PostHashtagRepository postHashtagRepository;
+    private final HashtagRepository hashtagRepository;
     private final CommunityLeaderRepository communityLeaderRepository;
     private final CommunityWhoToCallRepository communityWhoToCallRepository;
     private final TrendingTopicRepository trendingTopicRepository;
@@ -1184,10 +1185,7 @@ public class FeedService {
                     communityId,
                     List.of(
                             com.manacommunity.api.model.Tournament.EventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.model.Tournament.EventStatus.UPCOMING,
-                            com.manacommunity.api.model.Tournament.EventStatus.LIVE,
-                            com.manacommunity.api.model.Tournament.EventStatus.ONGOING,
-                            com.manacommunity.api.model.Tournament.EventStatus.OPEN
+                            com.manacommunity.api.model.Tournament.EventStatus.LIVE
                     )
             );
         } catch (Exception ignored) {
