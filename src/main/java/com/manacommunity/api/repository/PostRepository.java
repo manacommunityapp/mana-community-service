@@ -42,4 +42,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     java.util.List<Object[]> countPostsByType(Long communityId);
 
     long countByCommunityIdAndDeletedFalse(Long communityId);
+
+    long countByCommunityIdAndOfficialTrueAndDeletedFalse(Long communityId);
 }

@@ -13,4 +13,6 @@ public interface UserEngagementScoreRepository extends JpaRepository<UserEngagem
 
     @Query("SELECT e FROM UserEngagementScore e JOIN FETCH e.user WHERE e.community.id = :communityId ORDER BY e.totalPoints DESC")
     List<UserEngagementScore> findTopContributors(Long communityId, Pageable pageable);
+
+    long countByCommunityId(Long communityId);
 }

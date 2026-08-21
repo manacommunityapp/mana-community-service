@@ -38,6 +38,14 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/summary-counts")
+    public ResponseEntity<FeedSummaryCountsResponse> getSidebarSummaryCounts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        FeedSummaryCountsResponse response = feedService.getSidebarSummaryCounts(currentUser);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/group/{groupId}")
     public ResponseEntity<Page<PostResponse>> getGroupFeed(
             @AuthenticationPrincipal UserPrincipal principal,

@@ -8,5 +8,6 @@ import java.util.List;
 
 public interface TrendingTopicRepository extends JpaRepository<TrendingTopic, Long> {
     List<TrendingTopic> findByCommunityIdOrderByScoreDesc(Long communityId, Pageable pageable);
+    long countByCommunityId(Long communityId);
     void deleteByCommunityId(Long communityId);
 }

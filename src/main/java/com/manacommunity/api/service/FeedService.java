@@ -37,6 +37,13 @@ public class FeedService {
     private final PostHashtagRepository postHashtagRepository;
     private final HashtagRepository hashtagRepository;
     private final CommunityLeaderRepository communityLeaderRepository;
+    private final CommunityWhoToCallRepository communityWhoToCallRepository;
+    private final TrendingTopicRepository trendingTopicRepository;
+    private final GroupMembershipRepository groupMembershipRepository;
+    private final UserEngagementScoreRepository userEngagementScoreRepository;
+    private final SportsEventRepository sportsEventRepository;
+    private final com.manacommunity.api.events.repository.CommunityEventRepository communityEventRepository;
+    private final com.manacommunity.api.events.repository.EventRegistrationRepository eventRegistrationRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;
     private final PostCommentLikeRepository postCommentLikeRepository;
@@ -1158,5 +1165,56 @@ public class FeedService {
         }
 
         return "Verified Member";
+    }
+
+    @Transactional(readOnly = true)
+    public FeedSummaryCountsResponse getSidebarSummaryCounts(AppUser currentUser) {
+        if (currentUser == null || currentUser.getCommunity() == null) {
+            return new FeedSummaryCountsResponse(0, 0, 0, 0, 0, 0, 0, 0, 1, 0);
+        }
+        Long communityId = currentUser.getCommunity().getId();
+        Long userId = currentUser.getId();
+
+        long dirLeaderCount = communityLeaderRepository.countByCommunityIdAndIsActiveTrue(communityId);
+        long dirWhoToCallCount = communityWhoToCallRepository.countByCommunityIdAndIsActiveTrue(communityId);
+        long directoryCount = dirLeaderCount + dirWhoToCallCount;
+
+        long sportsCount = 0;
+        try {
+            sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
+                    communityId,
+                    List.of(
+                            com.manacommunity.api.model.Tournament.EventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.model.Tournament.EventStatus.LIVE
+                    )
+            );
+        } catch (Exception ignored) {
+            sportsCount = sportsEventRepository.findByCommunityIdOrderByEventDateStartDesc(communityId).size();
+        }
+
+        long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
+        long myPasses = eventRegistrationRepository.countByUserId(userId);
+        long trending = trendingTopicRepository.countByCommunityId(communityId);
+        long myGroups = groupMembershipRepository.countByUserIdAndStatus(userId, "ACTIVE");
+        long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);
+
+        Optional<UserEngagementScore> scoreOpt = userEngagementScoreRepository.findByUserIdAndCommunityId(userId, communityId);
+        int points = scoreOpt.map(UserEngagementScore::getTotalPoints).orElse(0);
+        int level = scoreOpt.map(UserEngagementScore::getLevel).orElse(1);
+
+        long officialCount = postRepository.countByCommunityIdAndOfficialTrueAndDeletedFalse(communityId);
+
+        return new FeedSummaryCountsResponse(
+                directoryCount,
+                sportsCount,
+                upcomingEvents,
+                myPasses,
+                trending,
+                myGroups,
+                contributorsCount,
+                points,
+                level,
+                officialCount
+        );
     }
 }
