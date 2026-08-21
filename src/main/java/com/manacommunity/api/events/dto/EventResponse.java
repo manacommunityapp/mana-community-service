@@ -37,6 +37,8 @@ public class EventResponse {
     private String contactsJson;
     private String paymentInstructions;
     private Integer maxAttendees;
+    private String registrationDeadline;
+    private int registrationCount;
     private Long createdById;
     private String createdByName;
     private Long communityId;

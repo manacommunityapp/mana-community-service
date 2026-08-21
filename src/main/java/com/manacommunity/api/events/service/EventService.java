@@ -28,12 +28,20 @@ import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.Notification;
+import com.manacommunity.api.model.NotificationCategory;
+import com.manacommunity.api.model.NotificationType;
+import com.manacommunity.api.model.ReferenceType;
+import com.manacommunity.api.repository.NotificationRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +57,8 @@ import com.manacommunity.api.repository.AuctionPlayerRepository;
 @Service
 @RequiredArgsConstructor
 public class EventService {
+
+    private static final Logger log = LoggerFactory.getLogger(EventService.class);
 
     private final CommunityEventRepository eventRepo;
     private final EventRegistrationRepository regRepo;
@@ -66,6 +76,8 @@ public class EventService {
     private final EventInvoiceRepository invoiceRepo;
     private final MediaRepository mediaRepo;
     private final MediaUrlService mediaUrlService;
+    private final EventBookingRegistrationRepository bookingRegRepo;
+    private final NotificationRepository notificationRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -141,6 +153,7 @@ public class EventService {
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
+                .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -222,8 +235,14 @@ public class EventService {
             if (s != null) event.setStatus(s);
         }
         if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
+        if (req.getRegistrationDeadline() != null) {
+            event.setRegistrationDeadline(parseLocalDate(req.getRegistrationDeadline()));
+        }
 
-        return toResponse(eventRepo.save(event), userId);
+        CommunityEvent saved = eventRepo.save(event);
+        notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
+                "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
+        return toResponse(saved, userId);
     }
 
     @Transactional
@@ -232,6 +251,14 @@ public class EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
         if (!event.getCreatedBy().getId().equals(userId)) {
             throw new UnauthorizedActionException("Only the event creator can delete this event");
+        }
+
+        long legacyRegCount = event.getRegistrations() != null ? event.getRegistrations().size() : 0;
+        long bookingRegCount = bookingRegRepo.findByActivityId("event-" + id).size();
+        if (legacyRegCount + bookingRegCount > 0) {
+            throw new IllegalStateException(
+                    "Cannot delete event '" + event.getTitle() + "' because it has "
+                            + (legacyRegCount + bookingRegCount) + " registration(s). Cancel the event instead.");
         }
 
         // Delete leaf-level records first (children of EventProgram)
@@ -602,6 +629,8 @@ public class EventService {
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
                 .maxAttendees(e.getMaxAttendees())
+                .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
+                .registrationCount(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
@@ -609,6 +638,29 @@ public class EventService {
                 .isRegistered(isRegistered)
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
+    }
+
+    private void notifyRegisteredUsers(CommunityEvent event, String title, String body) {
+        try {
+            List<EventRegistration> registrations = event.getRegistrations();
+            if (registrations == null || registrations.isEmpty()) return;
+            for (EventRegistration reg : registrations) {
+                if (reg.getUser() == null) continue;
+                Notification notification = Notification.builder()
+                        .user(reg.getUser())
+                        .community(event.getCommunity())
+                        .type(NotificationType.EVENT_UPDATED)
+                        .category(NotificationCategory.EVENTS)
+                        .title(title)
+                        .body(body)
+                        .referenceType(ReferenceType.EVENT)
+                        .referenceId(event.getId())
+                        .build();
+                notificationRepo.save(notification);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to send event update notifications for event {}: {}", event.getId(), ex.getMessage());
+        }
     }
 
     private UUID verifyAndParseMediaId(String mediaId, String context) {

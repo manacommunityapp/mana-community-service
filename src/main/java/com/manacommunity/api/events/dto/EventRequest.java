@@ -37,4 +37,5 @@ public class EventRequest {
     private String contactsJson;
     private String paymentInstructions;
     private Integer maxAttendees;
+    private String registrationDeadline;
 }

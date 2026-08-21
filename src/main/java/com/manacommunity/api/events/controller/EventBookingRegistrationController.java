@@ -28,9 +28,11 @@ public class EventBookingRegistrationController {
     public ResponseEntity<EventBookingRegistration> createRegistration(
             @RequestBody EventBookingRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride) {
         AppUser user = loggedInUserService.resolve(principal);
-        EventBookingRegistration created = service.createRegistration(registration, user, communityId);
+        boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
+        EventBookingRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

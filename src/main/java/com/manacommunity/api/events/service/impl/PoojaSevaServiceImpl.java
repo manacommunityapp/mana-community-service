@@ -5,6 +5,8 @@ import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
+import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     public PoojaSeva createPoojaSeva(Long communityId, PoojaSeva poojaSeva) {
         requireCommunityId(communityId);
         validateMainEventBelongsToCommunity(poojaSeva.getMainEventId(), communityId);
+        validateDatesWithinParentEvent(poojaSeva.getMainEventId(), poojaSeva.getDate(), poojaSeva.getEndDate());
         poojaSeva.setCommunityId(communityId);
         normalizeSlotAvailability(poojaSeva);
         return repository.save(poojaSeva);
@@ -59,6 +62,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     public PoojaSeva updatePoojaSeva(Long id, Long communityId, PoojaSeva updated) {
         PoojaSeva existing = getPoojaSevaById(id, communityId);
         validateMainEventBelongsToCommunity(updated.getMainEventId(), communityId);
+        validateDatesWithinParentEvent(updated.getMainEventId(), updated.getDate(), updated.getEndDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
         existing.setType(updated.getType());
@@ -93,6 +97,20 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     public void deletePoojaSeva(Long id, Long communityId) {
         PoojaSeva existing = getPoojaSevaById(id, communityId);
         repository.delete(existing);
+    }
+
+    private void validateDatesWithinParentEvent(Long mainEventId, LocalDate date, LocalDate endDate) {
+        if (mainEventId == null || date == null) return;
+        eventRepository.findById(mainEventId).ifPresent(event -> {
+            LocalDate eventStart = event.getStartDate();
+            LocalDate eventEnd = event.getEndDate() != null ? event.getEndDate() : eventStart;
+            if (date.isBefore(eventStart) || date.isAfter(eventEnd)) {
+                throw new InvalidInputException("Pooja/Seva date " + date + " is outside the event period (" + eventStart + " to " + eventEnd + ")");
+            }
+            if (endDate != null && endDate.isAfter(eventEnd)) {
+                throw new InvalidInputException("Pooja/Seva end date " + endDate + " is after the event end date (" + eventEnd + ")");
+            }
+        });
     }
 
     private void validateMainEventBelongsToCommunity(Long mainEventId, Long communityId) {
