@@ -146,6 +146,14 @@ public class EventController {
         return ResponseEntity.ok(eventService.rejectRegistration(regId));
     }
 
+    @PutMapping("/registrations/{regId}/check-in")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Manage Event Registration', 'View Events', 'View Event People')")
+    public ResponseEntity<RegistrationResponse> toggleCheckIn(
+            @PathVariable Long regId,
+            @RequestParam(defaultValue = "true") boolean checkedIn) {
+        return ResponseEntity.ok(eventService.toggleCheckIn(regId, checkedIn));
+    }
+
     @PostMapping("/{id}/register")
     @PreAuthorize("hasAnyAuthority('Register Event', 'View Events')")
     public ResponseEntity<EventResponse> register(

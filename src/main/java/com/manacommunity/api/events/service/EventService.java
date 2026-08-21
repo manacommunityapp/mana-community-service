@@ -546,6 +546,15 @@ public class EventService {
     }
 
     @Transactional
+    public RegistrationResponse toggleCheckIn(Long registrationId, boolean checkedIn) {
+        EventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+        reg.setCheckedIn(checkedIn);
+        reg.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
+        return toRegistrationResponse(regRepo.save(reg));
+    }
+
+    @Transactional
     public EventResponse unregister(Long eventId, Long userId) {
         EventRegistration reg = regRepo.findByEventIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", "eventId and userId", eventId + "/" + userId));
@@ -563,6 +572,8 @@ public class EventService {
                 .userEmail(r.getUser().getEmail())
                 .status(r.getStatus().name())
                 .registeredAt(formatDt(r.getRegisteredAt()))
+                .checkedIn(Boolean.TRUE.equals(r.getCheckedIn()))
+                .checkedInAt(r.getCheckedInAt() != null ? formatDt(r.getCheckedInAt()) : null)
                 .build();
     }
 

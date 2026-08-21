@@ -134,4 +134,55 @@ class FeedControllerTest extends BaseWebMvcTest {
                     .andExpect(jsonPath("$.id").value(100L));
         }
     }
+
+    @Nested
+    @DisplayName("Post & Comment Likes and Likers")
+    class LikesAndLikersEndpoints {
+
+        @Test
+        @WithMockUserPrincipal(role = "MEMBER")
+        @DisplayName("GET /api/posts/{id}/likes returns 200 with list of likers")
+        void getPostLikers_returns200() throws Exception {
+            var liker = new com.manacommunity.api.dto.PostLikerResponse(
+                    1L, "Test User", null, "Verified Member", "LIKE", java.time.LocalDateTime.now()
+            );
+            when(feedService.getPostLikers(100L)).thenReturn(List.of(liker));
+
+            mockMvc.perform(get("/api/posts/100/likes"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].userId").value(1L))
+                    .andExpect(jsonPath("$[0].fullName").value("Test User"))
+                    .andExpect(jsonPath("$[0].reactionType").value("LIKE"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "MEMBER")
+        @DisplayName("POST /api/posts/comments/{commentId}/like returns 200 with updated toggle state")
+        void toggleCommentLike_returns200() throws Exception {
+            when(loggedInUserService.resolve(any())).thenReturn(memberUser);
+            when(feedService.toggleCommentLike(any(), eq(200L)))
+                    .thenReturn(new com.manacommunity.api.dto.CommentLikeToggleResponse(200L, 1, true));
+
+            mockMvc.perform(post("/api/posts/comments/200/like"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.commentId").value(200L))
+                    .andExpect(jsonPath("$.likesCount").value(1))
+                    .andExpect(jsonPath("$.liked").value(true));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "MEMBER")
+        @DisplayName("GET /api/posts/comments/{commentId}/likes returns 200 with comment likers")
+        void getCommentLikers_returns200() throws Exception {
+            var liker = new com.manacommunity.api.dto.CommentLikerResponse(
+                    1L, "Test User", null, "Verified Member", java.time.LocalDateTime.now()
+            );
+            when(feedService.getCommentLikers(200L)).thenReturn(List.of(liker));
+
+            mockMvc.perform(get("/api/posts/comments/200/likes"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].userId").value(1L))
+                    .andExpect(jsonPath("$[0].fullName").value("Test User"));
+        }
+    }
 }

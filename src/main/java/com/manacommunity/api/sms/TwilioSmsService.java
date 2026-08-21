@@ -1,5 +1,6 @@
 package com.manacommunity.api.sms;
 
+import com.manacommunity.api.notification.config.SmsProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
