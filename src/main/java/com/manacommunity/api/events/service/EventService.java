@@ -313,6 +313,10 @@ public class EventService {
             event.setMaxAttendees(req.getMaxAttendees());
         }
 
+
+        if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
+
+
         return toResponse(eventRepo.save(event), userId);
     }
 
