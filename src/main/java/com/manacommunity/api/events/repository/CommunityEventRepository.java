@@ -17,11 +17,13 @@ public interface CommunityEventRepository extends JpaRepository<CommunityEvent, 
     Optional<CommunityEvent> findByIdAndCommunity_Id(Long id, Long communityId);
 
     @Query("SELECT e FROM CommunityEvent e WHERE e.community.id = :communityId " +
+            "AND e.status <> com.manacommunity.api.events.entity.CommunityEvent$EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE)) " +
             "ORDER BY e.startDate ASC")
     List<CommunityEvent> findUpcomingByCommunity(@Param("communityId") Long communityId);
 
     @Query("SELECT e FROM CommunityEvent e WHERE e.community.id = :communityId AND e.type = :type " +
+            "AND e.status <> com.manacommunity.api.events.entity.CommunityEvent$EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE)) " +
             "ORDER BY e.startDate ASC")
     List<CommunityEvent> findUpcomingByCommunityAndType(
@@ -31,6 +33,7 @@ public interface CommunityEventRepository extends JpaRepository<CommunityEvent, 
     long countByCommunityId(Long communityId);
 
     @Query("SELECT COUNT(e) FROM CommunityEvent e WHERE e.community.id = :communityId " +
+            "AND e.status <> com.manacommunity.api.events.entity.CommunityEvent$EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE))")
     long countUpcomingByCommunity(@Param("communityId") Long communityId);
 }

@@ -11,6 +11,6 @@ import java.util.Optional;
 public interface UserEngagementScoreRepository extends JpaRepository<UserEngagementScore, Long> {
     Optional<UserEngagementScore> findByUserIdAndCommunityId(Long userId, Long communityId);
 
-    @Query("SELECT e FROM UserEngagementScore e WHERE e.community.id = :communityId ORDER BY e.totalPoints DESC")
+    @Query("SELECT e FROM UserEngagementScore e JOIN FETCH e.user WHERE e.community.id = :communityId ORDER BY e.totalPoints DESC")
     List<UserEngagementScore> findTopContributors(Long communityId, Pageable pageable);
 }
