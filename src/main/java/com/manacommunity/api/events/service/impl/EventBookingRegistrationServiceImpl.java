@@ -627,9 +627,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             throw new IllegalStateException("Cannot update a cancelled registration");
         }
 
-        // Patch only the mutable fields the user is allowed to change
+        // ── Mutable identity / contact fields ────────────────────────────────
         if (patch.getParticipantName() != null && !patch.getParticipantName().isBlank()) {
             reg.setParticipantName(patch.getParticipantName().trim());
+        }
+        if (patch.getGotram() != null) {
+            reg.setGotram(patch.getGotram().trim());
         }
         if (patch.getAttendingDevotees() != null) {
             reg.setAttendingDevotees(patch.getAttendingDevotees());
@@ -642,6 +645,27 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
         // Always recompute devoteeCount from all available sources to get the max
         reg.setDevoteeCount(computeDevoteeCount(reg.getDevoteeCount(), reg.getAttendingDevotees(), reg.getMembersJson()));
+
+        // ── Slot change: new day / time selection ────────────────────────────
+        // eventDate and eventTime are the canonical slot fields.
+        // When a user picks a different day or slot we MUST update them so the
+        // slot-decrement, QR code, and duplicate-check logic all see the correct slot.
+        if (patch.getEventDate() != null && !patch.getEventDate().isBlank()) {
+            reg.setEventDate(patch.getEventDate().trim());
+        }
+        if (patch.getEventTime() != null && !patch.getEventTime().isBlank()) {
+            reg.setEventTime(patch.getEventTime().trim());
+        }
+        // Venue may change if the updated slot is in a different mandap
+        if (patch.getVenue() != null && !patch.getVenue().isBlank()) {
+            reg.setVenue(patch.getVenue().trim());
+        }
+        // Pass type (e.g. Pooja Registration Pass)
+        if (patch.getPassType() != null && !patch.getPassType().isBlank()) {
+            reg.setPassType(patch.getPassType().trim());
+        }
+
+        // ── Payment fields ───────────────────────────────────────────────────
         if (patch.getPaymentReceiptUrl() != null) {
             reg.setPaymentReceiptUrl(patch.getPaymentReceiptUrl());
         }
@@ -650,6 +674,11 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
         if (patch.getPaymentMethod() != null) {
             reg.setPaymentMethod(patch.getPaymentMethod());
+        }
+
+        // ── Parent event link — persist if the frontend sends it ─────────────
+        if (patch.getMainEventId() != null) {
+            reg.setMainEventId(patch.getMainEventId());
         }
 
         reg.setUpdatedAt(LocalDateTime.now());
