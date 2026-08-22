@@ -40,4 +40,11 @@ public interface ActivityRegistrationRepository extends JpaRepository<ActivityRe
     Optional<ActivityRegistration> findFirstByProgramIdAndStatusOrderByWaitlistPositionAscRegisteredAtAsc(
             Long programId,
             ActivityRegistration.ActivityRegStatus status);
+
+    @Query("SELECT r FROM ActivityRegistration r WHERE r.program.event.id = :eventId ORDER BY r.registeredAt DESC")
+    List<ActivityRegistration> findByProgramEventId(@Param("eventId") Long eventId);
+
+    @Query("SELECT COUNT(r) FROM ActivityRegistration r WHERE r.program.event.id = :eventId AND r.status <> 'CANCELLED'")
+    long countByProgramEventId(@Param("eventId") Long eventId);
 }
+

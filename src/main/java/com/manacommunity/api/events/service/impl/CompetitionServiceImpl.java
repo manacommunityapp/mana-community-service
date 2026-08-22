@@ -34,10 +34,28 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     @Transactional(readOnly = true)
     public List<Competition> getAllCompetitions(Long communityId, Long mainEventId) {
+        List<Competition> raw;
         if (mainEventId != null) {
-            return repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+            raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+        } else {
+            raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
-        return repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
+
+        List<Competition> filtered = new java.util.ArrayList<>();
+        java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
+        for (Competition c : raw) {
+            if (c.getMainEventId() != null) {
+                boolean isParentCancelled = eventCancelledCache.computeIfAbsent(c.getMainEventId(), id -> {
+                    com.manacommunity.api.events.entity.CommunityEvent parent = eventRepository.findById(id).orElse(null);
+                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.CommunityEvent.EventStatus.CANCELLED;
+                });
+                if (isParentCancelled) {
+                    continue;
+                }
+            }
+            filtered.add(c);
+        }
+        return filtered;
     }
 
     @Override

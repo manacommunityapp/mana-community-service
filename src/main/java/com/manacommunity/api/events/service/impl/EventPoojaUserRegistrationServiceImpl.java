@@ -68,7 +68,19 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             registration.setStatus("CONFIRMED");
         }
 
-        if (registration.getBookingFee() == null || registration.getBookingFee() == 0.0) {
+        if (registration.getBookingFee() != null) {
+            registration.setBookingFee(Math.max(0.0, registration.getBookingFee()));
+        } else {
+            registration.setBookingFee(0.0);
+        }
+
+        if (registration.getDevoteeCount() != null) {
+            registration.setDevoteeCount(Math.max(1, registration.getDevoteeCount()));
+        } else {
+            registration.setDevoteeCount(1);
+        }
+
+        if (registration.getBookingFee() <= 0.0) {
             registration.setPaymentStatus("FREE");
             registration.setPaymentMethod("Free Seva");
         } else if (registration.getPaymentStatus() == null) {

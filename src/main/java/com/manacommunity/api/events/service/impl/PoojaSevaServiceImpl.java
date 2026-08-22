@@ -36,12 +36,31 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     @Override
     @Transactional(readOnly = true)
     public List<PoojaSeva> getAllPoojaSevas(Long communityId, Long mainEventId) {
+        List<PoojaSeva> raw;
         if (communityId != null && mainEventId != null) {
-            return repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(communityId, mainEventId);
+            raw = repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(communityId, mainEventId);
         } else if (mainEventId != null) {
-            return repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+            raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+        } else {
+            raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
-        return repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
+
+        // Filter out poojas whose parent community event is cancelled or whose own status is cancelled
+        List<PoojaSeva> filtered = new java.util.ArrayList<>();
+        java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
+        for (PoojaSeva p : raw) {
+            if (p.getMainEventId() != null) {
+                boolean isParentCancelled = eventCancelledCache.computeIfAbsent(p.getMainEventId(), id -> {
+                    CommunityEvent parent = eventRepository.findById(id).orElse(null);
+                    return parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED;
+                });
+                if (isParentCancelled) {
+                    continue;
+                }
+            }
+            filtered.add(p);
+        }
+        return filtered;
     }
 
     @Override

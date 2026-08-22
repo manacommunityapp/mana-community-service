@@ -184,15 +184,6 @@ public class EventService {
         UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image");
         UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner");
 
-        String ticketTypesJson = req.getTicketTypesJson();
-        if (req.getTicketTypes() != null && !req.getTicketTypes().isEmpty()) {
-            try {
-                ticketTypesJson = objectMapper.writeValueAsString(req.getTicketTypes());
-            } catch (Exception ex) {
-                log.warn("Failed to serialize ticketTypes on create: {}", ex.getMessage());
-            }
-        }
-
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
@@ -222,7 +213,7 @@ public class EventService {
                 .notes(req.getNotes())
                 .contactsJson(req.getContactsJson())
                 .paymentInstructions(req.getPaymentInstructions())
-                .ticketTypesJson(ticketTypesJson)
+                .ticketTypesJson(null)
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
                 .createdBy(user)
@@ -376,15 +367,7 @@ public class EventService {
             event.setRegistrationDeadline(regDeadline);
         }
 
-        if (req.getTicketTypes() != null) {
-            try {
-                event.setTicketTypesJson(objectMapper.writeValueAsString(req.getTicketTypes()));
-            } catch (Exception ex) {
-                log.warn("Failed to serialize ticketTypes on update: {}", ex.getMessage());
-            }
-        } else if (req.getTicketTypesJson() != null) {
-            event.setTicketTypesJson(req.getTicketTypesJson());
-        }
+        event.setTicketTypesJson(null);
 
         if (req.getPaymentModes() != null) event.setPaymentModes(req.getPaymentModes());
         if (req.getUpiId() != null) event.setUpiId(req.getUpiId());

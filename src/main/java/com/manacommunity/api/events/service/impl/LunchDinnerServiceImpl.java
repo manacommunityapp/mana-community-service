@@ -34,10 +34,28 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Override
     @Transactional(readOnly = true)
     public List<LunchDinner> getAllLunchDinners(Long communityId, Long mainEventId) {
+        List<LunchDinner> raw;
         if (mainEventId != null) {
-            return repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+            raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
+        } else {
+            raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
-        return repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
+
+        List<LunchDinner> filtered = new java.util.ArrayList<>();
+        java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
+        for (LunchDinner m : raw) {
+            if (m.getMainEventId() != null) {
+                boolean isParentCancelled = eventCancelledCache.computeIfAbsent(m.getMainEventId(), id -> {
+                    com.manacommunity.api.events.entity.CommunityEvent parent = eventRepository.findById(id).orElse(null);
+                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.CommunityEvent.EventStatus.CANCELLED;
+                });
+                if (isParentCancelled) {
+                    continue;
+                }
+            }
+            filtered.add(m);
+        }
+        return filtered;
     }
 
     @Override

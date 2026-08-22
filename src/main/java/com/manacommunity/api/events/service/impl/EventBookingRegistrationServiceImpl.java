@@ -143,15 +143,21 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             registration.setStatus("CONFIRMED");
         }
 
+        if (registration.getBookingFee() != null) {
+            registration.setBookingFee(Math.max(0.0, registration.getBookingFee()));
+        } else {
+            registration.setBookingFee(0.0);
+        }
+
         if (registration.getPaymentStatus() == null || registration.getPaymentStatus().isBlank()) {
-            if (registration.getBookingFee() == null || registration.getBookingFee() <= 0) {
+            if (registration.getBookingFee() <= 0.0) {
                 registration.setPaymentStatus("FREE");
             } else {
                 registration.setPaymentStatus("PAID");
             }
         }
 
-        int computedDevotees = computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson());
+        int computedDevotees = Math.max(1, computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson()));
         registration.setDevoteeCount(computedDevotees);
 
         registration.setCreatedAt(LocalDateTime.now());
