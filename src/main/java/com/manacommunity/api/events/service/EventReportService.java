@@ -14,6 +14,7 @@ public class EventReportService {
 
     private final CommunityEventRepository eventRepo;
     private final EventRegistrationRepository regRepo;
+    private final EventPoojaUserRegistrationRepository poojaRegRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventDonationRepository donationRepo;
     private final EventSponsorRepository sponsorRepo;
@@ -27,7 +28,9 @@ public class EventReportService {
         CommunityEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
-        long regs = regRepo.findByEventId(eventId).size();
+        long generalRegs = regRepo.findByEventId(eventId).size();
+        long poojaRegs = poojaRegRepo.countByEventIdAndStatusNot(eventId, "CANCELLED");
+        long regs = generalRegs + poojaRegs;
         long volunteers = volunteerRepo.countByEventId(eventId);
         double donations = donationRepo.sumAmountByEvent(eventId);
         double expenses = expenseRepo.sumAmountByEvent(eventId);

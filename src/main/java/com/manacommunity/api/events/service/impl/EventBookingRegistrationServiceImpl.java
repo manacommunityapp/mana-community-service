@@ -16,6 +16,8 @@ import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -41,6 +43,7 @@ import java.util.Random;
 public class EventBookingRegistrationServiceImpl implements EventBookingRegistrationService {
 
     private final EventBookingRegistrationRepository repository;
+    private final EventPoojaUserRegistrationRepository poojaUserRegRepo;
     private final CommunityRepository communityRepository;
     private final PoojaSevaRepository poojaSevaRepository;
     private final LunchDinnerRepository lunchDinnerRepository;
@@ -53,6 +56,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
     public EventBookingRegistrationServiceImpl(
             EventBookingRegistrationRepository repository,
+            EventPoojaUserRegistrationRepository poojaUserRegRepo,
             CommunityRepository communityRepository,
             PoojaSevaRepository poojaSevaRepository,
             LunchDinnerRepository lunchDinnerRepository,
@@ -63,6 +67,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             EventTicketCategoryRepository ticketCategoryRepository,
             AppUserRepository appUserRepository) {
         this.repository = repository;
+        this.poojaUserRegRepo = poojaUserRegRepo;
         this.communityRepository = communityRepository;
         this.poojaSevaRepository = poojaSevaRepository;
         this.lunchDinnerRepository = lunchDinnerRepository;
@@ -156,6 +161,9 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Decrement slots / capacity for the booked activity
         decrementActivitySlots(saved);
+
+        // Sync to dedicated event_pooja_user_registrations table if applicable
+        syncToPoojaTableIfApplicable(saved);
 
         return saved;
     }
@@ -614,13 +622,17 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         EventBookingRegistration reg = getRegistrationById(id, user);
         reg.setStatus("CANCELLED");
         reg.setUpdatedAt(LocalDateTime.now());
-        repository.save(reg);
+        EventBookingRegistration saved = repository.save(reg);
+        syncToPoojaTableIfApplicable(saved);
     }
 
     @Override
     @Transactional
     public void deleteRegistration(Long id, AppUser user) {
         EventBookingRegistration reg = getRegistrationById(id, user);
+        if (reg.getRegCode() != null && poojaUserRegRepo != null) {
+            poojaUserRegRepo.findByRegCode(reg.getRegCode()).ifPresent(poojaUserRegRepo::delete);
+        }
         repository.delete(reg);
     }
 
@@ -707,6 +719,56 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
 
         reg.setUpdatedAt(LocalDateTime.now());
-        return repository.save(reg);
+        EventBookingRegistration saved = repository.save(reg);
+
+        syncToPoojaTableIfApplicable(saved);
+
+        return saved;
+    }
+
+    private void syncToPoojaTableIfApplicable(EventBookingRegistration reg) {
+        if (reg == null || poojaUserRegRepo == null) return;
+        boolean isPooja = (reg.getCategory() != null && reg.getCategory().equalsIgnoreCase("Pooja")) ||
+                (reg.getActivityId() != null && reg.getActivityId().startsWith("pooja-"));
+        if (!isPooja) return;
+
+        try {
+            Long eventId = reg.getMainEventId();
+            if (eventId == null && reg.getActivityId() != null && reg.getActivityId().startsWith("pooja-")) {
+                try {
+                    eventId = Long.parseLong(reg.getActivityId().replace("pooja-", ""));
+                } catch (Exception ignored) {}
+            }
+
+            EventPoojaUserRegistration poojaReg = poojaUserRegRepo.findByRegCode(reg.getRegCode())
+                    .orElse(EventPoojaUserRegistration.builder().regCode(reg.getRegCode()).build());
+
+            String userPhone = (reg.getUser() != null) ? reg.getUser().getPhone() : null;
+            String userEmail = (reg.getUser() != null) ? reg.getUser().getEmail() : null;
+
+            poojaReg.setEventId(eventId);
+            poojaReg.setUser(reg.getUser());
+            poojaReg.setCommunity(reg.getCommunity());
+            poojaReg.setParticipantName(reg.getParticipantName());
+            poojaReg.setGotram(reg.getGotram());
+            poojaReg.setPhone(userPhone);
+            poojaReg.setEmail(userEmail);
+            poojaReg.setDevoteeCount(reg.getDevoteeCount());
+            poojaReg.setAttendingDevotees(reg.getAttendingDevotees());
+            poojaReg.setPoojaSlotName(reg.getActivityTitle());
+            poojaReg.setPoojaSlotDate(reg.getEventDate());
+            poojaReg.setPoojaSlotTime(reg.getEventTime());
+            poojaReg.setVenue(reg.getVenue());
+            poojaReg.setCategory("Pooja");
+            poojaReg.setBookingFee(reg.getBookingFee());
+            poojaReg.setPaymentStatus(reg.getPaymentStatus());
+            poojaReg.setPaymentMethod(reg.getPaymentMethod());
+            poojaReg.setTransactionId(reg.getTransactionId());
+            poojaReg.setPaymentReceiptUrl(reg.getPaymentReceiptUrl());
+            poojaReg.setStatus(reg.getStatus());
+            poojaReg.setQrCodeUrl(reg.getQrCodeUrl());
+
+            poojaUserRegRepo.save(poojaReg);
+        } catch (Exception ignored) {}
     }
 }
