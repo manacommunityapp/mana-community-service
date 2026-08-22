@@ -18,11 +18,13 @@ import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.entity.EventProgram;
 import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.entity.EventTask;
+import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventSponsor;
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventAuctionItemRepository;
@@ -100,6 +102,7 @@ public class EventService {
     private final CompetitionRepository competitionRepo;
     private final LunchDinnerRepository lunchDinnerRepo;
     private final EventFamilyMemberRepository familyMemberRepo;
+    private final EventTicketCategoryRepository ticketCategoryRepo;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -224,7 +227,9 @@ public class EventService {
                 .createdBy(user)
                 .community(community)
                 .build();
-        return toResponse(eventRepo.save(event), user.getId());
+        CommunityEvent savedEvent = eventRepo.save(event);
+        saveTicketCategories(savedEvent, req.getTicketTypes());
+        return toResponse(savedEvent, user.getId());
     }
 
     @Transactional
@@ -385,6 +390,9 @@ public class EventService {
         if (req.getPaymentInstructions() != null) event.setPaymentInstructions(req.getPaymentInstructions());
 
         CommunityEvent saved = eventRepo.save(event);
+        if (req.getTicketTypes() != null) {
+            saveTicketCategories(saved, req.getTicketTypes());
+        }
         notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
                 "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
         return toResponse(saved, currentUserId);
@@ -401,6 +409,8 @@ public class EventService {
         if (!isCreator && !isAdmin) {
             throw new UnauthorizedActionException("Only the event creator can delete this event");
         }
+
+        ticketCategoryRepo.deleteByEventId(id);
 
         // 1. Retrieve all sub-events linked to this main event
         List<PoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
@@ -448,14 +458,61 @@ public class EventService {
                 + competitionBookingCount + lunchDinnerBookingCount + programActivityCount + mealRegCount;
 
         if (totalRegs > 0) {
-            throw new ManaCommunityException(
-                    "Cannot delete event with " + totalRegs + " registration(s) (including sub-events). Cancel the event instead.",
-                    HttpStatus.CONFLICT,
-                    "EVENT_HAS_REGISTRATIONS"
-            );
+            // Event has existing registrations: mark event and all sub-event registrations as CANCELLED
+            log.info("Event ID {} has {} active registration(s). Transitioning event and sub-events to CANCELLED.", id, totalRegs);
+            event.setStatus(CommunityEvent.EventStatus.CANCELLED);
+            eventRepo.save(event);
+
+            // 1. Cancel direct event registrations
+            List<EventRegistration> directRegs = regRepo.findByEventId(id);
+            for (EventRegistration reg : directRegs) {
+                reg.setStatus(EventRegistration.RegistrationStatus.CANCELLED);
+            }
+            if (!directRegs.isEmpty()) {
+                regRepo.saveAll(directRegs);
+            }
+
+            // 2. Cancel booking registrations for main event and all sub-events
+            List<EventBookingRegistration> eventBookings = new ArrayList<>();
+            eventBookings.addAll(bookingRegRepo.findByActivityId("event-" + id));
+            eventBookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(id)));
+            for (PoojaSeva pooja : poojas) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("pooja-" + pooja.getId()));
+            }
+            for (CulturalEvent cultural : culturals) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("cultural-" + cultural.getId()));
+                eventBookings.addAll(bookingRegRepo.findByActivityId("cult-" + cultural.getId()));
+            }
+            for (Competition comp : competitions) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("comp-" + comp.getId()));
+            }
+            for (LunchDinner ld : lunchDinners) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("food-" + ld.getId()));
+            }
+            for (EventBookingRegistration bReg : eventBookings) {
+                bReg.setStatus("CANCELLED");
+            }
+            if (!eventBookings.isEmpty()) {
+                bookingRegRepo.saveAll(eventBookings);
+            }
+
+            // 3. Cancel program activity registrations
+            for (EventProgram prog : programs) {
+                List<ActivityRegistration> progRegs = activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId());
+                for (ActivityRegistration actReg : progRegs) {
+                    actReg.setStatus(ActivityRegistration.ActivityRegStatus.CANCELLED);
+                }
+                if (!progRegs.isEmpty()) {
+                    activityRegRepo.saveAll(progRegs);
+                }
+            }
+
+            notifyRegisteredUsers(event, "Event Cancelled: " + event.getTitle(),
+                    "The event '" + event.getTitle() + "' and its scheduled sub-events have been cancelled.");
+            return;
         }
 
-        // 3. Cascade deletion of all sub-events
+        // 3. Cascade deletion of all sub-events (only when no registrations exist)
         if (!poojas.isEmpty()) {
             poojaSevaRepo.deleteAll(poojas);
         }
@@ -557,22 +614,35 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(Long communityId) {
-        double revenue = donationRepo.sumAmountByCommunity(communityId)
-                + sponsorRepo.sumAmountReceivedByCommunity(communityId);
+        double donationTotal = donationRepo.sumAmountByCommunity(communityId);
+        double sponsorTotalReceived = sponsorRepo.sumAmountReceivedByCommunity(communityId);
+        double totalRevenue = donationTotal + sponsorTotalReceived;
+
         long totalEvents = eventRepo.countByCommunityId(communityId);
         long upcomingEvents = eventRepo.countUpcomingByCommunity(communityId);
         long totalRegistrations = regRepo.countByEventCommunityId(communityId);
         long totalVolunteers = volunteerRepo.countByCommunityId(communityId);
         double totalExpenses = expenseRepo.sumAmountByCommunity(communityId);
 
+        // Sponsor breakdown
+        java.util.List<com.manacommunity.api.events.entity.EventSponsor> allSponsors =
+                sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
+        long activeSponsorCount = allSponsors.stream()
+                .filter(s -> "ACTIVE".equalsIgnoreCase(s.getStatus()) || "CONFIRMED".equalsIgnoreCase(s.getStatus()))
+                .count();
+        long pendingSponsorCount = allSponsors.stream()
+                .filter(s -> "PENDING".equalsIgnoreCase(s.getStatus()))
+                .count();
+
         // Live Food Prepared / Plates Count from Database
         long foodPlates = mealRegRepo != null ? mealRegRepo.sumHeadCountByCommunity(communityId) : 0;
         if (foodPlates == 0 && mealRegRepo != null) {
             foodPlates = mealRegRepo.count();
         }
-        double foodPct = totalRegistrations > 0
+        // Only show real food % when we actually have data; avoid hardcoded fallback
+        double foodPct = foodPlates > 0 && totalRegistrations > 0
                 ? Math.min(100.0, Math.round((double) foodPlates / totalRegistrations * 100.0))
-                : (foodPlates > 0 ? 100.0 : 85.0);
+                : (foodPlates > 0 ? 100.0 : 0.0);
 
         long pendingTasks = 0;
         if (taskRepo != null) {
@@ -581,34 +651,56 @@ public class EventService {
                 pendingTasks = taskRepo.countByDoneFalse();
             }
         }
-        long pendingSponsors = sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId).stream()
-                .filter(s -> "PENDING".equalsIgnoreCase(s.getStatus()))
-                .count();
 
         // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
         double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
         long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(communityId, 0) : 0;
-
         long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;
         long playerAuctionCount = auctionPlayerRepo != null ? auctionPlayerRepo.countSoldByCommunity(communityId) : 0;
-
         double totalAuctionRev = itemAuctionRev + (double) playerAuctionRev;
         long totalAuctionItemsSold = itemAuctionCount + playerAuctionCount;
+
+        // Today's Schedule — events whose startDate <= today <= endDate
+        LocalDate today = LocalDate.now();
+        java.util.List<CommunityEvent> allCommunityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
+        long todaysEventCount = allCommunityEvents.stream()
+                .filter(e -> e.getStartDate() != null
+                        && !e.getStartDate().isAfter(today)
+                        && (e.getEndDate() == null || !e.getEndDate().isBefore(today)))
+                .count();
+
+        // Today's Duty — volunteers assigned to any event active today
+        long todaysDuty = 0;
+        if (todaysEventCount > 0) {
+            java.util.List<Long> todayEventIds = allCommunityEvents.stream()
+                    .filter(e -> e.getStartDate() != null
+                            && !e.getStartDate().isAfter(today)
+                            && (e.getEndDate() == null || !e.getEndDate().isBefore(today)))
+                    .map(CommunityEvent::getId)
+                    .toList();
+            for (Long eid : todayEventIds) {
+                todaysDuty += volunteerRepo.countByEventId(eid);
+            }
+        }
 
         return DashboardStatsResponse.builder()
                 .totalEvents(totalEvents)
                 .upcomingEvents(upcomingEvents)
                 .totalRegistrations(totalRegistrations)
                 .totalVolunteers(totalVolunteers)
-                .totalRevenue(revenue)
+                .totalRevenue(totalRevenue)
                 .totalExpenses(totalExpenses)
+                .donationTotal(donationTotal)
+                .sponsorTotal(sponsorTotalReceived)
+                .activeSponsorCount(activeSponsorCount)
+                .pendingSponsorCount(pendingSponsorCount)
                 .foodPreparedPercentage(foodPct)
                 .foodPlatesCount(foodPlates)
                 .auctionRevenue(totalAuctionRev)
                 .auctionItemCount((int) totalAuctionItemsSold)
-                .todaysScheduleCount(upcomingEvents)
-                .todaysDutyCount(totalVolunteers)
-                .pendingActionItemsCount(pendingTasks + pendingSponsors)
+                .todaysScheduleCount(todaysEventCount)
+                .todaysDutyCount(todaysDuty)
+                .pendingActionItemsCount(pendingTasks + pendingSponsorCount)
                 .build();
     }
 
@@ -835,7 +927,18 @@ public class EventService {
         String scannerMediaId = scannerMOpt.map(m -> m.getExternalId().toString()).orElse(null);
 
         List<TicketTypeDto> parsedTicketTypes = null;
-        if (e.getTicketTypesJson() != null && !e.getTicketTypesJson().isBlank()) {
+        List<EventTicketCategory> savedCategories = ticketCategoryRepo.findByEventIdOrderByDisplayOrderAscIdAsc(e.getId());
+        if (savedCategories != null && !savedCategories.isEmpty()) {
+            parsedTicketTypes = savedCategories.stream().map(c -> TicketTypeDto.builder()
+                    .id(c.getTicketCode() != null ? c.getTicketCode() : String.valueOf(c.getId()))
+                    .name(c.getName())
+                    .price(c.getPrice())
+                    .qty(c.getCapacity() != null ? c.getCapacity() : c.getSeats())
+                    .seats(c.getSeats() != null ? c.getSeats() : c.getCapacity())
+                    .capacity(c.getCapacity())
+                    .description(c.getDescription())
+                    .build()).toList();
+        } else if (e.getTicketTypesJson() != null && !e.getTicketTypesJson().isBlank()) {
             try {
                 parsedTicketTypes = objectMapper.readValue(
                         e.getTicketTypesJson(),
@@ -958,6 +1061,46 @@ public class EventService {
             return LocalTime.parse(clean);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private void saveTicketCategories(CommunityEvent event, List<TicketTypeDto> ticketTypes) {
+        if (ticketTypes == null || ticketTypes.isEmpty()) {
+            return;
+        }
+        ticketCategoryRepo.deleteByEventId(event.getId());
+        int order = 1;
+        for (TicketTypeDto dto : ticketTypes) {
+            if (dto.getName() == null || dto.getName().isBlank()) {
+                continue;
+            }
+            Double price = 0.0;
+            if (dto.getPrice() != null) {
+                try {
+                    price = Double.parseDouble(dto.getPrice().toString().replaceAll("[^0-9.]", ""));
+                } catch (Exception ignored) {}
+            }
+            Integer capacity = null;
+            Object seatsVal = dto.getQty() != null ? dto.getQty() : (dto.getSeats() != null ? dto.getSeats() : dto.getCapacity());
+            if (seatsVal != null) {
+                try {
+                    capacity = Integer.parseInt(seatsVal.toString().replaceAll("[^0-9]", ""));
+                } catch (Exception ignored) {}
+            }
+
+            EventTicketCategory cat = EventTicketCategory.builder()
+                    .event(event)
+                    .communityId(event.getCommunity() != null ? event.getCommunity().getId() : null)
+                    .ticketCode(dto.getId() != null ? dto.getId() : "t" + System.currentTimeMillis() + "_" + order)
+                    .name(dto.getName().trim())
+                    .price(price)
+                    .capacity(capacity)
+                    .seats(capacity)
+                    .description(dto.getDescription())
+                    .displayOrder(order++)
+                    .isActive(true)
+                    .build();
+            ticketCategoryRepo.save(cat);
         }
     }
 }
