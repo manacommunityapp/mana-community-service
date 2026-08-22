@@ -203,6 +203,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         PoojaSeva p = poojaSevaRepository.findById(id).orElse(null);
         if (p == null) return;
 
+        // Check if parent event is cancelled
+        if (p.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(p.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(p.getName(), "Parent event has been cancelled");
+            }
+        }
+
         // Only check duplicate for new registrations (not updates)
         boolean isNewRegistration = (registration.getId() == null);
 
@@ -255,6 +263,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         CulturalEvent c = culturalEventRepository.findById(id).orElse(null);
         if (c == null) return;
 
+        // Check if parent event is cancelled
+        if (c.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
         LocalDate today = LocalDate.now();
         if (c.getDate() != null && c.getDate().isBefore(today)) {
             throw new RegistrationClosedException(c.getName(), "Cultural event date has passed (" + c.getDate() + ")");
@@ -283,6 +299,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         Competition c = competitionRepository.findById(id).orElse(null);
         if (c == null) return;
 
+        // Check if parent event is cancelled
+        if (c.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
         LocalDate today = LocalDate.now();
         if (c.getRegDeadline() != null && today.isAfter(c.getRegDeadline())) {
             throw new RegistrationClosedException(c.getName(), "Registration deadline has passed (" + c.getRegDeadline() + ")");
@@ -310,6 +334,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration) {
         LunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
         if (m == null) return;
+
+        // Check if parent event is cancelled
+        if (m.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(m.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(m.getName(), "Parent event has been cancelled");
+            }
+        }
 
         LocalDate today = LocalDate.now();
         if (m.getDate() != null && m.getDate().isBefore(today)) {
@@ -494,9 +526,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     if (ev.getCapacity() != null) {
                         ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
                     }
-                    if (ev.getMaxAttendees() != null) {
-                        ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
-                    }
+                    // maxAttendees is the fixed total maximum — do not decrement it
                     communityEventRepository.save(ev);
                 });
             } else {
@@ -506,9 +536,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                         if (ev.getCapacity() != null) {
                             ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
                         }
-                        if (ev.getMaxAttendees() != null) {
-                            ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
-                        }
+                        // maxAttendees is the fixed total maximum — do not decrement it
                         communityEventRepository.save(ev);
                     });
                 } catch (NumberFormatException ignored) {}
