@@ -458,14 +458,61 @@ public class EventService {
                 + competitionBookingCount + lunchDinnerBookingCount + programActivityCount + mealRegCount;
 
         if (totalRegs > 0) {
-            throw new ManaCommunityException(
-                    "Cannot delete event with " + totalRegs + " registration(s) (including sub-events). Cancel the event instead.",
-                    HttpStatus.CONFLICT,
-                    "EVENT_HAS_REGISTRATIONS"
-            );
+            // Event has existing registrations: mark event and all sub-event registrations as CANCELLED
+            log.info("Event ID {} has {} active registration(s). Transitioning event and sub-events to CANCELLED.", id, totalRegs);
+            event.setStatus(CommunityEvent.EventStatus.CANCELLED);
+            eventRepo.save(event);
+
+            // 1. Cancel direct event registrations
+            List<EventRegistration> directRegs = regRepo.findByEventId(id);
+            for (EventRegistration reg : directRegs) {
+                reg.setStatus(EventRegistration.RegistrationStatus.CANCELLED);
+            }
+            if (!directRegs.isEmpty()) {
+                regRepo.saveAll(directRegs);
+            }
+
+            // 2. Cancel booking registrations for main event and all sub-events
+            List<EventBookingRegistration> eventBookings = new ArrayList<>();
+            eventBookings.addAll(bookingRegRepo.findByActivityId("event-" + id));
+            eventBookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(id)));
+            for (PoojaSeva pooja : poojas) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("pooja-" + pooja.getId()));
+            }
+            for (CulturalEvent cultural : culturals) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("cultural-" + cultural.getId()));
+                eventBookings.addAll(bookingRegRepo.findByActivityId("cult-" + cultural.getId()));
+            }
+            for (Competition comp : competitions) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("comp-" + comp.getId()));
+            }
+            for (LunchDinner ld : lunchDinners) {
+                eventBookings.addAll(bookingRegRepo.findByActivityId("food-" + ld.getId()));
+            }
+            for (EventBookingRegistration bReg : eventBookings) {
+                bReg.setStatus("CANCELLED");
+            }
+            if (!eventBookings.isEmpty()) {
+                bookingRegRepo.saveAll(eventBookings);
+            }
+
+            // 3. Cancel program activity registrations
+            for (EventProgram prog : programs) {
+                List<ActivityRegistration> progRegs = activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId());
+                for (ActivityRegistration actReg : progRegs) {
+                    actReg.setStatus(ActivityRegistration.ActivityRegStatus.CANCELLED);
+                }
+                if (!progRegs.isEmpty()) {
+                    activityRegRepo.saveAll(progRegs);
+                }
+            }
+
+            notifyRegisteredUsers(event, "Event Cancelled: " + event.getTitle(),
+                    "The event '" + event.getTitle() + "' and its scheduled sub-events have been cancelled.");
+            return;
         }
 
-        // 3. Cascade deletion of all sub-events
+        // 3. Cascade deletion of all sub-events (only when no registrations exist)
         if (!poojas.isEmpty()) {
             poojaSevaRepo.deleteAll(poojas);
         }
