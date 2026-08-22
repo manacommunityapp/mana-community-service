@@ -948,6 +948,25 @@ public class EventService {
             }
         }
 
+        // Live dynamic active attendees count (direct + booking registrations)
+        int liveAttendees = 0;
+        if (e.getRegistrations() != null && !e.getRegistrations().isEmpty()) {
+            liveAttendees += (int) e.getRegistrations().stream()
+                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
+                    .count();
+        } else if (regRepo != null && e.getId() != null) {
+            liveAttendees += (int) regRepo.findByEventId(e.getId()).stream()
+                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
+                    .count();
+        }
+
+        if (bookingRegRepo != null && e.getId() != null) {
+            liveAttendees += (int) (bookingRegRepo.countByActivityIdAndStatusNot("event-" + e.getId(), "CANCELLED")
+                    + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(e.getId()), "CANCELLED"));
+        }
+
+        Integer effectiveCapacity = e.getCapacity() != null ? e.getCapacity() : (e.getMaxAttendees() != null ? e.getMaxAttendees() : 100);
+
         return EventResponse.builder()
                 .id(e.getId())
                 .title(e.getTitle())
@@ -961,7 +980,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(e.getCapacity())
+                .capacity(effectiveCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -979,13 +998,13 @@ public class EventService {
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
-                .maxAttendees(e.getMaxAttendees())
+                .maxAttendees(effectiveCapacity)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
-                .registrationCount(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
+                .registrationCount(liveAttendees)
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
-                .attendees(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
+                .attendees(liveAttendees)
                 .isRegistered(isRegistered)
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
