@@ -7,6 +7,7 @@ import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
@@ -38,34 +39,39 @@ class EventBookingRegistrationServiceImplTest {
         PoojaSeva seva = new PoojaSeva();
         seva.setId(10L);
         seva.setSlots(20);
+        seva.setDate(LocalDate.now().plusDays(5));
+
         when(poojaRepo.findById(10L)).thenReturn(Optional.of(seva));
         when(regRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
 
         EventBookingRegistrationServiceImpl service = service(regRepo, poojaRepo);
-        EventBookingRegistration saved = service.createRegistration(registration("pooja-10", "2026-08-25", "08:30 AM", 2), null, 1L);
+        EventBookingRegistration saved = service.createRegistration(registration("pooja-10", "2026-08-28", "08:30", 3), null, null);
 
         assertThat(saved).isNotNull();
-        assertThat(seva.getSlots()).isEqualTo(18);
+        assertThat(seva.getSlots()).isEqualTo(17);
     }
 
     @Test
-    @DisplayName("pooja booking decrements matching time-slot config")
-    void poojaBookingDecrementsMatchingTimeSlotConfig() {
+    @DisplayName("pooja booking decrements specific timeSlotConfig slot for multi-day seva")
+    void poojaBookingDecrementsSpecificTimeSlotConfig() {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
 
-        PoojaSevaDayTimeSlot slot1 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 25), "08:30", 10);
-        PoojaSevaDayTimeSlot slot2 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 25), "10:30", 10);
+        PoojaSevaDayTimeSlot slot1 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "08:30", 10);
+        PoojaSevaDayTimeSlot slot2 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "18:30", 10);
 
         PoojaSeva seva = new PoojaSeva();
-        seva.setId(11L);
-        seva.setSlots(20);
+        seva.setId(20L);
+        seva.setMultiDay(true);
+        seva.setDate(LocalDate.now().plusDays(2));
+        seva.setEndDate(LocalDate.now().plusDays(4));
         seva.setTimeSlotConfig(List.of(slot1, slot2));
-        when(poojaRepo.findById(11L)).thenReturn(Optional.of(seva));
+
+        when(poojaRepo.findById(20L)).thenReturn(Optional.of(seva));
         when(regRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
 
         EventBookingRegistrationServiceImpl service = service(regRepo, poojaRepo);
-        EventBookingRegistration saved = service.createRegistration(registration("pooja-11", "2026-08-25", "08:30 AM", 3), null, 1L);
+        EventBookingRegistration saved = service.createRegistration(registration("pooja-20", "2026-08-28", "08:30", 3), null, null);
 
         assertThat(saved).isNotNull();
         assertThat(slot1.getSlotCount()).isEqualTo(7);
@@ -90,6 +96,7 @@ class EventBookingRegistrationServiceImplTest {
             PoojaSevaRepository poojaSevaRepository) {
         return new EventBookingRegistrationServiceImpl(
                 registrationRepository,
+                mock(EventPoojaUserRegistrationRepository.class),
                 mock(CommunityRepository.class),
                 poojaSevaRepository,
                 mock(LunchDinnerRepository.class),

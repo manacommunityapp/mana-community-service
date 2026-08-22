@@ -16,6 +16,8 @@ import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -41,6 +43,7 @@ import java.util.Random;
 public class EventBookingRegistrationServiceImpl implements EventBookingRegistrationService {
 
     private final EventBookingRegistrationRepository repository;
+    private final EventPoojaUserRegistrationRepository poojaUserRegRepo;
     private final CommunityRepository communityRepository;
     private final PoojaSevaRepository poojaSevaRepository;
     private final LunchDinnerRepository lunchDinnerRepository;
@@ -53,6 +56,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
     public EventBookingRegistrationServiceImpl(
             EventBookingRegistrationRepository repository,
+            EventPoojaUserRegistrationRepository poojaUserRegRepo,
             CommunityRepository communityRepository,
             PoojaSevaRepository poojaSevaRepository,
             LunchDinnerRepository lunchDinnerRepository,
@@ -63,6 +67,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             EventTicketCategoryRepository ticketCategoryRepository,
             AppUserRepository appUserRepository) {
         this.repository = repository;
+        this.poojaUserRegRepo = poojaUserRegRepo;
         this.communityRepository = communityRepository;
         this.poojaSevaRepository = poojaSevaRepository;
         this.lunchDinnerRepository = lunchDinnerRepository;
@@ -138,15 +143,21 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             registration.setStatus("CONFIRMED");
         }
 
+        if (registration.getBookingFee() != null) {
+            registration.setBookingFee(Math.max(0.0, registration.getBookingFee()));
+        } else {
+            registration.setBookingFee(0.0);
+        }
+
         if (registration.getPaymentStatus() == null || registration.getPaymentStatus().isBlank()) {
-            if (registration.getBookingFee() == null || registration.getBookingFee() <= 0) {
+            if (registration.getBookingFee() <= 0.0) {
                 registration.setPaymentStatus("FREE");
             } else {
                 registration.setPaymentStatus("PAID");
             }
         }
 
-        int computedDevotees = computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson());
+        int computedDevotees = Math.max(1, computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson()));
         registration.setDevoteeCount(computedDevotees);
 
         registration.setCreatedAt(LocalDateTime.now());
@@ -156,6 +167,9 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Decrement slots / capacity for the booked activity
         decrementActivitySlots(saved);
+
+        // Sync to dedicated event_pooja_user_registrations table if applicable
+        syncToPoojaTableIfApplicable(saved);
 
         return saved;
     }
@@ -194,6 +208,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private void validatePoojaCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
         PoojaSeva p = poojaSevaRepository.findById(id).orElse(null);
         if (p == null) return;
+
+        // Check if parent event is cancelled
+        if (p.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(p.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(p.getName(), "Parent event has been cancelled");
+            }
+        }
 
         // Only check duplicate for new registrations (not updates)
         boolean isNewRegistration = (registration.getId() == null);
@@ -247,6 +269,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         CulturalEvent c = culturalEventRepository.findById(id).orElse(null);
         if (c == null) return;
 
+        // Check if parent event is cancelled
+        if (c.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
         LocalDate today = LocalDate.now();
         if (c.getDate() != null && c.getDate().isBefore(today)) {
             throw new RegistrationClosedException(c.getName(), "Cultural event date has passed (" + c.getDate() + ")");
@@ -275,6 +305,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         Competition c = competitionRepository.findById(id).orElse(null);
         if (c == null) return;
 
+        // Check if parent event is cancelled
+        if (c.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
         LocalDate today = LocalDate.now();
         if (c.getRegDeadline() != null && today.isAfter(c.getRegDeadline())) {
             throw new RegistrationClosedException(c.getName(), "Registration deadline has passed (" + c.getRegDeadline() + ")");
@@ -302,6 +340,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration) {
         LunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
         if (m == null) return;
+
+        // Check if parent event is cancelled
+        if (m.getMainEventId() != null) {
+            CommunityEvent parent = communityEventRepository.findById(m.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+                throw new RegistrationClosedException(m.getName(), "Parent event has been cancelled");
+            }
+        }
 
         LocalDate today = LocalDate.now();
         if (m.getDate() != null && m.getDate().isBefore(today)) {
@@ -486,9 +532,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     if (ev.getCapacity() != null) {
                         ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
                     }
-                    if (ev.getMaxAttendees() != null) {
-                        ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
-                    }
+                    // maxAttendees is the fixed total maximum — do not decrement it
                     communityEventRepository.save(ev);
                 });
             } else {
@@ -498,9 +542,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                         if (ev.getCapacity() != null) {
                             ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
                         }
-                        if (ev.getMaxAttendees() != null) {
-                            ev.setMaxAttendees(Math.max(0, ev.getMaxAttendees() - booked));
-                        }
+                        // maxAttendees is the fixed total maximum — do not decrement it
                         communityEventRepository.save(ev);
                     });
                 } catch (NumberFormatException ignored) {}
@@ -614,17 +656,46 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         EventBookingRegistration reg = getRegistrationById(id, user);
         reg.setStatus("CANCELLED");
         reg.setUpdatedAt(LocalDateTime.now());
-        repository.save(reg);
+        EventBookingRegistration saved = repository.save(reg);
+        syncToPoojaTableIfApplicable(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteRegistration(Long id, AppUser user) {
+        EventBookingRegistration reg = getRegistrationById(id, user);
+        if (reg.getRegCode() != null && poojaUserRegRepo != null) {
+            poojaUserRegRepo.findByRegCode(reg.getRegCode()).ifPresent(poojaUserRegRepo::delete);
+        }
+        repository.delete(reg);
     }
 
     @Override
     @Transactional
     public EventBookingRegistration updateRegistration(Long id, EventBookingRegistration patch, AppUser user) {
         EventBookingRegistration reg = getRegistrationById(id, user);
+        boolean isAdmin = isUserAdmin(user);
 
-        // Only allow update if not already cancelled
-        if ("CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+        // Only block user if already cancelled, unless admin is updating/reactivating
+        if (!isAdmin && "CANCELLED".equalsIgnoreCase(reg.getStatus())) {
             throw new IllegalStateException("Cannot update a cancelled registration");
+        }
+
+        // ── Admin-controlled status, fee & category fields ───────────────────
+        if (isAdmin && patch.getStatus() != null && !patch.getStatus().isBlank()) {
+            reg.setStatus(patch.getStatus().trim().toUpperCase());
+        }
+        if (isAdmin && patch.getPaymentStatus() != null && !patch.getPaymentStatus().isBlank()) {
+            reg.setPaymentStatus(patch.getPaymentStatus().trim().toUpperCase());
+        }
+        if (isAdmin && patch.getBookingFee() != null) {
+            reg.setBookingFee(patch.getBookingFee());
+        }
+        if (isAdmin && patch.getCategory() != null && !patch.getCategory().isBlank()) {
+            reg.setCategory(patch.getCategory().trim());
+        }
+        if (isAdmin && patch.getActivityTitle() != null && !patch.getActivityTitle().isBlank()) {
+            reg.setActivityTitle(patch.getActivityTitle().trim());
         }
 
         // ── Mutable identity / contact fields ────────────────────────────────
@@ -682,6 +753,56 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
 
         reg.setUpdatedAt(LocalDateTime.now());
-        return repository.save(reg);
+        EventBookingRegistration saved = repository.save(reg);
+
+        syncToPoojaTableIfApplicable(saved);
+
+        return saved;
+    }
+
+    private void syncToPoojaTableIfApplicable(EventBookingRegistration reg) {
+        if (reg == null || poojaUserRegRepo == null) return;
+        boolean isPooja = (reg.getCategory() != null && reg.getCategory().equalsIgnoreCase("Pooja")) ||
+                (reg.getActivityId() != null && reg.getActivityId().startsWith("pooja-"));
+        if (!isPooja) return;
+
+        try {
+            Long eventId = reg.getMainEventId();
+            if (eventId == null && reg.getActivityId() != null && reg.getActivityId().startsWith("pooja-")) {
+                try {
+                    eventId = Long.parseLong(reg.getActivityId().replace("pooja-", ""));
+                } catch (Exception ignored) {}
+            }
+
+            EventPoojaUserRegistration poojaReg = poojaUserRegRepo.findByRegCode(reg.getRegCode())
+                    .orElse(EventPoojaUserRegistration.builder().regCode(reg.getRegCode()).build());
+
+            String userPhone = (reg.getUser() != null) ? reg.getUser().getPhone() : null;
+            String userEmail = (reg.getUser() != null) ? reg.getUser().getEmail() : null;
+
+            poojaReg.setEventId(eventId);
+            poojaReg.setUser(reg.getUser());
+            poojaReg.setCommunity(reg.getCommunity());
+            poojaReg.setParticipantName(reg.getParticipantName());
+            poojaReg.setGotram(reg.getGotram());
+            poojaReg.setPhone(userPhone);
+            poojaReg.setEmail(userEmail);
+            poojaReg.setDevoteeCount(reg.getDevoteeCount());
+            poojaReg.setAttendingDevotees(reg.getAttendingDevotees());
+            poojaReg.setPoojaSlotName(reg.getActivityTitle());
+            poojaReg.setPoojaSlotDate(reg.getEventDate());
+            poojaReg.setPoojaSlotTime(reg.getEventTime());
+            poojaReg.setVenue(reg.getVenue());
+            poojaReg.setCategory("Pooja");
+            poojaReg.setBookingFee(reg.getBookingFee());
+            poojaReg.setPaymentStatus(reg.getPaymentStatus());
+            poojaReg.setPaymentMethod(reg.getPaymentMethod());
+            poojaReg.setTransactionId(reg.getTransactionId());
+            poojaReg.setPaymentReceiptUrl(reg.getPaymentReceiptUrl());
+            poojaReg.setStatus(reg.getStatus());
+            poojaReg.setQrCodeUrl(reg.getQrCodeUrl());
+
+            poojaUserRegRepo.save(poojaReg);
+        } catch (Exception ignored) {}
     }
 }

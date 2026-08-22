@@ -20,4 +20,6 @@ public interface EventBookingRegistrationService {
     EventBookingRegistration getRegistrationById(Long id, AppUser user);
 
     void cancelRegistration(Long id, AppUser user);
+
+    void deleteRegistration(Long id, AppUser user);
 }

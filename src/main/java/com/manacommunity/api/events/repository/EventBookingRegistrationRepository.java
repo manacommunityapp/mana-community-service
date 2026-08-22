@@ -34,6 +34,10 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
     /** True when the user already has a non-cancelled booking for the given activityId. */
     boolean existsByUserIdAndActivityIdAndStatusNot(Long userId, String activityId, String status);
 
-    /** True when the user already has a non-cancelled booking for any of the given activityIds. */
     boolean existsByUserIdAndActivityIdInAndStatusNot(Long userId, Collection<String> activityIds, String status);
+
+    List<EventBookingRegistration> findByMainEventIdOrderByCreatedAtDesc(Long mainEventId);
+
+    long countByMainEventIdAndStatusNot(Long mainEventId, String status);
 }
+

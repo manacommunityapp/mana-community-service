@@ -1,7 +1,7 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.EventBookingRegistration;
-import com.manacommunity.api.events.service.EventBookingRegistrationService;
+import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -13,31 +13,33 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/registrations")
-public class EventBookingRegistrationController {
+@RequestMapping("/api/events/pooja-registrations")
+public class EventPoojaUserRegistrationController {
 
-    private final EventBookingRegistrationService service;
+    private final EventPoojaUserRegistrationService service;
     private final LoggedInUserService loggedInUserService;
 
-    public EventBookingRegistrationController(EventBookingRegistrationService service, LoggedInUserService loggedInUserService) {
+    public EventPoojaUserRegistrationController(
+            EventPoojaUserRegistrationService service,
+            LoggedInUserService loggedInUserService) {
         this.service = service;
         this.loggedInUserService = loggedInUserService;
     }
 
     @PostMapping
-    public ResponseEntity<EventBookingRegistration> createRegistration(
-            @RequestBody EventBookingRegistration registration,
+    public ResponseEntity<EventPoojaUserRegistration> createRegistration(
+            @RequestBody EventPoojaUserRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
             @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride) {
         AppUser user = loggedInUserService.resolve(principal);
         boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
-        EventBookingRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
+        EventPoojaUserRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping("/my")
-    public ResponseEntity<List<EventBookingRegistration>> getMyRegistrations(
+    public ResponseEntity<List<EventPoojaUserRegistration>> getMyRegistrations(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -45,13 +47,13 @@ public class EventBookingRegistrationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EventBookingRegistration>> getAllRegistrations(
+    public ResponseEntity<List<EventPoojaUserRegistration>> getAllRegistrations(
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EventBookingRegistration> getRegistrationById(
+    public ResponseEntity<EventPoojaUserRegistration> getRegistrationById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -59,12 +61,12 @@ public class EventBookingRegistrationController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<EventBookingRegistration> updateRegistration(
+    public ResponseEntity<EventPoojaUserRegistration> updateRegistration(
             @PathVariable Long id,
-            @RequestBody EventBookingRegistration patch,
+            @RequestBody EventPoojaUserRegistration patch,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        EventBookingRegistration updated = service.updateRegistration(id, patch, user);
+        EventPoojaUserRegistration updated = service.updateRegistration(id, patch, user);
         return ResponseEntity.ok(updated);
     }
 
@@ -79,15 +81,6 @@ public class EventBookingRegistrationController {
         } else {
             service.cancelRegistration(id, user);
         }
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{id}/permanent")
-    public ResponseEntity<Void> permanentlyDeleteRegistration(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        service.deleteRegistration(id, user);
         return ResponseEntity.noContent().build();
     }
 }
