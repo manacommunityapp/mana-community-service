@@ -47,6 +47,13 @@ public class EventRegistration {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    @Column(name = "checked_in")
+    @Builder.Default
+    private Boolean checkedIn = false;
+
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt;
+
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 

@@ -151,11 +151,6 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         repository.delete(existing);
     }
 
-    /**
-     * Validates that all dates in a PoojaSeva fall within the parent event's date range.
-     * The effective parent range is [parentStart, parentEnd] where parentEnd defaults to
-     * parentStart when the parent event has no explicit end date.
-     */
     private void validateDateWithinParent(PoojaSeva poojaSeva, CommunityEvent parentEvent) {
         LocalDate parentStart = parentEvent.getStartDate();
         LocalDate parentEnd = parentEvent.getEndDate() != null ? parentEvent.getEndDate() : parentStart;

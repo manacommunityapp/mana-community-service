@@ -117,6 +117,9 @@ public class CommunityEvent {
     @Column(name = "max_attendees")
     private Integer maxAttendees;
 
+    @Column(name = "registration_deadline")
+    private LocalDate registrationDeadline;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;

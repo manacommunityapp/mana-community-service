@@ -14,6 +14,8 @@ import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.RegistrationClosedException;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +58,16 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     @Override
     @Transactional
     public EventBookingRegistration createRegistration(EventBookingRegistration registration, AppUser user, Long communityId) {
+        return createRegistration(registration, user, communityId, false);
+    }
+
+    @Override
+    @Transactional
+    public EventBookingRegistration createRegistration(EventBookingRegistration registration, AppUser user, Long communityId, boolean adminOverride) {
+        if (!adminOverride) {
+            validateCapacityAndDeadline(registration);
+        }
+
         Community comm = (user != null && user.getCommunity() != null)
                 ? user.getCommunity()
                 : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
@@ -98,6 +110,57 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         decrementActivitySlots(saved);
 
         return saved;
+    }
+
+    private void validateCapacityAndDeadline(EventBookingRegistration registration) {
+        String actId = registration.getActivityId();
+        if (actId == null || actId.isBlank()) return;
+
+        try {
+            if (actId.startsWith("pooja-")) {
+                Long id = Long.parseLong(actId.replace("pooja-", ""));
+                poojaSevaRepository.findById(id).ifPresent(p -> {
+                    int slots = p.getSlots() != null ? p.getSlots() : 20;
+                    if (slots <= 0) throw new EventFullException(p.getName(), 0);
+                });
+            } else if (actId.startsWith("food-")) {
+                Long id = Long.parseLong(actId.replace("food-", ""));
+                lunchDinnerRepository.findById(id).ifPresent(m -> {
+                    int plates = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
+                    if (plates <= 0) throw new EventFullException(m.getName(), 0);
+                });
+            } else if (actId.startsWith("comp-")) {
+                Long id = Long.parseLong(actId.replace("comp-", ""));
+                competitionRepository.findById(id).ifPresent(c -> {
+                    int max = c.getMaxParticipants() != null ? c.getMaxParticipants() : 50;
+                    if (max <= 0) throw new EventFullException(c.getName(), 0);
+                });
+            } else if (actId.startsWith("event-")) {
+                Long id = Long.parseLong(actId.replace("event-", ""));
+                communityEventRepository.findById(id).ifPresent(ev -> {
+                    if (ev.getCapacity() != null && ev.getCapacity() <= 0) {
+                        throw new EventFullException(ev.getTitle(), 0);
+                    }
+                    if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {
+                        throw new RegistrationClosedException(ev.getTitle(), "past deadline (" + ev.getRegistrationDeadline() + ")");
+                    }
+                });
+            } else {
+                try {
+                    Long id = Long.parseLong(actId);
+                    communityEventRepository.findById(id).ifPresent(ev -> {
+                        if (ev.getCapacity() != null && ev.getCapacity() <= 0) {
+                            throw new EventFullException(ev.getTitle(), 0);
+                        }
+                        if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {
+                            throw new RegistrationClosedException(ev.getTitle(), "past deadline (" + ev.getRegistrationDeadline() + ")");
+                        }
+                    });
+                } catch (NumberFormatException ignored) {}
+            }
+        } catch (EventFullException | RegistrationClosedException ex) {
+            throw ex;
+        } catch (Exception ignored) {}
     }
 
     private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {
