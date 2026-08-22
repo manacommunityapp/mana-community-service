@@ -2,6 +2,8 @@ package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.CommunityLeader;
+import com.manacommunity.api.model.CommitteeGroup;
+import com.manacommunity.api.repository.CommitteeGroupRepository;
 import com.manacommunity.api.repository.CommunityLeaderRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -15,13 +17,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class CommunityLeaderSeeder {
 
     private final CommunityLeaderRepository leaderRepo;
+    private final CommitteeGroupRepository committeeGroupRepo;
     private final CommunitySeeder communitySeeder;
     private final UserSeeder userSeeder;
 
     @Transactional
     public void seed() {
-        log.info("Seeding community directory leaders...");
+        log.info("Seeding community directory leaders and committee groups...");
         Community le = communitySeeder.getLeCommunity();
+
+        // Seed default committee groups
+        seedGroup(le, "Executive Committee", "Core leadership and executive council", 1);
+        seedGroup(le, "Sports Committee", "Sports, fitness, tournaments and ground amenities", 2);
+        seedGroup(le, "Cultural Committee", "Festivals, poojas, celebrations and stage programs", 3);
+        seedGroup(le, "Maintenance Committee", "Facility management, civil, electrical, plumbing and lifts", 4);
+        seedGroup(le, "Security Committee", "Security personnel, CCTV surveillance and gate access", 5);
+        seedGroup(le, "Finance Committee", "Budgeting, accounting, audits and fund management", 6);
+        seedGroup(le, "Resident Welfare Committee", "Senior citizens, healthcare and resident grievances", 7);
 
         // Executive committee
         seedLeader(le, userSeeder.getSunil(),    "President",        null, 1);
@@ -68,6 +80,19 @@ public class CommunityLeaderSeeder {
                 .contactPhone(user.getPhone())
                 .contactEmail(user.getEmail())
                 .displayOrder(displayOrder)
+                .build());
+    }
+
+    private void seedGroup(Community community, String name, String description, int displayOrder) {
+        if (committeeGroupRepo.existsByCommunityIdAndName(community.getId(), name)) {
+            return;
+        }
+        committeeGroupRepo.save(CommitteeGroup.builder()
+                .community(community)
+                .name(name)
+                .description(description)
+                .displayOrder(displayOrder)
+                .isActive(true)
                 .build());
     }
 }
