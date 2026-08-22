@@ -148,9 +148,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         int computedDevotees = computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson());
         registration.setDevoteeCount(computedDevotees);
-        if (registration.getMembersCount() == null || registration.getMembersCount() <= 0) {
-            registration.setMembersCount(computedDevotees);
-        }
 
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
