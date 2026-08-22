@@ -69,11 +69,25 @@ public class EventBookingRegistrationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> cancelRegistration(
+    public ResponseEntity<Void> cancelOrDeleteRegistration(
+            @PathVariable Long id,
+            @RequestParam(value = "permanent", required = false, defaultValue = "false") boolean permanent,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        if (permanent) {
+            service.deleteRegistration(id, user);
+        } else {
+            service.cancelRegistration(id, user);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/permanent")
+    public ResponseEntity<Void> permanentlyDeleteRegistration(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        service.cancelRegistration(id, user);
+        service.deleteRegistration(id, user);
         return ResponseEntity.noContent().build();
     }
 }

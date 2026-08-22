@@ -619,12 +619,37 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
     @Override
     @Transactional
+    public void deleteRegistration(Long id, AppUser user) {
+        EventBookingRegistration reg = getRegistrationById(id, user);
+        repository.delete(reg);
+    }
+
+    @Override
+    @Transactional
     public EventBookingRegistration updateRegistration(Long id, EventBookingRegistration patch, AppUser user) {
         EventBookingRegistration reg = getRegistrationById(id, user);
+        boolean isAdmin = isUserAdmin(user);
 
-        // Only allow update if not already cancelled
-        if ("CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+        // Only block user if already cancelled, unless admin is updating/reactivating
+        if (!isAdmin && "CANCELLED".equalsIgnoreCase(reg.getStatus())) {
             throw new IllegalStateException("Cannot update a cancelled registration");
+        }
+
+        // ── Admin-controlled status, fee & category fields ───────────────────
+        if (isAdmin && patch.getStatus() != null && !patch.getStatus().isBlank()) {
+            reg.setStatus(patch.getStatus().trim().toUpperCase());
+        }
+        if (isAdmin && patch.getPaymentStatus() != null && !patch.getPaymentStatus().isBlank()) {
+            reg.setPaymentStatus(patch.getPaymentStatus().trim().toUpperCase());
+        }
+        if (isAdmin && patch.getBookingFee() != null) {
+            reg.setBookingFee(patch.getBookingFee());
+        }
+        if (isAdmin && patch.getCategory() != null && !patch.getCategory().isBlank()) {
+            reg.setCategory(patch.getCategory().trim());
+        }
+        if (isAdmin && patch.getActivityTitle() != null && !patch.getActivityTitle().isBlank()) {
+            reg.setActivityTitle(patch.getActivityTitle().trim());
         }
 
         // ── Mutable identity / contact fields ────────────────────────────────
