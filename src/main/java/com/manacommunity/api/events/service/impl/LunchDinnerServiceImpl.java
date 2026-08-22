@@ -1,12 +1,15 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.LunchDinner;
+import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.service.LunchDinnerService;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -14,9 +17,11 @@ import java.util.List;
 public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     private final LunchDinnerRepository repository;
+    private final CommunityEventRepository eventRepository;
 
-    public LunchDinnerServiceImpl(LunchDinnerRepository repository) {
+    public LunchDinnerServiceImpl(LunchDinnerRepository repository, CommunityEventRepository eventRepository) {
         this.repository = repository;
+        this.eventRepository = eventRepository;
     }
 
     @Override
@@ -37,6 +42,7 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     @Override
     public LunchDinner createLunchDinner(Long communityId, LunchDinner lunchDinner) {
+        validateDateWithinParentEvent(lunchDinner.getMainEventId(), lunchDinner.getDate());
         lunchDinner.setCommunityId(communityId);
         return repository.save(lunchDinner);
     }
@@ -44,6 +50,7 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Override
     public LunchDinner updateLunchDinner(Long id, Long communityId, LunchDinner updated) {
         LunchDinner existing = getLunchDinnerById(id, communityId);
+        validateDateWithinParentEvent(updated.getMainEventId(), updated.getDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
         existing.setMealType(updated.getMealType());
@@ -61,6 +68,17 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
         }
         existing.setNotes(updated.getNotes());
         return repository.save(existing);
+    }
+
+    private void validateDateWithinParentEvent(Long mainEventId, LocalDate date) {
+        if (mainEventId == null || date == null) return;
+        eventRepository.findById(mainEventId).ifPresent(event -> {
+            LocalDate eventStart = event.getStartDate();
+            LocalDate eventEnd = event.getEndDate() != null ? event.getEndDate() : eventStart;
+            if (date.isBefore(eventStart) || date.isAfter(eventEnd)) {
+                throw new InvalidInputException("Lunch/Dinner date " + date + " is outside the event period (" + eventStart + " to " + eventEnd + ")");
+            }
+        });
     }
 
     @Override
