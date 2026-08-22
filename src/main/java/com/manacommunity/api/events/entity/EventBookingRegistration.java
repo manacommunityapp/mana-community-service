@@ -25,6 +25,14 @@ public class EventBookingRegistration {
     @Column(name = "activity_id", length = 100)
     private String activityId;
 
+    /**
+     * ID of the parent community / top-level event this registration belongs to.
+     * Stored so that {@code GET /api/events/registrations/my} can return it
+     * for frontend deduplication (same-pooja, different-day blocking).
+     */
+    @Column(name = "main_event_id")
+    private Long mainEventId;
+
     @Column(name = "activity_title", nullable = false, length = 255)
     private String activityTitle;
 
