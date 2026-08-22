@@ -7,7 +7,7 @@ public class EventFullException extends ManaCommunityException {
 
     public EventFullException(String eventName, int maxParticipants) {
         super("'" + eventName + "' has reached its maximum capacity of "
-                + maxParticipants + " participants. Registration is closed.",
+                + maxParticipants + " participants. Registration is closed. Contact admin for manual registration.",
                 HttpStatus.CONFLICT, "EVENT_FULL");
     }
 }
