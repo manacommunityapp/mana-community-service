@@ -420,37 +420,35 @@ public class EventService {
         List<LunchDinner> lunchDinners = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
         List<EventProgram> programs = programRepo.findByEventId(id);
 
-        // 2. Check registrations across main event and all sub-events
+        // 2. Check ANY registrations across main event and all sub-events (including CANCELLED, PENDING, CONFIRMED)
         long registrationCount = regRepo.countByEventId(id);
-        long bookingRegCount = bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED")
-                + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(id), "CANCELLED");
+        long bookingRegCount = bookingRegRepo.findByActivityId("event-" + id).size()
+                + bookingRegRepo.findByActivityId(String.valueOf(id)).size();
 
         long poojaBookingCount = 0;
         for (PoojaSeva pooja : poojas) {
-            poojaBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("pooja-" + pooja.getId(), "CANCELLED");
+            poojaBookingCount += bookingRegRepo.findByActivityId("pooja-" + pooja.getId()).size();
         }
 
         long culturalBookingCount = 0;
         for (CulturalEvent cultural : culturals) {
-            culturalBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("cultural-" + cultural.getId(), "CANCELLED")
-                    + bookingRegRepo.countByActivityIdAndStatusNot("cult-" + cultural.getId(), "CANCELLED");
+            culturalBookingCount += bookingRegRepo.findByActivityId("cultural-" + cultural.getId()).size()
+                    + bookingRegRepo.findByActivityId("cult-" + cultural.getId()).size();
         }
 
         long competitionBookingCount = 0;
         for (Competition comp : competitions) {
-            competitionBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("comp-" + comp.getId(), "CANCELLED");
+            competitionBookingCount += bookingRegRepo.findByActivityId("comp-" + comp.getId()).size();
         }
 
         long lunchDinnerBookingCount = 0;
         for (LunchDinner ld : lunchDinners) {
-            lunchDinnerBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("food-" + ld.getId(), "CANCELLED");
+            lunchDinnerBookingCount += bookingRegRepo.findByActivityId("food-" + ld.getId()).size();
         }
 
         long programActivityCount = 0;
         for (EventProgram prog : programs) {
-            programActivityCount += activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.CONFIRMED)
-                    + activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.PENDING)
-                    + activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.WAITLISTED);
+            programActivityCount += activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId()).size();
         }
 
         long mealRegCount = mealRegRepo.findByEventIdOrdered(id).size();
