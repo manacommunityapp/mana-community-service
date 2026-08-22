@@ -13,6 +13,7 @@ import com.manacommunity.api.events.entity.ActivityRegistration;
 import com.manacommunity.api.events.entity.CommunityEvent;
 import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.entity.EventProgram;
