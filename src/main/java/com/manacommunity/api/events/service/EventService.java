@@ -221,7 +221,6 @@ public class EventService {
                 .ticketTypesJson(ticketTypesJson)
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
-                .registrationFormConfigJson(req.getRegistrationFormConfigJson())
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -344,7 +343,7 @@ public class EventService {
                     CommunityEvent saved = eventRepo.save(event);
                     notifyRegisteredUsers(saved, "Event Cancelled: " + saved.getTitle(),
                             "The event '" + saved.getTitle() + "' has been cancelled.");
-                    return toResponse(saved, userId);
+                    return toResponse(saved, currentUserId);
                 }
             }
         }
@@ -361,7 +360,12 @@ public class EventService {
             event.setMaxAttendees(req.getMaxAttendees());
         }
         if (req.getRegistrationDeadline() != null) {
-            event.setRegistrationDeadline(parseLocalDate(req.getRegistrationDeadline()));
+            LocalDate regDeadline = req.getRegistrationDeadline().isBlank() ? null : parseLocalDate(req.getRegistrationDeadline());
+            if (regDeadline != null && newStartDate != null && regDeadline.isAfter(newStartDate)) {
+                throw new ManaCommunityException("Registration deadline must not be after start date",
+                        HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+            }
+            event.setRegistrationDeadline(regDeadline);
         }
 
         if (req.getTicketTypes() != null) {
@@ -383,7 +387,7 @@ public class EventService {
         CommunityEvent saved = eventRepo.save(event);
         notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
                 "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
-        return toResponse(saved, userId);
+        return toResponse(saved, currentUserId);
     }
 
     @Transactional(rollbackFor = Exception.class)
