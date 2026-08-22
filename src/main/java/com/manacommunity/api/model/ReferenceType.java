@@ -13,5 +13,6 @@ public enum ReferenceType {
     AUCTION_TEAM,
     AUCTION_PLAYER,
     COMMUNITY,
+    EVENT,
     VISITOR_PASS
 }

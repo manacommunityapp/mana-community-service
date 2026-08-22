@@ -80,4 +80,6 @@ public class EventRequest {
 
     @Min(value = 1, message = "Max attendees must be at least 1")
     private Integer maxAttendees;
+
+    private String registrationDeadline;
 }

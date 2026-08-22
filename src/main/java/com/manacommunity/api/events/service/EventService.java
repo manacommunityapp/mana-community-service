@@ -29,14 +29,20 @@ import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.Community;
-import com.manacommunity.api.notification.event.EventCancelledEvent;
+import com.manacommunity.api.model.Notification;
+import com.manacommunity.api.model.NotificationCategory;
+import com.manacommunity.api.model.NotificationType;
+import com.manacommunity.api.model.ReferenceType;
+import com.manacommunity.api.repository.NotificationRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +60,8 @@ import com.manacommunity.api.repository.AuctionPlayerRepository;
 @RequiredArgsConstructor
 public class EventService {
 
+    private static final Logger log = LoggerFactory.getLogger(EventService.class);
+
     private final CommunityEventRepository eventRepo;
     private final EventRegistrationRepository regRepo;
     private final EventVolunteerRepository volunteerRepo;
@@ -70,7 +78,8 @@ public class EventService {
     private final EventInvoiceRepository invoiceRepo;
     private final MediaRepository mediaRepo;
     private final MediaUrlService mediaUrlService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventBookingRegistrationRepository bookingRegRepo;
+    private final NotificationRepository notificationRepo;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -175,6 +184,7 @@ public class EventService {
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
+                .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -285,17 +295,8 @@ public class EventService {
                 event.setStatus(newStatus);
                 if (becomingCancelled) {
                     CommunityEvent saved = eventRepo.save(event);
-                    // Notify registered users about cancellation (async, after TX commit)
-                    List<Long> affectedUserIds = regRepo.findByEventId(id).stream()
-                            .map(r -> r.getUser().getId())
-                            .toList();
-                    eventPublisher.publishEvent(new EventCancelledEvent(
-                            saved.getId(),
-                            saved.getTitle(),
-                            saved.getStartDate() != null
-                                    ? saved.getStartDate().atStartOfDay()
-                                    : java.time.LocalDateTime.now(),
-                            affectedUserIds));
+                    notifyRegisteredUsers(saved, "Event Cancelled: " + saved.getTitle(),
+                            "The event '" + saved.getTitle() + "' has been cancelled.");
                     return toResponse(saved, userId);
                 }
             }
@@ -312,12 +313,14 @@ public class EventService {
             }
             event.setMaxAttendees(req.getMaxAttendees());
         }
+        if (req.getRegistrationDeadline() != null) {
+            event.setRegistrationDeadline(parseLocalDate(req.getRegistrationDeadline()));
+        }
 
-
-        if (req.getMaxAttendees() != null) event.setMaxAttendees(req.getMaxAttendees());
-
-
-        return toResponse(eventRepo.save(event), userId);
+        CommunityEvent saved = eventRepo.save(event);
+        notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
+                "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
+        return toResponse(saved, userId);
     }
 
     @Transactional
@@ -333,9 +336,11 @@ public class EventService {
         }
 
         long registrationCount = regRepo.countByEventId(id);
-        if (registrationCount > 0) {
+        long bookingRegCount = bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED");
+        long totalRegs = registrationCount + bookingRegCount;
+        if (totalRegs > 0) {
             throw new ManaCommunityException(
-                    "Cannot delete event with " + registrationCount + " registered user(s). Cancel the event instead.",
+                    "Cannot delete event with " + totalRegs + " registration(s). Cancel the event instead.",
                     HttpStatus.CONFLICT,
                     "EVENT_HAS_REGISTRATIONS"
             );
@@ -387,6 +392,17 @@ public class EventService {
                 && event.getStartDate().isBefore(today)) {
             throw new ManaCommunityException("Cannot register for an event that has already passed",
                     HttpStatus.CONFLICT, "EVENT_ENDED");
+        }
+
+        // Registration deadline check — after deadline, only admin can register manually
+        if (event.getRegistrationDeadline() != null
+                && event.getRegistrationDeadline().isBefore(today)
+                && (user.getId() == null || user.getId() != -1L)) {
+            throw new ManaCommunityException(
+                    "Registration deadline has passed. Contact admin for manual registration.",
+                    HttpStatus.CONFLICT,
+                    "REGISTRATION_DEADLINE_PASSED"
+            );
         }
 
         if (regRepo.existsByEventIdAndUserId(eventId, user.getId())) {
@@ -713,6 +729,8 @@ public class EventService {
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
                 .maxAttendees(e.getMaxAttendees())
+                .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
+                .registrationCount(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
@@ -720,6 +738,29 @@ public class EventService {
                 .isRegistered(isRegistered)
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
+    }
+
+    private void notifyRegisteredUsers(CommunityEvent event, String title, String body) {
+        try {
+            List<EventRegistration> registrations = event.getRegistrations();
+            if (registrations == null || registrations.isEmpty()) return;
+            for (EventRegistration reg : registrations) {
+                if (reg.getUser() == null) continue;
+                Notification notification = Notification.builder()
+                        .user(reg.getUser())
+                        .community(event.getCommunity())
+                        .type(NotificationType.EVENT_UPDATED)
+                        .category(NotificationCategory.EVENTS)
+                        .title(title)
+                        .body(body)
+                        .referenceType(ReferenceType.EVENT)
+                        .referenceId(event.getId())
+                        .build();
+                notificationRepo.save(notification);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to send event update notifications for event {}: {}", event.getId(), ex.getMessage());
+        }
     }
 
     private UUID verifyAndParseMediaId(String mediaId, String context) {

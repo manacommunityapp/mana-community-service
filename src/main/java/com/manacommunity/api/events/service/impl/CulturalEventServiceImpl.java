@@ -1,12 +1,15 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.service.CulturalEventService;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -14,9 +17,11 @@ import java.util.List;
 public class CulturalEventServiceImpl implements CulturalEventService {
 
     private final CulturalEventRepository repository;
+    private final CommunityEventRepository eventRepository;
 
-    public CulturalEventServiceImpl(CulturalEventRepository repository) {
+    public CulturalEventServiceImpl(CulturalEventRepository repository, CommunityEventRepository eventRepository) {
         this.repository = repository;
+        this.eventRepository = eventRepository;
     }
 
     @Override
@@ -37,6 +42,7 @@ public class CulturalEventServiceImpl implements CulturalEventService {
 
     @Override
     public CulturalEvent createCulturalEvent(Long communityId, CulturalEvent culturalEvent) {
+        validateDateWithinParentEvent(culturalEvent.getMainEventId(), culturalEvent.getDate());
         culturalEvent.setCommunityId(communityId);
         return repository.save(culturalEvent);
     }
@@ -44,6 +50,7 @@ public class CulturalEventServiceImpl implements CulturalEventService {
     @Override
     public CulturalEvent updateCulturalEvent(Long id, Long communityId, CulturalEvent updated) {
         CulturalEvent existing = getCulturalEventById(id, communityId);
+        validateDateWithinParentEvent(updated.getMainEventId(), updated.getDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
         existing.setCategory(updated.getCategory());
@@ -57,6 +64,17 @@ public class CulturalEventServiceImpl implements CulturalEventService {
         existing.setHasBacktrack(updated.getHasBacktrack());
         existing.setHasLiveMusic(updated.getHasLiveMusic());
         return repository.save(existing);
+    }
+
+    private void validateDateWithinParentEvent(Long mainEventId, LocalDate date) {
+        if (mainEventId == null || date == null) return;
+        eventRepository.findById(mainEventId).ifPresent(event -> {
+            LocalDate eventStart = event.getStartDate();
+            LocalDate eventEnd = event.getEndDate() != null ? event.getEndDate() : eventStart;
+            if (date.isBefore(eventStart) || date.isAfter(eventEnd)) {
+                throw new InvalidInputException("Cultural activity date " + date + " is outside the event period (" + eventStart + " to " + eventEnd + ")");
+            }
+        });
     }
 
     @Override

@@ -15,6 +15,6 @@ public class RegistrationResponse {
     private String userEmail;
     private String status;
     private String registeredAt;
-    private Boolean checkedIn;
+    private boolean checkedIn;
     private String checkedInAt;
 }
