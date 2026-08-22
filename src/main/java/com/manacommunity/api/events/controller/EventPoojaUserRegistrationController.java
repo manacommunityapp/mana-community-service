@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(/api/events/pooja-registrations)
+@RequestMapping("/api/events/pooja-registrations")
 public class EventPoojaUserRegistrationController {
 
     private final EventPoojaUserRegistrationService service;
@@ -30,29 +30,29 @@ public class EventPoojaUserRegistrationController {
     public ResponseEntity<EventPoojaUserRegistration> createRegistration(
             @RequestBody EventPoojaUserRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestHeader(value = X-Community-Id, required = false) Long communityId,
-            @RequestParam(value = adminOverride, required = false, defaultValue = false) boolean adminOverride) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride) {
         AppUser user = loggedInUserService.resolve(principal);
-        boolean isAdmin = user != null && (user.hasRole(ADMIN) || user.hasRole(SUPER_ADMIN));
+        boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
         EventPoojaUserRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @GetMapping(/my)
+    @GetMapping("/my")
     public ResponseEntity<List<EventPoojaUserRegistration>> getMyRegistrations(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestHeader(value = X-Community-Id, required = false) Long communityId) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(service.getMyRegistrations(user, communityId));
     }
 
     @GetMapping
     public ResponseEntity<List<EventPoojaUserRegistration>> getAllRegistrations(
-            @RequestHeader(value = X-Community-Id, required = false) Long communityId) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
     }
 
-    @GetMapping(/{id})
+    @GetMapping("/{id}")
     public ResponseEntity<EventPoojaUserRegistration> getRegistrationById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -60,7 +60,7 @@ public class EventPoojaUserRegistrationController {
         return ResponseEntity.ok(service.getRegistrationById(id, user));
     }
 
-    @PutMapping(/{id})
+    @PutMapping("/{id}")
     public ResponseEntity<EventPoojaUserRegistration> updateRegistration(
             @PathVariable Long id,
             @RequestBody EventPoojaUserRegistration patch,
@@ -70,10 +70,10 @@ public class EventPoojaUserRegistrationController {
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping(/{id})
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelOrDeleteRegistration(
             @PathVariable Long id,
-            @RequestParam(value = permanent, required = false, defaultValue = false) boolean permanent,
+            @RequestParam(value = "permanent", required = false, defaultValue = "false") boolean permanent,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         if (permanent) {

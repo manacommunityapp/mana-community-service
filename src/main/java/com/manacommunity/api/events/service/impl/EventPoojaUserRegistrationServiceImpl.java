@@ -28,14 +28,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
 
     private boolean isUserAdmin(AppUser user) {
         if (user == null) return false;
-        return user.hasRole(ADMIN) ||
-                user.hasRole(COMMUNITY_ADMIN) ||
-                user.hasRole(EVENT_ADMIN) ||
-                user.hasRole(SUPER_ADMIN) ||
-                user.hasRole(ROLE_ADMIN) ||
-                user.hasRole(ROLE_COMMUNITY_ADMIN) ||
-                user.hasRole(ROLE_EVENT_ADMIN) ||
-                user.hasRole(ROLE_SUPER_ADMIN);
+        return user.hasRole("ADMIN") ||
+                user.hasRole("COMMUNITY_ADMIN") ||
+                user.hasRole("EVENT_ADMIN") ||
+                user.hasRole("SUPER_ADMIN") ||
+                user.hasRole("ROLE_ADMIN") ||
+                user.hasRole("ROLE_COMMUNITY_ADMIN") ||
+                user.hasRole("ROLE_EVENT_ADMIN") ||
+                user.hasRole("ROLE_SUPER_ADMIN");
     }
 
     @Override
@@ -56,23 +56,23 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         }
 
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
-            String code = MNA-2026-POOJ- + (1000 + new Random().nextInt(9000));
+            String code = "MNA-2026-POOJ-" + (1000 + new Random().nextInt(9000));
             registration.setRegCode(code);
         }
 
         if (registration.getQrCodeUrl() == null || registration.getQrCodeUrl().isBlank()) {
-            registration.setQrCodeUrl(https://api.qrserver.com/v1/create-qr-code/?size=180x180&data= + registration.getRegCode());
+            registration.setQrCodeUrl("https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + registration.getRegCode());
         }
 
         if (registration.getStatus() == null || registration.getStatus().isBlank()) {
-            registration.setStatus(CONFIRMED);
+            registration.setStatus("CONFIRMED");
         }
 
         if (registration.getBookingFee() == null || registration.getBookingFee() == 0.0) {
-            registration.setPaymentStatus(FREE);
-            registration.setPaymentMethod(Free Seva);
+            registration.setPaymentStatus("FREE");
+            registration.setPaymentMethod("Free Seva");
         } else if (registration.getPaymentStatus() == null) {
-            registration.setPaymentStatus(PAID);
+            registration.setPaymentStatus("PAID");
         }
 
         return repository.save(registration);
@@ -82,11 +82,11 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     @Transactional
     public EventPoojaUserRegistration updateRegistration(Long id, EventPoojaUserRegistration patch, AppUser user) {
         EventPoojaUserRegistration existing = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(Pooja registration not found with ID:  + id));
+                .orElseThrow(() -> new IllegalArgumentException("Pooja registration not found with ID: " + id));
 
         boolean isAdmin = isUserAdmin(user);
         if (!isAdmin && user != null && existing.getUser() != null && !existing.getUser().getId().equals(user.getId())) {
-            throw new org.springframework.security.access.AccessDeniedException(You can only update your own pooja registrations.);
+            throw new org.springframework.security.access.AccessDeniedException("You can only update your own pooja registrations.");
         }
 
         if (patch.getParticipantName() != null && !patch.getParticipantName().isBlank()) {
@@ -134,14 +134,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     @Transactional(readOnly = true)
     public EventPoojaUserRegistration getRegistrationById(Long id, AppUser user) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(Pooja registration not found with ID:  + id));
+                .orElseThrow(() -> new IllegalArgumentException("Pooja registration not found with ID: " + id));
     }
 
     @Override
     @Transactional
     public void cancelRegistration(Long id, AppUser user) {
         EventPoojaUserRegistration existing = getRegistrationById(id, user);
-        existing.setStatus(CANCELLED);
+        existing.setStatus("CANCELLED");
         repository.save(existing);
     }
 
