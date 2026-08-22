@@ -64,4 +64,6 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     long countByTournamentRegistrationStatus(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
 
     long countByCommunityIdAndTournamentRegistrationStatus(Long communityId, com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
+
+    long countByCommunityIdAndTournamentRegistrationStatusIn(Long communityId, List<com.manacommunity.api.model.Tournament.EventStatus> registrationStatuses);
 }

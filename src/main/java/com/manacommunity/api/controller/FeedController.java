@@ -1,6 +1,7 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.*;
+import com.manacommunity.api.model.CommentReactionType;
 import com.manacommunity.api.model.ReactionType;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -34,6 +35,14 @@ public class FeedController {
         AppUser currentUser = loggedInUserService.resolve(principal);
         int safeSize = Math.min(Math.max(size, 1), 50);
         Page<PostResponse> response = feedService.getFeed(currentUser, type, Math.max(page, 0), safeSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/summary-counts")
+    public ResponseEntity<FeedSummaryCountsResponse> getSidebarSummaryCounts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        FeedSummaryCountsResponse response = feedService.getSidebarSummaryCounts(currentUser);
         return ResponseEntity.ok(response);
     }
 
@@ -125,6 +134,9 @@ public class FeedController {
             @PathVariable Long id) {
         AppUser currentUser = loggedInUserService.resolve(principal);
         LikeToggleResponse response = feedService.toggleLike(currentUser, id);
+        if (response.liked()) {
+            engagementService.recordActivity(currentUser, "POST_LIKED", 2);
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -137,13 +149,33 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}/likes")
+    public ResponseEntity<List<PostLikerResponse>> getPostLikers(@PathVariable Long id) {
+        return ResponseEntity.ok(feedService.getPostLikers(id));
+    }
+
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
-        loggedInUserService.resolve(principal);
-        List<CommentResponse> response = feedService.getComments(id);
+        AppUser currentUser = principal != null ? loggedInUserService.resolve(principal) : null;
+        List<CommentResponse> response = feedService.getComments(id, currentUser != null ? currentUser.getId() : null);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/comments/{commentId}/like")
+    public ResponseEntity<CommentLikeToggleResponse> toggleCommentLike(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long commentId) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        CommentLikeToggleResponse response = feedService.toggleCommentLike(currentUser, commentId);
+        engagementService.recordActivity(currentUser, "COMMENT_LIKED", 2);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/comments/{commentId}/likes")
+    public ResponseEntity<List<CommentLikerResponse>> getCommentLikers(@PathVariable Long commentId) {
+        return ResponseEntity.ok(feedService.getCommentLikers(commentId));
     }
 
     @PostMapping("/{id}/comments")
@@ -202,5 +234,35 @@ public class FeedController {
         AppUser currentUser = loggedInUserService.resolve(principal);
         engagementService.reportContent(currentUser, "POST", id, request.reason(), request.description());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Toggle a rich reaction (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS) on a comment.
+     * Example: POST /api/posts/comments/42/react?type=LOVE
+     */
+    @PostMapping("/comments/{commentId}/react")
+    public ResponseEntity<CommentReactionToggleResponse> reactToComment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long commentId,
+            @RequestParam String type) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        CommentReactionType reactionType;
+        try {
+            reactionType = CommentReactionType.valueOf(type.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            reactionType = CommentReactionType.LIKE;
+        }
+        CommentReactionToggleResponse response = feedService.toggleCommentReaction(currentUser, commentId, reactionType);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Returns per-type reaction counts for a comment.
+     * Example: GET /api/posts/comments/42/reactions → { "LIKE": 3, "LOVE": 2 }
+     */
+    @GetMapping("/comments/{commentId}/reactions")
+    public ResponseEntity<java.util.Map<String, Long>> getCommentReactions(
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(feedService.getCommentReactionCounts(commentId));
     }
 }

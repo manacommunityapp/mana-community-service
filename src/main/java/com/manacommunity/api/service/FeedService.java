@@ -37,8 +37,17 @@ public class FeedService {
     private final PostHashtagRepository postHashtagRepository;
     private final HashtagRepository hashtagRepository;
     private final CommunityLeaderRepository communityLeaderRepository;
+    private final CommunityWhoToCallRepository communityWhoToCallRepository;
+    private final TrendingTopicRepository trendingTopicRepository;
+    private final GroupMembershipRepository groupMembershipRepository;
+    private final UserEngagementScoreRepository userEngagementScoreRepository;
+    private final SportsEventRepository sportsEventRepository;
+    private final com.manacommunity.api.events.repository.CommunityEventRepository communityEventRepository;
+    private final com.manacommunity.api.events.repository.EventRegistrationRepository eventRegistrationRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;
+    private final PostCommentLikeRepository postCommentLikeRepository;
+    private final PostCommentReactionRepository postCommentReactionRepository;
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
 
@@ -65,14 +74,14 @@ public class FeedService {
                 posts = postRepository.findByCommunityIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(communityId, pageable);
             }
         }
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional(readOnly = true)
     public Page<PostResponse> getGroupFeed(AppUser currentUser, Long groupId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.findByGroupIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(groupId, pageable);
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional
@@ -335,8 +344,8 @@ public class FeedService {
     @Transactional(readOnly = true)
     public Page<PostResponse> getBookmarkedPosts(AppUser currentUser, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<PostBookmark> bookmarks = postBookmarkRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId(), pageable);
-        return bookmarks.map(bm -> toPostResponse(bm.getPost(), currentUser.getId()));
+        Page<Post> posts = postRepository.findBookmarkedByUser(currentUser.getId(), pageable);
+        return toPostResponsePage(posts, currentUser.getId());
     }
 
     @Transactional
@@ -385,7 +394,162 @@ public class FeedService {
     }
 
     @Transactional(readOnly = true)
-    public List<CommentResponse> getComments(Long postId) {
+    public List<PostLikerResponse> getPostLikers(Long postId) {
+        if (!postRepository.existsById(postId)) {
+            throw new ResourceNotFoundException("Post", postId);
+        }
+        Map<Long, PostLikerResponse> likersMap = new LinkedHashMap<>();
+
+        // 1. Reactions (LOVE, CELEBRATE, HELPFUL, etc.)
+        List<PostReaction> reactions = postReactionRepository.findByPostId(postId);
+        for (PostReaction r : reactions) {
+            AppUser u = r.getUser();
+            if (u != null) {
+                likersMap.put(u.getId(), new PostLikerResponse(
+                        u.getId(),
+                        u.getFullName(),
+                        u.getProfilePicUrl(),
+                        mapRole(u),
+                        r.getReactionType() != null ? r.getReactionType().name() : "LIKE",
+                        r.getCreatedAt()
+                ));
+            }
+        }
+
+        // 2. Direct Likes (from post_like table)
+        List<PostLike> likes = postLikeRepository.findByPostIdOrderByCreatedAtDesc(postId);
+        for (PostLike l : likes) {
+            AppUser u = l.getUser();
+            if (u != null && !likersMap.containsKey(u.getId())) {
+                likersMap.put(u.getId(), new PostLikerResponse(
+                        u.getId(),
+                        u.getFullName(),
+                        u.getProfilePicUrl(),
+                        mapRole(u),
+                        "LIKE",
+                        l.getCreatedAt()
+                ));
+            }
+        }
+
+        return new ArrayList<>(likersMap.values());
+    }
+
+    @Transactional
+    public CommentLikeToggleResponse toggleCommentLike(AppUser currentUser, Long commentId) {
+        PostComment comment = postCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
+
+        Optional<PostCommentLike> existing = postCommentLikeRepository.findByCommentIdAndUserId(commentId, currentUser.getId());
+        boolean liked;
+        if (existing.isPresent()) {
+            postCommentLikeRepository.delete(existing.get());
+            comment.setLikesCount(Math.max(0, comment.getLikesCount() - 1));
+            liked = false;
+        } else {
+            PostCommentLike newLike = PostCommentLike.builder()
+                    .comment(comment)
+                    .user(currentUser)
+                    .build();
+            postCommentLikeRepository.save(newLike);
+            comment.setLikesCount(comment.getLikesCount() + 1);
+            liked = true;
+        }
+        postCommentRepository.save(comment);
+        return new CommentLikeToggleResponse(commentId, comment.getLikesCount(), liked);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentLikerResponse> getCommentLikers(Long commentId) {
+        if (!postCommentRepository.existsById(commentId)) {
+            throw new ResourceNotFoundException("Comment", commentId);
+        }
+        List<PostCommentLike> likes = postCommentLikeRepository.findByCommentIdOrderByCreatedAtDesc(commentId);
+        return likes.stream()
+                .filter(l -> l.getUser() != null)
+                .map(l -> {
+                    AppUser u = l.getUser();
+                    return new CommentLikerResponse(
+                            u.getId(),
+                            u.getFullName(),
+                            u.getProfilePicUrl(),
+                            mapRole(u),
+                            l.getCreatedAt()
+                    );
+                })
+                .toList();
+    }
+
+    /**
+     * Toggle a rich comment reaction (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS).
+     * - Same reaction → remove (un-react).
+     * - Different reaction → change to new type.
+     * - No existing reaction → add new.
+     * Also syncs the comment's likesCount with the total reactions in post_comment_reaction.
+     */
+    @Transactional
+    public CommentReactionToggleResponse toggleCommentReaction(AppUser currentUser, Long commentId, CommentReactionType reactionType) {
+        PostComment comment = postCommentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
+
+        Optional<PostCommentReaction> existing =
+                postCommentReactionRepository.findByCommentIdAndUserId(commentId, currentUser.getId());
+
+        String userReaction = null;
+        if (existing.isPresent()) {
+            PostCommentReaction reaction = existing.get();
+            if (reaction.getReactionType() == reactionType) {
+                // Same → remove
+                postCommentReactionRepository.delete(reaction);
+            } else {
+                // Different → change
+                reaction.setReactionType(reactionType);
+                postCommentReactionRepository.save(reaction);
+                userReaction = reactionType.name();
+            }
+        } else {
+            PostCommentReaction newReaction = PostCommentReaction.builder()
+                    .comment(comment)
+                    .user(currentUser)
+                    .reactionType(reactionType)
+                    .build();
+            postCommentReactionRepository.save(newReaction);
+            userReaction = reactionType.name();
+        }
+
+        // Sync likesCount to total reactions in the rich-reaction table
+        Map<String, Long> counts = getCommentReactionCountsMap(commentId);
+        int total = counts.values().stream().mapToInt(Long::intValue).sum();
+        comment.setLikesCount(total);
+        postCommentRepository.save(comment);
+
+        return new CommentReactionToggleResponse(commentId, total, userReaction, counts);
+    }
+
+    /**
+     * Returns per-type reaction counts for a given comment.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Long> getCommentReactionCounts(Long commentId) {
+        if (!postCommentRepository.existsById(commentId)) {
+            throw new ResourceNotFoundException("Comment", commentId);
+        }
+        return getCommentReactionCountsMap(commentId);
+    }
+
+    private Map<String, Long> getCommentReactionCountsMap(Long commentId) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        List<Object[]> rows = postCommentReactionRepository.countReactionsByCommentId(commentId);
+        for (Object[] row : rows) {
+            CommentReactionType rt = (CommentReactionType) row[0];
+            Long count = (Long) row[1];
+            counts.put(rt.name(), count);
+        }
+        return counts;
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getComments(Long postId, Long currentUserId) {
         if (!postRepository.existsById(postId)) {
             throw new ResourceNotFoundException("Post", postId);
         }
@@ -402,9 +566,35 @@ public class FeedService {
             }
         }
 
+        Set<Long> likedCommentIds = (currentUserId != null && !allComments.isEmpty())
+                ? new HashSet<>(allComments.stream()
+                .filter(c -> postCommentLikeRepository.existsByCommentIdAndUserId(c.getId(), currentUserId))
+                .map(PostComment::getId)
+                .toList())
+                : Collections.emptySet();
+
+        // Build per-comment rich reaction maps (user's reaction type + counts)
+        Map<Long, String> userReactionPerComment = new HashMap<>();
+        Map<Long, Map<String, Long>> reactionCountsPerComment = new HashMap<>();
+        if (!allComments.isEmpty()) {
+            for (PostComment c : allComments) {
+                reactionCountsPerComment.put(c.getId(), getCommentReactionCountsMap(c.getId()));
+                if (currentUserId != null) {
+                    postCommentReactionRepository.findByCommentIdAndUserId(c.getId(), currentUserId)
+                            .ifPresent(r -> userReactionPerComment.put(c.getId(), r.getReactionType().name()));
+                }
+            }
+        }
+
         return topLevel.stream()
-                .map(c -> toCommentResponseWithReplies(c, repliesMap))
+                .map(c -> toCommentResponseWithReplies(c, repliesMap, likedCommentIds,
+                        userReactionPerComment, reactionCountsPerComment))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getComments(Long postId) {
+        return getComments(postId, null);
     }
 
     @Transactional
@@ -485,7 +675,189 @@ public class FeedService {
         }
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.searchPosts(currentUser.getCommunity().getId(), query, pageable);
-        return posts.map(post -> toPostResponse(post, currentUser.getId()));
+        return toPostResponsePage(posts, currentUser.getId());
+    }
+
+    private Page<PostResponse> toPostResponsePage(Page<Post> postsPage, Long currentUserId) {
+        List<Post> posts = postsPage.getContent();
+        if (posts.isEmpty()) {
+            return postsPage.map(p -> null);
+        }
+
+        List<Long> postIds = posts.stream().map(Post::getId).toList();
+
+        // 1. Batch Likes for this user
+        Set<Long> likedPostIds = (currentUserId != null)
+                ? postLikeRepository.findLikedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 2. Batch Bookmarks for this user
+        Set<Long> bookmarkedPostIds = (currentUserId != null)
+                ? postBookmarkRepository.findBookmarkedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 3. Batch Reaction Counts: Map<PostId, Map<ReactionTypeStr, Count>>
+        Map<Long, Map<String, Long>> reactionCountsByPostId = new HashMap<>();
+        List<Object[]> rawReactionCounts = postReactionRepository.countReactionsByPostIdInGroupByReactionType(postIds);
+        for (Object[] row : rawReactionCounts) {
+            Long pid = (Long) row[0];
+            ReactionType rt = (ReactionType) row[1];
+            Long count = (Long) row[2];
+            reactionCountsByPostId.computeIfAbsent(pid, k -> new LinkedHashMap<>()).put(rt.name(), count);
+        }
+
+        // 4. Batch User Reactions: Map<PostId, ReactionType>
+        Map<Long, ReactionType> userReactionsByPostId = new HashMap<>();
+        if (currentUserId != null) {
+            List<Object[]> rawUserReactions = postReactionRepository.findUserReactionsByUserIdAndPostIdIn(currentUserId, postIds);
+            for (Object[] row : rawUserReactions) {
+                Long pid = (Long) row[0];
+                ReactionType rt = (ReactionType) row[1];
+                userReactionsByPostId.put(pid, rt);
+            }
+        }
+
+        // 5. Batch Media Attachments: Map<PostId, List<PostMedia>>
+        Map<Long, List<PostMedia>> mediaByPostId = new HashMap<>();
+        List<PostMedia> allMedia = postMediaRepository.findByPostIdInOrderBySortOrderAsc(postIds);
+        for (PostMedia pm : allMedia) {
+            mediaByPostId.computeIfAbsent(pm.getPost().getId(), k -> new ArrayList<>()).add(pm);
+        }
+
+        // 6. Batch Polls (only for POLL posts)
+        List<Long> pollPostIds = posts.stream()
+                .filter(p -> p.getPostType() == PostType.POLL)
+                .map(Post::getId)
+                .toList();
+
+        Map<Long, Map<String, Long>> pollVotesByPostId = new HashMap<>();
+        Map<Long, String> userPollVotesByPostId = new HashMap<>();
+
+        if (!pollPostIds.isEmpty()) {
+            List<Object[]> aggregatedVotes = pollVoteRepository.countVotesByPostIdInGroupByOption(pollPostIds);
+            for (Object[] row : aggregatedVotes) {
+                Long pid = (Long) row[0];
+                String opt = (String) row[1];
+                Long count = (Long) row[2];
+                pollVotesByPostId.computeIfAbsent(pid, k -> new HashMap<>()).put(opt, count);
+            }
+
+            if (currentUserId != null) {
+                List<Object[]> userVotes = pollVoteRepository.findUserVotesByUserIdAndPostIdIn(currentUserId, pollPostIds);
+                for (Object[] row : userVotes) {
+                    Long pid = (Long) row[0];
+                    String opt = (String) row[1];
+                    userPollVotesByPostId.put(pid, opt);
+                }
+            }
+        }
+
+        return postsPage.map(post -> {
+            Long pid = post.getId();
+            AppUser author = post.getUser();
+            String initials = author != null ? getInitials(author.getFullName()) : "??";
+            boolean liked = likedPostIds.contains(pid);
+            boolean bookmarked = bookmarkedPostIds.contains(pid);
+
+            Map<String, Long> reactionCounts = reactionCountsByPostId.getOrDefault(pid, Collections.emptyMap());
+            Optional<ReactionType> userReaction = Optional.ofNullable(userReactionsByPostId.get(pid));
+
+            List<String> optionsList = null;
+            Map<String, Long> pollVotes = null;
+            String userVotedOption = null;
+
+            if (post.getPostType() == PostType.POLL) {
+                if (post.getPollOptions() != null) {
+                    optionsList = Arrays.stream(post.getPollOptions().split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList();
+                }
+
+                pollVotes = new HashMap<>();
+                if (optionsList != null) {
+                    for (String opt : optionsList) {
+                        pollVotes.put(opt, 0L);
+                    }
+                }
+                Map<String, Long> actualVotes = pollVotesByPostId.get(pid);
+                if (actualVotes != null) {
+                    pollVotes.putAll(actualVotes);
+                }
+                userVotedOption = userPollVotesByPostId.get(pid);
+            }
+
+            List<PostMedia> mediaList = mediaByPostId.getOrDefault(pid, Collections.emptyList());
+            List<PostResponse.MediaResponse> mediaResponses = mediaList.stream()
+                    .map(m -> {
+                        String url = m.getMediaUrl();
+                        String thumbUrl = m.getThumbnailUrl();
+                        if (m.getMediaObjectExternalId() != null) {
+                            Optional<MediaObject> mo = mediaRepository.findByExternalIdAndDeletedFalse(m.getMediaObjectExternalId());
+                            if (mo.isPresent()) {
+                                url = mediaUrlService.generateUrl(mo.get());
+                                String freshThumb = mediaUrlService.generateThumbnailUrl(mo.get());
+                                if (freshThumb != null) thumbUrl = freshThumb;
+                            }
+                        }
+                        String mediaObjectIdStr = m.getMediaObjectExternalId() != null ? m.getMediaObjectExternalId().toString() : null;
+                        return new PostResponse.MediaResponse(m.getId(), url, m.getMediaType(), thumbUrl, m.getAltText(), m.getSortOrder(), mediaObjectIdStr);
+                    })
+                    .toList();
+
+            PostResponse.GroupSummary groupSummary = null;
+            if (post.getGroup() != null) {
+                CommunityGroup g = post.getGroup();
+                groupSummary = new PostResponse.GroupSummary(g.getId(), g.getName(), g.getSlug(), g.getIconUrl(), g.getGroupType());
+            }
+
+            return new PostResponse(
+                    post.getId(),
+                    post.getContent(),
+                    post.getTitle(),
+                    post.getImageUrl(),
+                    post.isOfficial(),
+                    post.isPinned(),
+                    post.getLikesCount(),
+                    post.getCommentsCount(),
+                    post.getSharesCount(),
+                    post.getBookmarksCount(),
+                    post.getViewsCount(),
+                    liked,
+                    bookmarked,
+                    userReaction.orElse(null),
+                    reactionCounts,
+                    author != null ? author.getId() : null,
+                    author != null ? author.getFullName() : "",
+                    initials,
+                    author != null ? mapRole(author) : "",
+                    author != null ? author.getProfilePicUrl() : null,
+                    post.getCreatedAt(),
+                    post.getPostType(),
+                    post.getVisibility(),
+                    post.getPriority(),
+                    post.getPrice(),
+                    post.getLocation(),
+                    post.getPollQuestion(),
+                    optionsList,
+                    pollVotes,
+                    userVotedOption,
+                    post.getPollEndDate(),
+                    post.isPollAnonymous(),
+                    post.getHashtags(),
+                    post.getMentions(),
+                    post.getLinkUrl(),
+                    post.getLinkTitle(),
+                    post.getLinkDescription(),
+                    post.getLinkImage(),
+                    post.getEventDate(),
+                    post.getEventEndDate(),
+                    post.getEventVenue(),
+                    mediaResponses,
+                    groupSummary,
+                    post.getModerationStatus()
+            );
+        });
     }
 
     private void processHashtags(Post post) {
@@ -674,13 +1046,29 @@ public class FeedService {
         );
     }
 
-    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap) {
+    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap, Set<Long> likedCommentIds) {
+        return toCommentResponseWithReplies(comment, repliesMap, likedCommentIds,
+                Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    private CommentResponse toCommentResponseWithReplies(
+            PostComment comment,
+            Map<Long, List<PostComment>> repliesMap,
+            Set<Long> likedCommentIds,
+            Map<Long, String> userReactionPerComment,
+            Map<Long, Map<String, Long>> reactionCountsPerComment) {
+
         AppUser author = comment.getUser();
         String initials = getInitials(author.getFullName());
         List<PostComment> replies = repliesMap.getOrDefault(comment.getId(), List.of());
         List<CommentResponse> replyResponses = replies.stream()
-                .map(r -> toCommentResponseWithReplies(r, repliesMap))
+                .map(r -> toCommentResponseWithReplies(r, repliesMap, likedCommentIds,
+                        userReactionPerComment, reactionCountsPerComment))
                 .toList();
+
+        boolean isLiked = likedCommentIds != null && likedCommentIds.contains(comment.getId());
+        String userReaction = userReactionPerComment.get(comment.getId());
+        Map<String, Long> reactionCounts = reactionCountsPerComment.getOrDefault(comment.getId(), Collections.emptyMap());
 
         return new CommentResponse(
                 comment.getId(),
@@ -697,8 +1085,15 @@ public class FeedService {
                 comment.getRepliesCount(),
                 comment.isPinned(),
                 comment.isAcceptedAnswer(),
-                replyResponses
+                replyResponses,
+                isLiked,
+                userReaction,
+                reactionCounts.isEmpty() ? null : reactionCounts
         );
+    }
+
+    private CommentResponse toCommentResponseWithReplies(PostComment comment, Map<Long, List<PostComment>> repliesMap) {
+        return toCommentResponseWithReplies(comment, repliesMap, Collections.emptySet());
     }
 
     private UUID parseUuid(String value) {
@@ -770,5 +1165,56 @@ public class FeedService {
         }
 
         return "Verified Member";
+    }
+
+    @Transactional(readOnly = true)
+    public FeedSummaryCountsResponse getSidebarSummaryCounts(AppUser currentUser) {
+        if (currentUser == null || currentUser.getCommunity() == null) {
+            return new FeedSummaryCountsResponse(0, 0, 0, 0, 0, 0, 0, 0, 1, 0);
+        }
+        Long communityId = currentUser.getCommunity().getId();
+        Long userId = currentUser.getId();
+
+        long dirLeaderCount = communityLeaderRepository.countByCommunityIdAndIsActiveTrue(communityId);
+        long dirWhoToCallCount = communityWhoToCallRepository.countByCommunityIdAndIsActiveTrue(communityId);
+        long directoryCount = dirLeaderCount + dirWhoToCallCount;
+
+        long sportsCount = 0;
+        try {
+            sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
+                    communityId,
+                    List.of(
+                            com.manacommunity.api.model.Tournament.EventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.model.Tournament.EventStatus.LIVE
+                    )
+            );
+        } catch (Exception ignored) {
+            sportsCount = sportsEventRepository.findByCommunityIdOrderByEventDateStartDesc(communityId).size();
+        }
+
+        long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
+        long myPasses = eventRegistrationRepository.countByUserId(userId);
+        long trending = trendingTopicRepository.countByCommunityId(communityId);
+        long myGroups = groupMembershipRepository.countByUserIdAndStatus(userId, "ACTIVE");
+        long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);
+
+        Optional<UserEngagementScore> scoreOpt = userEngagementScoreRepository.findByUserIdAndCommunityId(userId, communityId);
+        int points = scoreOpt.map(UserEngagementScore::getTotalPoints).orElse(0);
+        int level = scoreOpt.map(UserEngagementScore::getLevel).orElse(1);
+
+        long officialCount = postRepository.countByCommunityIdAndOfficialTrueAndDeletedFalse(communityId);
+
+        return new FeedSummaryCountsResponse(
+                directoryCount,
+                sportsCount,
+                upcomingEvents,
+                myPasses,
+                trending,
+                myGroups,
+                contributorsCount,
+                points,
+                level,
+                officialCount
+        );
     }
 }

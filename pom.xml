@@ -83,6 +83,13 @@
 
 
 
+        <!-- Twilio Java SDK — SMS / WhatsApp / Voice provider -->
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>9.14.0</version>
+        </dependency>
+
         <!-- JavaMail / SMTP support (JavaMailSender) for email notifications -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -159,8 +166,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.32</version>
-            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <!-- Testing -->

@@ -11,8 +11,10 @@ import java.time.LocalDateTime;
 @Builder
 public record EmailDeliveryLogDto(
         Long id,
+        String sender,
         String recipient,
         String subject,
+        String body,
         String templateType,
         String status,
         String errorMessage,
@@ -25,8 +27,10 @@ public record EmailDeliveryLogDto(
     public static EmailDeliveryLogDto from(EmailDeliveryLog log) {
         return EmailDeliveryLogDto.builder()
                 .id(log.getId())
+                .sender(log.getSender())
                 .recipient(log.getRecipient())
                 .subject(log.getSubject())
+                .body(log.getBody())
                 .templateType(log.getTemplateType())
                 .status(log.getStatus())
                 .errorMessage(log.getErrorMessage())

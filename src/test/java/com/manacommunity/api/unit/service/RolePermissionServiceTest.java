@@ -92,7 +92,7 @@ class RolePermissionServiceTest {
             when(appUserRepo.findById(user.getId())).thenReturn(Optional.of(user));
 
             service.updateUserPermissions(user.getId(), "MEMBER",
-                    List.of("VIEW_SPORTS_MAIN", "VIEW_EVENT_REGISTRATIONS"));
+                    List.of("VIEW_SPORTS_MAIN", "VIEW_EVENT_REGISTRATIONS"), 1L);
 
             verify(rolePermissionRepo).deleteByUserId(user.getId());
             @SuppressWarnings("unchecked")
@@ -108,8 +108,19 @@ class RolePermissionServiceTest {
             when(appUserRepo.findById(anyLong())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() ->
-                    service.updateUserPermissions(999L, "MEMBER", List.of("VIEW_SPORTS_MAIN")))
+                    service.updateUserPermissions(999L, "MEMBER", List.of("VIEW_SPORTS_MAIN"), 1L))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("throws AccessDeniedException when caller is in a different community")
+        void crossCommunityAccessDenied() {
+            AppUser user = TestDataBuilder.memberUser();
+            when(appUserRepo.findById(user.getId())).thenReturn(Optional.of(user));
+
+            assertThatThrownBy(() ->
+                    service.updateUserPermissions(user.getId(), "MEMBER", List.of("VIEW_SPORTS_MAIN"), 999L))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
         }
     }
 }

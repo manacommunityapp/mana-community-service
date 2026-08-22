@@ -17,6 +17,7 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private final LunchDinnerRepository lunchDinnerRepository;
     private final CompetitionRepository competitionRepository;
     private final CommunityEventRepository communityEventRepository;
+    private final AppUserRepository appUserRepository;
 
     public EventBookingRegistrationServiceImpl(
             EventBookingRegistrationRepository repository,
@@ -46,13 +48,27 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             PoojaSevaRepository poojaSevaRepository,
             LunchDinnerRepository lunchDinnerRepository,
             CompetitionRepository competitionRepository,
-            CommunityEventRepository communityEventRepository) {
+            CommunityEventRepository communityEventRepository,
+            AppUserRepository appUserRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.poojaSevaRepository = poojaSevaRepository;
         this.lunchDinnerRepository = lunchDinnerRepository;
         this.competitionRepository = competitionRepository;
         this.communityEventRepository = communityEventRepository;
+        this.appUserRepository = appUserRepository;
+    }
+
+    private boolean isUserAdmin(AppUser user) {
+        if (user == null) return false;
+        return user.hasRole("ADMIN") ||
+                user.hasRole("COMMUNITY_ADMIN") ||
+                user.hasRole("EVENT_ADMIN") ||
+                user.hasRole("SUPER_ADMIN") ||
+                user.hasRole("ROLE_ADMIN") ||
+                user.hasRole("ROLE_COMMUNITY_ADMIN") ||
+                user.hasRole("ROLE_EVENT_ADMIN") ||
+                user.hasRole("ROLE_SUPER_ADMIN");
     }
 
     @Override
@@ -64,16 +80,27 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     @Override
     @Transactional
     public EventBookingRegistration createRegistration(EventBookingRegistration registration, AppUser user, Long communityId, boolean adminOverride) {
-        if (!adminOverride) {
+        boolean isAdmin = isUserAdmin(user) || adminOverride;
+        AppUser targetUser = user;
+
+        if (isAdmin) {
+            if (registration.getUser() != null && registration.getUser().getId() != null) {
+                targetUser = appUserRepository.findById(registration.getUser().getId()).orElse(user);
+            }
+        }
+
+        if (!isAdmin) {
             validateCapacityAndDeadline(registration);
         }
 
-        Community comm = (user != null && user.getCommunity() != null)
-                ? user.getCommunity()
-                : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
+        Community comm = (targetUser != null && targetUser.getCommunity() != null)
+                ? targetUser.getCommunity()
+                : (user != null && user.getCommunity() != null)
+                        ? user.getCommunity()
+                        : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
 
         registration.setId(null);
-        registration.setUser(user);
+        registration.setUser(targetUser);
         registration.setCommunity(comm);
 
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
@@ -367,6 +394,11 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     @Override
     @Transactional(readOnly = true)
     public EventBookingRegistration getRegistrationById(Long id, AppUser user) {
+        boolean isAdmin = isUserAdmin(user);
+        if (isAdmin) {
+            return repository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + id));
+        }
         if (user != null && user.getId() != null) {
             return repository.findByIdAndUserId(id, user.getId())
                     .orElseThrow(() -> new IllegalArgumentException("Registration not found: " + id));

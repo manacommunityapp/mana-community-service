@@ -15,6 +15,10 @@ public interface CommunityLeaderRepository extends JpaRepository<CommunityLeader
 
     List<CommunityLeader> findByCommunityIdOrderByDisplayOrderAsc(Long communityId);
 
+    long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    long countByCommunityId(Long communityId);
+
     boolean existsByCommunityIdAndUserIdAndDesignation(Long communityId, Long userId, String designation);
 
     @Query("""
@@ -47,8 +51,6 @@ public interface CommunityLeaderRepository extends JpaRepository<CommunityLeader
             ORDER BY l.committee ASC
             """)
     List<String> findDistinctCommittees(@Param("communityId") Long communityId);
-
-    long countByCommunityIdAndIsActiveTrue(Long communityId);
 
     List<CommunityLeader> findByUserIdAndIsActiveTrue(Long userId);
 }

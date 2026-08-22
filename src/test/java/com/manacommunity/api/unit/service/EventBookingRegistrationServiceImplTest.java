@@ -10,6 +10,7 @@ import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.impl.EventBookingRegistrationServiceImpl;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -93,7 +94,8 @@ class EventBookingRegistrationServiceImplTest {
                 poojaSevaRepository,
                 mock(LunchDinnerRepository.class),
                 mock(CompetitionRepository.class),
-                mock(CommunityEventRepository.class)
+                mock(CommunityEventRepository.class),
+                mock(AppUserRepository.class)
         );
     }
 }

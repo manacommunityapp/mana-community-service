@@ -22,7 +22,7 @@ public class EmailProperties {
     private boolean enabled = false;
 
     /** Envelope "from" address. */
-    private String from = "no-reply@manacommunity.app";
+    private String from = "noreply@manacommunityhub.com";
 
     /** Friendly display name shown next to the from address. */
     private String fromName = "Mana Community";
@@ -48,4 +48,15 @@ public class EmailProperties {
     private String defaultRecipient;
 
     public enum RecipientMode { NONE, REDIRECT, CC }
+
+    /** Brevo (Sendinblue) Cloud API Integration Settings. */
+    private Brevo brevo = new Brevo();
+
+    @Getter
+    @Setter
+    public static class Brevo {
+        private boolean enabled = true;
+        private String apiKey = "";
+        private String baseUrl = "https://api.brevo.com/v3";
+    }
 }
