@@ -596,10 +596,22 @@ public class EventService {
         }
 
         // Use DB count for concurrent-safe capacity check
-        if (event.getCapacity() != null) {
-            long currentCount = regRepo.countByEventId(eventId);
-            if (currentCount >= event.getCapacity()) {
-                throw new EventFullException(event.getTitle(), event.getCapacity());
+        Integer maxLimit = event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity();
+        if (maxLimit != null && maxLimit > 0) {
+            long directCount = regRepo.countByEventId(eventId);
+            long bookingCount = 0;
+            if (bookingRegRepo != null) {
+                List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings = new java.util.ArrayList<>();
+                bookings.addAll(bookingRegRepo.findByActivityId("event-" + eventId));
+                bookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
+                bookingCount = bookings.stream()
+                        .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                        .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                        .sum();
+            }
+            long currentCount = Math.max(directCount, bookingCount);
+            if (currentCount >= maxLimit) {
+                throw new EventFullException(event.getTitle(), maxLimit);
             }
         }
 
@@ -617,9 +629,27 @@ public class EventService {
         double sponsorTotalReceived = sponsorRepo.sumAmountReceivedByCommunity(communityId);
         double totalRevenue = donationTotal + sponsorTotalReceived;
 
-        long totalEvents = eventRepo.countByCommunityId(communityId);
+        long totalEvents = communityId != null ? eventRepo.countByCommunityId(communityId) : eventRepo.count();
+        if (totalEvents == 0) {
+            totalEvents = eventRepo.count();
+        }
         long upcomingEvents = eventRepo.countUpcomingByCommunity(communityId);
-        long totalRegistrations = regRepo.countByEventCommunityId(communityId);
+        long mainEventRegs = communityId != null ? regRepo.countByEventCommunityId(communityId) : regRepo.count();
+        if (mainEventRegs == 0) {
+            mainEventRegs = regRepo.count();
+        }
+        long bookingRegs = 0;
+        if (bookingRegRepo != null) {
+            java.util.List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings = communityId != null
+                    ? bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
+                    : bookingRegRepo.findAll();
+            if (bookings != null && !bookings.isEmpty()) {
+                bookingRegs = bookings.stream()
+                        .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                        .sum();
+            }
+        }
+        long totalRegistrations = Math.max(mainEventRegs, bookingRegs);
         long totalVolunteers = volunteerRepo.countByCommunityId(communityId);
         double totalExpenses = expenseRepo.sumAmountByCommunity(communityId);
 
@@ -707,6 +737,10 @@ public class EventService {
     public DashboardAnalyticsResponse getDashboardAnalytics(Long communityId) {
         // 1. Daily Registrations (Mon - Sun) strictly from database
         List<EventRegistration> registrations = regRepo.findByEventCommunityId(communityId);
+        List<EventBookingRegistration> bookingRegs = bookingRegRepo != null
+                ? (communityId != null ? bookingRegRepo.findByCommunityId(communityId) : bookingRegRepo.findAll())
+                : Collections.emptyList();
+
         String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
         Map<String, Long> countMap = new HashMap<>();
         Map<String, Long> vipMap = new HashMap<>();
@@ -724,6 +758,22 @@ public class EventService {
             }
         }
 
+        if (bookingRegs != null && !bookingRegs.isEmpty()) {
+            for (EventBookingRegistration b : bookingRegs) {
+                LocalDateTime dateToUse = b.getCreatedAt() != null ? b.getCreatedAt() : b.getUpdatedAt();
+                if (dateToUse != null) {
+                    String d = dateToUse.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
+                    long devotees = b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L;
+                    countMap.put(d, countMap.getOrDefault(d, 0L) + devotees);
+                    boolean isVipOrPaid = (b.getCategory() != null && b.getCategory().toLowerCase().contains("vip"))
+                            || "PAID".equalsIgnoreCase(b.getPaymentStatus());
+                    if (isVipOrPaid) {
+                        vipMap.put(d, vipMap.getOrDefault(d, 0L) + devotees);
+                    }
+                }
+            }
+        }
+
         List<DashboardAnalyticsResponse.DailyRegistrationPoint> dailyList = new ArrayList<>();
         for (String d : days) {
             dailyList.add(DashboardAnalyticsResponse.DailyRegistrationPoint.builder()
@@ -734,20 +784,34 @@ public class EventService {
         }
 
         // 2. Pass Categories strictly from database
-        long confirmedCount = registrations != null ? registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED).count() : 0;
-        long pendingCount = registrations != null ? registrations.stream().filter(r -> r.getStatus() == EventRegistration.RegistrationStatus.PENDING).count() : 0;
-        long totalRegs = registrations != null ? registrations.size() : 0;
-        long volunteerCount = volunteerRepo.countByCommunityId(communityId);
+        Map<String, Long> catDistribution = new LinkedHashMap<>();
+        if (bookingRegs != null && !bookingRegs.isEmpty()) {
+            for (EventBookingRegistration b : bookingRegs) {
+                String cat = (b.getCategory() != null && !b.getCategory().isBlank()) ? b.getCategory() : "Event Pass";
+                long devotees = b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L;
+                catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + devotees);
+            }
+        }
+        if (registrations != null && !registrations.isEmpty()) {
+            for (EventRegistration r : registrations) {
+                String cat = r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED ? "Confirmed Passes" : "General Passes";
+                catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + 1);
+            }
+        }
 
+        long volunteerCount = volunteerRepo.countByCommunityId(communityId);
+        String[] colors = {"#4F46E5", "#7C3AED", "#06B6D4", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6"};
         List<DashboardAnalyticsResponse.PassCategoryPoint> categoryList = new ArrayList<>();
-        if (confirmedCount > 0) {
-            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Confirmed Passes").value(confirmedCount).color("#4F46E5").build());
-        }
-        if (totalRegs > 0) {
-            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("General Passes").value(totalRegs).color("#7C3AED").build());
-        }
-        if (pendingCount > 0) {
-            categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Pending Passes").value(pendingCount).color("#F59E0B").build());
+        int colorIdx = 0;
+        for (Map.Entry<String, Long> entry : catDistribution.entrySet()) {
+            if (entry.getValue() > 0) {
+                categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder()
+                        .name(entry.getKey())
+                        .value(entry.getValue())
+                        .color(colors[colorIdx % colors.length])
+                        .build());
+                colorIdx++;
+            }
         }
         if (volunteerCount > 0) {
             categoryList.add(DashboardAnalyticsResponse.PassCategoryPoint.builder().name("Volunteers").value(volunteerCount).color("#16A34A").build());
@@ -948,6 +1012,25 @@ public class EventService {
             }
         }
 
+        // Live dynamic active attendees count (direct + booking registrations)
+        int liveAttendees = 0;
+        if (e.getRegistrations() != null && !e.getRegistrations().isEmpty()) {
+            liveAttendees += (int) e.getRegistrations().stream()
+                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
+                    .count();
+        } else if (regRepo != null && e.getId() != null) {
+            liveAttendees += (int) regRepo.findByEventId(e.getId()).stream()
+                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
+                    .count();
+        }
+
+        if (bookingRegRepo != null && e.getId() != null) {
+            liveAttendees += (int) (bookingRegRepo.countByActivityIdAndStatusNot("event-" + e.getId(), "CANCELLED")
+                    + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(e.getId()), "CANCELLED"));
+        }
+
+        Integer effectiveCapacity = e.getCapacity() != null ? e.getCapacity() : (e.getMaxAttendees() != null ? e.getMaxAttendees() : 100);
+
         return EventResponse.builder()
                 .id(e.getId())
                 .title(e.getTitle())
@@ -961,7 +1044,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(e.getCapacity())
+                .capacity(effectiveCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -979,13 +1062,13 @@ public class EventService {
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
-                .maxAttendees(e.getMaxAttendees())
+                .maxAttendees(effectiveCapacity)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
-                .registrationCount(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
+                .registrationCount(liveAttendees)
                 .createdById(e.getCreatedBy().getId())
                 .createdByName(e.getCreatedBy().getFullName())
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
-                .attendees(e.getRegistrations() != null ? e.getRegistrations().size() : 0)
+                .attendees(liveAttendees)
                 .isRegistered(isRegistered)
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
