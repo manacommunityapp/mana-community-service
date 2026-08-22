@@ -6,14 +6,20 @@ import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
+import com.manacommunity.api.events.entity.EventTicketCategory;
+import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.EventRegistrationRepository;
+import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
 import com.manacommunity.api.user.model.AppUser;
@@ -39,7 +45,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private final PoojaSevaRepository poojaSevaRepository;
     private final LunchDinnerRepository lunchDinnerRepository;
     private final CompetitionRepository competitionRepository;
+    private final CulturalEventRepository culturalEventRepository;
     private final CommunityEventRepository communityEventRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
+    private final EventTicketCategoryRepository ticketCategoryRepository;
     private final AppUserRepository appUserRepository;
 
     public EventBookingRegistrationServiceImpl(
@@ -48,14 +57,20 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             PoojaSevaRepository poojaSevaRepository,
             LunchDinnerRepository lunchDinnerRepository,
             CompetitionRepository competitionRepository,
+            CulturalEventRepository culturalEventRepository,
             CommunityEventRepository communityEventRepository,
+            EventRegistrationRepository eventRegistrationRepository,
+            EventTicketCategoryRepository ticketCategoryRepository,
             AppUserRepository appUserRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.poojaSevaRepository = poojaSevaRepository;
         this.lunchDinnerRepository = lunchDinnerRepository;
         this.competitionRepository = competitionRepository;
+        this.culturalEventRepository = culturalEventRepository;
         this.communityEventRepository = communityEventRepository;
+        this.eventRegistrationRepository = eventRegistrationRepository;
+        this.ticketCategoryRepository = ticketCategoryRepository;
         this.appUserRepository = appUserRepository;
     }
 
@@ -90,7 +105,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
 
         if (!isAdmin) {
-            validateCapacityAndDeadline(registration);
+            Long validatingUserId = (targetUser != null) ? targetUser.getId() : null;
+            validateCapacityAndDeadline(registration, validatingUserId);
         }
 
         Community comm = (targetUser != null && targetUser.getCommunity() != null)
@@ -104,14 +120,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         registration.setCommunity(comm);
 
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
-            String cat = (registration.getCategory() != null && !registration.getCategory().isBlank())
-                    ? registration.getCategory().toUpperCase().replaceAll("[^A-Z]", "")
-                    : "EVT";
-            if (cat.length() > 4) {
-                cat = cat.substring(0, 4);
+            String prefix = "MNA-2026-REG-";
+            if (registration.getCategory() != null) {
+                String catCode = registration.getCategory().replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+                if (catCode.length() > 4) catCode = catCode.substring(0, 4);
+                if (!catCode.isEmpty()) prefix = "MNA-2026-" + catCode + "-";
             }
-            int rand = 1000 + new Random().nextInt(9000);
-            registration.setRegCode("MNA-2026-" + cat + "-" + rand);
+            int rnd = new Random().nextInt(9000) + 1000;
+            registration.setRegCode(prefix + rnd);
         }
 
         if (registration.getQrCodeUrl() == null || registration.getQrCodeUrl().isBlank()) {
@@ -123,10 +139,18 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
 
         if (registration.getPaymentStatus() == null || registration.getPaymentStatus().isBlank()) {
-            registration.setPaymentStatus((registration.getBookingFee() != null && registration.getBookingFee() > 0) ? "PAID" : "FREE");
+            if (registration.getBookingFee() == null || registration.getBookingFee() <= 0) {
+                registration.setPaymentStatus("FREE");
+            } else {
+                registration.setPaymentStatus("PAID");
+            }
         }
 
-        registration.setDevoteeCount(computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson()));
+        int computedDevotees = computeDevoteeCount(registration.getDevoteeCount(), registration.getAttendingDevotees(), registration.getMembersJson());
+        registration.setDevoteeCount(computedDevotees);
+        if (registration.getMembersCount() == null || registration.getMembersCount() <= 0) {
+            registration.setMembersCount(computedDevotees);
+        }
 
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
@@ -139,55 +163,235 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         return saved;
     }
 
-    private void validateCapacityAndDeadline(EventBookingRegistration registration) {
+    private void validateCapacityAndDeadline(EventBookingRegistration registration, Long userId) {
         String actId = registration.getActivityId();
         if (actId == null || actId.isBlank()) return;
 
         try {
             if (actId.startsWith("pooja-")) {
                 Long id = Long.parseLong(actId.replace("pooja-", ""));
-                poojaSevaRepository.findById(id).ifPresent(p -> {
-                    int slots = p.getSlots() != null ? p.getSlots() : 20;
-                    if (slots <= 0) throw new EventFullException(p.getName(), 0);
-                });
+                validatePoojaCapacityAndDeadline(id, registration, userId);
             } else if (actId.startsWith("food-")) {
                 Long id = Long.parseLong(actId.replace("food-", ""));
-                lunchDinnerRepository.findById(id).ifPresent(m -> {
-                    int plates = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
-                    if (plates <= 0) throw new EventFullException(m.getName(), 0);
-                });
+                validateLunchDinnerCapacityAndDeadline(id, registration);
             } else if (actId.startsWith("comp-")) {
                 Long id = Long.parseLong(actId.replace("comp-", ""));
-                competitionRepository.findById(id).ifPresent(c -> {
-                    int max = c.getMaxParticipants() != null ? c.getMaxParticipants() : 50;
-                    if (max <= 0) throw new EventFullException(c.getName(), 0);
-                });
+                validateCompetitionCapacityAndDeadline(id, registration);
+            } else if (actId.startsWith("cultural-") || actId.startsWith("cult-")) {
+                Long id = Long.parseLong(actId.replaceAll("^(cultural|cult)-", ""));
+                validateCulturalCapacityAndDeadline(id, registration);
             } else if (actId.startsWith("event-")) {
                 Long id = Long.parseLong(actId.replace("event-", ""));
-                communityEventRepository.findById(id).ifPresent(ev -> {
-                    if (ev.getCapacity() != null && ev.getCapacity() <= 0) {
-                        throw new EventFullException(ev.getTitle(), 0);
-                    }
-                    if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {
-                        throw new RegistrationClosedException(ev.getTitle(), "past deadline (" + ev.getRegistrationDeadline() + ")");
-                    }
-                });
+                validateEventCapacityAndDeadline(id, registration);
             } else {
                 try {
                     Long id = Long.parseLong(actId);
-                    communityEventRepository.findById(id).ifPresent(ev -> {
-                        if (ev.getCapacity() != null && ev.getCapacity() <= 0) {
-                            throw new EventFullException(ev.getTitle(), 0);
-                        }
-                        if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {
-                            throw new RegistrationClosedException(ev.getTitle(), "past deadline (" + ev.getRegistrationDeadline() + ")");
-                        }
-                    });
+                    validateEventCapacityAndDeadline(id, registration);
                 } catch (NumberFormatException ignored) {}
             }
-        } catch (EventFullException | RegistrationClosedException ex) {
+        } catch (AlreadyRegisteredException | EventFullException | RegistrationClosedException ex) {
             throw ex;
         } catch (Exception ignored) {}
+    }
+
+    private void validatePoojaCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
+        PoojaSeva p = poojaSevaRepository.findById(id).orElse(null);
+        if (p == null) return;
+
+        // Only check duplicate for new registrations (not updates)
+        boolean isNewRegistration = (registration.getId() == null);
+
+        // 1. Block re-registration for the exact same seva
+        if (isNewRegistration && userId != null
+                && repository.existsByUserIdAndActivityIdAndStatusNot(userId, "pooja-" + id, "CANCELLED")) {
+            throw new AlreadyRegisteredException(p.getName());
+        }
+
+        // 2. Block registration if user already has an active booking for ANY seva in the same parent event
+        if (isNewRegistration && userId != null && p.getMainEventId() != null) {
+            List<PoojaSeva> siblingSevas = poojaSevaRepository
+                    .findByMainEventIdOrderByDateAscStartTimeAsc(p.getMainEventId());
+            List<String> siblingActivityIds = siblingSevas.stream()
+                    .map(s -> "pooja-" + s.getId())
+                    .collect(java.util.stream.Collectors.toList());
+            if (!siblingActivityIds.isEmpty()
+                    && repository.existsByUserIdAndActivityIdInAndStatusNot(userId, siblingActivityIds, "CANCELLED")) {
+                throw new AlreadyRegisteredException(
+                        p.getName() + "' Event — only one pooja seva registration is allowed per family per event");
+            }
+        }
+
+        LocalDate today = LocalDate.now();
+        if (p.getEndDate() != null && p.getEndDate().isBefore(today)) {
+            throw new RegistrationClosedException(p.getName(), "Pooja date has passed (" + p.getEndDate() + ")");
+        } else if (p.getEndDate() == null && p.getDate() != null && p.getDate().isBefore(today)) {
+            throw new RegistrationClosedException(p.getName(), "Pooja date has passed (" + p.getDate() + ")");
+        }
+
+        int requested = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                ? registration.getDevoteeCount() : 1;
+
+        int maxSlots = p.getSlots() != null && p.getSlots() > 0 ? p.getSlots() : 20;
+
+        List<EventBookingRegistration> existing = repository.findByActivityId("pooja-" + id);
+        long bookedSlots = existing.stream()
+                .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                .sum();
+
+        if (bookedSlots + requested > maxSlots) {
+            throw new EventFullException(p.getName() + " (Capacity: " + maxSlots + " slots, Currently Booked: " + bookedSlots + ")", maxSlots);
+        }
+    }
+
+    private void validateCulturalCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+        if (culturalEventRepository == null) return;
+        CulturalEvent c = culturalEventRepository.findById(id).orElse(null);
+        if (c == null) return;
+
+        LocalDate today = LocalDate.now();
+        if (c.getDate() != null && c.getDate().isBefore(today)) {
+            throw new RegistrationClosedException(c.getName(), "Cultural event date has passed (" + c.getDate() + ")");
+        }
+
+        int requested = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                ? registration.getDevoteeCount() : 1;
+
+        int maxEntries = 50; // default max performers/entries per cultural stage segment
+        List<EventBookingRegistration> existing = new java.util.ArrayList<>();
+        existing.addAll(repository.findByActivityId("cultural-" + id));
+        existing.addAll(repository.findByActivityId("cult-" + id));
+
+        long booked = existing.stream()
+                .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                .sum();
+
+        if (booked + requested > maxEntries) {
+            throw new EventFullException(c.getName() + " (Max entries reached: " + maxEntries + ")", maxEntries);
+        }
+    }
+
+    private void validateCompetitionCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+        Competition c = competitionRepository.findById(id).orElse(null);
+        if (c == null) return;
+
+        LocalDate today = LocalDate.now();
+        if (c.getRegDeadline() != null && today.isAfter(c.getRegDeadline())) {
+            throw new RegistrationClosedException(c.getName(), "Registration deadline has passed (" + c.getRegDeadline() + ")");
+        }
+        if (c.getDate() != null && c.getDate().isBefore(today)) {
+            throw new RegistrationClosedException(c.getName(), "Competition date has passed (" + c.getDate() + ")");
+        }
+
+        int max = c.getMaxParticipants() != null && c.getMaxParticipants() > 0 ? c.getMaxParticipants() : 50;
+        int requested = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                ? registration.getDevoteeCount() : 1;
+
+        List<EventBookingRegistration> existing = repository.findByActivityId("comp-" + id);
+        long booked = existing.stream()
+                .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                .sum();
+
+        if (booked + requested > max) {
+            throw new EventFullException(c.getName() + " (Max Participants: " + max + ", Currently Registered: " + booked + ")", max);
+        }
+    }
+
+    private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+        LunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
+        if (m == null) return;
+
+        LocalDate today = LocalDate.now();
+        if (m.getDate() != null && m.getDate().isBefore(today)) {
+            throw new RegistrationClosedException(m.getName(), "Meal date has passed (" + m.getDate() + ")");
+        }
+
+        int maxPlates = m.getTargetPlates() != null && m.getTargetPlates() > 0 ? m.getTargetPlates() : 500;
+        int requested = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                ? registration.getDevoteeCount() : 1;
+
+        List<EventBookingRegistration> existing = repository.findByActivityId("food-" + id);
+        long bookedPlates = existing.stream()
+                .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                .sum();
+
+        if (bookedPlates + requested > maxPlates) {
+            throw new EventFullException(m.getName() + " (Target Plates: " + maxPlates + ", Currently Booked: " + bookedPlates + ")", maxPlates);
+        }
+    }
+
+    private void validateEventCapacityAndDeadline(Long eventId, EventBookingRegistration registration) {
+        CommunityEvent ev = communityEventRepository.findById(eventId).orElse(null);
+        if (ev == null) return;
+
+        if (ev.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            throw new RegistrationClosedException(ev.getTitle(), "Event has been cancelled");
+        }
+
+        if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {
+            throw new RegistrationClosedException(ev.getTitle(), "past deadline (" + ev.getRegistrationDeadline() + ")");
+        }
+
+        int requestedDevotees = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                ? registration.getDevoteeCount() : 1;
+
+        // 1. Overall Event Capacity Check (check maxAttendees or capacity)
+        Integer maxLimit = ev.getMaxAttendees() != null ? ev.getMaxAttendees() : ev.getCapacity();
+        if (maxLimit != null && maxLimit > 0) {
+            long directCount = eventRegistrationRepository != null ? eventRegistrationRepository.countByEventId(eventId) : 0;
+            List<EventBookingRegistration> existingBookings = new java.util.ArrayList<>();
+            existingBookings.addAll(repository.findByActivityId("event-" + eventId));
+            existingBookings.addAll(repository.findByActivityId(String.valueOf(eventId)));
+
+            long bookingAttendeeCount = existingBookings.stream()
+                    .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                    .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                    .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                    .sum();
+
+            long currentOccupancy = Math.max(directCount, bookingAttendeeCount);
+            if (currentOccupancy + requestedDevotees > maxLimit) {
+                throw new EventFullException(ev.getTitle() + " (Capacity: " + maxLimit + ", Currently Registered: " + currentOccupancy + ")", maxLimit);
+            }
+        }
+
+        // 2. Specific Ticket Category Capacity Check
+        if (ticketCategoryRepository != null && registration.getCategory() != null && !registration.getCategory().isBlank()) {
+            List<EventTicketCategory> ticketCategories = ticketCategoryRepository.findByEventIdOrderByDisplayOrderAscIdAsc(eventId);
+            if (ticketCategories != null && !ticketCategories.isEmpty()) {
+                String regCatName = registration.getCategory().trim().toLowerCase();
+                for (EventTicketCategory cat : ticketCategories) {
+                    if (cat.getName() != null && (cat.getName().trim().toLowerCase().equals(regCatName)
+                            || (cat.getTicketCode() != null && cat.getTicketCode().equalsIgnoreCase(regCatName)))) {
+                        Integer catCap = cat.getCapacity() != null ? cat.getCapacity() : cat.getSeats();
+                        if (catCap != null && catCap > 0) {
+                            List<EventBookingRegistration> existingBookings = new java.util.ArrayList<>();
+                            existingBookings.addAll(repository.findByActivityId("event-" + eventId));
+                            existingBookings.addAll(repository.findByActivityId(String.valueOf(eventId)));
+
+                            long catAttendees = existingBookings.stream()
+                                    .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
+                                    .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
+                                    .filter(b -> b.getCategory() != null && b.getCategory().trim().equalsIgnoreCase(cat.getName().trim()))
+                                    .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
+                                    .sum();
+
+                            if (catAttendees + requestedDevotees > catCap) {
+                                throw new EventFullException("Pass Category '" + cat.getName() + "' is fully booked (Capacity: " + catCap + ")", catCap);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {

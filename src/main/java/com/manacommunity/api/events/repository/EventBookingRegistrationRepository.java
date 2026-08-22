@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventBookingRegistration;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,4 +26,12 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
     long countByActivityIdAndStatusNot(String activityId, String status);
 
     List<EventBookingRegistration> findByActivityTitle(String activityTitle);
+
+    long countByCommunityId(Long communityId);
+
+    /** True when the user already has a non-cancelled booking for the given activityId. */
+    boolean existsByUserIdAndActivityIdAndStatusNot(Long userId, String activityId, String status);
+
+    /** True when the user already has a non-cancelled booking for any of the given activityIds. */
+    boolean existsByUserIdAndActivityIdInAndStatusNot(Long userId, Collection<String> activityIds, String status);
 }
