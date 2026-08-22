@@ -3,9 +3,12 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.service.CompetitionService;
 import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +21,14 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     private final CompetitionRepository repository;
     private final CommunityEventRepository eventRepository;
+    private final EventBookingRegistrationRepository bookingRepo;
 
-    public CompetitionServiceImpl(CompetitionRepository repository, CommunityEventRepository eventRepository) {
+    public CompetitionServiceImpl(CompetitionRepository repository,
+                                  CommunityEventRepository eventRepository,
+                                  EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
+        this.bookingRepo = bookingRepo;
     }
 
     @Override
@@ -82,6 +89,14 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     public void deleteCompetition(Long id, Long communityId) {
         Competition existing = getCompetitionById(id, communityId);
+        String activityId = "comp-" + existing.getId();
+        if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
+            throw new ManaCommunityException(
+                    "Cannot delete competition with active bookings. Cancel the bookings first.",
+                    HttpStatus.CONFLICT,
+                    "COMPETITION_HAS_BOOKINGS"
+            );
+        }
         repository.delete(existing);
     }
 }

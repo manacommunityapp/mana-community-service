@@ -1,6 +1,7 @@
 package com.manacommunity.api.user.service;
 
 import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
 import com.manacommunity.api.user.dto.KycRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
@@ -27,4 +28,7 @@ public interface AuthService {
 
     /** Verifies OTP, checks password strength against policy, and updates the user''s password. */
     void resetPassword(ResetPasswordRequest req);
+
+    /** Verifies current password, validates new password strength, and updates the user's password. */
+    void changePassword(Long userId, ChangePasswordRequest req);
 }

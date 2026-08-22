@@ -36,6 +36,8 @@ public class EventResponse {
     private String notes;
     private String contactsJson;
     private String paymentInstructions;
+    private java.util.List<TicketTypeDto> ticketTypes;
+    private String ticketTypesJson;
     private Integer maxAttendees;
     private String registrationDeadline;
     private int registrationCount;

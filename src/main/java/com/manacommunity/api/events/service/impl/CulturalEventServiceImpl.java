@@ -3,9 +3,12 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.CulturalEvent;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.service.CulturalEventService;
 import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +21,14 @@ public class CulturalEventServiceImpl implements CulturalEventService {
 
     private final CulturalEventRepository repository;
     private final CommunityEventRepository eventRepository;
+    private final EventBookingRegistrationRepository bookingRepo;
 
-    public CulturalEventServiceImpl(CulturalEventRepository repository, CommunityEventRepository eventRepository) {
+    public CulturalEventServiceImpl(CulturalEventRepository repository,
+                                    CommunityEventRepository eventRepository,
+                                    EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
+        this.bookingRepo = bookingRepo;
     }
 
     @Override
@@ -80,6 +87,16 @@ public class CulturalEventServiceImpl implements CulturalEventService {
     @Override
     public void deleteCulturalEvent(Long id, Long communityId) {
         CulturalEvent existing = getCulturalEventById(id, communityId);
+        String actId1 = "cultural-" + existing.getId();
+        String actId2 = "cult-" + existing.getId();
+        if (bookingRepo.existsByActivityIdAndStatusNot(actId1, "CANCELLED")
+                || bookingRepo.existsByActivityIdAndStatusNot(actId2, "CANCELLED")) {
+            throw new ManaCommunityException(
+                    "Cannot delete cultural event with active bookings. Cancel the bookings first.",
+                    HttpStatus.CONFLICT,
+                    "CULTURAL_HAS_BOOKINGS"
+            );
+        }
         repository.delete(existing);
     }
 }

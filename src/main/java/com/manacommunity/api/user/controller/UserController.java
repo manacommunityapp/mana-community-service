@@ -1,15 +1,26 @@
 package com.manacommunity.api.user.controller;
 
 import com.manacommunity.api.model.Role;
-
 import com.manacommunity.api.user.repository.AppUserRepository;
-
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
+import com.manacommunity.api.user.dto.UpdateUserRequest;
 import com.manacommunity.api.user.dto.UserResponse;
 import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.AdminUserService;
+import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.user.service.MenuRolePermissionService;
+import com.manacommunity.api.repository.RolePermissionRepository;
+import com.manacommunity.api.service.RoleService;
+import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.exception.DuplicateResourceException;
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.security.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,7 +28,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -25,10 +40,14 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final LoggedInUserService loggedInUserService;
-    private final com.manacommunity.api.repository.RolePermissionRepository rolePermissionRepo;
-    private final com.manacommunity.api.service.RoleService roleService;
-    private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
-    private final com.manacommunity.api.user.service.MenuRolePermissionService menuRolePermissionService;
+    private final RolePermissionRepository rolePermissionRepo;
+    private final RoleService roleService;
+    private final CommunityModuleService communityModuleService;
+    private final MenuRolePermissionService menuRolePermissionService;
+    private final AppUserRepository appUserRepo;
+    private final AdminUserService adminUserService;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -125,9 +144,6 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
-
-    private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
-    private final com.manacommunity.api.user.service.AdminUserService adminUserService;
 
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
@@ -295,6 +311,147 @@ public class UserController {
                 .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
                 .isActive(user.getIsActive())
                 .permissions(getPermissionsForUser(user))
+                .build());
+    }
+
+    /**
+     * Changes the password for the currently authenticated user via /api/users/change-password.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedActionException("Authentication is required to change password.");
+        }
+        authService.changePassword(principal.getId(), request);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Password changed successfully."
+        ));
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePasswordPut(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
+        return changePassword(principal, request);
+    }
+
+    /**
+     * Updates an existing user by ID (used for self profile update fallback or admin user update).
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long id,
+            @RequestBody UpdateUserRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSelf = loggedInUser.getId() != null && loggedInUser.getId().equals(id);
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN)
+                || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN)
+                || loggedInUser.hasRole(ROLE_ADMIN);
+
+        if (!isSelf && !isAdmin) {
+            throw new UnauthorizedActionException("You are not authorized to update this user.");
+        }
+
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        // If admin (non-super-admin), verify community scoping
+        if (isAdmin && !loggedInUser.hasRole(ROLE_SUPER_ADMIN) && !isSelf) {
+            Long adminCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            Long userCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            if (adminCommunityId == null || !adminCommunityId.equals(userCommunityId)) {
+                throw new UnauthorizedActionException("You can only manage users within your own community.");
+            }
+        }
+
+        // 1. Update personal details
+        if (req.getFullName() != null && !req.getFullName().isBlank()) {
+            user.setFullName(req.getFullName().trim());
+        } else if (req.getFirstName() != null || req.getLastName() != null) {
+            String first = req.getFirstName() != null ? req.getFirstName().trim() : "";
+            String last = req.getLastName() != null ? req.getLastName().trim() : "";
+            String full = (first + " " + last).trim();
+            if (!full.isEmpty()) {
+                user.setFullName(full);
+            }
+        }
+
+        if (req.getEmail() != null && !req.getEmail().isBlank() && !req.getEmail().equalsIgnoreCase(user.getEmail())) {
+            String newEmail = req.getEmail().trim().toLowerCase();
+            if (appUserRepo.existsByEmail(newEmail)) {
+                throw new DuplicateResourceException("User", "email", newEmail);
+            }
+            user.setEmail(newEmail);
+        }
+
+        if (req.getPhone() != null && !req.getPhone().isBlank() && !req.getPhone().equals(user.getPhone())) {
+            String newPhone = req.getPhone().trim();
+            if (appUserRepo.existsByPhone(newPhone)) {
+                throw new DuplicateResourceException("User", "phone", newPhone);
+            }
+            user.setPhone(newPhone);
+        }
+
+        if (req.getDateOfBirth() != null) user.setDateOfBirth(req.getDateOfBirth());
+        if (req.getGender() != null) user.setGender(req.getGender());
+        if (req.getFlatNo() != null) user.setFlatNo(req.getFlatNo());
+        if (req.getBlock() != null) user.setBlock(req.getBlock());
+        if (req.getProfilePicUrl() != null && !req.getProfilePicUrl().isBlank()) {
+            user.setProfilePicUrl(req.getProfilePicUrl());
+        } else if (req.getProfilePic() != null && !req.getProfilePic().isBlank()) {
+            user.setProfilePicUrl(req.getProfilePic());
+        }
+
+        if (req.getIsActive() != null && isAdmin) {
+            user.setIsActive(req.getIsActive());
+        }
+
+        // 2. Optional password update
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            if (isSelf && !isAdmin) {
+                if (req.getCurrentPassword() == null || req.getCurrentPassword().isBlank()) {
+                    throw new InvalidInputException("Current password is required to change password.");
+                }
+                if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+                    throw new InvalidInputException("Current password does not match.");
+                }
+            }
+            PasswordPolicy.validate(req.getPassword(), Arrays.asList(
+                    user.getEmail(),
+                    user.getFullName(),
+                    user.getPhone(),
+                    user.getCommunity() != null ? user.getCommunity().getName() : null
+            ));
+            user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+        }
+
+        AppUser saved = appUserRepo.save(user);
+
+        return ResponseEntity.ok(UserResponse.builder()
+                .id(saved.getId())
+                .fullName(saved.getFullName())
+                .email(saved.getEmail())
+                .phone(saved.getPhone())
+                .role(saved.getRole())
+                .roles(getRolesList(saved.getRole()))
+                .kycStatus(saved.getKycStatus())
+                .profilePicUrl(saved.getProfilePicUrl())
+                .gender(saved.getGender())
+                .dateOfBirth(saved.getDateOfBirth())
+                .flatNo(saved.getFlatNo())
+                .block(saved.getBlock())
+                .communityId(saved.getCommunity() != null ? saved.getCommunity().getId() : null)
+                .roleId(saved.getRoleEntity() != null ? saved.getRoleEntity().getId() : null)
+                .isActive(saved.getIsActive())
+                .permissions(getPermissionsForUser(saved))
                 .build());
     }
 

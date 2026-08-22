@@ -2,10 +2,13 @@ package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.service.LunchDinnerService;
 import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +21,14 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     private final LunchDinnerRepository repository;
     private final CommunityEventRepository eventRepository;
+    private final EventBookingRegistrationRepository bookingRepo;
 
-    public LunchDinnerServiceImpl(LunchDinnerRepository repository, CommunityEventRepository eventRepository) {
+    public LunchDinnerServiceImpl(LunchDinnerRepository repository,
+                                  CommunityEventRepository eventRepository,
+                                  EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
+        this.bookingRepo = bookingRepo;
     }
 
     @Override
@@ -84,6 +91,14 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Override
     public void deleteLunchDinner(Long id, Long communityId) {
         LunchDinner existing = getLunchDinnerById(id, communityId);
+        String activityId = "food-" + existing.getId();
+        if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
+            throw new ManaCommunityException(
+                    "Cannot delete lunch/dinner event with active bookings. Cancel the bookings first.",
+                    HttpStatus.CONFLICT,
+                    "FOOD_HAS_BOOKINGS"
+            );
+        }
         repository.delete(existing);
     }
 }
