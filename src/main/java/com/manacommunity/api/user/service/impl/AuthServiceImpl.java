@@ -392,6 +392,54 @@ public class AuthServiceImpl implements AuthService {
                 "Password reset via OTP verification");
     }
 
+    @Override
+    @Transactional
+    public void changePassword(Long userId, com.manacommunity.api.user.dto.ChangePasswordRequest req) {
+        if (userId == null) {
+            throw new ManaCommunityException("User ID is required", HttpStatus.BAD_REQUEST, "INVALID_USER_ID");
+        }
+        AppUser user = userRepository.findById(userId).orElseThrow(() ->
+                new ResourceNotFoundException("User", userId));
+
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new ManaCommunityException("This account has been deactivated. Please contact support.",
+                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
+        }
+
+        if (req.getCurrentPassword() == null || req.getCurrentPassword().isBlank()) {
+            throw new InvalidInputException("Current password is required.");
+        }
+
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+            throw new InvalidInputException("Current password does not match.");
+        }
+
+        if (req.getConfirmPassword() != null && !req.getConfirmPassword().isBlank()
+                && !req.getConfirmPassword().equals(req.getNewPassword())) {
+            throw new InvalidInputException("New password and confirm password do not match.");
+        }
+
+        PasswordPolicy.validate(req.getNewPassword(), java.util.Arrays.asList(
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getCommunity() != null ? user.getCommunity().getName() : null
+        ));
+
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+
+        auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.USER_UPDATED,
+                com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
+                "AppUser", String.valueOf(user.getId()),
+                null,
+                "Password changed by user");
+    }
+
     private String maskAadharNumber(String aadhar) {
         if (aadhar == null || aadhar.length() < 4)
             return "INVALID_ID";

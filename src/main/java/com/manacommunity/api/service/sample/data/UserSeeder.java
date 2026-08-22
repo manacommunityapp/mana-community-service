@@ -62,11 +62,11 @@ public class UserSeeder {
                 leCommunity, "B", "806", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser sunil = createUser(
-                "sunil@gmail.com", "Sunil Kanthala", ROLE_ADMIN, hash,
+                "kskreddy1989@gmail.com", "Sunil Kanthala", ROLE_ADMIN, hash,
                 leCommunity, "C", "212", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser chethan = createUser(
-                "chethan@gmail.com", "Chethan Reddy", ROLE_SPORTS_ADMIN, hash,
+                "chetan.velmareddy@gmail.com", "Chethan Reddy", ROLE_SPORTS_ADMIN, hash,
                 leCommunity, "B", "504", "MALE", LocalDate.of(1990, 1, 1));
 
         AppUser ramesh = createUser(
@@ -162,7 +162,7 @@ public class UserSeeder {
     }
 
     public AppUser getSunil() {
-        return userRepo.findByEmail("sunil@gmail.com")
+        return userRepo.findByEmail("kskreddy1989@gmail.com")
                 .orElseThrow(() -> new IllegalStateException("sunil has not been seeded yet."));
     }
 

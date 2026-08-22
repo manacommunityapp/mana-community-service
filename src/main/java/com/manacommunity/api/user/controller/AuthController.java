@@ -1,6 +1,7 @@
 package com.manacommunity.api.user.controller;
 
 import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
 import com.manacommunity.api.user.dto.ForgotPasswordRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RefreshTokenRequest;
@@ -73,6 +74,30 @@ public class AuthController {
                 "success", true,
                 "message", "Password has been successfully updated. You can now log in with your new password."
         ));
+    }
+
+    /**
+     * Changes the password for the authenticated user.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null || principal.getId() == null) {
+            throw new com.manacommunity.api.exception.UnauthorizedActionException("Authentication is required to change password.");
+        }
+        authService.changePassword(principal.getId(), request);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Password changed successfully."
+        ));
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePasswordPut(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return changePassword(principal, request);
     }
 
     /**

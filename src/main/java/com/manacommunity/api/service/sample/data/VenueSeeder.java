@@ -45,7 +45,7 @@ public class VenueSeeder {
                 "Hyderabad", "Coomunity Back Gate", "Miyapur",
                 "500049", 2, "COMMUNITY",
                 "10:00 AM", "08:00 PM",
-                "sunil", "987463214", "sunil@gmail.com");
+                "sunil", "8801357225", "kskreddy1989@gmail.com");
 
         List<Court> badmintonCourts = List.of(
                 Court.builder().name("Court 1").color("#3b82f6").build(),
@@ -57,7 +57,7 @@ public class VenueSeeder {
                 "hyderabad", "beside super market", "miyapur",
                 "500049", 2, "COMMUNITY",
                 "10:00 AM", "08:00 PM",
-                "sunil", "987463214", "sunil@gmail.com",
+                "sunil", "8801357225", "kskreddy1989@gmail.com",
                 badmintonCourts
         );
 

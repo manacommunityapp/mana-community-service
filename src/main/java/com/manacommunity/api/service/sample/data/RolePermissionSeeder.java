@@ -113,12 +113,12 @@ public class RolePermissionSeeder {
         log.info("Seeding user-specific permissions for all LE community users...");
 
         List<String> leUserEmails = List.of(
-                "sandeep@gmail.com",
-                "sunil@gmail.com",
-                "chethan@gmail.com",
+                "sandeep60.kamarapu@gmail.com",
+                "kskreddy1989@gmail.com",
+                "chetan.velmareddy@gmail.com",
                 "ramesh@gmail.com",
                 "mady@gmail.com",
-                "varshitha@gmail.com",
+                "kusivarshitha23@gmail.com",
                 "Bhupal@gmail.com"
         );
 

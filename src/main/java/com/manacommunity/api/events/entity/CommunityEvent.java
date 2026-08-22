@@ -114,6 +114,9 @@ public class CommunityEvent {
     @Column(name = "payment_instructions", length = 2000)
     private String paymentInstructions;
 
+    @Column(name = "ticket_types_json", columnDefinition = "TEXT")
+    private String ticketTypesJson;
+
     @Column(name = "max_attendees")
     private Integer maxAttendees;
 

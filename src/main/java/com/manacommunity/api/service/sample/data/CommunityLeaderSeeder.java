@@ -30,7 +30,7 @@ public class CommunityLeaderSeeder {
         seedLeader(le, userSeeder.getMady(),     "Treasurer",        null, 4);
 
         // Directors
-        seedLeader(le, userSeeder.getOrCreateUser("chethan@gmail.com", "Chethan Reddy", "ROLE_SPORTS_ADMIN", le),    "Sports Director",    null, 5);
+        seedLeader(le, userSeeder.getOrCreateUser("chetan.velmareddy@gmail.com", "Chethan Reddy", "ROLE_SPORTS_ADMIN", le),    "Sports Director",    null, 5);
 //        seedLeader(le, userSeeder.getOrCreateUser("priya.patel@gmail.com", "Priya Patel", "ROLE_MEMBER", le), "Cultural Head",      null, 6);
 //        seedLeader(le, userSeeder.getOrCreateUser("amit.kumar@gmail.com", "Amit Kumar", "ROLE_MEMBER", le),  "Maintenance Head",   null, 7);
 //        seedLeader(le, userSeeder.getOrCreateUser("vikram.singh@gmail.com", "Vikram Singh", "ROLE_MEMBER", le), "Security Head",      null, 8);

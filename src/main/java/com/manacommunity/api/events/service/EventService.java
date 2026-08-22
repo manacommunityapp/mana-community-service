@@ -6,16 +6,30 @@ import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
 import com.manacommunity.api.events.dto.PendingActionItemDto;
 import com.manacommunity.api.events.dto.RegistrationResponse;
+import com.manacommunity.api.events.dto.TicketTypeDto;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.events.entity.ActivityRegistration;
 import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.Competition;
+import com.manacommunity.api.events.entity.CulturalEvent;
 import com.manacommunity.api.events.entity.EventExpense;
+import com.manacommunity.api.events.entity.EventFamilyMember;
+import com.manacommunity.api.events.entity.EventProgram;
 import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.entity.EventSponsor;
+import com.manacommunity.api.events.entity.LunchDinner;
+import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.CompetitionRepository;
+import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventAuctionItemRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventDonationRepository;
 import com.manacommunity.api.events.repository.EventExpenseRepository;
+import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.events.repository.EventGalleryItemRepository;
 import com.manacommunity.api.events.repository.EventInvoiceRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
@@ -23,13 +37,14 @@ import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
+import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.MealRegistrationRepository;
+import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
-import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
@@ -80,6 +95,12 @@ public class EventService {
     private final MediaUrlService mediaUrlService;
     private final EventBookingRegistrationRepository bookingRegRepo;
     private final NotificationRepository notificationRepo;
+    private final PoojaSevaRepository poojaSevaRepo;
+    private final CulturalEventRepository culturalEventRepo;
+    private final CompetitionRepository competitionRepo;
+    private final LunchDinnerRepository lunchDinnerRepo;
+    private final EventFamilyMemberRepository familyMemberRepo;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -141,9 +162,9 @@ public class EventService {
 
         LocalTime startTime = parseLocalTime(req.getStartTime());
         LocalTime endTime = parseLocalTime(req.getEndTime());
-        if (startTime != null && endTime != null && endDate == null
-                && endTime.isBefore(startTime)) {
-            throw new ManaCommunityException("End time must not be before start time",
+        if (startTime != null && endTime != null && (endDate == null || endDate.isEqual(startDate))
+                && !endTime.isAfter(startTime)) {
+            throw new ManaCommunityException("End time must be after start time",
                     HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE");
         }
 
@@ -158,6 +179,15 @@ public class EventService {
         // Verify image and scanner media exist in S3 before saving the event
         UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image");
         UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner");
+
+        String ticketTypesJson = req.getTicketTypesJson();
+        if (req.getTicketTypes() != null && !req.getTicketTypes().isEmpty()) {
+            try {
+                ticketTypesJson = objectMapper.writeValueAsString(req.getTicketTypes());
+            } catch (Exception ex) {
+                log.warn("Failed to serialize ticketTypes on create: {}", ex.getMessage());
+            }
+        }
 
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
@@ -183,6 +213,12 @@ public class EventService {
                 .category(req.getCategory())
                 .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
                         CommunityEvent.EventStatus.PUBLISHED))
+                .paymentModes(req.getPaymentModes())
+                .upiId(req.getUpiId())
+                .notes(req.getNotes())
+                .contactsJson(req.getContactsJson())
+                .paymentInstructions(req.getPaymentInstructions())
+                .ticketTypesJson(ticketTypesJson)
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
                 .createdBy(user)
@@ -192,7 +228,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventResponse update(Long id, EventRequest req, Long userId) {
+    public EventResponse update(Long id, EventRequest req, Long currentUserId) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
@@ -241,6 +277,16 @@ public class EventService {
         if (req.getEndTime() != null) {
             event.setEndTime(parseLocalTime(req.getEndTime()));
         }
+
+        LocalTime effectiveStartTime = event.getStartTime();
+        LocalTime effectiveEndTime = event.getEndTime();
+        if (effectiveStartTime != null && effectiveEndTime != null 
+                && (newEndDate == null || newEndDate.isEqual(newStartDate))
+                && !effectiveEndTime.isAfter(effectiveStartTime)) {
+            throw new ManaCommunityException("End time must be after start time",
+                    HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE");
+        }
+
         if (req.getLocationType() != null) {
             event.setLocationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), event.getLocationType()));
         }
@@ -297,7 +343,7 @@ public class EventService {
                     CommunityEvent saved = eventRepo.save(event);
                     notifyRegisteredUsers(saved, "Event Cancelled: " + saved.getTitle(),
                             "The event '" + saved.getTitle() + "' has been cancelled.");
-                    return toResponse(saved, userId);
+                    return toResponse(saved, currentUserId);
                 }
             }
         }
@@ -314,16 +360,37 @@ public class EventService {
             event.setMaxAttendees(req.getMaxAttendees());
         }
         if (req.getRegistrationDeadline() != null) {
-            event.setRegistrationDeadline(parseLocalDate(req.getRegistrationDeadline()));
+            LocalDate regDeadline = req.getRegistrationDeadline().isBlank() ? null : parseLocalDate(req.getRegistrationDeadline());
+            if (regDeadline != null && newStartDate != null && regDeadline.isAfter(newStartDate)) {
+                throw new ManaCommunityException("Registration deadline must not be after start date",
+                        HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+            }
+            event.setRegistrationDeadline(regDeadline);
         }
+
+        if (req.getTicketTypes() != null) {
+            try {
+                event.setTicketTypesJson(objectMapper.writeValueAsString(req.getTicketTypes()));
+            } catch (Exception ex) {
+                log.warn("Failed to serialize ticketTypes on update: {}", ex.getMessage());
+            }
+        } else if (req.getTicketTypesJson() != null) {
+            event.setTicketTypesJson(req.getTicketTypesJson());
+        }
+
+        if (req.getPaymentModes() != null) event.setPaymentModes(req.getPaymentModes());
+        if (req.getUpiId() != null) event.setUpiId(req.getUpiId());
+        if (req.getNotes() != null) event.setNotes(req.getNotes());
+        if (req.getContactsJson() != null) event.setContactsJson(req.getContactsJson());
+        if (req.getPaymentInstructions() != null) event.setPaymentInstructions(req.getPaymentInstructions());
 
         CommunityEvent saved = eventRepo.save(event);
         notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
                 "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
-        return toResponse(saved, userId);
+        return toResponse(saved, currentUserId);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long userId) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
@@ -335,15 +402,77 @@ public class EventService {
             throw new UnauthorizedActionException("Only the event creator can delete this event");
         }
 
+        // 1. Retrieve all sub-events linked to this main event
+        List<PoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<CulturalEvent> culturals = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<Competition> competitions = competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<LunchDinner> lunchDinners = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventProgram> programs = programRepo.findByEventId(id);
+
+        // 2. Check registrations across main event and all sub-events
         long registrationCount = regRepo.countByEventId(id);
-        long bookingRegCount = bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED");
-        long totalRegs = registrationCount + bookingRegCount;
+        long bookingRegCount = bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED")
+                + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(id), "CANCELLED");
+
+        long poojaBookingCount = 0;
+        for (PoojaSeva pooja : poojas) {
+            poojaBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("pooja-" + pooja.getId(), "CANCELLED");
+        }
+
+        long culturalBookingCount = 0;
+        for (CulturalEvent cultural : culturals) {
+            culturalBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("cultural-" + cultural.getId(), "CANCELLED")
+                    + bookingRegRepo.countByActivityIdAndStatusNot("cult-" + cultural.getId(), "CANCELLED");
+        }
+
+        long competitionBookingCount = 0;
+        for (Competition comp : competitions) {
+            competitionBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("comp-" + comp.getId(), "CANCELLED");
+        }
+
+        long lunchDinnerBookingCount = 0;
+        for (LunchDinner ld : lunchDinners) {
+            lunchDinnerBookingCount += bookingRegRepo.countByActivityIdAndStatusNot("food-" + ld.getId(), "CANCELLED");
+        }
+
+        long programActivityCount = 0;
+        for (EventProgram prog : programs) {
+            programActivityCount += activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.CONFIRMED)
+                    + activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.PENDING)
+                    + activityRegRepo.countByProgramIdAndStatus(prog.getId(), ActivityRegistration.ActivityRegStatus.WAITLISTED);
+        }
+
+        long mealRegCount = mealRegRepo.findByEventIdOrdered(id).size();
+
+        long totalRegs = registrationCount + bookingRegCount + poojaBookingCount + culturalBookingCount
+                + competitionBookingCount + lunchDinnerBookingCount + programActivityCount + mealRegCount;
+
         if (totalRegs > 0) {
             throw new ManaCommunityException(
-                    "Cannot delete event with " + totalRegs + " registration(s). Cancel the event instead.",
+                    "Cannot delete event with " + totalRegs + " registration(s) (including sub-events). Cancel the event instead.",
                     HttpStatus.CONFLICT,
                     "EVENT_HAS_REGISTRATIONS"
             );
+        }
+
+        // 3. Cascade deletion of all sub-events
+        if (!poojas.isEmpty()) {
+            poojaSevaRepo.deleteAll(poojas);
+        }
+        if (!culturals.isEmpty()) {
+            culturalEventRepo.deleteAll(culturals);
+        }
+        if (!competitions.isEmpty()) {
+            competitionRepo.deleteAll(competitions);
+        }
+        if (!lunchDinners.isEmpty()) {
+            lunchDinnerRepo.deleteAll(lunchDinners);
+        }
+
+        // Delete family members linked to event
+        List<EventFamilyMember> familyMembers = familyMemberRepo.findByEventIdOrderByCreatedAtAsc(id);
+        if (!familyMembers.isEmpty()) {
+            familyMemberRepo.deleteAll(familyMembers);
         }
 
         // Delete leaf-level records first (children of EventProgram)
@@ -365,6 +494,7 @@ public class EventService {
         auctionItemRepo.deleteByEventId(id);
         programRepo.deleteByEventId(id);
 
+        // Delete the parent event itself
         eventRepo.delete(event);
     }
 
@@ -704,6 +834,18 @@ public class EventService {
         String scannerUrl   = scannerMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getScannerUrl());
         String scannerMediaId = scannerMOpt.map(m -> m.getExternalId().toString()).orElse(null);
 
+        List<TicketTypeDto> parsedTicketTypes = null;
+        if (e.getTicketTypesJson() != null && !e.getTicketTypesJson().isBlank()) {
+            try {
+                parsedTicketTypes = objectMapper.readValue(
+                        e.getTicketTypesJson(),
+                        new TypeReference<List<TicketTypeDto>>() {}
+                );
+            } catch (Exception ex) {
+                log.warn("Failed to deserialize ticketTypesJson for event {}: {}", e.getId(), ex.getMessage());
+            }
+        }
+
         return EventResponse.builder()
                 .id(e.getId())
                 .title(e.getTitle())
@@ -728,6 +870,13 @@ public class EventService {
                 .city(e.getCity())
                 .category(e.getCategory())
                 .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
+                .paymentModes(e.getPaymentModes())
+                .upiId(e.getUpiId())
+                .notes(e.getNotes())
+                .contactsJson(e.getContactsJson())
+                .paymentInstructions(e.getPaymentInstructions())
+                .ticketTypesJson(e.getTicketTypesJson())
+                .ticketTypes(parsedTicketTypes)
                 .maxAttendees(e.getMaxAttendees())
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
                 .registrationCount(e.getRegistrations() != null ? e.getRegistrations().size() : 0)

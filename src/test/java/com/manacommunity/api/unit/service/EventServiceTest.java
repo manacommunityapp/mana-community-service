@@ -6,6 +6,7 @@ import com.manacommunity.api.events.repository.*;
 import com.manacommunity.api.events.service.EventService;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.media.entity.MediaModule;
@@ -61,7 +62,7 @@ class EventServiceTest {
     @Mock CulturalEventRepository culturalEventRepo;
     @Mock LunchDinnerRepository lunchDinnerRepo;
     @Mock CompetitionRepository competitionRepo;
-    @Mock EventBookingRegistrationRepository eventBookingRegRepo;
+    @Mock EventBookingRegistrationRepository bookingRegRepo;
     @Mock EventFamilyMemberRepository familyMemberRepo;
     @Mock MediaRepository mediaRepo;
     @Mock MediaUrlService mediaUrlService;
@@ -294,12 +295,43 @@ class EventServiceTest {
     class DeleteEvent {
 
         @Test
-        @DisplayName("delete cascades cleanup for registrations, volunteers, auction items, and deletes event")
+        @DisplayName("delete cascades cleanup for sub-events, registrations, volunteers, auction items, and deletes event")
         void delete_success() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
+            PoojaSeva pooja = new PoojaSeva();
+            pooja.setId(10L);
+            pooja.setMainEventId(100L);
+            when(poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(pooja));
+
+            CulturalEvent cultural = new CulturalEvent();
+            cultural.setId(20L);
+            cultural.setMainEventId(100L);
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+
+            Competition comp = new Competition();
+            comp.setId(30L);
+            comp.setMainEventId(100L);
+            when(competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(comp));
+
+            LunchDinner ld = new LunchDinner();
+            ld.setId(40L);
+            ld.setMainEventId(100L);
+            when(lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(ld));
+
+            EventFamilyMember familyMember = new EventFamilyMember();
+            familyMember.setId(50L);
+            familyMember.setEvent(event);
+            when(familyMemberRepo.findByEventIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(familyMember));
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
+
             eventService.delete(100L, adminUser.getId());
 
+            verify(poojaSevaRepo).deleteAll(List.of(pooja));
+            verify(culturalEventRepo).deleteAll(List.of(cultural));
+            verify(competitionRepo).deleteAll(List.of(comp));
+            verify(lunchDinnerRepo).deleteAll(List.of(ld));
+            verify(familyMemberRepo).deleteAll(List.of(familyMember));
             verify(activityRegRepo).deleteByProgramEventId(100L);
             verify(auctionItemRepo).deleteAuctionBidsByEventId(100L);
             verify(regRepo).deleteByEventId(100L);
@@ -314,6 +346,100 @@ class EventServiceTest {
             verify(auctionItemRepo).deleteByEventId(100L);
             verify(programRepo).deleteByEventId(100L);
             verify(eventRepo).delete(event);
+        }
+
+        @Test
+        @DisplayName("delete is blocked when main event has direct registrations")
+        void delete_blocked_whenMainEventHasRegistrations() {
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+            when(regRepo.countByEventId(100L)).thenReturn(2L);
+
+            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Cannot delete event with 2 registration(s)");
+
+            verify(eventRepo, never()).delete(any());
+            verify(poojaSevaRepo, never()).deleteAll(any());
+        }
+
+        @Test
+        @DisplayName("delete is blocked when a pooja sub-event has active bookings")
+        void delete_blocked_whenPoojaHasBookings() {
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+
+            PoojaSeva pooja = new PoojaSeva();
+            pooja.setId(10L);
+            pooja.setMainEventId(100L);
+            when(poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(pooja));
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("pooja-10"), eq("CANCELLED"))).thenReturn(1L);
+
+            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+
+            verify(eventRepo, never()).delete(any());
+            verify(poojaSevaRepo, never()).deleteAll(any());
+        }
+
+        @Test
+        @DisplayName("delete is blocked when a cultural sub-event has active bookings")
+        void delete_blocked_whenCulturalHasBookings() {
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+
+            CulturalEvent cultural = new CulturalEvent();
+            cultural.setId(20L);
+            cultural.setMainEventId(100L);
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("cultural-20"), eq("CANCELLED"))).thenReturn(1L);
+
+            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+
+            verify(eventRepo, never()).delete(any());
+            verify(culturalEventRepo, never()).deleteAll(any());
+        }
+
+        @Test
+        @DisplayName("delete is blocked when a competition sub-event has active bookings")
+        void delete_blocked_whenCompetitionHasBookings() {
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+
+            Competition comp = new Competition();
+            comp.setId(30L);
+            comp.setMainEventId(100L);
+            when(competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(comp));
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("comp-30"), eq("CANCELLED"))).thenReturn(1L);
+
+            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+
+            verify(eventRepo, never()).delete(any());
+            verify(competitionRepo, never()).deleteAll(any());
+        }
+
+        @Test
+        @DisplayName("delete is blocked when a lunch/dinner sub-event has active bookings")
+        void delete_blocked_whenLunchDinnerHasBookings() {
+            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
+
+            LunchDinner ld = new LunchDinner();
+            ld.setId(40L);
+            ld.setMainEventId(100L);
+            when(lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(ld));
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
+            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("food-40"), eq("CANCELLED"))).thenReturn(1L);
+
+            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+
+            verify(eventRepo, never()).delete(any());
+            verify(lunchDinnerRepo, never()).deleteAll(any());
         }
 
         @Test

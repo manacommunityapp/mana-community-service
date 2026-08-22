@@ -78,6 +78,10 @@ public class EventRequest {
     @Size(max = 2000)
     private String paymentInstructions;
 
+    private java.util.List<TicketTypeDto> ticketTypes;
+
+    private String ticketTypesJson;
+
     @Min(value = 1, message = "Max attendees must be at least 1")
     private Integer maxAttendees;
 
