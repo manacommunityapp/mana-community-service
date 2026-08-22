@@ -228,6 +228,8 @@ public class EventService {
                 .createdBy(user)
                 .community(community)
                 .build();
+        Integer maxLimit = event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity();
+        validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
         CommunityEvent savedEvent = eventRepo.save(event);
         saveTicketCategories(savedEvent, req.getTicketTypes());
         return toResponse(savedEvent, user.getId());
@@ -389,6 +391,12 @@ public class EventService {
         if (req.getNotes() != null) event.setNotes(req.getNotes());
         if (req.getContactsJson() != null) event.setContactsJson(req.getContactsJson());
         if (req.getPaymentInstructions() != null) event.setPaymentInstructions(req.getPaymentInstructions());
+        Integer maxLimit = req.getMaxAttendees() != null ? req.getMaxAttendees()
+                : (req.getCapacity() != null ? req.getCapacity()
+                : (event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity()));
+        if (req.getTicketTypes() != null && !req.getTicketTypes().isEmpty()) {
+            validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
+        }
 
         CommunityEvent saved = eventRepo.save(event);
         if (req.getTicketTypes() != null) {
@@ -1143,6 +1151,30 @@ public class EventService {
             return LocalTime.parse(clean);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private void validateTicketCategoriesCapacity(List<TicketTypeDto> ticketTypes, Integer maxLimit) {
+        if (ticketTypes == null || ticketTypes.isEmpty() || maxLimit == null || maxLimit <= 0) {
+            return;
+        }
+        int totalCategorySeats = 0;
+        for (TicketTypeDto dto : ticketTypes) {
+            if (dto.getName() == null || dto.getName().isBlank()) continue;
+            Object seatsVal = dto.getQty() != null ? dto.getQty() : (dto.getSeats() != null ? dto.getSeats() : dto.getCapacity());
+            if (seatsVal != null) {
+                try {
+                    int seats = Integer.parseInt(seatsVal.toString().replaceAll("[^0-9]", ""));
+                    totalCategorySeats += seats;
+                } catch (Exception ignored) {}
+            }
+        }
+        if (totalCategorySeats > maxLimit) {
+            throw new ManaCommunityException(
+                    "Total seats across all ticket categories (" + totalCategorySeats + ") cannot exceed Event Max Capacity (" + maxLimit + ")",
+                    HttpStatus.BAD_REQUEST,
+                    "CATEGORY_CAPACITY_EXCEEDED"
+            );
         }
     }
 
