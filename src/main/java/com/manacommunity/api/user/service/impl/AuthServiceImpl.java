@@ -83,8 +83,9 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new InvalidInviteCodeException(request.getInviteCode()));
 
         // 2. Duplicate email / phone check (both are UNIQUE in DB)
-        if (userRepository.existsByEmail(request.getEmail()))
-            throw new DuplicateResourceException("User", "email", request.getEmail());
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmailIgnoreCase(email))
+            throw new DuplicateResourceException("User", "email", email);
 
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
@@ -106,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
         // derived from the user's own data (email, name, phone, community).
         // Arrays.asList permits nulls; the evaluator skips null/blank tokens.
         PasswordPolicy.validate(request.getPassword(), java.util.Arrays.asList(
-                request.getEmail(),
+                email,
                 request.getFullName(),
                 request.getPhone(),
                 community.getName()
@@ -118,7 +119,7 @@ public class AuthServiceImpl implements AuthService {
         // 4. Build and save AppUser
         AppUser user = new AppUser();
         user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setPhone(request.getPhone());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setDateOfBirth(request.getDateOfBirth());
@@ -177,7 +178,7 @@ public class AuthServiceImpl implements AuthService {
                         HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
             });
         } else {
-            user = userRepository.findByEmail(identifier).orElseThrow(() -> {
+            user = userRepository.findByEmailIgnoreCase(identifier).orElseThrow(() -> {
                 auditLog.record(AuditLogService.Action.LOGIN_FAILED, identifier);
                 return new ManaCommunityException(
                         "Email address not found. Please check and try again.",
@@ -329,7 +330,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = rawEmail.trim().toLowerCase();
-        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
                 new ManaCommunityException("No account found with email address: " + email,
                         HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
@@ -352,7 +353,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = req.getEmail().trim().toLowerCase();
-        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
                 new ManaCommunityException("No account found with email address: " + email,
                         HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
