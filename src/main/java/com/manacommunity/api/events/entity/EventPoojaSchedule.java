@@ -34,6 +34,9 @@ public class EventPoojaSchedule {
     @JoinColumn(name = "pooja_id", nullable = false)
     private EventPoojaSeva poojaSeva;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @Column(name = "schedule_date", nullable = false)
     private LocalDate scheduleDate;
 

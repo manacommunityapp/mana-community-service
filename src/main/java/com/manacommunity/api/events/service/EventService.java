@@ -648,6 +648,7 @@ public class EventService {
         EventRegistration reg = EventRegistration.builder()
                 .event(event)
                 .user(user)
+                .communityId(event.getCommunity().getId())
                 .build();
         regRepo.save(reg);
         return toResponse(eventRepo.findById(eventId).orElseThrow(), user.getId());
@@ -675,6 +676,7 @@ public class EventService {
                     : bookingRegRepo.findAll();
             if (bookings != null && !bookings.isEmpty()) {
                 bookingRegs = bookings.stream()
+                        .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
                         .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
                         .sum();
             }
@@ -695,6 +697,12 @@ public class EventService {
 
         // Live Food Prepared / Plates Count from Database
         long foodPlates = mealRegRepo != null ? mealRegRepo.sumHeadCountByCommunity(communityId) : 0;
+        if (foodPlates == 0 && lunchDinnerRepo != null) {
+            java.util.List<com.manacommunity.api.events.entity.EventLunchDinner> lunches = communityId != null ? lunchDinnerRepo.findByCommunityIdOrderByDateAscStartTimeAsc(communityId) : lunchDinnerRepo.findAll();
+            if (lunches != null && !lunches.isEmpty()) {
+                foodPlates = lunches.stream().mapToLong(l -> l.getPlatesServed() != null && l.getPlatesServed() > 0 ? l.getPlatesServed() : (l.getTargetPlates() != null ? l.getTargetPlates() : 0)).sum();
+            }
+        }
         if (foodPlates == 0 && mealRegRepo != null) {
             foodPlates = mealRegRepo.count();
         }
@@ -790,6 +798,7 @@ public class EventService {
 
         if (bookingRegs != null && !bookingRegs.isEmpty()) {
             for (EventBookingRegistration b : bookingRegs) {
+                if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
                 LocalDateTime dateToUse = b.getCreatedAt() != null ? b.getCreatedAt() : b.getUpdatedAt();
                 if (dateToUse != null) {
                     String d = dateToUse.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
@@ -817,6 +826,7 @@ public class EventService {
         Map<String, Long> catDistribution = new LinkedHashMap<>();
         if (bookingRegs != null && !bookingRegs.isEmpty()) {
             for (EventBookingRegistration b : bookingRegs) {
+                if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
                 String cat = (b.getCategory() != null && !b.getCategory().isBlank()) ? b.getCategory() : "Event Pass";
                 long devotees = b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L;
                 catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + devotees);
@@ -824,6 +834,7 @@ public class EventService {
         }
         if (registrations != null && !registrations.isEmpty()) {
             for (EventRegistration r : registrations) {
+                if ("CANCELLED".equalsIgnoreCase(String.valueOf(r.getStatus()))) continue;
                 String cat = r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED ? "Confirmed Passes" : "General Passes";
                 catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + 1);
             }
@@ -931,6 +942,22 @@ public class EventService {
                             .due("Pending Review")
                             .priority("high")
                             .category("Sponsor")
+                            .done(false)
+                            .build());
+                }
+            }
+        }
+
+        if (bookingRegRepo != null) {
+            List<EventBookingRegistration> bookings = communityId != null ? bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId) : bookingRegRepo.findAll();
+            for (EventBookingRegistration b : bookings) {
+                if ("PENDING".equalsIgnoreCase(b.getPaymentStatus()) && !"CANCELLED".equalsIgnoreCase(b.getStatus())) {
+                    result.add(PendingActionItemDto.builder()
+                            .id("reg-" + b.getId())
+                            .task("Verify Pass Payment: " + (b.getParticipantName() != null ? b.getParticipantName() : "Devotee") + " (" + (b.getActivityTitle() != null ? b.getActivityTitle() : "Event") + " - ₹" + (b.getBookingFee() != null ? b.getBookingFee() : 0) + ")")
+                            .due("Pending Verification")
+                            .priority("medium")
+                            .category("Registration")
                             .done(false)
                             .build());
                 }
