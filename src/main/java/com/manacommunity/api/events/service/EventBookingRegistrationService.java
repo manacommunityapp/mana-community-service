@@ -15,11 +15,17 @@ public interface EventBookingRegistrationService {
 
     List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId);
 
+    List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId, String status);
+
     List<EventBookingRegistration> getRegistrationsByCommunity(Long communityId);
+
+    List<EventBookingRegistration> getRegistrationsByCommunity(Long communityId, String status);
 
     EventBookingRegistration getRegistrationById(Long id, AppUser user);
 
     void cancelRegistration(Long id, AppUser user);
+
+    void cancelRegistration(Long id, String reason, AppUser user);
 
     void deleteRegistration(Long id, AppUser user);
 }

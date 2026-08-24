@@ -1,14 +1,15 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "event_competitions")
-public class Competition {
+public class Competition extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,20 +60,6 @@ public class Competition {
     @Column(name = "team_size")
     private Integer teamSize = 1;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    public Competition() {
-        this.createdAt = LocalDateTime.now();
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-    }
-
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -121,7 +108,4 @@ public class Competition {
 
     public Integer getTeamSize() { return teamSize; }
     public void setTeamSize(Integer teamSize) { this.teamSize = teamSize; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

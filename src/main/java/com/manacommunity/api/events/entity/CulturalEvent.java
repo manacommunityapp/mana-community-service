@@ -1,13 +1,14 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "event_cultural_events")
-public class CulturalEvent {
+public class CulturalEvent extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,20 +53,6 @@ public class CulturalEvent {
     @Column(name = "has_live_music")
     private Boolean hasLiveMusic = false;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    public CulturalEvent() {
-        this.createdAt = LocalDateTime.now();
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-    }
-
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -108,7 +95,4 @@ public class CulturalEvent {
 
     public Boolean getHasLiveMusic() { return hasLiveMusic; }
     public void setHasLiveMusic(Boolean hasLiveMusic) { this.hasLiveMusic = hasLiveMusic; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_meal_registration", schema = "manacommunity",
+@Table(name = "event_meal_registrations", schema = "manacommunity",
         uniqueConstraints = @UniqueConstraint(columnNames = {"event_id", "user_id", "meal_date", "meal_type"}))
 @Data
 @Builder

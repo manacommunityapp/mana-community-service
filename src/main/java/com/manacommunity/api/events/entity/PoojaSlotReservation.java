@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-    name = "pooja_slot_reservation",
+    name = "event_pooja_slot_reservation",
     indexes = {
         @Index(name = "idx_psr_schedule_status", columnList = "schedule_id, status, expires_at"),
         @Index(name = "idx_psr_user",            columnList = "user_id"),
@@ -61,6 +61,10 @@ public class PoojaSlotReservation {
     /** Caller-supplied UUID to prevent double-reservations on retry. */
     @Column(name = "idempotency_key", length = 100, unique = true)
     private String idempotencyKey;
+
+    /** Sankalpam token number assigned at reservation time. Returned on idempotency hits. */
+    @Column(name = "token_number")
+    private Integer tokenNumber;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

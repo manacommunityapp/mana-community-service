@@ -615,14 +615,110 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         return null;
     }
 
+    private void incrementActivitySlots(EventBookingRegistration registration) {
+        String actId = registration.getActivityId();
+        if (actId == null || actId.isBlank()) return;
+
+        int booked = (registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0)
+                ? registration.getDevoteeCount()
+                : 1;
+
+        try {
+            if (actId.startsWith("pooja-")) {
+                Long id = Long.parseLong(actId.replace("pooja-", ""));
+                poojaSevaRepository.findById(id).ifPresent(p -> {
+                    if (!incrementPoojaTimeSlot(p, registration, booked)) {
+                        int current = p.getSlots() != null ? p.getSlots() : 20;
+                        p.setSlots(current + booked);
+                    }
+                    poojaSevaRepository.save(p);
+                });
+            } else if (actId.startsWith("food-")) {
+                Long id = Long.parseLong(actId.replace("food-", ""));
+                lunchDinnerRepository.findById(id).ifPresent(m -> {
+                    int current = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
+                    m.setTargetPlates(current + booked);
+                    lunchDinnerRepository.save(m);
+                });
+            } else if (actId.startsWith("comp-")) {
+                Long id = Long.parseLong(actId.replace("comp-", ""));
+                competitionRepository.findById(id).ifPresent(c -> {
+                    int current = c.getMaxParticipants() != null ? c.getMaxParticipants() : 50;
+                    c.setMaxParticipants(current + booked);
+                    competitionRepository.save(c);
+                });
+            } else if (actId.startsWith("event-")) {
+                Long id = Long.parseLong(actId.replace("event-", ""));
+                communityEventRepository.findById(id).ifPresent(ev -> {
+                    if (ev.getCapacity() != null) {
+                        ev.setCapacity(ev.getCapacity() + booked);
+                    }
+                    communityEventRepository.save(ev);
+                });
+            } else {
+                try {
+                    Long id = Long.parseLong(actId);
+                    communityEventRepository.findById(id).ifPresent(ev -> {
+                        if (ev.getCapacity() != null) {
+                            ev.setCapacity(ev.getCapacity() + booked);
+                        }
+                        communityEventRepository.save(ev);
+                    });
+                } catch (NumberFormatException ignored) {}
+            }
+        } catch (Exception ex) {
+            // Non-critical slot increment failure
+        }
+    }
+
+    private boolean incrementPoojaTimeSlot(PoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
+        if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
+        if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
+
+        LocalDate bookedDate = parseBookingDate(registration.getEventDate());
+        LocalTime bookedTime = parseBookingTime(registration.getEventTime());
+        if (bookedDate == null || bookedTime == null) return false;
+
+        for (PoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
+            if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
+            LocalTime slotTime = parseBookingTime(slot.getStartTime());
+            if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
+                int current = slot.getSlotCount() != null ? slot.getSlotCount() : defaultPoojaSlotCount(poojaSeva);
+                slot.setSlotCount(current + booked);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId) {
+        return getMyRegistrations(user, communityId, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId, String status) {
         if (user == null || user.getId() == null) {
             if (communityId != null) {
+                if (status != null && !status.isBlank()) {
+                    if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                        return repository.findByCommunityIdAndStatusNotOrderByCreatedAtDesc(communityId, "CANCELLED");
+                    }
+                    return repository.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status.trim().toUpperCase());
+                }
                 return repository.findByCommunityIdOrderByCreatedAtDesc(communityId);
             }
             return Collections.emptyList();
+        }
+
+        if (status != null && !status.isBlank()) {
+            if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                return repository.findByUserIdAndStatusNotOrderByCreatedAtDesc(user.getId(), "CANCELLED");
+            }
+            return repository.findByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), status.trim().toUpperCase());
         }
 
         return repository.findByUserIdOrderByCreatedAtDesc(user.getId());
@@ -631,7 +727,19 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     @Override
     @Transactional(readOnly = true)
     public List<EventBookingRegistration> getRegistrationsByCommunity(Long communityId) {
+        return getRegistrationsByCommunity(communityId, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventBookingRegistration> getRegistrationsByCommunity(Long communityId, String status) {
         if (communityId != null) {
+            if (status != null && !status.isBlank()) {
+                if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                    return repository.findByCommunityIdAndStatusNotOrderByCreatedAtDesc(communityId, "CANCELLED");
+                }
+                return repository.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status.trim().toUpperCase());
+            }
             return repository.findByCommunityIdOrderByCreatedAtDesc(communityId);
         }
         return repository.findAll();
@@ -656,17 +764,35 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     @Override
     @Transactional
     public void cancelRegistration(Long id, AppUser user) {
+        cancelRegistration(id, "Cancelled by user", user);
+    }
+
+    @Override
+    @Transactional
+    public void cancelRegistration(Long id, String reason, AppUser user) {
         EventBookingRegistration reg = getRegistrationById(id, user);
-        reg.setStatus("CANCELLED");
-        reg.setUpdatedAt(LocalDateTime.now());
-        EventBookingRegistration saved = repository.save(reg);
-        syncToPoojaTableIfApplicable(saved);
+        if (!"CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+            reg.setStatus("CANCELLED");
+            reg.setCancellationReason(reason != null && !reason.isBlank() ? reason.trim() : "Cancelled");
+            reg.setCancelledAt(LocalDateTime.now());
+            reg.setUpdatedAt(LocalDateTime.now());
+            EventBookingRegistration saved = repository.save(reg);
+
+            // Restore slot capacity
+            incrementActivitySlots(saved);
+
+            syncToPoojaTableIfApplicable(saved);
+        }
     }
 
     @Override
     @Transactional
     public void deleteRegistration(Long id, AppUser user) {
         EventBookingRegistration reg = getRegistrationById(id, user);
+        // Restore slot capacity before deleting
+        if (!"CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+            incrementActivitySlots(reg);
+        }
         if (reg.getRegCode() != null && poojaUserRegRepo != null) {
             poojaUserRegRepo.findByRegCode(reg.getRegCode()).ifPresent(poojaUserRegRepo::delete);
         }

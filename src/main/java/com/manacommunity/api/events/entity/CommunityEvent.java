@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "community_event")
+@Table(name = "event_community")
 @EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder

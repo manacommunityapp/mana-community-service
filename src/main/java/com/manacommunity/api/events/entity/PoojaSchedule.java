@@ -13,7 +13,7 @@ import java.time.LocalTime;
 
 @Entity
 @Table(
-    name = "pooja_schedule",
+    name = "event_pooja_schedule",
     uniqueConstraints = @UniqueConstraint(
         name = "uq_pooja_schedule_slot",
         columnNames = {"pooja_id", "schedule_date", "start_time"}
