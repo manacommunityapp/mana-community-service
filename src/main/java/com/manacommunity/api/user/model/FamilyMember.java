@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.user.model;
+package com.manacommunity.api.user.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.manacommunity.api.model.Community;

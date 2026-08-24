@@ -1,4 +1,4 @@
-﻿-- V81: Create family_members table for resident profile family directory
+-- V81: Create family_members table for resident profile family directory
 
 CREATE TABLE IF NOT EXISTS manacommunity.family_members (
     id                BIGSERIAL PRIMARY KEY,

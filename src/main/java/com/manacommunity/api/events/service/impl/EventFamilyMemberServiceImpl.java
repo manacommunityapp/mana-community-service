@@ -28,14 +28,17 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
     private final EventFamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
     private final EventCommunityRepository eventRepository;
+    private final com.manacommunity.api.user.repository.FamilyMemberRepository userFamilyMemberRepository;
 
     public EventFamilyMemberServiceImpl(
             EventFamilyMemberRepository repository,
             CommunityRepository communityRepository,
-            EventCommunityRepository eventRepository) {
+            EventCommunityRepository eventRepository,
+            com.manacommunity.api.user.repository.FamilyMemberRepository userFamilyMemberRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.eventRepository = eventRepository;
+        this.userFamilyMemberRepository = userFamilyMemberRepository;
     }
 
     @Override
@@ -65,6 +68,40 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
             }
         } else {
             list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        }
+
+        // If no event family members found yet, load from master profile family_members table
+        if (list.isEmpty() && userFamilyMemberRepository != null) {
+            List<com.manacommunity.api.user.model.FamilyMember> masterList =
+                    userFamilyMemberRepository.findByUserIdOrderByCreatedAtAsc(user.getId());
+            if (!masterList.isEmpty()) {
+                Community comm = (user.getCommunity() != null)
+                        ? user.getCommunity()
+                        : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
+                EventCommunity event = (eventId != null) ? eventRepository.findById(eventId).orElse(null) : null;
+
+                for (com.manacommunity.api.user.model.FamilyMember m : masterList) {
+                    EventFamilyMember efm = EventFamilyMember.builder()
+                            .user(user)
+                            .community(comm)
+                            .event(event)
+                            .name(m.getName())
+                            .relation(m.getRelation())
+                            .age(m.getAge())
+                            .gender(m.getGender())
+                            .avatar(m.getAvatar() != null ? m.getAvatar() : "👤")
+                            .gothram(m.getGothram())
+                            .status("ACTIVE")
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+                    repository.save(efm);
+                }
+
+                list = (eventId != null)
+                        ? repository.findByUserIdAndEventIdOrderByCreatedAtAsc(user.getId(), eventId)
+                        : repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+            }
         }
 
         List<EventFamilyMember> toDelete = list.stream()
@@ -110,7 +147,35 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
         }
         member.setCreatedAt(LocalDateTime.now());
         member.setUpdatedAt(LocalDateTime.now());
-        return repository.save(member);
+        EventFamilyMember saved = repository.save(member);
+
+        // Also sync to master profile family_members table if not already present
+        if (user != null && user.getId() != null && userFamilyMemberRepository != null && saved.getName() != null) {
+            try {
+                boolean exists = userFamilyMemberRepository.existsByUserIdAndNameIgnoreCase(user.getId(), saved.getName().trim());
+                if (!exists) {
+                    com.manacommunity.api.user.model.FamilyMember masterMember =
+                            com.manacommunity.api.user.model.FamilyMember.builder()
+                                    .user(user)
+                                    .community(comm)
+                                    .name(saved.getName().trim())
+                                    .relation(saved.getRelation())
+                                    .age(saved.getAge())
+                                    .gender(saved.getGender())
+                                    .avatar(saved.getAvatar())
+                                    .gothram(saved.getGothram())
+                                    .emergencyContact(false)
+                                    .isDevotee(true)
+                                    .status("ACTIVE")
+                                    .createdAt(LocalDateTime.now())
+                                    .updatedAt(LocalDateTime.now())
+                                    .build();
+                    userFamilyMemberRepository.save(masterMember);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return saved;
     }
 
     @Override
