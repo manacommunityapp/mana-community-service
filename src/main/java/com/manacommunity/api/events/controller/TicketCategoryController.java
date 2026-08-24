@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.events.controller;
+package com.manacommunity.api.events.controller;
 
 import com.manacommunity.api.events.entity.EventTicketCategoryMaster;
 import com.manacommunity.api.events.service.TicketCategoryService;

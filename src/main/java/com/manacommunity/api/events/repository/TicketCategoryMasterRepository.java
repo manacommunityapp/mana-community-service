@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.events.repository;
+package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventTicketCategoryMaster;
 import org.springframework.data.jpa.repository.JpaRepository;
