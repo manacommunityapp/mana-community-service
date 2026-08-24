@@ -105,7 +105,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                     schedule.getPoojaSeva().getName(), schedule.getStatus().name());
         }
 
-        // ── 1a. Enforce PoojaSeva booking-engine constraints (#5) ──
+        // ── 1a. Enforce EventPoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
         EventPoojaSeva seva = schedule.getPoojaSeva();
         if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
