@@ -23,9 +23,11 @@ public class CulturalEventController {
     @GetMapping
     public ResponseEntity<List<EventCulturalEvent>> getAll(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) Long mainEventId) {
+            @RequestParam(required = false) Long mainEventId,
+            @RequestParam(required = false) Long eventId) {
+        Long targetEventId = mainEventId != null ? mainEventId : eventId;
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<EventCulturalEvent> list = service.getAllCulturalEvents(communityId, mainEventId);
+        List<EventCulturalEvent> list = service.getAllCulturalEvents(communityId, targetEventId);
         return ResponseEntity.ok(list);
     }
 

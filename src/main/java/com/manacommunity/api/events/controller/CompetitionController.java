@@ -23,9 +23,11 @@ public class CompetitionController {
     @GetMapping
     public ResponseEntity<List<EventCompetition>> getAll(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) Long mainEventId) {
+            @RequestParam(required = false) Long mainEventId,
+            @RequestParam(required = false) Long eventId) {
+        Long targetEventId = mainEventId != null ? mainEventId : eventId;
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<EventCompetition> list = service.getAllCompetitions(communityId, mainEventId);
+        List<EventCompetition> list = service.getAllCompetitions(communityId, targetEventId);
         return ResponseEntity.ok(list);
     }
 

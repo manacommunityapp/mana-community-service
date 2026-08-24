@@ -35,6 +35,7 @@ public class EventResponse {
     private String scannerMediaId;
     private String notes;
     private String contactsJson;
+    private java.util.List<EventContactDto> contacts;
     private String paymentInstructions;
     private java.util.List<TicketTypeDto> ticketTypes;
     private String ticketTypesJson;

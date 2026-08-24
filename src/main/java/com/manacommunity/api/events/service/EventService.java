@@ -7,10 +7,12 @@ import com.manacommunity.api.events.dto.EventResponse;
 import com.manacommunity.api.events.dto.PendingActionItemDto;
 import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.dto.TicketTypeDto;
+import com.manacommunity.api.events.dto.EventContactDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.events.entity.EventActivityRegistration;
 import com.manacommunity.api.events.entity.EventCommunity;
+import com.manacommunity.api.events.entity.EventContact;
 import com.manacommunity.api.events.entity.EventCompetition;
 import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
@@ -25,6 +27,7 @@ import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
+import com.manacommunity.api.events.repository.EventContactRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
@@ -104,6 +107,7 @@ public class EventService {
     private final LunchDinnerRepository lunchDinnerRepo;
     private final EventFamilyMemberRepository familyMemberRepo;
     private final EventTicketCategoryRepository ticketCategoryRepo;
+    private final EventContactRepository eventContactRepo;
     private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
     private final ObjectMapper objectMapper;
 
@@ -225,6 +229,7 @@ public class EventService {
         validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
         EventCommunity savedEvent = eventRepo.save(event);
         saveTicketCategories(savedEvent, req.getTicketTypes());
+        saveEventContacts(savedEvent, req.getContacts(), req.getContactsJson());
         if (imageMediaExternalId != null) {
             mediaRepo.findByExternalIdAndDeletedFalse(imageMediaExternalId).ifPresent(media -> {
                 media.setModuleId(String.valueOf(savedEvent.getId()));
@@ -402,6 +407,9 @@ public class EventService {
         EventCommunity saved = eventRepo.save(event);
         if (req.getTicketTypes() != null) {
             saveTicketCategories(saved, req.getTicketTypes());
+        }
+        if (req.getContacts() != null || req.getContactsJson() != null) {
+            saveEventContacts(saved, req.getContacts(), req.getContactsJson());
         }
         notifyRegisteredUsers(saved, "Event Updated: " + saved.getTitle(),
                 "The event '" + saved.getTitle() + "' has been updated. Please check the latest details.");
@@ -1193,6 +1201,29 @@ public class EventService {
             }
         }
 
+        List<EventContactDto> parsedContacts = new ArrayList<>();
+        if (eventContactRepo != null && e.getId() != null) {
+            List<EventContact> savedContacts = eventContactRepo.findByEventIdOrderByDisplayOrderAsc(e.getId());
+            for (EventContact ec : savedContacts) {
+                parsedContacts.add(EventContactDto.builder()
+                        .id(ec.getContactCode() != null ? ec.getContactCode() : String.valueOf(ec.getId()))
+                        .name(ec.getName())
+                        .phone(ec.getPhone())
+                        .email(ec.getEmail())
+                        .role(ec.getRole())
+                        .notes(ec.getNotes())
+                        .isPrimary(Boolean.TRUE.equals(ec.getIsPrimary()))
+                        .displayOrder(ec.getDisplayOrder())
+                        .build());
+            }
+        }
+        if (parsedContacts.isEmpty() && e.getContactsJson() != null && !e.getContactsJson().isBlank()) {
+            try {
+                List<EventContactDto> fromJson = objectMapper.readValue(e.getContactsJson(), new TypeReference<List<EventContactDto>>() {});
+                if (fromJson != null) parsedContacts.addAll(fromJson);
+            } catch (Exception ignored) {}
+        }
+
         // Live dynamic active attendees count (direct + booking registrations)
         int liveAttendees = 0;
         if (e.getRegistrations() != null && !e.getRegistrations().isEmpty()) {
@@ -1240,6 +1271,7 @@ public class EventService {
                 .upiId(e.getUpiId())
                 .notes(e.getNotes())
                 .contactsJson(e.getContactsJson())
+                .contacts(parsedContacts)
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
@@ -1396,6 +1428,52 @@ public class EventService {
                     .isActive(true)
                     .build();
             ticketCategoryRepo.save(cat);
+        }
+    }
+
+    private void saveEventContacts(EventCommunity event, List<EventContactDto> contacts, String contactsJson) {
+        if (eventContactRepo == null || event == null || event.getId() == null) {
+            return;
+        }
+        List<EventContactDto> listToSave = new ArrayList<>();
+        if (contacts != null && !contacts.isEmpty()) {
+            listToSave.addAll(contacts);
+        } else if (contactsJson != null && !contactsJson.isBlank()) {
+            try {
+                List<EventContactDto> parsed = objectMapper.readValue(contactsJson, new TypeReference<List<EventContactDto>>() {});
+                if (parsed != null && !parsed.isEmpty()) {
+                    listToSave.addAll(parsed);
+                }
+            } catch (Exception ex) {
+                log.warn("Could not parse contactsJson for event {}: {}", event.getId(), ex.getMessage());
+            }
+        }
+
+        eventContactRepo.deleteByEventId(event.getId());
+
+        if (listToSave.isEmpty()) {
+            return;
+        }
+
+        int order = 1;
+        for (EventContactDto dto : listToSave) {
+            if (dto.getName() == null || dto.getName().isBlank()) {
+                continue;
+            }
+            EventContact ec = EventContact.builder()
+                    .event(event)
+                    .communityId(event.getCommunity() != null ? event.getCommunity().getId() : null)
+                    .contactCode(dto.getId() != null ? dto.getId() : "c_" + System.currentTimeMillis() + "_" + order)
+                    .name(dto.getName().trim())
+                    .phone(dto.getPhone() != null ? dto.getPhone().trim() : null)
+                    .email(dto.getEmail() != null ? dto.getEmail().trim() : null)
+                    .role(dto.getRole() != null ? dto.getRole().trim() : "Organizer")
+                    .notes(dto.getNotes())
+                    .displayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : order)
+                    .isPrimary(Boolean.TRUE.equals(dto.getIsPrimary()) || order == 1)
+                    .build();
+            order++;
+            eventContactRepo.save(ec);
         }
     }
 }
