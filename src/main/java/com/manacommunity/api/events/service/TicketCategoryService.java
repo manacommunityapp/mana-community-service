@@ -1,6 +1,6 @@
-package com.manacommunity.api.events.service;
+﻿package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.TicketCategoryMaster;
+import com.manacommunity.api.events.entity.EventTicketCategoryMaster;
 import com.manacommunity.api.events.repository.TicketCategoryMasterRepository;
 import com.manacommunity.api.exception.InvalidInputException;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +31,8 @@ public class TicketCategoryService {
     };
 
     @Transactional
-    public List<TicketCategoryMaster> getCategories(Long communityId) {
-        List<TicketCategoryMaster> list = masterRepo.findActiveByCommunityIdOrGlobal(communityId);
+    public List<EventTicketCategoryMaster> getCategories(Long communityId) {
+        List<EventTicketCategoryMaster> list = masterRepo.findActiveByCommunityIdOrGlobal(communityId);
         if (list.isEmpty()) {
             seedDefaults(communityId);
             list = masterRepo.findActiveByCommunityIdOrGlobal(communityId);
@@ -41,7 +41,7 @@ public class TicketCategoryService {
     }
 
     @Transactional
-    public TicketCategoryMaster createCategory(Long communityId, String name, String description, Integer displayOrder) {
+    public EventTicketCategoryMaster createCategory(Long communityId, String name, String description, Integer displayOrder) {
         if (name == null || name.trim().isBlank()) {
             throw new InvalidInputException("Category name must not be blank.");
         }
@@ -55,7 +55,7 @@ public class TicketCategoryService {
                     .orElseThrow(() -> new InvalidInputException("Category already exists."));
         }
 
-        TicketCategoryMaster master = TicketCategoryMaster.builder()
+        EventTicketCategoryMaster master = EventTicketCategoryMaster.builder()
                 .communityId(communityId)
                 .name(cleanName)
                 .description(description != null ? description.trim() : null)
@@ -77,7 +77,7 @@ public class TicketCategoryService {
             int order = Integer.parseInt(def[2]);
             if (!masterRepo.existsByNameIgnoreCaseAndCommunityIdIsNull(name)
                     && (communityId == null || !masterRepo.existsByCommunityIdAndNameIgnoreCase(communityId, name))) {
-                masterRepo.save(TicketCategoryMaster.builder()
+                masterRepo.save(EventTicketCategoryMaster.builder()
                         .communityId(communityId)
                         .name(name)
                         .description(desc)

@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.CompetitionAgeGroup;
+import com.manacommunity.api.events.entity.EventCompetitionAgeGroup;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,11 +8,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CompetitionAgeGroupRepository extends JpaRepository<CompetitionAgeGroup, Long> {
+public interface CompetitionAgeGroupRepository extends JpaRepository<EventCompetitionAgeGroup, Long> {
 
-    List<CompetitionAgeGroup> findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(Long communityId);
+    List<EventCompetitionAgeGroup> findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(Long communityId);
 
-    Optional<CompetitionAgeGroup> findByNameIgnoreCaseAndCommunityId(String name, Long communityId);
+    Optional<EventCompetitionAgeGroup> findByNameIgnoreCaseAndCommunityId(String name, Long communityId);
 
     boolean existsByNameIgnoreCase(String name);
 }

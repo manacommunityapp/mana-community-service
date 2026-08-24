@@ -8,7 +8,7 @@ import java.time.LocalTime;
 
 @Entity
 @Table(name = "event_cultural_events")
-public class CulturalEvent extends BaseAuditEntity {
+public class EventCulturalEvent extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

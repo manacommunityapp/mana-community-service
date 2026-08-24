@@ -172,7 +172,7 @@ public class EventReportService {
             }
         }
 
-        // 3. Cultural & Competition Activities
+        // 3. Cultural & EventCompetition Activities
         if ("all".equals(cat) || "activity".equals(cat) || "cultural".equals(cat) || "competition".equals(cat)) {
             List<EventActivityRegistration> actList = activityRegRepo.findByProgramEventId(eventId);
             for (EventActivityRegistration a : actList) {

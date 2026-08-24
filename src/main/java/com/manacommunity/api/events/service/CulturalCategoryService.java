@@ -1,11 +1,11 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.CulturalCategory;
+import com.manacommunity.api.events.entity.EventCulturalCategory;
 import java.util.List;
 
 public interface CulturalCategoryService {
 
-    List<CulturalCategory> getAllCulturalCategories(Long communityId);
+    List<EventCulturalCategory> getAllCulturalCategories(Long communityId);
 
-    CulturalCategory createCulturalCategory(Long communityId, String name, String description);
+    EventCulturalCategory createCulturalCategory(Long communityId, String name, String description);
 }

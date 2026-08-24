@@ -1,17 +1,17 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.Competition;
+import com.manacommunity.api.events.entity.EventCompetition;
 import java.util.List;
 
 public interface CompetitionService {
 
-    List<Competition> getAllCompetitions(Long communityId, Long mainEventId);
+    List<EventCompetition> getAllCompetitions(Long communityId, Long mainEventId);
 
-    Competition getCompetitionById(Long id, Long communityId);
+    EventCompetition getCompetitionById(Long id, Long communityId);
 
-    Competition createCompetition(Long communityId, Competition competition);
+    EventCompetition createCompetition(Long communityId, EventCompetition competition);
 
-    Competition updateCompetition(Long id, Long communityId, Competition competition);
+    EventCompetition updateCompetition(Long id, Long communityId, EventCompetition competition);
 
     void deleteCompetition(Long id, Long communityId);
 }

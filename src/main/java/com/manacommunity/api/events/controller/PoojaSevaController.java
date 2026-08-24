@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.HttpStatus;
@@ -21,41 +21,41 @@ public class PoojaSevaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PoojaSeva>> getAll(
+    public ResponseEntity<List<EventPoojaSeva>> getAll(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Long mainEventId) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<PoojaSeva> list = service.getAllPoojaSevas(communityId, mainEventId);
+        List<EventPoojaSeva> list = service.getAllPoojaSevas(communityId, mainEventId);
         return ResponseEntity.ok(list);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PoojaSeva> getById(
+    public ResponseEntity<EventPoojaSeva> getById(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        PoojaSeva item = service.getPoojaSevaById(id, communityId);
+        EventPoojaSeva item = service.getPoojaSevaById(id, communityId);
         return ResponseEntity.ok(item);
     }
 
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
-    public ResponseEntity<PoojaSeva> create(
+    public ResponseEntity<EventPoojaSeva> create(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody PoojaSeva body) {
+            @RequestBody EventPoojaSeva body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        PoojaSeva created = service.createPoojaSeva(communityId, body);
+        EventPoojaSeva created = service.createPoojaSeva(communityId, body);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
-    public ResponseEntity<PoojaSeva> update(
+    public ResponseEntity<EventPoojaSeva> update(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
-            @RequestBody PoojaSeva body) {
+            @RequestBody EventPoojaSeva body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        PoojaSeva updated = service.updatePoojaSeva(id, communityId, body);
+        EventPoojaSeva updated = service.updatePoojaSeva(id, communityId, body);
         return ResponseEntity.ok(updated);
     }
 

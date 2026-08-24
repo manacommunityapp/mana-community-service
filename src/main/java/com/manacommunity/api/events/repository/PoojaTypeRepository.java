@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.PoojaType;
+import com.manacommunity.api.events.entity.EventPoojaType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PoojaTypeRepository extends JpaRepository<PoojaType, Long> {
+public interface PoojaTypeRepository extends JpaRepository<EventPoojaType, Long> {
 
-    @Query("SELECT p FROM PoojaType p WHERE (:communityId IS NULL OR p.communityId = :communityId OR p.communityId IS NULL) ORDER BY p.name ASC")
-    List<PoojaType> findByCommunityOrGlobal(@Param("communityId") Long communityId);
+    @Query("SELECT p FROM EventPoojaType p WHERE (:communityId IS NULL OR p.communityId = :communityId OR p.communityId IS NULL) ORDER BY p.name ASC")
+    List<EventPoojaType> findByCommunityOrGlobal(@Param("communityId") Long communityId);
 
-    List<PoojaType> findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(Long communityId);
+    List<EventPoojaType> findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(Long communityId);
 
-    Optional<PoojaType> findByNameIgnoreCaseAndCommunityId(String name, Long communityId);
+    Optional<EventPoojaType> findByNameIgnoreCaseAndCommunityId(String name, Long communityId);
 
     boolean existsByNameIgnoreCase(String name);
 }

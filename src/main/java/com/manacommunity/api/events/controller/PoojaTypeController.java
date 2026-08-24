@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.PoojaType;
+import com.manacommunity.api.events.entity.EventPoojaType;
 import com.manacommunity.api.events.service.PoojaTypeService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,20 +21,20 @@ public class PoojaTypeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PoojaType>> getPoojaTypes(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<EventPoojaType>> getPoojaTypes(@AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<PoojaType> types = poojaTypeService.getAllPoojaTypes(communityId);
+        List<EventPoojaType> types = poojaTypeService.getAllPoojaTypes(communityId);
         return ResponseEntity.ok(types);
     }
 
     @PostMapping
-    public ResponseEntity<PoojaType> createPoojaType(
+    public ResponseEntity<EventPoojaType> createPoojaType(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, String> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         String name = body.get("name");
         String description = body.get("description");
-        PoojaType created = poojaTypeService.createPoojaType(communityId, name, description);
+        EventPoojaType created = poojaTypeService.createPoojaType(communityId, name, description);
         return ResponseEntity.ok(created);
     }
 }

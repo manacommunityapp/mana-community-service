@@ -11,8 +11,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.events.entity.EventActivityRegistration;
 import com.manacommunity.api.events.entity.EventCommunity;
-import com.manacommunity.api.events.entity.Competition;
-import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventCompetition;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.entity.EventFamilyMember;
@@ -21,8 +21,8 @@ import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventSponsor;
-import com.manacommunity.api.events.entity.LunchDinner;
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventLunchDinner;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
@@ -444,10 +444,10 @@ public class EventService {
         ticketCategoryRepo.deleteByEventId(id);
 
         // 1. Retrieve all sub-events linked to this main event
-        List<PoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
-        List<CulturalEvent> culturals = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
-        List<Competition> competitions = competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
-        List<LunchDinner> lunchDinners = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventPoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventCulturalEvent> culturals = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventCompetition> competitions = competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventLunchDinner> lunchDinners = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
         List<EventProgram> programs = programRepo.findByEventId(id);
 
         // 2. Check ANY registrations across main event and all sub-events (including CANCELLED, PENDING, CONFIRMED)
@@ -456,23 +456,23 @@ public class EventService {
                 + bookingRegRepo.findByActivityId(String.valueOf(id)).size();
 
         long poojaBookingCount = 0;
-        for (PoojaSeva pooja : poojas) {
+        for (EventPoojaSeva pooja : poojas) {
             poojaBookingCount += bookingRegRepo.findByActivityId("pooja-" + pooja.getId()).size();
         }
 
         long culturalBookingCount = 0;
-        for (CulturalEvent cultural : culturals) {
+        for (EventCulturalEvent cultural : culturals) {
             culturalBookingCount += bookingRegRepo.findByActivityId("cultural-" + cultural.getId()).size()
                     + bookingRegRepo.findByActivityId("cult-" + cultural.getId()).size();
         }
 
         long competitionBookingCount = 0;
-        for (Competition comp : competitions) {
+        for (EventCompetition comp : competitions) {
             competitionBookingCount += bookingRegRepo.findByActivityId("comp-" + comp.getId()).size();
         }
 
         long lunchDinnerBookingCount = 0;
-        for (LunchDinner ld : lunchDinners) {
+        for (EventLunchDinner ld : lunchDinners) {
             lunchDinnerBookingCount += bookingRegRepo.findByActivityId("food-" + ld.getId()).size();
         }
 
@@ -505,17 +505,17 @@ public class EventService {
             List<EventBookingRegistration> eventBookings = new ArrayList<>();
             eventBookings.addAll(bookingRegRepo.findByActivityId("event-" + id));
             eventBookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(id)));
-            for (PoojaSeva pooja : poojas) {
+            for (EventPoojaSeva pooja : poojas) {
                 eventBookings.addAll(bookingRegRepo.findByActivityId("pooja-" + pooja.getId()));
             }
-            for (CulturalEvent cultural : culturals) {
+            for (EventCulturalEvent cultural : culturals) {
                 eventBookings.addAll(bookingRegRepo.findByActivityId("cultural-" + cultural.getId()));
                 eventBookings.addAll(bookingRegRepo.findByActivityId("cult-" + cultural.getId()));
             }
-            for (Competition comp : competitions) {
+            for (EventCompetition comp : competitions) {
                 eventBookings.addAll(bookingRegRepo.findByActivityId("comp-" + comp.getId()));
             }
-            for (LunchDinner ld : lunchDinners) {
+            for (EventLunchDinner ld : lunchDinners) {
                 eventBookings.addAll(bookingRegRepo.findByActivityId("food-" + ld.getId()));
             }
             for (EventBookingRegistration bReg : eventBookings) {

@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,13 +8,13 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PoojaSevaRepository extends JpaRepository<PoojaSeva, Long> {
+public interface PoojaSevaRepository extends JpaRepository<EventPoojaSeva, Long> {
 
-    List<PoojaSeva> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
+    List<EventPoojaSeva> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
 
-    List<PoojaSeva> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
+    List<EventPoojaSeva> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
 
-    List<PoojaSeva> findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(Long communityId, Long mainEventId);
+    List<EventPoojaSeva> findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(Long communityId, Long mainEventId);
 
-    Optional<PoojaSeva> findByIdAndCommunityId(Long id, Long communityId);
+    Optional<EventPoojaSeva> findByIdAndCommunityId(Long id, Long communityId);
 }

@@ -15,7 +15,7 @@ import java.util.List;
 @Entity
 @Table(name = "event_pooja_sevas")
 @EntityListeners(AuditingEntityListener.class)
-public class PoojaSeva {
+public class EventPoojaSeva {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,12 +76,12 @@ public class PoojaSeva {
     @ElementCollection
     @CollectionTable(name = "event_pooja_seva_day_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
     @jakarta.persistence.OrderBy("slotDate ASC")
-    private List<PoojaSevaDaySlot> daySlots = new ArrayList<>();
+    private List<EventPoojaSevaDaySlot> daySlots = new ArrayList<>();
 
     @ElementCollection
     @CollectionTable(name = "event_pooja_seva_time_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
     @jakarta.persistence.OrderBy("slotDate ASC, startTime ASC")
-    private List<PoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
+    private List<EventPoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
 
     @Column(name = "notes", length = 1000)
     private String notes;
@@ -123,7 +123,7 @@ public class PoojaSeva {
     @Column(name = "updated_by")
     private Long updatedBy;
 
-    public PoojaSeva() {
+    public EventPoojaSeva() {
         this.createdAt = LocalDateTime.now();
     }
 
@@ -199,13 +199,13 @@ public class PoojaSeva {
         }
     }
 
-    public List<PoojaSevaDaySlot> getDaySlots() { return daySlots; }
-    public void setDaySlots(List<PoojaSevaDaySlot> daySlots) {
+    public List<EventPoojaSevaDaySlot> getDaySlots() { return daySlots; }
+    public void setDaySlots(List<EventPoojaSevaDaySlot> daySlots) {
         this.daySlots = daySlots != null ? daySlots : new ArrayList<>();
     }
 
-    public List<PoojaSevaDayTimeSlot> getTimeSlotConfig() { return timeSlotConfig; }
-    public void setTimeSlotConfig(List<PoojaSevaDayTimeSlot> timeSlotConfig) {
+    public List<EventPoojaSevaDayTimeSlot> getTimeSlotConfig() { return timeSlotConfig; }
+    public void setTimeSlotConfig(List<EventPoojaSevaDayTimeSlot> timeSlotConfig) {
         this.timeSlotConfig = timeSlotConfig != null ? timeSlotConfig : new ArrayList<>();
     }
 

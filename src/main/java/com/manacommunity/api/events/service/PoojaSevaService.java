@@ -1,17 +1,17 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import java.util.List;
 
 public interface PoojaSevaService {
 
-    List<PoojaSeva> getAllPoojaSevas(Long communityId, Long mainEventId);
+    List<EventPoojaSeva> getAllPoojaSevas(Long communityId, Long mainEventId);
 
-    PoojaSeva getPoojaSevaById(Long id, Long communityId);
+    EventPoojaSeva getPoojaSevaById(Long id, Long communityId);
 
-    PoojaSeva createPoojaSeva(Long communityId, PoojaSeva poojaSeva);
+    EventPoojaSeva createPoojaSeva(Long communityId, EventPoojaSeva poojaSeva);
 
-    PoojaSeva updatePoojaSeva(Long id, Long communityId, PoojaSeva poojaSeva);
+    EventPoojaSeva updatePoojaSeva(Long id, Long communityId, EventPoojaSeva poojaSeva);
 
     void deletePoojaSeva(Long id, Long communityId);
 }

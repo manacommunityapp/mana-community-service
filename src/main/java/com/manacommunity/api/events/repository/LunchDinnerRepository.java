@@ -1,15 +1,15 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.LunchDinner;
+import com.manacommunity.api.events.entity.EventLunchDinner;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface LunchDinnerRepository extends JpaRepository<LunchDinner, Long> {
+public interface LunchDinnerRepository extends JpaRepository<EventLunchDinner, Long> {
 
-    List<LunchDinner> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
+    List<EventLunchDinner> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
 
-    List<LunchDinner> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
+    List<EventLunchDinner> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
 }

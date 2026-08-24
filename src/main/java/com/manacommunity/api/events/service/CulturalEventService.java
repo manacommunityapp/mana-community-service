@@ -1,17 +1,17 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import java.util.List;
 
 public interface CulturalEventService {
 
-    List<CulturalEvent> getAllCulturalEvents(Long communityId, Long mainEventId);
+    List<EventCulturalEvent> getAllCulturalEvents(Long communityId, Long mainEventId);
 
-    CulturalEvent getCulturalEventById(Long id, Long communityId);
+    EventCulturalEvent getCulturalEventById(Long id, Long communityId);
 
-    CulturalEvent createCulturalEvent(Long communityId, CulturalEvent culturalEvent);
+    EventCulturalEvent createCulturalEvent(Long communityId, EventCulturalEvent culturalEvent);
 
-    CulturalEvent updateCulturalEvent(Long id, Long communityId, CulturalEvent culturalEvent);
+    EventCulturalEvent updateCulturalEvent(Long id, Long communityId, EventCulturalEvent culturalEvent);
 
     void deleteCulturalEvent(Long id, Long communityId);
 }

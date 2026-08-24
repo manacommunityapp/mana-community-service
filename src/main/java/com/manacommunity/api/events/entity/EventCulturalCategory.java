@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_competition_age_groups")
-public class CompetitionAgeGroup {
+@Table(name = "event_cultural_categories")
+public class EventCulturalCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,11 +23,11 @@ public class CompetitionAgeGroup {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public CompetitionAgeGroup() {
+    public EventCulturalCategory() {
         this.createdAt = LocalDateTime.now();
     }
 
-    public CompetitionAgeGroup(Long communityId, String name, String description) {
+    public EventCulturalCategory(Long communityId, String name, String description) {
         this();
         this.communityId = communityId;
         this.name = name;

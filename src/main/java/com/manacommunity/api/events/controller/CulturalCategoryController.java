@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.CulturalCategory;
+import com.manacommunity.api.events.entity.EventCulturalCategory;
 import com.manacommunity.api.events.service.CulturalCategoryService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,20 +21,20 @@ public class CulturalCategoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CulturalCategory>> getCulturalCategories(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<EventCulturalCategory>> getCulturalCategories(@AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<CulturalCategory> categories = service.getAllCulturalCategories(communityId);
+        List<EventCulturalCategory> categories = service.getAllCulturalCategories(communityId);
         return ResponseEntity.ok(categories);
     }
 
     @PostMapping
-    public ResponseEntity<CulturalCategory> createCulturalCategory(
+    public ResponseEntity<EventCulturalCategory> createCulturalCategory(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, String> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         String name = body.get("name");
         String description = body.get("description");
-        CulturalCategory created = service.createCulturalCategory(communityId, name, description);
+        EventCulturalCategory created = service.createCulturalCategory(communityId, name, description);
         return ResponseEntity.ok(created);
     }
 }
