@@ -42,7 +42,7 @@ public class FeedService {
     private final GroupMembershipRepository groupMembershipRepository;
     private final UserEngagementScoreRepository userEngagementScoreRepository;
     private final SportsEventRepository sportsEventRepository;
-    private final com.manacommunity.api.events.repository.CommunityEventRepository communityEventRepository;
+    private final com.manacommunity.api.events.repository.EventCommunityRepository communityEventRepository;
     private final com.manacommunity.api.events.repository.EventRegistrationRepository eventRegistrationRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;

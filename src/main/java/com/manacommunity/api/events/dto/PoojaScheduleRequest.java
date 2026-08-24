@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-/** Admin request body for creating/updating a PoojaSchedule. */
+/** Admin request body for creating/updating a EventPoojaSchedule. */
 @Data
 public class PoojaScheduleRequest {
 

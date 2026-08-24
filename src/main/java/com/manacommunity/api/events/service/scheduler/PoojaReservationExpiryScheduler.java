@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.scheduler;
 
-import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -23,13 +23,13 @@ public class PoojaReservationExpiryScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(PoojaReservationExpiryScheduler.class);
 
-    private final PoojaSlotReservationRepository reservationRepo;
+    private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
 
     @Value("${pooja.reservation.purge-days:30}")
     private int purgeOlderThanDays;
 
-    public PoojaReservationExpiryScheduler(PoojaSlotReservationRepository reservationRepo,
+    public PoojaReservationExpiryScheduler(EventPoojaSlotReservationRepository reservationRepo,
                                             AuditService auditService) {
         this.reservationRepo = reservationRepo;
         this.auditService = auditService;
@@ -45,7 +45,7 @@ public class PoojaReservationExpiryScheduler {
         if (expired > 0) {
             log.info("Expired {} stale pooja slot reservations", expired);
             auditService.record(AuditAction.POOJA_SLOT_RESERVATION_EXPIRED, AuditModule.EVENTS,
-                    "PoojaSlotReservation", "batch", null, "count=" + expired);
+                    "EventPoojaSlotReservation", "batch", null, "count=" + expired);
         }
 
         // #23: Purge old EXPIRED / CANCELLED rows to prevent unbounded table growth

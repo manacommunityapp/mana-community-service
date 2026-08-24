@@ -14,8 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import com.manacommunity.api.events.entity.CommunityEvent;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.entity.EventCommunity;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 
 @Service
 public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
@@ -27,12 +27,12 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
 
     private final EventFamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
-    private final CommunityEventRepository eventRepository;
+    private final EventCommunityRepository eventRepository;
 
     public EventFamilyMemberServiceImpl(
             EventFamilyMemberRepository repository,
             CommunityRepository communityRepository,
-            CommunityEventRepository eventRepository) {
+            EventCommunityRepository eventRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.eventRepository = eventRepository;
@@ -94,7 +94,7 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
                 ? user.getCommunity()
                 : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
 
-        CommunityEvent event = (eventId != null)
+        EventCommunity event = (eventId != null)
                 ? eventRepository.findById(eventId).orElse(null)
                 : null;
 

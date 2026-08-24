@@ -1,7 +1,7 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.LunchDinner;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.service.LunchDinnerService;
@@ -20,11 +20,11 @@ import java.util.List;
 public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     private final LunchDinnerRepository repository;
-    private final CommunityEventRepository eventRepository;
+    private final EventCommunityRepository eventRepository;
     private final EventBookingRegistrationRepository bookingRepo;
 
     public LunchDinnerServiceImpl(LunchDinnerRepository repository,
-                                  CommunityEventRepository eventRepository,
+                                  EventCommunityRepository eventRepository,
                                   EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
@@ -46,8 +46,8 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
         for (LunchDinner m : raw) {
             if (m.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(m.getMainEventId(), id -> {
-                    com.manacommunity.api.events.entity.CommunityEvent parent = eventRepository.findById(id).orElse(null);
-                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.CommunityEvent.EventStatus.CANCELLED;
+                    com.manacommunity.api.events.entity.EventCommunity parent = eventRepository.findById(id).orElse(null);
+                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.EventCommunity.EventStatus.CANCELLED;
                 });
                 if (isParentCancelled) {
                     continue;

@@ -5,9 +5,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.events.dto.ActivityRegistrationRequest;
 import com.manacommunity.api.events.dto.ActivityRegistrationResponse;
-import com.manacommunity.api.events.entity.ActivityRegistration;
+import com.manacommunity.api.events.entity.EventActivityRegistration;
 import com.manacommunity.api.events.entity.EventProgram;
-import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
+import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
@@ -33,7 +33,7 @@ public class ActivityRegistrationService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private final EventProgramRepository programRepo;
-    private final ActivityRegistrationRepository registrationRepo;
+    private final EventActivityRegistrationRepository registrationRepo;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -44,10 +44,10 @@ public class ActivityRegistrationService {
             var existing = registrationRepo.findByProgramIdAndUserIdAndIdempotencyKey(programId, user.getId(), idempotencyKey);
             if (existing.isPresent()) return toResponse(existing.get());
         }
-        ActivityRegistration existingRegistration = registrationRepo.findByProgramIdAndUserId(programId, user.getId())
+        EventActivityRegistration existingRegistration = registrationRepo.findByProgramIdAndUserId(programId, user.getId())
                 .orElse(null);
         if (existingRegistration != null
-                && existingRegistration.getStatus() != ActivityRegistration.ActivityRegStatus.CANCELLED) {
+                && existingRegistration.getStatus() != EventActivityRegistration.ActivityRegStatus.CANCELLED) {
             throw new AlreadyRegisteredException(program.getTitle());
         }
 
@@ -57,15 +57,15 @@ public class ActivityRegistrationService {
             throw new InvalidInputException("Head count exceeds maximum allowed per registration: " + maxPerRegistration);
         }
 
-        ActivityRegistration.ActivityRegStatus status = resolveSubmissionStatus(program, headCount);
+        EventActivityRegistration.ActivityRegStatus status = resolveSubmissionStatus(program, headCount);
         Integer waitlistPosition = null;
-        if (status == ActivityRegistration.ActivityRegStatus.WAITLISTED) {
-            waitlistPosition = registrationRepo.countByProgramIdAndStatus(programId, ActivityRegistration.ActivityRegStatus.WAITLISTED) + 1;
+        if (status == EventActivityRegistration.ActivityRegStatus.WAITLISTED) {
+            waitlistPosition = registrationRepo.countByProgramIdAndStatus(programId, EventActivityRegistration.ActivityRegStatus.WAITLISTED) + 1;
         }
 
-        ActivityRegistration registration = existingRegistration != null
+        EventActivityRegistration registration = existingRegistration != null
                 ? existingRegistration
-                : ActivityRegistration.builder().program(program).user(user).build();
+                : EventActivityRegistration.builder().program(program).user(user).build();
         registration.setHeadCount(headCount);
         registration.setRegistrationType(normalize(req.getRegistrationType()) != null ? normalize(req.getRegistrationType()) : "individual");
         registration.setPrimaryName(resolvePrimaryName(req, user));
@@ -100,24 +100,24 @@ public class ActivityRegistrationService {
 
     @Transactional
     public ActivityRegistrationResponse approve(Long registrationId, AppUser approver) {
-        ActivityRegistration registration = getRegistration(registrationId);
-        if (registration.getStatus() == ActivityRegistration.ActivityRegStatus.CONFIRMED) {
+        EventActivityRegistration registration = getRegistration(registrationId);
+        if (registration.getStatus() == EventActivityRegistration.ActivityRegStatus.CONFIRMED) {
             return toResponse(registration);
         }
         EventProgram program = registration.getProgram();
         if (!hasCapacity(program, registration.getHeadCount())) {
             if (program.isAllowWaitlist()) {
-                registration.setStatus(ActivityRegistration.ActivityRegStatus.WAITLISTED);
+                registration.setStatus(EventActivityRegistration.ActivityRegStatus.WAITLISTED);
                 if (registration.getWaitlistPosition() == null) {
                     registration.setWaitlistPosition(registrationRepo.countByProgramIdAndStatus(
-                            program.getId(), ActivityRegistration.ActivityRegStatus.WAITLISTED) + 1);
+                            program.getId(), EventActivityRegistration.ActivityRegStatus.WAITLISTED) + 1);
                 }
                 registration.setDecisionReason("Moved to waitlist because capacity is full");
                 return toResponse(registrationRepo.save(registration));
             }
             throw new EventFullException(program.getTitle(), program.getCapacity());
         }
-        registration.setStatus(ActivityRegistration.ActivityRegStatus.CONFIRMED);
+        registration.setStatus(EventActivityRegistration.ActivityRegStatus.CONFIRMED);
         registration.setApprovedBy(approver);
         registration.setApprovedAt(LocalDateTime.now());
         registration.setDecisionReason(null);
@@ -127,9 +127,9 @@ public class ActivityRegistrationService {
 
     @Transactional
     public ActivityRegistrationResponse reject(Long registrationId, String reason, AppUser approver) {
-        ActivityRegistration registration = getRegistration(registrationId);
-        boolean wasConfirmed = registration.getStatus() == ActivityRegistration.ActivityRegStatus.CONFIRMED;
-        registration.setStatus(ActivityRegistration.ActivityRegStatus.DECLINED);
+        EventActivityRegistration registration = getRegistration(registrationId);
+        boolean wasConfirmed = registration.getStatus() == EventActivityRegistration.ActivityRegStatus.CONFIRMED;
+        registration.setStatus(EventActivityRegistration.ActivityRegStatus.DECLINED);
         registration.setDecisionReason(normalize(reason));
         registration.setApprovedBy(approver);
         registration.setApprovedAt(LocalDateTime.now());
@@ -140,36 +140,36 @@ public class ActivityRegistrationService {
 
     @Transactional
     public ActivityRegistrationResponse cancel(Long registrationId, AppUser user) {
-        ActivityRegistration registration = getRegistration(registrationId);
+        EventActivityRegistration registration = getRegistration(registrationId);
         if (!registration.getUser().getId().equals(user.getId())) {
             throw new UnauthorizedActionException("Only the registrant can cancel this activity registration");
         }
-        boolean wasConfirmed = registration.getStatus() == ActivityRegistration.ActivityRegStatus.CONFIRMED;
-        registration.setStatus(ActivityRegistration.ActivityRegStatus.CANCELLED);
+        boolean wasConfirmed = registration.getStatus() == EventActivityRegistration.ActivityRegStatus.CONFIRMED;
+        registration.setStatus(EventActivityRegistration.ActivityRegStatus.CANCELLED);
         registration.setDecisionReason("Cancelled by registrant");
         ActivityRegistrationResponse response = toResponse(registrationRepo.save(registration));
         if (wasConfirmed) promoteNextWaitlisted(registration.getProgram());
         return response;
     }
 
-    private ActivityRegistration.ActivityRegStatus resolveSubmissionStatus(EventProgram program, int headCount) {
+    private EventActivityRegistration.ActivityRegStatus resolveSubmissionStatus(EventProgram program, int headCount) {
         if (!hasCapacity(program, headCount)) {
-            if (program.isAllowWaitlist()) return ActivityRegistration.ActivityRegStatus.WAITLISTED;
+            if (program.isAllowWaitlist()) return EventActivityRegistration.ActivityRegStatus.WAITLISTED;
             throw new EventFullException(program.getTitle(), program.getCapacity());
         }
         return program.isRequiresApproval()
-                ? ActivityRegistration.ActivityRegStatus.PENDING
-                : ActivityRegistration.ActivityRegStatus.CONFIRMED;
+                ? EventActivityRegistration.ActivityRegStatus.PENDING
+                : EventActivityRegistration.ActivityRegStatus.CONFIRMED;
     }
 
     private void promoteNextWaitlisted(EventProgram program) {
         registrationRepo.findFirstByProgramIdAndStatusOrderByWaitlistPositionAscRegisteredAtAsc(
-                        program.getId(), ActivityRegistration.ActivityRegStatus.WAITLISTED)
+                        program.getId(), EventActivityRegistration.ActivityRegStatus.WAITLISTED)
                 .filter(next -> hasCapacity(program, next.getHeadCount()))
                 .ifPresent(next -> {
                     next.setStatus(program.isRequiresApproval()
-                            ? ActivityRegistration.ActivityRegStatus.PENDING
-                            : ActivityRegistration.ActivityRegStatus.CONFIRMED);
+                            ? EventActivityRegistration.ActivityRegStatus.PENDING
+                            : EventActivityRegistration.ActivityRegStatus.CONFIRMED);
                     next.setDecisionReason("Promoted from waitlist");
                     next.setWaitlistPosition(null);
                     registrationRepo.save(next);
@@ -179,14 +179,14 @@ public class ActivityRegistrationService {
     private boolean hasCapacity(EventProgram program, int requestedHeadCount) {
         if (program.getCapacity() == null || program.getCapacity() <= 0) return true;
         int confirmed = registrationRepo.sumHeadCountByProgramIdAndStatus(
-                program.getId(), ActivityRegistration.ActivityRegStatus.CONFIRMED);
+                program.getId(), EventActivityRegistration.ActivityRegStatus.CONFIRMED);
         return confirmed + requestedHeadCount <= program.getCapacity();
     }
 
     private int spotsLeft(EventProgram program) {
         if (program.getCapacity() == null || program.getCapacity() <= 0) return -1;
         int confirmed = registrationRepo.sumHeadCountByProgramIdAndStatus(
-                program.getId(), ActivityRegistration.ActivityRegStatus.CONFIRMED);
+                program.getId(), EventActivityRegistration.ActivityRegStatus.CONFIRMED);
         return Math.max(0, program.getCapacity() - confirmed);
     }
 
@@ -212,12 +212,12 @@ public class ActivityRegistrationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Activity", programId));
     }
 
-    private ActivityRegistration getRegistration(Long registrationId) {
+    private EventActivityRegistration getRegistration(Long registrationId) {
         return registrationRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activity registration", registrationId));
     }
 
-    private ActivityRegistrationResponse toResponse(ActivityRegistration registration) {
+    private ActivityRegistrationResponse toResponse(EventActivityRegistration registration) {
         ActivityRegistrationResponse response = new ActivityRegistrationResponse();
         EventProgram program = registration.getProgram();
         response.setId(registration.getId());

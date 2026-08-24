@@ -24,7 +24,7 @@ import java.time.LocalTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PoojaSchedule {
+public class EventPoojaSchedule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,7 +60,10 @@ public class PoojaSchedule {
     @Builder.Default
     private PoojaScheduleStatus status = PoojaScheduleStatus.OPEN;
 
-    /** Monotonic counter for Sankalpam token generation — incremented under the same lock. */
+    @Column(name = "notes", length = 500)
+    private String notes;
+
+    /** Running sequence for Sankalpam token numbers within this slot (1-based). */
     @Column(name = "next_token_seq", nullable = false)
     @Builder.Default
     private Integer nextTokenSeq = 1;
@@ -80,13 +83,13 @@ public class PoojaSchedule {
     private Long updatedBy;
 
     @PrePersist
-    public void prePersist() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
     }
 
     @PreUpdate
-    public void preUpdate() {
+    protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
 }

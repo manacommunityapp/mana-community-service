@@ -21,7 +21,7 @@ public class EventTicketCategory extends BaseAuditEntity {
     @JoinColumn(name = "event_id", nullable = false)
     @JsonIgnore
     @ToString.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(name = "community_id")
     private Long communityId;

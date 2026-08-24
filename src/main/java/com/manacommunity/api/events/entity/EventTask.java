@@ -24,7 +24,7 @@ public class EventTask {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 300)
     private String title;

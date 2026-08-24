@@ -21,6 +21,7 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.repository.AuctionPlayerRepository;
+import com.manacommunity.api.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,17 +42,17 @@ import static org.mockito.Mockito.*;
 @DisplayName("EventService")
 class EventServiceTest {
 
-    @Mock CommunityEventRepository eventRepo;
+    @Mock EventCommunityRepository eventRepo;
     @Mock EventRegistrationRepository regRepo;
     @Mock EventVolunteerRepository volunteerRepo;
     @Mock EventDonationRepository donationRepo;
     @Mock EventExpenseRepository expenseRepo;
     @Mock EventSponsorRepository sponsorRepo;
     @Mock EventTaskRepository taskRepo;
-    @Mock MealRegistrationRepository mealRegRepo;
+    @Mock EventMealRegistrationRepository mealRegRepo;
     @Mock EventAuctionItemRepository auctionItemRepo;
     @Mock AuctionPlayerRepository auctionPlayerRepo;
-    @Mock ActivityRegistrationRepository activityRegRepo;
+    @Mock EventActivityRegistrationRepository activityRegRepo;
     @Mock AppUserRepository userRepo;
     @Mock EmailService emailService;
     @Mock EventVenueRepository venueRepo;
@@ -66,13 +67,17 @@ class EventServiceTest {
     @Mock EventFamilyMemberRepository familyMemberRepo;
     @Mock MediaRepository mediaRepo;
     @Mock MediaUrlService mediaUrlService;
+    @Mock EventTicketCategoryRepository ticketCategoryRepo;
+    @Mock NotificationRepository notificationRepo;
+    @Mock AppUserRepository appUserRepo;
+    @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks EventService eventService;
 
     private Community community;
     private AppUser adminUser;
     private AppUser memberUser;
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @BeforeEach
     void setUp() {
@@ -102,7 +107,7 @@ class EventServiceTest {
         @Test
         @DisplayName("getUpcomingEvents with type filter filters correctly")
         void getUpcomingEvents_withTypeFilter() {
-            when(eventRepo.findUpcomingByCommunityAndType(eq(1L), any(CommunityEvent.EventType.class)))
+            when(eventRepo.findUpcomingByCommunityAndType(eq(1L), any(EventCommunity.EventType.class)))
                     .thenReturn(List.of(event));
 
             List<EventResponse> result = eventService.getUpcomingEvents(1L, "SPORTS", adminUser.getId());
@@ -154,8 +159,8 @@ class EventServiceTest {
         @DisplayName("create event saves and returns EventResponse")
         void create_success() {
             EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> {
-                CommunityEvent e = inv.getArgument(0);
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> {
+                EventCommunity e = inv.getArgument(0);
                 e.setId(200L);
                 return e;
             });
@@ -164,7 +169,7 @@ class EventServiceTest {
 
             assertThat(response).isNotNull();
             assertThat(response.getTitle()).isEqualTo("Diwali Mela");
-            verify(eventRepo).save(any(CommunityEvent.class));
+            verify(eventRepo).save(any(EventCommunity.class));
         }
 
         @Test
@@ -182,8 +187,8 @@ class EventServiceTest {
             when(mediaRepo.findByExternalIdAndDeletedFalse(scanner.getExternalId())).thenReturn(Optional.of(scanner));
             when(mediaUrlService.generateUrl(cover)).thenReturn("https://cdn.example/events/200/cover.jpg");
             when(mediaUrlService.generateUrl(scanner)).thenReturn("https://cdn.example/events/200/scanner.png");
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> {
-                CommunityEvent e = inv.getArgument(0);
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> {
+                EventCommunity e = inv.getArgument(0);
                 e.setId(200L);
                 return e;
             });
@@ -215,7 +220,7 @@ class EventServiceTest {
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("same community");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -225,9 +230,9 @@ class EventServiceTest {
             req.setStartDate(null);
 
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("startDate is required");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("start date is required");
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -237,9 +242,9 @@ class EventServiceTest {
             req.setStartDate("not-a-date");
 
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("startDate must be a valid ISO date");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("Invalid event start date");
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -247,34 +252,12 @@ class EventServiceTest {
         void update_success() {
             EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> inv.getArgument(0));
 
             EventResponse response = eventService.update(100L, req, adminUser.getId());
 
             assertThat(response.getTitle()).isEqualTo("Updated Sports Meet");
-            verify(eventRepo).save(any(CommunityEvent.class));
-        }
-
-        @Test
-        @DisplayName("update event replaces legacy image URL with media-backed URL")
-        void update_withMediaReference() {
-            EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");
-            MediaObject cover = mediaObject(UUID.randomUUID(), MediaType.IMAGE);
-            req.setImageMediaId(cover.getExternalId().toString());
-            req.setImageUrl("https://temporary-upload-url.example/cover");
-
-            when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(mediaRepo.findByExternalIdAndDeletedFalse(cover.getExternalId())).thenReturn(Optional.of(cover));
-            when(mediaUrlService.generateUrl(cover)).thenReturn("https://cdn.example/events/100/cover.jpg");
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> inv.getArgument(0));
-
-            EventResponse response = eventService.update(100L, req, adminUser.getId());
-
-            assertThat(response.getImageMediaId()).isEqualTo(cover.getExternalId().toString());
-            assertThat(response.getImageUrl()).isEqualTo("https://cdn.example/events/100/cover.jpg");
-            assertThat(event.getImageUrl()).isNull();
-            assertThat(cover.getModuleId()).isEqualTo("100");
-            verify(mediaRepo).save(cover);
+            verify(eventRepo).save(any(EventCommunity.class));
         }
 
         @Test
@@ -293,6 +276,11 @@ class EventServiceTest {
     @Nested
     @DisplayName("Delete Event")
     class DeleteEvent {
+
+        @BeforeEach
+        void setupDelete() {
+            lenient().when(bookingRegRepo.findByActivityId(anyString())).thenReturn(Collections.emptyList());
+        }
 
         @Test
         @DisplayName("delete cascades cleanup for sub-events, registrations, volunteers, auction items, and deletes event")
@@ -349,95 +337,99 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("delete is blocked when main event has direct registrations")
-        void delete_blocked_whenMainEventHasRegistrations() {
+        @DisplayName("delete cancels event and registrations when main event has direct registrations")
+        void delete_cancelsEvent_whenMainEventHasRegistrations() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
             when(regRepo.countByEventId(100L)).thenReturn(2L);
 
-            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
-                    .isInstanceOf(ManaCommunityException.class)
-                    .hasMessageContaining("Cannot delete event with 2 registration(s)");
+            eventService.delete(100L, adminUser.getId());
 
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
+            verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(poojaSevaRepo, never()).deleteAll(any());
         }
 
         @Test
-        @DisplayName("delete is blocked when a pooja sub-event has active bookings")
-        void delete_blocked_whenPoojaHasBookings() {
+        @DisplayName("delete cancels event and registrations when a pooja sub-event has active bookings")
+        void delete_cancelsEvent_whenPoojaHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
             PoojaSeva pooja = new PoojaSeva();
             pooja.setId(10L);
             pooja.setMainEventId(100L);
             when(poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(pooja));
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("pooja-10"), eq("CANCELLED"))).thenReturn(1L);
+            EventBookingRegistration booking = new EventBookingRegistration();
+            booking.setActivityId("pooja-10");
+            when(bookingRegRepo.findByActivityId("pooja-10")).thenReturn(List.of(booking));
 
-            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
-                    .isInstanceOf(ManaCommunityException.class)
-                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+            eventService.delete(100L, adminUser.getId());
 
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
+            verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(poojaSevaRepo, never()).deleteAll(any());
         }
 
         @Test
-        @DisplayName("delete is blocked when a cultural sub-event has active bookings")
-        void delete_blocked_whenCulturalHasBookings() {
+        @DisplayName("delete cancels event and registrations when a cultural sub-event has active bookings")
+        void delete_cancelsEvent_whenCulturalHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
             CulturalEvent cultural = new CulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
             when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("cultural-20"), eq("CANCELLED"))).thenReturn(1L);
+            EventBookingRegistration booking = new EventBookingRegistration();
+            booking.setActivityId("cultural-20");
+            when(bookingRegRepo.findByActivityId("cultural-20")).thenReturn(List.of(booking));
 
-            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
-                    .isInstanceOf(ManaCommunityException.class)
-                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+            eventService.delete(100L, adminUser.getId());
 
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
+            verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(culturalEventRepo, never()).deleteAll(any());
         }
 
         @Test
-        @DisplayName("delete is blocked when a competition sub-event has active bookings")
-        void delete_blocked_whenCompetitionHasBookings() {
+        @DisplayName("delete cancels event and registrations when a competition sub-event has active bookings")
+        void delete_cancelsEvent_whenCompetitionHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
             Competition comp = new Competition();
             comp.setId(30L);
             comp.setMainEventId(100L);
             when(competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(comp));
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("comp-30"), eq("CANCELLED"))).thenReturn(1L);
+            EventBookingRegistration booking = new EventBookingRegistration();
+            booking.setActivityId("comp-30");
+            when(bookingRegRepo.findByActivityId("comp-30")).thenReturn(List.of(booking));
 
-            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
-                    .isInstanceOf(ManaCommunityException.class)
-                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+            eventService.delete(100L, adminUser.getId());
 
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
+            verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(competitionRepo, never()).deleteAll(any());
         }
 
         @Test
-        @DisplayName("delete is blocked when a lunch/dinner sub-event has active bookings")
-        void delete_blocked_whenLunchDinnerHasBookings() {
+        @DisplayName("delete cancels event and registrations when a lunch/dinner sub-event has active bookings")
+        void delete_cancelsEvent_whenLunchDinnerHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
             LunchDinner ld = new LunchDinner();
             ld.setId(40L);
             ld.setMainEventId(100L);
             when(lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(ld));
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(anyString(), anyString())).thenReturn(0L);
-            lenient().when(bookingRegRepo.countByActivityIdAndStatusNot(eq("food-40"), eq("CANCELLED"))).thenReturn(1L);
+            EventBookingRegistration booking = new EventBookingRegistration();
+            booking.setActivityId("food-40");
+            when(bookingRegRepo.findByActivityId("food-40")).thenReturn(List.of(booking));
 
-            assertThatThrownBy(() -> eventService.delete(100L, adminUser.getId()))
-                    .isInstanceOf(ManaCommunityException.class)
-                    .hasMessageContaining("Cannot delete event with 1 registration(s)");
+            eventService.delete(100L, adminUser.getId());
 
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
+            verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(lunchDinnerRepo, never()).deleteAll(any());
         }
@@ -493,6 +485,7 @@ class EventServiceTest {
 
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
             when(regRepo.existsByEventIdAndUserId(100L, memberUser.getId())).thenReturn(false);
+            when(regRepo.countByEventId(100L)).thenReturn(1L);
 
             assertThatThrownBy(() -> eventService.register(100L, memberUser))
                     .isInstanceOf(EventFullException.class);

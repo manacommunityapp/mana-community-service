@@ -27,7 +27,7 @@ public class EventExpense {
 
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 500)
     private String description;

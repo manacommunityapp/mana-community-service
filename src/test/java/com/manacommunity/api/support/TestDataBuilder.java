@@ -131,18 +131,18 @@ public final class TestDataBuilder {
                 .build();
     }
 
-    // ── CommunityEvent ───────────────────────────────────────────────
+    // ── EventCommunity ───────────────────────────────────────────────
 
-    public static com.manacommunity.api.events.entity.CommunityEvent communityEvent(Long id, Community community, AppUser user) {
-        return com.manacommunity.api.events.entity.CommunityEvent.builder()
+    public static com.manacommunity.api.events.entity.EventCommunity communityEvent(Long id, Community community, AppUser user) {
+        return com.manacommunity.api.events.entity.EventCommunity.builder()
                 .id(id)
                 .title("Annual Sports Meet")
                 .description("Community annual sports day")
-                .type(com.manacommunity.api.events.entity.CommunityEvent.EventType.SPORTS)
-                .status(com.manacommunity.api.events.entity.CommunityEvent.EventStatus.PUBLISHED)
+                .type(com.manacommunity.api.events.entity.EventCommunity.EventType.SPORTS)
+                .status(com.manacommunity.api.events.entity.EventCommunity.EventStatus.PUBLISHED)
                 .startDate(LocalDate.now().plusDays(10))
                 .capacity(100)
-                .priceType(com.manacommunity.api.events.entity.CommunityEvent.PriceType.FREE)
+                .priceType(com.manacommunity.api.events.entity.EventCommunity.PriceType.FREE)
                 .community(community != null ? community : community())
                 .createdBy(user != null ? user : adminUser())
                 .registrations(new java.util.ArrayList<>())
@@ -163,7 +163,7 @@ public final class TestDataBuilder {
     }
 
     public static com.manacommunity.api.events.entity.EventRegistration eventRegistration(
-            Long id, com.manacommunity.api.events.entity.CommunityEvent event, AppUser user) {
+            Long id, com.manacommunity.api.events.entity.EventCommunity event, AppUser user) {
         return com.manacommunity.api.events.entity.EventRegistration.builder()
                 .id(id)
                 .event(event)

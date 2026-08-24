@@ -1812,13 +1812,32 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher VMS patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure community_event has category, venue, city, max_attendees, etc. columns before Hibernate validates.
+            // Ensure event_community has category, venue, city, max_attendees, etc. columns before Hibernate validates.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event') IS NOT NULL THEN
+                          IF to_regclass('manacommunity.event_community') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_community
+                              ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PUBLISHED',
+                              ADD COLUMN IF NOT EXISTS type VARCHAR(30) DEFAULT 'GENERAL',
+                              ADD COLUMN IF NOT EXISTS description VARCHAR(3000),
+                              ADD COLUMN IF NOT EXISTS end_date DATE,
+                              ADD COLUMN IF NOT EXISTS start_time TIME,
+                              ADD COLUMN IF NOT EXISTS end_time TIME,
+                              ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION,
+                              ADD COLUMN IF NOT EXISTS capacity INT,
+                              ADD COLUMN IF NOT EXISTS image_url VARCHAR(500),
+                              ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS venue VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS city VARCHAR(100),
+                              ADD COLUMN IF NOT EXISTS max_attendees INT,
+                              ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) DEFAULT 'IN_PERSON',
+                              ADD COLUMN IF NOT EXISTS price_type VARCHAR(10) DEFAULT 'FREE',
+                              ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200),
+                              ADD COLUMN IF NOT EXISTS organizer_contact VARCHAR(200);
+                          ELSIF to_regclass('manacommunity.community_event') IS NOT NULL THEN
                             ALTER TABLE manacommunity.community_event
                               ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PUBLISHED',
                               ADD COLUMN IF NOT EXISTS type VARCHAR(30) DEFAULT 'GENERAL',
@@ -1840,12 +1859,12 @@ public class SchemaConstraintPatcher {
                           END IF;
                         END $$;
                         """);
-                log.info("community_event table columns ensured.");
+                log.info("event_community table columns ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community_event columns patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_community columns patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure community-event sub-resource tables exist before Hibernate validates.
+            // Ensure event sub-resource tables exist before Hibernate validates.
             // These back the EventTask, EventVolunteer, and EventSponsor entities
             // (endpoints: /api/events/tasks, /api/events/volunteers, /api/events/sponsors).
             // Idempotent — safe to re-run on every boot.
@@ -1853,9 +1872,9 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_task (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_task (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             title           VARCHAR(300) NOT NULL,
                             description     VARCHAR(1000),
                             phase           VARCHAR(80),
@@ -1869,9 +1888,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_volunteer (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_volunteer (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL,
                             user_name       VARCHAR(200),
                             role            VARCHAR(100),
@@ -1885,9 +1904,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_sponsor (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_sponsor (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             name            VARCHAR(200) NOT NULL,
                             tier            VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
                             amount_pledged  DOUBLE PRECISION,
@@ -1902,9 +1921,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_expense (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_expense (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             description     VARCHAR(500) NOT NULL,
                             category        VARCHAR(100),
                             amount          DOUBLE PRECISION NOT NULL,
@@ -1918,17 +1937,17 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_task_event ON manacommunity.community_event_task (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_volunteer_event ON manacommunity.community_event_volunteer (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_sponsor_event ON manacommunity.community_event_sponsor (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_expense_event ON manacommunity.community_event_expense (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_task_event ON manacommunity.event_task (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_volunteer_event ON manacommunity.event_volunteer (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_sponsor_event ON manacommunity.event_sponsor (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_expense_event ON manacommunity.event_expense (event_id)");
 
-                log.info("community_event sub-resource tables (community_event_task, community_event_volunteer, community_event_sponsor, community_event_expense) ensured.");
+                log.info("event sub-resource tables (event_task, event_volunteer, event_sponsor, event_expense) ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community-event sub-resource patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event sub-resource patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure new enum columns and FK columns added to community_event_* tables
+            // Ensure new enum columns and FK columns added to event_* tables
             // by the recent entity refactor. Idempotent — safe to re-run on every boot.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
@@ -1936,10 +1955,10 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_volunteer') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_volunteer
+                          IF to_regclass('manacommunity.event_volunteer') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_volunteer
                               ADD COLUMN IF NOT EXISTS volunteer_status VARCHAR(20) DEFAULT 'ASSIGNED';
-                            ALTER TABLE manacommunity.community_event_volunteer
+                            ALTER TABLE manacommunity.event_volunteer
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
                           END IF;
                         END $$;
@@ -1948,16 +1967,16 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_sponsor') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_sponsor
+                          IF to_regclass('manacommunity.event_sponsor') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS sponsor_tier VARCHAR(30) DEFAULT 'SILVER';
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS sponsor_status VARCHAR(20) DEFAULT 'PENDING';
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
@@ -1966,14 +1985,14 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_expense') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_expense
+                          IF to_regclass('manacommunity.event_expense') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS expense_status VARCHAR(20) DEFAULT 'PENDING';
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
@@ -1982,25 +2001,25 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_task') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_task
+                          IF to_regclass('manacommunity.event_task') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_task
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_task
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
                         """);
 
-                log.info("community_event sub-resource extra columns ensured.");
+                log.info("event sub-resource extra columns ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community-event extra columns patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event extra columns patch failed: {}", e.getMessage(), e);
             }
 
             // Ensure the event_program table (EventProgram entity, no schema attribute so
-            // defaults to manacommunity search_path) and community_event_activity_registration
-            // (ActivityRegistration entity) exist before Hibernate validates.
+            // defaults to manacommunity search_path) and event_activity_registrations
+            // (EventActivityRegistration entity) exist before Hibernate validates.
             // Idempotent — safe to re-run on every boot.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
@@ -2008,7 +2027,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_program (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             day_label       VARCHAR(100),
                             day_date        DATE,
                             title           VARCHAR(200) NOT NULL,
@@ -2027,7 +2046,7 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_activity_registration (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_activity_registrations (
                             id              BIGSERIAL PRIMARY KEY,
                             program_id      BIGINT NOT NULL REFERENCES manacommunity.event_program(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
@@ -2039,9 +2058,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_meal_registration (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_meal_registrations (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
                             meal_date       DATE NOT NULL,
                             meal_type       VARCHAR(10) NOT NULL,
@@ -2056,7 +2075,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_donation (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             donor_name      VARCHAR(200) NOT NULL,
                             donor_email     VARCHAR(200),
                             donor_phone     VARCHAR(50),
@@ -2074,7 +2093,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_gallery_item (
                             id                  BIGSERIAL PRIMARY KEY,
-                            event_id            BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id            BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             url                 VARCHAR(500) NOT NULL,
                             media_external_id   UUID,
                             thumbnail_url       VARCHAR(500),
@@ -2111,7 +2130,7 @@ public class SchemaConstraintPatcher {
                           ELSE
                             CREATE TABLE IF NOT EXISTS manacommunity.event_registration (
                                 id              BIGSERIAL PRIMARY KEY,
-                                event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                                event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                                 user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
                                 status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
                                 registered_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2124,7 +2143,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_invoice (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id),
                             created_by      BIGINT REFERENCES manacommunity.app_user(id),
                             invoice_number  VARCHAR(100),
@@ -2244,7 +2263,7 @@ public class SchemaConstraintPatcher {
                         CREATE TABLE IF NOT EXISTS manacommunity.event_auction_item (
                             id              BIGSERIAL PRIMARY KEY,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
-                            event_id        BIGINT REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             name            VARCHAR(200) NOT NULL,
                             description     TEXT,
                             category        VARCHAR(100),
@@ -2268,7 +2287,7 @@ public class SchemaConstraintPatcher {
                             id              BIGSERIAL PRIMARY KEY,
                             item_id         BIGINT NOT NULL REFERENCES manacommunity.event_auction_item(id) ON DELETE CASCADE,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
-                            event_id        BIGINT REFERENCES manacommunity.community_event(id),
+                            event_id        BIGINT REFERENCES manacommunity.event_community(id),
                             bidder_user_id  BIGINT,
                             bidder_name     VARCHAR(200) NOT NULL,
                             amount          DECIMAL(12,2) NOT NULL,
@@ -2356,10 +2375,10 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.community_event_activity_registration (program_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.community_event_activity_registration (user_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_event ON manacommunity.community_event_meal_registration (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_user ON manacommunity.community_event_meal_registration (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.event_activity_registrations (program_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.event_activity_registrations (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_event ON manacommunity.event_meal_registrations (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_user ON manacommunity.event_meal_registrations (user_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_donation_event ON manacommunity.event_donation (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_gallery_event ON manacommunity.event_gallery_item (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_event ON manacommunity.event_registration (event_id)");

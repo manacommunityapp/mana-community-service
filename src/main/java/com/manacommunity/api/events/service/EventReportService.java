@@ -19,12 +19,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventReportService {
 
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final EventRegistrationRepository regRepo;
     private final EventPoojaUserRegistrationRepository poojaRegRepo;
-    private final ActivityRegistrationRepository activityRegRepo;
+    private final EventActivityRegistrationRepository activityRegRepo;
     private final EventBookingRegistrationRepository bookingRegRepo;
-    private final MealRegistrationRepository mealRegRepo;
+    private final EventMealRegistrationRepository mealRegRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventDonationRepository donationRepo;
     private final EventSponsorRepository sponsorRepo;
@@ -35,7 +35,7 @@ public class EventReportService {
 
     @Transactional(readOnly = true)
     public EventReportResponse getEventReport(Long eventId) {
-        CommunityEvent event = eventRepo.findById(eventId)
+        EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
         long generalRegs = regRepo.findByEventId(eventId).size();
@@ -101,7 +101,7 @@ public class EventReportService {
 
     @Transactional(readOnly = true)
     public List<EventRegistrationReportRowDto> getEventRegistrationsReport(Long eventId, String categoryFilter) {
-        CommunityEvent event = eventRepo.findById(eventId)
+        EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
         String cat = categoryFilter != null ? categoryFilter.trim().toLowerCase() : "all";
@@ -174,8 +174,8 @@ public class EventReportService {
 
         // 3. Cultural & Competition Activities
         if ("all".equals(cat) || "activity".equals(cat) || "cultural".equals(cat) || "competition".equals(cat)) {
-            List<ActivityRegistration> actList = activityRegRepo.findByProgramEventId(eventId);
-            for (ActivityRegistration a : actList) {
+            List<EventActivityRegistration> actList = activityRegRepo.findByProgramEventId(eventId);
+            for (EventActivityRegistration a : actList) {
                 String name = a.getPrimaryName() != null ? a.getPrimaryName() : (a.getUser() != null ? a.getUser().getFullName() : "Participant");
                 String email = a.getPrimaryEmail() != null ? a.getPrimaryEmail() : (a.getUser() != null ? a.getUser().getEmail() : "");
                 String phone = a.getPrimaryPhone() != null ? a.getPrimaryPhone() : (a.getUser() != null ? a.getUser().getPhone() : "");
@@ -237,8 +237,8 @@ public class EventReportService {
 
         // 5. Meals & Annadanam Registrations
         if ("all".equals(cat) || "meal".equals(cat) || "food".equals(cat)) {
-            List<MealRegistration> mealList = mealRegRepo.findByEventIdOrdered(eventId);
-            for (MealRegistration m : mealList) {
+            List<EventMealRegistration> mealList = mealRegRepo.findByEventIdOrdered(eventId);
+            for (EventMealRegistration m : mealList) {
                 String userName = m.getUser() != null ? m.getUser().getFullName() : "Devotee";
                 String email = m.getUser() != null ? m.getUser().getEmail() : "";
                 String phone = m.getUser() != null ? m.getUser().getPhone() : "";

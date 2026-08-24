@@ -1,6 +1,6 @@
 package com.manacommunity.api.slice.repository;
 
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.model.Community;
@@ -29,7 +29,7 @@ class EventRegistrationRepositoryTest extends BaseRepositoryTest {
 
     private Community savedCommunity;
     private AppUser savedUser;
-    private CommunityEvent savedEvent;
+    private EventCommunity savedEvent;
     private EventRegistration savedReg;
 
     @BeforeEach
@@ -43,7 +43,7 @@ class EventRegistrationRepositoryTest extends BaseRepositoryTest {
         user.setCommunity(savedCommunity);
         savedUser = em.persistAndFlush(user);
 
-        CommunityEvent event = TestDataBuilder.communityEvent(null, savedCommunity, savedUser);
+        EventCommunity event = TestDataBuilder.communityEvent(null, savedCommunity, savedUser);
         event.setId(null);
         event.setStartDate(LocalDate.now().plusDays(10));
         savedEvent = em.persistAndFlush(event);

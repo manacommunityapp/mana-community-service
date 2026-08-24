@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.PoojaSchedule;
+import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PoojaScheduleRepository extends JpaRepository<PoojaSchedule, Long> {
+public interface EventPoojaScheduleRepository extends JpaRepository<EventPoojaSchedule, Long> {
 
     /**
      * Acquires a PESSIMISTIC_WRITE (SELECT ... FOR UPDATE) lock on the row.
@@ -23,19 +23,19 @@ public interface PoojaScheduleRepository extends JpaRepository<PoojaSchedule, Lo
      * transaction after calling this method.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM PoojaSchedule s WHERE s.id = :id")
-    Optional<PoojaSchedule> findByIdForUpdate(@Param("id") Long id);
+    @Query("SELECT s FROM EventPoojaSchedule s WHERE s.id = :id")
+    Optional<EventPoojaSchedule> findByIdForUpdate(@Param("id") Long id);
 
-    List<PoojaSchedule> findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(Long poojaId);
+    List<EventPoojaSchedule> findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(Long poojaId);
 
-    List<PoojaSchedule> findByPoojaSeva_IdAndScheduleDateOrderByStartTimeAsc(Long poojaId, LocalDate date);
+    List<EventPoojaSchedule> findByPoojaSeva_IdAndScheduleDateOrderByStartTimeAsc(Long poojaId, LocalDate date);
 
-    Optional<PoojaSchedule> findByPoojaSeva_IdAndScheduleDateAndStartTime(
+    Optional<EventPoojaSchedule> findByPoojaSeva_IdAndScheduleDateAndStartTime(
             Long poojaId, LocalDate date, LocalTime startTime);
 
     /** Dates that have at least one non-BLOCKED, non-CLOSED slot. */
     @Query("""
-           SELECT DISTINCT s.scheduleDate FROM PoojaSchedule s
+           SELECT DISTINCT s.scheduleDate FROM EventPoojaSchedule s
            WHERE s.poojaSeva.id = :poojaId
              AND s.status NOT IN (
                com.manacommunity.api.events.enums.PoojaScheduleStatus.BLOCKED,
@@ -46,9 +46,9 @@ public interface PoojaScheduleRepository extends JpaRepository<PoojaSchedule, Lo
 
     /** Atomically increments the token sequence and returns the PREVIOUS value (the token to assign). */
     @Modifying
-    @Query("UPDATE PoojaSchedule s SET s.nextTokenSeq = s.nextTokenSeq + 1 WHERE s.id = :id")
+    @Query("UPDATE EventPoojaSchedule s SET s.nextTokenSeq = s.nextTokenSeq + 1 WHERE s.id = :id")
     void incrementTokenSeq(@Param("id") Long id);
 
-    @Query("SELECT s.nextTokenSeq FROM PoojaSchedule s WHERE s.id = :id")
+    @Query("SELECT s.nextTokenSeq FROM EventPoojaSchedule s WHERE s.id = :id")
     int getCurrentTokenSeq(@Param("id") Long id);
 }

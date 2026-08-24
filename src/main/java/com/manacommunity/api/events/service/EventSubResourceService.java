@@ -8,12 +8,12 @@ import com.manacommunity.api.events.dto.EventSponsorRequest;
 import com.manacommunity.api.events.dto.EventSponsorResponse;
 import com.manacommunity.api.events.dto.EventExpenseRequest;
 import com.manacommunity.api.events.dto.EventExpenseResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.entity.EventVolunteer;
 import com.manacommunity.api.events.entity.EventSponsor;
 import com.manacommunity.api.events.entity.EventExpense;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
@@ -32,14 +32,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventSubResourceService {
 
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final EventTaskRepository taskRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventSponsorRepository sponsorRepo;
     private final EventExpenseRepository expenseRepo;
 
     // ── Helper ──────────────────────────────────────────────────────────────────
-    private CommunityEvent findEvent(Long eventId) {
+    private EventCommunity findEvent(Long eventId) {
         return eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
     }
@@ -62,7 +62,7 @@ public class EventSubResourceService {
 
     @Transactional
     public EventTaskResponse createTask(EventTaskRequest req) {
-        CommunityEvent event = findEvent(req.getEventId());
+        EventCommunity event = findEvent(req.getEventId());
         EventTask task = EventTask.builder()
                 .event(event)
                 .title(req.getTitle())
@@ -133,7 +133,7 @@ public class EventSubResourceService {
 
     @Transactional
     public EventVolunteerResponse createVolunteer(EventVolunteerRequest req) {
-        CommunityEvent event = findEvent(req.getEventId());
+        EventCommunity event = findEvent(req.getEventId());
         EventVolunteer vol = EventVolunteer.builder()
                 .event(event)
                 .userId(req.getUserId())
@@ -211,7 +211,7 @@ public class EventSubResourceService {
 
     @Transactional
     public EventSponsorResponse createSponsor(EventSponsorRequest req) {
-        CommunityEvent event = findEvent(req.getEventId());
+        EventCommunity event = findEvent(req.getEventId());
         EventSponsor sponsor = EventSponsor.builder()
                 .event(event)
                 .name(req.getName())
@@ -281,7 +281,7 @@ public class EventSubResourceService {
 
     @Transactional
     public EventExpenseResponse createExpense(EventExpenseRequest req, AppUser currentUser) {
-        CommunityEvent event = findEvent(req.getEventId());
+        EventCommunity event = findEvent(req.getEventId());
         EventExpense expense = EventExpense.builder()
                 .event(event)
                 .description(req.getDescription())

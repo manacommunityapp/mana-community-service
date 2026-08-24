@@ -5,9 +5,9 @@ import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.dto.PoojaScheduleDto;
 import com.manacommunity.api.events.dto.PoojaScheduleRequest;
-import com.manacommunity.api.events.entity.PoojaSlotReservation;
+import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
-import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaScheduleService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.user.model.AppUser;
@@ -30,11 +30,11 @@ public class PoojaScheduleController {
 
     private final PoojaScheduleService scheduleService;
     private final PoojaSlotReservationService reservationService;
-    private final PoojaSlotReservationRepository reservationRepo;
+    private final EventPoojaSlotReservationRepository reservationRepo;
 
     public PoojaScheduleController(PoojaScheduleService scheduleService,
                                    PoojaSlotReservationService reservationService,
-                                   PoojaSlotReservationRepository reservationRepo) {
+                                   EventPoojaSlotReservationRepository reservationRepo) {
         this.scheduleService = scheduleService;
         this.reservationService = reservationService;
         this.reservationRepo = reservationRepo;
@@ -87,7 +87,7 @@ public class PoojaScheduleController {
     @GetMapping("/{scheduleId}/reservations")
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<List<PoojaReservationSummaryDto>> getReservations(@PathVariable Long scheduleId) {
-        List<PoojaSlotReservation> reservations = reservationRepo.findByScheduleIdOrderByCreatedAtDesc(scheduleId);
+        List<EventPoojaSlotReservation> reservations = reservationRepo.findByScheduleIdOrderByCreatedAtDesc(scheduleId);
         List<PoojaReservationSummaryDto> dtos = reservations.stream().map(r -> PoojaReservationSummaryDto.builder()
                 .id(r.getId())
                 .scheduleId(scheduleId)

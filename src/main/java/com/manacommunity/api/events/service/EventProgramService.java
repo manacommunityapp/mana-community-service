@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventProgramRequest;
 import com.manacommunity.api.events.dto.EventProgramResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventProgram;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
@@ -24,7 +24,7 @@ import java.util.List;
 public class EventProgramService {
 
     private final EventProgramRepository programRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
 
     @Transactional(readOnly = true)
     public List<EventProgramResponse> getByEvent(Long eventId, String dayLabel) {
@@ -38,7 +38,7 @@ public class EventProgramService {
 
     @Transactional
     public EventProgramResponse create(EventProgramRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventProgram program = EventProgram.builder()

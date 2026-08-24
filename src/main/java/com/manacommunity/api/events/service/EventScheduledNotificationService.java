@@ -3,9 +3,9 @@ package com.manacommunity.api.events.service;
 import com.manacommunity.api.events.dto.NotificationStatsResponse;
 import com.manacommunity.api.events.dto.ScheduleNotificationRequest;
 import com.manacommunity.api.events.dto.ScheduledNotificationResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventScheduledNotification;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventScheduledNotificationRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -28,12 +28,12 @@ import java.util.*;
 public class EventScheduledNotificationService {
 
     private final EventScheduledNotificationRepository notificationRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final EventBookingRegistrationRepository bookingRepo;
 
     @Transactional
     public ScheduledNotificationResponse schedule(Long eventId, ScheduleNotificationRequest req, AppUser user) {
-        CommunityEvent event = eventRepo.findById(eventId)
+        EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
         LocalDateTime schedTime = parseDateTime(req.getScheduledAt());

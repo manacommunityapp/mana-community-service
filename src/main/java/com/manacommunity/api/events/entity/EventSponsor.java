@@ -23,7 +23,7 @@ public class EventSponsor {
     @JoinColumn(name = "event_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 200)
     private String name;

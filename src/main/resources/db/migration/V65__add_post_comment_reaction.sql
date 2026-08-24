@@ -1,4 +1,4 @@
-﻿-- V65: Rich comment reactions table (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS)
+-- V65: Rich comment reactions table (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS)
 -- The existing post_comment_like table is kept for backward-compat; new rich
 -- reactions go here. Unique constraint ensures one reaction per user per comment.
 

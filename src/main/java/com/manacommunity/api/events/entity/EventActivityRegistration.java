@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ActivityRegistration {
+public class EventActivityRegistration {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

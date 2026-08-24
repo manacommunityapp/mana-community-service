@@ -1,7 +1,7 @@
 package com.manacommunity.api.slice.repository;
 
-import com.manacommunity.api.events.entity.CommunityEvent;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.entity.EventCommunity;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.support.BaseRepositoryTest;
 import com.manacommunity.api.support.TestDataBuilder;
@@ -18,15 +18,15 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("CommunityEventRepository")
-class CommunityEventRepositoryTest extends BaseRepositoryTest {
+@DisplayName("EventCommunityRepository")
+class EventCommunityRepositoryTest extends BaseRepositoryTest {
 
-    @Autowired CommunityEventRepository eventRepo;
+    @Autowired EventCommunityRepository eventRepo;
     @Autowired TestEntityManager em;
 
     private Community savedCommunity;
     private AppUser savedUser;
-    private CommunityEvent savedEvent;
+    private EventCommunity savedEvent;
 
     @BeforeEach
     void setUp() {
@@ -39,7 +39,7 @@ class CommunityEventRepositoryTest extends BaseRepositoryTest {
         user.setCommunity(savedCommunity);
         savedUser = em.persistAndFlush(user);
 
-        CommunityEvent event = TestDataBuilder.communityEvent(null, savedCommunity, savedUser);
+        EventCommunity event = TestDataBuilder.communityEvent(null, savedCommunity, savedUser);
         event.setId(null);
         event.setStartDate(LocalDate.now().plusDays(10));
         savedEvent = em.persistAndFlush(event);
@@ -53,7 +53,7 @@ class CommunityEventRepositoryTest extends BaseRepositoryTest {
         @Test
         @DisplayName("findByCommunityIdOrderByStartDateDesc returns events for community")
         void findByCommunityId() {
-            List<CommunityEvent> events = eventRepo.findByCommunityIdOrderByStartDateDesc(savedCommunity.getId());
+            List<EventCommunity> events = eventRepo.findByCommunityIdOrderByStartDateDesc(savedCommunity.getId());
 
             assertThat(events).isNotEmpty();
             assertThat(events.get(0).getTitle()).isEqualTo(savedEvent.getTitle());
@@ -62,7 +62,7 @@ class CommunityEventRepositoryTest extends BaseRepositoryTest {
         @Test
         @DisplayName("findUpcomingByCommunity returns upcoming events")
         void findUpcoming() {
-            List<CommunityEvent> upcoming = eventRepo.findUpcomingByCommunity(savedCommunity.getId());
+            List<EventCommunity> upcoming = eventRepo.findUpcomingByCommunity(savedCommunity.getId());
 
             assertThat(upcoming).isNotEmpty();
             assertThat(upcoming.get(0).getId()).isEqualTo(savedEvent.getId());
