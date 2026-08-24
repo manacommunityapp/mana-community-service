@@ -2355,6 +2355,62 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_ticket_categories (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
+                            community_id    BIGINT,
+                            ticket_code     VARCHAR(100),
+                            name            VARCHAR(150) NOT NULL,
+                            price           DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                            capacity        INT,
+                            seats           INT,
+                            description     VARCHAR(1000),
+                            display_order   INT NOT NULL DEFAULT 0,
+                            is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP,
+                            created_by      BIGINT,
+                            updated_by      BIGINT
+                        )
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.event_ticket_categories') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS capacity INT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS seats INT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS ticket_code VARCHAR(100);
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                          END IF;
+                          IF to_regclass('manacommunity.event_competitions') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                          IF to_regclass('manacommunity.event_cultural_events') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                          IF to_regclass('manacommunity.event_lunch_dinners') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_ticket_cat_event ON manacommunity.event_ticket_categories (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.event_activity_registrations (program_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.event_activity_registrations (user_id)");
@@ -2371,9 +2427,9 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_module ON manacommunity.media_objects (module, module_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_community ON manacommunity.media_objects (community_id)");
 
-                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log tables ensured.");
+                log.info("event_ticket_categories, event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log tables ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_ticket_categories/event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }
         }
     }
