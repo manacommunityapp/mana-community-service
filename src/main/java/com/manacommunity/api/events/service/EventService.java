@@ -727,7 +727,7 @@ public class EventService {
 
         // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
         double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
-        long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(communityId, 0) : 0;
+        long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countSoldOrBidItemsByCommunity(communityId) : 0;
         long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;
         long playerAuctionCount = auctionPlayerRepo != null ? auctionPlayerRepo.countSoldByCommunity(communityId) : 0;
         double totalAuctionRev = itemAuctionRev + (double) playerAuctionRev;

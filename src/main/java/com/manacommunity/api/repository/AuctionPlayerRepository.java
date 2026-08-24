@@ -51,9 +51,9 @@ public interface AuctionPlayerRepository extends JpaRepository<AuctionPlayer, Lo
     @EntityGraph(attributePaths = {"assignedTeam", "user"})
     List<AuctionPlayer> findByConfigIdAndStatusOrderByQueueOrderAsc(Long configId, AuctionPlayer.PlayerStatus status);
 
-    @Query("SELECT COALESCE(SUM(p.soldPrice), 0) FROM AuctionPlayer p WHERE p.config.createdBy.community.id = :communityId AND p.status = com.manacommunity.api.model.AuctionPlayer.PlayerStatus.SOLD")
+    @Query("SELECT COALESCE(SUM(p.soldPrice), 0) FROM AuctionPlayer p WHERE (:communityId IS NULL OR p.config.createdBy.community.id = :communityId) AND p.status = com.manacommunity.api.model.AuctionPlayer.PlayerStatus.SOLD")
     long sumSoldPriceByCommunity(@Param("communityId") Long communityId);
 
-    @Query("SELECT COUNT(p) FROM AuctionPlayer p WHERE p.config.createdBy.community.id = :communityId AND p.status = com.manacommunity.api.model.AuctionPlayer.PlayerStatus.SOLD")
+    @Query("SELECT COUNT(p) FROM AuctionPlayer p WHERE (:communityId IS NULL OR p.config.createdBy.community.id = :communityId) AND p.status = com.manacommunity.api.model.AuctionPlayer.PlayerStatus.SOLD")
     long countSoldByCommunity(@Param("communityId") Long communityId);
 }

@@ -24,8 +24,11 @@ public interface EventAuctionItemRepository extends JpaRepository<EventAuctionIt
 
     Optional<EventAuctionItem> findByIdAndCommunityId(Long id, Long communityId);
 
-    @Query("SELECT COALESCE(SUM(a.currentBid), 0) FROM EventAuctionItem a WHERE a.community.id = :communityId AND a.bidCount > 0")
+    @Query("SELECT COALESCE(SUM(a.currentBid), 0) FROM EventAuctionItem a WHERE (:communityId IS NULL OR a.community.id = :communityId) AND (a.bidCount > 0 OR a.status = com.manacommunity.api.events.entity.EventAuctionItem.ItemStatus.CLOSED)")
     double sumCurrentBidsByCommunity(@Param("communityId") Long communityId);
+
+    @Query("SELECT COUNT(a) FROM EventAuctionItem a WHERE (:communityId IS NULL OR a.community.id = :communityId) AND (a.bidCount > 0 OR a.status = com.manacommunity.api.events.entity.EventAuctionItem.ItemStatus.CLOSED)")
+    long countSoldOrBidItemsByCommunity(@Param("communityId") Long communityId);
 
     long countByCommunityIdAndBidCountGreaterThan(Long communityId, int minBids);
 

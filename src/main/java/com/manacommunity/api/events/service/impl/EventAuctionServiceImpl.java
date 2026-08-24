@@ -41,7 +41,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     private static final DateTimeFormatter ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<EventAuctionItemResponse> getItems(Long communityId, Long eventId) {
         List<EventAuctionItem> items;
         if (eventId != null) {
@@ -50,13 +50,10 @@ public class EventAuctionServiceImpl implements EventAuctionService {
             items = itemRepository.findByCommunityIdOrderBySortOrderAscIdAsc(communityId);
         }
 
-        // Auto-seed default sample auction items if empty
-        if (items.isEmpty() && itemRepository.countByCommunityId(communityId) == 0) {
-            Community community = Community.builder().id(communityId).build();
-            items = seedDefaultAuctionItems(community, eventId);
-        }
-
-        return items.stream().map(this::toResponse).collect(Collectors.toList());
+        return items.stream()
+                .filter(i -> i.getEvent() == null || i.getEvent().getStatus() != EventCommunity.EventStatus.CANCELLED)
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -271,43 +268,6 @@ public class EventAuctionServiceImpl implements EventAuctionService {
                 .totalBidsCount(totalBids)
                 .leaderboard(leaderboard)
                 .build();
-    }
-
-    private List<EventAuctionItem> seedDefaultAuctionItems(Community community, Long eventId) {
-        EventCommunity event = eventId != null ? eventRepository.findById(eventId).orElse(null) : null;
-        List<EventAuctionItem> seed = List.of(
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Ganesh Maha Laddu (21 kg)").category("Prasadam")
-                        .description("Sacred festival 21kg Ganesh Laddu prasadam blessed during Maha Aarti")
-                        .basePrice(new BigDecimal("5000")).currentBid(new BigDecimal("28000")).minIncrement(new BigDecimal("1000"))
-                        .imageEmoji("🪔").status(ItemStatus.LIVE).sortOrder(1).bidCount(12).leaderName("Venkat R.").build(),
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Pattu Vastram – Silk Dhoti & Shawl").category("Clothing")
-                        .description("Handwoven pure silk vastram offered to deity during Kalyanam")
-                        .basePrice(new BigDecimal("3000")).currentBid(new BigDecimal("11500")).minIncrement(new BigDecimal("500"))
-                        .imageEmoji("𥻻").status(ItemStatus.LIVE).sortOrder(2).bidCount(7).leaderName("Suresh K.").build(),
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Silver Padaraksha (Pair)").category("Jewellery")
-                        .description("Silver ornamental holy padaraksha pair consecrated during pooja")
-                        .basePrice(new BigDecimal("8000")).currentBid(new BigDecimal("22000")).minIncrement(new BigDecimal("1000"))
-                        .imageEmoji("🌸").status(ItemStatus.LIVE).sortOrder(3).bidCount(9).leaderName("Ramesh M.").build(),
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Gold-Plated Sacred Coconut").category("Ritual")
-                        .description("Gold-plated holy coconut consecrated during Navaratri Kalasha Pooja")
-                        .basePrice(new BigDecimal("4000")).currentBid(new BigDecimal("15000")).minIncrement(new BigDecimal("500"))
-                        .imageEmoji("🥥").status(ItemStatus.LIVE).sortOrder(4).bidCount(5).leaderName("Anitha P.").build(),
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Flower Decoration Sponsor Lot A").category("Decor")
-                        .description("Prime stage & temple arch grand floral decoration sponsorship")
-                        .basePrice(new BigDecimal("2000")).currentBid(BigDecimal.ZERO).minIncrement(new BigDecimal("500"))
-                        .imageEmoji("🌺").status(ItemStatus.UPCOMING).sortOrder(5).bidCount(0).leaderName(null).build(),
-                EventAuctionItem.builder()
-                        .community(community).event(event).name("Annadanam – Grand Feast Sponsorship").category("Seva")
-                        .description("Complete 1-day Annadanam sponsorship feeding 1,000+ community devotees")
-                        .basePrice(new BigDecimal("25000")).currentBid(BigDecimal.ZERO).minIncrement(new BigDecimal("2000"))
-                        .imageEmoji("🍛").status(ItemStatus.UPCOMING).sortOrder(6).bidCount(0).leaderName(null).build()
-        );
-        return itemRepository.saveAll(seed);
     }
 
     private EventAuctionItemResponse toResponse(EventAuctionItem item) {
