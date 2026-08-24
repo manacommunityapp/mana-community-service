@@ -23,6 +23,9 @@ public class EventActivityRegistration {
     @JoinColumn(name = "program_id", nullable = false)
     private EventProgram program;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;

@@ -82,10 +82,13 @@ public class EventMealService {
             for (MealRegistrationRequest.DayMeal dm : req.getMeals()) {
                 if (dm.getDate() == null) continue;
 
+                Long communityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+
                 if (dm.isLunch()) {
                     EventMealRegistration lunchReg = EventMealRegistration.builder()
                             .event(event)
                             .user(user)
+                            .communityId(communityId)
                             .mealDate(dm.getDate())
                             .mealType(EventMealRegistration.MealType.LUNCH)
                             .headCount(dm.getHeadCount() > 0 ? dm.getHeadCount() : 1)
@@ -99,6 +102,7 @@ public class EventMealService {
                     EventMealRegistration dinnerReg = EventMealRegistration.builder()
                             .event(event)
                             .user(user)
+                            .communityId(communityId)
                             .mealDate(dm.getDate())
                             .mealType(EventMealRegistration.MealType.DINNER)
                             .headCount(dm.getHeadCount() > 0 ? dm.getHeadCount() : 1)

@@ -162,12 +162,13 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         EventPoojaSlotReservation reservation = EventPoojaSlotReservation.builder()
                 .schedule(schedule)
                 .user(user)
+                .communityId(schedule.getCommunityId())
                 .reservedFamilyCount(requestedFamilies)
                 .reservedDevoteeCount(requestedDevotees)
                 .status(ReservationStatus.RESERVED)
                 .expiresAt(expiresAt)
                 .idempotencyKey(req.getIdempotencyKey())
-                .tokenNumber(tokenNumber) // #12: persist so idempotency hits return the real token
+                .tokenNumber(tokenNumber)
                 .build();
 
         EventPoojaSlotReservation saved = reservationRepo.save(reservation);
