@@ -217,6 +217,7 @@ public class EventService {
                 .ticketTypesJson(null)
                 .maxAttendees(req.getMaxAttendees() != null ? req.getMaxAttendees() : req.getCapacity())
                 .registrationDeadline(parseLocalDate(req.getRegistrationDeadline()))
+                .draftStep(req.getDraftStep())
                 .createdBy(user)
                 .community(community)
                 .build();
@@ -348,6 +349,7 @@ public class EventService {
         if (req.getVenue() != null) event.setVenue(req.getVenue());
         if (req.getCity() != null) event.setCity(req.getCity());
         if (req.getCategory() != null) event.setCategory(req.getCategory());
+        if (req.getDraftStep() != null) event.setDraftStep(req.getDraftStep());
 
         if (req.getStatus() != null) {
             EventCommunity.EventStatus newStatus = parseEnum(EventCommunity.EventStatus.class, req.getStatus());
@@ -1249,6 +1251,7 @@ public class EventService {
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
                 .attendees(liveAttendees)
                 .isRegistered(isRegistered)
+                .draftStep(e.getDraftStep())
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();
     }

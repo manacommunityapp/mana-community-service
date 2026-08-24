@@ -86,4 +86,6 @@ public class EventRequest {
     private Integer maxAttendees;
 
     private String registrationDeadline;
+
+    private Integer draftStep;
 }
