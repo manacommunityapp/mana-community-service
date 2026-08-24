@@ -9,4 +9,9 @@ public class AlreadyRegisteredException extends ManaCommunityException {
         super("You are already registered for the event: '" + eventName + "'.",
                 HttpStatus.CONFLICT, "ALREADY_REGISTERED");
     }
+
+    /** Use when a fully-formed user-facing message is needed (e.g. cross-seva duplicate check). */
+    public AlreadyRegisteredException(String eventName, String reason) {
+        super(reason, HttpStatus.CONFLICT, "ALREADY_REGISTERED");
+    }
 }

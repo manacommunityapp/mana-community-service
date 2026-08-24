@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.user.model.AppUser;
@@ -104,7 +105,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     @Transactional
     public EventPoojaUserRegistration updateRegistration(Long id, EventPoojaUserRegistration patch, AppUser user) {
         EventPoojaUserRegistration existing = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pooja registration not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaRegistration", id));
 
         boolean isAdmin = isUserAdmin(user);
         if (!isAdmin && user != null && existing.getUser() != null && !existing.getUser().getId().equals(user.getId())) {
@@ -156,7 +157,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     @Transactional(readOnly = true)
     public EventPoojaUserRegistration getRegistrationById(Long id, AppUser user) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pooja registration not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaRegistration", id));
     }
 
     @Override

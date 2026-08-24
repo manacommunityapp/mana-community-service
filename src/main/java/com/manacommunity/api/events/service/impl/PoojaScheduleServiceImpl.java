@@ -9,6 +9,7 @@ import com.manacommunity.api.events.repository.PoojaScheduleRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaScheduleService;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -41,7 +42,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Transactional
     public PoojaScheduleDto createSchedule(PoojaScheduleRequest req) {
         PoojaSeva seva = poojaSevaRepo.findById(req.getPoojaId())
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSeva not found: " + req.getPoojaId()));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSeva", req.getPoojaId()));
 
         PoojaSchedule schedule = PoojaSchedule.builder()
                 .poojaSeva(seva)
@@ -63,7 +64,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Transactional
     public PoojaScheduleDto updateSchedule(Long id, PoojaScheduleRequest req) {
         PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSchedule not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
 
         if (req.getScheduleDate() != null) schedule.setScheduleDate(req.getScheduleDate());
         if (req.getStartTime() != null) schedule.setStartTime(req.getStartTime());
@@ -82,7 +83,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Transactional
     public PoojaScheduleDto updateStatus(Long id, PoojaScheduleStatus status) {
         PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSchedule not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
         schedule.setStatus(status);
         PoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_STATUS_CHANGED, AuditModule.EVENTS,
@@ -94,7 +95,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Transactional(readOnly = true)
     public PoojaScheduleDto getById(Long id) {
         PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSchedule not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
         return toDtoWithLiveAvailability(schedule);
     }
 
@@ -122,7 +123,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Transactional
     public void deleteSchedule(Long id) {
         PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSchedule not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
         scheduleRepo.delete(schedule);
     }
 
