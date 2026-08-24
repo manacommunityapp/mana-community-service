@@ -727,7 +727,7 @@ public class EventService {
 
         // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
         double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
-        long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(communityId, 0) : 0;
+        long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countSoldOrBidItemsByCommunity(communityId) : 0;
         long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;
         long playerAuctionCount = auctionPlayerRepo != null ? auctionPlayerRepo.countSoldByCommunity(communityId) : 0;
         double totalAuctionRev = itemAuctionRev + (double) playerAuctionRev;
@@ -983,11 +983,22 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<RegistrationResponse> getEventRegistrations(Long eventId) {
+        if (eventId == null) return Collections.emptyList();
+
+        // Ensure the main event exists and is not in CANCELLED status
+        if (eventRepo != null) {
+            Optional<EventCommunity> evOpt = eventRepo.findById(eventId);
+            if (evOpt.isEmpty() || evOpt.get().getStatus() == EventCommunity.EventStatus.CANCELLED) {
+                return Collections.emptyList();
+            }
+        }
+
         List<RegistrationResponse> list = new ArrayList<>();
 
         // 1. Direct registrations from event_registration
         if (regRepo != null) {
             regRepo.findByEventId(eventId).stream()
+                    .filter(r -> r != null && !"CANCELLED".equalsIgnoreCase(r.getStatus()))
                     .map(this::toRegistrationResponse)
                     .forEach(list::add);
         }
@@ -1006,7 +1017,7 @@ public class EventService {
             bookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
 
             for (EventBookingRegistration b : bookings) {
-                if (b == null || processedBookingIds.contains(b.getId())) continue;
+                if (b == null || processedBookingIds.contains(b.getId()) || "CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
                 processedBookingIds.add(b.getId());
 
                 Long bUserId = b.getUser() != null ? b.getUser().getId() : b.getCreatedBy();
