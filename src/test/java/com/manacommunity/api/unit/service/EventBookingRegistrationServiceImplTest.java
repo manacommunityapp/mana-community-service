@@ -1,6 +1,7 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.events.entity.EventBookingRegistration;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
@@ -14,6 +15,7 @@ import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.impl.EventBookingRegistrationServiceImpl;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,6 +78,55 @@ class EventBookingRegistrationServiceImplTest {
         assertThat(saved).isNotNull();
         assertThat(slot1.getSlotCount()).isEqualTo(7);
         assertThat(slot2.getSlotCount()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("createRegistration throws AlreadyRegisteredException when user already registered for activity")
+    void createRegistration_throwsAlreadyRegisteredException_whenActivityAlreadyRegistered() {
+        EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
+        PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
+        AppUser user = AppUser.builder().id(99L).role("MEMBER").build();
+
+        when(regRepo.existsByUserIdAndActivityIdAndStatusNot(99L, "pooja-10", "CANCELLED")).thenReturn(true);
+
+        EventBookingRegistrationServiceImpl service = service(regRepo, poojaRepo);
+        EventBookingRegistration req = registration("pooja-10", "2026-08-28", "08:30", 1);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.createRegistration(req, user, null))
+                .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class);
+    }
+
+    @Test
+    @DisplayName("createRegistration throws AlreadyRegisteredException when user already registered for cultural event")
+    void createRegistration_throwsAlreadyRegisteredException_whenCulturalAlreadyRegistered() {
+        EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
+        CulturalEventRepository culturalRepo = mock(CulturalEventRepository.class);
+        AppUser user = AppUser.builder().id(99L).role("MEMBER").build();
+
+        EventCulturalEvent cultural = new EventCulturalEvent();
+        cultural.setId(5L);
+        cultural.setName("Dance Show");
+        when(culturalRepo.findById(5L)).thenReturn(Optional.of(cultural));
+        when(regRepo.existsByUserIdAndActivityIdAndStatusNot(99L, "cultural-5", "CANCELLED")).thenReturn(true);
+
+        EventBookingRegistrationServiceImpl service = new EventBookingRegistrationServiceImpl(
+                regRepo,
+                mock(EventPoojaUserRegistrationRepository.class),
+                mock(CommunityRepository.class),
+                mock(PoojaSevaRepository.class),
+                mock(LunchDinnerRepository.class),
+                mock(CompetitionRepository.class),
+                culturalRepo,
+                mock(EventCommunityRepository.class),
+                mock(EventRegistrationRepository.class),
+                mock(EventTicketCategoryRepository.class),
+                mock(AppUserRepository.class)
+        );
+
+        EventBookingRegistration req = registration("cultural-5", "2026-08-28", "18:00", 1);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.createRegistration(req, user, null))
+                .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class);
     }
 
     private EventBookingRegistration registration(String activityId, String eventDate, String eventTime, int devoteeCount) {

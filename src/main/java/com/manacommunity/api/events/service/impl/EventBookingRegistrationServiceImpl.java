@@ -112,6 +112,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         if (!isAdmin) {
             Long validatingUserId = (targetUser != null) ? targetUser.getId() : null;
             validateCapacityAndDeadline(registration, validatingUserId);
+            if (validatingUserId != null && registration.getActivityId() != null && !registration.getActivityId().isBlank()) {
+                if (repository.existsByUserIdAndActivityIdAndStatusNot(validatingUserId, registration.getActivityId(), "CANCELLED")) {
+                    throw new AlreadyRegisteredException(registration.getActivityTitle() != null ? registration.getActivityTitle() : "this activity",
+                            "You are already registered for this activity.");
+                }
+            }
         }
 
         Community comm = (targetUser != null && targetUser.getCommunity() != null)
@@ -188,20 +194,20 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 validatePoojaCapacityAndDeadline(id, registration, userId);
             } else if (actId.startsWith("food-")) {
                 Long id = Long.parseLong(actId.replace("food-", ""));
-                validateLunchDinnerCapacityAndDeadline(id, registration);
+                validateLunchDinnerCapacityAndDeadline(id, registration, userId);
             } else if (actId.startsWith("comp-")) {
                 Long id = Long.parseLong(actId.replace("comp-", ""));
-                validateCompetitionCapacityAndDeadline(id, registration);
+                validateCompetitionCapacityAndDeadline(id, registration, userId);
             } else if (actId.startsWith("cultural-") || actId.startsWith("cult-")) {
                 Long id = Long.parseLong(actId.replaceAll("^(cultural|cult)-", ""));
-                validateCulturalCapacityAndDeadline(id, registration);
+                validateCulturalCapacityAndDeadline(id, registration, userId);
             } else if (actId.startsWith("event-")) {
                 Long id = Long.parseLong(actId.replace("event-", ""));
-                validateEventCapacityAndDeadline(id, registration);
+                validateEventCapacityAndDeadline(id, registration, userId);
             } else {
                 try {
                     Long id = Long.parseLong(actId);
-                    validateEventCapacityAndDeadline(id, registration);
+                    validateEventCapacityAndDeadline(id, registration, userId);
                 } catch (NumberFormatException ignored) {}
             }
         } catch (AlreadyRegisteredException | EventFullException | RegistrationClosedException ex) {
@@ -269,7 +275,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private void validateCulturalCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+    private void validateCulturalCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
         if (culturalEventRepository == null) return;
         EventCulturalEvent c = culturalEventRepository.findById(id).orElse(null);
         if (c == null) return;
@@ -279,6 +285,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             EventCommunity parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
             if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
+        boolean isNewRegistration = (registration.getId() == null);
+        if (isNewRegistration && userId != null) {
+            if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "cultural-" + id, "CANCELLED")
+                    || repository.existsByUserIdAndActivityIdAndStatusNot(userId, "cult-" + id, "CANCELLED")) {
+                throw new AlreadyRegisteredException(c.getName(), "You are already registered for this cultural event.");
             }
         }
 
@@ -306,7 +320,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private void validateCompetitionCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+    private void validateCompetitionCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
         EventCompetition c = competitionRepository.findById(id).orElse(null);
         if (c == null) return;
 
@@ -315,6 +329,13 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             EventCommunity parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
             if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
+            }
+        }
+
+        boolean isNewRegistration = (registration.getId() == null);
+        if (isNewRegistration && userId != null) {
+            if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "comp-" + id, "CANCELLED")) {
+                throw new AlreadyRegisteredException(c.getName(), "You are already registered for this competition.");
             }
         }
 
@@ -342,7 +363,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration) {
+    private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
         EventLunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
         if (m == null) return;
 
@@ -351,6 +372,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             EventCommunity parent = communityEventRepository.findById(m.getMainEventId()).orElse(null);
             if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(m.getName(), "Parent event has been cancelled");
+            }
+        }
+
+        boolean isNewRegistration = (registration.getId() == null);
+        if (isNewRegistration && userId != null) {
+            if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "food-" + id, "CANCELLED")
+                    || repository.existsByUserIdAndActivityIdAndStatusNot(userId, "meal-" + id, "CANCELLED")) {
+                throw new AlreadyRegisteredException(m.getName(), "You are already registered for this meal.");
             }
         }
 
@@ -377,12 +406,21 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private void validateEventCapacityAndDeadline(Long eventId, EventBookingRegistration registration) {
+    private void validateEventCapacityAndDeadline(Long eventId, EventBookingRegistration registration, Long userId) {
         EventCommunity ev = communityEventRepository.findById(eventId).orElse(null);
         if (ev == null) return;
 
         if (ev.getStatus() == EventCommunity.EventStatus.CANCELLED) {
             throw new RegistrationClosedException(ev.getTitle(), "Event has been cancelled");
+        }
+
+        boolean isNewRegistration = (registration.getId() == null);
+        if (isNewRegistration && userId != null) {
+            if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + eventId, "CANCELLED")
+                    || repository.existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(eventId), "CANCELLED")
+                    || (eventRegistrationRepository != null && eventRegistrationRepository.existsByEventIdAndUserId(eventId, userId))) {
+                throw new AlreadyRegisteredException(ev.getTitle(), "You are already registered for the event: '" + ev.getTitle() + "'.");
+            }
         }
 
         if (ev.getRegistrationDeadline() != null && LocalDate.now().isAfter(ev.getRegistrationDeadline())) {

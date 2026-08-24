@@ -42,6 +42,12 @@ public class EventPoojaUserRegistrationController {
             @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride,
             @RequestParam(value = "targetUserId", required = false) Long targetUserId) {
         AppUser caller = loggedInUserService.resolve(principal);
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
+        if (communityId == null && caller != null && caller.getCommunity() != null) {
+            communityId = caller.getCommunity().getId();
+        }
         boolean isAdmin = caller != null && (
                 caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
                 caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
@@ -60,9 +66,16 @@ public class EventPoojaUserRegistrationController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<List<EventPoojaUserRegistration>> getAllRegistrations(
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
         if (communityId == null) {
-            throw new IllegalArgumentException("X-Community-Id header is required.");
+            AppUser user = loggedInUserService.resolve(principal);
+            if (user != null && user.getCommunity() != null) {
+                communityId = user.getCommunity().getId();
+            }
         }
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
     }
@@ -72,6 +85,12 @@ public class EventPoojaUserRegistrationController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         AppUser user = loggedInUserService.resolve(principal);
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
+        if (communityId == null && user != null && user.getCommunity() != null) {
+            communityId = user.getCommunity().getId();
+        }
         return ResponseEntity.ok(service.getMyRegistrations(user, communityId));
     }
 

@@ -621,8 +621,14 @@ public class EventService {
             );
         }
 
-        if (regRepo.existsByEventIdAndUserId(eventId, user.getId())) {
-            throw new AlreadyRegisteredException(event.getTitle());
+        if (user != null && user.getId() != null) {
+            if (regRepo.existsByEventIdAndUserId(eventId, user.getId())
+                    || (bookingRegRepo != null && (
+                            bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), "event-" + eventId, "CANCELLED")
+                            || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), String.valueOf(eventId), "CANCELLED")
+                    ))) {
+                throw new AlreadyRegisteredException(event.getTitle(), "You are already registered for the event: '" + event.getTitle() + "'.");
+            }
         }
 
         // Use DB count for concurrent-safe capacity check
