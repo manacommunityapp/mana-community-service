@@ -46,5 +46,6 @@ public class EventResponse {
     private Long communityId;
     private int attendees;
     private boolean isRegistered;
+    private Integer draftStep;
     private String createdAt;
 }

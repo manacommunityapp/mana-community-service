@@ -126,6 +126,9 @@ public class EventCommunity {
     @Column(name = "registration_deadline")
     private LocalDate registrationDeadline;
 
+    @Column(name = "draft_step")
+    private Integer draftStep;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
