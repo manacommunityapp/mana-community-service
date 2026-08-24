@@ -977,34 +977,138 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<RegistrationResponse> getEventRegistrations(Long eventId) {
-        return regRepo.findByEventId(eventId).stream()
-                .map(this::toRegistrationResponse)
-                .toList();
+        List<RegistrationResponse> list = new ArrayList<>();
+
+        // 1. Direct registrations from event_registration
+        if (regRepo != null) {
+            regRepo.findByEventId(eventId).stream()
+                    .map(this::toRegistrationResponse)
+                    .forEach(list::add);
+        }
+
+        // 2. Registrations from event_booking_registrations (unified passes ledger)
+        if (bookingRegRepo != null) {
+            Set<Long> directUserIds = list.stream()
+                    .map(RegistrationResponse::getUserId)
+                    .filter(Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            Set<Long> processedBookingIds = new HashSet<>();
+            List<EventBookingRegistration> bookings = new ArrayList<>();
+            bookings.addAll(bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId));
+            bookings.addAll(bookingRegRepo.findByActivityId("event-" + eventId));
+            bookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
+
+            for (EventBookingRegistration b : bookings) {
+                if (b == null || processedBookingIds.contains(b.getId())) continue;
+                processedBookingIds.add(b.getId());
+
+                // Avoid duplicate if same user is already added from direct table
+                if (b.getUserId() != null && directUserIds.contains(b.getUserId()) && "CONFIRMED".equalsIgnoreCase(b.getStatus())) {
+                    continue;
+                }
+
+                list.add(RegistrationResponse.builder()
+                        .id(b.getId())
+                        .eventId(eventId)
+                        .eventTitle(b.getActivityTitle() != null ? b.getActivityTitle() : "Event")
+                        .userId(b.getUserId())
+                        .userName(b.getParticipantName() != null ? b.getParticipantName() : "Devotee")
+                        .userEmail(b.getEmail())
+                        .status(b.getStatus() != null ? b.getStatus() : "CONFIRMED")
+                        .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
+                        .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
+                        .checkedInAt(b.getCheckedInAt() != null ? formatDt(b.getCheckedInAt()) : null)
+                        .build());
+            }
+        }
+        return list;
     }
 
     @Transactional
     public RegistrationResponse confirmRegistration(Long registrationId) {
-        EventRegistration reg = regRepo.findById(registrationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
-        reg.setStatus(EventRegistration.RegistrationStatus.CONFIRMED);
-        return toRegistrationResponse(regRepo.save(reg));
+        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
+        if (regOpt.isPresent()) {
+            EventRegistration reg = regOpt.get();
+            reg.setStatus(EventRegistration.RegistrationStatus.CONFIRMED);
+            return toRegistrationResponse(regRepo.save(reg));
+        } else if (bookingRegRepo != null) {
+            EventBookingRegistration b = bookingRegRepo.findById(registrationId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+            b.setStatus("CONFIRMED");
+            bookingRegRepo.save(b);
+            return RegistrationResponse.builder()
+                    .id(b.getId())
+                    .eventId(b.getMainEventId())
+                    .eventTitle(b.getActivityTitle())
+                    .userId(b.getUserId())
+                    .userName(b.getParticipantName())
+                    .userEmail(b.getEmail())
+                    .status(b.getStatus())
+                    .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
+                    .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
+                    .checkedInAt(b.getCheckedInAt() != null ? formatDt(b.getCheckedInAt()) : null)
+                    .build();
+        }
+        throw new ResourceNotFoundException("Registration", registrationId);
     }
 
     @Transactional
     public RegistrationResponse rejectRegistration(Long registrationId) {
-        EventRegistration reg = regRepo.findById(registrationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
-        reg.setStatus(EventRegistration.RegistrationStatus.REJECTED);
-        return toRegistrationResponse(regRepo.save(reg));
+        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
+        if (regOpt.isPresent()) {
+            EventRegistration reg = regOpt.get();
+            reg.setStatus(EventRegistration.RegistrationStatus.REJECTED);
+            return toRegistrationResponse(regRepo.save(reg));
+        } else if (bookingRegRepo != null) {
+            EventBookingRegistration b = bookingRegRepo.findById(registrationId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+            b.setStatus("CANCELLED");
+            bookingRegRepo.save(b);
+            return RegistrationResponse.builder()
+                    .id(b.getId())
+                    .eventId(b.getMainEventId())
+                    .eventTitle(b.getActivityTitle())
+                    .userId(b.getUserId())
+                    .userName(b.getParticipantName())
+                    .userEmail(b.getEmail())
+                    .status(b.getStatus())
+                    .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
+                    .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
+                    .checkedInAt(b.getCheckedInAt() != null ? formatDt(b.getCheckedInAt()) : null)
+                    .build();
+        }
+        throw new ResourceNotFoundException("Registration", registrationId);
     }
 
     @Transactional
     public RegistrationResponse toggleCheckIn(Long registrationId, boolean checkedIn) {
-        EventRegistration reg = regRepo.findById(registrationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
-        reg.setCheckedIn(checkedIn);
-        reg.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
-        return toRegistrationResponse(regRepo.save(reg));
+        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
+        if (regOpt.isPresent()) {
+            EventRegistration reg = regOpt.get();
+            reg.setCheckedIn(checkedIn);
+            reg.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
+            return toRegistrationResponse(regRepo.save(reg));
+        } else if (bookingRegRepo != null) {
+            EventBookingRegistration b = bookingRegRepo.findById(registrationId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+            b.setCheckedIn(checkedIn);
+            b.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
+            bookingRegRepo.save(b);
+            return RegistrationResponse.builder()
+                    .id(b.getId())
+                    .eventId(b.getMainEventId())
+                    .eventTitle(b.getActivityTitle())
+                    .userId(b.getUserId())
+                    .userName(b.getParticipantName())
+                    .userEmail(b.getEmail())
+                    .status(b.getStatus())
+                    .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
+                    .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
+                    .checkedInAt(b.getCheckedInAt() != null ? formatDt(b.getCheckedInAt()) : null)
+                    .build();
+        }
+        throw new ResourceNotFoundException("Registration", registrationId);
     }
 
     @Transactional
