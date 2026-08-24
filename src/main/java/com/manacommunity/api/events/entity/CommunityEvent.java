@@ -4,6 +4,8 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,6 +15,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "community_event")
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -126,6 +129,11 @@ public class CommunityEvent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
+
+    /** ID of the last user who modified this event (auto-set by Spring Data auditing). */
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)

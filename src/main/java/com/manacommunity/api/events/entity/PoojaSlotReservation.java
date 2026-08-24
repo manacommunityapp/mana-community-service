@@ -4,6 +4,9 @@ import com.manacommunity.api.events.enums.ReservationStatus;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +19,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_psr_expires",         columnList = "expires_at, status")
     }
 )
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -63,6 +67,14 @@ public class PoojaSlotReservation {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @PrePersist
     public void prePersist() {

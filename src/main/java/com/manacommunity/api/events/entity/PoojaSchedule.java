@@ -3,6 +3,9 @@ package com.manacommunity.api.events.entity;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +23,7 @@ import java.time.LocalTime;
         @Index(name = "idx_ps_status",     columnList = "status")
     }
 )
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -70,6 +74,14 @@ public class PoojaSchedule {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @PrePersist
     public void prePersist() {

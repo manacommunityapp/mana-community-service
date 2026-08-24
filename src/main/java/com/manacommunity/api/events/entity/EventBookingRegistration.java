@@ -4,11 +4,15 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "event_booking_registrations")
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -106,11 +110,27 @@ public class EventBookingRegistration {
     @Column(name = "checked_in_at")
     private LocalDateTime checkedInAt;
 
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** ID of the user who created this registration (auto-set by Spring Data auditing). */
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    /** ID of the user who last modified this registration (auto-set by Spring Data auditing). */
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @PrePersist
     protected void onCreate() {
