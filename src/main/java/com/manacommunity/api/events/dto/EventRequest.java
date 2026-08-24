@@ -80,6 +80,8 @@ public class EventRequest {
 
     private java.util.List<TicketTypeDto> ticketTypes;
 
+    private java.util.List<EventContactDto> contacts;
+
     private String ticketTypesJson;
 
     @Min(value = 1, message = "Max attendees must be at least 1")

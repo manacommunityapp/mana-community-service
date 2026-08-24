@@ -23,9 +23,11 @@ public class PoojaSevaController {
     @GetMapping
     public ResponseEntity<List<EventPoojaSeva>> getAll(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) Long mainEventId) {
+            @RequestParam(required = false) Long mainEventId,
+            @RequestParam(required = false) Long eventId) {
+        Long targetEventId = mainEventId != null ? mainEventId : eventId;
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<EventPoojaSeva> list = service.getAllPoojaSevas(communityId, mainEventId);
+        List<EventPoojaSeva> list = service.getAllPoojaSevas(communityId, targetEventId);
         return ResponseEntity.ok(list);
     }
 
