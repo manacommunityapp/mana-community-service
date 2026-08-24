@@ -983,11 +983,22 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<RegistrationResponse> getEventRegistrations(Long eventId) {
+        if (eventId == null) return Collections.emptyList();
+
+        // Ensure the main event exists and is not in CANCELLED status
+        if (eventRepo != null) {
+            Optional<EventCommunity> evOpt = eventRepo.findById(eventId);
+            if (evOpt.isEmpty() || evOpt.get().getStatus() == EventCommunity.EventStatus.CANCELLED) {
+                return Collections.emptyList();
+            }
+        }
+
         List<RegistrationResponse> list = new ArrayList<>();
 
         // 1. Direct registrations from event_registration
         if (regRepo != null) {
             regRepo.findByEventId(eventId).stream()
+                    .filter(r -> r != null && !"CANCELLED".equalsIgnoreCase(r.getStatus()))
                     .map(this::toRegistrationResponse)
                     .forEach(list::add);
         }
@@ -1006,7 +1017,7 @@ public class EventService {
             bookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
 
             for (EventBookingRegistration b : bookings) {
-                if (b == null || processedBookingIds.contains(b.getId())) continue;
+                if (b == null || processedBookingIds.contains(b.getId()) || "CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
                 processedBookingIds.add(b.getId());
 
                 Long bUserId = b.getUser() != null ? b.getUser().getId() : b.getCreatedBy();
