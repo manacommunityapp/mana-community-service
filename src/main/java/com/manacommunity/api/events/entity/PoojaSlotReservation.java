@@ -11,14 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-    name = "event_pooja_slot_reservation",
-    indexes = {
-        @Index(name = "idx_psr_schedule_status", columnList = "schedule_id, status, expires_at"),
-        @Index(name = "idx_psr_user",            columnList = "user_id"),
-        @Index(name = "idx_psr_expires",         columnList = "expires_at, status")
-    }
-)
+@Table(name = "event_pooja_slot_reservation")
 @EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder

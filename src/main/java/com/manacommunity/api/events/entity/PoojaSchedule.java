@@ -17,11 +17,7 @@ import java.time.LocalTime;
     uniqueConstraints = @UniqueConstraint(
         name = "uq_pooja_schedule_slot",
         columnNames = {"pooja_id", "schedule_date", "start_time"}
-    ),
-    indexes = {
-        @Index(name = "idx_ps_pooja_date", columnList = "pooja_id, schedule_date"),
-        @Index(name = "idx_ps_status",     columnList = "status")
-    }
+    )
 )
 @EntityListeners(AuditingEntityListener.class)
 @Data
