@@ -671,7 +671,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private boolean incrementPoojaTimeSlot(PoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
+    private boolean incrementPoojaTimeSlot(EventPoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
         if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
         if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
 
@@ -679,7 +679,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         LocalTime bookedTime = parseBookingTime(registration.getEventTime());
         if (bookedDate == null || bookedTime == null) return false;
 
-        for (PoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
+        for (EventPoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
             if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
             LocalTime slotTime = parseBookingTime(slot.getStartTime());
             if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
