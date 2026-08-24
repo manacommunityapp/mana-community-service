@@ -698,7 +698,7 @@ public class EventService {
         // Live Food Prepared / Plates Count from Database
         long foodPlates = mealRegRepo != null ? mealRegRepo.sumHeadCountByCommunity(communityId) : 0;
         if (foodPlates == 0 && lunchDinnerRepo != null) {
-            java.util.List<LunchDinner> lunches = communityId != null ? lunchDinnerRepo.findByCommunityIdOrderByDateAsc(communityId) : lunchDinnerRepo.findAll();
+            java.util.List<com.manacommunity.api.events.entity.EventLunchDinner> lunches = communityId != null ? lunchDinnerRepo.findByCommunityIdOrderByDateAscStartTimeAsc(communityId) : lunchDinnerRepo.findAll();
             if (lunches != null && !lunches.isEmpty()) {
                 foodPlates = lunches.stream().mapToLong(l -> l.getPlatesServed() != null && l.getPlatesServed() > 0 ? l.getPlatesServed() : (l.getTargetPlates() != null ? l.getTargetPlates() : 0)).sum();
             }
