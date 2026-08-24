@@ -1003,8 +1003,9 @@ public class EventService {
                 if (b == null || processedBookingIds.contains(b.getId())) continue;
                 processedBookingIds.add(b.getId());
 
+                Long bUserId = b.getUser() != null ? b.getUser().getId() : b.getCreatedBy();
                 // Avoid duplicate if same user is already added from direct table
-                if (b.getUserId() != null && directUserIds.contains(b.getUserId()) && "CONFIRMED".equalsIgnoreCase(b.getStatus())) {
+                if (bUserId != null && directUserIds.contains(bUserId) && "CONFIRMED".equalsIgnoreCase(b.getStatus())) {
                     continue;
                 }
 
@@ -1012,9 +1013,9 @@ public class EventService {
                         .id(b.getId())
                         .eventId(eventId)
                         .eventTitle(b.getActivityTitle() != null ? b.getActivityTitle() : "Event")
-                        .userId(b.getUserId())
+                        .userId(bUserId)
                         .userName(b.getParticipantName() != null ? b.getParticipantName() : "Devotee")
-                        .userEmail(b.getEmail())
+                        .userEmail(b.getUser() != null ? b.getUser().getEmail() : null)
                         .status(b.getStatus() != null ? b.getStatus() : "CONFIRMED")
                         .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
                         .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
@@ -1041,9 +1042,9 @@ public class EventService {
                     .id(b.getId())
                     .eventId(b.getMainEventId())
                     .eventTitle(b.getActivityTitle())
-                    .userId(b.getUserId())
+                    .userId(b.getUser() != null ? b.getUser().getId() : b.getCreatedBy())
                     .userName(b.getParticipantName())
-                    .userEmail(b.getEmail())
+                    .userEmail(b.getUser() != null ? b.getUser().getEmail() : null)
                     .status(b.getStatus())
                     .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
                     .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
@@ -1069,9 +1070,9 @@ public class EventService {
                     .id(b.getId())
                     .eventId(b.getMainEventId())
                     .eventTitle(b.getActivityTitle())
-                    .userId(b.getUserId())
+                    .userId(b.getUser() != null ? b.getUser().getId() : b.getCreatedBy())
                     .userName(b.getParticipantName())
-                    .userEmail(b.getEmail())
+                    .userEmail(b.getUser() != null ? b.getUser().getEmail() : null)
                     .status(b.getStatus())
                     .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
                     .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
@@ -1099,9 +1100,9 @@ public class EventService {
                     .id(b.getId())
                     .eventId(b.getMainEventId())
                     .eventTitle(b.getActivityTitle())
-                    .userId(b.getUserId())
+                    .userId(b.getUser() != null ? b.getUser().getId() : b.getCreatedBy())
                     .userName(b.getParticipantName())
-                    .userEmail(b.getEmail())
+                    .userEmail(b.getUser() != null ? b.getUser().getEmail() : null)
                     .status(b.getStatus())
                     .registeredAt(formatDt(b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.now()))
                     .checkedIn(Boolean.TRUE.equals(b.getCheckedIn()))
