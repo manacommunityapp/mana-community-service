@@ -24,76 +24,76 @@ public class FoodCommunityKitchenController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Community Kitchen', 'Manage Food Community Kitchen', 'View Food Menu', 'View Food Profile')")
     public ResponseEntity<?> list(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.list(communityId));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Community Kitchen', 'Manage Food Community Kitchen', 'View Food Menu', 'View Food Profile')")
     public ResponseEntity<?> getById(@AuthenticationPrincipal UserPrincipal principal,
                                      @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.getById(communityId, id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Manage Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Community Kitchen', 'Manage Food Menu')")
     public ResponseEntity<?> create(@AuthenticationPrincipal UserPrincipal principal,
                                     @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.status(HttpStatus.CREATED).body(communityKitchenService.create(communityId, request, user));
     }
 
     @GetMapping("/{id}/menu")
-    @PreAuthorize("hasAuthority('View Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Community Kitchen', 'Manage Food Community Kitchen', 'View Food Menu', 'View Food Profile')")
     public ResponseEntity<?> getMenu(@AuthenticationPrincipal UserPrincipal principal,
                                      @PathVariable Long id,
                                      @RequestParam(required = false) LocalDate date) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.getMenu(communityId, id, date));
     }
 
     @PostMapping("/{id}/menu")
-    @PreAuthorize("hasAuthority('Manage Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Community Kitchen', 'Manage Food Menu')")
     public ResponseEntity<?> createMenu(@AuthenticationPrincipal UserPrincipal principal,
                                         @PathVariable Long id,
                                         @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.createMenu(communityId, id, request));
     }
 
     @PostMapping("/book")
-    @PreAuthorize("hasAuthority('Manage Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('Manage Food Community Kitchen', 'View Food Community Kitchen')")
     public ResponseEntity<?> bookMeal(@AuthenticationPrincipal UserPrincipal principal,
                                       @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.bookMeal(communityId, request, user));
     }
 
     @GetMapping("/my-bookings")
-    @PreAuthorize("hasAuthority('View Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Community Kitchen', 'Manage Food Community Kitchen')")
     public ResponseEntity<?> getMyBookings(@AuthenticationPrincipal UserPrincipal principal,
                                            @RequestParam(defaultValue = "0") int page,
                                            @RequestParam(defaultValue = "20") int size) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(communityKitchenService.getMyBookings(communityId, user.getId(), PageRequest.of(page, size)));
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(communityKitchenService.getMyBookings(communityId, user != null ? user.getId() : null, PageRequest.of(page, size)));
     }
 
     @PostMapping("/verify-token")
-    @PreAuthorize("hasAuthority('Manage Food Community Kitchen')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Community Kitchen')")
     public ResponseEntity<?> verifyToken(@AuthenticationPrincipal UserPrincipal principal,
                                          @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(communityKitchenService.verifyToken(communityId, request));
     }
 }
