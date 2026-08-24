@@ -27,6 +27,9 @@ public class EventPoojaSlotReservation {
     @JoinColumn(name = "schedule_id", nullable = false)
     private EventPoojaSchedule schedule;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;

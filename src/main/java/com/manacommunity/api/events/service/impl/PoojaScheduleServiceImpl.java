@@ -50,6 +50,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
 
         EventPoojaSchedule schedule = EventPoojaSchedule.builder()
                 .poojaSeva(seva)
+                .communityId(seva.getCommunityId())
                 .scheduleDate(req.getScheduleDate())
                 .startTime(req.getStartTime())
                 .endTime(req.getEndTime())

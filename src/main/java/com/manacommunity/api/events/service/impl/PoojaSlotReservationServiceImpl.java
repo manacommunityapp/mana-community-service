@@ -105,7 +105,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                     schedule.getPoojaSeva().getName(), schedule.getStatus().name());
         }
 
-        // ── 1a. Enforce PoojaSeva booking-engine constraints (#5) ──
+        // ── 1a. Enforce EventPoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
         EventPoojaSeva seva = schedule.getPoojaSeva();
         if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
@@ -162,12 +162,13 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         EventPoojaSlotReservation reservation = EventPoojaSlotReservation.builder()
                 .schedule(schedule)
                 .user(user)
+                .communityId(schedule.getCommunityId())
                 .reservedFamilyCount(requestedFamilies)
                 .reservedDevoteeCount(requestedDevotees)
                 .status(ReservationStatus.RESERVED)
                 .expiresAt(expiresAt)
                 .idempotencyKey(req.getIdempotencyKey())
-                .tokenNumber(tokenNumber) // #12: persist so idempotency hits return the real token
+                .tokenNumber(tokenNumber)
                 .build();
 
         EventPoojaSlotReservation saved = reservationRepo.save(reservation);

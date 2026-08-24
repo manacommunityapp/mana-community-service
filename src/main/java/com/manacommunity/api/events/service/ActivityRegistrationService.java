@@ -65,7 +65,11 @@ public class ActivityRegistrationService {
 
         EventActivityRegistration registration = existingRegistration != null
                 ? existingRegistration
-                : EventActivityRegistration.builder().program(program).user(user).build();
+                : EventActivityRegistration.builder()
+                        .program(program)
+                        .user(user)
+                        .communityId(program.getCommunity() != null ? program.getCommunity().getId() : null)
+                        .build();
         registration.setHeadCount(headCount);
         registration.setRegistrationType(normalize(req.getRegistrationType()) != null ? normalize(req.getRegistrationType()) : "individual");
         registration.setPrimaryName(resolvePrimaryName(req, user));

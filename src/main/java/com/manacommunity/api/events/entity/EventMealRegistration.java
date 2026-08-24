@@ -24,6 +24,9 @@ public class EventMealRegistration {
     @JoinColumn(name = "event_id", nullable = false)
     private EventCommunity event;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
