@@ -53,9 +53,6 @@ class EventServiceTest {
     @Mock EventAuctionItemRepository auctionItemRepo;
     @Mock AuctionPlayerRepository auctionPlayerRepo;
     @Mock EventActivityRegistrationRepository activityRegRepo;
-    @Mock AppUserRepository userRepo;
-    @Mock EmailService emailService;
-    @Mock EventVenueRepository venueRepo;
     @Mock EventInvoiceRepository invoiceRepo;
     @Mock EventGalleryItemRepository galleryRepo;
     @Mock EventProgramRepository programRepo;
@@ -72,7 +69,7 @@ class EventServiceTest {
     @Mock AppUserRepository appUserRepo;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @InjectMocks EventService eventService;
+    private EventService eventService;
 
     private Community community;
     private AppUser adminUser;
@@ -81,6 +78,14 @@ class EventServiceTest {
 
     @BeforeEach
     void setUp() {
+        eventService = new EventService(
+                eventRepo, regRepo, volunteerRepo, donationRepo, expenseRepo,
+                sponsorRepo, taskRepo, mealRegRepo, auctionItemRepo, auctionPlayerRepo,
+                activityRegRepo, programRepo, galleryRepo, invoiceRepo, mediaRepo,
+                mediaUrlService, bookingRegRepo, notificationRepo, poojaSevaRepo,
+                culturalEventRepo, competitionRepo, lunchDinnerRepo, familyMemberRepo,
+                ticketCategoryRepo, appUserRepo, objectMapper
+        );
         community = TestDataBuilder.community(1L, "INVITE123");
         adminUser = TestDataBuilder.adminUser();
         memberUser = TestDataBuilder.memberUser();
@@ -550,7 +555,6 @@ class EventServiceTest {
             when(sponsorRepo.sumAmountReceivedByCommunity(1L)).thenReturn(20000.0);
             when(sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
             when(auctionItemRepo.sumCurrentBidsByCommunity(1L)).thenReturn(2500.0);
-            when(auctionItemRepo.countByCommunityIdAndBidCountGreaterThan(1L, 0)).thenReturn(2L);
             when(eventRepo.findByCommunityIdOrderByStartDateDesc(1L)).thenReturn(List.of(event));
 
             DashboardStatsResponse stats = eventService.getDashboardStats(1L);

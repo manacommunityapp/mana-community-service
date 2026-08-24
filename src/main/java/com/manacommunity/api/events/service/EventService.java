@@ -998,7 +998,7 @@ public class EventService {
         // 1. Direct registrations from event_registration
         if (regRepo != null) {
             regRepo.findByEventId(eventId).stream()
-                    .filter(r -> r != null && !"CANCELLED".equalsIgnoreCase(r.getStatus()))
+                    .filter(r -> r != null && !"CANCELLED".equalsIgnoreCase(r.getStatus().toString()))
                     .map(this::toRegistrationResponse)
                     .forEach(list::add);
         }
