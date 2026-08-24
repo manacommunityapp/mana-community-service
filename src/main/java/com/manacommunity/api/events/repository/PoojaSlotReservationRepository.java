@@ -22,7 +22,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
      */
     @Modifying
     @Query(value = """
-           UPDATE pooja_slot_reservation
+           UPDATE event_pooja_slot_reservation
            SET status = 'EXPIRED', updated_at = NOW()
            WHERE schedule_id = :scheduleId
              AND status = 'RESERVED'
@@ -67,7 +67,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
     /** Used by the expiry scheduler to bulk-expire rows system-wide. */
     @Modifying
     @Query(value = """
-           UPDATE pooja_slot_reservation
+           UPDATE event_pooja_slot_reservation
            SET status = 'EXPIRED', updated_at = NOW()
            WHERE status = 'RESERVED' AND expires_at < :now
            """, nativeQuery = true)
