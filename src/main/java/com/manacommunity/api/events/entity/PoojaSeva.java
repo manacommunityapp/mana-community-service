@@ -81,6 +81,29 @@ public class PoojaSeva {
     @Column(name = "notes", length = 1000)
     private String notes;
 
+    // ── Booking-engine configuration (V73) ──
+
+    /** When bookings open. Null = no restriction. */
+    @Column(name = "booking_open")
+    private LocalDateTime bookingOpen;
+
+    /** When bookings close. Null = no restriction. */
+    @Column(name = "booking_close")
+    private LocalDateTime bookingClose;
+
+    /** Hard limit on devotees per single booking. Null = use slot devotee_capacity. */
+    @Column(name = "max_devotees_per_booking")
+    private Integer maxDevoteesPerBooking;
+
+    @Column(name = "prasadam_available")
+    private Boolean prasadamAvailable = false;
+
+    @Column(name = "sankalpam_required")
+    private Boolean sankalpamRequired = false;
+
+    @Column(name = "approval_required")
+    private Boolean approvalRequired = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -169,4 +192,17 @@ public class PoojaSeva {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getBookingOpen() { return bookingOpen; }
+    public void setBookingOpen(LocalDateTime bookingOpen) { this.bookingOpen = bookingOpen; }
+    public LocalDateTime getBookingClose() { return bookingClose; }
+    public void setBookingClose(LocalDateTime bookingClose) { this.bookingClose = bookingClose; }
+    public Integer getMaxDevoteesPerBooking() { return maxDevoteesPerBooking; }
+    public void setMaxDevoteesPerBooking(Integer v) { this.maxDevoteesPerBooking = v; }
+    public Boolean getPrasadamAvailable() { return prasadamAvailable; }
+    public void setPrasadamAvailable(Boolean v) { this.prasadamAvailable = v; }
+    public Boolean getSankalpamRequired() { return sankalpamRequired; }
+    public void setSankalpamRequired(Boolean v) { this.sankalpamRequired = v; }
+    public Boolean getApprovalRequired() { return approvalRequired; }
+    public void setApprovalRequired(Boolean v) { this.approvalRequired = v; }
 }
