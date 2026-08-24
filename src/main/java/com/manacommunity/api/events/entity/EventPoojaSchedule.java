@@ -32,7 +32,7 @@ public class EventPoojaSchedule {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pooja_id", nullable = false)
-    private PoojaSeva poojaSeva;
+    private EventPoojaSeva poojaSeva;
 
     @Column(name = "schedule_date", nullable = false)
     private LocalDate scheduleDate;
