@@ -109,6 +109,14 @@ public class EventPoojaUserRegistration {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    /** FK to pooja_schedule — set when the new booking engine is used. Null for legacy registrations. */
+    @Column(name = "schedule_id")
+    private Long scheduleId;
+
+    /** FK to pooja_slot_reservation — set when slot was pre-reserved. Null for legacy / admin registrations. */
+    @Column(name = "reservation_id")
+    private Long reservationId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

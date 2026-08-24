@@ -2,6 +2,8 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,4 +25,18 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
     long countByEventIdAndStatusNot(Long eventId, String status);
 
     boolean existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(Long userId, Long eventId, String slotDate, String status);
+
+    /** Count confirmed (non-cancelled) registrations for a given schedule. */
+    @Query("""
+           SELECT COUNT(r) FROM EventPoojaUserRegistration r
+           WHERE r.scheduleId = :scheduleId AND r.status NOT IN ('CANCELLED')
+           """)
+    long countConfirmedByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /** Sum of devoteeCount for non-cancelled registrations against a schedule. */
+    @Query("""
+           SELECT COALESCE(SUM(r.devoteeCount), 0) FROM EventPoojaUserRegistration r
+           WHERE r.scheduleId = :scheduleId AND r.status NOT IN ('CANCELLED')
+           """)
+    int sumDevoteeCountByScheduleId(@Param("scheduleId") Long scheduleId);
 }

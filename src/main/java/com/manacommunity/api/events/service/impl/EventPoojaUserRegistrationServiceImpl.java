@@ -3,13 +3,13 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
+import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 
@@ -18,12 +18,15 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
 
     private final EventPoojaUserRegistrationRepository repository;
     private final CommunityRepository communityRepository;
+    private final PoojaSlotReservationService reservationService;
 
     public EventPoojaUserRegistrationServiceImpl(
             EventPoojaUserRegistrationRepository repository,
-            CommunityRepository communityRepository) {
+            CommunityRepository communityRepository,
+            PoojaSlotReservationService reservationService) {
         this.repository = repository;
         this.communityRepository = communityRepository;
+        this.reservationService = reservationService;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -87,7 +90,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             registration.setPaymentStatus("PAID");
         }
 
-        return repository.save(registration);
+        EventPoojaUserRegistration saved = repository.save(registration);
+
+        // Confirm the pre-hold so capacity is counted as confirmed, not reserved
+        if (saved.getReservationId() != null) {
+            reservationService.confirmReservation(saved.getReservationId(), saved.getId());
+        }
+
+        return saved;
     }
 
     @Override
@@ -155,6 +165,11 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         EventPoojaUserRegistration existing = getRegistrationById(id, user);
         existing.setStatus("CANCELLED");
         repository.save(existing);
+
+        // Release the capacity hold so the slot becomes available again
+        if (existing.getReservationId() != null) {
+            reservationService.releaseReservation(existing.getReservationId());
+        }
     }
 
     @Override
