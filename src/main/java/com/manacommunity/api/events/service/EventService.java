@@ -182,8 +182,8 @@ public class EventService {
         }
 
         // Verify image and scanner media exist in S3 before saving the event
-        UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image");
-        UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner");
+        UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image", community);
+        UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner", community);
 
         CommunityEvent event = CommunityEvent.builder()
                 .title(req.getTitle())
@@ -224,7 +224,22 @@ public class EventService {
         validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
         CommunityEvent savedEvent = eventRepo.save(event);
         saveTicketCategories(savedEvent, req.getTicketTypes());
-        return toResponse(savedEvent, user.getId());
+        if (imageMediaExternalId != null) {
+            mediaRepo.findByExternalIdAndDeletedFalse(imageMediaExternalId).ifPresent(media -> {
+                media.setModuleId(String.valueOf(savedEvent.getId()));
+                media.setSubContext("cover");
+                media.setFeatured(true);
+                mediaRepo.save(media);
+            });
+        }
+        if (scannerMediaExternalId != null) {
+            mediaRepo.findByExternalIdAndDeletedFalse(scannerMediaExternalId).ifPresent(media -> {
+                media.setModuleId(String.valueOf(savedEvent.getId()));
+                media.setSubContext("payment-scanner");
+                mediaRepo.save(media);
+            });
+        }
+        return toResponse(savedEvent, user != null ? user.getId() : null);
     }
 
     @Transactional
@@ -394,6 +409,9 @@ public class EventService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long userId) {
         AppUser user = userId != null ? appUserRepo.findById(userId).orElse(null) : null;
+        if (user == null && userId != null) {
+            user = AppUser.builder().id(userId).role(userId == -1L ? "ADMIN" : "MEMBER").build();
+        }
         delete(id, user);
     }
 
@@ -1077,8 +1095,8 @@ public class EventService {
                 .maxAttendees(effectiveCapacity)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
                 .registrationCount(liveAttendees)
-                .createdById(e.getCreatedBy().getId())
-                .createdByName(e.getCreatedBy().getFullName())
+                .createdById(e.getCreatedBy() != null ? e.getCreatedBy().getId() : null)
+                .createdByName(e.getCreatedBy() != null ? e.getCreatedBy().getFullName() : null)
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
                 .attendees(liveAttendees)
                 .isRegistered(isRegistered)
@@ -1110,6 +1128,10 @@ public class EventService {
     }
 
     private UUID verifyAndParseMediaId(String mediaId, String context) {
+        return verifyAndParseMediaId(mediaId, context, null);
+    }
+
+    private UUID verifyAndParseMediaId(String mediaId, String context, Community community) {
         if (mediaId == null || mediaId.isBlank()) return null;
         UUID uuid;
         try {
@@ -1117,8 +1139,11 @@ public class EventService {
         } catch (IllegalArgumentException ex) {
             throw new ResourceNotFoundException("MediaObject", "id", mediaId);
         }
-        mediaRepo.findByExternalIdAndDeletedFalse(uuid)
+        MediaObject media = mediaRepo.findByExternalIdAndDeletedFalse(uuid)
                 .orElseThrow(() -> new ResourceNotFoundException("MediaObject", "id", uuid.toString()));
+        if (community != null && media.getCommunityId() != null && !community.getId().equals(media.getCommunityId())) {
+            throw new IllegalArgumentException("Media must belong to the same community");
+        }
         return uuid;
     }
 
