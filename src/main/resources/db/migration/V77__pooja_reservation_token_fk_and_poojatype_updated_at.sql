@@ -1,10 +1,10 @@
 -- V75: token_number on pooja_slot_reservation, FK for reservation_id, updated_at on event_pooja_types
 
 -- #12: Store token number on the reservation row so it can be returned on idempotency hits
-ALTER TABLE pooja_slot_reservation
+ALTER TABLE event_pooja_slot_reservation
     ADD COLUMN IF NOT EXISTS token_number INTEGER DEFAULT 0;
 
--- #13: FK constraint from event_pooja_user_registrations.reservation_id → pooja_slot_reservation(id)
+-- #13: FK constraint from event_pooja_user_registrations.reservation_id → event_pooja_slot_reservation(id)
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -14,7 +14,7 @@ BEGIN
     ) THEN
         ALTER TABLE event_pooja_user_registrations
             ADD CONSTRAINT fk_epur_reservation_id
-            FOREIGN KEY (reservation_id) REFERENCES pooja_slot_reservation(id) ON DELETE SET NULL;
+            FOREIGN KEY (reservation_id) REFERENCES event_pooja_slot_reservation(id) ON DELETE SET NULL;
     END IF;
 END $$;
 

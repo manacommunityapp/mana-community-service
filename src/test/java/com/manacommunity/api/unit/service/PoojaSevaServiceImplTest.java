@@ -1,6 +1,6 @@
 package com.manacommunity.api.unit.service;
 
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
@@ -33,17 +33,17 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        when(repository.save(any(PoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.save(any(EventPoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Ganesh Puja");
         seva.setType("Ganesh Puja");
         seva.setDate(LocalDate.of(2026, 9, 1));
         seva.setMultiDay(false);
         seva.setSlots(25);
 
-        PoojaSeva saved = service.createPoojaSeva(10L, seva);
+        EventPoojaSeva saved = service.createPoojaSeva(10L, seva);
 
         assertThat(saved.getCommunityId()).isEqualTo(10L);
         assertThat(saved.getSlots()).isEqualTo(25);
@@ -56,10 +56,10 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        when(repository.save(any(PoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.save(any(EventPoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Festival Archana");
         seva.setType("Archana");
         seva.setDate(LocalDate.of(2026, 9, 1));
@@ -68,7 +68,7 @@ class PoojaSevaServiceImplTest {
         seva.setStartTimes(List.of("08:00", "10:00"));
         seva.setSlots(12);
 
-        PoojaSeva saved = service.createPoojaSeva(10L, seva);
+        EventPoojaSeva saved = service.createPoojaSeva(10L, seva);
 
         assertThat(saved.getTimeSlotConfig()).hasSize(4);
         assertThat(saved.getTimeSlotConfig())
@@ -87,12 +87,12 @@ class PoojaSevaServiceImplTest {
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(5L);
         seva.setCommunityId(10L);
         when(repository.findByIdAndCommunityId(5L, 10L)).thenReturn(Optional.of(seva));
 
-        PoojaSeva result = service.getPoojaSevaById(5L, 10L);
+        EventPoojaSeva result = service.getPoojaSevaById(5L, 10L);
 
         assertThat(result).isSameAs(seva);
         verify(repository).findByIdAndCommunityId(5L, 10L);
@@ -106,11 +106,11 @@ class PoojaSevaServiceImplTest {
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         when(repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(10L, 100L))
                 .thenReturn(List.of(seva));
 
-        List<PoojaSeva> result = service.getAllPoojaSevas(10L, 100L);
+        List<EventPoojaSeva> result = service.getAllPoojaSevas(10L, 100L);
 
         assertThat(result).containsExactly(seva);
         verify(repository).findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(10L, 100L);
@@ -124,7 +124,7 @@ class PoojaSevaServiceImplTest {
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Ganesh Puja");
         seva.setType("Ganesh Puja");
         seva.setMainEventId(100L);
@@ -132,7 +132,7 @@ class PoojaSevaServiceImplTest {
 
         assertThatThrownBy(() -> service.createPoojaSeva(10L, seva))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verify(repository, never()).save(any(PoojaSeva.class));
+        verify(repository, never()).save(any(EventPoojaSeva.class));
     }
 
     @Test
@@ -143,16 +143,16 @@ class PoojaSevaServiceImplTest {
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
-        PoojaSeva existing = new PoojaSeva();
+        EventPoojaSeva existing = new EventPoojaSeva();
         existing.setId(5L);
         existing.setCommunityId(10L);
-        PoojaSeva updated = new PoojaSeva();
+        EventPoojaSeva updated = new EventPoojaSeva();
         updated.setMainEventId(100L);
         when(repository.findByIdAndCommunityId(5L, 10L)).thenReturn(Optional.of(existing));
         when(eventRepository.findById(100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.updatePoojaSeva(5L, 10L, updated))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verify(repository, never()).save(any(PoojaSeva.class));
+        verify(repository, never()).save(any(EventPoojaSeva.class));
     }
 }

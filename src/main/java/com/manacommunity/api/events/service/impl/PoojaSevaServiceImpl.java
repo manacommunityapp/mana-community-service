@@ -96,11 +96,11 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                 && poojaSeva.getStartTimes() != null
                 && !poojaSeva.getStartTimes().isEmpty()
                 && (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty())) {
-            List<PoojaSevaDayTimeSlot> slots = new java.util.ArrayList<>();
+            List<EventPoojaSevaDayTimeSlot> slots = new java.util.ArrayList<>();
             LocalDate cur = poojaSeva.getDate();
             while (!cur.isAfter(poojaSeva.getEndDate())) {
                 for (String time : poojaSeva.getStartTimes()) {
-                    slots.add(new PoojaSevaDayTimeSlot(
+                    slots.add(new EventPoojaSevaDayTimeSlot(
                             cur,
                             time,
                             poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 0

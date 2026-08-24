@@ -287,22 +287,22 @@ class EventServiceTest {
         void delete_success() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
-            PoojaSeva pooja = new PoojaSeva();
+            EventPoojaSeva pooja = new EventPoojaSeva();
             pooja.setId(10L);
             pooja.setMainEventId(100L);
             when(poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(pooja));
 
-            CulturalEvent cultural = new CulturalEvent();
+            EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
             when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
 
-            Competition comp = new Competition();
+            EventCompetition comp = new EventCompetition();
             comp.setId(30L);
             comp.setMainEventId(100L);
             when(competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(comp));
 
-            LunchDinner ld = new LunchDinner();
+            EventLunchDinner ld = new EventLunchDinner();
             ld.setId(40L);
             ld.setMainEventId(100L);
             when(lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(ld));
@@ -355,7 +355,7 @@ class EventServiceTest {
         void delete_cancelsEvent_whenPoojaHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
-            PoojaSeva pooja = new PoojaSeva();
+            EventPoojaSeva pooja = new EventPoojaSeva();
             pooja.setId(10L);
             pooja.setMainEventId(100L);
             when(poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(pooja));
@@ -376,7 +376,7 @@ class EventServiceTest {
         void delete_cancelsEvent_whenCulturalHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
-            CulturalEvent cultural = new CulturalEvent();
+            EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
             when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
@@ -397,7 +397,7 @@ class EventServiceTest {
         void delete_cancelsEvent_whenCompetitionHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
-            Competition comp = new Competition();
+            EventCompetition comp = new EventCompetition();
             comp.setId(30L);
             comp.setMainEventId(100L);
             when(competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(comp));
@@ -418,7 +418,7 @@ class EventServiceTest {
         void delete_cancelsEvent_whenLunchDinnerHasBookings() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
 
-            LunchDinner ld = new LunchDinner();
+            EventLunchDinner ld = new EventLunchDinner();
             ld.setId(40L);
             ld.setMainEventId(100L);
             when(lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(ld));

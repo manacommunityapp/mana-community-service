@@ -2,7 +2,7 @@ package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
@@ -107,7 +107,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
 
         // ── 1a. Enforce PoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
-        PoojaSeva seva = schedule.getPoojaSeva();
+        EventPoojaSeva seva = schedule.getPoojaSeva();
         if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
             throw new RegistrationClosedException(
                     "Bookings for '" + seva.getName() + "' are not open yet. " +

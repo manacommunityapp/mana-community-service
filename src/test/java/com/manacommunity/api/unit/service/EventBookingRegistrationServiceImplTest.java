@@ -1,8 +1,8 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.events.entity.EventBookingRegistration;
-import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
@@ -36,7 +36,7 @@ class EventBookingRegistrationServiceImplTest {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(10L);
         seva.setSlots(20);
         seva.setDate(LocalDate.now().plusDays(5));
@@ -57,10 +57,10 @@ class EventBookingRegistrationServiceImplTest {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
 
-        PoojaSevaDayTimeSlot slot1 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "08:30", 10);
-        PoojaSevaDayTimeSlot slot2 = new PoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "18:30", 10);
+        EventPoojaSevaDayTimeSlot slot1 = new EventPoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "08:30", 10);
+        EventPoojaSevaDayTimeSlot slot2 = new EventPoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "18:30", 10);
 
-        PoojaSeva seva = new PoojaSeva();
+        EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(20L);
         seva.setMultiDay(true);
         seva.setDate(LocalDate.now().plusDays(2));
