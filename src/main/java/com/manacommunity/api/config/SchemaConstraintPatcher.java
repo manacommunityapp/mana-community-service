@@ -1837,25 +1837,6 @@ public class SchemaConstraintPatcher {
                               ADD COLUMN IF NOT EXISTS price_type VARCHAR(10) DEFAULT 'FREE',
                               ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200),
                               ADD COLUMN IF NOT EXISTS organizer_contact VARCHAR(200);
-                          ELSIF to_regclass('manacommunity.community_event') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event
-                              ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PUBLISHED',
-                              ADD COLUMN IF NOT EXISTS type VARCHAR(30) DEFAULT 'GENERAL',
-                              ADD COLUMN IF NOT EXISTS description VARCHAR(3000),
-                              ADD COLUMN IF NOT EXISTS end_date DATE,
-                              ADD COLUMN IF NOT EXISTS start_time TIME,
-                              ADD COLUMN IF NOT EXISTS end_time TIME,
-                              ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION,
-                              ADD COLUMN IF NOT EXISTS capacity INT,
-                              ADD COLUMN IF NOT EXISTS image_url VARCHAR(500),
-                              ADD COLUMN IF NOT EXISTS category VARCHAR(100),
-                              ADD COLUMN IF NOT EXISTS venue VARCHAR(200),
-                              ADD COLUMN IF NOT EXISTS city VARCHAR(100),
-                              ADD COLUMN IF NOT EXISTS max_attendees INT,
-                              ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) DEFAULT 'IN_PERSON',
-                              ADD COLUMN IF NOT EXISTS price_type VARCHAR(10) DEFAULT 'FREE',
-                              ADD COLUMN IF NOT EXISTS organizer_name VARCHAR(200),
-                              ADD COLUMN IF NOT EXISTS organizer_contact VARCHAR(200);
                           END IF;
                         END $$;
                         """);
