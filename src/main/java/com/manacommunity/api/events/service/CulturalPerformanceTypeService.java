@@ -1,11 +1,11 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.CulturalPerformanceType;
+import com.manacommunity.api.events.entity.EventCulturalPerformanceType;
 import java.util.List;
 
 public interface CulturalPerformanceTypeService {
 
-    List<CulturalPerformanceType> getAllPerformanceTypes(Long communityId);
+    List<EventCulturalPerformanceType> getAllPerformanceTypes(Long communityId);
 
-    CulturalPerformanceType createPerformanceType(Long communityId, String name, String description);
+    EventCulturalPerformanceType createPerformanceType(Long communityId, String name, String description);
 }

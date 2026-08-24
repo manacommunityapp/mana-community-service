@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TicketCategoryMaster {
+public class EventTicketCategoryMaster {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

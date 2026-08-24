@@ -11,7 +11,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "event_lunch_dinners")
-public class LunchDinner extends BaseAuditEntity {
+public class EventLunchDinner extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

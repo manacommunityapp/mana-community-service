@@ -1,13 +1,13 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.EventCommunity;
-import com.manacommunity.api.events.entity.Competition;
+import com.manacommunity.api.events.entity.EventCompetition;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
-import com.manacommunity.api.events.entity.LunchDinner;
-import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
+import com.manacommunity.api.events.entity.EventLunchDinner;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.entity.EventTicketCategory;
-import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
@@ -206,7 +206,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     }
 
     private void validatePoojaCapacityAndDeadline(Long id, EventBookingRegistration registration, Long userId) {
-        PoojaSeva p = poojaSevaRepository.findById(id).orElse(null);
+        EventPoojaSeva p = poojaSevaRepository.findById(id).orElse(null);
         if (p == null) return;
 
         // Check if parent event is cancelled
@@ -228,7 +228,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // 2. Block registration if user already has an active booking for ANY seva in the same parent event
         if (isNewRegistration && userId != null && p.getMainEventId() != null) {
-            List<PoojaSeva> siblingSevas = poojaSevaRepository
+            List<EventPoojaSeva> siblingSevas = poojaSevaRepository
                     .findByMainEventIdOrderByDateAscStartTimeAsc(p.getMainEventId());
             List<String> siblingActivityIds = siblingSevas.stream()
                     .map(s -> "pooja-" + s.getId())
@@ -267,7 +267,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
     private void validateCulturalCapacityAndDeadline(Long id, EventBookingRegistration registration) {
         if (culturalEventRepository == null) return;
-        CulturalEvent c = culturalEventRepository.findById(id).orElse(null);
+        EventCulturalEvent c = culturalEventRepository.findById(id).orElse(null);
         if (c == null) return;
 
         // Check if parent event is cancelled
@@ -303,7 +303,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     }
 
     private void validateCompetitionCapacityAndDeadline(Long id, EventBookingRegistration registration) {
-        Competition c = competitionRepository.findById(id).orElse(null);
+        EventCompetition c = competitionRepository.findById(id).orElse(null);
         if (c == null) return;
 
         // Check if parent event is cancelled
@@ -319,7 +319,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             throw new RegistrationClosedException(c.getName(), "Registration deadline has passed (" + c.getRegDeadline() + ")");
         }
         if (c.getDate() != null && c.getDate().isBefore(today)) {
-            throw new RegistrationClosedException(c.getName(), "Competition date has passed (" + c.getDate() + ")");
+            throw new RegistrationClosedException(c.getName(), "EventCompetition date has passed (" + c.getDate() + ")");
         }
 
         int max = c.getMaxParticipants() != null && c.getMaxParticipants() > 0 ? c.getMaxParticipants() : 50;
@@ -339,7 +339,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     }
 
     private void validateLunchDinnerCapacityAndDeadline(Long id, EventBookingRegistration registration) {
-        LunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
+        EventLunchDinner m = lunchDinnerRepository.findById(id).orElse(null);
         if (m == null) return;
 
         // Check if parent event is cancelled
@@ -555,7 +555,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private boolean decrementPoojaTimeSlot(PoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
+    private boolean decrementPoojaTimeSlot(EventPoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
         if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
         if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
 
@@ -563,7 +563,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         LocalTime bookedTime = parseBookingTime(registration.getEventTime());
         if (bookedDate == null || bookedTime == null) return false;
 
-        for (PoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
+        for (EventPoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
             if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
             LocalTime slotTime = parseBookingTime(slot.getStartTime());
             if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
@@ -576,7 +576,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         return false;
     }
 
-    private int defaultPoojaSlotCount(PoojaSeva poojaSeva) {
+    private int defaultPoojaSlotCount(EventPoojaSeva poojaSeva) {
         return poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 20;
     }
 

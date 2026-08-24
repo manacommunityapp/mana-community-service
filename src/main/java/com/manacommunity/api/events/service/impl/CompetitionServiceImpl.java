@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.Competition;
+import com.manacommunity.api.events.entity.EventCompetition;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
@@ -33,17 +33,17 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Competition> getAllCompetitions(Long communityId, Long mainEventId) {
-        List<Competition> raw;
+    public List<EventCompetition> getAllCompetitions(Long communityId, Long mainEventId) {
+        List<EventCompetition> raw;
         if (mainEventId != null) {
             raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
         } else {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
-        List<Competition> filtered = new java.util.ArrayList<>();
+        List<EventCompetition> filtered = new java.util.ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
-        for (Competition c : raw) {
+        for (EventCompetition c : raw) {
             if (c.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(c.getMainEventId(), id -> {
                     com.manacommunity.api.events.entity.EventCommunity parent = eventRepository.findById(id).orElse(null);
@@ -60,21 +60,21 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     @Override
     @Transactional(readOnly = true)
-    public Competition getCompetitionById(Long id, Long communityId) {
+    public EventCompetition getCompetitionById(Long id, Long communityId) {
         return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Competition", id));
+                .orElseThrow(() -> new ResourceNotFoundException("EventCompetition", id));
     }
 
     @Override
-    public Competition createCompetition(Long communityId, Competition competition) {
+    public EventCompetition createCompetition(Long communityId, EventCompetition competition) {
         validateDateWithinParentEvent(competition.getMainEventId(), competition.getDate());
         competition.setCommunityId(communityId);
         return repository.save(competition);
     }
 
     @Override
-    public Competition updateCompetition(Long id, Long communityId, Competition updated) {
-        Competition existing = getCompetitionById(id, communityId);
+    public EventCompetition updateCompetition(Long id, Long communityId, EventCompetition updated) {
+        EventCompetition existing = getCompetitionById(id, communityId);
         validateDateWithinParentEvent(updated.getMainEventId(), updated.getDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
@@ -99,14 +99,14 @@ public class CompetitionServiceImpl implements CompetitionService {
             LocalDate eventStart = event.getStartDate();
             LocalDate eventEnd = event.getEndDate() != null ? event.getEndDate() : eventStart;
             if (date.isBefore(eventStart) || date.isAfter(eventEnd)) {
-                throw new InvalidInputException("Competition date " + date + " is outside the event period (" + eventStart + " to " + eventEnd + ")");
+                throw new InvalidInputException("EventCompetition date " + date + " is outside the event period (" + eventStart + " to " + eventEnd + ")");
             }
         });
     }
 
     @Override
     public void deleteCompetition(Long id, Long communityId) {
-        Competition existing = getCompetitionById(id, communityId);
+        EventCompetition existing = getCompetitionById(id, communityId);
         String activityId = "comp-" + existing.getId();
         if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
             throw new ManaCommunityException(

@@ -1,15 +1,15 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface CulturalEventRepository extends JpaRepository<CulturalEvent, Long> {
+public interface CulturalEventRepository extends JpaRepository<EventCulturalEvent, Long> {
 
-    List<CulturalEvent> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
+    List<EventCulturalEvent> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
 
-    List<CulturalEvent> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
+    List<EventCulturalEvent> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
 }

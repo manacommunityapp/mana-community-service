@@ -1,11 +1,11 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.CompetitionAgeGroup;
+import com.manacommunity.api.events.entity.EventCompetitionAgeGroup;
 import java.util.List;
 
 public interface CompetitionAgeGroupService {
 
-    List<CompetitionAgeGroup> getAllCompetitionAgeGroups(Long communityId);
+    List<EventCompetitionAgeGroup> getAllCompetitionAgeGroups(Long communityId);
 
-    CompetitionAgeGroup createCompetitionAgeGroup(Long communityId, String name, String description);
+    EventCompetitionAgeGroup createCompetitionAgeGroup(Long communityId, String name, String description);
 }

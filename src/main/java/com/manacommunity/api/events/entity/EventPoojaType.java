@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "event_cultural_performance_types")
-public class CulturalPerformanceType {
+@Table(name = "event_pooja_types")
+public class EventPoojaType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,11 +23,15 @@ public class CulturalPerformanceType {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public CulturalPerformanceType() {
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public EventPoojaType() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
-    public CulturalPerformanceType(Long communityId, String name, String description) {
+    public EventPoojaType(Long communityId, String name, String description) {
         this();
         this.communityId = communityId;
         this.name = name;
@@ -36,9 +40,13 @@ public class CulturalPerformanceType {
 
     @PrePersist
     protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
+        if (this.createdAt == null) this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -79,5 +87,13 @@ public class CulturalPerformanceType {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

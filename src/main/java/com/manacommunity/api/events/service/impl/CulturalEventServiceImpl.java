@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CulturalEvent;
+import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
@@ -33,17 +33,17 @@ public class CulturalEventServiceImpl implements CulturalEventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CulturalEvent> getAllCulturalEvents(Long communityId, Long mainEventId) {
-        List<CulturalEvent> raw;
+    public List<EventCulturalEvent> getAllCulturalEvents(Long communityId, Long mainEventId) {
+        List<EventCulturalEvent> raw;
         if (mainEventId != null) {
             raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
         } else {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
-        List<CulturalEvent> filtered = new java.util.ArrayList<>();
+        List<EventCulturalEvent> filtered = new java.util.ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
-        for (CulturalEvent c : raw) {
+        for (EventCulturalEvent c : raw) {
             if (c.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(c.getMainEventId(), id -> {
                     com.manacommunity.api.events.entity.EventCommunity parent = eventRepository.findById(id).orElse(null);
@@ -60,21 +60,21 @@ public class CulturalEventServiceImpl implements CulturalEventService {
 
     @Override
     @Transactional(readOnly = true)
-    public CulturalEvent getCulturalEventById(Long id, Long communityId) {
+    public EventCulturalEvent getCulturalEventById(Long id, Long communityId) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cultural event", id));
     }
 
     @Override
-    public CulturalEvent createCulturalEvent(Long communityId, CulturalEvent culturalEvent) {
+    public EventCulturalEvent createCulturalEvent(Long communityId, EventCulturalEvent culturalEvent) {
         validateDateWithinParentEvent(culturalEvent.getMainEventId(), culturalEvent.getDate());
         culturalEvent.setCommunityId(communityId);
         return repository.save(culturalEvent);
     }
 
     @Override
-    public CulturalEvent updateCulturalEvent(Long id, Long communityId, CulturalEvent updated) {
-        CulturalEvent existing = getCulturalEventById(id, communityId);
+    public EventCulturalEvent updateCulturalEvent(Long id, Long communityId, EventCulturalEvent updated) {
+        EventCulturalEvent existing = getCulturalEventById(id, communityId);
         validateDateWithinParentEvent(updated.getMainEventId(), updated.getDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
@@ -104,7 +104,7 @@ public class CulturalEventServiceImpl implements CulturalEventService {
 
     @Override
     public void deleteCulturalEvent(Long id, Long communityId) {
-        CulturalEvent existing = getCulturalEventById(id, communityId);
+        EventCulturalEvent existing = getCulturalEventById(id, communityId);
         String actId1 = "cultural-" + existing.getId();
         String actId2 = "cult-" + existing.getId();
         if (bookingRepo.existsByActivityIdAndStatusNot(actId1, "CANCELLED")

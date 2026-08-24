@@ -1,12 +1,12 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.PoojaType;
+import com.manacommunity.api.events.entity.EventPoojaType;
 
 import java.util.List;
 
 public interface PoojaTypeService {
 
-    List<PoojaType> getAllPoojaTypes(Long communityId);
+    List<EventPoojaType> getAllPoojaTypes(Long communityId);
 
-    PoojaType createPoojaType(Long communityId, String name, String description);
+    EventPoojaType createPoojaType(Long communityId, String name, String description);
 }

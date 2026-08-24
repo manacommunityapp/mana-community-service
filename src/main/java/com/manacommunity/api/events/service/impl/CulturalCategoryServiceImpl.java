@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CulturalCategory;
+import com.manacommunity.api.events.entity.EventCulturalCategory;
 import com.manacommunity.api.events.repository.CulturalCategoryRepository;
 import com.manacommunity.api.events.service.CulturalCategoryService;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -28,12 +28,12 @@ public class CulturalCategoryServiceImpl implements CulturalCategoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CulturalCategory> getAllCulturalCategories(Long communityId) {
-        List<CulturalCategory> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
+    public List<EventCulturalCategory> getAllCulturalCategories(Long communityId) {
+        List<EventCulturalCategory> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
         if (list.isEmpty()) {
             for (String defaultName : DEFAULT_CATEGORIES) {
                 if (!repository.existsByNameIgnoreCase(defaultName)) {
-                    repository.save(new CulturalCategory(null, defaultName, "Default cultural category"));
+                    repository.save(new EventCulturalCategory(null, defaultName, "Default cultural category"));
                 }
             }
             list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
@@ -42,12 +42,12 @@ public class CulturalCategoryServiceImpl implements CulturalCategoryService {
     }
 
     @Override
-    public CulturalCategory createCulturalCategory(Long communityId, String name, String description) {
+    public EventCulturalCategory createCulturalCategory(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
             throw new InvalidInputException("Category name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
-                .orElseGet(() -> repository.save(new CulturalCategory(communityId, cleanName, description)));
+                .orElseGet(() -> repository.save(new EventCulturalCategory(communityId, cleanName, description)));
     }
 }

@@ -3,7 +3,7 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.dto.PoojaScheduleDto;
 import com.manacommunity.api.events.dto.PoojaScheduleRequest;
 import com.manacommunity.api.events.entity.EventPoojaSchedule;
-import com.manacommunity.api.events.entity.PoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
@@ -45,8 +45,8 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Override
     @Transactional
     public PoojaScheduleDto createSchedule(PoojaScheduleRequest req) {
-        PoojaSeva seva = poojaSevaRepo.findById(req.getPoojaId())
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSeva", req.getPoojaId()));
+        EventPoojaSeva seva = poojaSevaRepo.findById(req.getPoojaId())
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSeva", req.getPoojaId()));
 
         EventPoojaSchedule schedule = EventPoojaSchedule.builder()
                 .poojaSeva(seva)

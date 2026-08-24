@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CompetitionAgeGroup;
+import com.manacommunity.api.events.entity.EventCompetitionAgeGroup;
 import com.manacommunity.api.events.repository.CompetitionAgeGroupRepository;
 import com.manacommunity.api.events.service.CompetitionAgeGroupService;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -26,12 +26,12 @@ public class CompetitionAgeGroupServiceImpl implements CompetitionAgeGroupServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<CompetitionAgeGroup> getAllCompetitionAgeGroups(Long communityId) {
-        List<CompetitionAgeGroup> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
+    public List<EventCompetitionAgeGroup> getAllCompetitionAgeGroups(Long communityId) {
+        List<EventCompetitionAgeGroup> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
         if (list.isEmpty()) {
             for (String defaultName : DEFAULT_AGE_GROUPS) {
                 if (!repository.existsByNameIgnoreCase(defaultName)) {
-                    repository.save(new CompetitionAgeGroup(null, defaultName, "Default competition age group"));
+                    repository.save(new EventCompetitionAgeGroup(null, defaultName, "Default competition age group"));
                 }
             }
             list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
@@ -40,12 +40,12 @@ public class CompetitionAgeGroupServiceImpl implements CompetitionAgeGroupServic
     }
 
     @Override
-    public CompetitionAgeGroup createCompetitionAgeGroup(Long communityId, String name, String description) {
+    public EventCompetitionAgeGroup createCompetitionAgeGroup(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
             throw new InvalidInputException("Age group name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
-                .orElseGet(() -> repository.save(new CompetitionAgeGroup(communityId, cleanName, description)));
+                .orElseGet(() -> repository.save(new EventCompetitionAgeGroup(communityId, cleanName, description)));
     }
 }

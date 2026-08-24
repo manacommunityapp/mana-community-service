@@ -1,6 +1,6 @@
-package com.manacommunity.api.events.controller;
+﻿package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.TicketCategoryMaster;
+import com.manacommunity.api.events.entity.EventTicketCategoryMaster;
 import com.manacommunity.api.events.service.TicketCategoryService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -22,14 +22,14 @@ public class TicketCategoryController {
     private final TicketCategoryService ticketCategoryService;
 
     @GetMapping
-    public ResponseEntity<List<TicketCategoryMaster>> getCategories(
+    public ResponseEntity<List<EventTicketCategoryMaster>> getCategories(
             @AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         return ResponseEntity.ok(ticketCategoryService.getCategories(communityId));
     }
 
     @PostMapping
-    public ResponseEntity<TicketCategoryMaster> createCategory(
+    public ResponseEntity<EventTicketCategoryMaster> createCategory(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, Object> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
@@ -39,7 +39,7 @@ public class TicketCategoryController {
                 ? Integer.parseInt(body.get("displayOrder").toString())
                 : 0;
 
-        TicketCategoryMaster created = ticketCategoryService.createCategory(communityId, name, description, displayOrder);
+        EventTicketCategoryMaster created = ticketCategoryService.createCategory(communityId, name, description, displayOrder);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

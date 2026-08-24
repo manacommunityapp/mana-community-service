@@ -9,7 +9,7 @@ import java.time.LocalTime;
 
 @Entity
 @Table(name = "event_competitions")
-public class Competition extends BaseAuditEntity {
+public class EventCompetition extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

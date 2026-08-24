@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.CompetitionCategory;
+import com.manacommunity.api.events.entity.EventCompetitionCategory;
 import com.manacommunity.api.events.service.CompetitionCategoryService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,20 +21,20 @@ public class CompetitionCategoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CompetitionCategory>> getCompetitionCategories(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<EventCompetitionCategory>> getCompetitionCategories(@AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<CompetitionCategory> categories = service.getAllCompetitionCategories(communityId);
+        List<EventCompetitionCategory> categories = service.getAllCompetitionCategories(communityId);
         return ResponseEntity.ok(categories);
     }
 
     @PostMapping
-    public ResponseEntity<CompetitionCategory> createCompetitionCategory(
+    public ResponseEntity<EventCompetitionCategory> createCompetitionCategory(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, String> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         String name = body.get("name");
         String description = body.get("description");
-        CompetitionCategory created = service.createCompetitionCategory(communityId, name, description);
+        EventCompetitionCategory created = service.createCompetitionCategory(communityId, name, description);
         return ResponseEntity.ok(created);
     }
 }

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "event_competition_categories")
-public class CompetitionCategory {
+public class EventCompetitionCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,11 +23,11 @@ public class CompetitionCategory {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public CompetitionCategory() {
+    public EventCompetitionCategory() {
         this.createdAt = LocalDateTime.now();
     }
 
-    public CompetitionCategory(Long communityId, String name, String description) {
+    public EventCompetitionCategory(Long communityId, String name, String description) {
         this();
         this.communityId = communityId;
         this.name = name;

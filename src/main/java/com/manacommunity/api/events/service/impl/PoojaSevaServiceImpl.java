@@ -1,9 +1,9 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.EventCommunity;
-import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.entity.PoojaSevaDaySlot;
-import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSevaDaySlot;
+import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
@@ -35,8 +35,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PoojaSeva> getAllPoojaSevas(Long communityId, Long mainEventId) {
-        List<PoojaSeva> raw;
+    public List<EventPoojaSeva> getAllPoojaSevas(Long communityId, Long mainEventId) {
+        List<EventPoojaSeva> raw;
         if (communityId != null && mainEventId != null) {
             raw = repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(communityId, mainEventId);
         } else if (mainEventId != null) {
@@ -46,9 +46,9 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         }
 
         // Filter out poojas whose parent community event is cancelled or whose own status is cancelled
-        List<PoojaSeva> filtered = new java.util.ArrayList<>();
+        List<EventPoojaSeva> filtered = new java.util.ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
-        for (PoojaSeva p : raw) {
+        for (EventPoojaSeva p : raw) {
             if (p.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(p.getMainEventId(), id -> {
                     EventCommunity parent = eventRepository.findById(id).orElse(null);
@@ -65,7 +65,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
 
     @Override
     @Transactional(readOnly = true)
-    public PoojaSeva getPoojaSevaById(Long id, Long communityId) {
+    public EventPoojaSeva getPoojaSevaById(Long id, Long communityId) {
         if (communityId != null) {
             return repository.findByIdAndCommunityId(id, communityId)
                     .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
@@ -75,7 +75,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     }
 
     @Override
-    public PoojaSeva createPoojaSeva(Long communityId, PoojaSeva poojaSeva) {
+    public EventPoojaSeva createPoojaSeva(Long communityId, EventPoojaSeva poojaSeva) {
         if (poojaSeva.getMainEventId() != null) {
             EventCommunity parentEvent = eventRepository.findById(poojaSeva.getMainEventId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent Event", poojaSeva.getMainEventId()));
@@ -114,8 +114,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     }
 
     @Override
-    public PoojaSeva updatePoojaSeva(Long id, Long communityId, PoojaSeva updated) {
-        PoojaSeva existing = getPoojaSevaById(id, communityId);
+    public EventPoojaSeva updatePoojaSeva(Long id, Long communityId, EventPoojaSeva updated) {
+        EventPoojaSeva existing = getPoojaSevaById(id, communityId);
         Long resolvedMainEventId = updated.getMainEventId() != null
                 ? updated.getMainEventId()
                 : existing.getMainEventId();
@@ -178,7 +178,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
 
     @Override
     public void deletePoojaSeva(Long id, Long communityId) {
-        PoojaSeva existing = getPoojaSevaById(id, communityId);
+        EventPoojaSeva existing = getPoojaSevaById(id, communityId);
         String activityId = "pooja-" + existing.getId();
         if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
             throw new ManaCommunityException(
@@ -190,7 +190,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         repository.delete(existing);
     }
 
-    private void validateDateWithinParent(PoojaSeva poojaSeva, EventCommunity parentEvent) {
+    private void validateDateWithinParent(EventPoojaSeva poojaSeva, EventCommunity parentEvent) {
         LocalDate parentStart = parentEvent.getStartDate();
         LocalDate parentEnd = parentEvent.getEndDate() != null ? parentEvent.getEndDate() : parentStart;
 
@@ -213,7 +213,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         }
 
         if (poojaSeva.getDaySlots() != null) {
-            for (PoojaSevaDaySlot slot : poojaSeva.getDaySlots()) {
+            for (EventPoojaSevaDaySlot slot : poojaSeva.getDaySlots()) {
                 LocalDate slotDate = slot.getSlotDate();
                 if (slotDate != null && (slotDate.isBefore(parentStart) || slotDate.isAfter(parentEnd))) {
                     throw new ManaCommunityException(
@@ -226,7 +226,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         }
 
         if (poojaSeva.getTimeSlotConfig() != null) {
-            for (PoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
+            for (EventPoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
                 LocalDate slotDate = slot.getSlotDate();
                 if (slotDate != null && (slotDate.isBefore(parentStart) || slotDate.isAfter(parentEnd))) {
                     throw new ManaCommunityException(

@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CulturalPerformanceType;
+import com.manacommunity.api.events.entity.EventCulturalPerformanceType;
 import com.manacommunity.api.events.repository.CulturalPerformanceTypeRepository;
 import com.manacommunity.api.events.service.CulturalPerformanceTypeService;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -26,12 +26,12 @@ public class CulturalPerformanceTypeServiceImpl implements CulturalPerformanceTy
 
     @Override
     @Transactional(readOnly = true)
-    public List<CulturalPerformanceType> getAllPerformanceTypes(Long communityId) {
-        List<CulturalPerformanceType> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
+    public List<EventCulturalPerformanceType> getAllPerformanceTypes(Long communityId) {
+        List<EventCulturalPerformanceType> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
         if (list.isEmpty()) {
             for (String defaultName : DEFAULT_TYPES) {
                 if (!repository.existsByNameIgnoreCase(defaultName)) {
-                    repository.save(new CulturalPerformanceType(null, defaultName, "Default performance group type"));
+                    repository.save(new EventCulturalPerformanceType(null, defaultName, "Default performance group type"));
                 }
             }
             list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
@@ -40,12 +40,12 @@ public class CulturalPerformanceTypeServiceImpl implements CulturalPerformanceTy
     }
 
     @Override
-    public CulturalPerformanceType createPerformanceType(Long communityId, String name, String description) {
+    public EventCulturalPerformanceType createPerformanceType(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
             throw new InvalidInputException("Performance type name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
-                .orElseGet(() -> repository.save(new CulturalPerformanceType(communityId, cleanName, description)));
+                .orElseGet(() -> repository.save(new EventCulturalPerformanceType(communityId, cleanName, description)));
     }
 }

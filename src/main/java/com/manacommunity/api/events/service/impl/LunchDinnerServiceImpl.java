@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.LunchDinner;
+import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
@@ -33,17 +33,17 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LunchDinner> getAllLunchDinners(Long communityId, Long mainEventId) {
-        List<LunchDinner> raw;
+    public List<EventLunchDinner> getAllLunchDinners(Long communityId, Long mainEventId) {
+        List<EventLunchDinner> raw;
         if (mainEventId != null) {
             raw = repository.findByMainEventIdOrderByDateAscStartTimeAsc(mainEventId);
         } else {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
-        List<LunchDinner> filtered = new java.util.ArrayList<>();
+        List<EventLunchDinner> filtered = new java.util.ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
-        for (LunchDinner m : raw) {
+        for (EventLunchDinner m : raw) {
             if (m.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(m.getMainEventId(), id -> {
                     com.manacommunity.api.events.entity.EventCommunity parent = eventRepository.findById(id).orElse(null);
@@ -60,21 +60,21 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     @Override
     @Transactional(readOnly = true)
-    public LunchDinner getLunchDinnerById(Long id, Long communityId) {
+    public EventLunchDinner getLunchDinnerById(Long id, Long communityId) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Lunch/Dinner event", id));
     }
 
     @Override
-    public LunchDinner createLunchDinner(Long communityId, LunchDinner lunchDinner) {
+    public EventLunchDinner createLunchDinner(Long communityId, EventLunchDinner lunchDinner) {
         validateDateWithinParentEvent(lunchDinner.getMainEventId(), lunchDinner.getDate());
         lunchDinner.setCommunityId(communityId);
         return repository.save(lunchDinner);
     }
 
     @Override
-    public LunchDinner updateLunchDinner(Long id, Long communityId, LunchDinner updated) {
-        LunchDinner existing = getLunchDinnerById(id, communityId);
+    public EventLunchDinner updateLunchDinner(Long id, Long communityId, EventLunchDinner updated) {
+        EventLunchDinner existing = getLunchDinnerById(id, communityId);
         validateDateWithinParentEvent(updated.getMainEventId(), updated.getDate());
         existing.setMainEventId(updated.getMainEventId());
         existing.setName(updated.getName());
@@ -108,7 +108,7 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
     @Override
     public void deleteLunchDinner(Long id, Long communityId) {
-        LunchDinner existing = getLunchDinnerById(id, communityId);
+        EventLunchDinner existing = getLunchDinnerById(id, communityId);
         if (bookingRepo.existsByActivityIdAndStatusNot("food-" + existing.getId(), "CANCELLED")
                 || bookingRepo.existsByActivityIdAndStatusNot("meal-" + existing.getId(), "CANCELLED")) {
             throw new ManaCommunityException(

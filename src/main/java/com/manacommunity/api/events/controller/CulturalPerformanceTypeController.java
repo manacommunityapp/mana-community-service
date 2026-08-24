@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.controller;
 
-import com.manacommunity.api.events.entity.CulturalPerformanceType;
+import com.manacommunity.api.events.entity.EventCulturalPerformanceType;
 import com.manacommunity.api.events.service.CulturalPerformanceTypeService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,20 +21,20 @@ public class CulturalPerformanceTypeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CulturalPerformanceType>> getPerformanceTypes(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<EventCulturalPerformanceType>> getPerformanceTypes(@AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<CulturalPerformanceType> types = service.getAllPerformanceTypes(communityId);
+        List<EventCulturalPerformanceType> types = service.getAllPerformanceTypes(communityId);
         return ResponseEntity.ok(types);
     }
 
     @PostMapping
-    public ResponseEntity<CulturalPerformanceType> createPerformanceType(
+    public ResponseEntity<EventCulturalPerformanceType> createPerformanceType(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, String> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         String name = body.get("name");
         String description = body.get("description");
-        CulturalPerformanceType created = service.createPerformanceType(communityId, name, description);
+        EventCulturalPerformanceType created = service.createPerformanceType(communityId, name, description);
         return ResponseEntity.ok(created);
     }
 }
