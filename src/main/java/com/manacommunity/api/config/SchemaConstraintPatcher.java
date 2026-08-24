@@ -2377,8 +2377,27 @@ public class SchemaConstraintPatcher {
 
                 stmt.execute("""
                         DO $$
+                        DECLARE
+                          r RECORD;
                         BEGIN
+                          -- 1. Drop any foreign key constraints in manacommunity referencing old community_event
+                          FOR r IN (
+                            SELECT tc.table_name, tc.constraint_name
+                            FROM information_schema.table_constraints tc
+                            JOIN information_schema.constraint_column_usage ccu
+                              ON tc.constraint_name = ccu.constraint_name
+                             AND tc.table_schema = ccu.table_schema
+                            WHERE tc.table_schema = 'manacommunity'
+                              AND tc.constraint_type = 'FOREIGN KEY'
+                              AND ccu.table_name = 'community_event'
+                          ) LOOP
+                            EXECUTE 'ALTER TABLE manacommunity.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name);
+                          END LOOP;
+
+                          -- 2. Drop specific legacy Hibernate FK constraint on event_ticket_categories
                           IF to_regclass('manacommunity.event_ticket_categories') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_ticket_categories DROP CONSTRAINT IF EXISTS fkjic5qmm9nnf1u0swr7yl2r2ig;
+
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_by BIGINT;
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS updated_by BIGINT;
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
@@ -2388,7 +2407,25 @@ public class SchemaConstraintPatcher {
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS ticket_code VARCHAR(100);
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
                             ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
+                            -- Ensure valid FK constraint pointing to event_community
+                            IF NOT EXISTS (
+                              SELECT 1
+                              FROM information_schema.table_constraints tc
+                              JOIN information_schema.constraint_column_usage ccu
+                                ON tc.constraint_name = ccu.constraint_name
+                               AND tc.table_schema = ccu.table_schema
+                              WHERE tc.table_schema = 'manacommunity'
+                                AND tc.table_name = 'event_ticket_categories'
+                                AND tc.constraint_type = 'FOREIGN KEY'
+                                AND ccu.table_name = 'event_community'
+                            ) THEN
+                              ALTER TABLE manacommunity.event_ticket_categories
+                                ADD CONSTRAINT fk_event_ticket_categories_event
+                                FOREIGN KEY (event_id) REFERENCES manacommunity.event_community(id) ON DELETE CASCADE;
+                            END IF;
                           END IF;
+
                           IF to_regclass('manacommunity.event_competitions') IS NOT NULL THEN
                             ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS created_by BIGINT;
                             ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS updated_by BIGINT;
