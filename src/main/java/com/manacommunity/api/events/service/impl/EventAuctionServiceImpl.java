@@ -5,11 +5,11 @@ import com.manacommunity.api.events.dto.EventAuctionBidResponse;
 import com.manacommunity.api.events.dto.EventAuctionItemRequest;
 import com.manacommunity.api.events.dto.EventAuctionItemResponse;
 import com.manacommunity.api.events.dto.EventAuctionStatsResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventAuctionBid;
 import com.manacommunity.api.events.entity.EventAuctionItem;
 import com.manacommunity.api.events.entity.EventAuctionItem.ItemStatus;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventAuctionBidRepository;
 import com.manacommunity.api.events.repository.EventAuctionItemRepository;
 import com.manacommunity.api.events.service.EventAuctionService;
@@ -36,7 +36,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
 
     private final EventAuctionItemRepository itemRepository;
     private final EventAuctionBidRepository bidRepository;
-    private final CommunityEventRepository eventRepository;
+    private final EventCommunityRepository eventRepository;
 
     private static final DateTimeFormatter ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -70,7 +70,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     @Override
     @Transactional
     public EventAuctionItemResponse createItem(EventAuctionItemRequest req, AppUser user, Community community) {
-        CommunityEvent event = null;
+        EventCommunity event = null;
         if (req.getEventId() != null) {
             event = eventRepository.findById(req.getEventId()).orElse(null);
         }
@@ -114,7 +114,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
                 .orElseThrow(() -> new ResourceNotFoundException("EventAuctionItem", id));
 
         if (req.getEventId() != null) {
-            CommunityEvent event = eventRepository.findById(req.getEventId()).orElse(null);
+            EventCommunity event = eventRepository.findById(req.getEventId()).orElse(null);
             item.setEvent(event);
         }
         if (req.getName() != null && !req.getName().isBlank()) {
@@ -274,7 +274,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     }
 
     private List<EventAuctionItem> seedDefaultAuctionItems(Community community, Long eventId) {
-        CommunityEvent event = eventId != null ? eventRepository.findById(eventId).orElse(null) : null;
+        EventCommunity event = eventId != null ? eventRepository.findById(eventId).orElse(null) : null;
         List<EventAuctionItem> seed = List.of(
                 EventAuctionItem.builder()
                         .community(community).event(event).name("Ganesh Maha Laddu (21 kg)").category("Prasadam")

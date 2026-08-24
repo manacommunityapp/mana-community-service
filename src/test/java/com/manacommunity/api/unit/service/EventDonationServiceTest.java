@@ -2,9 +2,9 @@ package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.events.dto.EventDonationRequest;
 import com.manacommunity.api.events.dto.EventDonationResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventDonation;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventDonationRepository;
 import com.manacommunity.api.events.service.EventDonationService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -33,13 +33,13 @@ import static org.mockito.Mockito.*;
 class EventDonationServiceTest {
 
     @Mock EventDonationRepository donationRepo;
-    @Mock CommunityEventRepository eventRepo;
+    @Mock EventCommunityRepository eventRepo;
 
     @InjectMocks EventDonationService donationService;
 
     private Community community;
     private AppUser adminUser;
-    private CommunityEvent event;
+    private EventCommunity event;
     private EventDonation donation;
 
     @BeforeEach

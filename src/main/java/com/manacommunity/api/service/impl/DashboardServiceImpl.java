@@ -2,7 +2,7 @@ package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.dto.dashboard.AdminDashboardStatsResponse;
 import com.manacommunity.api.dto.dashboard.UserDashboardStatsResponse;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.noticeboard.repository.NoticeRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.RoleRepository;
@@ -25,7 +25,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final CommunityRepository communityRepository;
-    private final CommunityEventRepository communityEventRepository;
+    private final EventCommunityRepository communityEventRepository;
     private final NoticeRepository noticeRepository;
 
     @Override

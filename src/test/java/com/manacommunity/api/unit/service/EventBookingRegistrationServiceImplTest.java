@@ -3,7 +3,7 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
@@ -102,7 +102,7 @@ class EventBookingRegistrationServiceImplTest {
                 mock(LunchDinnerRepository.class),
                 mock(CompetitionRepository.class),
                 mock(CulturalEventRepository.class),
-                mock(CommunityEventRepository.class),
+                mock(EventCommunityRepository.class),
                 mock(EventRegistrationRepository.class),
                 mock(EventTicketCategoryRepository.class),
                 mock(AppUserRepository.class)

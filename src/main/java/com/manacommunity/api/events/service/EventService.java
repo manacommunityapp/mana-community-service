@@ -9,8 +9,8 @@ import com.manacommunity.api.events.dto.RegistrationResponse;
 import com.manacommunity.api.events.dto.TicketTypeDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.manacommunity.api.events.entity.ActivityRegistration;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventActivityRegistration;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.entity.CulturalEvent;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
@@ -23,8 +23,8 @@ import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventSponsor;
 import com.manacommunity.api.events.entity.LunchDinner;
 import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
@@ -41,7 +41,7 @@ import com.manacommunity.api.events.repository.EventSponsorRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
-import com.manacommunity.api.events.repository.MealRegistrationRepository;
+import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
@@ -80,17 +80,17 @@ public class EventService {
 
     private static final Logger log = LoggerFactory.getLogger(EventService.class);
 
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final EventRegistrationRepository regRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventDonationRepository donationRepo;
     private final EventExpenseRepository expenseRepo;
     private final EventSponsorRepository sponsorRepo;
     private final EventTaskRepository taskRepo;
-    private final MealRegistrationRepository mealRegRepo;
+    private final EventMealRegistrationRepository mealRegRepo;
     private final EventAuctionItemRepository auctionItemRepo;
     private final AuctionPlayerRepository auctionPlayerRepo;
-    private final ActivityRegistrationRepository activityRegRepo;
+    private final EventActivityRegistrationRepository activityRegRepo;
     private final EventProgramRepository programRepo;
     private final EventGalleryItemRepository galleryRepo;
     private final EventInvoiceRepository invoiceRepo;
@@ -109,9 +109,9 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
-        List<CommunityEvent> events;
+        List<EventCommunity> events;
         if (typeFilter != null && !typeFilter.isBlank() && !"All".equalsIgnoreCase(typeFilter)) {
-            CommunityEvent.EventType type = parseEnum(CommunityEvent.EventType.class, typeFilter);
+            EventCommunity.EventType type = parseEnum(EventCommunity.EventType.class, typeFilter);
             if (type != null) {
                 events = eventRepo.findUpcomingByCommunityAndType(communityId, type);
             } else {
@@ -142,7 +142,7 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public EventResponse getById(Long id, Long currentUserId) {
-        CommunityEvent event = eventRepo.findById(id)
+        EventCommunity event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
         return toResponse(event, currentUserId);
     }
@@ -173,9 +173,9 @@ public class EventService {
                     HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE");
         }
 
-        CommunityEvent.PriceType priceType = parseEnumOrDefault(
-                CommunityEvent.PriceType.class, req.getPriceType(), CommunityEvent.PriceType.FREE);
-        if (priceType == CommunityEvent.PriceType.PAID
+        EventCommunity.PriceType priceType = parseEnumOrDefault(
+                EventCommunity.PriceType.class, req.getPriceType(), EventCommunity.PriceType.FREE);
+        if (priceType == EventCommunity.PriceType.PAID
                 && (req.getPrice() == null || req.getPrice() <= 0)) {
             throw new ManaCommunityException("Price is required and must be greater than zero for paid events",
                     HttpStatus.BAD_REQUEST, "MISSING_EVENT_PRICE");
@@ -185,15 +185,15 @@ public class EventService {
         UUID imageMediaExternalId = verifyAndParseMediaId(req.getImageMediaId(), "event cover image", community);
         UUID scannerMediaExternalId = verifyAndParseMediaId(req.getScannerMediaId(), "event QR scanner", community);
 
-        CommunityEvent event = CommunityEvent.builder()
+        EventCommunity event = EventCommunity.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
-                .type(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), CommunityEvent.EventType.GENERAL))
+                .type(parseEnumOrDefault(EventCommunity.EventType.class, req.getType(), EventCommunity.EventType.GENERAL))
                 .startDate(startDate)
                 .endDate(endDate)
                 .startTime(startTime)
                 .endTime(endTime)
-                .locationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), CommunityEvent.LocationType.IN_PERSON))
+                .locationType(parseEnumOrDefault(EventCommunity.LocationType.class, req.getLocationType(), EventCommunity.LocationType.IN_PERSON))
                 .location(req.getLocation())
                 .priceType(priceType)
                 .price(req.getPrice())
@@ -207,8 +207,8 @@ public class EventService {
                 .venue(req.getVenue())
                 .city(req.getCity())
                 .category(req.getCategory())
-                .status(parseEnumOrDefault(CommunityEvent.EventStatus.class, req.getStatus(),
-                        CommunityEvent.EventStatus.PUBLISHED))
+                .status(parseEnumOrDefault(EventCommunity.EventStatus.class, req.getStatus(),
+                        EventCommunity.EventStatus.PUBLISHED))
                 .paymentModes(req.getPaymentModes())
                 .upiId(req.getUpiId())
                 .notes(req.getNotes())
@@ -222,7 +222,7 @@ public class EventService {
                 .build();
         Integer maxLimit = event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity();
         validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
-        CommunityEvent savedEvent = eventRepo.save(event);
+        EventCommunity savedEvent = eventRepo.save(event);
         saveTicketCategories(savedEvent, req.getTicketTypes());
         if (imageMediaExternalId != null) {
             mediaRepo.findByExternalIdAndDeletedFalse(imageMediaExternalId).ifPresent(media -> {
@@ -244,11 +244,11 @@ public class EventService {
 
     @Transactional
     public EventResponse update(Long id, EventRequest req, Long currentUserId) {
-        CommunityEvent event = eventRepo.findById(id)
+        EventCommunity event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
         // Cancelled events are frozen — only an explicit status change (to re-open) is allowed
-        if (event.getStatus() == CommunityEvent.EventStatus.CANCELLED && req.getStatus() == null) {
+        if (event.getStatus() == EventCommunity.EventStatus.CANCELLED && req.getStatus() == null) {
             throw new ManaCommunityException("Cannot modify a cancelled event",
                     HttpStatus.CONFLICT, "EVENT_CANCELLED");
         }
@@ -260,7 +260,7 @@ public class EventService {
             event.setDescription(req.getDescription());
         }
         if (req.getType() != null) {
-            event.setType(parseEnumOrDefault(CommunityEvent.EventType.class, req.getType(), event.getType()));
+            event.setType(parseEnumOrDefault(EventCommunity.EventType.class, req.getType(), event.getType()));
         }
 
         // Date updates — validate order after applying both sides
@@ -303,13 +303,13 @@ public class EventService {
         }
 
         if (req.getLocationType() != null) {
-            event.setLocationType(parseEnumOrDefault(CommunityEvent.LocationType.class, req.getLocationType(), event.getLocationType()));
+            event.setLocationType(parseEnumOrDefault(EventCommunity.LocationType.class, req.getLocationType(), event.getLocationType()));
         }
         if (req.getLocation() != null) {
             event.setLocation(req.getLocation());
         }
         if (req.getPriceType() != null) {
-            event.setPriceType(parseEnumOrDefault(CommunityEvent.PriceType.class, req.getPriceType(), event.getPriceType()));
+            event.setPriceType(parseEnumOrDefault(EventCommunity.PriceType.class, req.getPriceType(), event.getPriceType()));
         }
         if (req.getPrice() != null) {
             if (req.getPrice() < 0) throw new ManaCommunityException("Price must not be negative",
@@ -350,12 +350,12 @@ public class EventService {
         if (req.getCategory() != null) event.setCategory(req.getCategory());
 
         if (req.getStatus() != null) {
-            CommunityEvent.EventStatus newStatus = parseEnum(CommunityEvent.EventStatus.class, req.getStatus());
+            EventCommunity.EventStatus newStatus = parseEnum(EventCommunity.EventStatus.class, req.getStatus());
             if (newStatus != null && newStatus != event.getStatus()) {
-                boolean becomingCancelled = newStatus == CommunityEvent.EventStatus.CANCELLED;
+                boolean becomingCancelled = newStatus == EventCommunity.EventStatus.CANCELLED;
                 event.setStatus(newStatus);
                 if (becomingCancelled) {
-                    CommunityEvent saved = eventRepo.save(event);
+                    EventCommunity saved = eventRepo.save(event);
                     notifyRegisteredUsers(saved, "Event Cancelled: " + saved.getTitle(),
                             "The event '" + saved.getTitle() + "' has been cancelled.");
                     return toResponse(saved, currentUserId);
@@ -397,7 +397,7 @@ public class EventService {
             validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
         }
 
-        CommunityEvent saved = eventRepo.save(event);
+        EventCommunity saved = eventRepo.save(event);
         if (req.getTicketTypes() != null) {
             saveTicketCategories(saved, req.getTicketTypes());
         }
@@ -417,7 +417,7 @@ public class EventService {
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, AppUser user) {
-        CommunityEvent event = eventRepo.findById(id)
+        EventCommunity event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
         Long userId = user != null ? user.getId() : null;
@@ -489,7 +489,7 @@ public class EventService {
         if (totalRegs > 0) {
             // Event has existing registrations: mark event and all sub-event registrations as CANCELLED
             log.info("Event ID {} has {} active registration(s). Transitioning event and sub-events to CANCELLED.", id, totalRegs);
-            event.setStatus(CommunityEvent.EventStatus.CANCELLED);
+            event.setStatus(EventCommunity.EventStatus.CANCELLED);
             eventRepo.save(event);
 
             // 1. Cancel direct event registrations
@@ -527,9 +527,9 @@ public class EventService {
 
             // 3. Cancel program activity registrations
             for (EventProgram prog : programs) {
-                List<ActivityRegistration> progRegs = activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId());
-                for (ActivityRegistration actReg : progRegs) {
-                    actReg.setStatus(ActivityRegistration.ActivityRegStatus.CANCELLED);
+                List<EventActivityRegistration> progRegs = activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId());
+                for (EventActivityRegistration actReg : progRegs) {
+                    actReg.setStatus(EventActivityRegistration.ActivityRegStatus.CANCELLED);
                 }
                 if (!progRegs.isEmpty()) {
                     activityRegRepo.saveAll(progRegs);
@@ -586,14 +586,14 @@ public class EventService {
 
     @Transactional
     public EventResponse register(Long eventId, AppUser user) {
-        CommunityEvent event = eventRepo.findById(eventId)
+        EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
-        if (event.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+        if (event.getStatus() == EventCommunity.EventStatus.CANCELLED) {
             throw new ManaCommunityException("Cannot register for a cancelled event",
                     HttpStatus.CONFLICT, "EVENT_CANCELLED");
         }
-        if (event.getStatus() == CommunityEvent.EventStatus.DRAFT) {
+        if (event.getStatus() == EventCommunity.EventStatus.DRAFT) {
             throw new ManaCommunityException("Cannot register for a draft event",
                     HttpStatus.CONFLICT, "EVENT_NOT_PUBLISHED");
         }
@@ -721,7 +721,7 @@ public class EventService {
 
         // Today's Schedule — events whose startDate <= today <= endDate
         LocalDate today = LocalDate.now();
-        java.util.List<CommunityEvent> allCommunityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
+        java.util.List<EventCommunity> allCommunityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
         long todaysEventCount = allCommunityEvents.stream()
                 .filter(e -> e.getStartDate() != null
                         && !e.getStartDate().isAfter(today)
@@ -735,7 +735,7 @@ public class EventService {
                     .filter(e -> e.getStartDate() != null
                             && !e.getStartDate().isAfter(today)
                             && (e.getEndDate() == null || !e.getEndDate().isBefore(today)))
-                    .map(CommunityEvent::getId)
+                    .map(EventCommunity::getId)
                     .toList();
             for (Long eid : todayEventIds) {
                 todaysDuty += volunteerRepo.countByEventId(eid);
@@ -849,7 +849,7 @@ public class EventService {
 
         // 3. Today's Schedule & Duty strictly from database
         String[] timeSlots = {"08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"};
-        List<CommunityEvent> communityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
+        List<EventCommunity> communityEvents = eventRepo.findByCommunityIdOrderByStartDateDesc(communityId);
         List<DashboardAnalyticsResponse.ScheduleDutyPoint> scheduleList = new ArrayList<>();
 
         LocalDate today = LocalDate.now();
@@ -1003,7 +1003,7 @@ public class EventService {
                 .build();
     }
 
-    private EventResponse toResponse(CommunityEvent e, Long currentUserId) {
+    private EventResponse toResponse(EventCommunity e, Long currentUserId) {
         boolean isRegistered = currentUserId != null && regRepo.existsByEventIdAndUserId(e.getId(), currentUserId);
 
         // Generate fresh S3/CloudFront URLs from stored media objects at read time
@@ -1084,7 +1084,7 @@ public class EventService {
                 .venue(e.getVenue())
                 .city(e.getCity())
                 .category(e.getCategory())
-                .status(e.getStatus() != null ? e.getStatus().name() : CommunityEvent.EventStatus.PUBLISHED.name())
+                .status(e.getStatus() != null ? e.getStatus().name() : EventCommunity.EventStatus.PUBLISHED.name())
                 .paymentModes(e.getPaymentModes())
                 .upiId(e.getUpiId())
                 .notes(e.getNotes())
@@ -1104,7 +1104,7 @@ public class EventService {
                 .build();
     }
 
-    private void notifyRegisteredUsers(CommunityEvent event, String title, String body) {
+    private void notifyRegisteredUsers(EventCommunity event, String title, String body) {
         try {
             List<EventRegistration> registrations = event.getRegistrations();
             if (registrations == null || registrations.isEmpty()) return;
@@ -1207,7 +1207,7 @@ public class EventService {
         }
     }
 
-    private void saveTicketCategories(CommunityEvent event, List<TicketTypeDto> ticketTypes) {
+    private void saveTicketCategories(EventCommunity event, List<TicketTypeDto> ticketTypes) {
         if (ticketTypes == null || ticketTypes.isEmpty()) {
             return;
         }

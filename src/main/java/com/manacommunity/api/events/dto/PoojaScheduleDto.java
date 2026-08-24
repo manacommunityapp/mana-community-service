@@ -7,7 +7,7 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-/** Read-only view of a PoojaSchedule including live availability counts. */
+/** Read-only view of a EventPoojaSchedule including live availability counts. */
 @Data
 @Builder
 public class PoojaScheduleDto {

@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.PoojaSlotReservation;
+import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.ReservationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotReservation, Long> {
+public interface EventPoojaSlotReservationRepository extends JpaRepository<EventPoojaSlotReservation, Long> {
 
     /**
      * Expires all RESERVED rows for a given schedule whose hold has timed out.
@@ -32,7 +32,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
 
     /** Sum of family slots currently held (RESERVED, not yet expired) for a schedule. */
     @Query("""
-           SELECT COALESCE(SUM(r.reservedFamilyCount), 0) FROM PoojaSlotReservation r
+           SELECT COALESCE(SUM(r.reservedFamilyCount), 0) FROM EventPoojaSlotReservation r
            WHERE r.schedule.id = :scheduleId
              AND r.status = 'RESERVED'
              AND r.expiresAt >= :now
@@ -41,7 +41,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
 
     /** Sum of devotee slots currently held for a schedule. */
     @Query("""
-           SELECT COALESCE(SUM(r.reservedDevoteeCount), 0) FROM PoojaSlotReservation r
+           SELECT COALESCE(SUM(r.reservedDevoteeCount), 0) FROM EventPoojaSlotReservation r
            WHERE r.schedule.id = :scheduleId
              AND r.status = 'RESERVED'
              AND r.expiresAt >= :now
@@ -50,7 +50,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
 
     /** Sum of confirmed (registration linked) family slots for a schedule. */
     @Query("""
-           SELECT COALESCE(SUM(r.reservedFamilyCount), 0) FROM PoojaSlotReservation r
+           SELECT COALESCE(SUM(r.reservedFamilyCount), 0) FROM EventPoojaSlotReservation r
            WHERE r.schedule.id = :scheduleId
              AND r.status = 'CONFIRMED'
            """)
@@ -58,7 +58,7 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
 
     /** Sum of confirmed devotee slots for a schedule. */
     @Query("""
-           SELECT COALESCE(SUM(r.reservedDevoteeCount), 0) FROM PoojaSlotReservation r
+           SELECT COALESCE(SUM(r.reservedDevoteeCount), 0) FROM EventPoojaSlotReservation r
            WHERE r.schedule.id = :scheduleId
              AND r.status = 'CONFIRMED'
            """)
@@ -75,29 +75,29 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
 
     /** Find all globally expired but not-yet-swept rows (for auditing/logging). */
     @Query("""
-           SELECT r FROM PoojaSlotReservation r
+           SELECT r FROM EventPoojaSlotReservation r
            WHERE r.status = 'RESERVED' AND r.expiresAt < :now
            """)
-    List<PoojaSlotReservation> findExpiredReservations(@Param("now") LocalDateTime now);
+    List<EventPoojaSlotReservation> findExpiredReservations(@Param("now") LocalDateTime now);
 
     /** Check whether a user already has an active (RESERVED or CONFIRMED) reservation for a schedule. */
     @Query("""
-           SELECT r FROM PoojaSlotReservation r
+           SELECT r FROM EventPoojaSlotReservation r
            WHERE r.schedule.id = :scheduleId
              AND r.user.id = :userId
              AND r.status IN ('RESERVED','CONFIRMED')
            """)
-    Optional<PoojaSlotReservation> findActiveByScheduleAndUser(
+    Optional<EventPoojaSlotReservation> findActiveByScheduleAndUser(
             @Param("scheduleId") Long scheduleId, @Param("userId") Long userId);
 
-    Optional<PoojaSlotReservation> findByIdempotencyKey(String key);
+    Optional<EventPoojaSlotReservation> findByIdempotencyKey(String key);
 
-    Optional<PoojaSlotReservation> findByRegistrationId(Long registrationId);
+    Optional<EventPoojaSlotReservation> findByRegistrationId(Long registrationId);
 
-    List<PoojaSlotReservation> findByScheduleIdOrderByCreatedAtDesc(Long scheduleId);
+    List<EventPoojaSlotReservation> findByScheduleIdOrderByCreatedAtDesc(Long scheduleId);
 
     /** #23: Purge EXPIRED / CANCELLED rows older than a given cutoff to keep the table lean. */
     @Modifying
-    @Query("DELETE FROM PoojaSlotReservation r WHERE r.status IN ('EXPIRED','CANCELLED') AND r.updatedAt < :before")
+    @Query("DELETE FROM EventPoojaSlotReservation r WHERE r.status IN ('EXPIRED','CANCELLED') AND r.updatedAt < :before")
     int deleteExpiredOrCancelledBefore(@Param("before") LocalDateTime before);
 }

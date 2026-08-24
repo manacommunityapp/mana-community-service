@@ -1,7 +1,7 @@
 package com.manacommunity.api.events.enums;
 
 /**
- * Admin-controlled persisted state of a PoojaSchedule slot.
+ * Admin-controlled persisted state of a EventPoojaSchedule slot.
  * OPEN / LIMITED / FULL are computed dynamically from availability;
  * only BLOCKED and CLOSED are stored in the DB.
  */

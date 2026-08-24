@@ -1,10 +1,10 @@
 package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventMemberFlowResponse;
-import com.manacommunity.api.events.entity.ActivityRegistration;
-import com.manacommunity.api.events.repository.ActivityRegistrationRepository;
+import com.manacommunity.api.events.entity.EventActivityRegistration;
+import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
-import com.manacommunity.api.events.repository.MealRegistrationRepository;
+import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,26 +17,26 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class EventMemberFlowService {
 
-    private static final Set<ActivityRegistration.ActivityRegStatus> ACTIVE_ACTIVITY_STATUSES = Set.of(
-            ActivityRegistration.ActivityRegStatus.PENDING,
-            ActivityRegistration.ActivityRegStatus.CONFIRMED,
-            ActivityRegistration.ActivityRegStatus.WAITLISTED
+    private static final Set<EventActivityRegistration.ActivityRegStatus> ACTIVE_ACTIVITY_STATUSES = Set.of(
+            EventActivityRegistration.ActivityRegStatus.PENDING,
+            EventActivityRegistration.ActivityRegStatus.CONFIRMED,
+            EventActivityRegistration.ActivityRegStatus.WAITLISTED
     );
 
     private final EventRegistrationRepository eventRegistrationRepo;
-    private final ActivityRegistrationRepository activityRegistrationRepo;
-    private final MealRegistrationRepository mealRegistrationRepo;
+    private final EventActivityRegistrationRepository activityRegistrationRepo;
+    private final EventMealRegistrationRepository mealRegistrationRepo;
 
     @Transactional(readOnly = true)
     public EventMemberFlowResponse getSummary(AppUser user) {
-        List<ActivityRegistration> activityRegistrations =
+        List<EventActivityRegistration> activityRegistrations =
                 activityRegistrationRepo.findByUserIdOrderByRegisteredAtDesc(user.getId());
-        List<ActivityRegistration> activeActivities = activityRegistrations.stream()
+        List<EventActivityRegistration> activeActivities = activityRegistrations.stream()
                 .filter(reg -> reg.getStatus() != null && ACTIVE_ACTIVITY_STATUSES.contains(reg.getStatus()))
                 .toList();
 
         int familyMemberCount = activeActivities.stream()
-                .map(ActivityRegistration::getHeadCount)
+                .map(EventActivityRegistration::getHeadCount)
                 .filter(count -> count != null && count > 1)
                 .mapToInt(count -> count - 1)
                 .max()

@@ -2019,7 +2019,7 @@ public class SchemaConstraintPatcher {
 
             // Ensure the event_program table (EventProgram entity, no schema attribute so
             // defaults to manacommunity search_path) and event_activity_registrations
-            // (ActivityRegistration entity) exist before Hibernate validates.
+            // (EventActivityRegistration entity) exist before Hibernate validates.
             // Idempotent — safe to re-run on every boot.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {

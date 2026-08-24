@@ -1,7 +1,7 @@
 package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.entity.CulturalEvent;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.service.CulturalEventService;
@@ -20,11 +20,11 @@ import java.util.List;
 public class CulturalEventServiceImpl implements CulturalEventService {
 
     private final CulturalEventRepository repository;
-    private final CommunityEventRepository eventRepository;
+    private final EventCommunityRepository eventRepository;
     private final EventBookingRegistrationRepository bookingRepo;
 
     public CulturalEventServiceImpl(CulturalEventRepository repository,
-                                    CommunityEventRepository eventRepository,
+                                    EventCommunityRepository eventRepository,
                                     EventBookingRegistrationRepository bookingRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
@@ -46,8 +46,8 @@ public class CulturalEventServiceImpl implements CulturalEventService {
         for (CulturalEvent c : raw) {
             if (c.getMainEventId() != null) {
                 boolean isParentCancelled = eventCancelledCache.computeIfAbsent(c.getMainEventId(), id -> {
-                    com.manacommunity.api.events.entity.CommunityEvent parent = eventRepository.findById(id).orElse(null);
-                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.CommunityEvent.EventStatus.CANCELLED;
+                    com.manacommunity.api.events.entity.EventCommunity parent = eventRepository.findById(id).orElse(null);
+                    return parent != null && parent.getStatus() == com.manacommunity.api.events.entity.EventCommunity.EventStatus.CANCELLED;
                 });
                 if (isParentCancelled) {
                     continue;

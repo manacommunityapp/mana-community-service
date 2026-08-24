@@ -42,17 +42,17 @@ import static org.mockito.Mockito.*;
 @DisplayName("EventService")
 class EventServiceTest {
 
-    @Mock CommunityEventRepository eventRepo;
+    @Mock EventCommunityRepository eventRepo;
     @Mock EventRegistrationRepository regRepo;
     @Mock EventVolunteerRepository volunteerRepo;
     @Mock EventDonationRepository donationRepo;
     @Mock EventExpenseRepository expenseRepo;
     @Mock EventSponsorRepository sponsorRepo;
     @Mock EventTaskRepository taskRepo;
-    @Mock MealRegistrationRepository mealRegRepo;
+    @Mock EventMealRegistrationRepository mealRegRepo;
     @Mock EventAuctionItemRepository auctionItemRepo;
     @Mock AuctionPlayerRepository auctionPlayerRepo;
-    @Mock ActivityRegistrationRepository activityRegRepo;
+    @Mock EventActivityRegistrationRepository activityRegRepo;
     @Mock AppUserRepository userRepo;
     @Mock EmailService emailService;
     @Mock EventVenueRepository venueRepo;
@@ -77,7 +77,7 @@ class EventServiceTest {
     private Community community;
     private AppUser adminUser;
     private AppUser memberUser;
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @BeforeEach
     void setUp() {
@@ -107,7 +107,7 @@ class EventServiceTest {
         @Test
         @DisplayName("getUpcomingEvents with type filter filters correctly")
         void getUpcomingEvents_withTypeFilter() {
-            when(eventRepo.findUpcomingByCommunityAndType(eq(1L), any(CommunityEvent.EventType.class)))
+            when(eventRepo.findUpcomingByCommunityAndType(eq(1L), any(EventCommunity.EventType.class)))
                     .thenReturn(List.of(event));
 
             List<EventResponse> result = eventService.getUpcomingEvents(1L, "SPORTS", adminUser.getId());
@@ -159,8 +159,8 @@ class EventServiceTest {
         @DisplayName("create event saves and returns EventResponse")
         void create_success() {
             EventRequest req = TestDataBuilder.eventRequest("Diwali Mela");
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> {
-                CommunityEvent e = inv.getArgument(0);
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> {
+                EventCommunity e = inv.getArgument(0);
                 e.setId(200L);
                 return e;
             });
@@ -169,7 +169,7 @@ class EventServiceTest {
 
             assertThat(response).isNotNull();
             assertThat(response.getTitle()).isEqualTo("Diwali Mela");
-            verify(eventRepo).save(any(CommunityEvent.class));
+            verify(eventRepo).save(any(EventCommunity.class));
         }
 
         @Test
@@ -187,8 +187,8 @@ class EventServiceTest {
             when(mediaRepo.findByExternalIdAndDeletedFalse(scanner.getExternalId())).thenReturn(Optional.of(scanner));
             when(mediaUrlService.generateUrl(cover)).thenReturn("https://cdn.example/events/200/cover.jpg");
             when(mediaUrlService.generateUrl(scanner)).thenReturn("https://cdn.example/events/200/scanner.png");
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> {
-                CommunityEvent e = inv.getArgument(0);
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> {
+                EventCommunity e = inv.getArgument(0);
                 e.setId(200L);
                 return e;
             });
@@ -220,7 +220,7 @@ class EventServiceTest {
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("same community");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -232,7 +232,7 @@ class EventServiceTest {
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
                     .isInstanceOf(ManaCommunityException.class)
                     .hasMessageContaining("start date is required");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -244,7 +244,7 @@ class EventServiceTest {
             assertThatThrownBy(() -> eventService.create(req, adminUser, community))
                     .isInstanceOf(ManaCommunityException.class)
                     .hasMessageContaining("Invalid event start date");
-            verify(eventRepo, never()).save(any(CommunityEvent.class));
+            verify(eventRepo, never()).save(any(EventCommunity.class));
         }
 
         @Test
@@ -252,12 +252,12 @@ class EventServiceTest {
         void update_success() {
             EventRequest req = TestDataBuilder.eventRequest("Updated Sports Meet");
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(eventRepo.save(any(CommunityEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(eventRepo.save(any(EventCommunity.class))).thenAnswer(inv -> inv.getArgument(0));
 
             EventResponse response = eventService.update(100L, req, adminUser.getId());
 
             assertThat(response.getTitle()).isEqualTo("Updated Sports Meet");
-            verify(eventRepo).save(any(CommunityEvent.class));
+            verify(eventRepo).save(any(EventCommunity.class));
         }
 
         @Test
@@ -344,7 +344,7 @@ class EventServiceTest {
 
             eventService.delete(100L, adminUser.getId());
 
-            assertThat(event.getStatus()).isEqualTo(CommunityEvent.EventStatus.CANCELLED);
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
             verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(poojaSevaRepo, never()).deleteAll(any());
@@ -365,7 +365,7 @@ class EventServiceTest {
 
             eventService.delete(100L, adminUser.getId());
 
-            assertThat(event.getStatus()).isEqualTo(CommunityEvent.EventStatus.CANCELLED);
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
             verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(poojaSevaRepo, never()).deleteAll(any());
@@ -386,7 +386,7 @@ class EventServiceTest {
 
             eventService.delete(100L, adminUser.getId());
 
-            assertThat(event.getStatus()).isEqualTo(CommunityEvent.EventStatus.CANCELLED);
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
             verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(culturalEventRepo, never()).deleteAll(any());
@@ -407,7 +407,7 @@ class EventServiceTest {
 
             eventService.delete(100L, adminUser.getId());
 
-            assertThat(event.getStatus()).isEqualTo(CommunityEvent.EventStatus.CANCELLED);
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
             verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(competitionRepo, never()).deleteAll(any());
@@ -428,7 +428,7 @@ class EventServiceTest {
 
             eventService.delete(100L, adminUser.getId());
 
-            assertThat(event.getStatus()).isEqualTo(CommunityEvent.EventStatus.CANCELLED);
+            assertThat(event.getStatus()).isEqualTo(EventCommunity.EventStatus.CANCELLED);
             verify(eventRepo).save(event);
             verify(eventRepo, never()).delete(any());
             verify(lunchDinnerRepo, never()).deleteAll(any());

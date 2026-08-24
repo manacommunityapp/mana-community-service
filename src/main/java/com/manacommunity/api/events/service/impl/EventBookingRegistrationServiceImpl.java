@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.Competition;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.LunchDinner;
@@ -9,7 +9,7 @@ import com.manacommunity.api.events.entity.PoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.CulturalEvent;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
@@ -49,7 +49,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private final LunchDinnerRepository lunchDinnerRepository;
     private final CompetitionRepository competitionRepository;
     private final CulturalEventRepository culturalEventRepository;
-    private final CommunityEventRepository communityEventRepository;
+    private final EventCommunityRepository communityEventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
     private final EventTicketCategoryRepository ticketCategoryRepository;
     private final AppUserRepository appUserRepository;
@@ -62,7 +62,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             LunchDinnerRepository lunchDinnerRepository,
             CompetitionRepository competitionRepository,
             CulturalEventRepository culturalEventRepository,
-            CommunityEventRepository communityEventRepository,
+            EventCommunityRepository communityEventRepository,
             EventRegistrationRepository eventRegistrationRepository,
             EventTicketCategoryRepository ticketCategoryRepository,
             AppUserRepository appUserRepository) {
@@ -211,8 +211,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Check if parent event is cancelled
         if (p.getMainEventId() != null) {
-            CommunityEvent parent = communityEventRepository.findById(p.getMainEventId()).orElse(null);
-            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            EventCommunity parent = communityEventRepository.findById(p.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(p.getName(), "Parent event has been cancelled");
             }
         }
@@ -272,8 +272,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Check if parent event is cancelled
         if (c.getMainEventId() != null) {
-            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
-            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            EventCommunity parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
             }
         }
@@ -308,8 +308,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Check if parent event is cancelled
         if (c.getMainEventId() != null) {
-            CommunityEvent parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
-            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            EventCommunity parent = communityEventRepository.findById(c.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(c.getName(), "Parent event has been cancelled");
             }
         }
@@ -344,8 +344,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         // Check if parent event is cancelled
         if (m.getMainEventId() != null) {
-            CommunityEvent parent = communityEventRepository.findById(m.getMainEventId()).orElse(null);
-            if (parent != null && parent.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+            EventCommunity parent = communityEventRepository.findById(m.getMainEventId()).orElse(null);
+            if (parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED) {
                 throw new RegistrationClosedException(m.getName(), "Parent event has been cancelled");
             }
         }
@@ -374,10 +374,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     }
 
     private void validateEventCapacityAndDeadline(Long eventId, EventBookingRegistration registration) {
-        CommunityEvent ev = communityEventRepository.findById(eventId).orElse(null);
+        EventCommunity ev = communityEventRepository.findById(eventId).orElse(null);
         if (ev == null) return;
 
-        if (ev.getStatus() == CommunityEvent.EventStatus.CANCELLED) {
+        if (ev.getStatus() == EventCommunity.EventStatus.CANCELLED) {
             throw new RegistrationClosedException(ev.getTitle(), "Event has been cancelled");
         }
 

@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventGalleryItemRequest;
 import com.manacommunity.api.events.dto.EventGalleryItemResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventGalleryItem;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventGalleryItemRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.media.entity.MediaObject;
@@ -30,7 +30,7 @@ import java.util.UUID;
 public class EventGalleryService {
 
     private final EventGalleryItemRepository galleryRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
 
     /**
      * MediaRepository + MediaUrlService allow us to generate fresh
@@ -67,7 +67,7 @@ public class EventGalleryService {
 
     @Transactional
     public EventGalleryItemResponse create(EventGalleryItemRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         // Resolve MediaObject UUID and verify it was successfully uploaded to S3

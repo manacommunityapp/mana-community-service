@@ -3,12 +3,12 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.entity.PoojaSchedule;
-import com.manacommunity.api.events.entity.PoojaSlotReservation;
+import com.manacommunity.api.events.entity.EventPoojaSchedule;
+import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.enums.ReservationStatus;
-import com.manacommunity.api.events.repository.PoojaScheduleRepository;
-import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
@@ -27,15 +27,15 @@ import java.util.Optional;
 @Service
 public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationService {
 
-    private final PoojaScheduleRepository scheduleRepo;
-    private final PoojaSlotReservationRepository reservationRepo;
+    private final EventPoojaScheduleRepository scheduleRepo;
+    private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
 
     @Value("${pooja.reservation.ttl-minutes:5}")
     private int reservationTtlMinutes;
 
-    public PoojaSlotReservationServiceImpl(PoojaScheduleRepository scheduleRepo,
-                                           PoojaSlotReservationRepository reservationRepo,
+    public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
+                                           EventPoojaSlotReservationRepository reservationRepo,
                                            AuditService auditService) {
         this.scheduleRepo = scheduleRepo;
         this.reservationRepo = reservationRepo;
@@ -57,10 +57,10 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
 
         // ── Idempotency: return existing reservation if the same key was already used ──
         if (req.getIdempotencyKey() != null && !req.getIdempotencyKey().isBlank()) {
-            Optional<PoojaSlotReservation> existing =
+            Optional<EventPoojaSlotReservation> existing =
                     reservationRepo.findByIdempotencyKey(req.getIdempotencyKey());
             if (existing.isPresent()) {
-                PoojaSlotReservation r = existing.get();
+                EventPoojaSlotReservation r = existing.get();
                 return PoojaReserveResponse.builder()
                         .reservationId(r.getId())
                         .scheduleId(scheduleId)
@@ -76,10 +76,10 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
 
         // ── #15: Return existing active pre-hold rather than creating a duplicate ──
         if (user != null) {
-            Optional<PoojaSlotReservation> activeForUser =
+            Optional<EventPoojaSlotReservation> activeForUser =
                     reservationRepo.findActiveByScheduleAndUser(scheduleId, user.getId());
             if (activeForUser.isPresent()) {
-                PoojaSlotReservation r = activeForUser.get();
+                EventPoojaSlotReservation r = activeForUser.get();
                 if (r.getStatus() == ReservationStatus.RESERVED) {
                     return PoojaReserveResponse.builder()
                             .reservationId(r.getId())
@@ -96,8 +96,8 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         }
 
         // ── 1. Acquire pessimistic write lock ──
-        PoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", scheduleId));
+        EventPoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", scheduleId));
 
         if (schedule.getStatus() == PoojaScheduleStatus.BLOCKED ||
             schedule.getStatus() == PoojaScheduleStatus.CLOSED) {
@@ -159,7 +159,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // ── 6. Create reservation ──
         LocalDateTime expiresAt = now.plusMinutes(reservationTtlMinutes);
 
-        PoojaSlotReservation reservation = PoojaSlotReservation.builder()
+        EventPoojaSlotReservation reservation = EventPoojaSlotReservation.builder()
                 .schedule(schedule)
                 .user(user)
                 .reservedFamilyCount(requestedFamilies)
@@ -170,14 +170,14 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                 .tokenNumber(tokenNumber) // #12: persist so idempotency hits return the real token
                 .build();
 
-        PoojaSlotReservation saved = reservationRepo.save(reservation);
+        EventPoojaSlotReservation saved = reservationRepo.save(reservation);
 
         // ── 7. Increment token sequence on the schedule ──
         schedule.setNextTokenSeq(tokenNumber + 1);
         scheduleRepo.save(schedule);
 
         auditService.record(AuditAction.POOJA_SLOT_RESERVED, AuditModule.EVENTS,
-                "PoojaSlotReservation", saved.getId().toString(),
+                "EventPoojaSlotReservation", saved.getId().toString(),
                 null, "schedule=" + scheduleId + " families=" + requestedFamilies + " devotees=" + requestedDevotees);
 
         return PoojaReserveResponse.builder()
@@ -195,8 +195,8 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     @Override
     @Transactional
     public void confirmReservation(Long reservationId, Long registrationId) {
-        PoojaSlotReservation r = reservationRepo.findById(reservationId)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSlotReservation", reservationId));
+        EventPoojaSlotReservation r = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSlotReservation", reservationId));
         r.setStatus(ReservationStatus.CONFIRMED);
         r.setRegistrationId(registrationId);
         reservationRepo.save(r);
@@ -209,7 +209,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
             r.setStatus(ReservationStatus.CANCELLED);
             reservationRepo.save(r);
             auditService.record(AuditAction.POOJA_SLOT_RESERVATION_CANCELLED, AuditModule.EVENTS,
-                    "PoojaSlotReservation", reservationId.toString());
+                    "EventPoojaSlotReservation", reservationId.toString());
         });
     }
 }

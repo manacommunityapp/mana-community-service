@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- V39__composite_indexes.sql
 -- Adds composite indexes for high-frequency query paths across the
 -- manacommunity schema.

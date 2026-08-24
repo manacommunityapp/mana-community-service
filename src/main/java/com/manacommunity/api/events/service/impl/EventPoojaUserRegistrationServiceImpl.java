@@ -4,7 +4,7 @@ import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
-import com.manacommunity.api.events.repository.PoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
@@ -24,13 +24,13 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final EventPoojaUserRegistrationRepository repository;
     private final CommunityRepository communityRepository;
     private final PoojaSlotReservationService reservationService;
-    private final PoojaScheduleRepository scheduleRepository;
+    private final EventPoojaScheduleRepository scheduleRepository;
 
     public EventPoojaUserRegistrationServiceImpl(
             EventPoojaUserRegistrationRepository repository,
             CommunityRepository communityRepository,
             PoojaSlotReservationService reservationService,
-            PoojaScheduleRepository scheduleRepository) {
+            EventPoojaScheduleRepository scheduleRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;

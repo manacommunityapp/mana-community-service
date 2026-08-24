@@ -35,7 +35,7 @@ public class EventFamilyMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "createdBy", "community"})
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 150)
     private String name;

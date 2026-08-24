@@ -20,7 +20,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CommunityEvent {
+public class EventCommunity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -21,7 +21,7 @@ public class EventScheduledNotification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(length = 50, nullable = false)
     @Builder.Default

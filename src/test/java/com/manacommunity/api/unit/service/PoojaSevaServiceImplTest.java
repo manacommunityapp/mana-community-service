@@ -1,7 +1,7 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.events.entity.PoojaSeva;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.impl.PoojaSevaServiceImpl;
@@ -31,7 +31,7 @@ class PoojaSevaServiceImplTest {
     @DisplayName("create keeps single-day availability on top-level slots")
     void createSingleDay_usesTopLevelSlots() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         when(repository.save(any(PoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
@@ -54,7 +54,7 @@ class PoojaSevaServiceImplTest {
     @DisplayName("create expands multi-day availability into every date and time slot")
     void createMultiDay_expandsTimeSlotAvailability() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         when(repository.save(any(PoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
@@ -83,7 +83,7 @@ class PoojaSevaServiceImplTest {
     @DisplayName("getById is scoped to the caller's community")
     void getById_usesCommunityScopedLookup() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
@@ -102,13 +102,11 @@ class PoojaSevaServiceImplTest {
     @DisplayName("listing by main event validates parent event and remains community scoped")
     void getAllByMainEvent_usesCommunityScopedLookup() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
         PoojaSeva seva = new PoojaSeva();
-        when(eventRepository.findByIdAndCommunity_Id(100L, 10L))
-                .thenReturn(Optional.of(mock(com.manacommunity.api.events.entity.CommunityEvent.class)));
         when(repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(10L, 100L))
                 .thenReturn(List.of(seva));
 
@@ -122,7 +120,7 @@ class PoojaSevaServiceImplTest {
     @DisplayName("create rejects a main event outside the caller's community")
     void create_rejectsMissingOrWrongCommunityMainEvent() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
@@ -130,7 +128,7 @@ class PoojaSevaServiceImplTest {
         seva.setName("Ganesh Puja");
         seva.setType("Ganesh Puja");
         seva.setMainEventId(100L);
-        when(eventRepository.findByIdAndCommunity_Id(100L, 10L)).thenReturn(Optional.empty());
+        when(eventRepository.findById(100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.createPoojaSeva(10L, seva))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -141,7 +139,7 @@ class PoojaSevaServiceImplTest {
     @DisplayName("update rejects moving a pooja to a main event outside the caller's community")
     void update_rejectsWrongCommunityMainEvent() {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
-        CommunityEventRepository eventRepository = mock(CommunityEventRepository.class);
+        EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
 
@@ -151,7 +149,7 @@ class PoojaSevaServiceImplTest {
         PoojaSeva updated = new PoojaSeva();
         updated.setMainEventId(100L);
         when(repository.findByIdAndCommunityId(5L, 10L)).thenReturn(Optional.of(existing));
-        when(eventRepository.findByIdAndCommunity_Id(100L, 10L)).thenReturn(Optional.empty());
+        when(eventRepository.findById(100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.updatePoojaSeva(5L, 10L, updated))
                 .isInstanceOf(ResourceNotFoundException.class);

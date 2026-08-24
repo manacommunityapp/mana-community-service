@@ -2,13 +2,13 @@ package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.dto.PoojaScheduleDto;
 import com.manacommunity.api.events.dto.PoojaScheduleRequest;
-import com.manacommunity.api.events.entity.PoojaSchedule;
+import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
-import com.manacommunity.api.events.repository.PoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
-import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaScheduleService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.security.AuditAction;
@@ -24,15 +24,15 @@ import java.util.List;
 @Service
 public class PoojaScheduleServiceImpl implements PoojaScheduleService {
 
-    private final PoojaScheduleRepository scheduleRepo;
+    private final EventPoojaScheduleRepository scheduleRepo;
     private final PoojaSevaRepository poojaSevaRepo;
-    private final PoojaSlotReservationRepository reservationRepo;
+    private final EventPoojaSlotReservationRepository reservationRepo;
     private final EventPoojaUserRegistrationRepository registrationRepo;
     private final AuditService auditService;
 
-    public PoojaScheduleServiceImpl(PoojaScheduleRepository scheduleRepo,
+    public PoojaScheduleServiceImpl(EventPoojaScheduleRepository scheduleRepo,
                                     PoojaSevaRepository poojaSevaRepo,
-                                    PoojaSlotReservationRepository reservationRepo,
+                                    EventPoojaSlotReservationRepository reservationRepo,
                                     EventPoojaUserRegistrationRepository registrationRepo,
                                     AuditService auditService) {
         this.scheduleRepo = scheduleRepo;
@@ -48,7 +48,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         PoojaSeva seva = poojaSevaRepo.findById(req.getPoojaId())
                 .orElseThrow(() -> new ResourceNotFoundException("PoojaSeva", req.getPoojaId()));
 
-        PoojaSchedule schedule = PoojaSchedule.builder()
+        EventPoojaSchedule schedule = EventPoojaSchedule.builder()
                 .poojaSeva(seva)
                 .scheduleDate(req.getScheduleDate())
                 .startTime(req.getStartTime())
@@ -58,17 +58,17 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .status(req.getStatus() != null ? req.getStatus() : PoojaScheduleStatus.OPEN)
                 .build();
 
-        PoojaSchedule saved = scheduleRepo.save(schedule);
+        EventPoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_CREATED, AuditModule.EVENTS,
-                "PoojaSchedule", saved.getId().toString());
+                "EventPoojaSchedule", saved.getId().toString());
         return toDto(saved);
     }
 
     @Override
     @Transactional
     public PoojaScheduleDto updateSchedule(Long id, PoojaScheduleRequest req) {
-        PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
+        EventPoojaSchedule schedule = scheduleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", id));
 
         if (req.getScheduleDate() != null) schedule.setScheduleDate(req.getScheduleDate());
         if (req.getStartTime() != null) schedule.setStartTime(req.getStartTime());
@@ -77,29 +77,29 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         if (req.getDevoteeCapacity() != null) schedule.setDevoteeCapacity(req.getDevoteeCapacity());
         if (req.getStatus() != null) schedule.setStatus(req.getStatus());
 
-        PoojaSchedule saved = scheduleRepo.save(schedule);
+        EventPoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_UPDATED, AuditModule.EVENTS,
-                "PoojaSchedule", id.toString());
+                "EventPoojaSchedule", id.toString());
         return toDtoWithLiveAvailability(saved);
     }
 
     @Override
     @Transactional
     public PoojaScheduleDto updateStatus(Long id, PoojaScheduleStatus status) {
-        PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
+        EventPoojaSchedule schedule = scheduleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", id));
         schedule.setStatus(status);
-        PoojaSchedule saved = scheduleRepo.save(schedule);
+        EventPoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_STATUS_CHANGED, AuditModule.EVENTS,
-                "PoojaSchedule", id.toString(), null, status.name());
+                "EventPoojaSchedule", id.toString(), null, status.name());
         return toDtoWithLiveAvailability(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PoojaScheduleDto getById(Long id) {
-        PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
+        EventPoojaSchedule schedule = scheduleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", id));
         return toDtoWithLiveAvailability(schedule);
     }
 
@@ -126,8 +126,8 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     @Override
     @Transactional
     public void deleteSchedule(Long id) {
-        PoojaSchedule schedule = scheduleRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
+        EventPoojaSchedule schedule = scheduleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", id));
         // #7: Prevent deletion if confirmed registrations exist for this slot
         long activeCount = registrationRepo.countConfirmedByScheduleId(id);
         if (activeCount > 0) {
@@ -137,12 +137,12 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         }
         scheduleRepo.delete(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_DELETED, AuditModule.EVENTS,
-                "PoojaSchedule", id.toString());
+                "EventPoojaSchedule", id.toString());
     }
 
     // ── Mappers ──
 
-    private PoojaScheduleDto toDto(PoojaSchedule s) {
+    private PoojaScheduleDto toDto(EventPoojaSchedule s) {
         return PoojaScheduleDto.builder()
                 .id(s.getId())
                 .poojaId(s.getPoojaSeva().getId())
@@ -159,7 +159,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .build();
     }
 
-    private PoojaScheduleDto toDtoWithLiveAvailability(PoojaSchedule s) {
+    private PoojaScheduleDto toDtoWithLiveAvailability(EventPoojaSchedule s) {
         LocalDateTime now = LocalDateTime.now();
         int confirmedFamilies  = reservationRepo.sumConfirmedFamilies(s.getId());
         int reservedFamilies   = reservationRepo.sumActiveReservedFamilies(s.getId(), now);
