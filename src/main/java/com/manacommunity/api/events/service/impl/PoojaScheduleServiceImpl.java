@@ -5,6 +5,7 @@ import com.manacommunity.api.events.dto.PoojaScheduleRequest;
 import com.manacommunity.api.events.entity.PoojaSchedule;
 import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaScheduleRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
@@ -26,15 +27,18 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     private final PoojaScheduleRepository scheduleRepo;
     private final PoojaSevaRepository poojaSevaRepo;
     private final PoojaSlotReservationRepository reservationRepo;
+    private final EventPoojaUserRegistrationRepository registrationRepo;
     private final AuditService auditService;
 
     public PoojaScheduleServiceImpl(PoojaScheduleRepository scheduleRepo,
                                     PoojaSevaRepository poojaSevaRepo,
                                     PoojaSlotReservationRepository reservationRepo,
+                                    EventPoojaUserRegistrationRepository registrationRepo,
                                     AuditService auditService) {
         this.scheduleRepo = scheduleRepo;
         this.poojaSevaRepo = poojaSevaRepo;
         this.reservationRepo = reservationRepo;
+        this.registrationRepo = registrationRepo;
         this.auditService = auditService;
     }
 
@@ -76,7 +80,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         PoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_UPDATED, AuditModule.EVENTS,
                 "PoojaSchedule", id.toString());
-        return toDto(saved);
+        return toDtoWithLiveAvailability(saved);
     }
 
     @Override
@@ -88,7 +92,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         PoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_STATUS_CHANGED, AuditModule.EVENTS,
                 "PoojaSchedule", id.toString(), null, status.name());
-        return toDto(saved);
+        return toDtoWithLiveAvailability(saved);
     }
 
     @Override
@@ -124,7 +128,16 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     public void deleteSchedule(Long id) {
         PoojaSchedule schedule = scheduleRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", id));
+        // #7: Prevent deletion if confirmed registrations exist for this slot
+        long activeCount = registrationRepo.countConfirmedByScheduleId(id);
+        if (activeCount > 0) {
+            throw new IllegalStateException(
+                    "Cannot delete this slot — it has " + activeCount + " active registration(s). " +
+                    "Cancel or reassign all registrations before deleting.");
+        }
         scheduleRepo.delete(schedule);
+        auditService.record(AuditAction.POOJA_SCHEDULE_DELETED, AuditModule.EVENTS,
+                "PoojaSchedule", id.toString());
     }
 
     // ── Mappers ──

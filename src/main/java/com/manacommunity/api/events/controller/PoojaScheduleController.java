@@ -1,14 +1,18 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.PoojaReservationSummaryDto;
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.dto.PoojaScheduleDto;
 import com.manacommunity.api.events.dto.PoojaScheduleRequest;
+import com.manacommunity.api.events.entity.PoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
+import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaScheduleService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/events/pooja-schedules")
@@ -25,11 +30,14 @@ public class PoojaScheduleController {
 
     private final PoojaScheduleService scheduleService;
     private final PoojaSlotReservationService reservationService;
+    private final PoojaSlotReservationRepository reservationRepo;
 
     public PoojaScheduleController(PoojaScheduleService scheduleService,
-                                   PoojaSlotReservationService reservationService) {
+                                   PoojaSlotReservationService reservationService,
+                                   PoojaSlotReservationRepository reservationRepo) {
         this.scheduleService = scheduleService;
         this.reservationService = reservationService;
+        this.reservationRepo = reservationRepo;
     }
 
     // ── Public / Member endpoints ──
@@ -63,9 +71,10 @@ public class PoojaScheduleController {
      * Returns a reservationId the client must pass when submitting the registration.
      */
     @PostMapping("/{scheduleId}/reserve")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PoojaReserveResponse> reserve(
             @PathVariable Long scheduleId,
-            @RequestBody PoojaReserveRequest req,
+            @RequestBody @Valid PoojaReserveRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = principal != null ? principal.getUser() : null;
         PoojaReserveResponse response = reservationService.reserve(scheduleId, req, user);
@@ -74,10 +83,31 @@ public class PoojaScheduleController {
 
     // ── Admin endpoints ──
 
+    /** #20: List all reservations for a schedule (admin view). */
+    @GetMapping("/{scheduleId}/reservations")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    public ResponseEntity<List<PoojaReservationSummaryDto>> getReservations(@PathVariable Long scheduleId) {
+        List<PoojaSlotReservation> reservations = reservationRepo.findByScheduleIdOrderByCreatedAtDesc(scheduleId);
+        List<PoojaReservationSummaryDto> dtos = reservations.stream().map(r -> PoojaReservationSummaryDto.builder()
+                .id(r.getId())
+                .scheduleId(scheduleId)
+                .userId(r.getUser() != null ? r.getUser().getId() : null)
+                .userDisplayName(r.getUser() != null ? r.getUser().getFullName() : null)
+                .registrationId(r.getRegistrationId())
+                .status(r.getStatus() != null ? r.getStatus().name() : null)
+                .reservedFamilyCount(r.getReservedFamilyCount())
+                .reservedDevoteeCount(r.getReservedDevoteeCount())
+                .tokenNumber(r.getTokenNumber())
+                .expiresAt(r.getExpiresAt())
+                .createdAt(r.getCreatedAt())
+                .build()).collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<PoojaScheduleDto> create(
-            @RequestBody PoojaScheduleRequest req,
+            @RequestBody @Valid PoojaScheduleRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.status(HttpStatus.CREATED).body(scheduleService.createSchedule(req));
     }
@@ -86,7 +116,7 @@ public class PoojaScheduleController {
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<PoojaScheduleDto> update(
             @PathVariable Long id,
-            @RequestBody PoojaScheduleRequest req) {
+            @RequestBody @Valid PoojaScheduleRequest req) {
         return ResponseEntity.ok(scheduleService.updateSchedule(id, req));
     }
 

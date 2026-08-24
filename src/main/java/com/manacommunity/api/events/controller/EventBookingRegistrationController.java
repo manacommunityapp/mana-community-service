@@ -39,15 +39,17 @@ public class EventBookingRegistrationController {
     @GetMapping("/my")
     public ResponseEntity<List<EventBookingRegistration>> getMyRegistrations(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "status", required = false) String status) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(service.getMyRegistrations(user, communityId));
+        return ResponseEntity.ok(service.getMyRegistrations(user, communityId, status));
     }
 
     @GetMapping
     public ResponseEntity<List<EventBookingRegistration>> getAllRegistrations(
-            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
-        return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "status", required = false) String status) {
+        return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId, status));
     }
 
     @GetMapping("/{id}")
@@ -68,16 +70,27 @@ public class EventBookingRegistrationController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelRegistration(
+            @PathVariable Long id,
+            @RequestParam(value = "reason", required = false) String reason,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        service.cancelRegistration(id, reason, user);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelOrDeleteRegistration(
             @PathVariable Long id,
             @RequestParam(value = "permanent", required = false, defaultValue = "false") boolean permanent,
+            @RequestParam(value = "reason", required = false) String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         if (permanent) {
             service.deleteRegistration(id, user);
         } else {
-            service.cancelRegistration(id, user);
+            service.cancelRegistration(id, reason, user);
         }
         return ResponseEntity.noContent().build();
     }

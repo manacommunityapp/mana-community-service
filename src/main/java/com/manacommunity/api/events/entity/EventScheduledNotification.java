@@ -8,7 +8,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_notification", schema = "manacommunity")
+@Table(name = "event_scheduled_notification", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor

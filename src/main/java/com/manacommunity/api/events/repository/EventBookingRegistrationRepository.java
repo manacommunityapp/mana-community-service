@@ -13,9 +13,17 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
 
     List<EventBookingRegistration> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<EventBookingRegistration> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String status);
+
+    List<EventBookingRegistration> findByUserIdAndStatusNotOrderByCreatedAtDesc(Long userId, String status);
+
     List<EventBookingRegistration> findByCommunityId(Long communityId);
 
     List<EventBookingRegistration> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
+
+    List<EventBookingRegistration> findByCommunityIdAndStatusOrderByCreatedAtDesc(Long communityId, String status);
+
+    List<EventBookingRegistration> findByCommunityIdAndStatusNotOrderByCreatedAtDesc(Long communityId, String status);
 
     Optional<EventBookingRegistration> findByRegCode(String regCode);
 

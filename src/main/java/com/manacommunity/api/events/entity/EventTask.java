@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_task", schema = "manacommunity")
+@Table(name = "event_task", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor

@@ -22,4 +22,7 @@ public interface EventPoojaUserRegistrationService {
     void cancelRegistration(Long id, AppUser user);
 
     void deleteRegistration(Long id, AppUser user);
+
+    /** #14: Atomically release the old slot reservation and reserve + confirm the new one. */
+    EventPoojaUserRegistration reschedule(Long registrationId, Long newScheduleId, String idempotencyKey, AppUser user);
 }

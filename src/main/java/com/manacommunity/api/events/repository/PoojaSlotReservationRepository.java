@@ -95,4 +95,9 @@ public interface PoojaSlotReservationRepository extends JpaRepository<PoojaSlotR
     Optional<PoojaSlotReservation> findByRegistrationId(Long registrationId);
 
     List<PoojaSlotReservation> findByScheduleIdOrderByCreatedAtDesc(Long scheduleId);
+
+    /** #23: Purge EXPIRED / CANCELLED rows older than a given cutoff to keep the table lean. */
+    @Modifying
+    @Query("DELETE FROM PoojaSlotReservation r WHERE r.status IN ('EXPIRED','CANCELLED') AND r.updatedAt < :before")
+    int deleteExpiredOrCancelledBefore(@Param("before") LocalDateTime before);
 }

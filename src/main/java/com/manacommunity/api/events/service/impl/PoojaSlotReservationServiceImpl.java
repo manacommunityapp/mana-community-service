@@ -2,6 +2,7 @@ package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
+import com.manacommunity.api.events.entity.PoojaSeva;
 import com.manacommunity.api.events.entity.PoojaSchedule;
 import com.manacommunity.api.events.entity.PoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
@@ -68,8 +69,29 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                         .reservedDevoteeCount(r.getReservedDevoteeCount())
                         .expiresAt(r.getExpiresAt())
                         .status(r.getStatus().name())
-                        .tokenNumber(0)
+                        .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0) // #12
                         .build();
+            }
+        }
+
+        // ── #15: Return existing active pre-hold rather than creating a duplicate ──
+        if (user != null) {
+            Optional<PoojaSlotReservation> activeForUser =
+                    reservationRepo.findActiveByScheduleAndUser(scheduleId, user.getId());
+            if (activeForUser.isPresent()) {
+                PoojaSlotReservation r = activeForUser.get();
+                if (r.getStatus() == ReservationStatus.RESERVED) {
+                    return PoojaReserveResponse.builder()
+                            .reservationId(r.getId())
+                            .scheduleId(scheduleId)
+                            .idempotencyKey(r.getIdempotencyKey())
+                            .reservedFamilyCount(r.getReservedFamilyCount())
+                            .reservedDevoteeCount(r.getReservedDevoteeCount())
+                            .expiresAt(r.getExpiresAt())
+                            .status(r.getStatus().name())
+                            .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
+                            .build();
+                }
             }
         }
 
@@ -83,8 +105,21 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                     schedule.getPoojaSeva().getName(), schedule.getStatus().name());
         }
 
-        // ── 2. Expire stale reservations (inside the lock) ──
+        // ── 1a. Enforce PoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
+        PoojaSeva seva = schedule.getPoojaSeva();
+        if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
+            throw new RegistrationClosedException(
+                    "Bookings for '" + seva.getName() + "' are not open yet. " +
+                    "They open on " + seva.getBookingOpen().toLocalDate() + ".");
+        }
+        if (seva.getBookingClose() != null && now.isAfter(seva.getBookingClose())) {
+            throw new RegistrationClosedException(
+                    "Bookings for '" + seva.getName() + "' are closed. " +
+                    "The booking window ended on " + seva.getBookingClose().toLocalDate() + ".");
+        }
+
+        // ── 2. Expire stale reservations (inside the lock) ──
         reservationRepo.expireStaleForSchedule(scheduleId, now);
 
         // ── 3. Calculate live availability ──
@@ -99,6 +134,13 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // ── 4. Capacity check ──
         int requestedFamilies = Math.max(1, req.getFamilyCount());
         int requestedDevotees = Math.max(1, req.getDevoteeCount());
+
+        // Enforce per-booking devotee limit set by admin (#5)
+        if (seva.getMaxDevoteesPerBooking() != null && requestedDevotees > seva.getMaxDevoteesPerBooking()) {
+            throw new EventFullException(
+                    "This seva allows a maximum of " + seva.getMaxDevoteesPerBooking() +
+                    " devotee(s) per booking. Please reduce your devotee count.");
+        }
 
         if (availFamilies < requestedFamilies) {
             throw new EventFullException(
@@ -125,6 +167,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                 .status(ReservationStatus.RESERVED)
                 .expiresAt(expiresAt)
                 .idempotencyKey(req.getIdempotencyKey())
+                .tokenNumber(tokenNumber) // #12: persist so idempotency hits return the real token
                 .build();
 
         PoojaSlotReservation saved = reservationRepo.save(reservation);

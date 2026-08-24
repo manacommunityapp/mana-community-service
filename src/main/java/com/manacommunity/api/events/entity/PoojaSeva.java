@@ -1,6 +1,10 @@
 package com.manacommunity.api.events.entity;
 
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -10,6 +14,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "event_pooja_sevas")
+@EntityListeners(AuditingEntityListener.class)
 public class PoojaSeva {
 
     @Id
@@ -107,6 +112,17 @@ public class PoojaSeva {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
     public PoojaSeva() {
         this.createdAt = LocalDateTime.now();
     }
@@ -116,6 +132,12 @@ public class PoojaSeva {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
         }
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Getters and Setters
@@ -192,6 +214,12 @@ public class PoojaSeva {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Long getCreatedBy() { return createdBy; }
+    public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+    public Long getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(Long updatedBy) { this.updatedBy = updatedBy; }
 
     public LocalDateTime getBookingOpen() { return bookingOpen; }
     public void setBookingOpen(LocalDateTime bookingOpen) { this.bookingOpen = bookingOpen; }

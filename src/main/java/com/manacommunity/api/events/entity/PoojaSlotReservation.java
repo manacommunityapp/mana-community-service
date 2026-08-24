@@ -4,18 +4,22 @@ import com.manacommunity.api.events.enums.ReservationStatus;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(
-    name = "pooja_slot_reservation",
+    name = "event_pooja_slot_reservation",
     indexes = {
         @Index(name = "idx_psr_schedule_status", columnList = "schedule_id, status, expires_at"),
         @Index(name = "idx_psr_user",            columnList = "user_id"),
         @Index(name = "idx_psr_expires",         columnList = "expires_at, status")
     }
 )
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -58,11 +62,23 @@ public class PoojaSlotReservation {
     @Column(name = "idempotency_key", length = 100, unique = true)
     private String idempotencyKey;
 
+    /** Sankalpam token number assigned at reservation time. Returned on idempotency hits. */
+    @Column(name = "token_number")
+    private Integer tokenNumber;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @PrePersist
     public void prePersist() {

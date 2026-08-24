@@ -3,6 +3,9 @@ package com.manacommunity.api.events.entity;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -10,6 +13,7 @@ import java.time.LocalDateTime;
 @Table(name = "event_registration", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"event_id", "user_id"})
 })
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -57,9 +61,26 @@ public class EventRegistration {
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @Column(name = "created_by", nullable = false, updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by", nullable = false)
+    private Long updatedBy;
+
     @PrePersist
     protected void onCreate() {
         registeredAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public enum RegistrationStatus {
