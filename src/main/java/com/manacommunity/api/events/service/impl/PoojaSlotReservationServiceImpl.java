@@ -9,6 +9,9 @@ import com.manacommunity.api.events.enums.ReservationStatus;
 import com.manacommunity.api.events.repository.PoojaScheduleRepository;
 import com.manacommunity.api.events.repository.PoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
+import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.RegistrationClosedException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -72,11 +75,12 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
 
         // ── 1. Acquire pessimistic write lock ──
         PoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
-                .orElseThrow(() -> new IllegalArgumentException("PoojaSchedule not found: " + scheduleId));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSchedule", scheduleId));
 
         if (schedule.getStatus() == PoojaScheduleStatus.BLOCKED ||
             schedule.getStatus() == PoojaScheduleStatus.CLOSED) {
-            throw new IllegalStateException("This slot is not open for booking.");
+            throw new RegistrationClosedException(
+                    schedule.getPoojaSeva().getName(), schedule.getStatus().name());
         }
 
         // ── 2. Expire stale reservations (inside the lock) ──
@@ -97,14 +101,14 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         int requestedDevotees = Math.max(1, req.getDevoteeCount());
 
         if (availFamilies < requestedFamilies) {
-            throw new IllegalStateException(
-                    "Not enough family slots available. Requested: " + requestedFamilies +
-                    ", Available: " + availFamilies);
+            throw new EventFullException(
+                    "This slot is full — no family spots available for '"
+                    + schedule.getPoojaSeva().getName() + "'. Please choose another slot.");
         }
         if (availDevotees < requestedDevotees) {
-            throw new IllegalStateException(
-                    "Not enough devotee slots available. Requested: " + requestedDevotees +
-                    ", Available: " + availDevotees);
+            throw new EventFullException(
+                    "This slot is full — no devotee spots available for '"
+                    + schedule.getPoojaSeva().getName() + "'. Please choose another slot.");
         }
 
         // ── 5. Assign token number (before incrementing) ──
@@ -149,7 +153,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     @Transactional
     public void confirmReservation(Long reservationId, Long registrationId) {
         PoojaSlotReservation r = reservationRepo.findById(reservationId)
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found: " + reservationId));
+                .orElseThrow(() -> new ResourceNotFoundException("PoojaSlotReservation", reservationId));
         r.setStatus(ReservationStatus.CONFIRMED);
         r.setRegistrationId(registrationId);
         reservationRepo.save(r);

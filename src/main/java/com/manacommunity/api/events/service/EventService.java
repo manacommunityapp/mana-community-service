@@ -104,6 +104,7 @@ public class EventService {
     private final LunchDinnerRepository lunchDinnerRepo;
     private final EventFamilyMemberRepository familyMemberRepo;
     private final EventTicketCategoryRepository ticketCategoryRepo;
+    private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -392,14 +393,34 @@ public class EventService {
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long userId) {
+        AppUser user = userId != null ? appUserRepo.findById(userId).orElse(null) : null;
+        delete(id, user);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long id, AppUser user) {
         CommunityEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
-        boolean isAdmin = userId != null && userId == -1L;
+
+        Long userId = user != null ? user.getId() : null;
+        boolean isAdmin = (user != null && (
+                user.hasRole("ADMIN") ||
+                user.hasRole("SUPER_ADMIN") ||
+                user.hasRole("COMMUNITY_ADMIN") ||
+                user.hasRole("EVENT_ADMIN") ||
+                user.hasRole("Admin") ||
+                user.hasRole("Super Admin") ||
+                user.hasRole("Community Admin") ||
+                user.hasRole("Event Admin")
+        )) || (userId != null && userId == -1L);
+
         boolean isCreator = event.getCreatedBy() != null
                 && event.getCreatedBy().getId() != null
+                && userId != null
                 && event.getCreatedBy().getId().equals(userId);
+
         if (!isCreator && !isAdmin) {
-            throw new UnauthorizedActionException("Only the event creator can delete this event");
+            throw new UnauthorizedActionException("Only the event creator or an administrator can delete this event");
         }
 
         ticketCategoryRepo.deleteByEventId(id);

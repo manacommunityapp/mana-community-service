@@ -235,8 +235,9 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     .collect(java.util.stream.Collectors.toList());
             if (!siblingActivityIds.isEmpty()
                     && repository.existsByUserIdAndActivityIdInAndStatusNot(userId, siblingActivityIds, "CANCELLED")) {
-                throw new AlreadyRegisteredException(
-                        p.getName() + "' Event — only one pooja seva registration is allowed per family per event");
+                throw new AlreadyRegisteredException(p.getName(),
+                        "Only one pooja seva registration is allowed per family per event. "
+                        + "You already have an active registration for a seva in this event.");
             }
         }
 
