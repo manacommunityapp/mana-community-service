@@ -25,7 +25,7 @@ public class EventExpenseController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
     public ResponseEntity<List<EventExpenseResponse>> getAll(
             @RequestParam(required = false) Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -39,7 +39,7 @@ public class EventExpenseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventExpenseResponse> create(
             @Valid @RequestBody EventExpenseRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -49,7 +49,7 @@ public class EventExpenseController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventExpenseResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventExpenseRequest req) {
@@ -57,7 +57,7 @@ public class EventExpenseController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         expenseService.delete(id);
         return ResponseEntity.noContent().build();

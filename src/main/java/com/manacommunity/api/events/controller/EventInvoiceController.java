@@ -26,7 +26,7 @@ public class EventInvoiceController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
     public ResponseEntity<List<EventInvoiceResponse>> getAll(
             @RequestParam(required = false) Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -40,7 +40,7 @@ public class EventInvoiceController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventInvoiceResponse> create(
             @Valid @RequestBody EventInvoiceRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -50,7 +50,7 @@ public class EventInvoiceController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventInvoiceResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventInvoiceRequest req) {
@@ -58,7 +58,7 @@ public class EventInvoiceController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventInvoiceResponse> updateStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
@@ -70,7 +70,7 @@ public class EventInvoiceController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         invoiceService.delete(id);
         return ResponseEntity.noContent().build();
