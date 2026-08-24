@@ -124,6 +124,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         registration.setUser(targetUser);
         registration.setCommunity(comm);
 
+        if (registration.getMainEventId() == null) {
+            registration.setMainEventId(resolveMainEventId(registration.getActivityId()));
+        }
+
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
             String prefix = "MNA-2026-REG-";
             if (registration.getCategory() != null) {
@@ -876,9 +880,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             reg.setPaymentMethod(patch.getPaymentMethod());
         }
 
-        // ── Parent event link — persist if the frontend sends it ─────────────
         if (patch.getMainEventId() != null) {
             reg.setMainEventId(patch.getMainEventId());
+        } else if (reg.getMainEventId() == null) {
+            reg.setMainEventId(resolveMainEventId(reg.getActivityId()));
         }
 
         reg.setUpdatedAt(LocalDateTime.now());
@@ -887,6 +892,43 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         syncToPoojaTableIfApplicable(saved);
 
         return saved;
+    }
+
+    private Long resolveMainEventId(String actId) {
+        if (actId == null || actId.isBlank()) return null;
+        try {
+            if (actId.startsWith("event-")) {
+                return Long.parseLong(actId.replace("event-", ""));
+            } else if (actId.startsWith("pooja-")) {
+                Long poojaId = Long.parseLong(actId.replace("pooja-", ""));
+                return poojaSevaRepository.findById(poojaId)
+                        .map(EventPoojaSeva::getMainEventId)
+                        .orElse(null);
+            } else if (actId.startsWith("food-")) {
+                Long foodId = Long.parseLong(actId.replace("food-", ""));
+                return lunchDinnerRepository.findById(foodId)
+                        .map(EventLunchDinner::getMainEventId)
+                        .orElse(null);
+            } else if (actId.startsWith("comp-")) {
+                Long compId = Long.parseLong(actId.replace("comp-", ""));
+                return competitionRepository.findById(compId)
+                        .map(EventCompetition::getMainEventId)
+                        .orElse(null);
+            } else if (actId.startsWith("cultural-") || actId.startsWith("cult-")) {
+                Long cultId = Long.parseLong(actId.replaceAll("^(cultural|cult)-", ""));
+                return culturalEventRepository.findById(cultId)
+                        .map(EventCulturalEvent::getMainEventId)
+                        .orElse(null);
+            } else {
+                try {
+                    return Long.parseLong(actId);
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private void syncToPoojaTableIfApplicable(EventBookingRegistration reg) {
