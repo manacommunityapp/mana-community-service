@@ -109,8 +109,8 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Override
     public void deleteLunchDinner(Long id, Long communityId) {
         LunchDinner existing = getLunchDinnerById(id, communityId);
-        String activityId = "food-" + existing.getId();
-        if (bookingRepo.existsByActivityIdAndStatusNot(activityId, "CANCELLED")) {
+        if (bookingRepo.existsByActivityIdAndStatusNot("food-" + existing.getId(), "CANCELLED")
+                || bookingRepo.existsByActivityIdAndStatusNot("meal-" + existing.getId(), "CANCELLED")) {
             throw new ManaCommunityException(
                     "Cannot delete lunch/dinner event with active bookings. Cancel the bookings first.",
                     HttpStatus.CONFLICT,

@@ -359,7 +359,9 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         int requested = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
                 ? registration.getDevoteeCount() : 1;
 
-        List<EventBookingRegistration> existing = repository.findByActivityId("food-" + id);
+        List<EventBookingRegistration> existing = new java.util.ArrayList<>();
+        existing.addAll(repository.findByActivityId("food-" + id));
+        existing.addAll(repository.findByActivityId("meal-" + id));
         long bookedPlates = existing.stream()
                 .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
                 .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
