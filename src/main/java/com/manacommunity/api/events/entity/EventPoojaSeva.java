@@ -27,6 +27,9 @@ public class EventPoojaSeva {
     @Column(name = "main_event_id")
     private Long mainEventId;
 
+    @Column(name = "pooja_type_id")
+    private Long poojaTypeId;
+
     @Column(name = "name", nullable = false, length = 200)
     private String name;
 
@@ -149,6 +152,9 @@ public class EventPoojaSeva {
 
     public Long getMainEventId() { return mainEventId; }
     public void setMainEventId(Long mainEventId) { this.mainEventId = mainEventId; }
+
+    public Long getPoojaTypeId() { return poojaTypeId; }
+    public void setPoojaTypeId(Long poojaTypeId) { this.poojaTypeId = poojaTypeId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

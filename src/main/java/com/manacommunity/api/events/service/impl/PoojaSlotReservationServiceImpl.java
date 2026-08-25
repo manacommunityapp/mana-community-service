@@ -9,6 +9,7 @@ import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.enums.ReservationStatus;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
@@ -30,16 +31,19 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     private final EventPoojaScheduleRepository scheduleRepo;
     private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
+    private final EventRegistrationRepository eventRegistrationRepository;
 
     @Value("${pooja.reservation.ttl-minutes:5}")
     private int reservationTtlMinutes;
 
     public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
                                            EventPoojaSlotReservationRepository reservationRepo,
-                                           AuditService auditService) {
+                                           AuditService auditService,
+                                           EventRegistrationRepository eventRegistrationRepository) {
         this.scheduleRepo = scheduleRepo;
         this.reservationRepo = reservationRepo;
         this.auditService = auditService;
+        this.eventRegistrationRepository = eventRegistrationRepository;
     }
 
     /**
@@ -98,6 +102,15 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // ── 1. Acquire pessimistic write lock ──
         EventPoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", scheduleId));
+
+        // Enforce mandatory main event registration if pooja belongs to a main event
+        if (user != null && schedule.getPoojaSeva() != null && schedule.getPoojaSeva().getMainEventId() != null && schedule.getPoojaSeva().getMainEventId() > 0) {
+            Long mainEventId = schedule.getPoojaSeva().getMainEventId();
+            boolean isMainRegistered = eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, user.getId());
+            if (!isMainRegistered) {
+                throw new IllegalArgumentException("Registration for the main event is required before reserving this Pooja Seva slot. Please register for the main event first.");
+            }
+        }
 
         if (schedule.getStatus() == PoojaScheduleStatus.BLOCKED ||
             schedule.getStatus() == PoojaScheduleStatus.CLOSED) {
