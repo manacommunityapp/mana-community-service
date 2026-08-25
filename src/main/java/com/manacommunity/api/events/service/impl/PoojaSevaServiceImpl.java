@@ -24,13 +24,16 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     private final PoojaSevaRepository repository;
     private final EventCommunityRepository eventRepository;
     private final EventBookingRegistrationRepository bookingRepo;
+    private final com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository;
 
     public PoojaSevaServiceImpl(PoojaSevaRepository repository,
                                 EventCommunityRepository eventRepository,
-                                EventBookingRegistrationRepository bookingRepo) {
+                                EventBookingRegistrationRepository bookingRepo,
+                                com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository) {
         this.repository = repository;
         this.eventRepository = eventRepository;
         this.bookingRepo = bookingRepo;
+        this.poojaTypeRepository = poojaTypeRepository;
     }
 
     @Override
@@ -90,6 +93,10 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             validateDateWithinParent(poojaSeva, parentEvent);
         }
         poojaSeva.setCommunityId(communityId);
+        if (poojaSeva.getPoojaTypeId() == null && poojaSeva.getType() != null && !poojaSeva.getType().trim().isEmpty()) {
+            poojaTypeRepository.findFirstByNameIgnoreCase(poojaSeva.getType().trim())
+                    .ifPresent(pt -> poojaSeva.setPoojaTypeId(pt.getId()));
+        }
         if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
                 && poojaSeva.getDate() != null
                 && poojaSeva.getEndDate() != null
@@ -133,6 +140,13 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             validateDateWithinParent(updated, parentEvent);
         }
         existing.setMainEventId(updated.getMainEventId());
+        Long resolvedPoojaTypeId = updated.getPoojaTypeId();
+        if (resolvedPoojaTypeId == null && updated.getType() != null && !updated.getType().trim().isEmpty()) {
+            resolvedPoojaTypeId = poojaTypeRepository.findFirstByNameIgnoreCase(updated.getType().trim())
+                    .map(com.manacommunity.api.events.entity.EventPoojaType::getId)
+                    .orElse(existing.getPoojaTypeId());
+        }
+        existing.setPoojaTypeId(resolvedPoojaTypeId);
         existing.setName(updated.getName());
         existing.setType(updated.getType());
         existing.setDate(updated.getDate());
