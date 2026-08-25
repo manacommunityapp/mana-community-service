@@ -65,6 +65,7 @@ class EventServiceTest {
     @Mock MediaRepository mediaRepo;
     @Mock MediaUrlService mediaUrlService;
     @Mock EventTicketCategoryRepository ticketCategoryRepo;
+    @Mock EventContactRepository eventContactRepo;
     @Mock NotificationRepository notificationRepo;
     @Mock AppUserRepository appUserRepo;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -84,7 +85,7 @@ class EventServiceTest {
                 activityRegRepo, programRepo, galleryRepo, invoiceRepo, mediaRepo,
                 mediaUrlService, bookingRegRepo, notificationRepo, poojaSevaRepo,
                 culturalEventRepo, competitionRepo, lunchDinnerRepo, familyMemberRepo,
-                ticketCategoryRepo, appUserRepo, objectMapper
+                ticketCategoryRepo, eventContactRepo, appUserRepo, objectMapper
         );
         community = TestDataBuilder.community(1L, "INVITE123");
         adminUser = TestDataBuilder.adminUser();
