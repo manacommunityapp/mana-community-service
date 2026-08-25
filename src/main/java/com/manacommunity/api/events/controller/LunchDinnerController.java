@@ -24,9 +24,11 @@ public class LunchDinnerController {
     @GetMapping
     public ResponseEntity<List<EventLunchDinner>> getAll(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(required = false) Long mainEventId) {
+            @RequestParam(required = false) Long mainEventId,
+            @RequestParam(required = false) Long eventId) {
+        Long targetEventId = mainEventId != null ? mainEventId : eventId;
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<EventLunchDinner> list = service.getAllLunchDinners(communityId, mainEventId);
+        List<EventLunchDinner> list = service.getAllLunchDinners(communityId, targetEventId);
         return ResponseEntity.ok(list);
     }
 
