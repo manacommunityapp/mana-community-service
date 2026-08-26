@@ -7,6 +7,9 @@ import java.time.LocalDate;
 @Embeddable
 public class EventPoojaSevaDayTimeSlot {
 
+    @Column(name = "id", insertable = false, updatable = false)
+    private Long id;
+
     @Column(name = "slot_date")
     private LocalDate slotDate; // null for single-day events
 
@@ -44,6 +47,9 @@ public class EventPoojaSevaDayTimeSlot {
         this.title = title;
         this.slotCount = slotCount;
     }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
     public LocalDate getSlotDate() { return slotDate; }
     public void setSlotDate(LocalDate slotDate) { this.slotDate = slotDate; }
