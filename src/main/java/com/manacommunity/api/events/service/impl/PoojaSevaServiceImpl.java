@@ -137,6 +137,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                 cur = cur.plusDays(1);
             }
             poojaSeva.setTimeSlotConfig(slots);
+        } else if (poojaSeva.getTimeSlotConfig() != null) {
+            poojaSeva.setTimeSlotConfig(poojaSeva.getTimeSlotConfig());
         }
         EventPoojaSeva saved = repository.save(poojaSeva);
         entityManager.flush();
@@ -211,8 +213,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         if (!resolvedNeedsRegistration) {
             existing.getTimeSlotConfig().clear();
         } else if (updated.getTimeSlotConfig() != null) {
-            existing.getTimeSlotConfig().clear();
-            existing.getTimeSlotConfig().addAll(updated.getTimeSlotConfig());
+            existing.setTimeSlotConfig(updated.getTimeSlotConfig());
         }
         existing.setNotes(updated.getNotes());
         EventPoojaSeva saved = repository.save(existing);

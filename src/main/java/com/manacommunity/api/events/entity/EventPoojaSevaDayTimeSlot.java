@@ -1,14 +1,21 @@
 package com.manacommunity.api.events.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
-@Embeddable
+@Entity
+@Table(name = "event_pooja_seva_time_slots")
 public class EventPoojaSevaDayTimeSlot {
 
-    @Column(name = "id", insertable = false, updatable = false)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pooja_seva_id", nullable = false)
+    @JsonIgnore
+    private EventPoojaSeva poojaSeva;
 
     @Column(name = "slot_date")
     private LocalDate slotDate;
@@ -50,6 +57,9 @@ public class EventPoojaSevaDayTimeSlot {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public EventPoojaSeva getPoojaSeva() { return poojaSeva; }
+    public void setPoojaSeva(EventPoojaSeva poojaSeva) { this.poojaSeva = poojaSeva; }
 
     public LocalDate getSlotDate() { return slotDate; }
     public void setSlotDate(LocalDate slotDate) { this.slotDate = slotDate; }
