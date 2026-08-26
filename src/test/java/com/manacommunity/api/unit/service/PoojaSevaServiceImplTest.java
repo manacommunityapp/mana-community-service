@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.impl.PoojaSevaServiceImpl;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.DisplayName;
@@ -33,8 +34,9 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
         when(repository.save(any(EventPoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Ganesh Puja");
@@ -56,8 +58,9 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
         when(repository.save(any(EventPoojaSeva.class))).thenAnswer(inv -> inv.getArgument(0));
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Festival Archana");
@@ -85,7 +88,8 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(5L);
@@ -104,7 +108,8 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         when(repository.findByCommunityIdAndMainEventIdOrderByDateAscStartTimeAsc(10L, 100L))
@@ -122,7 +127,8 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setName("Ganesh Puja");
@@ -141,7 +147,8 @@ class PoojaSevaServiceImplTest {
         PoojaSevaRepository repository = mock(PoojaSevaRepository.class);
         EventCommunityRepository eventRepository = mock(EventCommunityRepository.class);
         EventBookingRegistrationRepository bookingRepo = mock(EventBookingRegistrationRepository.class);
-        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo);
+        PoojaTypeRepository poojaTypeRepository = mock(PoojaTypeRepository.class);
+        PoojaSevaServiceImpl service = new PoojaSevaServiceImpl(repository, eventRepository, bookingRepo, poojaTypeRepository);
 
         EventPoojaSeva existing = new EventPoojaSeva();
         existing.setId(5L);
