@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -97,19 +99,32 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             poojaTypeRepository.findFirstByNameIgnoreCase(poojaSeva.getType().trim())
                     .ifPresent(pt -> poojaSeva.setPoojaTypeId(pt.getId()));
         }
-        if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
+        if (poojaSeva.getNeedsRegistration() == null) {
+            poojaSeva.setNeedsRegistration(true);
+        }
+        if (Boolean.FALSE.equals(poojaSeva.getNeedsRegistration())) {
+            if (poojaSeva.getTimeSlotConfig() != null) {
+                poojaSeva.getTimeSlotConfig().clear();
+            }
+        } else if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
                 && poojaSeva.getDate() != null
                 && poojaSeva.getEndDate() != null
                 && poojaSeva.getStartTimes() != null
                 && !poojaSeva.getStartTimes().isEmpty()
                 && (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty())) {
             List<EventPoojaSevaDayTimeSlot> slots = new java.util.ArrayList<>();
+            DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
             LocalDate cur = poojaSeva.getDate();
             while (!cur.isAfter(poojaSeva.getEndDate())) {
                 for (String time : poojaSeva.getStartTimes()) {
+                    String endTime = null;
+                    if (poojaSeva.getDuration() != null && poojaSeva.getDuration() > 0) {
+                        endTime = LocalTime.parse(time, hhmm).plusMinutes(poojaSeva.getDuration()).format(hhmm);
+                    }
                     slots.add(new EventPoojaSevaDayTimeSlot(
                             cur,
                             time,
+                            endTime,
                             poojaSeva.getName(),
                             poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 0
                     ));
@@ -117,9 +132,6 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                 cur = cur.plusDays(1);
             }
             poojaSeva.setTimeSlotConfig(slots);
-        }
-        if (poojaSeva.getNeedsRegistration() == null) {
-            poojaSeva.setNeedsRegistration(true);
         }
         return repository.save(poojaSeva);
     }
@@ -174,7 +186,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setSlots(updated.getSlots());
         existing.setFee(updated.getFee());
         existing.setIsFree(updated.getIsFree());
-        existing.setNeedsRegistration(updated.getNeedsRegistration() != null ? updated.getNeedsRegistration() : true);
+        boolean resolvedNeedsRegistration = updated.getNeedsRegistration() != null ? updated.getNeedsRegistration() : true;
+        existing.setNeedsRegistration(resolvedNeedsRegistration);
         if (updated.getItems() != null) {
             existing.getItems().clear();
             existing.getItems().addAll(updated.getItems());
@@ -187,7 +200,9 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             existing.getDaySlots().clear();
             existing.getDaySlots().addAll(updated.getDaySlots());
         }
-        if (updated.getTimeSlotConfig() != null) {
+        if (!resolvedNeedsRegistration) {
+            existing.getTimeSlotConfig().clear();
+        } else if (updated.getTimeSlotConfig() != null) {
             existing.getTimeSlotConfig().clear();
             existing.getTimeSlotConfig().addAll(updated.getTimeSlotConfig());
         }
