@@ -125,6 +125,10 @@ public class EventPoojaUserRegistration {
     @Column(name = "pooja_seva_time_slots_id")
     private Long poojaSevaTimeSlotsId;
 
+    /** Token number assigned at reservation time — persisted here so it remains available after the reservation row is purged. */
+    @Column(name = "token_number")
+    private Integer tokenNumber;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -141,6 +145,9 @@ public class EventPoojaUserRegistration {
 
     public Long getPoojaSevaTimeSlotsId() { return poojaSevaTimeSlotsId; }
     public void setPoojaSevaTimeSlotsId(Long poojaSevaTimeSlotsId) { this.poojaSevaTimeSlotsId = poojaSevaTimeSlotsId; }
+
+    public Integer getTokenNumber() { return tokenNumber; }
+    public void setTokenNumber(Integer tokenNumber) { this.tokenNumber = tokenNumber; }
 
     @PrePersist
     public void prePersist() {

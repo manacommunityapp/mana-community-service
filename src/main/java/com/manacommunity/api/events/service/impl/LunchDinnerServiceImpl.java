@@ -92,8 +92,12 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
             existing.setMenuItems(updated.getMenuItems());
         }
         existing.setNotes(updated.getNotes());
+        if (updated.getNeedsRegistration() != null) {
+            existing.setNeedsRegistration(updated.getNeedsRegistration());
+        }
         return repository.save(existing);
     }
+
 
     private void validateDateWithinParentEvent(Long mainEventId, LocalDate date) {
         if (mainEventId == null || date == null) return;

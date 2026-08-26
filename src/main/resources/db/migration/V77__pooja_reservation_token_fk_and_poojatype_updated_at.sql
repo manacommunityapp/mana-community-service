@@ -1,4 +1,4 @@
--- V75: token_number on pooja_slot_reservation, FK for reservation_id, updated_at on event_pooja_types
+-- V77: token_number on event_pooja_slot_reservation, FK for reservation_id, updated_at on event_pooja_types
 
 -- #12: Store token number on the reservation row so it can be returned on idempotency hits
 ALTER TABLE event_pooja_slot_reservation

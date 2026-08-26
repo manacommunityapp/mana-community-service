@@ -59,10 +59,10 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     @Transactional
     public PoojaReserveResponse reserve(Long scheduleId, PoojaReserveRequest req, AppUser user) {
 
-        // ── Idempotency: return existing reservation if the same key was already used ──
+        // ── Idempotency: return existing reservation for the same key + same schedule (M-2) ──
         if (req.getIdempotencyKey() != null && !req.getIdempotencyKey().isBlank()) {
             Optional<EventPoojaSlotReservation> existing =
-                    reservationRepo.findByIdempotencyKey(req.getIdempotencyKey());
+                    reservationRepo.findByIdempotencyKeyAndScheduleId(req.getIdempotencyKey(), scheduleId);
             if (existing.isPresent()) {
                 EventPoojaSlotReservation r = existing.get();
                 return PoojaReserveResponse.builder()
@@ -73,7 +73,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                         .reservedDevoteeCount(r.getReservedDevoteeCount())
                         .expiresAt(r.getExpiresAt())
                         .status(r.getStatus().name())
-                        .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0) // #12
+                        .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
                         .build();
             }
         }

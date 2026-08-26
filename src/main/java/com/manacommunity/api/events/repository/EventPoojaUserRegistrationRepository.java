@@ -20,6 +20,8 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
 
     Optional<EventPoojaUserRegistration> findByRegCode(String regCode);
 
+    boolean existsByRegCode(String regCode);
+
     Optional<EventPoojaUserRegistration> findByIdAndUserId(Long id, Long userId);
 
     long countByEventIdAndStatusNot(Long eventId, String status);
@@ -39,4 +41,26 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
            WHERE r.scheduleId = :scheduleId AND r.status NOT IN ('CANCELLED')
            """)
     int sumDevoteeCountByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * M-3: Count non-cancelled registrations for a schedule that have NO reservation
+     * (admin-direct adds, legacy imports).  These are invisible to the reservation-based
+     * availability calc and must be subtracted separately.
+     */
+    @Query("""
+           SELECT COUNT(r) FROM EventPoojaUserRegistration r
+           WHERE r.scheduleId = :scheduleId
+             AND r.reservationId IS NULL
+             AND r.status NOT IN ('CANCELLED')
+           """)
+    long countDirectRegistrationsByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /** M-3: Sum of devoteeCount for direct (no-reservation) registrations against a schedule. */
+    @Query("""
+           SELECT COALESCE(SUM(r.devoteeCount), 0) FROM EventPoojaUserRegistration r
+           WHERE r.scheduleId = :scheduleId
+             AND r.reservationId IS NULL
+             AND r.status NOT IN ('CANCELLED')
+           """)
+    int sumDirectDevoteesByScheduleId(@Param("scheduleId") Long scheduleId);
 }

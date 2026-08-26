@@ -3,9 +3,11 @@ package com.manacommunity.api.events.service.impl;
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.entity.EventPoojaSchedule;
+import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
@@ -28,18 +30,21 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final PoojaSlotReservationService reservationService;
     private final EventPoojaScheduleRepository scheduleRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final EventPoojaSlotReservationRepository slotReservationRepository;
 
     public EventPoojaUserRegistrationServiceImpl(
             EventPoojaUserRegistrationRepository repository,
             CommunityRepository communityRepository,
             PoojaSlotReservationService reservationService,
             EventPoojaScheduleRepository scheduleRepository,
-            EventRegistrationRepository eventRegistrationRepository) {
+            EventRegistrationRepository eventRegistrationRepository,
+            EventPoojaSlotReservationRepository slotReservationRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
         this.eventRegistrationRepository = eventRegistrationRepository;
+        this.slotReservationRepository = slotReservationRepository;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -103,7 +108,13 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         }
 
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
-            String code = "MNA-2026-POOJ-" + (1000 + new Random().nextInt(9000));
+            int year = java.time.LocalDate.now().getYear();
+            String code;
+            int attempts = 0;
+            do {
+                code = "MNA-" + year + "-POOJ-" + (1000 + new Random().nextInt(9000));
+                attempts++;
+            } while (repository.existsByRegCode(code) && attempts < 10);
             registration.setRegCode(code);
         }
 
@@ -139,6 +150,13 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             scheduleRepository.findById(registration.getScheduleId())
                     .map(EventPoojaSchedule::getTimeSlotConfigId)
                     .ifPresent(registration::setPoojaSevaTimeSlotsId);
+        }
+
+        // Populate token number from reservation before first save (L-2)
+        if (registration.getTokenNumber() == null && registration.getReservationId() != null) {
+            slotReservationRepository.findById(registration.getReservationId())
+                    .map(EventPoojaSlotReservation::getTokenNumber)
+                    .ifPresent(registration::setTokenNumber);
         }
 
         EventPoojaUserRegistration saved = repository.save(registration);
@@ -256,9 +274,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         // Update registration with new schedule details
         reg.setScheduleId(newScheduleId);
         reg.setReservationId(newReservation.getReservationId());
+        reg.setTokenNumber(newReservation.getTokenNumber());
         scheduleRepository.findById(newScheduleId).ifPresent(sch -> {
             reg.setPoojaSlotDate(sch.getScheduleDate().toString());
             reg.setPoojaSlotTime(sch.getStartTime().toString());
+            // M-4: keep poojaSevaTimeSlotsId in sync with the new schedule's time-slot config
+            if (sch.getTimeSlotConfigId() != null) {
+                reg.setPoojaSevaTimeSlotsId(sch.getTimeSlotConfigId());
+            }
         });
 
         return repository.save(reg);

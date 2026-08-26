@@ -66,6 +66,9 @@ public class EventPoojaSeva {
     @Column(name = "is_free")
     private Boolean isFree = false;
 
+    @Column(name = "needs_registration")
+    private Boolean needsRegistration = true;
+
     @ElementCollection
     @CollectionTable(name = "event_pooja_seva_items", joinColumns = @JoinColumn(name = "pooja_seva_id"))
     @Column(name = "item_name")
@@ -239,4 +242,8 @@ public class EventPoojaSeva {
     public void setSankalpamRequired(Boolean v) { this.sankalpamRequired = v; }
     public Boolean getApprovalRequired() { return approvalRequired; }
     public void setApprovalRequired(Boolean v) { this.approvalRequired = v; }
+
+    public Boolean getNeedsRegistration() { return needsRegistration; }
+    public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
 }
+

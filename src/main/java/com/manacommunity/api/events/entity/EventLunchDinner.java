@@ -56,6 +56,9 @@ public class EventLunchDinner extends BaseAuditEntity {
     @Column(name = "is_free")
     private Boolean isFree = true;
 
+    @Column(name = "needs_registration")
+    private Boolean needsRegistration = true;
+
     @ElementCollection
     @CollectionTable(name = "event_lunch_dinner_menu_items", joinColumns = @JoinColumn(name = "lunch_dinner_id"))
     @Column(name = "menu_item")
@@ -112,4 +115,8 @@ public class EventLunchDinner extends BaseAuditEntity {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public Boolean getNeedsRegistration() { return needsRegistration; }
+    public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
 }
+

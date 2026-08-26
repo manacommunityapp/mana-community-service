@@ -90,8 +90,12 @@ public class CompetitionServiceImpl implements CompetitionService {
         existing.setRules(updated.getRules());
         existing.setIsTeamEvent(updated.getIsTeamEvent());
         existing.setTeamSize(updated.getTeamSize());
+        if (updated.getNeedsRegistration() != null) {
+            existing.setNeedsRegistration(updated.getNeedsRegistration());
+        }
         return repository.save(existing);
     }
+
 
     private void validateDateWithinParentEvent(Long mainEventId, LocalDate date) {
         if (mainEventId == null || date == null) return;

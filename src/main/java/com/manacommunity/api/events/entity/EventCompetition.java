@@ -60,6 +60,9 @@ public class EventCompetition extends BaseAuditEntity {
     @Column(name = "team_size")
     private Integer teamSize = 1;
 
+    @Column(name = "needs_registration")
+    private Boolean needsRegistration = true;
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -108,4 +111,8 @@ public class EventCompetition extends BaseAuditEntity {
 
     public Integer getTeamSize() { return teamSize; }
     public void setTeamSize(Integer teamSize) { this.teamSize = teamSize; }
+
+    public Boolean getNeedsRegistration() { return needsRegistration; }
+    public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
 }
+

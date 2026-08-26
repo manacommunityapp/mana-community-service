@@ -288,8 +288,12 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         int confirmedDevotees  = reservationRepo.sumConfirmedDevotees(s.getId());
         int reservedDevotees   = reservationRepo.sumActiveReservedDevotees(s.getId(), now);
 
-        int availFamilies  = Math.max(0, s.getFamilyCapacity()  - confirmedFamilies  - reservedFamilies);
-        int availDevotees  = Math.max(0, s.getDevoteeCapacity() - confirmedDevotees  - reservedDevotees);
+        // M-3: also count admin-direct registrations that have no reservation row
+        int directFamilies = (int) registrationRepo.countDirectRegistrationsByScheduleId(s.getId());
+        int directDevotees = registrationRepo.sumDirectDevoteesByScheduleId(s.getId());
+
+        int availFamilies  = Math.max(0, s.getFamilyCapacity()  - confirmedFamilies  - reservedFamilies  - directFamilies);
+        int availDevotees  = Math.max(0, s.getDevoteeCapacity() - confirmedDevotees  - reservedDevotees  - directDevotees);
 
         return PoojaScheduleDto.builder()
                 .id(s.getId())
