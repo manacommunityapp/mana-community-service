@@ -118,6 +118,9 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             }
             poojaSeva.setTimeSlotConfig(slots);
         }
+        if (poojaSeva.getNeedsRegistration() == null) {
+            poojaSeva.setNeedsRegistration(true);
+        }
         return repository.save(poojaSeva);
     }
 
@@ -171,11 +174,12 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setSlots(updated.getSlots());
         existing.setFee(updated.getFee());
         existing.setIsFree(updated.getIsFree());
+        existing.setNeedsRegistration(updated.getNeedsRegistration() != null ? updated.getNeedsRegistration() : true);
         if (updated.getItems() != null) {
             existing.getItems().clear();
             existing.getItems().addAll(updated.getItems());
         }
-        if (updated.getStartTimes() != null) {
+        if (updated.getStartTimes() != null && !updated.getStartTimes().isEmpty()) {
             existing.getStartTimes().clear();
             existing.getStartTimes().addAll(updated.getStartTimes());
         }
@@ -190,6 +194,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setNotes(updated.getNotes());
         return repository.save(existing);
     }
+
 
     @Override
     public void deletePoojaSeva(Long id, Long communityId) {

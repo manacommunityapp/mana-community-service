@@ -124,9 +124,15 @@ public class PoojaScheduleController {
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<PoojaScheduleDto> updateStatus(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        PoojaScheduleStatus status = PoojaScheduleStatus.valueOf(body.get("status"));
-        return ResponseEntity.ok(scheduleService.updateStatus(id, status));
+            @RequestParam(required = false) String status,
+            @RequestBody(required = false) Map<String, String> body) {
+        // Accept status as either a query-param or a JSON body field for compatibility
+        String resolved = (status != null && !status.isBlank()) ? status
+                : (body != null ? body.get("status") : null);
+        if (resolved == null || resolved.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(scheduleService.updateStatus(id, PoojaScheduleStatus.valueOf(resolved)));
     }
 
     @DeleteMapping("/{id}")

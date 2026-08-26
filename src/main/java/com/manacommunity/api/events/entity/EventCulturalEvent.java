@@ -53,6 +53,9 @@ public class EventCulturalEvent extends BaseAuditEntity {
     @Column(name = "has_live_music")
     private Boolean hasLiveMusic = false;
 
+    @Column(name = "needs_registration")
+    private Boolean needsRegistration = true;
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -95,4 +98,8 @@ public class EventCulturalEvent extends BaseAuditEntity {
 
     public Boolean getHasLiveMusic() { return hasLiveMusic; }
     public void setHasLiveMusic(Boolean hasLiveMusic) { this.hasLiveMusic = hasLiveMusic; }
+
+    public Boolean getNeedsRegistration() { return needsRegistration; }
+    public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
 }
+

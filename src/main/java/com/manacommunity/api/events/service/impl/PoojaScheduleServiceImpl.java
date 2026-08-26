@@ -57,6 +57,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .familyCapacity(req.getFamilyCapacity() != null ? req.getFamilyCapacity() : 10)
                 .devoteeCapacity(req.getDevoteeCapacity() != null ? req.getDevoteeCapacity() : 30)
                 .status(req.getStatus() != null ? req.getStatus() : PoojaScheduleStatus.OPEN)
+                .timeSlotConfigId(req.getTimeSlotConfigId())
                 .build();
 
         EventPoojaSchedule saved = scheduleRepo.save(schedule);
@@ -143,6 +144,10 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                         java.time.LocalTime sTime = parseLocalTime(slot.getStartTime());
                         if (sDate != null && sTime != null && sDate.equals(sch.getScheduleDate()) && sTime.equals(sch.getStartTime())) {
                             expectedCap = slot.getSlotCount() != null ? slot.getSlotCount() : (seva.getSlots() != null ? seva.getSlots() : 30);
+                            if (sch.getTimeSlotConfigId() == null && slot.getId() != null) {
+                                sch.setTimeSlotConfigId(slot.getId());
+                                updated = true;
+                            }
                             break;
                         }
                     }
@@ -176,6 +181,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                                 .devoteeCapacity(Math.max(1, cap))
                                 .status(PoojaScheduleStatus.OPEN)
                                 .notes(slot.getTitle())
+                                .timeSlotConfigId(slot.getId())
                                 .build());
                     }
                 }
@@ -271,6 +277,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .nextTokenSeq(s.getNextTokenSeq())
                 .availableFamilies(s.getFamilyCapacity())
                 .availableDevotees(s.getDevoteeCapacity())
+                .timeSlotConfigId(s.getTimeSlotConfigId())
                 .build();
     }
 
@@ -281,8 +288,12 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         int confirmedDevotees  = reservationRepo.sumConfirmedDevotees(s.getId());
         int reservedDevotees   = reservationRepo.sumActiveReservedDevotees(s.getId(), now);
 
-        int availFamilies  = Math.max(0, s.getFamilyCapacity()  - confirmedFamilies  - reservedFamilies);
-        int availDevotees  = Math.max(0, s.getDevoteeCapacity() - confirmedDevotees  - reservedDevotees);
+        // M-3: also count admin-direct registrations that have no reservation row
+        int directFamilies = (int) registrationRepo.countDirectRegistrationsByScheduleId(s.getId());
+        int directDevotees = registrationRepo.sumDirectDevoteesByScheduleId(s.getId());
+
+        int availFamilies  = Math.max(0, s.getFamilyCapacity()  - confirmedFamilies  - reservedFamilies  - directFamilies);
+        int availDevotees  = Math.max(0, s.getDevoteeCapacity() - confirmedDevotees  - reservedDevotees  - directDevotees);
 
         return PoojaScheduleDto.builder()
                 .id(s.getId())
@@ -297,6 +308,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .nextTokenSeq(s.getNextTokenSeq())
                 .availableFamilies(availFamilies)
                 .availableDevotees(availDevotees)
+                .timeSlotConfigId(s.getTimeSlotConfigId())
                 .build();
     }
 }

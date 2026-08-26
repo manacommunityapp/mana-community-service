@@ -92,6 +92,14 @@ public interface EventPoojaSlotReservationRepository extends JpaRepository<Event
 
     Optional<EventPoojaSlotReservation> findByIdempotencyKey(String key);
 
+    /** M-2: Scope idempotency lookup to the specific schedule so a retried key can't lock out a different slot. */
+    @Query("""
+           SELECT r FROM EventPoojaSlotReservation r
+           WHERE r.idempotencyKey = :key AND r.schedule.id = :scheduleId
+           """)
+    Optional<EventPoojaSlotReservation> findByIdempotencyKeyAndScheduleId(
+            @Param("key") String key, @Param("scheduleId") Long scheduleId);
+
     Optional<EventPoojaSlotReservation> findByRegistrationId(Long registrationId);
 
     List<EventPoojaSlotReservation> findByScheduleIdOrderByCreatedAtDesc(Long scheduleId);

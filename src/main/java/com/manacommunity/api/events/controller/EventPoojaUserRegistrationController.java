@@ -35,6 +35,7 @@ public class EventPoojaUserRegistrationController {
     }
 
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EventPoojaUserRegistration> createRegistration(
             @RequestBody EventPoojaUserRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,

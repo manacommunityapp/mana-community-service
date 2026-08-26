@@ -88,8 +88,12 @@ public class CulturalEventServiceImpl implements CulturalEventService {
         existing.setRequirements(updated.getRequirements());
         existing.setHasBacktrack(updated.getHasBacktrack());
         existing.setHasLiveMusic(updated.getHasLiveMusic());
+        if (updated.getNeedsRegistration() != null) {
+            existing.setNeedsRegistration(updated.getNeedsRegistration());
+        }
         return repository.save(existing);
     }
+
 
     private void validateDateWithinParentEvent(Long mainEventId, LocalDate date) {
         if (mainEventId == null || date == null) return;
