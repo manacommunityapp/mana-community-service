@@ -1,14 +1,13 @@
 package com.manacommunity.api.events.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "event_pooja_seva_time_slots")
+@Embeddable
 public class EventPoojaSevaDayTimeSlot {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", insertable = false, updatable = false)
     private Long id;
 
     @Column(name = "slot_date")
