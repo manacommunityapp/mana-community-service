@@ -5,6 +5,7 @@ import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
@@ -25,16 +26,19 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final CommunityRepository communityRepository;
     private final PoojaSlotReservationService reservationService;
     private final EventPoojaScheduleRepository scheduleRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
 
     public EventPoojaUserRegistrationServiceImpl(
             EventPoojaUserRegistrationRepository repository,
             CommunityRepository communityRepository,
             PoojaSlotReservationService reservationService,
-            EventPoojaScheduleRepository scheduleRepository) {
+            EventPoojaScheduleRepository scheduleRepository,
+            EventRegistrationRepository eventRegistrationRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
+        this.eventRegistrationRepository = eventRegistrationRepository;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -64,6 +68,22 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
 
         if (communityId != null) {
             communityRepository.findById(communityId).ifPresent(registration::setCommunity);
+        }
+
+        // Enforce mandatory parent main event registration check if pooja belongs to a main event
+        if (!adminOverride && user != null) {
+            Long targetMainEventId = registration.getEventId();
+            if ((targetMainEventId == null || targetMainEventId == 0) && registration.getScheduleId() != null) {
+                targetMainEventId = scheduleRepository.findById(registration.getScheduleId())
+                        .map(s -> s.getPoojaSeva() != null ? s.getPoojaSeva().getMainEventId() : null)
+                        .orElse(null);
+            }
+            if (targetMainEventId != null && targetMainEventId > 0) {
+                boolean isMainRegistered = eventRegistrationRepository.existsByEventIdAndUserId(targetMainEventId, user.getId());
+                if (!isMainRegistered) {
+                    throw new IllegalArgumentException("Registration for the main event is required before booking this Pooja Seva. Please register for the main event first.");
+                }
+            }
         }
 
         // #1: Duplicate registration guard — skipped when adminOverride=true (#4)

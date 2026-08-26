@@ -105,23 +105,114 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PoojaScheduleDto> getByPooja(Long poojaId) {
-        return scheduleRepo.findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(poojaId)
-                .stream().map(this::toDtoWithLiveAvailability).toList();
+        List<EventPoojaSchedule> schedules = ensureSchedulesExist(poojaId);
+        return schedules.stream().map(this::toDtoWithLiveAvailability).toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PoojaScheduleDto> getByPoojaAndDate(Long poojaId, LocalDate date) {
+        ensureSchedulesExist(poojaId);
         return scheduleRepo.findByPoojaSeva_IdAndScheduleDateOrderByStartTimeAsc(poojaId, date)
                 .stream().map(this::toDtoWithLiveAvailability).toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<LocalDate> getAvailableDates(Long poojaId) {
+        ensureSchedulesExist(poojaId);
         return scheduleRepo.findAvailableDatesByPoojaId(poojaId);
+    }
+
+    private List<EventPoojaSchedule> ensureSchedulesExist(Long poojaId) {
+        List<EventPoojaSchedule> existing = scheduleRepo.findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(poojaId);
+        if (!existing.isEmpty()) {
+            return existing;
+        }
+        EventPoojaSeva seva = poojaSevaRepo.findById(poojaId).orElse(null);
+        if (seva == null) {
+            return List.of();
+        }
+
+        List<EventPoojaSchedule> toSave = new java.util.ArrayList<>();
+        if (seva.getTimeSlotConfig() != null && !seva.getTimeSlotConfig().isEmpty()) {
+            for (var slot : seva.getTimeSlotConfig()) {
+                LocalDate sDate = slot.getSlotDate() != null ? slot.getSlotDate() : seva.getDate();
+                java.time.LocalTime sTime = parseLocalTime(slot.getStartTime());
+                if (sDate != null && sTime != null) {
+                    if (scheduleRepo.findByPoojaSeva_IdAndScheduleDateAndStartTime(seva.getId(), sDate, sTime).isEmpty()) {
+                        int cap = slot.getSlotCount() != null ? slot.getSlotCount() : (seva.getSlots() != null ? seva.getSlots() : 30);
+                        toSave.add(EventPoojaSchedule.builder()
+                                .poojaSeva(seva)
+                                .communityId(seva.getCommunityId())
+                                .scheduleDate(sDate)
+                                .startTime(sTime)
+                                .familyCapacity(Math.max(1, cap / 3))
+                                .devoteeCapacity(Math.max(1, cap))
+                                .status(PoojaScheduleStatus.OPEN)
+                                .notes(slot.getTitle())
+                                .build());
+                    }
+                }
+            }
+        } else if (seva.getDate() != null) {
+            List<String> times = (seva.getStartTimes() != null && !seva.getStartTimes().isEmpty())
+                    ? seva.getStartTimes()
+                    : (seva.getStartTime() != null ? List.of(seva.getStartTime().toString()) : List.of("08:30"));
+            LocalDate cur = seva.getDate();
+            LocalDate end = seva.getEndDate() != null ? seva.getEndDate() : cur;
+            while (!cur.isAfter(end)) {
+                for (String tStr : times) {
+                    java.time.LocalTime sTime = parseLocalTime(tStr);
+                    if (sTime != null) {
+                        if (scheduleRepo.findByPoojaSeva_IdAndScheduleDateAndStartTime(seva.getId(), cur, sTime).isEmpty()) {
+                            int cap = seva.getSlots() != null ? seva.getSlots() : 30;
+                            toSave.add(EventPoojaSchedule.builder()
+                                    .poojaSeva(seva)
+                                    .communityId(seva.getCommunityId())
+                                    .scheduleDate(cur)
+                                    .startTime(sTime)
+                                    .familyCapacity(Math.max(1, cap / 3))
+                                    .devoteeCapacity(Math.max(1, cap))
+                                    .status(PoojaScheduleStatus.OPEN)
+                                    .build());
+                        }
+                    }
+                }
+                cur = cur.plusDays(1);
+            }
+        }
+
+        if (!toSave.isEmpty()) {
+            scheduleRepo.saveAll(toSave);
+            return scheduleRepo.findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(poojaId);
+        }
+        return existing;
+    }
+
+    private java.time.LocalTime parseLocalTime(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) return java.time.LocalTime.of(8, 30);
+        String clean = timeStr.trim().toUpperCase();
+        try {
+            if (clean.endsWith("AM") || clean.endsWith("PM")) {
+                boolean isPm = clean.endsWith("PM");
+                String raw = clean.replace("AM", "").replace("PM", "").trim();
+                String[] parts = raw.split(":");
+                int hr = Integer.parseInt(parts[0]);
+                int min = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+                if (isPm && hr < 12) hr += 12;
+                if (!isPm && hr == 12) hr = 0;
+                return java.time.LocalTime.of(hr, min);
+            }
+            String[] parts = clean.split(":");
+            int hr = Integer.parseInt(parts[0]);
+            int min = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            return java.time.LocalTime.of(hr, min);
+        } catch (Exception e) {
+            return java.time.LocalTime.of(8, 30);
+        }
     }
 
     @Override

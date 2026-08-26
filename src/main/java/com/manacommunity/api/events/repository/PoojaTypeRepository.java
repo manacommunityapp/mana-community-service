@@ -19,5 +19,7 @@ public interface PoojaTypeRepository extends JpaRepository<EventPoojaType, Long>
 
     Optional<EventPoojaType> findByNameIgnoreCaseAndCommunityId(String name, Long communityId);
 
+    Optional<EventPoojaType> findFirstByNameIgnoreCase(String name);
+
     boolean existsByNameIgnoreCase(String name);
 }
