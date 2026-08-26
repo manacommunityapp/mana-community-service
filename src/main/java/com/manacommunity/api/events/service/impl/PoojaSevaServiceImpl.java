@@ -137,8 +137,6 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                 cur = cur.plusDays(1);
             }
             poojaSeva.setTimeSlotConfig(slots);
-        } else if (poojaSeva.getTimeSlotConfig() != null) {
-            poojaSeva.setTimeSlotConfig(poojaSeva.getTimeSlotConfig());
         }
         return repository.save(poojaSeva);
     }

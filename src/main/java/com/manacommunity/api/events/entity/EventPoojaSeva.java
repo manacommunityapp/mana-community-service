@@ -84,7 +84,8 @@ public class EventPoojaSeva {
     @jakarta.persistence.OrderBy("slotDate ASC")
     private List<EventPoojaSevaDaySlot> daySlots = new ArrayList<>();
 
-    @OneToMany(mappedBy = "poojaSeva", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @ElementCollection
+    @CollectionTable(name = "event_pooja_seva_time_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
     @jakarta.persistence.OrderBy("slotDate ASC, startTime ASC")
     private List<EventPoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
 
@@ -214,15 +215,7 @@ public class EventPoojaSeva {
 
     public List<EventPoojaSevaDayTimeSlot> getTimeSlotConfig() { return timeSlotConfig; }
     public void setTimeSlotConfig(List<EventPoojaSevaDayTimeSlot> timeSlotConfig) {
-        this.timeSlotConfig = new ArrayList<>();
-        if (timeSlotConfig != null) {
-            for (EventPoojaSevaDayTimeSlot slot : timeSlotConfig) {
-                if (slot != null) {
-                    slot.setPoojaSeva(this);
-                    this.timeSlotConfig.add(slot);
-                }
-            }
-        }
+        this.timeSlotConfig = timeSlotConfig != null ? timeSlotConfig : new ArrayList<>();
     }
 
     public String getNotes() { return notes; }
