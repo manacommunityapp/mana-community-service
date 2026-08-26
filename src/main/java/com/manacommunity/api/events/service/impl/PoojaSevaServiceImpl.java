@@ -110,6 +110,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     slots.add(new EventPoojaSevaDayTimeSlot(
                             cur,
                             time,
+                            poojaSeva.getName(),
                             poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 0
                     ));
                 }
