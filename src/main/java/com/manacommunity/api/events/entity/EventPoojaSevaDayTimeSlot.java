@@ -1,26 +1,27 @@
 package com.manacommunity.api.events.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
-@Embeddable
+@Entity
+@Table(name = "event_pooja_seva_time_slots")
 public class EventPoojaSevaDayTimeSlot {
 
-    @Column(name = "id", insertable = false, updatable = false)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "slot_date")
-    private LocalDate slotDate; // null for single-day events
+    private LocalDate slotDate;
 
     @Column(name = "start_time", length = 20)
-    private String startTime; // e.g. "08:30"
+    private String startTime;
 
     @Column(name = "end_time", length = 20)
-    private String endTime; // e.g. "10:00"
+    private String endTime;
 
     @Column(name = "title", length = 200)
-    private String title; // slot name / title e.g. "Morning Abhishekam"
+    private String title;
 
     @Column(name = "slot_count")
     private Integer slotCount;

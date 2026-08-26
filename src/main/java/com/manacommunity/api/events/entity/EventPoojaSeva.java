@@ -84,9 +84,9 @@ public class EventPoojaSeva {
     @jakarta.persistence.OrderBy("slotDate ASC")
     private List<EventPoojaSevaDaySlot> daySlots = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "event_pooja_seva_time_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
-    @jakarta.persistence.OrderBy("slotDate ASC, startTime ASC")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "pooja_seva_id")
+    @OrderBy("slotDate ASC, startTime ASC")
     private List<EventPoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
 
     @Column(name = "notes", length = 1000)
