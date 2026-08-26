@@ -30,4 +30,7 @@ public class PoojaScheduleRequest {
     private Integer devoteeCapacity;
 
     private PoojaScheduleStatus status;
+
+    /** Optional: link this schedule to the event_pooja_seva_time_slots row it was created from. */
+    private Long timeSlotConfigId;
 }

@@ -121,6 +121,10 @@ public class EventPoojaUserRegistration {
     @Column(name = "reservation_id")
     private Long reservationId;
 
+    /** FK to event_pooja_seva_time_slots — the specific time slot config row the devotee booked. */
+    @Column(name = "pooja_seva_time_slots_id")
+    private Long poojaSevaTimeSlotsId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -134,6 +138,9 @@ public class EventPoojaUserRegistration {
     @LastModifiedBy
     @Column(name = "updated_by")
     private Long updatedBy;
+
+    public Long getPoojaSevaTimeSlotsId() { return poojaSevaTimeSlotsId; }
+    public void setPoojaSevaTimeSlotsId(Long poojaSevaTimeSlotsId) { this.poojaSevaTimeSlotsId = poojaSevaTimeSlotsId; }
 
     @PrePersist
     public void prePersist() {

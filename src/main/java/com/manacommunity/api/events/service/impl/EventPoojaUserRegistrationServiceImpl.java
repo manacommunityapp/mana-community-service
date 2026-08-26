@@ -2,6 +2,7 @@ package com.manacommunity.api.events.service.impl;
 
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
+import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
@@ -133,6 +134,13 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             registration.setPaymentStatus("PAID");
         }
 
+        // Auto-populate poojaSevaTimeSlotsId from the schedule when the booking engine path is used
+        if (registration.getPoojaSevaTimeSlotsId() == null && registration.getScheduleId() != null) {
+            scheduleRepository.findById(registration.getScheduleId())
+                    .map(EventPoojaSchedule::getTimeSlotConfigId)
+                    .ifPresent(registration::setPoojaSevaTimeSlotsId);
+        }
+
         EventPoojaUserRegistration saved = repository.save(registration);
 
         // Confirm the pre-hold so capacity is counted as confirmed, not reserved
@@ -175,6 +183,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         if (patch.getPrasadamMode() != null) existing.setPrasadamMode(patch.getPrasadamMode());
         if (patch.getStatus() != null) existing.setStatus(patch.getStatus());
         if (patch.getNotes() != null) existing.setNotes(patch.getNotes());
+        if (patch.getPoojaSevaTimeSlotsId() != null) existing.setPoojaSevaTimeSlotsId(patch.getPoojaSevaTimeSlotsId());
 
         return repository.save(existing);
     }

@@ -28,4 +28,7 @@ public class PoojaScheduleDto {
     private int availableDevotees;
 
     private int nextTokenSeq;
+
+    /** ID of the event_pooja_seva_time_slots row this schedule was generated from. Null for manually created schedules. */
+    private Long timeSlotConfigId;
 }

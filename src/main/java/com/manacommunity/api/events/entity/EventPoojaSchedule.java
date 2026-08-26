@@ -66,6 +66,10 @@ public class EventPoojaSchedule {
     @Column(name = "notes", length = 500)
     private String notes;
 
+    /** FK to event_pooja_seva_time_slots — the config row this schedule was generated from. Null for manually created schedules. */
+    @Column(name = "time_slot_config_id")
+    private Long timeSlotConfigId;
+
     /** Running sequence for Sankalpam token numbers within this slot (1-based). */
     @Column(name = "next_token_seq", nullable = false)
     @Builder.Default
