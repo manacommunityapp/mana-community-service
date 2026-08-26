@@ -10,6 +10,8 @@ import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,9 @@ import java.util.List;
 @Service
 @Transactional
 public class PoojaSevaServiceImpl implements PoojaSevaService {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final PoojaSevaRepository repository;
     private final EventCommunityRepository eventRepository;
@@ -133,7 +138,10 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             }
             poojaSeva.setTimeSlotConfig(slots);
         }
-        return repository.save(poojaSeva);
+        EventPoojaSeva saved = repository.save(poojaSeva);
+        entityManager.flush();
+        entityManager.refresh(saved);
+        return saved;
     }
 
     @Override
@@ -207,7 +215,10 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             existing.getTimeSlotConfig().addAll(updated.getTimeSlotConfig());
         }
         existing.setNotes(updated.getNotes());
-        return repository.save(existing);
+        EventPoojaSeva saved = repository.save(existing);
+        entityManager.flush();
+        entityManager.refresh(saved);
+        return saved;
     }
 
 
