@@ -127,13 +127,36 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
     }
 
     private List<EventPoojaSchedule> ensureSchedulesExist(Long poojaId) {
-        List<EventPoojaSchedule> existing = scheduleRepo.findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(poojaId);
-        if (!existing.isEmpty()) {
-            return existing;
-        }
         EventPoojaSeva seva = poojaSevaRepo.findById(poojaId).orElse(null);
         if (seva == null) {
             return List.of();
+        }
+
+        List<EventPoojaSchedule> existing = scheduleRepo.findByPoojaSeva_IdOrderByScheduleDateAscStartTimeAsc(poojaId);
+        if (!existing.isEmpty()) {
+            boolean updated = false;
+            for (var sch : existing) {
+                int expectedCap = seva.getSlots() != null ? seva.getSlots() : 30;
+                if (seva.getTimeSlotConfig() != null && !seva.getTimeSlotConfig().isEmpty()) {
+                    for (var slot : seva.getTimeSlotConfig()) {
+                        LocalDate sDate = slot.getSlotDate() != null ? slot.getSlotDate() : seva.getDate();
+                        java.time.LocalTime sTime = parseLocalTime(slot.getStartTime());
+                        if (sDate != null && sTime != null && sDate.equals(sch.getScheduleDate()) && sTime.equals(sch.getStartTime())) {
+                            expectedCap = slot.getSlotCount() != null ? slot.getSlotCount() : (seva.getSlots() != null ? seva.getSlots() : 30);
+                            break;
+                        }
+                    }
+                }
+                if (!sch.getFamilyCapacity().equals(expectedCap) || !sch.getDevoteeCapacity().equals(expectedCap)) {
+                    sch.setFamilyCapacity(Math.max(1, expectedCap));
+                    sch.setDevoteeCapacity(Math.max(1, expectedCap));
+                    updated = true;
+                }
+            }
+            if (updated) {
+                scheduleRepo.saveAll(existing);
+            }
+            return existing;
         }
 
         List<EventPoojaSchedule> toSave = new java.util.ArrayList<>();
@@ -149,7 +172,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                                 .communityId(seva.getCommunityId())
                                 .scheduleDate(sDate)
                                 .startTime(sTime)
-                                .familyCapacity(Math.max(1, cap / 3))
+                                .familyCapacity(Math.max(1, cap))
                                 .devoteeCapacity(Math.max(1, cap))
                                 .status(PoojaScheduleStatus.OPEN)
                                 .notes(slot.getTitle())
@@ -174,7 +197,7 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                                     .communityId(seva.getCommunityId())
                                     .scheduleDate(cur)
                                     .startTime(sTime)
-                                    .familyCapacity(Math.max(1, cap / 3))
+                                    .familyCapacity(Math.max(1, cap))
                                     .devoteeCapacity(Math.max(1, cap))
                                     .status(PoojaScheduleStatus.OPEN)
                                     .build());
