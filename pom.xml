@@ -199,6 +199,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Karate — API automation framework (JUnit 5 runner) -->
+        <dependency>
+            <groupId>io.karatelabs</groupId>
+            <artifactId>karate-junit5</artifactId>
+            <version>1.5.1</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- TestContainers — version managed by Spring Boot parent BOM -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
