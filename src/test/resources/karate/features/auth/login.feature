@@ -8,4 +8,5 @@ Feature: Admin login helper — call this from other features to obtain a Bearer
     When method POST
     Then status 200
     And match response.token != null
-    * def authToken = response.token
+    * def authToken    = response.token
+    * def refreshToken = response.refreshToken
