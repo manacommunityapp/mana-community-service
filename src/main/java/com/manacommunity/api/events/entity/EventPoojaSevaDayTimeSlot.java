@@ -1,14 +1,18 @@
 package com.manacommunity.api.events.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
-@Embeddable
+@Entity
+@Table(name = "event_pooja_seva_time_slots")
 public class EventPoojaSevaDayTimeSlot {
 
-    @Column(name = "id", insertable = false, updatable = false)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "pooja_seva_id", nullable = false)
+    private Long poojaSevaId;
 
     @Column(name = "slot_date")
     private LocalDate slotDate;
@@ -27,20 +31,15 @@ public class EventPoojaSevaDayTimeSlot {
 
     public EventPoojaSevaDayTimeSlot() {}
 
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, Integer slotCount) {
+    public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, Integer slotCount) {
+        this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
         this.slotCount = slotCount;
     }
 
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, String title, Integer slotCount) {
-        this.slotDate = slotDate;
-        this.startTime = startTime;
-        this.title = title;
-        this.slotCount = slotCount;
-    }
-
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, String endTime, String title, Integer slotCount) {
+    public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, String endTime, String title, Integer slotCount) {
+        this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -50,6 +49,9 @@ public class EventPoojaSevaDayTimeSlot {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getPoojaSevaId() { return poojaSevaId; }
+    public void setPoojaSevaId(Long poojaSevaId) { this.poojaSevaId = poojaSevaId; }
 
     public LocalDate getSlotDate() { return slotDate; }
     public void setSlotDate(LocalDate slotDate) { this.slotDate = slotDate; }

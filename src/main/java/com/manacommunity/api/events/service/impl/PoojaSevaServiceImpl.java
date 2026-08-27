@@ -4,14 +4,14 @@ import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventPoojaSevaDaySlot;
 import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
-import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
+import com.manacommunity.api.events.repository.EventPoojaSevaTimeSlotRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,29 +19,57 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @Transactional
 public class PoojaSevaServiceImpl implements PoojaSevaService {
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     private final PoojaSevaRepository repository;
     private final EventCommunityRepository eventRepository;
     private final EventBookingRegistrationRepository bookingRepo;
-    private final com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository;
+    private final PoojaTypeRepository poojaTypeRepository;
+    private final EventPoojaSevaTimeSlotRepository timeSlotRepository;
 
     public PoojaSevaServiceImpl(PoojaSevaRepository repository,
                                 EventCommunityRepository eventRepository,
                                 EventBookingRegistrationRepository bookingRepo,
-                                com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository) {
+                                PoojaTypeRepository poojaTypeRepository,
+                                EventPoojaSevaTimeSlotRepository timeSlotRepository) {
         this.repository = repository;
         this.eventRepository = eventRepository;
         this.bookingRepo = bookingRepo;
         this.poojaTypeRepository = poojaTypeRepository;
+        this.timeSlotRepository = timeSlotRepository;
     }
+
+    // ── helpers ────────────────────────────────────────────────────────────────
+
+    /** Attach persisted time-slots to the transient field so they appear in JSON responses. */
+    private void populateTimeSlots(EventPoojaSeva p) {
+        p.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(p.getId())
+        );
+    }
+
+    private void populateTimeSlots(List<EventPoojaSeva> list) {
+        list.forEach(this::populateTimeSlots);
+    }
+
+    /**
+     * Persist the timeSlotConfig list for a given parent id.
+     * Replaces all existing slots (delete-all → insert).
+     */
+    private void saveSlots(Long poojaSevaId, List<EventPoojaSevaDayTimeSlot> slots) {
+        timeSlotRepository.deleteByPoojaSevaId(poojaSevaId);
+        if (slots != null && !slots.isEmpty()) {
+            slots.forEach(s -> s.setPoojaSevaId(poojaSevaId));
+            timeSlotRepository.saveAll(slots);
+        }
+    }
+
+    // ── read ──────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -55,8 +83,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
-        // Filter out poojas whose parent community event is cancelled or whose own status is cancelled
-        List<EventPoojaSeva> filtered = new java.util.ArrayList<>();
+        // Filter out poojas whose parent community event is cancelled
+        List<EventPoojaSeva> filtered = new ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
         for (EventPoojaSeva p : raw) {
             if (p.getMainEventId() != null) {
@@ -64,25 +92,31 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     EventCommunity parent = eventRepository.findById(id).orElse(null);
                     return parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED;
                 });
-                if (isParentCancelled) {
-                    continue;
-                }
+                if (isParentCancelled) continue;
             }
             filtered.add(p);
         }
+
+        populateTimeSlots(filtered);
         return filtered;
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventPoojaSeva getPoojaSevaById(Long id, Long communityId) {
+        EventPoojaSeva p;
         if (communityId != null) {
-            return repository.findByIdAndCommunityId(id, communityId)
+            p = repository.findByIdAndCommunityId(id, communityId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
+        } else {
+            p = repository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
         }
-        return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
+        populateTimeSlots(p);
+        return p;
     }
+
+    // ── write ─────────────────────────────────────────────────────────────────
 
     @Override
     public EventPoojaSeva createPoojaSeva(Long communityId, EventPoojaSeva poojaSeva) {
@@ -107,17 +141,18 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         if (poojaSeva.getNeedsRegistration() == null) {
             poojaSeva.setNeedsRegistration(true);
         }
+
+        // Capture the requested slots before clearing the transient field
+        List<EventPoojaSevaDayTimeSlot> requestedSlots = new ArrayList<>();
         if (Boolean.FALSE.equals(poojaSeva.getNeedsRegistration())) {
-            if (poojaSeva.getTimeSlotConfig() != null) {
-                poojaSeva.getTimeSlotConfig().clear();
-            }
+            // no slots needed
         } else if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
                 && poojaSeva.getDate() != null
                 && poojaSeva.getEndDate() != null
                 && poojaSeva.getStartTimes() != null
                 && !poojaSeva.getStartTimes().isEmpty()
                 && (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty())) {
-            List<EventPoojaSevaDayTimeSlot> slots = new java.util.ArrayList<>();
+            // Auto-generate per-day slots from startTimes + duration
             DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
             LocalDate cur = poojaSeva.getDate();
             while (!cur.isAfter(poojaSeva.getEndDate())) {
@@ -126,19 +161,27 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     if (poojaSeva.getDuration() != null && poojaSeva.getDuration() > 0) {
                         endTime = LocalTime.parse(time, hhmm).plusMinutes(poojaSeva.getDuration()).format(hhmm);
                     }
-                    slots.add(new EventPoojaSevaDayTimeSlot(
-                            cur,
-                            time,
-                            endTime,
-                            poojaSeva.getName(),
+                    requestedSlots.add(new EventPoojaSevaDayTimeSlot(
+                            null, cur, time, endTime, poojaSeva.getName(),
                             poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 0
                     ));
                 }
                 cur = cur.plusDays(1);
             }
-            poojaSeva.setTimeSlotConfig(slots);
+        } else if (poojaSeva.getTimeSlotConfig() != null) {
+            requestedSlots.addAll(poojaSeva.getTimeSlotConfig());
         }
-        return repository.save(poojaSeva);
+
+        // Clear transient field before persisting parent
+        poojaSeva.setTimeSlotConfig(new ArrayList<>());
+        EventPoojaSeva saved = repository.save(poojaSeva);
+
+        // Now persist slots with the real parent id
+        saveSlots(saved.getId(), requestedSlots);
+        saved.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(saved.getId())
+        );
+        return saved;
     }
 
     @Override
@@ -205,15 +248,24 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             existing.getDaySlots().clear();
             existing.getDaySlots().addAll(updated.getDaySlots());
         }
-        if (!resolvedNeedsRegistration) {
-            existing.getTimeSlotConfig().clear();
-        } else if (updated.getTimeSlotConfig() != null) {
-            existing.setTimeSlotConfig(updated.getTimeSlotConfig());
-        }
         existing.setNotes(updated.getNotes());
-        return repository.save(existing);
-    }
 
+        // Save parent first
+        existing.setTimeSlotConfig(new ArrayList<>());
+        EventPoojaSeva savedExisting = repository.save(existing);
+
+        // Update slots: delete-all + re-insert
+        if (!resolvedNeedsRegistration) {
+            timeSlotRepository.deleteByPoojaSevaId(savedExisting.getId());
+        } else if (updated.getTimeSlotConfig() != null) {
+            saveSlots(savedExisting.getId(), updated.getTimeSlotConfig());
+        }
+
+        savedExisting.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(savedExisting.getId())
+        );
+        return savedExisting;
+    }
 
     @Override
     public void deletePoojaSeva(Long id, Long communityId) {
@@ -226,8 +278,11 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     "POOJA_HAS_BOOKINGS"
             );
         }
+        // DB ON DELETE CASCADE handles the child rows in event_pooja_seva_time_slots
         repository.delete(existing);
     }
+
+    // ── validation ────────────────────────────────────────────────────────────
 
     private void validateDateWithinParent(EventPoojaSeva poojaSeva, EventCommunity parentEvent) {
         LocalDate parentStart = parentEvent.getStartDate();
