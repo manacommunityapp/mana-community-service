@@ -87,7 +87,7 @@ Feature: Database state verification — Ganesh Mahotsav 2026
     * if (adminRegs.length > 0) karate.match(adminRegs[0].registered_by, '#notnull')
     * print '✅ Admin audit fields DB check: PASSED'
 
-  Scenario: 50 test users created
+  Scenario: 250 test users created
     * def count = db.scalar("SELECT COUNT(*) FROM app_users WHERE email LIKE '%@ganesh2026.test'")
-    * assert count >= 50
+    * assert count >= 250
     * print '✅ User count DB check:', count, '— PASSED'

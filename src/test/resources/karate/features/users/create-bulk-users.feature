@@ -1,21 +1,21 @@
 @bulk-users
-Feature: Create 50 devotee test accounts for Ganesh Mahotsav
+Feature: Create 250 devotee test accounts for Ganesh Mahotsav
 
   Background:
     * url baseUrl
 
-  Scenario: Generate and register 50 test users
-    # Build list of 50 user payloads
+  Scenario: Generate and register 250 test users
+    # Build list of 250 user payloads
     * def buildUsers =
       """
       function() {
         var users = [];
-        for (var i = 1; i <= 50; i++) {
+        for (var i = 1; i <= 250; i++) {
           users.push({
             fullName:     'Devotee User ' + i,
             email:        'devotee' + i + '@ganesh2026.test',
-            phone:        '90000' + ('0000' + i).slice(-5),
-            aadharNumber: '10000000' + ('0000' + i).slice(-4),
+            phone:        '90000' + ('00000' + i).slice(-5),
+            aadharNumber: '1000000' + ('00000' + i).slice(-5),
             inviteCode:   inviteCode,
             dateOfBirth:  '199' + (i % 9 + 1) + '-0' + (i % 9 + 1) + '-15',
             gender:       (i % 2 === 0) ? 'FEMALE' : 'MALE',
@@ -31,18 +31,16 @@ Feature: Create 50 devotee test accounts for Ganesh Mahotsav
     # use runner-level parallel=N in KarateRunner for thread-level parallelism)
     * def results = karate.call('classpath:karate/features/users/create-single-user.feature', users)
 
-    * match results.length == 50
+    * match results.length == 250
     * print '✅ Created', results.length, 'devotee accounts'
 
     # Expose the first user's credentials for downstream scenarios
     * def devotee1Email    = users[0].email
     * def devotee1Password = 'Test@1234'
 
-  Scenario: Verify 50 users exist via GET /api/communities (admin-level check)
+  Scenario: Verify 250 users exist via login check
     * def auth  = callonce read('classpath:karate/features/auth/login.feature')
     * def token = auth.authToken
-    Given url baseUrl + '/auth/login'
-    And header Authorization = 'Bearer ' + token
     # Sanity: check the recently-created user can log in
     Given url baseUrl + '/auth/login'
     And header Content-Type = 'application/json'
