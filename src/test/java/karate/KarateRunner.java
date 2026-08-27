@@ -66,14 +66,20 @@ class KarateRunner {
     }
 
     /**
-     * Event module flow: Ganesh Mahotsav E2E — 250 users, event create,
-     * pooja seva setup, devotee registration, admin registration.
-     * Feature directory: features/e2e/, features/pooja/, features/events/
+     * Event module flow — runs ALL event-related features:
+     *   features/events/   → standalone event create scenarios
+     *   features/pooja/    → create-pooja-sevas, register-for-pooja, admin-register
+     *   features/e2e/      → orchestrated full lifecycle (250 users → event → seva → register → DB verify)
+     *
+     * This is the complete event creation + pooja registration flow.
      */
     @Karate.Test
     Karate poojaFlow() {
-        return Karate.run("classpath:karate/features/e2e")
-                     .tags("~@ignore");
+        return Karate.run(
+                "classpath:karate/features/events",
+                "classpath:karate/features/pooja",
+                "classpath:karate/features/e2e"
+        ).tags("~@ignore");
     }
 
     /**
