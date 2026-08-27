@@ -30,6 +30,13 @@ public class EventBookingRegistrationController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
             @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride) {
+        String actId = registration.getActivityId();
+        if (actId != null && actId.startsWith("pooja-")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        if ("Pooja".equalsIgnoreCase(registration.getCategory())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
         AppUser user = loggedInUserService.resolve(principal);
         boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
         EventBookingRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);

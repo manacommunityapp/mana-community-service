@@ -48,6 +48,9 @@ public class EventPoojaSeva {
     @Column(name = "start_time")
     private LocalTime startTime;
 
+    @Column(name = "end_time")
+    private LocalTime endTime;
+
     @Column(name = "duration")
     private Integer duration;
 
@@ -84,9 +87,7 @@ public class EventPoojaSeva {
     @jakarta.persistence.OrderBy("slotDate ASC")
     private List<EventPoojaSevaDaySlot> daySlots = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "event_pooja_seva_time_slots", joinColumns = @JoinColumn(name = "pooja_seva_id"))
-    @jakarta.persistence.OrderBy("slotDate ASC, startTime ASC")
+    @Transient
     private List<EventPoojaSevaDayTimeSlot> timeSlotConfig = new ArrayList<>();
 
     @Column(name = "notes", length = 1000)
@@ -176,6 +177,9 @@ public class EventPoojaSeva {
 
     public LocalTime getStartTime() { return startTime; }
     public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
+
+    public LocalTime getEndTime() { return endTime; }
+    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
 
     public Integer getDuration() { return duration; }
     public void setDuration(Integer duration) { this.duration = duration; }

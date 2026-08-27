@@ -4,9 +4,11 @@ import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventPoojaSevaDaySlot;
 import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
-import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
+import com.manacommunity.api.events.repository.EventPoojaSevaTimeSlotRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -15,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -24,17 +29,64 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     private final PoojaSevaRepository repository;
     private final EventCommunityRepository eventRepository;
     private final EventBookingRegistrationRepository bookingRepo;
-    private final com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository;
+    private final PoojaTypeRepository poojaTypeRepository;
+    private final EventPoojaSevaTimeSlotRepository timeSlotRepository;
 
     public PoojaSevaServiceImpl(PoojaSevaRepository repository,
                                 EventCommunityRepository eventRepository,
                                 EventBookingRegistrationRepository bookingRepo,
-                                com.manacommunity.api.events.repository.PoojaTypeRepository poojaTypeRepository) {
+                                PoojaTypeRepository poojaTypeRepository,
+                                EventPoojaSevaTimeSlotRepository timeSlotRepository) {
         this.repository = repository;
         this.eventRepository = eventRepository;
         this.bookingRepo = bookingRepo;
         this.poojaTypeRepository = poojaTypeRepository;
+        this.timeSlotRepository = timeSlotRepository;
     }
+
+    // ── helpers ────────────────────────────────────────────────────────────────
+
+    /** Attach persisted time-slots to the transient field so they appear in JSON responses. */
+    private void populateTimeSlots(EventPoojaSeva p) {
+        p.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(p.getId())
+        );
+    }
+
+    private void populateTimeSlots(List<EventPoojaSeva> list) {
+        list.forEach(this::populateTimeSlots);
+    }
+
+    /**
+     * Persist the timeSlotConfig list for a given parent id.
+     * Replaces all existing slots (delete-all → insert).
+     */
+    private void saveSlots(Long poojaSevaId, List<EventPoojaSevaDayTimeSlot> slots, String defaultEndTime) {
+        timeSlotRepository.deleteByPoojaSevaId(poojaSevaId);
+        if (slots != null && !slots.isEmpty()) {
+            List<EventPoojaSevaDayTimeSlot> toSave = new ArrayList<>();
+            for (EventPoojaSevaDayTimeSlot s : slots) {
+                if (s != null) {
+                    EventPoojaSevaDayTimeSlot slot = new EventPoojaSevaDayTimeSlot();
+                    slot.setId(EventPoojaSevaDayTimeSlot.generateId());
+                    slot.setNew(true);
+                    slot.setPoojaSevaId(poojaSevaId);
+                    slot.setSlotDate(s.getSlotDate());
+                    slot.setStartTime(s.getStartTime());
+                    String resolvedEndTime = s.getEndTime() != null && !s.getEndTime().trim().isEmpty()
+                            ? s.getEndTime().trim()
+                            : defaultEndTime;
+                    slot.setEndTime(resolvedEndTime);
+                    slot.setTitle(s.getTitle());
+                    slot.setSlotCount(s.getSlotCount());
+                    toSave.add(slot);
+                }
+            }
+            timeSlotRepository.saveAll(toSave);
+        }
+    }
+
+    // ── read ──────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -48,8 +100,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
-        // Filter out poojas whose parent community event is cancelled or whose own status is cancelled
-        List<EventPoojaSeva> filtered = new java.util.ArrayList<>();
+        // Filter out poojas whose parent community event is cancelled
+        List<EventPoojaSeva> filtered = new ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
         for (EventPoojaSeva p : raw) {
             if (p.getMainEventId() != null) {
@@ -57,25 +109,31 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     EventCommunity parent = eventRepository.findById(id).orElse(null);
                     return parent != null && parent.getStatus() == EventCommunity.EventStatus.CANCELLED;
                 });
-                if (isParentCancelled) {
-                    continue;
-                }
+                if (isParentCancelled) continue;
             }
             filtered.add(p);
         }
+
+        populateTimeSlots(filtered);
         return filtered;
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventPoojaSeva getPoojaSevaById(Long id, Long communityId) {
+        EventPoojaSeva p;
         if (communityId != null) {
-            return repository.findByIdAndCommunityId(id, communityId)
+            p = repository.findByIdAndCommunityId(id, communityId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
+        } else {
+            p = repository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
         }
-        return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pooja/Seva", id));
+        populateTimeSlots(p);
+        return p;
     }
+
+    // ── write ─────────────────────────────────────────────────────────────────
 
     @Override
     public EventPoojaSeva createPoojaSeva(Long communityId, EventPoojaSeva poojaSeva) {
@@ -97,31 +155,52 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             poojaTypeRepository.findFirstByNameIgnoreCase(poojaSeva.getType().trim())
                     .ifPresent(pt -> poojaSeva.setPoojaTypeId(pt.getId()));
         }
-        if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
+        if (poojaSeva.getNeedsRegistration() == null) {
+            poojaSeva.setNeedsRegistration(true);
+        }
+
+        // Capture the requested slots before clearing the transient field
+        List<EventPoojaSevaDayTimeSlot> requestedSlots = new ArrayList<>();
+        if (Boolean.FALSE.equals(poojaSeva.getNeedsRegistration())) {
+            // no slots needed
+        } else if (Boolean.TRUE.equals(poojaSeva.getMultiDay())
                 && poojaSeva.getDate() != null
                 && poojaSeva.getEndDate() != null
                 && poojaSeva.getStartTimes() != null
                 && !poojaSeva.getStartTimes().isEmpty()
                 && (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty())) {
-            List<EventPoojaSevaDayTimeSlot> slots = new java.util.ArrayList<>();
+            // Auto-generate per-day slots from startTimes + duration
+            DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
             LocalDate cur = poojaSeva.getDate();
             while (!cur.isAfter(poojaSeva.getEndDate())) {
                 for (String time : poojaSeva.getStartTimes()) {
-                    slots.add(new EventPoojaSevaDayTimeSlot(
-                            cur,
-                            time,
-                            poojaSeva.getName(),
+                    String endTime = null;
+                    if (poojaSeva.getDuration() != null && poojaSeva.getDuration() > 0) {
+                        endTime = LocalTime.parse(time, hhmm).plusMinutes(poojaSeva.getDuration()).format(hhmm);
+                    }
+                    requestedSlots.add(new EventPoojaSevaDayTimeSlot(
+                            null, cur, time, endTime, poojaSeva.getName(),
                             poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 0
                     ));
                 }
                 cur = cur.plusDays(1);
             }
-            poojaSeva.setTimeSlotConfig(slots);
+        } else if (poojaSeva.getTimeSlotConfig() != null) {
+            requestedSlots.addAll(poojaSeva.getTimeSlotConfig());
         }
-        if (poojaSeva.getNeedsRegistration() == null) {
-            poojaSeva.setNeedsRegistration(true);
-        }
-        return repository.save(poojaSeva);
+
+        // Clear transient field before persisting parent
+        poojaSeva.setTimeSlotConfig(new ArrayList<>());
+        EventPoojaSeva saved = repository.save(poojaSeva);
+
+        // Now persist slots with the real parent id
+        DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
+        String defaultEndTime = poojaSeva.getEndTime() != null ? poojaSeva.getEndTime().format(hhmm) : null;
+        saveSlots(saved.getId(), requestedSlots, defaultEndTime);
+        saved.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(saved.getId())
+        );
+        return saved;
     }
 
     @Override
@@ -157,6 +236,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setEndDate(updated.getEndDate());
         existing.setMultiDay(updated.getMultiDay());
         existing.setStartTime(updated.getStartTime());
+        existing.setEndTime(updated.getEndTime());
         existing.setDuration(updated.getDuration());
         existing.setMandap(updated.getMandap());
         existing.setPandit(updated.getPandit());
@@ -174,7 +254,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setSlots(updated.getSlots());
         existing.setFee(updated.getFee());
         existing.setIsFree(updated.getIsFree());
-        existing.setNeedsRegistration(updated.getNeedsRegistration() != null ? updated.getNeedsRegistration() : true);
+        boolean resolvedNeedsRegistration = updated.getNeedsRegistration() != null ? updated.getNeedsRegistration() : true;
+        existing.setNeedsRegistration(resolvedNeedsRegistration);
         if (updated.getItems() != null) {
             existing.getItems().clear();
             existing.getItems().addAll(updated.getItems());
@@ -187,14 +268,27 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             existing.getDaySlots().clear();
             existing.getDaySlots().addAll(updated.getDaySlots());
         }
-        if (updated.getTimeSlotConfig() != null) {
-            existing.getTimeSlotConfig().clear();
-            existing.getTimeSlotConfig().addAll(updated.getTimeSlotConfig());
-        }
         existing.setNotes(updated.getNotes());
-        return repository.save(existing);
-    }
 
+        // Save parent first
+        existing.setTimeSlotConfig(new ArrayList<>());
+        EventPoojaSeva savedExisting = repository.save(existing);
+
+        // Update slots: delete-all + re-insert
+        if (!resolvedNeedsRegistration) {
+            timeSlotRepository.deleteByPoojaSevaId(savedExisting.getId());
+        } else if (updated.getTimeSlotConfig() != null) {
+            DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
+            LocalTime effectiveEnd = updated.getEndTime() != null ? updated.getEndTime() : existing.getEndTime();
+            String defaultEndTime = effectiveEnd != null ? effectiveEnd.format(hhmm) : null;
+            saveSlots(savedExisting.getId(), updated.getTimeSlotConfig(), defaultEndTime);
+        }
+
+        savedExisting.setTimeSlotConfig(
+            timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(savedExisting.getId())
+        );
+        return savedExisting;
+    }
 
     @Override
     public void deletePoojaSeva(Long id, Long communityId) {
@@ -207,8 +301,11 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     "POOJA_HAS_BOOKINGS"
             );
         }
+        // DB ON DELETE CASCADE handles the child rows in event_pooja_seva_time_slots
         repository.delete(existing);
     }
+
+    // ── validation ────────────────────────────────────────────────────────────
 
     private void validateDateWithinParent(EventPoojaSeva poojaSeva, EventCommunity parentEvent) {
         LocalDate parentStart = parentEvent.getStartDate();

@@ -1,46 +1,56 @@
 package com.manacommunity.api.events.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
+
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicLong;
 
-@Embeddable
-public class EventPoojaSevaDayTimeSlot {
+@Entity
+@Table(name = "event_pooja_seva_time_slots")
+public class EventPoojaSevaDayTimeSlot implements Persistable<Long> {
 
-    @Column(name = "id", insertable = false, updatable = false)
+    private static final AtomicLong SEQ = new AtomicLong(0);
+
+    @Id
     private Long id;
 
+    @Transient
+    @JsonIgnore
+    private boolean isNew = true;
+
+    @Column(name = "pooja_seva_id", nullable = false)
+    private Long poojaSevaId;
+
     @Column(name = "slot_date")
-    private LocalDate slotDate; // null for single-day events
+    private LocalDate slotDate;
 
     @Column(name = "start_time", length = 20)
-    private String startTime; // e.g. "08:30"
+    private String startTime;
 
     @Column(name = "end_time", length = 20)
-    private String endTime; // e.g. "10:00"
+    private String endTime;
 
     @Column(name = "title", length = 200)
-    private String title; // slot name / title e.g. "Morning Abhishekam"
+    private String title;
 
     @Column(name = "slot_count")
     private Integer slotCount;
 
     public EventPoojaSevaDayTimeSlot() {}
 
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, Integer slotCount) {
+    public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, Integer slotCount) {
+        this.id = generateId();
+        this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
         this.slotCount = slotCount;
     }
 
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, String title, Integer slotCount) {
-        this.slotDate = slotDate;
-        this.startTime = startTime;
-        this.title = title;
-        this.slotCount = slotCount;
-    }
-
-    public EventPoojaSevaDayTimeSlot(LocalDate slotDate, String startTime, String endTime, String title, Integer slotCount) {
+    public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, String endTime, String title, Integer slotCount) {
+        this.id = generateId();
+        this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -48,8 +58,35 @@ public class EventPoojaSevaDayTimeSlot {
         this.slotCount = slotCount;
     }
 
+    public static long generateId() {
+        long epochMs = System.currentTimeMillis();
+        long counter = SEQ.incrementAndGet() % 1000;
+        return epochMs * 1000 + counter;
+    }
+
+    @PrePersist
+    public void ensureId() {
+        if (this.id == null) {
+            this.id = generateId();
+        }
+    }
+
+    @PostLoad
+    public void markNotNew() {
+        this.isNew = false;
+    }
+
+    @Override
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    @Override
+    @JsonIgnore
+    public boolean isNew() { return isNew || id == null; }
+    public void setNew(boolean isNew) { this.isNew = isNew; }
+
+    public Long getPoojaSevaId() { return poojaSevaId; }
+    public void setPoojaSevaId(Long poojaSevaId) { this.poojaSevaId = poojaSevaId; }
 
     public LocalDate getSlotDate() { return slotDate; }
     public void setSlotDate(LocalDate slotDate) { this.slotDate = slotDate; }

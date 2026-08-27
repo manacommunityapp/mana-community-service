@@ -59,8 +59,8 @@ class EventBookingRegistrationServiceImplTest {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
 
-        EventPoojaSevaDayTimeSlot slot1 = new EventPoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "08:30", 10);
-        EventPoojaSevaDayTimeSlot slot2 = new EventPoojaSevaDayTimeSlot(LocalDate.of(2026, 8, 28), "18:30", 10);
+        EventPoojaSevaDayTimeSlot slot1 = new EventPoojaSevaDayTimeSlot(null, LocalDate.of(2026, 8, 28), "08:30", 10);
+        EventPoojaSevaDayTimeSlot slot2 = new EventPoojaSevaDayTimeSlot(null, LocalDate.of(2026, 8, 28), "18:30", 10);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(20L);
