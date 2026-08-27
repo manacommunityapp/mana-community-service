@@ -103,6 +103,18 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         EventPoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", scheduleId));
 
+        // G-2: Reject if the slot's date+time is already in the past
+        java.time.LocalDate slotDate = schedule.getScheduleDate();
+        java.time.LocalTime slotTime = schedule.getStartTime();
+        java.time.LocalDate today    = java.time.LocalDate.now();
+        boolean slotInPast = slotDate.isBefore(today) ||
+                (slotDate.isEqual(today) && slotTime != null && slotTime.isBefore(java.time.LocalTime.now()));
+        if (slotInPast) {
+            throw new RegistrationClosedException(
+                    "This Pooja slot (" + slotDate + " " + (slotTime != null ? slotTime : "") +
+                    ") is in the past and can no longer accept bookings.");
+        }
+
         // Enforce mandatory main event registration if pooja belongs to a main event
         if (user != null && schedule.getPoojaSeva() != null && schedule.getPoojaSeva().getMainEventId() != null && schedule.getPoojaSeva().getMainEventId() > 0) {
             Long mainEventId = schedule.getPoojaSeva().getMainEventId();

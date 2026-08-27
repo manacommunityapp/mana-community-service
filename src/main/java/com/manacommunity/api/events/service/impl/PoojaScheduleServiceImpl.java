@@ -10,7 +10,9 @@ import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.service.PoojaScheduleService;
+import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import org.springframework.http.HttpStatus;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -48,6 +50,9 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         EventPoojaSeva seva = poojaSevaRepo.findById(req.getPoojaId())
                 .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSeva", req.getPoojaId()));
 
+        // G-2: Reject slots whose date+time is already in the past
+        validateScheduleNotInPast(req.getScheduleDate(), req.getStartTime());
+
         EventPoojaSchedule schedule = EventPoojaSchedule.builder()
                 .poojaSeva(seva)
                 .communityId(seva.getCommunityId())
@@ -78,6 +83,9 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         if (req.getFamilyCapacity() != null) schedule.setFamilyCapacity(req.getFamilyCapacity());
         if (req.getDevoteeCapacity() != null) schedule.setDevoteeCapacity(req.getDevoteeCapacity());
         if (req.getStatus() != null) schedule.setStatus(req.getStatus());
+
+        // G-2: Reject if the resolved date+time is in the past (validate after fields are merged)
+        validateScheduleNotInPast(schedule.getScheduleDate(), schedule.getStartTime());
 
         EventPoojaSchedule saved = scheduleRepo.save(schedule);
         auditService.record(AuditAction.POOJA_SCHEDULE_UPDATED, AuditModule.EVENTS,
@@ -167,6 +175,11 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         List<EventPoojaSchedule> toSave = new java.util.ArrayList<>();
         if (seva.getTimeSlotConfig() != null && !seva.getTimeSlotConfig().isEmpty()) {
             for (var slot : seva.getTimeSlotConfig()) {
+                // CLOSED config slots must never have schedule rows created for them.
+                // BLOCKED slots are also skipped on initial creation (admin can open a schedule row manually).
+                if (slot.getStatus() != null && slot.getStatus() != PoojaScheduleStatus.OPEN) {
+                    continue;
+                }
                 LocalDate sDate = slot.getSlotDate() != null ? slot.getSlotDate() : seva.getDate();
                 java.time.LocalTime sTime = parseLocalTime(slot.getStartTime());
                 if (sDate != null && sTime != null) {
@@ -310,5 +323,35 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
                 .availableDevotees(availDevotees)
                 .timeSlotConfigId(s.getTimeSlotConfigId())
                 .build();
+    }
+    // ── Validation helpers ──
+
+    /**
+     * G-2: Rejects a schedule slot if its date+time combination is already in the past.
+     * <ul>
+     *   <li>If {@code date} is strictly before today → rejected.</li>
+     *   <li>If {@code date} is today AND {@code startTime} is before the current time → rejected.</li>
+     * </ul>
+     * Null values are treated permissively (no rejection) so that callers handling optional
+     * fields do not have to guard every call site.
+     */
+    private void validateScheduleNotInPast(LocalDate date, java.time.LocalTime startTime) {
+        if (date == null) return;
+        LocalDate today = LocalDate.now();
+        if (date.isBefore(today)) {
+            throw new ManaCommunityException(
+                    "Cannot create or update a Pooja schedule in the past (date: " + date + ").",
+                    HttpStatus.BAD_REQUEST,
+                    "SLOT_IN_PAST"
+            );
+        }
+        if (date.isEqual(today) && startTime != null && startTime.isBefore(java.time.LocalTime.now())) {
+            throw new ManaCommunityException(
+                    "Cannot create or update a Pooja schedule whose start time has already passed " +
+                    "(today " + date + " at " + startTime + ").",
+                    HttpStatus.BAD_REQUEST,
+                    "SLOT_IN_PAST"
+            );
+        }
     }
 }

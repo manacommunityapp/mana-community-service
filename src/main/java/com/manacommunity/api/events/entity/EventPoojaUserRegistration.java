@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.events.enums.RegistrationSource;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
@@ -128,6 +129,32 @@ public class EventPoojaUserRegistration {
     /** Token number assigned at reservation time — persisted here so it remains available after the reservation row is purged. */
     @Column(name = "token_number")
     private Integer tokenNumber;
+
+    // ── Admin / audit fields ──────────────────────────────────────────────────
+
+    /** How this booking was created: SELF (normal user), ADMIN (on behalf), IMPORT (bulk). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_source", length = 20, nullable = false)
+    @Builder.Default
+    private RegistrationSource registrationSource = RegistrationSource.SELF;
+
+    /** ID of the admin who created this booking when registrationSource = ADMIN. Null for SELF bookings. */
+    @Column(name = "registered_by")
+    private Long registeredBy;
+
+    /** True when the admin bypassed capacity or duplicate-registration checks (adminOverride=true). */
+    @Column(name = "override_used", nullable = false)
+    @Builder.Default
+    private Boolean overrideUsed = false;
+
+    /** Free-text reason the admin gave for overriding normal booking rules. */
+    @Column(name = "override_reason", columnDefinition = "TEXT")
+    private String overrideReason;
+
+    /** Individual devotees for this booking — authoritative replacement for the attendingDevotees JSON blob. */
+    @OneToMany(mappedBy = "registration", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private java.util.List<EventPoojaBookingParticipant> participants = new java.util.ArrayList<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

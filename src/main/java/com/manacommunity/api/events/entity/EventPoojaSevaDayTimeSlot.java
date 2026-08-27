@@ -1,6 +1,7 @@
 package com.manacommunity.api.events.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import jakarta.persistence.*;
 import org.springframework.data.domain.Persistable;
 
@@ -37,6 +38,11 @@ public class EventPoojaSevaDayTimeSlot implements Persistable<Long> {
 
     @Column(name = "slot_count")
     private Integer slotCount;
+
+    /** Admin-controlled status: OPEN (bookable), BLOCKED (temporarily disabled), CLOSED (no schedule rows created). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private PoojaScheduleStatus status = PoojaScheduleStatus.OPEN;
 
     public EventPoojaSevaDayTimeSlot() {}
 
@@ -102,4 +108,7 @@ public class EventPoojaSevaDayTimeSlot implements Persistable<Long> {
 
     public Integer getSlotCount() { return slotCount; }
     public void setSlotCount(Integer slotCount) { this.slotCount = slotCount; }
+
+    public PoojaScheduleStatus getStatus() { return status; }
+    public void setStatus(PoojaScheduleStatus status) { this.status = status; }
 }

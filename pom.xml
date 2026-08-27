@@ -199,6 +199,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Karate — API automation framework (JUnit 5 runner) -->
+        <dependency>
+            <groupId>io.karatelabs</groupId>
+            <artifactId>karate-junit5</artifactId>
+            <version>1.5.1</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- TestContainers — version managed by Spring Boot parent BOM -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -305,6 +313,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <!-- Karate requires a live server; file-level exclude blocks accidental discovery.
+                         Run Karate: ./mvnw test -Dtest=KarateRunner (bypasses the exclude below) -->
+                    <excludes>
+                        <exclude>**/karate/KarateRunner.java</exclude>
+                    </excludes>
                     <includes>
                         <!-- 1. User & Auth related tests -->
                         <include>**/unit/service/AuthServiceTest.java</include>
@@ -321,6 +334,9 @@
                         <include>**/unit/service/EventServiceTest.java</include>
                         <include>**/unit/service/EventDonationServiceTest.java</include>
                         <include>**/unit/service/EventVolunteerServiceTest.java</include>
+                        <include>**/unit/service/PoojaSevaServiceImplTest.java</include>
+                        <include>**/unit/service/EventBookingRegistrationServiceImplTest.java</include>
+                        <include>**/unit/service/PoojaRegistrationStatusTest.java</include>
                         <include>**/slice/controller/EventControllerTest.java</include>
                         <include>**/slice/controller/EventDonationControllerTest.java</include>
                         <include>**/slice/controller/EventVolunteerControllerTest.java</include>
