@@ -24,14 +24,14 @@ Feature: Login, token refresh, and logout flow
     Given path '/auth/login'
     And request { identifier: '#(adminIdentifier)', password: 'WrongPassword999!' }
     When method POST
-    Then status in [400, 401]
+    Then status 401
     * print '✅ Wrong password rejected'
 
   Scenario: Unknown email/identifier returns 4xx
     Given path '/auth/login'
     And request { identifier: 'nobody@nowhere.test', password: 'Anything@1' }
     When method POST
-    Then status in [400, 401, 404]
+    * match [400, 401, 404] contains responseStatus
     * print '✅ Unknown user rejected'
 
   Scenario: Fetch my profile after login

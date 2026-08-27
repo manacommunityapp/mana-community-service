@@ -312,9 +312,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <excludedGroups>integration,karate</excludedGroups>
-                    <!-- Karate requires a live server; exclude it from the default unit-test pass.
-                         Run Karate separately: ./mvnw test -Dtest=KarateRunner -Dmaven.test.skip=false -->
+                    <excludedGroups>integration</excludedGroups>
+                    <!-- Karate requires a live server; file-level exclude blocks accidental discovery.
+                         Run Karate: ./mvnw test -Dtest=KarateRunner (bypasses the exclude below) -->
                     <excludes>
                         <exclude>**/karate/KarateRunner.java</exclude>
                     </excludes>

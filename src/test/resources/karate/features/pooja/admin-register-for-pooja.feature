@@ -1,5 +1,7 @@
-@pooja @admin @smoke
+@ignore
 Feature: Admin registers a devotee for a Pooja slot on their behalf
+  # Called by: e2e/ganesh-mahotsav-full-flow.feature
+  # Requires: createdEventId, seva14EveningId, targetDevoteeUserId
 
   # Tests POST /api/events/pooja-registrations/admin-create (commit 906a71f)
   # Expects: createdEventId, seva14EveningId, targetDevoteeUserId (ID of devotee1)
@@ -67,5 +69,5 @@ Feature: Admin registers a devotee for a Pooja slot on their behalf
     And param communityId = communityId
     When method GET
     Then status 200
-    And match response.length >= 1
+    * assert response.length >= 1
     * print '✅ Admin user-search returned', response.length, 'users'

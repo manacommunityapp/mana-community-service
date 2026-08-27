@@ -78,7 +78,8 @@ Feature: User Registration — full signup flow
       }
       """
     When method POST
-    Then status in [400, 409]
+    Then status 409
+    And match response.error == 'DUPLICATE_RESOURCE'
     * print '✅ Duplicate email rejected:', response
 
   Scenario: Registration with missing required fields returns 400

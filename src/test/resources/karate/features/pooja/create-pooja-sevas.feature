@@ -1,5 +1,8 @@
-@pooja @smoke
+@ignore
 Feature: Create Ganesh Pooja seva sub-events for Mahotsav 2026
+  # Called by: e2e/ganesh-mahotsav-full-flow.feature
+  # Requires: createdEventId (the parent event ID)
+  # Returns:  seva14EveningId, sevaMainDaysId, seva19MorningId
 
   # Slot design:
   #   Sept 14        → Evening only  (19:00–20:00)   — opening day

@@ -1,5 +1,8 @@
-@event-create @smoke
+@ignore
 Feature: Create Ganesh Mahotsav 2026 — multi-day community event
+  # Called by: e2e/ganesh-mahotsav-full-flow.feature
+  # Requires: adminToken (via Background callonce login)
+  # Returns:  eventId
 
   Background:
     * url baseUrl

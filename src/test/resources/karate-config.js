@@ -2,11 +2,11 @@ function fn() {
   var env = karate.env || 'dev';
 
   var config = {
-    baseUrl:         'http://localhost:8080/api',
+    baseUrl:         'http://localhost:8082/api',
     communityId:     1,
-    inviteCode:      'TESTINVITE',
+    inviteCode:      'LE-MY-HYD',
     adminIdentifier: 'admin@manacommunity.com',
-    adminPassword:   'Admin@123',
+    adminPassword:   'password123',
     dbUrl:           'jdbc:postgresql://localhost:5432/manacommunity',
     dbUser:          'postgres',
     dbPassword:      'postgres'

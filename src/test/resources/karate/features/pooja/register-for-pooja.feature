@@ -1,5 +1,7 @@
-@pooja @registration @smoke
+@ignore
 Feature: Devotee registers for Ganesh Pooja slot
+  # Called by: e2e/ganesh-mahotsav-full-flow.feature
+  # Requires: createdEventId, seva14EveningId, userEmail, userPassword
 
   # Expects these variables from the calling context:
   #   createdEventId   — parent event ID
@@ -134,7 +136,7 @@ Feature: Devotee registers for Ganesh Pooja slot
       }
       """
     When method POST
-    Then status in [409, 400]
+    * match [409, 400] contains responseStatus
     * print '✅ Duplicate registration correctly rejected:', response
 
   Scenario: Verify registration appears in My Registrations
