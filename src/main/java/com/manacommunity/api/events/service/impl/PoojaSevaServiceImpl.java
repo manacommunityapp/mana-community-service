@@ -61,7 +61,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
      * Persist the timeSlotConfig list for a given parent id.
      * Replaces all existing slots (delete-all → insert).
      */
-    private void saveSlots(Long poojaSevaId, List<EventPoojaSevaDayTimeSlot> slots) {
+    private void saveSlots(Long poojaSevaId, List<EventPoojaSevaDayTimeSlot> slots, String defaultEndTime) {
         timeSlotRepository.deleteByPoojaSevaId(poojaSevaId);
         if (slots != null && !slots.isEmpty()) {
             List<EventPoojaSevaDayTimeSlot> toSave = new ArrayList<>();
@@ -73,7 +73,10 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
                     slot.setPoojaSevaId(poojaSevaId);
                     slot.setSlotDate(s.getSlotDate());
                     slot.setStartTime(s.getStartTime());
-                    slot.setEndTime(s.getEndTime());
+                    String resolvedEndTime = s.getEndTime() != null && !s.getEndTime().trim().isEmpty()
+                            ? s.getEndTime().trim()
+                            : defaultEndTime;
+                    slot.setEndTime(resolvedEndTime);
                     slot.setTitle(s.getTitle());
                     slot.setSlotCount(s.getSlotCount());
                     toSave.add(slot);
@@ -191,7 +194,9 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         EventPoojaSeva saved = repository.save(poojaSeva);
 
         // Now persist slots with the real parent id
-        saveSlots(saved.getId(), requestedSlots);
+        DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
+        String defaultEndTime = poojaSeva.getEndTime() != null ? poojaSeva.getEndTime().format(hhmm) : null;
+        saveSlots(saved.getId(), requestedSlots, defaultEndTime);
         saved.setTimeSlotConfig(
             timeSlotRepository.findByPoojaSevaIdOrderBySlotDateAscStartTimeAsc(saved.getId())
         );
@@ -231,6 +236,7 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         existing.setEndDate(updated.getEndDate());
         existing.setMultiDay(updated.getMultiDay());
         existing.setStartTime(updated.getStartTime());
+        existing.setEndTime(updated.getEndTime());
         existing.setDuration(updated.getDuration());
         existing.setMandap(updated.getMandap());
         existing.setPandit(updated.getPandit());
@@ -272,7 +278,10 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         if (!resolvedNeedsRegistration) {
             timeSlotRepository.deleteByPoojaSevaId(savedExisting.getId());
         } else if (updated.getTimeSlotConfig() != null) {
-            saveSlots(savedExisting.getId(), updated.getTimeSlotConfig());
+            DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
+            LocalTime effectiveEnd = updated.getEndTime() != null ? updated.getEndTime() : existing.getEndTime();
+            String defaultEndTime = effectiveEnd != null ? effectiveEnd.format(hhmm) : null;
+            saveSlots(savedExisting.getId(), updated.getTimeSlotConfig(), defaultEndTime);
         }
 
         savedExisting.setTimeSlotConfig(

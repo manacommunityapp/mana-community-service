@@ -48,6 +48,9 @@ public class EventPoojaSeva {
     @Column(name = "start_time")
     private LocalTime startTime;
 
+    @Column(name = "end_time")
+    private LocalTime endTime;
+
     @Column(name = "duration")
     private Integer duration;
 
@@ -174,6 +177,9 @@ public class EventPoojaSeva {
 
     public LocalTime getStartTime() { return startTime; }
     public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
+
+    public LocalTime getEndTime() { return endTime; }
+    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
 
     public Integer getDuration() { return duration; }
     public void setDuration(Integer duration) { this.duration = duration; }
