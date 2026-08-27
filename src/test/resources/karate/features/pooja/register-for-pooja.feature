@@ -6,6 +6,12 @@ Feature: Devotee registers for Ganesh Pooja slot
   #   seva14EveningId  — the Sept 14 evening seva ID
   #   userEmail        — devotee's login email
   #   userPassword     — devotee's password
+  #
+  # Entity field notes (as of V89–V93 migrations):
+  #   poojaSlotTime    — was poojaStartTime in earlier design; use poojaSlotTime
+  #   poojaSevaTimeSlotsId — the time-slot row id (not poojaSevaId)
+  #   registrationSource   — auto-set to SELF for normal user registrations
+  #   status column on time_slots now has 'OPEN' default (V93)
 
   Background:
     * url baseUrl
@@ -28,15 +34,17 @@ Feature: Devotee registers for Ganesh Pooja slot
     * print 'Schedule found — ID:', scheduleId, '| available:', schedule.availableSlots
 
   Scenario: Reserve a slot (pessimistic lock, idempotent)
-    # Re-fetch schedules to get scheduleId
+    # Re-fetch schedules to get scheduleId and the time-slot row id
     Given path '/events/pooja-schedules'
     And param poojaId = seva14EveningId
     And param date    = '2026-09-14'
     When method GET
     Then status 200
-    * def scheduleId = response[0].id
+    And match response[0].status == 'OPEN'
+    * def scheduleId       = response[0].id
+    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
 
-    # Reserve — unique idempotency key prevents double-booking
+    # Reserve — unique idempotency key prevents double-booking (V89: DB-level partial unique index)
     * def idemKey = java.util.UUID.randomUUID().toString()
     Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
     And request { idempotencyKey: '#(idemKey)', devoteeCount: 1 }
@@ -53,7 +61,8 @@ Feature: Devotee registers for Ganesh Pooja slot
     And param date    = '2026-09-14'
     When method GET
     Then status 200
-    * def scheduleId = response[0].id
+    * def scheduleId       = response[0].id
+    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
 
     * def idemKey = java.util.UUID.randomUUID().toString()
     Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
@@ -63,30 +72,70 @@ Feature: Devotee registers for Ganesh Pooja slot
     * def reservationId = response.reservationId
 
     # Create the pooja registration (saved in event_pooja_user_registrations)
+    # poojaSlotTime replaces poojaStartTime; poojaSevaTimeSlotsId replaces poojaSevaId
     Given path '/events/pooja-registrations'
     And request
       """
       {
-        "eventId":         #(createdEventId),
-        "poojaSevaId":     #(seva14EveningId),
-        "scheduleId":      #(scheduleId),
-        "reservationId":   "#(reservationId)",
-        "participantName": "Devotee User 1",
-        "gotram":          "Kashyapa",
-        "devoteeCount":    1,
-        "poojaSlotDate":   "2026-09-14",
-        "poojaStartTime":  "19:00",
-        "paymentMethod":   "MANUAL",
-        "paymentStatus":   "PENDING",
-        "notes":           "First-time devotee"
+        "eventId":              #(createdEventId),
+        "poojaSevaTimeSlotsId": #(timeSlotConfigId),
+        "scheduleId":           #(scheduleId),
+        "reservationId":        #(reservationId),
+        "participantName":      "Devotee User 1",
+        "gotram":               "Kashyapa",
+        "devoteeCount":         1,
+        "poojaSlotDate":        "2026-09-14",
+        "poojaSlotTime":        "19:00",
+        "paymentMethod":        "MANUAL",
+        "paymentStatus":        "PENDING",
+        "notes":                "First-time devotee"
       }
       """
     When method POST
     Then status 201
-    And match response.regCode != null
-    And match response.status  == 'CONFIRMED'
+    And match response.regCode            != null
+    And match response.status             == 'CONFIRMED'
+    And match response.registrationSource == 'SELF'
+    And match response.overrideUsed       == false
     * def regCode = response.regCode
     * print '✅ Registration complete — reg code:', regCode
+
+  Scenario: Duplicate registration is rejected (V89/V91 unique constraint)
+    # Same user attempting same slot again must get a conflict
+    Given path '/events/pooja-schedules'
+    And param poojaId = seva14EveningId
+    And param date    = '2026-09-14'
+    When method GET
+    Then status 200
+    * def scheduleId       = response[0].id
+    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
+
+    * def idemKey2 = java.util.UUID.randomUUID().toString()
+    Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
+    And request { idempotencyKey: '#(idemKey2)', devoteeCount: 1 }
+    When method POST
+    Then status 200
+    * def reservationId2 = response.reservationId
+
+    Given path '/events/pooja-registrations'
+    And request
+      """
+      {
+        "eventId":              #(createdEventId),
+        "poojaSevaTimeSlotsId": #(timeSlotConfigId),
+        "scheduleId":           #(scheduleId),
+        "reservationId":        #(reservationId2),
+        "participantName":      "Devotee User 1",
+        "gotram":               "Kashyapa",
+        "devoteeCount":         1,
+        "poojaSlotDate":        "2026-09-14",
+        "poojaSlotTime":        "19:00",
+        "paymentMethod":        "MANUAL"
+      }
+      """
+    When method POST
+    Then status in [409, 400]
+    * print '✅ Duplicate registration correctly rejected:', response
 
   Scenario: Verify registration appears in My Registrations
     Given path '/events/pooja-registrations/my'

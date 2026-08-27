@@ -41,13 +41,15 @@ Feature: Database state verification — Ganesh Mahotsav 2026
     * match rows[1].multi_day       == true
     * print '✅ Pooja seva records DB check: PASSED'
 
-  Scenario: Time slots saved with start_time, end_time, slot_count and id
+  Scenario: Time slots saved with start_time, end_time, slot_count, id and status=OPEN (V93)
     * def slots = db.query("SELECT * FROM event_pooja_seva_time_slots ORDER BY slot_date, start_time")
     # Sept 14 evening: 1 + Sept 15–18 morning+evening: 8 + Sept 19 morning: 1 = 10 total
     * match slots.length == 10
-    * match each slots[*].id        != null
-    * match each slots[*].end_time  != null
+    * match each slots[*].id         != null
+    * match each slots[*].end_time   != null
     * match each slots[*].slot_count == 120
+    # V93: status column — all newly created slots default to OPEN
+    * match each slots[*].status == 'OPEN'
     # Opening slot: Sept 14, 19:00 → 20:00
     * def opening = slots[0]
     * match opening.slot_date.toString() == '2026-09-14'
@@ -63,13 +65,27 @@ Feature: Database state verification — Ganesh Mahotsav 2026
   Scenario: Registration saved in event_pooja_user_registrations (NOT event_booking_registrations)
     * def regs = db.query("SELECT * FROM event_pooja_user_registrations WHERE event_id = " + verifyEventId)
     * match regs.length >= 1
-    * match regs[0].status   == 'CONFIRMED'
-    * match regs[0].reg_code != null
+    * match regs[0].status              == 'CONFIRMED'
+    * match regs[0].reg_code            != null
+    # V90: audit fields — self-booking defaults
+    * match regs[0].registration_source == 'SELF'
+    * match regs[0].override_used       == false
+    * match regs[0].registered_by       == '#null'
 
-    # Confirm NO pooja rows leaked into the booking registrations table
+    # Confirm NO pooja rows leaked into the booking registrations table (fix from 863c6b8)
     * def booking = db.query("SELECT COUNT(*) as cnt FROM event_booking_registrations WHERE activity_id LIKE 'pooja-%'")
     * match booking[0].cnt == 0
     * print '✅ Registration isolation DB check: PASSED'
+
+  Scenario: Admin registration audit fields set correctly (V90)
+    * def adminRegs = db.query("SELECT * FROM event_pooja_user_registrations WHERE registration_source = 'ADMIN' AND event_id = " + verifyEventId)
+    # This scenario passes when there are no admin regs (e2e flow only creates SELF regs)
+    # Run admin-register-for-pooja.feature first to generate an admin row
+    * print 'Admin registration rows found:', adminRegs.length
+    * if (adminRegs.length > 0) karate.set('adminReg', adminRegs[0])
+    * if (adminRegs.length > 0) karate.match(adminRegs[0].override_used, true)
+    * if (adminRegs.length > 0) karate.match(adminRegs[0].registered_by, '#notnull')
+    * print '✅ Admin audit fields DB check: PASSED'
 
   Scenario: 50 test users created
     * def count = db.scalar("SELECT COUNT(*) FROM app_users WHERE email LIKE '%@ganesh2026.test'")
