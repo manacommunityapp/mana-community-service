@@ -312,7 +312,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <excludedGroups>integration</excludedGroups>
+                    <excludedGroups>integration,karate</excludedGroups>
+                    <!-- Karate requires a live server; exclude it from the default unit-test pass.
+                         Run Karate separately: ./mvnw test -Dtest=KarateRunner -Dmaven.test.skip=false -->
+                    <excludes>
+                        <exclude>**/karate/KarateRunner.java</exclude>
+                    </excludes>
                     <includes>
                         <!-- 1. User & Auth related tests -->
                         <include>**/unit/service/AuthServiceTest.java</include>
@@ -329,6 +334,9 @@
                         <include>**/unit/service/EventServiceTest.java</include>
                         <include>**/unit/service/EventDonationServiceTest.java</include>
                         <include>**/unit/service/EventVolunteerServiceTest.java</include>
+                        <include>**/unit/service/PoojaSevaServiceImplTest.java</include>
+                        <include>**/unit/service/EventBookingRegistrationServiceImplTest.java</include>
+                        <include>**/unit/service/PoojaRegistrationStatusTest.java</include>
                         <include>**/slice/controller/EventControllerTest.java</include>
                         <include>**/slice/controller/EventDonationControllerTest.java</include>
                         <include>**/slice/controller/EventVolunteerControllerTest.java</include>
