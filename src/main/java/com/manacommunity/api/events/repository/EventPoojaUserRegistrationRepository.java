@@ -63,4 +63,12 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
              AND r.status NOT IN ('CANCELLED')
            """)
     int sumDirectDevoteesByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * G-4: Schedule-level duplicate guard — returns true when the user already has a
+     * non-cancelled registration for the given schedule row.
+     * Used alongside the pessimistic-lock reservation path to catch admin-direct bookings
+     * that bypass the reservation flow.
+     */
+    boolean existsByUserIdAndScheduleIdAndStatusNot(Long userId, Long scheduleId, String status);
 }

@@ -107,6 +107,19 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             }
         }
 
+        // G-4: Schedule-level duplicate guard — catches cases where scheduleId is set
+        // (new booking-engine path) independently of the string-based poojaSlotDate check.
+        if (!adminOverride && user != null && registration.getScheduleId() != null) {
+            boolean scheduleDuplicate = repository.existsByUserIdAndScheduleIdAndStatusNot(
+                    user.getId(), registration.getScheduleId(), "CANCELLED");
+            if (scheduleDuplicate) {
+                String slotName = registration.getPoojaSlotName() != null ? registration.getPoojaSlotName() : "this pooja slot";
+                throw new AlreadyRegisteredException(slotName,
+                        "You already have an active registration for this Pooja slot. " +
+                        "Please cancel your existing registration before booking again.");
+            }
+        }
+
         if (registration.getRegCode() == null || registration.getRegCode().isBlank()) {
             int year = java.time.LocalDate.now().getYear();
             String code;

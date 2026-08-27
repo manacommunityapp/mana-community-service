@@ -404,6 +404,11 @@ public class EventService {
             validateTicketCategoriesCapacity(req.getTicketTypes(), maxLimit);
         }
 
+        // G-3: If the date range changed, reject if any Pooja/Seva now falls outside the new bounds
+        if (req.getStartDate() != null || req.getEndDate() != null) {
+            validateNoPoojaOutsideNewRange(id, newStartDate, newEndDate);
+        }
+
         EventCommunity saved = eventRepo.save(event);
         if (req.getTicketTypes() != null) {
             saveTicketCategories(saved, req.getTicketTypes());
@@ -1364,6 +1369,61 @@ public class EventService {
             return LocalTime.parse(clean);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /**
+     * G-3: Reject an event date-range update if any linked {@link EventPoojaSeva} would fall
+     * outside the proposed new range.
+     *
+     * <p>Checks {@code pooja.date}, {@code pooja.endDate}, and every {@code daySlot.slotDate}.
+     * Collects all violating Pooja names and throws a single descriptive error so the admin
+     * knows exactly which Poojas need to be adjusted first.</p>
+     *
+     * @param eventId  the event being updated
+     * @param newStart the proposed new start date (never null — validated upstream)
+     * @param newEnd   the proposed new end date (null means single-day, treated as newStart)
+     */
+    private void validateNoPoojaOutsideNewRange(Long eventId, LocalDate newStart, LocalDate newEnd) {
+        if (newStart == null) return; // should never happen — guarded upstream
+        LocalDate effectiveEnd = (newEnd != null) ? newEnd : newStart;
+
+        List<EventPoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(eventId);
+        List<String> conflicts = new ArrayList<>();
+
+        for (EventPoojaSeva p : poojas) {
+            boolean conflict = false;
+            if (p.getDate() != null && (p.getDate().isBefore(newStart) || p.getDate().isAfter(effectiveEnd))) {
+                conflict = true;
+            }
+            if (!conflict && p.getEndDate() != null
+                    && (p.getEndDate().isBefore(newStart) || p.getEndDate().isAfter(effectiveEnd))) {
+                conflict = true;
+            }
+            if (!conflict && p.getDaySlots() != null) {
+                for (com.manacommunity.api.events.entity.EventPoojaSevaDaySlot slot : p.getDaySlots()) {
+                    if (slot.getSlotDate() != null
+                            && (slot.getSlotDate().isBefore(newStart) || slot.getSlotDate().isAfter(effectiveEnd))) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            if (conflict) {
+                conflicts.add("'" + p.getName() + "' (" +
+                        (p.getDate() != null ? p.getDate() : "?") +
+                        (p.getEndDate() != null ? " – " + p.getEndDate() : "") + ")");
+            }
+        }
+
+        if (!conflicts.isEmpty()) {
+            throw new ManaCommunityException(
+                    "Cannot narrow the event date range to [" + newStart + ", " + effectiveEnd + "]: " +
+                    "the following Pooja/Seva(s) fall outside the new range and must be updated first: " +
+                    String.join(", ", conflicts),
+                    HttpStatus.CONFLICT,
+                    "EVENT_RANGE_CONFLICTS_WITH_POOJAS"
+            );
         }
     }
 
