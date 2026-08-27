@@ -10,6 +10,7 @@ import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
+import com.manacommunity.api.events.enums.PoojaRegistrationStatus;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -212,7 +213,19 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         if (patch.getPaymentStatus() != null) existing.setPaymentStatus(patch.getPaymentStatus());
         if (patch.getPaymentMethod() != null) existing.setPaymentMethod(patch.getPaymentMethod());
         if (patch.getPrasadamMode() != null) existing.setPrasadamMode(patch.getPrasadamMode());
-        if (patch.getStatus() != null) existing.setStatus(patch.getStatus());
+        if (patch.getStatus() != null && !patch.getStatus().isBlank()) {
+            PoojaRegistrationStatus current = PoojaRegistrationStatus.parse(existing.getStatus(), PoojaRegistrationStatus.CONFIRMED);
+            PoojaRegistrationStatus next    = PoojaRegistrationStatus.parse(patch.getStatus(), null);
+            if (next == null) {
+                throw new IllegalArgumentException("Unknown registration status: " + patch.getStatus());
+            }
+            if (!isAdmin && !current.canTransitionTo(next)) {
+                throw new IllegalStateException(
+                        "Invalid status transition: " + current + " → " + next +
+                        ". Allowed from " + current + ": " + current.name());
+            }
+            existing.setStatus(next.name());
+        }
         if (patch.getNotes() != null) existing.setNotes(patch.getNotes());
         if (patch.getPoojaSevaTimeSlotsId() != null) existing.setPoojaSevaTimeSlotsId(patch.getPoojaSevaTimeSlotsId());
 
@@ -246,7 +259,13 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     @Transactional
     public void cancelRegistration(Long id, AppUser user) {
         EventPoojaUserRegistration existing = getRegistrationById(id, user);
-        existing.setStatus("CANCELLED");
+        PoojaRegistrationStatus current = PoojaRegistrationStatus.parse(existing.getStatus(), PoojaRegistrationStatus.CONFIRMED);
+        if (!current.canTransitionTo(PoojaRegistrationStatus.CANCELLED)) {
+            throw new IllegalStateException(
+                    "Cannot cancel a registration in status '" + current + "'. " +
+                    "Only RESERVED, PAYMENT_PENDING, CONFIRMED, CHECKED_IN, and IN_PROGRESS bookings may be cancelled.");
+        }
+        existing.setStatus(PoojaRegistrationStatus.CANCELLED.name());
         repository.save(existing);
 
         // Release the capacity hold so the slot becomes available again
@@ -267,6 +286,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     public EventPoojaUserRegistration reschedule(Long registrationId, Long newScheduleId, String idempotencyKey, AppUser user) {
         EventPoojaUserRegistration reg = repository.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("PoojaRegistration", registrationId));
+
+        PoojaRegistrationStatus current = PoojaRegistrationStatus.parse(reg.getStatus(), PoojaRegistrationStatus.CONFIRMED);
+        if (!current.isReschedulable()) {
+            throw new IllegalStateException(
+                    "Cannot reschedule a registration in status '" + current + "'. " +
+                    "Rescheduling is only allowed for CONFIRMED bookings. " +
+                    "CHECKED_IN, IN_PROGRESS, and COMPLETED bookings cannot be moved.");
+        }
 
         // Release old slot capacity hold
         if (reg.getReservationId() != null) {

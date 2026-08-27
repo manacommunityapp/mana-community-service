@@ -103,6 +103,14 @@ public class EventBookingRegistration {
     @Column(name = "qr_code_url", length = 500)
     private String qrCodeUrl;
 
+    /** Reservation ID obtained from the /reserve endpoint before booking. Not persisted here — carried transiently. */
+    @Transient
+    private Long reservationId;
+
+    /** Schedule ID of the specific slot being booked. Not persisted here — derived from the reservation. */
+    @Transient
+    private Long scheduleId;
+
     @Column(name = "checked_in")
     @Builder.Default
     private Boolean checkedIn = false;
