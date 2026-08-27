@@ -1,6 +1,6 @@
 package karate;
 
-import io.karatelabs.karate.junit5.Karate;
+import com.intuit.karate.junit5.Karate;
 import org.junit.jupiter.api.Tag;
 
 /**
@@ -20,16 +20,14 @@ class KarateRunner {
     @Karate.Test
     Karate all() {
         return Karate.run("classpath:karate/features")
-                     .tags("~@ignore")
-                     .parallel(5);
+                     .tags("~@ignore");
     }
 
     /** Fast smoke check — tags @smoke only */
     @Karate.Test
     Karate smoke() {
         return Karate.run("classpath:karate/features")
-                     .tags("@smoke")
-                     .parallel(3);
+                     .tags("@smoke");
     }
 
     /** End-to-end Ganesh Mahotsav flow */
