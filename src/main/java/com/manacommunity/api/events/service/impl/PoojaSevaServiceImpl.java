@@ -64,8 +64,20 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     private void saveSlots(Long poojaSevaId, List<EventPoojaSevaDayTimeSlot> slots) {
         timeSlotRepository.deleteByPoojaSevaId(poojaSevaId);
         if (slots != null && !slots.isEmpty()) {
-            slots.forEach(s -> s.setPoojaSevaId(poojaSevaId));
-            timeSlotRepository.saveAll(slots);
+            List<EventPoojaSevaDayTimeSlot> toSave = new ArrayList<>();
+            for (EventPoojaSevaDayTimeSlot s : slots) {
+                if (s != null) {
+                    EventPoojaSevaDayTimeSlot slot = new EventPoojaSevaDayTimeSlot();
+                    slot.setPoojaSevaId(poojaSevaId);
+                    slot.setSlotDate(s.getSlotDate());
+                    slot.setStartTime(s.getStartTime());
+                    slot.setEndTime(s.getEndTime());
+                    slot.setTitle(s.getTitle());
+                    slot.setSlotCount(s.getSlotCount());
+                    toSave.add(slot);
+                }
+            }
+            timeSlotRepository.saveAll(toSave);
         }
     }
 
