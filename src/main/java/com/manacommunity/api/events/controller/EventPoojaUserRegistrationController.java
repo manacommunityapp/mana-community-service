@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.AdminPoojaRegistrationRequest;
 import com.manacommunity.api.events.dto.PoojaRescheduleRequest;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
@@ -62,6 +63,65 @@ public class EventPoojaUserRegistrationController {
         }
         EventPoojaUserRegistration created = service.createRegistration(registration, effectiveUser, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /**
+     * Admin-only: register a specific member for a Pooja slot on their behalf.
+     * Always runs with adminOverride=true (capacity and duplicate checks bypassed).
+     * targetUserId and overrideReason are part of the request body — nothing sensitive leaks into query params.
+     *
+     * POST /api/events/pooja-registrations/admin-create
+     */
+    @PostMapping("/admin-create")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<EventPoojaUserRegistration> adminCreateRegistration(
+            @RequestBody @Valid AdminPoojaRegistrationRequest req,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
+
+        AppUser caller = loggedInUserService.resolve(principal);
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
+        if (communityId == null && caller != null && caller.getCommunity() != null) {
+            communityId = caller.getCommunity().getId();
+        }
+
+        AppUser targetUser = userRepository.findById(req.getTargetUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", req.getTargetUserId()));
+
+        EventPoojaUserRegistration registration = req.toRegistration();
+        EventPoojaUserRegistration created = service.createRegistration(registration, targetUser, communityId, true);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /**
+     * Admin-only: search members by name within a community so the UI can populate a user-selection picker
+     * before calling /admin-create.
+     *
+     * GET /api/events/pooja-registrations/admin/user-search?q=Ramesh&communityId=3
+     */
+    @GetMapping("/admin/user-search")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<List<AppUser>> searchUsers(
+            @RequestParam(value = "q", defaultValue = "") String query,
+            @RequestParam(value = "communityId", required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
+        if (communityId == null) {
+            AppUser caller = loggedInUserService.resolve(principal);
+            if (caller != null && caller.getCommunity() != null) {
+                communityId = caller.getCommunity().getId();
+            }
+        }
+        if (communityId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        List<AppUser> users = userRepository.findByCommunityIdAndFullNameContainingIgnoreCase(communityId, query);
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping

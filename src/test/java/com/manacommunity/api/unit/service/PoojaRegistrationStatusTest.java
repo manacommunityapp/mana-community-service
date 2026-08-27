@@ -3,6 +3,8 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.enums.PoojaRegistrationStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
@@ -177,7 +179,9 @@ class PoojaRegistrationStatusTest {
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
                     schedRepo, mock(EventRegistrationRepository.class),
-                    mock(EventPoojaSlotReservationRepository.class));
+                    mock(EventPoojaSlotReservationRepository.class),
+                    mock(EventPoojaBookingParticipantRepository.class),
+                    new ObjectMapper());
 
             EventPoojaUserRegistration result = service.reschedule(1L, 99L, "key", null);
             assertThat(result.getScheduleId()).isEqualTo(99L);
@@ -229,7 +233,9 @@ class PoojaRegistrationStatusTest {
                     repo, mock(CommunityRepository.class), reservationService,
                     mock(EventPoojaScheduleRepository.class),
                     mock(EventRegistrationRepository.class),
-                    mock(EventPoojaSlotReservationRepository.class));
+                    mock(EventPoojaSlotReservationRepository.class),
+                    mock(EventPoojaBookingParticipantRepository.class),
+                    new ObjectMapper());
 
             service.cancelRegistration(1L, null);
 
@@ -298,6 +304,8 @@ class PoojaRegistrationStatusTest {
                 mock(PoojaSlotReservationService.class),
                 mock(EventPoojaScheduleRepository.class),
                 mock(EventRegistrationRepository.class),
-                mock(EventPoojaSlotReservationRepository.class));
+                mock(EventPoojaSlotReservationRepository.class),
+                mock(EventPoojaBookingParticipantRepository.class),
+                new ObjectMapper());
     }
 }

@@ -175,6 +175,11 @@ public class PoojaScheduleServiceImpl implements PoojaScheduleService {
         List<EventPoojaSchedule> toSave = new java.util.ArrayList<>();
         if (seva.getTimeSlotConfig() != null && !seva.getTimeSlotConfig().isEmpty()) {
             for (var slot : seva.getTimeSlotConfig()) {
+                // CLOSED config slots must never have schedule rows created for them.
+                // BLOCKED slots are also skipped on initial creation (admin can open a schedule row manually).
+                if (slot.getStatus() != null && slot.getStatus() != PoojaScheduleStatus.OPEN) {
+                    continue;
+                }
                 LocalDate sDate = slot.getSlotDate() != null ? slot.getSlotDate() : seva.getDate();
                 java.time.LocalTime sTime = parseLocalTime(slot.getStartTime());
                 if (sDate != null && sTime != null) {

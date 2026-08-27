@@ -1,10 +1,15 @@
 package com.manacommunity.api.events.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
+import com.manacommunity.api.events.entity.EventPoojaBookingParticipant;
 import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.enums.RegistrationSource;
+import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
@@ -20,7 +25,9 @@ import com.manacommunity.api.user.model.AppUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -32,6 +39,8 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final EventPoojaScheduleRepository scheduleRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
     private final EventPoojaSlotReservationRepository slotReservationRepository;
+    private final EventPoojaBookingParticipantRepository participantRepository;
+    private final ObjectMapper objectMapper;
 
     public EventPoojaUserRegistrationServiceImpl(
             EventPoojaUserRegistrationRepository repository,
@@ -39,13 +48,17 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             PoojaSlotReservationService reservationService,
             EventPoojaScheduleRepository scheduleRepository,
             EventRegistrationRepository eventRegistrationRepository,
-            EventPoojaSlotReservationRepository slotReservationRepository) {
+            EventPoojaSlotReservationRepository slotReservationRepository,
+            EventPoojaBookingParticipantRepository participantRepository,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
         this.eventRegistrationRepository = eventRegistrationRepository;
         this.slotReservationRepository = slotReservationRepository;
+        this.participantRepository = participantRepository;
+        this.objectMapper = objectMapper;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -173,12 +186,28 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
                     .ifPresent(registration::setTokenNumber);
         }
 
+        // Stamp audit / source fields
+        boolean isAdmin = isUserAdmin(user);
+        if (adminOverride || isAdmin) {
+            registration.setRegistrationSource(RegistrationSource.ADMIN);
+            if (user != null) registration.setRegisteredBy(user.getId());
+        } else {
+            registration.setRegistrationSource(RegistrationSource.SELF);
+        }
+        if (adminOverride) {
+            registration.setOverrideUsed(true);
+            // overrideReason is caller-supplied; preserve whatever was set on the incoming object
+        }
+
         EventPoojaUserRegistration saved = repository.save(registration);
 
         // Confirm the pre-hold so capacity is counted as confirmed, not reserved
         if (saved.getReservationId() != null) {
             reservationService.confirmReservation(saved.getReservationId(), saved.getId());
         }
+
+        // Materialise participants from the attendingDevotees JSON blob
+        syncParticipants(saved, saved.getAttendingDevotees(), saved.getRegCode());
 
         return saved;
     }
@@ -202,6 +231,8 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         if (patch.getEmail() != null) existing.setEmail(patch.getEmail());
         if (patch.getFlatNo() != null) existing.setFlatNo(patch.getFlatNo());
         if (patch.getDevoteeCount() != null) existing.setDevoteeCount(patch.getDevoteeCount());
+        boolean attendingChanged = patch.getAttendingDevotees() != null
+                && !patch.getAttendingDevotees().equals(existing.getAttendingDevotees());
         if (patch.getAttendingDevotees() != null) existing.setAttendingDevotees(patch.getAttendingDevotees());
         if (patch.getPoojaSlotName() != null) existing.setPoojaSlotName(patch.getPoojaSlotName());
         if (patch.getPoojaSlotDate() != null) existing.setPoojaSlotDate(patch.getPoojaSlotDate());
@@ -229,7 +260,14 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         if (patch.getNotes() != null) existing.setNotes(patch.getNotes());
         if (patch.getPoojaSevaTimeSlotsId() != null) existing.setPoojaSevaTimeSlotsId(patch.getPoojaSevaTimeSlotsId());
 
-        return repository.save(existing);
+        EventPoojaUserRegistration saved = repository.save(existing);
+
+        // Re-sync participants when the attendingDevotees blob changed
+        if (attendingChanged) {
+            syncParticipants(saved, saved.getAttendingDevotees(), saved.getRegCode());
+        }
+
+        return saved;
     }
 
     @Override
@@ -325,5 +363,99 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         });
 
         return repository.save(reg);
+    }
+
+    // ── Participant helpers ────────────────────────────────────────────────────
+
+    /**
+     * Delete existing participant rows for this registration and re-insert from the
+     * attendingDevotees blob. Idempotent: safe to call on create and on update.
+     */
+    private void syncParticipants(EventPoojaUserRegistration reg, String attendingDevotees, String regCode) {
+        if (attendingDevotees == null || attendingDevotees.isBlank()) return;
+
+        participantRepository.deleteByRegistrationId(reg.getId());
+
+        List<EventPoojaBookingParticipant> rows = parseParticipants(attendingDevotees, reg, regCode);
+        if (!rows.isEmpty()) {
+            participantRepository.saveAll(rows);
+        }
+    }
+
+    /**
+     * Parses the attendingDevotees string into participant entities. Handles three formats:
+     * <ul>
+     *   <li>Comma-separated plain names: {@code "Ramesh, Sita, Lakshman"}</li>
+     *   <li>JSON array of strings: {@code ["Ramesh","Sita"]}</li>
+     *   <li>JSON array of objects: {@code [{"name":"Ramesh","gotram":"Kasyapa","nakshatra":"Rohini","relation":"head"}]}</li>
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    private List<EventPoojaBookingParticipant> parseParticipants(
+            String attendingDevotees, EventPoojaUserRegistration reg, String regCode) {
+
+        List<EventPoojaBookingParticipant> result = new ArrayList<>();
+        String trimmed = attendingDevotees.trim();
+
+        if (trimmed.startsWith("[")) {
+            try {
+                List<Object> raw = objectMapper.readValue(trimmed, new TypeReference<List<Object>>() {});
+                for (int i = 0; i < raw.size(); i++) {
+                    Object item = raw.get(i);
+                    EventPoojaBookingParticipant p;
+                    if (item instanceof String name) {
+                        p = participant(reg, name.trim(), null, null, null, regCode, i + 1);
+                    } else if (item instanceof Map<?,?> map) {
+                        p = participant(reg,
+                                str(map, "name"),
+                                str(map, "gotram"),
+                                str(map, "nakshatra"),
+                                str(map, "relation"),
+                                regCode, i + 1);
+                    } else {
+                        continue;
+                    }
+                    if (p.getName() != null && !p.getName().isBlank()) result.add(p);
+                }
+            } catch (Exception ignored) {
+                // Fallback to comma-split if JSON is malformed
+                splitByComma(trimmed, reg, regCode, result);
+            }
+        } else {
+            splitByComma(trimmed, reg, regCode, result);
+        }
+        return result;
+    }
+
+    private void splitByComma(String raw, EventPoojaUserRegistration reg, String regCode,
+                               List<EventPoojaBookingParticipant> result) {
+        String[] parts = raw.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String name = parts[i].trim();
+            if (!name.isEmpty()) {
+                result.add(participant(reg, name, null, null, null, regCode, i + 1));
+            }
+        }
+    }
+
+    private EventPoojaBookingParticipant participant(EventPoojaUserRegistration reg,
+                                                     String name, String gotram,
+                                                     String nakshatra, String relation,
+                                                     String regCode, int ordinal) {
+        String qr = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data="
+                + (regCode != null ? regCode : "REG") + "-P" + ordinal;
+        return EventPoojaBookingParticipant.builder()
+                .registration(reg)
+                .name(name)
+                .gotram(gotram)
+                .nakshatra(nakshatra)
+                .relation(relation)
+                .qrCodeUrl(qr)
+                .build();
+    }
+
+    private static String str(Map<?,?> map, String key) {
+        Object v = map.get(key);
+        return v instanceof String s ? s.trim() : null;
     }
 }

@@ -8,6 +8,7 @@ import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.enums.RegistrationSource;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
@@ -182,6 +183,18 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
+
+        // Stamp audit / source fields
+        if (isAdmin) {
+            registration.setRegistrationSource(RegistrationSource.ADMIN);
+            if (user != null) registration.setRegisteredBy(user.getId());
+        } else {
+            registration.setRegistrationSource(RegistrationSource.SELF);
+        }
+        if (adminOverride) {
+            registration.setOverrideUsed(true);
+            // overrideReason is caller-supplied; preserve whatever was set on the incoming object
+        }
 
         EventBookingRegistration saved = repository.save(registration);
 
