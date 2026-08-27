@@ -68,6 +68,8 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
             for (EventPoojaSevaDayTimeSlot s : slots) {
                 if (s != null) {
                     EventPoojaSevaDayTimeSlot slot = new EventPoojaSevaDayTimeSlot();
+                    slot.setId(EventPoojaSevaDayTimeSlot.generateId());
+                    slot.setNew(true);
                     slot.setPoojaSevaId(poojaSevaId);
                     slot.setSlotDate(s.getSlotDate());
                     slot.setStartTime(s.getStartTime());

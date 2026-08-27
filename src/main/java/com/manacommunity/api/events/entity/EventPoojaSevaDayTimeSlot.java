@@ -1,15 +1,24 @@
 package com.manacommunity.api.events.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
+
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Entity
 @Table(name = "event_pooja_seva_time_slots")
-public class EventPoojaSevaDayTimeSlot {
+public class EventPoojaSevaDayTimeSlot implements Persistable<Long> {
+
+    private static final AtomicLong SEQ = new AtomicLong(0);
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Transient
+    @JsonIgnore
+    private boolean isNew = true;
 
     @Column(name = "pooja_seva_id", nullable = false)
     private Long poojaSevaId;
@@ -32,6 +41,7 @@ public class EventPoojaSevaDayTimeSlot {
     public EventPoojaSevaDayTimeSlot() {}
 
     public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, Integer slotCount) {
+        this.id = generateId();
         this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
@@ -39,6 +49,7 @@ public class EventPoojaSevaDayTimeSlot {
     }
 
     public EventPoojaSevaDayTimeSlot(Long poojaSevaId, LocalDate slotDate, String startTime, String endTime, String title, Integer slotCount) {
+        this.id = generateId();
         this.poojaSevaId = poojaSevaId;
         this.slotDate = slotDate;
         this.startTime = startTime;
@@ -47,8 +58,32 @@ public class EventPoojaSevaDayTimeSlot {
         this.slotCount = slotCount;
     }
 
+    public static long generateId() {
+        long epochMs = System.currentTimeMillis();
+        long counter = SEQ.incrementAndGet() % 1000;
+        return epochMs * 1000 + counter;
+    }
+
+    @PrePersist
+    public void ensureId() {
+        if (this.id == null) {
+            this.id = generateId();
+        }
+    }
+
+    @PostLoad
+    public void markNotNew() {
+        this.isNew = false;
+    }
+
+    @Override
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    @Override
+    @JsonIgnore
+    public boolean isNew() { return isNew || id == null; }
+    public void setNew(boolean isNew) { this.isNew = isNew; }
 
     public Long getPoojaSevaId() { return poojaSevaId; }
     public void setPoojaSevaId(Long poojaSevaId) { this.poojaSevaId = poojaSevaId; }
