@@ -47,6 +47,9 @@ public class EventPoojaSevaDayTimeSlot {
         this.slotCount = slotCount;
     }
 
+    public EventPoojaSevaDayTimeSlot(LocalDate of, String time, int i) {
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
