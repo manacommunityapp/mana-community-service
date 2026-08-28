@@ -167,6 +167,12 @@ public class EventBookingRegistration {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
+        if (overrideUsed == null) {
+            overrideUsed = false;
+        }
+        if (registrationSource == null) {
+            registrationSource = RegistrationSource.SELF;
+        }
         updatedAt = LocalDateTime.now();
     }
 

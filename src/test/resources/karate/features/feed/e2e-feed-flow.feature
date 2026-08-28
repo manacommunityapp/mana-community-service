@@ -88,9 +88,9 @@ Feature: End-to-end Community Feed flow
     And param size = 10
     When method GET
     Then status 200
-    And match response.content.length >= 1
+    * assert response.content.length >= 1
     * def found = karate.filter(response.content, function(p){ return p.id == postId })
-    * match found.length >= 1
+    * assert found.length >= 1
     * print '✅ Step 7 — Post appears in bookmarks'
 
     # 8. Fetch feed to confirm post is visible

@@ -9,6 +9,7 @@ import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.enums.RegistrationSource;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
@@ -38,6 +39,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final PoojaSlotReservationService reservationService;
     private final EventPoojaScheduleRepository scheduleRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
     private final EventPoojaSlotReservationRepository slotReservationRepository;
     private final EventPoojaBookingParticipantRepository participantRepository;
     private final ObjectMapper objectMapper;
@@ -48,6 +50,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             PoojaSlotReservationService reservationService,
             EventPoojaScheduleRepository scheduleRepository,
             EventRegistrationRepository eventRegistrationRepository,
+            EventBookingRegistrationRepository eventBookingRegistrationRepository,
             EventPoojaSlotReservationRepository slotReservationRepository,
             EventPoojaBookingParticipantRepository participantRepository,
             ObjectMapper objectMapper) {
@@ -56,6 +59,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
         this.eventRegistrationRepository = eventRegistrationRepository;
+        this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
         this.slotReservationRepository = slotReservationRepository;
         this.participantRepository = participantRepository;
         this.objectMapper = objectMapper;
@@ -71,6 +75,24 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
                 user.hasRole("ROLE_COMMUNITY_ADMIN") ||
                 user.hasRole("ROLE_EVENT_ADMIN") ||
                 user.hasRole("ROLE_SUPER_ADMIN");
+    }
+
+    private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
+        if (mainEventId == null || mainEventId <= 0 || userId == null) {
+            return true;
+        }
+        boolean isDirectRegistered = eventRegistrationRepository != null &&
+                eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, userId);
+        if (isDirectRegistered) {
+            return true;
+        }
+        if (eventBookingRegistrationRepository != null) {
+            return eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + mainEventId, "CANCELLED")
+                    || eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(mainEventId), "CANCELLED");
+        }
+        return false;
     }
 
     @Override
@@ -99,7 +121,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
                         .orElse(null);
             }
             if (targetMainEventId != null && targetMainEventId > 0) {
-                boolean isMainRegistered = eventRegistrationRepository.existsByEventIdAndUserId(targetMainEventId, user.getId());
+                boolean isMainRegistered = isRegisteredForMainEvent(targetMainEventId, user.getId());
                 if (!isMainRegistered) {
                     throw new IllegalArgumentException("Registration for the main event is required before booking this Pooja Seva. Please register for the main event first.");
                 }
@@ -178,6 +200,11 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
                     .map(EventPoojaSchedule::getTimeSlotConfigId)
                     .ifPresent(registration::setPoojaSevaTimeSlotsId);
         }
+        if (registration.getScheduleId() == null && registration.getPoojaSevaTimeSlotsId() != null) {
+            scheduleRepository.findByTimeSlotConfigId(registration.getPoojaSevaTimeSlotsId())
+                    .map(EventPoojaSchedule::getId)
+                    .ifPresent(registration::setScheduleId);
+        }
 
         // Populate token number from reservation before first save (L-2)
         if (registration.getTokenNumber() == null && registration.getReservationId() != null) {
@@ -194,10 +221,7 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         } else {
             registration.setRegistrationSource(RegistrationSource.SELF);
         }
-        if (adminOverride) {
-            registration.setOverrideUsed(true);
-            // overrideReason is caller-supplied; preserve whatever was set on the incoming object
-        }
+        registration.setOverrideUsed(adminOverride);
 
         EventPoojaUserRegistration saved = repository.save(registration);
 

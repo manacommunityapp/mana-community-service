@@ -184,6 +184,12 @@ public class EventPoojaUserRegistration {
         if (this.updatedAt == null) {
             this.updatedAt = LocalDateTime.now();
         }
+        if (this.overrideUsed == null) {
+            this.overrideUsed = false;
+        }
+        if (this.registrationSource == null) {
+            this.registrationSource = RegistrationSource.SELF;
+        }
     }
 
     @PreUpdate

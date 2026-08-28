@@ -64,7 +64,7 @@ Feature: Database state verification — Ganesh Mahotsav 2026
 
   Scenario: Registration saved in event_pooja_user_registrations (NOT event_booking_registrations)
     * def regs = db.query("SELECT * FROM event_pooja_user_registrations WHERE event_id = " + verifyEventId)
-    * match regs.length >= 1
+    * assert regs.length >= 1
     * match regs[0].status              == 'CONFIRMED'
     * match regs[0].reg_code            != null
     # V90: audit fields — self-booking defaults
@@ -88,6 +88,6 @@ Feature: Database state verification — Ganesh Mahotsav 2026
     * print '✅ Admin audit fields DB check: PASSED'
 
   Scenario: 250 test users created
-    * def count = db.scalar("SELECT COUNT(*) FROM app_users WHERE email LIKE '%@ganesh2026.test'")
+    * def count = db.scalar("SELECT COUNT(*) FROM app_user WHERE email LIKE '%@ganesh2026.test'")
     * assert count >= 250
     * print '✅ User count DB check:', count, '— PASSED'

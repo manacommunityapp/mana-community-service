@@ -11,6 +11,10 @@ Feature: Ganesh Mahotsav 2026 — End-to-end event module flow
   #   7.  Database state is verified
 
   Scenario: Full Ganesh Mahotsav event module lifecycle
+    # Keep going through all steps even if one sub-feature fails —
+    # @AfterAll cleanup must always run on real data, not partial state.
+    * configure continueOnStepFailure = true
+
     # ── 1. Authenticate as admin ──────────────────────────────────────────
     * url baseUrl
     * header Content-Type = 'application/json'

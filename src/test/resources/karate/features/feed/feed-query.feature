@@ -18,7 +18,7 @@ Feature: Community Feed — read, search, and bookmarks
     When method GET
     Then status 200
     And match response.content       != null
-    And match response.totalElements >= 0
+    * assert response.totalElements >= 0
     * print '✅ Feed page 0 — total:', response.totalElements
 
   Scenario: Get feed filtered by type ANNOUNCEMENT
@@ -44,7 +44,7 @@ Feature: Community Feed — read, search, and bookmarks
     And param size = 5
     When method GET
     Then status 200
-    And match response.content.length >= 1
+    * assert response.content.length >= 1
     * print '✅ Search results:', response.content.length
 
   Scenario: Get bookmarked posts
@@ -64,7 +64,7 @@ Feature: Community Feed — read, search, and bookmarks
     And param size = 10
     When method GET
     Then status 200
-    And match response.content.length >= 1
+    * assert response.content.length >= 1
     * print '✅ Bookmarks count:', response.content.length
 
   Scenario: Get sidebar summary counts

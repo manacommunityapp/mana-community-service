@@ -1,6 +1,9 @@
 package karate;
 
+import com.intuit.karate.Runner;
 import com.intuit.karate.junit5.Karate;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 
 /**
@@ -28,6 +31,22 @@ import org.junit.jupiter.api.Tag;
  */
 @Tag("karate")
 class KarateRunner {
+
+    /** Wipe test data before any flow starts — prevents stale rows blocking re-runs. */
+    @BeforeAll
+    static void cleanBefore() {
+        Runner.path("classpath:karate/features/db/cleanup.feature")
+              .tags("@cleanup")
+              .parallel(1);
+    }
+
+    /** Wipe test data after all flows finish — leaves the DB in a clean state. */
+    @AfterAll
+    static void cleanAfter() {
+        Runner.path("classpath:karate/features/db/cleanup.feature")
+              .tags("@cleanup")
+              .parallel(1);
+    }
 
     /** Full suite — skips anything tagged @ignore */
     @Karate.Test
