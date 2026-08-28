@@ -22,6 +22,10 @@ public interface EventMealRegistrationRepository extends JpaRepository<EventMeal
     @Query("SELECT m FROM EventMealRegistration m WHERE m.event.id = :eventId ORDER BY m.mealDate, m.mealType")
     List<EventMealRegistration> findByEventIdOrdered(@Param("eventId") Long eventId);
 
+    List<EventMealRegistration> findByEventId(Long eventId);
+
+    List<EventMealRegistration> findByCommunityId(Long communityId);
+
     @Query("SELECT COALESCE(SUM(m.headCount), 0) FROM EventMealRegistration m WHERE m.event.community.id = :communityId")
     long sumHeadCountByCommunity(@Param("communityId") Long communityId);
 }

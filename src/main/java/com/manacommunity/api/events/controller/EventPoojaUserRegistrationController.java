@@ -1,7 +1,9 @@
 package com.manacommunity.api.events.controller;
 
 import com.manacommunity.api.events.dto.AdminPoojaRegistrationRequest;
+import com.manacommunity.api.events.dto.PoojaRegistrationSummaryResponse;
 import com.manacommunity.api.events.dto.PoojaRescheduleRequest;
+import com.manacommunity.api.events.entity.EventPoojaBookingParticipant;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -140,6 +142,43 @@ public class EventPoojaUserRegistrationController {
             }
         }
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId, poojaSevaId));
+    }
+
+    /**
+     * Lightweight summary endpoint: Returns only the required fields for the Pooja & Seva management page table/overview,
+     * reducing network payload and database entity serialization overhead.
+     *
+     * GET /api/events/pooja-registrations/summary
+     */
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    public ResponseEntity<List<PoojaRegistrationSummaryResponse>> getRegistrationSummaries(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "poojaSevaId", required = false) Long poojaSevaId) {
+        if (communityId == null && principal != null && principal.getCommunityId() != null) {
+            communityId = principal.getCommunityId();
+        }
+        if (communityId == null) {
+            AppUser user = loggedInUserService.resolve(principal);
+            if (user != null && user.getCommunity() != null) {
+                communityId = user.getCommunity().getId();
+            }
+        }
+        return ResponseEntity.ok(service.getRegistrationSummariesByCommunity(communityId, poojaSevaId));
+    }
+
+    /**
+     * Fetch the devotee / participant rows for a specific Pooja registration on demand.
+     *
+     * GET /api/events/pooja-registrations/{id}/participants
+     */
+    @GetMapping("/{id}/participants")
+    public ResponseEntity<List<EventPoojaBookingParticipant>> getParticipants(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(service.getParticipantsByRegistrationId(id, user));
     }
 
     @GetMapping("/my")
