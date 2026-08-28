@@ -126,6 +126,14 @@ public class EventPoojaUserRegistration {
     @Column(name = "pooja_seva_time_slots_id")
     private Long poojaSevaTimeSlotsId;
 
+    /** Denormalized FK to event_pooja_sevas — set at create time from the time slot or schedule so
+     *  registrations can be filtered by pooja seva without joining through intermediate tables. */
+    @Column(name = "pooja_seva_id")
+    private Long poojaSevaId;
+
+    public Long getPoojaSevaId() { return poojaSevaId; }
+    public void setPoojaSevaId(Long poojaSevaId) { this.poojaSevaId = poojaSevaId; }
+
     /** Token number assigned at reservation time — persisted here so it remains available after the reservation row is purged. */
     @Column(name = "token_number")
     private Integer tokenNumber;

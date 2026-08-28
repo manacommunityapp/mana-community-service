@@ -128,7 +128,8 @@ public class EventPoojaUserRegistrationController {
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<List<EventPoojaUserRegistration>> getAllRegistrations(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
+            @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
+            @RequestParam(value = "poojaSevaId", required = false) Long poojaSevaId) {
         if (communityId == null && principal != null && principal.getCommunityId() != null) {
             communityId = principal.getCommunityId();
         }
@@ -138,7 +139,7 @@ public class EventPoojaUserRegistrationController {
                 communityId = user.getCommunity().getId();
             }
         }
-        return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
+        return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId, poojaSevaId));
     }
 
     @GetMapping("/my")

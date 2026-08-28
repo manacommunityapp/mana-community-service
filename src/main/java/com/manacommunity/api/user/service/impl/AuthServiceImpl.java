@@ -73,6 +73,8 @@ public class AuthServiceImpl implements AuthService {
     private TokenBlacklistService tokenBlacklistService;
     @Autowired
     private OtpService otpService;
+    @Autowired
+    private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
 
     @Override
     @Transactional
@@ -90,17 +92,30 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
 
-        // 2c. Check if block & flat number combination is already registered in this community
-        if (community != null && request.getBlock() != null && !request.getBlock().trim().isEmpty()
-                && request.getFlatNo() != null && !request.getFlatNo().trim().isEmpty()) {
-            boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
-                    community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        // 2c. Validate block name and flat number against community block config FIRST.
+        //     This ensures the submitted block/flat actually exists in this community's
+        //     layout before we check if it is already taken (non-APARTMENT communities
+        //     with no block config skip this step automatically).
+        try {
+            blockConfigService.validateBlockAndFlat(
+                    community.getId(),
+                    request.getBlock(),
+                    request.getFlatNo()
             );
-            if (unitExists) {
-                throw new ManaCommunityException(
-                        "Unit Block " + request.getBlock().trim().toUpperCase() + " Flat " + request.getFlatNo().trim() + " is already registered in this community.",
-                        HttpStatus.CONFLICT, "DUPLICATE_UNIT");
-            }
+        } catch (IllegalArgumentException ex) {
+            throw new ManaCommunityException(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+        }
+
+        // 2d. Now that the flat is confirmed valid, check it is not already taken
+        //     (one registration per flat per community).
+        boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        );
+        if (unitExists) {
+            throw new ManaCommunityException(
+                    "Block " + request.getBlock().trim().toUpperCase() + " Flat " +
+                    request.getFlatNo().trim() + " is already registered in this community.",
+                    HttpStatus.CONFLICT, "DUPLICATE_UNIT");
         }
 
         // 2b. Enforce password strength before hashing — also reject passwords

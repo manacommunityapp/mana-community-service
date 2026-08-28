@@ -17,6 +17,8 @@ public interface EventPoojaUserRegistrationService {
 
     List<EventPoojaUserRegistration> getRegistrationsByCommunity(Long communityId);
 
+    List<EventPoojaUserRegistration> getRegistrationsByCommunity(Long communityId, Long poojaSevaId);
+
     EventPoojaUserRegistration getRegistrationById(Long id, AppUser user);
 
     void cancelRegistration(Long id, AppUser user);

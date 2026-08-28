@@ -75,4 +75,8 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE EventPoojaUserRegistration r SET r.scheduleId = :targetScheduleId WHERE r.scheduleId = :sourceScheduleId")
     int migrateScheduleId(@Param("sourceScheduleId") Long sourceScheduleId, @Param("targetScheduleId") Long targetScheduleId);
+
+    List<EventPoojaUserRegistration> findByPoojaSevaIdOrderByCreatedAtDesc(Long poojaSevaId);
+
+    List<EventPoojaUserRegistration> findByCommunityIdAndPoojaSevaIdOrderByCreatedAtDesc(Long communityId, Long poojaSevaId);
 }
