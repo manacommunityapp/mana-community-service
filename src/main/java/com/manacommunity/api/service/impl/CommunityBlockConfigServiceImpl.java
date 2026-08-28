@@ -65,6 +65,31 @@ public class CommunityBlockConfigServiceImpl implements CommunityBlockConfigServ
 
     @Override
     @Transactional
+    public void saveAllBlockConfigs(Long communityId, List<BlockConfigResponse> blockConfigs) {
+        if (blockConfigs == null || blockConfigs.isEmpty()) {
+            return;
+        }
+        blockConfigRepo.deleteByCommunityId(communityId);
+        blockConfigRepo.flush();
+
+        List<CommunityBlockConfig> entities = new ArrayList<>();
+        for (BlockConfigResponse req : blockConfigs) {
+            if (req.getBlockName() == null || req.getBlockName().isBlank()) continue;
+            int floors = req.getTotalFloors() > 0 ? req.getTotalFloors() : 10;
+            int flatsPerFloor = req.getFlatsPerFloor() > 0 ? req.getFlatsPerFloor() : 11;
+            entities.add(CommunityBlockConfig.builder()
+                    .communityId(communityId)
+                    .blockName(req.getBlockName().trim().toUpperCase())
+                    .totalFloors(floors)
+                    .flatsPerFloor(flatsPerFloor)
+                    .build());
+        }
+        blockConfigRepo.saveAll(entities);
+        log.info("Saved {} custom block configs for community {}", entities.size(), communityId);
+    }
+
+    @Override
+    @Transactional
     public BlockConfigResponse saveBlockConfig(Long communityId, BlockConfigRequest request) {
         CommunityBlockConfig config = blockConfigRepo
                 .findByCommunityIdAndBlockNameIgnoreCase(communityId, request.getBlockName().trim())

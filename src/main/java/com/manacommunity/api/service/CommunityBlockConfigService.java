@@ -25,6 +25,11 @@ public interface CommunityBlockConfigService {
     BlockConfigResponse saveBlockConfig(Long communityId, BlockConfigRequest request);
 
     /**
+     * Replaces / saves all block configs for a community.
+     */
+    void saveAllBlockConfigs(Long communityId, List<BlockConfigResponse> blockConfigs);
+
+    /**
      * Validates that the given block name and flat number are valid
      * for the supplied community.
      * Returns true if community has no block config (non-APARTMENT).

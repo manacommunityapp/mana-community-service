@@ -1,5 +1,6 @@
 package com.manacommunity.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +10,7 @@ import lombok.Data;
  * Payload for admin create / update of a block config.
  */
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BlockConfigRequest {
 
     @NotBlank

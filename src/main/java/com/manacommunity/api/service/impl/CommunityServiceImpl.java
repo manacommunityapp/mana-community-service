@@ -57,9 +57,13 @@ public class CommunityServiceImpl implements CommunityService {
         Community saved = communityRepository.save(community);
         communityRoleInitializer.initializeCommunityRoles(saved);
         communityModuleService.initializeModulesForCommunity(saved.getId());
-        // Auto-seed default A/B/C/D block layout for apartment communities
+        // Save block layout for apartment communities (custom if provided, otherwise default A/B/C/D)
         if ("APARTMENT".equalsIgnoreCase(saved.getType())) {
-            blockConfigService.seedDefaultBlocks(saved.getId());
+            if (request.getBlockConfigs() != null && !request.getBlockConfigs().isEmpty()) {
+                blockConfigService.saveAllBlockConfigs(saved.getId(), request.getBlockConfigs());
+            } else {
+                blockConfigService.seedDefaultBlocks(saved.getId());
+            }
         }
         return toResponse(saved);
     }
@@ -77,9 +81,13 @@ public class CommunityServiceImpl implements CommunityService {
         community.setSubtype(request.getSubtype());
         community.setInviteCode(request.getInviteCode());
         Community saved = communityRepository.save(community);
-        // If type just became APARTMENT and no blocks exist yet, seed them
+        // Save / update block layout for apartment communities
         if ("APARTMENT".equalsIgnoreCase(saved.getType())) {
-            blockConfigService.seedDefaultBlocks(saved.getId());
+            if (request.getBlockConfigs() != null && !request.getBlockConfigs().isEmpty()) {
+                blockConfigService.saveAllBlockConfigs(saved.getId(), request.getBlockConfigs());
+            } else {
+                blockConfigService.seedDefaultBlocks(saved.getId());
+            }
         }
         return toResponse(saved);
     }

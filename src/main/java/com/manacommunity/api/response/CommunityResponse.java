@@ -1,5 +1,6 @@
 package com.manacommunity.api.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.manacommunity.api.dto.BlockConfigResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CommunityResponse {
     private Long id;
     private String name;
