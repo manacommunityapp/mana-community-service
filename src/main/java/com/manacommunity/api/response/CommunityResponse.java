@@ -1,5 +1,6 @@
 package com.manacommunity.api.response;
 
+import com.manacommunity.api.dto.BlockConfigResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,4 +25,6 @@ public class CommunityResponse {
     private String inviteCode;
     private Boolean active;
     private List<String> enabledModules;
+    /** Block → floor → flat hierarchy. Populated only for APARTMENT communities. */
+    private List<BlockConfigResponse> blockConfigs;
 }

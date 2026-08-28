@@ -246,6 +246,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers(HttpMethod.GET, "/api/communities/by-type").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/check-unit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/communities/*/public").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities/*/blocks").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)

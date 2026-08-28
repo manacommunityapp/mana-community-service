@@ -1246,7 +1246,9 @@ public class EventService {
                     + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(e.getId()), "CANCELLED"));
         }
 
-        Integer effectiveCapacity = e.getCapacity() != null ? e.getCapacity() : (e.getMaxAttendees() != null ? e.getMaxAttendees() : 100);
+        Integer remainingCapacity = e.getCapacity();
+        Integer totalCapacity = e.getMaxAttendees() != null ? e.getMaxAttendees()
+                : (remainingCapacity != null ? remainingCapacity : 100);
 
         return EventResponse.builder()
                 .id(e.getId())
@@ -1261,7 +1263,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(effectiveCapacity)
+                .capacity(remainingCapacity != null ? remainingCapacity : totalCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -1280,7 +1282,7 @@ public class EventService {
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
-                .maxAttendees(effectiveCapacity)
+                .maxAttendees(totalCapacity)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
                 .registrationCount(liveAttendees)
                 .createdById(e.getCreatedBy() != null ? e.getCreatedBy().getId() : null)

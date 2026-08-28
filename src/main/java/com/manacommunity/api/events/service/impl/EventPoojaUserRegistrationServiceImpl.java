@@ -206,6 +206,20 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
                     .ifPresent(registration::setScheduleId);
         }
 
+        // Populate poojaSevaId so registrations can be queried by seva without joining through schedules
+        if (registration.getPoojaSevaId() == null) {
+            if (registration.getScheduleId() != null) {
+                scheduleRepository.findById(registration.getScheduleId()).ifPresent(s -> {
+                    if (s.getPoojaSeva() != null) registration.setPoojaSevaId(s.getPoojaSeva().getId());
+                });
+            }
+            if (registration.getPoojaSevaId() == null && registration.getPoojaSevaTimeSlotsId() != null) {
+                scheduleRepository.findByTimeSlotConfigId(registration.getPoojaSevaTimeSlotsId()).ifPresent(s -> {
+                    if (s.getPoojaSeva() != null) registration.setPoojaSevaId(s.getPoojaSeva().getId());
+                });
+            }
+        }
+
         // Populate token number from reservation before first save (L-2)
         if (registration.getTokenNumber() == null && registration.getReservationId() != null) {
             slotReservationRepository.findById(registration.getReservationId())
@@ -308,6 +322,16 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             return repository.findByCommunityIdOrderByCreatedAtDesc(communityId);
         }
         return repository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventPoojaUserRegistration> getRegistrationsByCommunity(Long communityId, Long poojaSevaId) {
+        if (poojaSevaId == null) return getRegistrationsByCommunity(communityId);
+        if (communityId != null) {
+            return repository.findByCommunityIdAndPoojaSevaIdOrderByCreatedAtDesc(communityId, poojaSevaId);
+        }
+        return repository.findByPoojaSevaIdOrderByCreatedAtDesc(poojaSevaId);
     }
 
     @Override

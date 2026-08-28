@@ -93,8 +93,8 @@ public final class TestDataBuilder {
         req.setInviteCode("INVITE123");
         req.setDateOfBirth(LocalDate.of(1995, 6, 15));
         req.setGender("MALE");
-        req.setFlatNo("A-101");
         req.setBlock("A");
+        req.setFlatNo("101");  // Floor 1, Flat 1 of Block A
         return req;
     }
 
