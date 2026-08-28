@@ -124,6 +124,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 validateCapacityAndDeadline(registration, validatingUserId);
             }
             if (validatingUserId != null && registration.getActivityId() != null && !registration.getActivityId().isBlank()) {
+                // One registration per seva (pooja type). Different sevas in the same event are each allowed.
                 if (repository.existsByUserIdAndActivityIdAndStatusNot(validatingUserId, registration.getActivityId(), "CANCELLED")) {
                     throw new AlreadyRegisteredException(registration.getActivityTitle() != null ? registration.getActivityTitle() : "this activity",
                             "You are already registered for this activity.");
@@ -255,25 +256,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         // Only check duplicate for new registrations (not updates)
         boolean isNewRegistration = (registration.getId() == null);
 
-        // 1. Block re-registration for the exact same seva
+        // Block re-registration for the exact same seva. Different sevas in the same event are each allowed.
         if (isNewRegistration && userId != null
                 && repository.existsByUserIdAndActivityIdAndStatusNot(userId, "pooja-" + id, "CANCELLED")) {
             throw new AlreadyRegisteredException(p.getName());
-        }
-
-        // 2. Block registration if user already has an active booking for ANY seva in the same parent event
-        if (isNewRegistration && userId != null && p.getMainEventId() != null) {
-            List<EventPoojaSeva> siblingSevas = poojaSevaRepository
-                    .findByMainEventIdOrderByDateAscStartTimeAsc(p.getMainEventId());
-            List<String> siblingActivityIds = siblingSevas.stream()
-                    .map(s -> "pooja-" + s.getId())
-                    .collect(java.util.stream.Collectors.toList());
-            if (!siblingActivityIds.isEmpty()
-                    && repository.existsByUserIdAndActivityIdInAndStatusNot(userId, siblingActivityIds, "CANCELLED")) {
-                throw new AlreadyRegisteredException(p.getName(),
-                        "Only one pooja seva registration is allowed per family per event. "
-                        + "You already have an active registration for a seva in this event.");
-            }
         }
 
         LocalDate today = LocalDate.now();
