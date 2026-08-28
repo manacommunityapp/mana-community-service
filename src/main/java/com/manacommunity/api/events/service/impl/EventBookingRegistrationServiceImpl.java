@@ -152,7 +152,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 if (catCode.length() > 4) catCode = catCode.substring(0, 4);
                 if (!catCode.isEmpty()) prefix = "MNA-2026-" + catCode + "-";
             }
-            int rnd = new Random().nextInt(9000) + 1000;
+            String rnd = String.format("%06d", new Random().nextInt(900000) + 100000);
             registration.setRegCode(prefix + rnd);
         }
 
@@ -194,6 +194,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         if (adminOverride) {
             registration.setOverrideUsed(true);
             // overrideReason is caller-supplied; preserve whatever was set on the incoming object
+        } else {
+            registration.setOverrideUsed(false);
         }
 
         EventBookingRegistration saved = repository.save(registration);

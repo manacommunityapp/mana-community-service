@@ -71,4 +71,8 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
      * that bypass the reservation flow.
      */
     boolean existsByUserIdAndScheduleIdAndStatusNot(Long userId, Long scheduleId, String status);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE EventPoojaUserRegistration r SET r.scheduleId = :targetScheduleId WHERE r.scheduleId = :sourceScheduleId")
+    int migrateScheduleId(@Param("sourceScheduleId") Long sourceScheduleId, @Param("targetScheduleId") Long targetScheduleId);
 }

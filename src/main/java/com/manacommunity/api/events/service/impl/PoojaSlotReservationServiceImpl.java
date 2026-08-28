@@ -7,6 +7,7 @@ import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.enums.ReservationStatus;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventRegistrationRepository;
@@ -32,6 +33,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
 
     @Value("${pooja.reservation.ttl-minutes:5}")
     private int reservationTtlMinutes;
@@ -39,11 +41,13 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
                                            EventPoojaSlotReservationRepository reservationRepo,
                                            AuditService auditService,
-                                           EventRegistrationRepository eventRegistrationRepository) {
+                                           EventRegistrationRepository eventRegistrationRepository,
+                                           EventBookingRegistrationRepository eventBookingRegistrationRepository) {
         this.scheduleRepo = scheduleRepo;
         this.reservationRepo = reservationRepo;
         this.auditService = auditService;
         this.eventRegistrationRepository = eventRegistrationRepository;
+        this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
     }
 
     /**
@@ -118,7 +122,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // Enforce mandatory main event registration if pooja belongs to a main event
         if (user != null && schedule.getPoojaSeva() != null && schedule.getPoojaSeva().getMainEventId() != null && schedule.getPoojaSeva().getMainEventId() > 0) {
             Long mainEventId = schedule.getPoojaSeva().getMainEventId();
-            boolean isMainRegistered = eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, user.getId());
+            boolean isMainRegistered = isRegisteredForMainEvent(mainEventId, user.getId());
             if (!isMainRegistered) {
                 throw new IllegalArgumentException("Registration for the main event is required before reserving this Pooja Seva slot. Please register for the main event first.");
             }
@@ -237,5 +241,23 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
             auditService.record(AuditAction.POOJA_SLOT_RESERVATION_CANCELLED, AuditModule.EVENTS,
                     "EventPoojaSlotReservation", reservationId.toString());
         });
+    }
+
+    private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
+        if (mainEventId == null || mainEventId <= 0 || userId == null) {
+            return true;
+        }
+        boolean isDirectRegistered = eventRegistrationRepository != null &&
+                eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, userId);
+        if (isDirectRegistered) {
+            return true;
+        }
+        if (eventBookingRegistrationRepository != null) {
+            return eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + mainEventId, "CANCELLED")
+                    || eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(mainEventId), "CANCELLED");
+        }
+        return false;
     }
 }

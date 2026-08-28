@@ -50,7 +50,7 @@ Feature: Community Feed — comments, comment likes, and reactions
     Given path '/posts/' + fetchPostId + '/comments'
     When method GET
     Then status 200
-    And match response.length >= 2
+    * assert response.length >= 2
     * print '✅ Comments fetched:', response.length
 
   Scenario: Like a comment

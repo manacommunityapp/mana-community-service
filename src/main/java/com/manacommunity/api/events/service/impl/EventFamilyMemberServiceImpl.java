@@ -115,6 +115,88 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
                     : repository.findByUserIdOrderByCreatedAtAsc(user.getId());
         }
 
+        // Ensure the logged-in user is always included as the primary "Self (Head)" member
+        if (user != null && user.getFullName() != null && !user.getFullName().isBlank()) {
+            boolean hasSelf = list.stream().anyMatch(m ->
+                    (m.getRelation() != null && (m.getRelation().equalsIgnoreCase("Self")
+                            || m.getRelation().equalsIgnoreCase("Self (Head)")
+                            || m.getRelation().equalsIgnoreCase("Head")))
+                    || (m.getName() != null && m.getName().trim().equalsIgnoreCase(user.getFullName().trim()))
+            );
+            if (!hasSelf) {
+                int age = 30;
+                if (user.getDateOfBirth() != null) {
+                    age = java.time.Period.between(user.getDateOfBirth(), java.time.LocalDate.now()).getYears();
+                }
+                boolean isFemale = "FEMALE".equalsIgnoreCase(user.getGender()) || "F".equalsIgnoreCase(user.getGender());
+                String avatar = (user.getProfilePicUrl() != null && !user.getProfilePicUrl().isBlank())
+                        ? user.getProfilePicUrl()
+                        : (isFemale ? "👩" : "👨");
+
+                String familyGothram = list.stream()
+                        .map(EventFamilyMember::getGothram)
+                        .filter(g -> g != null && !g.isBlank())
+                        .findFirst()
+                        .orElse(null);
+
+                Community comm = (user.getCommunity() != null)
+                        ? user.getCommunity()
+                        : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
+                EventCommunity event = (eventId != null) ? eventRepository.findById(eventId).orElse(null) : null;
+
+                EventFamilyMember selfMember = EventFamilyMember.builder()
+                        .user(user)
+                        .community(comm)
+                        .event(event)
+                        .name(user.getFullName().trim())
+                        .relation("Self (Head)")
+                        .age(age)
+                        .gender(user.getGender() != null ? user.getGender() : (isFemale ? "FEMALE" : "MALE"))
+                        .avatar(avatar)
+                        .gothram(familyGothram)
+                        .status("ACTIVE")
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+                try {
+                    selfMember = repository.save(selfMember);
+                } catch (Exception ignored) {}
+
+                if (userFamilyMemberRepository != null) {
+                    try {
+                        boolean existsInMaster = userFamilyMemberRepository.existsByUserIdAndNameIgnoreCase(user.getId(), user.getFullName().trim());
+                        if (!existsInMaster) {
+                            com.manacommunity.api.user.model.FamilyMember masterSelf =
+                                    com.manacommunity.api.user.model.FamilyMember.builder()
+                                            .user(user)
+                                            .community(comm)
+                                            .name(user.getFullName().trim())
+                                            .relation("Self (Head)")
+                                            .age(age)
+                                            .gender(user.getGender() != null ? user.getGender() : (isFemale ? "FEMALE" : "MALE"))
+                                            .avatar(avatar)
+                                            .email(user.getEmail())
+                                            .phone(user.getPhone())
+                                            .gothram(familyGothram)
+                                            .emergencyContact(false)
+                                            .isDevotee(true)
+                                            .status("ACTIVE")
+                                            .createdAt(LocalDateTime.now())
+                                            .updatedAt(LocalDateTime.now())
+                                            .build();
+                            userFamilyMemberRepository.save(masterSelf);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                List<EventFamilyMember> updatedList = new java.util.ArrayList<>();
+                updatedList.add(selfMember);
+                updatedList.addAll(list);
+                list = updatedList;
+            }
+        }
+
         return list;
     }
 

@@ -108,4 +108,8 @@ public interface EventPoojaSlotReservationRepository extends JpaRepository<Event
     @Modifying
     @Query("DELETE FROM EventPoojaSlotReservation r WHERE r.status IN ('EXPIRED','CANCELLED') AND r.updatedAt < :before")
     int deleteExpiredOrCancelledBefore(@Param("before") LocalDateTime before);
+
+    @Modifying
+    @Query("UPDATE EventPoojaSlotReservation r SET r.schedule.id = :targetScheduleId WHERE r.schedule.id = :sourceScheduleId")
+    int migrateScheduleId(@Param("sourceScheduleId") Long sourceScheduleId, @Param("targetScheduleId") Long targetScheduleId);
 }

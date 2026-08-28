@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import com.manacommunity.api.events.enums.PoojaRegistrationStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
@@ -179,6 +180,7 @@ class PoojaRegistrationStatusTest {
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
                     schedRepo, mock(EventRegistrationRepository.class),
+                    mock(EventBookingRegistrationRepository.class),
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
                     new ObjectMapper());
@@ -233,6 +235,7 @@ class PoojaRegistrationStatusTest {
                     repo, mock(CommunityRepository.class), reservationService,
                     mock(EventPoojaScheduleRepository.class),
                     mock(EventRegistrationRepository.class),
+                    mock(EventBookingRegistrationRepository.class),
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
                     new ObjectMapper());
@@ -286,6 +289,74 @@ class PoojaRegistrationStatusTest {
         }
     }
 
+    @Nested
+    @DisplayName("Main Event Registration Check")
+    class ParentEventRegistrationCheckTests {
+
+        @Test
+        @DisplayName("createRegistration succeeds when user is registered in event_booking_registrations")
+        void succeedsWhenRegisteredInBookingRegistrations() {
+            EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
+            EventRegistrationRepository eventRegRepo = mock(EventRegistrationRepository.class);
+            EventBookingRegistrationRepository bookingRegRepo = mock(EventBookingRegistrationRepository.class);
+            PoojaSlotReservationService reservationService = mock(PoojaSlotReservationService.class);
+
+            AppUser user = AppUser.builder().id(5L).role("MEMBER").build();
+            EventPoojaUserRegistration reg = new EventPoojaUserRegistration();
+            reg.setEventId(100L);
+            reg.setPoojaSlotName("Morning Pooja");
+            reg.setParticipantName("Devotee 1");
+
+            when(eventRegRepo.existsByEventIdAndUserId(100L, 5L)).thenReturn(false);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "event-100", "CANCELLED")).thenReturn(true);
+            when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
+                    repo, mock(CommunityRepository.class), reservationService,
+                    mock(EventPoojaScheduleRepository.class),
+                    eventRegRepo,
+                    bookingRegRepo,
+                    mock(EventPoojaSlotReservationRepository.class),
+                    mock(EventPoojaBookingParticipantRepository.class),
+                    new ObjectMapper());
+
+            EventPoojaUserRegistration created = service.createRegistration(reg, user, 1L, false);
+            assertThat(created).isNotNull();
+        }
+
+        @Test
+        @DisplayName("createRegistration throws when user is not registered in either repository")
+        void throwsWhenNotRegisteredInEither() {
+            EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
+            EventRegistrationRepository eventRegRepo = mock(EventRegistrationRepository.class);
+            EventBookingRegistrationRepository bookingRegRepo = mock(EventBookingRegistrationRepository.class);
+            PoojaSlotReservationService reservationService = mock(PoojaSlotReservationService.class);
+
+            AppUser user = AppUser.builder().id(5L).role("MEMBER").build();
+            EventPoojaUserRegistration reg = new EventPoojaUserRegistration();
+            reg.setEventId(100L);
+            reg.setPoojaSlotName("Morning Pooja");
+            reg.setParticipantName("Devotee 1");
+
+            when(eventRegRepo.existsByEventIdAndUserId(100L, 5L)).thenReturn(false);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "event-100", "CANCELLED")).thenReturn(false);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "100", "CANCELLED")).thenReturn(false);
+
+            EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
+                    repo, mock(CommunityRepository.class), reservationService,
+                    mock(EventPoojaScheduleRepository.class),
+                    eventRegRepo,
+                    bookingRegRepo,
+                    mock(EventPoojaSlotReservationRepository.class),
+                    mock(EventPoojaBookingParticipantRepository.class),
+                    new ObjectMapper());
+
+            assertThatThrownBy(() -> service.createRegistration(reg, user, 1L, false))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Registration for the main event is required");
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private EventPoojaUserRegistration registration(String status) {
@@ -304,6 +375,7 @@ class PoojaRegistrationStatusTest {
                 mock(PoojaSlotReservationService.class),
                 mock(EventPoojaScheduleRepository.class),
                 mock(EventRegistrationRepository.class),
+                mock(EventBookingRegistrationRepository.class),
                 mock(EventPoojaSlotReservationRepository.class),
                 mock(EventPoojaBookingParticipantRepository.class),
                 new ObjectMapper());

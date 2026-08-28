@@ -30,7 +30,7 @@ Feature: Devotee registers for Ganesh Pooja slot
     And param date    = '2026-09-14'
     When method GET
     Then status 200
-    And match response.length > 0
+    * assert response.length > 0
     * def schedule    = response[0]
     * def scheduleId  = schedule.id
     * print 'Schedule found — ID:', scheduleId, '| available:', schedule.availableSlots
@@ -143,5 +143,5 @@ Feature: Devotee registers for Ganesh Pooja slot
     Given path '/events/pooja-registrations/my'
     When method GET
     Then status 200
-    And match response.length >= 1
+    * assert response.length >= 1
     * print '✅ My registrations count:', response.length

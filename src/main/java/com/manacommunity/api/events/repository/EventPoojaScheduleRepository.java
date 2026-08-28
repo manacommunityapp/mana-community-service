@@ -33,6 +33,8 @@ public interface EventPoojaScheduleRepository extends JpaRepository<EventPoojaSc
     Optional<EventPoojaSchedule> findByPoojaSeva_IdAndScheduleDateAndStartTime(
             Long poojaId, LocalDate date, LocalTime startTime);
 
+    Optional<EventPoojaSchedule> findByTimeSlotConfigId(Long timeSlotConfigId);
+
     /** Dates that have at least one non-BLOCKED, non-CLOSED slot. */
     @Query("""
            SELECT DISTINCT s.scheduleDate FROM EventPoojaSchedule s
