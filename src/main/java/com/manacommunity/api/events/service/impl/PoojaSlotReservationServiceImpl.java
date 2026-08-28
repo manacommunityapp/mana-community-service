@@ -82,13 +82,14 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
             }
         }
 
-        // ── #15: Return existing active pre-hold rather than creating a duplicate ──
+        // ── #15: Return existing active pre-hold or reject if already confirmed ──
         if (user != null) {
             Optional<EventPoojaSlotReservation> activeForUser =
                     reservationRepo.findActiveByScheduleAndUser(scheduleId, user.getId());
             if (activeForUser.isPresent()) {
                 EventPoojaSlotReservation r = activeForUser.get();
                 if (r.getStatus() == ReservationStatus.RESERVED) {
+                    // Return the existing hold — idempotent re-reserve
                     return PoojaReserveResponse.builder()
                             .reservationId(r.getId())
                             .scheduleId(scheduleId)
@@ -99,6 +100,12 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                             .status(r.getStatus().name())
                             .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
                             .build();
+                }
+                if (r.getStatus() == ReservationStatus.CONFIRMED) {
+                    // User already completed registration for this exact slot — reject immediately
+                    throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                            "this pooja slot",
+                            "You have already registered for this slot. Only one booking per slot is allowed.");
                 }
             }
         }
@@ -137,6 +144,15 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // ── 1a. Enforce EventPoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
         EventPoojaSeva seva = schedule.getPoojaSeva();
+
+        // One active slot per logged-in user per seva (any date, any slot).
+        // Runs after releaseReservation() in the reschedule path so the old CANCELLED row never blocks.
+        if (user != null && reservationRepo.existsActiveBySevaAndUser(seva.getId(), user.getId())) {
+            throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                    seva.getName(),
+                    "You already have an active booking for this pooja seva. Only one slot per seva is allowed.");
+        }
+
         if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
             throw new RegistrationClosedException(
                     "Bookings for '" + seva.getName() + "' are not open yet. " +
