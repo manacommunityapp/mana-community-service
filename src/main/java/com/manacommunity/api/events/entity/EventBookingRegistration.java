@@ -141,6 +141,12 @@ public class EventBookingRegistration {
     @Transient
     private Long lunchDinnerId;
 
+    @Transient
+    private String phone;
+
+    @Transient
+    private String email;
+
     @Column(name = "checked_in")
     @Builder.Default
     private Boolean checkedIn = false;

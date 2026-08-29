@@ -111,9 +111,6 @@ public class EventBookingRegistrationController {
                     if (registration.getParticipantName() != null && !registration.getParticipantName().isBlank()) {
                         match.setParticipantName(registration.getParticipantName());
                     }
-                    if (registration.getPhone() != null && !registration.getPhone().isBlank()) {
-                        match.setPhone(registration.getPhone());
-                    }
                     match.setStatus("CONFIRMED");
                     match.setUpdatedAt(java.time.LocalDateTime.now());
                     created = bookingRepository.save(match);

@@ -15,6 +15,7 @@ import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.entity.EventMealRegistration;
 import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
@@ -54,6 +55,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private final PoojaSlotReservationService poojaSlotReservationService;
     private final EventPoojaSlotReservationRepository poojaSlotReservationRepository;
     private final EventMealRegistrationRepository mealRegistrationRepository;
+    private final EventPoojaScheduleRepository scheduleRepository;
 
     public EventBookingRegistrationServiceImpl(
             EventBookingRegistrationRepository repository,
@@ -68,7 +70,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             AppUserRepository appUserRepository,
             PoojaSlotReservationService poojaSlotReservationService,
             EventPoojaSlotReservationRepository poojaSlotReservationRepository,
-            EventMealRegistrationRepository mealRegistrationRepository) {
+            EventMealRegistrationRepository mealRegistrationRepository,
+            EventPoojaScheduleRepository scheduleRepository) {
         this.repository = repository;
         this.poojaUserRegRepo = poojaUserRegRepo;
         this.communityRepository = communityRepository;
@@ -82,6 +85,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         this.poojaSlotReservationService = poojaSlotReservationService;
         this.poojaSlotReservationRepository = poojaSlotReservationRepository;
         this.mealRegistrationRepository = mealRegistrationRepository;
+        this.scheduleRepository = scheduleRepository;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -706,19 +710,16 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                         EventBookingRegistration synth = new EventBookingRegistration();
                         synth.setId(mr.getId());
                         synth.setUser(user);
-                        synth.setParticipantName(user.getFullName() != null ? user.getFullName() : user.getUsername());
-                        synth.setPhone(user.getPhone());
+                        synth.setParticipantName(user.getFullName() != null ? user.getFullName() : (user.getEmail() != null ? user.getEmail() : "Devotee"));
                         synth.setCategory("Food");
                         synth.setPassType("Meal Registration Pass");
                         synth.setActivityType("LUNCH_DINNER");
                         synth.setActivityId(actId);
                         synth.setMainEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
-                        synth.setEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
                         String title = mr.getLunchDinner() != null && mr.getLunchDinner().getName() != null
                                 ? mr.getLunchDinner().getName()
                                 : (mr.getMealType() != null ? mr.getMealType().name() + " Feast" : "Community Feast");
                         synth.setActivityTitle(title);
-                        synth.setEventName(mr.getEvent() != null ? mr.getEvent().getTitle() : title);
                         synth.setEventDate(mr.getMealDate() != null ? mr.getMealDate().toString() : null);
                         if (mr.getLunchDinner() != null && mr.getLunchDinner().getStartTime() != null) {
                             String t = mr.getLunchDinner().getStartTime().toString();
