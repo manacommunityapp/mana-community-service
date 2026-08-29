@@ -22,7 +22,15 @@ spring:
     baseline-description: "pre-flyway baseline schema"
     out-of-order: false
     validate-on-migrate: true
-    clean-disabled: true
+  # ── Timezone & Localization (Indian Standard Time) ─────────────────────
+  jackson:
+    time-zone: Asia/Kolkata
+    locale: en_IN
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Kolkata
 
 
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
