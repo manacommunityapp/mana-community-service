@@ -41,6 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final CommunityModuleRepository communityModuleRepository;
     private final Environment environment;
     private final TokenBlacklistService tokenBlacklistService;
+    private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
 
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
@@ -50,13 +51,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                    RolePermissionRepository rolePermissionRepository,
                                    CommunityModuleRepository communityModuleRepository,
                                    Environment environment,
-                                   TokenBlacklistService tokenBlacklistService) {
+                                   TokenBlacklistService tokenBlacklistService,
+                                   com.manacommunity.api.service.RolePermissionService rolePermissionService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.communityModuleRepository = communityModuleRepository;
         this.environment = environment;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.rolePermissionService = rolePermissionService;
     }
 
     @PostConstruct
@@ -135,21 +138,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        List<RolePermission> userPerms = rolePermissionRepository.findByUserId(user.getId());
-        List<RolePermission> permissions;
-        if (!userPerms.isEmpty()) {
-            permissions = userPerms;
-        } else {
-            permissions = new ArrayList<>();
-            if (user.getRole() != null) {
-                for (String r : user.getRole().split(",")) {
-                    String trimmed = r.trim();
-                    if (!trimmed.isEmpty()) {
-                        permissions.addAll(rolePermissionRepository.findByRoleIgnoreCase(trimmed));
-                    }
-                }
-            }
-        }
+        List<String> effectivePerms = rolePermissionService.getEffectivePermissionsForUser(user);
 
         Set<String> enabledModules = null;
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
@@ -160,8 +149,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .collect(Collectors.toSet());
         }
 
-        for (RolePermission perm : permissions) {
-            String permKey = perm.getPermissionKey();
+        for (String permKey : effectivePerms) {
             if (isSuperAdmin || isPermissionAllowedByModule(permKey, enabledModules)) {
                 authorities.add(new SimpleGrantedAuthority(permKey));
             }

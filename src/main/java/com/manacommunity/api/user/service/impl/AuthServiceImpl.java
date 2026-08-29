@@ -167,6 +167,15 @@ public class AuthServiceImpl implements AuthService {
         user.setFlatNo(request.getFlatNo());
         user.setBlock(request.getBlock());
 
+        String rawOccupancy = request.getUserType() != null && !request.getUserType().isBlank()
+                ? request.getUserType().trim()
+                : (request.getOccupancyStatus() != null && !request.getOccupancyStatus().isBlank()
+                        ? request.getOccupancyStatus().trim() : "Owner");
+        String normalizedOccupancy = "Tenant".equalsIgnoreCase(rawOccupancy) ? "Tenant" : "Owner";
+        user.setOccupancyStatus(normalizedOccupancy);
+        user.setResidentType(request.getResidentType() != null && !request.getResidentType().isBlank()
+                ? request.getResidentType().trim() : "Resident");
+
         AppUser saved = userRepository.save(user);
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
         auditService.record(
@@ -318,6 +327,9 @@ public class AuthServiceImpl implements AuthService {
                     : java.util.Collections.emptyList();
         }
         response.setEnabledModules(enabledModules);
+        response.setOccupancyStatus(user.getOccupancyStatus());
+        response.setUserType(user.getOccupancyStatus() != null ? user.getOccupancyStatus() : "Owner");
+        response.setResidentType(user.getResidentType());
         
         return response;
     }

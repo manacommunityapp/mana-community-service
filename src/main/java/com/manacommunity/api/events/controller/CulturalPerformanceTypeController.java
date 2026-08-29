@@ -4,6 +4,7 @@ import com.manacommunity.api.events.entity.EventCulturalPerformanceType;
 import com.manacommunity.api.events.service.CulturalPerformanceTypeService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,18 +24,37 @@ public class CulturalPerformanceTypeController {
     @GetMapping
     public ResponseEntity<List<EventCulturalPerformanceType>> getPerformanceTypes(@AuthenticationPrincipal UserPrincipal principal) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        List<EventCulturalPerformanceType> types = service.getAllPerformanceTypes(communityId);
-        return ResponseEntity.ok(types);
+        return ResponseEntity.ok(service.getAllPerformanceTypes(communityId));
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventCulturalPerformanceType> createPerformanceType(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, String> body) {
         Long communityId = principal != null ? principal.getCommunityId() : null;
-        String name = body.get("name");
-        String description = body.get("description");
-        EventCulturalPerformanceType created = service.createPerformanceType(communityId, name, description);
+        EventCulturalPerformanceType created = service.createPerformanceType(communityId, body.get("name"), body.get("description"));
         return ResponseEntity.ok(created);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    public ResponseEntity<EventCulturalPerformanceType> updatePerformanceType(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
+        EventCulturalPerformanceType updated = service.updatePerformanceType(id, communityId, body.get("name"), body.get("description"));
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    public ResponseEntity<Void> deletePerformanceType(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
+        service.deletePerformanceType(id, communityId);
+        return ResponseEntity.noContent().build();
     }
 }

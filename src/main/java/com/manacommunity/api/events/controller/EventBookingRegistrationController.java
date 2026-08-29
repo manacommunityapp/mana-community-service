@@ -5,6 +5,7 @@ import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
 import com.manacommunity.api.events.service.EventMealService;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import org.springframework.http.HttpStatus;
@@ -22,13 +23,16 @@ public class EventBookingRegistrationController {
     private final EventBookingRegistrationService service;
     private final EventMealService mealService;
     private final LoggedInUserService loggedInUserService;
+    private final AppUserRepository userRepository;
 
     public EventBookingRegistrationController(EventBookingRegistrationService service,
                                               EventMealService mealService,
-                                              LoggedInUserService loggedInUserService) {
+                                              LoggedInUserService loggedInUserService,
+                                              AppUserRepository userRepository) {
         this.service = service;
         this.mealService = mealService;
         this.loggedInUserService = loggedInUserService;
+        this.userRepository = userRepository;
     }
 
     @PostMapping
@@ -36,13 +40,36 @@ public class EventBookingRegistrationController {
             @RequestBody EventBookingRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
-            @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride) {
+            @RequestParam(value = "adminOverride", required = false, defaultValue = "false") boolean adminOverride,
+            @RequestParam(value = "targetUserId", required = false) Long targetUserId) {
         String actId = registration.getActivityId();
         if (actId != null && actId.startsWith("pooja-")) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         if ("Pooja".equalsIgnoreCase(registration.getCategory())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        // Cultural registrations are handled by CulturalRegistrationController
+        if (actId != null && (actId.startsWith("cultural-") || actId.startsWith("cult-"))) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Cultural registrations must use POST /api/events/cultural/registrations");
+        }
+
+        AppUser caller = loggedInUserService.resolve(principal);
+        boolean isAdmin = caller != null && (
+                caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
+                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
+                caller.hasRole("ROLE_ADMIN") || caller.hasRole("ROLE_SUPER_ADMIN") ||
+                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN"));
+
+        Long effectiveTargetId = targetUserId;
+        if (effectiveTargetId == null && registration.getUser() != null && registration.getUser().getId() != null) {
+            effectiveTargetId = registration.getUser().getId();
+        }
+
+        AppUser effectiveUser = caller;
+        if (isAdmin && effectiveTargetId != null && caller != null && !effectiveTargetId.equals(caller.getId())) {
+            effectiveUser = userRepository.findById(effectiveTargetId).orElse(caller);
         }
 
         // Meal activities → save to event_meal_registrations, not event_booking_registrations
@@ -52,17 +79,14 @@ public class EventBookingRegistrationController {
         if (isMeal) {
             Long lunchDinnerId = parseMealId(actId, registration);
             if (lunchDinnerId == null) return ResponseEntity.badRequest().body("Missing lunchDinnerId");
-            AppUser user = loggedInUserService.resolve(principal);
             int headCount = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
                     ? registration.getDevoteeCount() : 1;
             MealRegistrationResponse result = mealService.registerSingleMeal(
-                    lunchDinnerId, headCount, null, user);
+                    lunchDinnerId, headCount, null, effectiveUser);
             return ResponseEntity.status(HttpStatus.CREATED).body(result);
         }
 
-        AppUser user = loggedInUserService.resolve(principal);
-        boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
-        EventBookingRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
+        EventBookingRegistration created = service.createRegistration(registration, effectiveUser, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -70,12 +94,28 @@ public class EventBookingRegistrationController {
     @PatchMapping("/meal/{lunchDinnerId}/headcount")
     public ResponseEntity<MealRegistrationResponse> updateMealHeadCount(
             @PathVariable Long lunchDinnerId,
-            @RequestBody Map<String, Integer> body,
+            @RequestBody Map<String, Object> body,
+            @RequestParam(value = "targetUserId", required = false) Long targetUserId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Integer headCount = body.get("headCount");
+        Object countObj = body.get("headCount");
+        Integer headCount = countObj instanceof Number ? ((Number) countObj).intValue() : null;
         if (headCount == null || headCount < 1) return ResponseEntity.badRequest().build();
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(mealService.updateMealHeadCount(lunchDinnerId, headCount, user));
+        AppUser caller = loggedInUserService.resolve(principal);
+        boolean isAdmin = caller != null && (
+                caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
+                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
+                caller.hasRole("ROLE_ADMIN") || caller.hasRole("ROLE_SUPER_ADMIN") ||
+                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN"));
+
+        Long effectiveTargetId = targetUserId;
+        if (effectiveTargetId == null && body.get("userId") != null) {
+            try { effectiveTargetId = Long.parseLong(body.get("userId").toString()); } catch (Exception ignored) {}
+        }
+        AppUser effectiveUser = caller;
+        if (isAdmin && effectiveTargetId != null && caller != null && !effectiveTargetId.equals(caller.getId())) {
+            effectiveUser = userRepository.findById(effectiveTargetId).orElse(caller);
+        }
+        return ResponseEntity.ok(mealService.updateMealHeadCount(lunchDinnerId, headCount, effectiveUser));
     }
 
     private Long parseMealId(String actId, EventBookingRegistration reg) {

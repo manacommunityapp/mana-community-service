@@ -300,7 +300,7 @@ class EventServiceTest {
             EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
-            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAscSortOrderAsc(100L)).thenReturn(List.of(cultural));
 
             EventCompetition comp = new EventCompetition();
             comp.setId(30L);
@@ -385,7 +385,7 @@ class EventServiceTest {
             EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
-            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAscSortOrderAsc(100L)).thenReturn(List.of(cultural));
             EventBookingRegistration booking = new EventBookingRegistration();
             booking.setActivityId("cultural-20");
             when(bookingRegRepo.findByActivityId("cultural-20")).thenReturn(List.of(booking));

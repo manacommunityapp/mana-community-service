@@ -25,6 +25,9 @@ public class UserProfileResponse {
     private String block;
     private String role;
     private String kycStatus;
+    private String occupancyStatus;
+    private String residentType;
+    private String userType;
     
     // Community details
     private String communityName;

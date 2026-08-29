@@ -32,35 +32,11 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     private final AppUserRepository appUserRepo;
     private final com.manacommunity.api.security.AuditService auditService;
 
-    @Override
-    @Transactional(readOnly = true)
-    public Map<String, List<String>> getAllRolePermissions(Long communityId) {
-        return rolePermissionRepo.findAll().stream()
-                .filter(rp -> rp.getUser() == null)
-                .filter(rp -> {
-                    String rName = rp.getRole() != null ? rp.getRole().trim().toUpperCase() : "";
-                    if ("SUPER_ADMIN".equals(rName) || "SUPERADMIN".equals(rName) || "SUPER_ADMINISTRATOR".equals(rName)
-                            || "COMMUNITY_ADMIN".equals(rName) || "COMMUNITYADMIN".equals(rName) || "COMMUNITY_ADMINISTRATOR".equals(rName) || "COMMUNITY ADMIN".equals(rName)) {
-                        return false;
-                    }
-                    Role roleEntity = rp.getRoleEntity();
-                    if (roleEntity == null) return true;
-                    if (communityId != null) {
-                        return roleEntity.getCommunityId() == null
-                                || roleEntity.getCommunityId().equals(communityId);
-                    }
-                    return true;
-                })
-                .collect(Collectors.groupingBy(
-                        rp -> rp.getRole().toUpperCase(),
-                        Collectors.mapping(RolePermission::getPermissionKey, Collectors.toList())
-                ));
-    }
 
     @Override
     @Transactional(readOnly = true)
     public List<RoleDetailsResponse> getRoleDetails(Long communityId) {
-        return roleRepo.findAll().stream()
+        List<Role> allRoles = roleRepo.findAll().stream()
                 .filter(role -> role.getName() != null && !isSystemReserved(role.getName()))
                 .filter(role -> {
                     if (communityId != null) {
@@ -69,27 +45,45 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                     }
                     return true;
                 })
-                .map(role -> {
-                    List<String> perms = role.getPermissions().stream()
-                            .filter(rp -> rp.getUser() == null)
-                            .map(RolePermission::getPermissionKey)
-                            .distinct()
-                            .sorted()
-                            .toList();
-
-                    long userCount = communityId != null
-                            ? appUserRepo.findByCommunityIdAndUserRoleName(communityId, role.getName()).size()
-                            : appUserRepo.findByUserRoleName(role.getName()).size();
-
-                    return RoleDetailsResponse.builder()
-                            .id(role.getId())
-                            .name(role.getName())
-                            .communityId(role.getCommunityId())
-                            .permissions(perms)
-                            .userCount(userCount)
-                            .build();
-                })
                 .toList();
+
+        // Separate into community-specific roles and global roles
+        java.util.Map<String, Role> communityRoles = allRoles.stream()
+                .filter(r -> communityId != null && communityId.equals(r.getCommunityId()))
+                .collect(Collectors.toMap(r -> r.getName().toUpperCase(), r -> r, (a, b) -> a));
+
+        java.util.Map<String, Role> globalRoles = allRoles.stream()
+                .filter(r -> r.getCommunityId() == null)
+                .collect(Collectors.toMap(r -> r.getName().toUpperCase(), r -> r, (a, b) -> a));
+
+        java.util.Set<String> allRoleNames = new java.util.LinkedHashSet<>();
+        allRoleNames.addAll(communityRoles.keySet());
+        allRoleNames.addAll(globalRoles.keySet());
+
+        return allRoleNames.stream().map(roleName -> {
+            Role role = communityRoles.containsKey(roleName)
+                    ? communityRoles.get(roleName)
+                    : globalRoles.get(roleName);
+
+            List<String> perms = role.getPermissions().stream()
+                    .filter(rp -> rp.getUser() == null)
+                    .map(RolePermission::getPermissionKey)
+                    .distinct()
+                    .sorted()
+                    .toList();
+
+            long userCount = communityId != null
+                    ? appUserRepo.findByCommunityIdAndUserRoleName(communityId, role.getName()).size()
+                    : appUserRepo.findByUserRoleName(role.getName()).size();
+
+            return RoleDetailsResponse.builder()
+                    .id(role.getId())
+                    .name(role.getName())
+                    .communityId(role.getCommunityId())
+                    .permissions(perms)
+                    .userCount(userCount)
+                    .build();
+        }).toList();
     }
 
     private boolean isSystemReserved(String roleName) {
@@ -101,21 +95,73 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Map<String, List<String>> getAllRolePermissions(Long communityId) {
+        // Collect ALL role-permission rows for non-reserved roles
+        List<RolePermission> allRows = rolePermissionRepo.findAll().stream()
+                .filter(rp -> rp.getUser() == null)
+                .filter(rp -> {
+                    String rName = rp.getRole() != null ? rp.getRole().trim().toUpperCase() : "";
+                    if ("SUPER_ADMIN".equals(rName) || "SUPERADMIN".equals(rName) || "SUPER_ADMINISTRATOR".equals(rName)
+                            || "COMMUNITY_ADMIN".equals(rName) || "COMMUNITYADMIN".equals(rName)
+                            || "COMMUNITY_ADMINISTRATOR".equals(rName) || "COMMUNITY ADMIN".equals(rName)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        // Split into community-scoped and global rows
+        java.util.Map<String, List<RolePermission>> communityRows = allRows.stream()
+                .filter(rp -> {
+                    Role re = rp.getRoleEntity();
+                    return re != null && communityId != null && communityId.equals(re.getCommunityId());
+                })
+                .collect(Collectors.groupingBy(rp -> rp.getRole().toUpperCase()));
+
+        java.util.Map<String, List<RolePermission>> globalRows = allRows.stream()
+                .filter(rp -> {
+                    Role re = rp.getRoleEntity();
+                    return re == null || re.getCommunityId() == null;
+                })
+                .collect(Collectors.groupingBy(rp -> rp.getRole().toUpperCase()));
+
+        // Merge: if a community-scoped entry exists for a role, use it exclusively.
+        // Otherwise fall back to the global template rows.
+        java.util.Map<String, List<String>> result = new java.util.LinkedHashMap<>();
+        java.util.Set<String> allRoleNames = new java.util.LinkedHashSet<>();
+        allRoleNames.addAll(communityRows.keySet());
+        allRoleNames.addAll(globalRows.keySet());
+
+        for (String roleName : allRoleNames) {
+            List<RolePermission> rows = communityRows.containsKey(roleName)
+                    ? communityRows.get(roleName)   // prefer community-scoped
+                    : globalRows.get(roleName);      // fall back to global
+            result.put(roleName, rows.stream()
+                    .map(RolePermission::getPermissionKey)
+                    .distinct()
+                    .toList());
+        }
+        return result;
+    }
+
+    @Override
     @Transactional
     public void updateRolePermissions(String roleName, Long communityId, List<String> permissions) {
         String normalizedRoleName = roleName != null ? roleName.trim().toUpperCase() : "";
 
-        // ── 1. Resolve the Role entity (community-scoped first, then global fallback) ──
+        // ── 1. Always resolve/create a COMMUNITY-SCOPED role so we never mutate the
+        //       global template that other communities depend on. ─────────────────────
         Role role;
         if (communityId != null) {
             role = roleRepo.findByNameIgnoreCaseAndCommunityId(normalizedRoleName, communityId)
-                    .orElseGet(() -> roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
-                            .orElseGet(() -> roleRepo.saveAndFlush(Role.builder()
-                                    .name(normalizedRoleName)
-                                    .communityId(communityId)
-                                    .permissions(new java.util.HashSet<>())
-                                    .build())));
+                    .orElseGet(() -> roleRepo.saveAndFlush(Role.builder()
+                            .name(normalizedRoleName)
+                            .communityId(communityId)
+                            .permissions(new java.util.HashSet<>())
+                            .build()));
         } else {
+            // Super-admin path (communityId == null): update the global template directly.
             role = roleRepo.findByNameIgnoreCaseAndCommunityIdIsNull(normalizedRoleName)
                     .orElseGet(() -> roleRepo.saveAndFlush(Role.builder()
                             .name(normalizedRoleName)
@@ -123,14 +169,8 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                             .build()));
         }
 
-        // ── 2. Remove existing role-level permission rows via the collection ─────────
-        // Using the collection (not a bulk JPQL DELETE) keeps the role entity managed
-        // throughout the transaction.  orphanRemoval=true on the OneToMany ensures
-        // the removed RolePermission rows are DELETEd from the DB on flush.
+        // ── 2. Remove existing role-level permission rows ─────────────────────────────
         role.getPermissions().removeIf(rp -> rp.getUser() == null);
-
-        // Flush the DELETEs first so the unique constraint
-        // (role_id, permission_key, user_id) is not violated by the upcoming INSERTs.
         roleRepo.saveAndFlush(role);
 
         // ── 3. Add the updated permissions ────────────────────────────────────────────
@@ -202,5 +242,55 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         return rolePermissionRepo.findByUserId(userId).stream()
                 .map(RolePermission::getPermissionKey)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getEffectivePermissionsForUser(AppUser user) {
+        if (user == null || user.getId() == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 1. User-specific override rows take highest priority
+        List<RolePermission> userOverrides = rolePermissionRepo.findByUserId(user.getId());
+        if (!userOverrides.isEmpty()) {
+            return userOverrides.stream()
+                    .map(RolePermission::getPermissionKey)
+                    .distinct()
+                    .toList();
+        }
+
+        // 2. Resolve community-scoped permissions for the user's roles
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Map<String, List<String>> activeRolePerms = getAllRolePermissions(communityId);
+
+        java.util.Set<String> effective = new java.util.LinkedHashSet<>();
+
+        // Check structured userRoles first
+        if (user.getUserRoles() != null && !user.getUserRoles().isEmpty()) {
+            for (Role r : user.getUserRoles()) {
+                if (r != null && r.getName() != null) {
+                    List<String> rolePerms = activeRolePerms.get(r.getName().toUpperCase());
+                    if (rolePerms != null) {
+                        effective.addAll(rolePerms);
+                    }
+                }
+            }
+        }
+
+        // Fall back to / combine with legacy comma-separated role string
+        if (user.getRole() != null && !user.getRole().isBlank()) {
+            for (String rStr : user.getRole().split(",")) {
+                String trimmed = rStr.trim().toUpperCase();
+                if (!trimmed.isEmpty()) {
+                    List<String> rolePerms = activeRolePerms.get(trimmed);
+                    if (rolePerms != null) {
+                        effective.addAll(rolePerms);
+                    }
+                }
+            }
+        }
+
+        return java.util.List.copyOf(effective);
     }
 }

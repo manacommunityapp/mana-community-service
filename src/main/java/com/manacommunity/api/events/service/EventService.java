@@ -475,7 +475,7 @@ public class EventService {
 
         // 1. Retrieve all sub-events linked to this main event
         List<EventPoojaSeva> poojas = poojaSevaRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
-        List<EventCulturalEvent> culturals = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
+        List<EventCulturalEvent> culturals = culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAscSortOrderAsc(id);
         List<EventCompetition> competitions = competitionRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
         List<EventLunchDinner> lunchDinners = lunchDinnerRepo.findByMainEventIdOrderByDateAscStartTimeAsc(id);
         List<EventProgram> programs = programRepo.findByEventId(id);

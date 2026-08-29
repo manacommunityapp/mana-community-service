@@ -95,6 +95,7 @@ public final class TestDataBuilder {
         req.setGender("MALE");
         req.setBlock("A");
         req.setFlatNo("101");  // Floor 1, Flat 1 of Block A
+        req.setUserType("Owner");
         return req;
     }
 
