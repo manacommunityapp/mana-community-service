@@ -179,24 +179,12 @@ public class RolePermissionController {
     }
 
     /**
-     * Returns the effective permissions for a user sourced from the role template rows
-     * in the {@code role_permissions} table (no user-override rows included here,
-     * since those require the full RolePermissionRepository — use the
-     * {@code GET /api/users/{id}/permissions} endpoint when user-level overrides matter).
+     * Returns the effective permissions for a user properly scoped to their community.
      */
     private List<String> resolvePermissions(AppUser user) {
-        if (user.getUserRoles() == null || user.getUserRoles().isEmpty()) {
+        if (user == null || user.getId() == null) {
             return java.util.Collections.emptyList();
         }
-        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
-        for (com.manacommunity.api.model.Role r : user.getUserRoles()) {
-            if (r.getPermissions() != null) {
-                r.getPermissions().stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        }
-        return java.util.List.copyOf(seen);
+        return rolePermissionService.getEffectivePermissionsForUser(user);
     }
 }

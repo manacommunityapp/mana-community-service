@@ -82,7 +82,38 @@ class AuthServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getEmail()).isEqualTo(req.getEmail());
             assertThat(response.getToken()).startsWith("mock-token-");
+            assertThat(response.getOccupancyStatus()).isEqualTo("Owner");
             verify(userRepository).save(any(AppUser.class));
+        }
+
+        @Test
+        @DisplayName("tenant userType registration sets Tenant occupancyStatus")
+        void tenantRegistration() {
+            RegisterRequest req = TestDataBuilder.registerRequest();
+            req.setUserType("Tenant");
+            Community community = TestDataBuilder.community(1L, "INVITE123");
+            Role role = TestDataBuilder.memberRole();
+
+            when(communityRepository.findByInviteCode("INVITE123")).thenReturn(Optional.of(community));
+            when(userRepository.existsByEmailIgnoreCase(req.getEmail())).thenReturn(false);
+            when(userRepository.existsByPhone(req.getPhone())).thenReturn(false);
+            when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
+            when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
+            when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
+            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-tenant");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-tenant");
+            when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
+                AppUser u = inv.getArgument(0);
+                u.setId(100L);
+                return u;
+            });
+
+            AuthResponse response = authService.registerUser(req);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getOccupancyStatus()).isEqualTo("Tenant");
+            assertThat(response.getUserType()).isEqualTo("Tenant");
+            verify(userRepository).save(argThat(u -> "Tenant".equals(u.getOccupancyStatus())));
         }
 
         @Test

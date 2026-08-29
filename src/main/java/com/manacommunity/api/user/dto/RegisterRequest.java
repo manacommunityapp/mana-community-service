@@ -37,4 +37,7 @@ public class RegisterRequest {
     String flatNo;
     @NotBlank
     String block;  // A, B, C, D — mandatory; validated against community_block_config
+    String userType;        // OWNER / TENANT / Owner / Tenant
+    String occupancyStatus; // Owner / Tenant / Staff
+    String residentType;    // Resident / Non-Resident / Guest
 }

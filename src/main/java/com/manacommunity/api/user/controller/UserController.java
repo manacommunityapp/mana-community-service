@@ -48,6 +48,7 @@ public class UserController {
     private final AdminUserService adminUserService;
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
+    private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -61,38 +62,8 @@ public class UserController {
     }
 
     private java.util.List<String> getPermissionsForUser(AppUser user) {
-        if (user.getId() == null) return java.util.Collections.emptyList();
-
-        // 1. User-specific override rows take priority over role templates.
-        java.util.List<com.manacommunity.api.model.RolePermission> userPerms = rolePermissionRepo.findByUserId(user.getId());
-        if (!userPerms.isEmpty()) {
-            return userPerms.stream()
-                    .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                    .distinct()
-                    .toList();
-        }
-
-        // 2. No overrides — fall back to the union of role template permissions.
-        //    Prefer the structured userRoles set (accurate after V51 migration);
-        //    fall back to splitting the comma-string for older rows.
-        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
-        java.util.Set<com.manacommunity.api.model.Role> rolesSet = user.getUserRoles();
-        if (rolesSet != null && !rolesSet.isEmpty()) {
-            for (com.manacommunity.api.model.Role r : rolesSet) {
-                rolePermissionRepo.findByRoleIgnoreCase(r.getName()).stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        } else {
-            for (String r : getRolesList(user.getRole())) {
-                rolePermissionRepo.findByRoleIgnoreCase(r).stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        }
-        return java.util.List.copyOf(seen);
+        if (user == null || user.getId() == null) return java.util.Collections.emptyList();
+        return rolePermissionService.getEffectivePermissionsForUser(user);
     }
 
     private java.util.List<com.manacommunity.api.user.dto.MenuRolePermissionResponse> getMenuPermissions(AppUser user) {
@@ -121,28 +92,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getLoggedInUserDetails(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-
-        UserResponse response = UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(getRolesList(user.getRole()))
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
-                .permissions(getPermissionsForUser(user))
-                .enabledModules(getEnabledModules(user))
-                .menuPermissions(getMenuPermissions(user))
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(toUserResponse(user));
     }
 
     @GetMapping("/search")
@@ -160,18 +110,7 @@ public class UserController {
         }
         final Long finalCommId = targetCommunityId;
         return ResponseEntity.ok(appUserRepo.findByCommunityIdAndFullNameContainingIgnoreCase(finalCommId, query)
-                .stream().map(u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .communityId(finalCommId)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()).toList());
+                .stream().map(this::toUserResponse).toList());
     }
 
     @GetMapping("/community/{communityId}")
@@ -189,18 +128,7 @@ public class UserController {
         }
         final Long finalCommId = targetCommunityId;
         return ResponseEntity.ok(appUserRepo.findByCommunityId(finalCommId)
-                .stream().map(u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .communityId(finalCommId)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()).toList());
+                .stream().map(this::toUserResponse).toList());
     }
 
     @GetMapping
@@ -233,24 +161,7 @@ public class UserController {
                 userPage = appUserRepo.findByCommunityId(communityId, pageable);
             }
         }
-        return ResponseEntity.ok(PagedResponse.from(userPage, u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .kycStatus(u.getKycStatus())
-                        .profilePicUrl(u.getProfilePicUrl())
-                        .gender(u.getGender())
-                        .dateOfBirth(u.getDateOfBirth())
-                        .flatNo(u.getFlatNo())
-                        .block(u.getBlock())
-                        .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()));
+        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
     }
 
     @PostMapping
@@ -266,25 +177,7 @@ public class UserController {
         }
 
         AppUser saved = adminUserService.createUser(req);
-        UserResponse body = UserResponse.builder()
-                .id(saved.getId())
-                .fullName(saved.getFullName())
-                .email(saved.getEmail())
-                .phone(saved.getPhone())
-                .role(saved.getRole())
-                .roles(getRolesList(saved.getRole()))
-                .kycStatus(saved.getKycStatus())
-                .profilePicUrl(saved.getProfilePicUrl())
-                .gender(saved.getGender())
-                .dateOfBirth(saved.getDateOfBirth())
-                .flatNo(saved.getFlatNo())
-                .block(saved.getBlock())
-                .communityId(saved.getCommunity() != null ? saved.getCommunity().getId() : null)
-                .roleId(saved.getRoleEntity() != null ? saved.getRoleEntity().getId() : null)
-                .isActive(saved.getIsActive())
-                .permissions(getPermissionsForUser(saved))
-                .build();
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(body);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(toUserResponse(saved));
     }
 
     @GetMapping("/{id}")
@@ -294,24 +187,35 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
-        return ResponseEntity.ok(UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(getRolesList(user.getRole()))
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
-                .isActive(user.getIsActive())
-                .permissions(getPermissionsForUser(user))
-                .build());
+        return ResponseEntity.ok(toUserResponse(user));
+    }
+
+    private UserResponse toUserResponse(AppUser u) {
+        return UserResponse.builder()
+                .id(u.getId())
+                .fullName(u.getFullName())
+                .email(u.getEmail())
+                .phone(u.getPhone())
+                .role(u.getRole())
+                .roles(getRolesList(u.getRole()))
+                .kycStatus(u.getKycStatus())
+                .profilePicUrl(u.getProfilePicUrl())
+                .gender(u.getGender())
+                .dateOfBirth(u.getDateOfBirth())
+                .flatNo(u.getFlatNo())
+                .block(u.getBlock())
+                .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
+                .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
+                .isActive(u.getIsActive())
+                .occupancyStatus(u.getOccupancyStatus())
+                .residentType(u.getResidentType())
+                .userType(u.getOccupancyStatus() != null ? u.getOccupancyStatus() : "Owner")
+                .permissions(getPermissionsForUser(u))
+                .enabledModules(getEnabledModules(u))
+                .menuPermissions(getMenuPermissions(u))
+                .roleChangedAt(u.getRoleChangedAt())
+                .roleChangedBy(u.getRoleChangedBy())
+                .build();
     }
 
     /**
@@ -433,26 +337,13 @@ public class UserController {
             user.setLockedUntil(null);
         }
 
+        if (req.getTower() != null) user.setTower(req.getTower());
+        if (req.getResidentType() != null) user.setResidentType(req.getResidentType());
+        if (req.getOccupancyStatus() != null) user.setOccupancyStatus(req.getOccupancyStatus());
+
         AppUser saved = appUserRepo.save(user);
 
-        return ResponseEntity.ok(UserResponse.builder()
-                .id(saved.getId())
-                .fullName(saved.getFullName())
-                .email(saved.getEmail())
-                .phone(saved.getPhone())
-                .role(saved.getRole())
-                .roles(getRolesList(saved.getRole()))
-                .kycStatus(saved.getKycStatus())
-                .profilePicUrl(saved.getProfilePicUrl())
-                .gender(saved.getGender())
-                .dateOfBirth(saved.getDateOfBirth())
-                .flatNo(saved.getFlatNo())
-                .block(saved.getBlock())
-                .communityId(saved.getCommunity() != null ? saved.getCommunity().getId() : null)
-                .roleId(saved.getRoleEntity() != null ? saved.getRoleEntity().getId() : null)
-                .isActive(saved.getIsActive())
-                .permissions(getPermissionsForUser(saved))
-                .build());
+        return ResponseEntity.ok(toUserResponse(saved));
     }
 
     @PutMapping("/{id}/status")
@@ -570,29 +461,7 @@ public class UserController {
             rolePermissionRepo.saveAll(combinedUserPermissions);
         }
 
-        // Re-fetch fresh permissions to return in response
-        java.util.List<String> freshPerms = getPermissionsForUser(user);
-
-        return ResponseEntity.ok(UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(distinctRoles)
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(roleEntity.getId())
-                .isActive(user.getIsActive())
-                .permissions(freshPerms)
-                .roleChangedAt(user.getRoleChangedAt())
-                .roleChangedBy(user.getRoleChangedBy())
-                .build());
+        return ResponseEntity.ok(toUserResponse(user));
     }
 
     @PutMapping("/{id}/kyc")
