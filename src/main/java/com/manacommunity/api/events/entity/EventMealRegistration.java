@@ -24,6 +24,10 @@ public class EventMealRegistration {
     @JoinColumn(name = "event_id", nullable = false)
     private EventCommunity event;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lunch_dinner_id")
+    private EventLunchDinner lunchDinner;
+
     @Column(name = "community_id")
     private Long communityId;
 

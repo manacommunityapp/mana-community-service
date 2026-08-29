@@ -6,11 +6,9 @@ import com.manacommunity.api.events.dto.MealSummaryResponse;
 import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.entity.EventMealRegistration;
-import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
-import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
@@ -29,7 +27,6 @@ public class EventMealService {
     private final EventMealRegistrationRepository mealRepo;
     private final EventCommunityRepository eventRepo;
     private final LunchDinnerRepository lunchDinnerRepo;
-    private final EventBookingRegistrationRepository bookingRepo;
 
     @Transactional(readOnly = true)
     public MealRegistrationResponse getUserMeals(Long eventId, Long userId) {
@@ -96,8 +93,9 @@ public class EventMealService {
 
                 if (dm.isMorning()) {
                     checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.MORNING, headCount, user.getId());
+                    EventLunchDinner ldMorning = lunchDinnerRepo.findByEventAndDateAndType(eventId, dm.getDate(), "MORNING").orElse(null);
                     mealRepo.save(EventMealRegistration.builder()
-                            .event(event).user(user).communityId(communityId)
+                            .event(event).lunchDinner(ldMorning).user(user).communityId(communityId)
                             .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.MORNING)
                             .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
                             .build());
@@ -105,8 +103,9 @@ public class EventMealService {
 
                 if (dm.isLunch()) {
                     checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.LUNCH, headCount, user.getId());
+                    EventLunchDinner ldLunch = lunchDinnerRepo.findByEventAndDateAndType(eventId, dm.getDate(), "LUNCH").orElse(null);
                     mealRepo.save(EventMealRegistration.builder()
-                            .event(event).user(user).communityId(communityId)
+                            .event(event).lunchDinner(ldLunch).user(user).communityId(communityId)
                             .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.LUNCH)
                             .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
                             .build());
@@ -114,8 +113,9 @@ public class EventMealService {
 
                 if (dm.isDinner()) {
                     checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.DINNER, headCount, user.getId());
+                    EventLunchDinner ldDinner = lunchDinnerRepo.findByEventAndDateAndType(eventId, dm.getDate(), "DINNER").orElse(null);
                     mealRepo.save(EventMealRegistration.builder()
-                            .event(event).user(user).communityId(communityId)
+                            .event(event).lunchDinner(ldDinner).user(user).communityId(communityId)
                             .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.DINNER)
                             .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
                             .build());
@@ -173,20 +173,93 @@ public class EventMealService {
         return response;
     }
 
-    /** Bug 2 fix: enforce target_plates capacity; Bug 4 fix: block if formal booking already exists. */
+    /**
+     * Register (or update) a single meal slot for a user based on an EventLunchDinner record.
+     * Acts as upsert: if the user already has a row for this event+date+mealType, updates headCount only.
+     */
+    @Transactional
+    public MealRegistrationResponse registerSingleMeal(Long lunchDinnerId, int headCount,
+                                                        String dietaryPref, AppUser user) {
+        EventLunchDinner ld = lunchDinnerRepo.findById(lunchDinnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("LunchDinner", lunchDinnerId));
+
+        if (ld.getMainEventId() == null) {
+            throw new ResourceNotFoundException("Meal has no associated event", lunchDinnerId);
+        }
+
+        EventCommunity event = eventRepo.findById(ld.getMainEventId())
+                .orElseThrow(() -> new ResourceNotFoundException("Event", ld.getMainEventId()));
+
+        LocalDate mealDate = ld.getDate();
+        EventMealRegistration.MealType mealType;
+        try {
+            mealType = EventMealRegistration.MealType.valueOf(
+                    ld.getMealType() != null ? ld.getMealType().toUpperCase() : "LUNCH");
+        } catch (IllegalArgumentException e) {
+            mealType = EventMealRegistration.MealType.LUNCH;
+        }
+
+        EventMealRegistration.DietaryPref dp = EventMealRegistration.DietaryPref.VEG;
+        if (dietaryPref != null && !dietaryPref.isBlank()) {
+            try { dp = EventMealRegistration.DietaryPref.valueOf(dietaryPref.toUpperCase()); }
+            catch (IllegalArgumentException ignored) {}
+        }
+
+        int requestedCount = headCount > 0 ? headCount : 1;
+
+        // Upsert: update existing row or create new
+        EventMealRegistration existing = mealRepo
+                .findByEventIdAndUserIdAndMealDateAndMealType(event.getId(), user.getId(), mealDate, mealType)
+                .orElse(null);
+
+        if (existing != null) {
+            existing.setHeadCount(requestedCount);
+            existing.setDietaryPref(dp);
+            existing.setLunchDinner(ld);
+            mealRepo.save(existing);
+        } else {
+            checkMealCapacity(event.getId(), mealDate, mealType, requestedCount, user.getId());
+            mealRepo.save(EventMealRegistration.builder()
+                    .event(event).lunchDinner(ld).user(user).communityId(ld.getCommunityId())
+                    .mealDate(mealDate).mealType(mealType)
+                    .headCount(requestedCount).dietaryPref(dp)
+                    .build());
+        }
+
+        return getUserMeals(event.getId(), user.getId());
+    }
+
+    /**
+     * Update only the headCount of an existing meal registration for a specific slot.
+     */
+    @Transactional
+    public MealRegistrationResponse updateMealHeadCount(Long lunchDinnerId, int headCount, AppUser user) {
+        EventLunchDinner ld = lunchDinnerRepo.findById(lunchDinnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("LunchDinner", lunchDinnerId));
+
+        if (ld.getMainEventId() == null) throw new ResourceNotFoundException("Meal has no associated event", lunchDinnerId);
+
+        EventMealRegistration.MealType mealType;
+        try {
+            mealType = EventMealRegistration.MealType.valueOf(
+                    ld.getMealType() != null ? ld.getMealType().toUpperCase() : "LUNCH");
+        } catch (IllegalArgumentException e) {
+            mealType = EventMealRegistration.MealType.LUNCH;
+        }
+
+        EventMealRegistration reg = mealRepo
+                .findByEventIdAndUserIdAndMealDateAndMealType(ld.getMainEventId(), user.getId(), ld.getDate(), mealType)
+                .orElseThrow(() -> new ResourceNotFoundException("Meal registration not found", lunchDinnerId));
+
+        reg.setHeadCount(headCount > 0 ? headCount : 1);
+        mealRepo.save(reg);
+        return getUserMeals(ld.getMainEventId(), user.getId());
+    }
+
+    /** Enforce target_plates capacity against event_meal_registrations only. */
     private void checkMealCapacity(Long eventId, LocalDate date,
                                     EventMealRegistration.MealType mealType, int requested, Long userId) {
         lunchDinnerRepo.findByEventAndDateAndType(eventId, date, mealType.name()).ifPresent(config -> {
-            // Bug 4: cross-system duplicate — user already has a formal booking-path registration
-            String foodActivityId = "food-" + config.getId();
-            String mealActivityId = "meal-" + config.getId();
-            if (bookingRepo.existsByUserIdAndActivityIdAndStatusNot(userId, foodActivityId, "CANCELLED")
-                    || bookingRepo.existsByUserIdAndActivityIdAndStatusNot(userId, mealActivityId, "CANCELLED")) {
-                throw new AlreadyRegisteredException(config.getName(),
-                        "You already have a formal booking for this meal. Duplicate meal preference registration blocked.");
-            }
-
-            // Bug 2: capacity check
             int target = config.getTargetPlates() != null && config.getTargetPlates() > 0
                     ? config.getTargetPlates() : Integer.MAX_VALUE;
             int alreadyBooked = mealRepo.sumHeadCountExcludingUser(eventId, date, mealType, userId);

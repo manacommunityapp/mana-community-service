@@ -47,6 +47,9 @@ public interface EventMealRegistrationRepository extends JpaRepository<EventMeal
     boolean existsByEventIdAndUserIdAndMealDateAndMealType(Long eventId, Long userId, LocalDate mealDate,
                                                            EventMealRegistration.MealType mealType);
 
+    java.util.Optional<EventMealRegistration> findByEventIdAndUserIdAndMealDateAndMealType(
+            Long eventId, Long userId, LocalDate mealDate, EventMealRegistration.MealType mealType);
+
     /** True when any meal registration exists for this event+date+mealType (for delete guard). */
     boolean existsByEventIdAndMealDateAndMealType(Long eventId, LocalDate mealDate,
                                                    EventMealRegistration.MealType mealType);

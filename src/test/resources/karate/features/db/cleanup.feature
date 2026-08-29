@@ -14,19 +14,37 @@ Feature: Test data cleanup — wipe all Karate-generated data before and after r
   # 1. EVENT MODULE — Ganesh Mahotsav test data
   # ═══════════════════════════════════════════════════════════
   Scenario: Wipe event module test data (event, sevas, slots, registrations)
-    # Pooja registrations for all Ganesh Mahotsav events
+    # ── FK order: participants → registrations → schedule-reservations → schedules → time-slots → sevas → event
+
+    # 1. Booking participants (FK → registrations)
+    * def r0 = db.execute("DELETE FROM event_pooja_booking_participants WHERE registration_id IN (SELECT id FROM event_pooja_user_registrations WHERE event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026'))")
+    * print '  [cleanup] booking participants deleted:', r0
+
+    # 2. Pooja registrations
     * def r1 = db.execute("DELETE FROM event_pooja_user_registrations WHERE event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026')")
     * print '  [cleanup] pooja registrations deleted:', r1
 
-    # Time slots for those sevas
+    # 3. Schedule reservations (FK → schedules)
+    * def r1b = db.execute("DELETE FROM event_pooja_schedule_reservations WHERE schedule_id IN (SELECT id FROM event_pooja_schedules WHERE pooja_id IN (SELECT id FROM event_pooja_sevas WHERE main_event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026')))")
+    * print '  [cleanup] schedule reservations deleted:', r1b
+
+    # 4. Admin-created pooja schedules (FK → sevas)
+    * def r1c = db.execute("DELETE FROM event_pooja_schedules WHERE pooja_id IN (SELECT id FROM event_pooja_sevas WHERE main_event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026'))")
+    * print '  [cleanup] pooja schedules deleted:', r1c
+
+    # 5. Time slots for those sevas
     * def r2 = db.execute("DELETE FROM event_pooja_seva_time_slots WHERE pooja_seva_id IN (SELECT id FROM event_pooja_sevas WHERE main_event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026'))")
     * print '  [cleanup] time slots deleted:', r2
 
-    # Pooja sevas
+    # 6. Pooja sevas
     * def r3 = db.execute("DELETE FROM event_pooja_sevas WHERE main_event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026')")
     * print '  [cleanup] pooja sevas deleted:', r3
 
-    # Parent event record
+    # 7. Event registrations (general, non-pooja)
+    * def r3b = db.execute("DELETE FROM event_booking_registrations WHERE event_id IN (SELECT id FROM event_community WHERE title = 'Ganesh Mahotsav 2026')")
+    * print '  [cleanup] general event registrations deleted:', r3b
+
+    # 8. Parent event record
     * def r4 = db.execute("DELETE FROM event_community WHERE title = 'Ganesh Mahotsav 2026'")
     * print '  [cleanup] events deleted:', r4
 
@@ -38,6 +56,10 @@ Feature: Test data cleanup — wipe all Karate-generated data before and after r
   #    Delete FK child rows first; app_user_roles cascades.
   # ═══════════════════════════════════════════════════════════
   Scenario: Wipe bulk devotee accounts and their FK child rows
+    # Pooja booking participants
+    * def r4b = db.execute("DELETE FROM event_pooja_booking_participants WHERE registration_id IN (SELECT id FROM event_pooja_user_registrations WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@ganesh2026.test'))")
+    * print '  [cleanup] booking participants for devotees deleted:', r4b
+
     # Pooja registrations (any event, not only Ganesh Mahotsav)
     * def r5 = db.execute("DELETE FROM event_pooja_user_registrations WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@ganesh2026.test')")
     * print '  [cleanup] pooja regs for devotees deleted:', r5

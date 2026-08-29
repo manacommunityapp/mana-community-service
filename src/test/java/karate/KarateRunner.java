@@ -7,27 +7,33 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 
 /**
- * Karate JUnit 5 runner — three independent module flows.
+ * Karate JUnit 5 runner — module flows for the Mana Community service.
  *
- * ┌──────────────────────────────────────────────────────────┐
- * │  Module         │  Runner method   │  Tag              │
- * ├──────────────────────────────────────────────────────────┤
- * │  Signup / Auth  │  signupFlow()    │  @signup          │
- * │  Community Feed │  feedFlow()      │  @feed            │
- * │  Event Module   │  poojaFlow()     │  @pooja @e2e      │
- * │  DB Verify      │  dbVerify()      │  @db-verify       │
- * │  Full smoke     │  smoke()         │  @smoke           │
- * │  All tests      │  all()           │  ~@ignore         │
- * └──────────────────────────────────────────────────────────┘
+ * ┌────────────────────────────────────────────────────────────────────────────┐
+ * │  Method               │  What it runs                                     │
+ * ├────────────────────────────────────────────────────────────────────────────┤
+ * │  all()                │  Every non-@ignore feature                        │
+ * │  smoke()              │  @smoke tagged scenarios across all modules        │
+ * │  signupFlow()         │  Auth / signup module                             │
+ * │  feedFlow()           │  Community feed module                            │
+ * │  poojaFlow()          │  Full event module (events + pooja + e2e)         │
+ * │  eventListFlow()      │  List / fetch events (standalone)                 │
+ * │  eventDashboardFlow() │  Dashboard stats / analytics / pending-actions    │
+ * │  poojaTypesFlow()     │  Pooja types CRUD                                 │
+ * │  dbVerify()           │  DB state assertions (@db-verify)                 │
+ * └────────────────────────────────────────────────────────────────────────────┘
  *
- * Run commands:
- *   All tests           : ./mvnw test -Dtest=KarateRunner
- *   Signup flow only    : ./mvnw test -Dtest=KarateRunner#signupFlow
- *   Feed flow only      : ./mvnw test -Dtest=KarateRunner#feedFlow
- *   Event / Pooja flow  : ./mvnw test -Dtest=KarateRunner#poojaFlow
- *   DB assertions only  : ./mvnw test -Dtest=KarateRunner#dbVerify
- *   Quick smoke (all)   : ./mvnw test -Dtest=KarateRunner#smoke
- *   Staging env         : ./mvnw test -Dtest=KarateRunner#smoke -Dkarate.env=staging
+ * Run commands (PowerShell — quote the method selector to avoid # truncation):
+ *   All tests              : ./mvnw test -Dtest=KarateRunner
+ *   Full event module      : ./mvnw test "-Dtest=KarateRunner#poojaFlow"
+ *   Event list check       : ./mvnw test "-Dtest=KarateRunner#eventListFlow"
+ *   Dashboard check        : ./mvnw test "-Dtest=KarateRunner#eventDashboardFlow"
+ *   Pooja types check      : ./mvnw test "-Dtest=KarateRunner#poojaTypesFlow"
+ *   Signup flow            : ./mvnw test "-Dtest=KarateRunner#signupFlow"
+ *   Feed flow              : ./mvnw test "-Dtest=KarateRunner#feedFlow"
+ *   DB assertions only     : ./mvnw test "-Dtest=KarateRunner#dbVerify"
+ *   Quick smoke (all)      : ./mvnw test "-Dtest=KarateRunner#smoke"
+ *   Staging env            : ./mvnw test "-Dtest=KarateRunner#smoke" -Dkarate.env=staging
  */
 @Tag("karate")
 class KarateRunner {
@@ -48,6 +54,8 @@ class KarateRunner {
               .parallel(1);
     }
 
+    // ── Full suites ───────────────────────────────────────────────────────────
+
     /** Full suite — skips anything tagged @ignore */
     @Karate.Test
     Karate all() {
@@ -66,7 +74,6 @@ class KarateRunner {
 
     /**
      * Signup & Auth flow: registration, login, profile, token refresh, password change, logout.
-     * Feature directory: features/signup/
      */
     @Karate.Test
     Karate signupFlow() {
@@ -76,7 +83,6 @@ class KarateRunner {
 
     /**
      * Community Feed flow: CRUD posts, comments, likes, reactions, bookmarks, search.
-     * Feature directory: features/feed/
      */
     @Karate.Test
     Karate feedFlow() {
@@ -85,12 +91,10 @@ class KarateRunner {
     }
 
     /**
-     * Event module flow — runs ALL event-related features:
-     *   features/events/   → standalone event create scenarios
-     *   features/pooja/    → create-pooja-sevas, register-for-pooja, admin-register
-     *   features/e2e/      → orchestrated full lifecycle (250 users → event → seva → register → DB verify)
-     *
-     * This is the complete event creation + pooja registration flow.
+     * Full event module flow:
+     *   features/events/ — list, dashboard, pooja-types, event-registration, update-event
+     *   features/pooja/  — create-sevas, register, admin-register, schedule-mgmt, reschedule
+     *   features/e2e/    — orchestrated full lifecycle (250 users → event → seva → register → DB verify)
      */
     @Karate.Test
     Karate poojaFlow() {
@@ -102,8 +106,37 @@ class KarateRunner {
     }
 
     /**
+     * Event list / fetch flow — standalone, no test data setup needed.
+     * Covers: GET /events, GET /events/all, GET /events?type=, GET /events/mine, GET /events/{id}
+     */
+    @Karate.Test
+    Karate eventListFlow() {
+        return Karate.run("classpath:karate/features/events/list-events.feature")
+                     .tags("~@ignore");
+    }
+
+    /**
+     * Event dashboard — standalone, admin auth only.
+     * Covers: GET /events/dashboard/stats, /analytics, /pending-actions
+     */
+    @Karate.Test
+    Karate eventDashboardFlow() {
+        return Karate.run("classpath:karate/features/events/event-dashboard.feature")
+                     .tags("~@ignore");
+    }
+
+    /**
+     * Pooja types CRUD — standalone, admin auth only.
+     * Covers: GET /events/pooja-types, POST /events/pooja-types
+     */
+    @Karate.Test
+    Karate poojaTypesFlow() {
+        return Karate.run("classpath:karate/features/events/pooja-types.feature")
+                     .tags("~@ignore");
+    }
+
+    /**
      * Database-state verification only — run after poojaFlow completes.
-     * Feature directory: features/db/
      */
     @Karate.Test
     Karate dbVerify() {

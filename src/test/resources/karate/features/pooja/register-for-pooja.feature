@@ -33,10 +33,11 @@ Feature: Devotee registers for Ganesh Pooja slot
     * assert response.length > 0
     * def schedule    = response[0]
     * def scheduleId  = schedule.id
-    * print 'Schedule found — ID:', scheduleId, '| available:', schedule.availableSlots
+    # PoojaScheduleDto fields: availableDevotees / availableFamilies (not availableSlots)
+    * print 'Schedule found — ID:', scheduleId, '| availableDevotees:', schedule.availableDevotees
 
   Scenario: Reserve a slot (pessimistic lock, idempotent)
-    # Re-fetch schedules to get scheduleId and the time-slot row id
+    # Re-fetch schedules; timeSlotConfigId comes from PoojaScheduleDto.timeSlotConfigId
     Given path '/events/pooja-schedules'
     And param poojaId = seva14EveningId
     And param date    = '2026-09-14'
@@ -44,17 +45,18 @@ Feature: Devotee registers for Ganesh Pooja slot
     Then status 200
     And match response[0].status == 'OPEN'
     * def scheduleId       = response[0].id
-    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
+    * def timeSlotConfigId = response[0].timeSlotConfigId
 
     # Reserve — unique idempotency key prevents double-booking (V89: DB-level partial unique index)
     * def idemKey = java.util.UUID.randomUUID().toString()
     Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
-    And request { idempotencyKey: '#(idemKey)', devoteeCount: 1 }
+    And request { idempotencyKey: '#(idemKey)', familyCount: 1, devoteeCount: 1 }
     When method POST
     Then status 200
     And match response.reservationId != null
+    And match response.tokenNumber   != null
     * def reservationId = response.reservationId
-    * print '✅ Reservation ID:', reservationId
+    * print '✅ Reservation ID:', reservationId, '| token:', response.tokenNumber
 
   Scenario: Complete pooja registration (confirm reservation)
     # Re-fetch schedule and re-reserve (shared state not carried across scenarios)
@@ -64,11 +66,11 @@ Feature: Devotee registers for Ganesh Pooja slot
     When method GET
     Then status 200
     * def scheduleId       = response[0].id
-    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
+    * def timeSlotConfigId = response[0].timeSlotConfigId
 
     * def idemKey = java.util.UUID.randomUUID().toString()
     Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
-    And request { idempotencyKey: '#(idemKey)', devoteeCount: 1 }
+    And request { idempotencyKey: '#(idemKey)', familyCount: 1, devoteeCount: 1 }
     When method POST
     Then status 200
     * def reservationId = response.reservationId
@@ -110,11 +112,11 @@ Feature: Devotee registers for Ganesh Pooja slot
     When method GET
     Then status 200
     * def scheduleId       = response[0].id
-    * def timeSlotConfigId = response[0].poojaSevaTimeSlotsId
+    * def timeSlotConfigId = response[0].timeSlotConfigId
 
     * def idemKey2 = java.util.UUID.randomUUID().toString()
     Given path '/events/pooja-schedules/' + scheduleId + '/reserve'
-    And request { idempotencyKey: '#(idemKey2)', devoteeCount: 1 }
+    And request { idempotencyKey: '#(idemKey2)', familyCount: 1, devoteeCount: 1 }
     When method POST
     Then status 200
     * def reservationId2 = response.reservationId

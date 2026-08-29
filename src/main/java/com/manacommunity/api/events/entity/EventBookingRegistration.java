@@ -133,6 +133,14 @@ public class EventBookingRegistration {
     @Transient
     private Long scheduleId;
 
+    /** Activity type sent by frontend (e.g. "LUNCH_DINNER"). Not persisted — used for routing only. */
+    @Transient
+    private String activityType;
+
+    /** LunchDinner / meal slot id sent by frontend. Not persisted — used for routing meal registrations. */
+    @Transient
+    private Long lunchDinnerId;
+
     @Column(name = "checked_in")
     @Builder.Default
     private Boolean checkedIn = false;

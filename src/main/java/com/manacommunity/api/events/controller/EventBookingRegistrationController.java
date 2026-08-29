@@ -1,7 +1,9 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.MealRegistrationResponse;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
+import com.manacommunity.api.events.service.EventMealService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -11,21 +13,26 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/events/registrations")
 public class EventBookingRegistrationController {
 
     private final EventBookingRegistrationService service;
+    private final EventMealService mealService;
     private final LoggedInUserService loggedInUserService;
 
-    public EventBookingRegistrationController(EventBookingRegistrationService service, LoggedInUserService loggedInUserService) {
+    public EventBookingRegistrationController(EventBookingRegistrationService service,
+                                              EventMealService mealService,
+                                              LoggedInUserService loggedInUserService) {
         this.service = service;
+        this.mealService = mealService;
         this.loggedInUserService = loggedInUserService;
     }
 
     @PostMapping
-    public ResponseEntity<EventBookingRegistration> createRegistration(
+    public ResponseEntity<?> createRegistration(
             @RequestBody EventBookingRegistration registration,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
@@ -37,10 +44,52 @@ public class EventBookingRegistrationController {
         if ("Pooja".equalsIgnoreCase(registration.getCategory())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
+
+        // Meal activities → save to event_meal_registrations, not event_booking_registrations
+        boolean isMeal = (actId != null && (actId.startsWith("meal-") || actId.startsWith("food-")))
+                || "LUNCH_DINNER".equalsIgnoreCase(registration.getActivityType())
+                || "Meal".equalsIgnoreCase(registration.getCategory());
+        if (isMeal) {
+            Long lunchDinnerId = parseMealId(actId, registration);
+            if (lunchDinnerId == null) return ResponseEntity.badRequest().body("Missing lunchDinnerId");
+            AppUser user = loggedInUserService.resolve(principal);
+            int headCount = registration.getDevoteeCount() != null && registration.getDevoteeCount() > 0
+                    ? registration.getDevoteeCount() : 1;
+            MealRegistrationResponse result = mealService.registerSingleMeal(
+                    lunchDinnerId, headCount, null, user);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+        }
+
         AppUser user = loggedInUserService.resolve(principal);
         boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN"));
         EventBookingRegistration created = service.createRegistration(registration, user, communityId, adminOverride && isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /** Update only the headCount for an existing meal slot registration. */
+    @PatchMapping("/meal/{lunchDinnerId}/headcount")
+    public ResponseEntity<MealRegistrationResponse> updateMealHeadCount(
+            @PathVariable Long lunchDinnerId,
+            @RequestBody Map<String, Integer> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Integer headCount = body.get("headCount");
+        if (headCount == null || headCount < 1) return ResponseEntity.badRequest().build();
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(mealService.updateMealHeadCount(lunchDinnerId, headCount, user));
+    }
+
+    private Long parseMealId(String actId, EventBookingRegistration reg) {
+        if (actId != null) {
+            if (actId.startsWith("meal-")) {
+                try { return Long.parseLong(actId.replace("meal-", "")); } catch (NumberFormatException ignored) {}
+            }
+            if (actId.startsWith("food-")) {
+                try { return Long.parseLong(actId.replace("food-", "")); } catch (NumberFormatException ignored) {}
+            }
+        }
+        // Fallback: lunchDinnerId / mealId sent as transient fields in the payload
+        if (reg.getLunchDinnerId() != null) return reg.getLunchDinnerId();
+        return null;
     }
 
     @GetMapping("/my")
