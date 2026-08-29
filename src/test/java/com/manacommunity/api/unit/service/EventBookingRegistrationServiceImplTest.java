@@ -118,7 +118,8 @@ class EventBookingRegistrationServiceImplTest {
                 mock(AppUserRepository.class),
                 mock(PoojaSlotReservationService.class),
                 mock(EventPoojaSlotReservationRepository.class),
-                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class)
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventPoojaScheduleRepository.class)
         );
 
         EventBookingRegistration req = registration("cultural-5", "2026-08-28", "18:00", 1);
@@ -156,7 +157,8 @@ class EventBookingRegistrationServiceImplTest {
                 mock(AppUserRepository.class),
                 mock(PoojaSlotReservationService.class),
                 mock(EventPoojaSlotReservationRepository.class),
-                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class)
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventPoojaScheduleRepository.class)
         );
     }
 }
