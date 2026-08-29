@@ -288,7 +288,57 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             existing.setStatus(next.name());
         }
         if (patch.getNotes() != null) existing.setNotes(patch.getNotes());
-        if (patch.getPoojaSevaTimeSlotsId() != null) existing.setPoojaSevaTimeSlotsId(patch.getPoojaSevaTimeSlotsId());
+        if (patch.getPoojaSevaId() != null) existing.setPoojaSevaId(patch.getPoojaSevaId());
+        if (patch.getReservationId() != null) existing.setReservationId(patch.getReservationId());
+        if (patch.getTokenNumber() != null) existing.setTokenNumber(patch.getTokenNumber());
+
+        if (patch.getScheduleId() != null) {
+            existing.setScheduleId(patch.getScheduleId());
+            scheduleRepository.findById(patch.getScheduleId()).ifPresent(sch -> {
+                existing.setPoojaSlotDate(sch.getScheduleDate().toString());
+                existing.setPoojaSlotTime(sch.getStartTime().toString());
+                if (sch.getTimeSlotConfigId() != null) {
+                    existing.setPoojaSevaTimeSlotsId(sch.getTimeSlotConfigId());
+                }
+                if (sch.getPoojaSeva() != null) {
+                    existing.setPoojaSevaId(sch.getPoojaSeva().getId());
+                    if (existing.getPoojaSlotName() == null || existing.getPoojaSlotName().isBlank()) {
+                        existing.setPoojaSlotName(sch.getPoojaSeva().getName());
+                    }
+                }
+            });
+        } else if (patch.getPoojaSevaTimeSlotsId() != null) {
+            existing.setPoojaSevaTimeSlotsId(patch.getPoojaSevaTimeSlotsId());
+            scheduleRepository.findByTimeSlotConfigId(patch.getPoojaSevaTimeSlotsId()).ifPresent(sch -> {
+                existing.setScheduleId(sch.getId());
+                existing.setPoojaSlotDate(sch.getScheduleDate().toString());
+                existing.setPoojaSlotTime(sch.getStartTime().toString());
+                if (sch.getPoojaSeva() != null) {
+                    existing.setPoojaSevaId(sch.getPoojaSeva().getId());
+                }
+            });
+        }
+
+        // If scheduleId is not explicitly set, but slotDate and slotTime are present, auto-resolve the correct scheduleId
+        if (patch.getScheduleId() == null && (patch.getPoojaSlotDate() != null || patch.getPoojaSlotTime() != null || existing.getScheduleId() == null)) {
+            try {
+                Long poojaId = existing.getPoojaSevaId() != null ? existing.getPoojaSevaId() : existing.getEventId();
+                if (poojaId != null && existing.getPoojaSlotDate() != null && existing.getPoojaSlotTime() != null) {
+                    java.time.LocalDate date = java.time.LocalDate.parse(existing.getPoojaSlotDate().trim());
+                    String timeStr = existing.getPoojaSlotTime().trim();
+                    if (timeStr.contains(" - ")) timeStr = timeStr.split(" - ")[0].trim();
+                    if (timeStr.length() == 5) timeStr += ":00";
+                    java.time.LocalTime time = java.time.LocalTime.parse(timeStr);
+                    scheduleRepository.findByPoojaSeva_IdAndScheduleDateAndStartTime(poojaId, date, time)
+                            .ifPresent(sch -> {
+                                existing.setScheduleId(sch.getId());
+                                if (sch.getTimeSlotConfigId() != null) {
+                                    existing.setPoojaSevaTimeSlotsId(sch.getTimeSlotConfigId());
+                                }
+                            });
+                }
+            } catch (Exception ignored) {}
+        }
 
         EventPoojaUserRegistration saved = repository.save(existing);
 

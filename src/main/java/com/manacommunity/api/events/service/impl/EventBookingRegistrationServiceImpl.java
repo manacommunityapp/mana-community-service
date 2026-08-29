@@ -991,9 +991,9 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             poojaReg.setStatus(reg.getStatus());
             poojaReg.setQrCodeUrl(reg.getQrCodeUrl());
 
-            // Stamp reservation fields on first save (reservation_id is @Transient on EventBookingRegistration)
+            // Stamp reservation fields on first save or update (reservation_id is @Transient on EventBookingRegistration)
             Long incomingReservationId = reg.getReservationId();
-            if (incomingReservationId != null && poojaReg.getReservationId() == null) {
+            if (incomingReservationId != null) {
                 poojaSlotReservationRepository.findById(incomingReservationId).ifPresent(reservation -> {
                     poojaReg.setReservationId(reservation.getId());
                     if (reservation.getTokenNumber() != null) {
@@ -1001,8 +1001,32 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     }
                     if (reservation.getSchedule() != null) {
                         poojaReg.setScheduleId(reservation.getSchedule().getId());
+                        if (reservation.getSchedule().getTimeSlotConfigId() != null) {
+                            poojaReg.setPoojaSevaTimeSlotsId(reservation.getSchedule().getTimeSlotConfigId());
+                        }
                     }
                 });
+            }
+
+            // Auto-resolve correct scheduleId from schedule table if not set or if date/time changed
+            if (poojaReg.getPoojaSlotDate() != null && poojaReg.getPoojaSlotTime() != null) {
+                try {
+                    Long poojaId = poojaReg.getPoojaSevaId() != null ? poojaReg.getPoojaSevaId() : poojaReg.getEventId();
+                    if (poojaId != null) {
+                        java.time.LocalDate d = java.time.LocalDate.parse(poojaReg.getPoojaSlotDate().trim());
+                        String tStr = poojaReg.getPoojaSlotTime().trim();
+                        if (tStr.contains(" - ")) tStr = tStr.split(" - ")[0].trim();
+                        if (tStr.length() == 5) tStr += ":00";
+                        java.time.LocalTime t = java.time.LocalTime.parse(tStr);
+                        scheduleRepository.findByPoojaSeva_IdAndScheduleDateAndStartTime(poojaId, d, t)
+                                .ifPresent(sch -> {
+                                    poojaReg.setScheduleId(sch.getId());
+                                    if (sch.getTimeSlotConfigId() != null) {
+                                        poojaReg.setPoojaSevaTimeSlotsId(sch.getTimeSlotConfigId());
+                                    }
+                                });
+                    }
+                } catch (Exception ignored) {}
             }
 
             EventPoojaUserRegistration savedPoojaReg = poojaUserRegRepo.save(poojaReg);
