@@ -47,5 +47,7 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
     List<EventBookingRegistration> findByMainEventIdOrderByCreatedAtDesc(Long mainEventId);
 
     long countByMainEventIdAndStatusNot(Long mainEventId, String status);
+
+    long countByUserId(Long userId);
 }
 

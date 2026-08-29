@@ -15,6 +15,7 @@ public class MealRegistrationResponse {
     @Data
     public static class DayMealResponse {
         private String date;
+        private boolean morning;
         private boolean lunch;
         private boolean dinner;
         private int headCount;

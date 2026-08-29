@@ -58,6 +58,6 @@ public class EventMealRegistration {
         createdAt = LocalDateTime.now();
     }
 
-    public enum MealType { LUNCH, DINNER }
+    public enum MealType { MORNING, LUNCH, DINNER }
     public enum DietaryPref { VEG, VEGAN, JAIN, NONVEG }
 }

@@ -222,7 +222,7 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
         for (EventMealRegistration mr : mealRegs) {
             String name = mr.getUser() != null
-                    ? (mr.getUser().getFullName() != null ? mr.getUser().getFullName() : mr.getUser().getUsername())
+                    ? (mr.getUser().getFullName() != null ? mr.getUser().getFullName() : mr.getUser().getEmail())
                     : "Devotee";
             String phone = mr.getUser() != null ? mr.getUser().getPhone() : null;
             String email = mr.getUser() != null ? mr.getUser().getEmail() : null;
@@ -308,14 +308,29 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
     @Override
     public void deleteLunchDinner(Long id, Long communityId) {
         EventLunchDinner existing = getLunchDinnerById(id, communityId);
+
+        // Check event_booking_registrations (food- / meal- prefix bookings)
         if (bookingRepo.existsByActivityIdAndStatusNot("food-" + existing.getId(), "CANCELLED")
                 || bookingRepo.existsByActivityIdAndStatusNot("meal-" + existing.getId(), "CANCELLED")) {
             throw new ManaCommunityException(
                     "Cannot delete lunch/dinner event with active bookings. Cancel the bookings first.",
-                    HttpStatus.CONFLICT,
-                    "FOOD_HAS_BOOKINGS"
-            );
+                    HttpStatus.CONFLICT, "FOOD_HAS_BOOKINGS");
         }
+
+        // Check event_meal_registrations (meal-preference registrations)
+        if (existing.getMainEventId() != null && existing.getDate() != null && existing.getMealType() != null) {
+            try {
+                com.manacommunity.api.events.entity.EventMealRegistration.MealType mt =
+                        com.manacommunity.api.events.entity.EventMealRegistration.MealType
+                                .valueOf(existing.getMealType().toUpperCase());
+                if (mealRepo.existsByEventIdAndMealDateAndMealType(existing.getMainEventId(), existing.getDate(), mt)) {
+                    throw new ManaCommunityException(
+                            "Cannot delete lunch/dinner event with active meal registrations. Remove those registrations first.",
+                            HttpStatus.CONFLICT, "FOOD_HAS_MEAL_REGISTRATIONS");
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+
         repository.delete(existing);
     }
 }

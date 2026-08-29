@@ -2,6 +2,7 @@ package com.manacommunity.api.user.service.impl;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.user.dto.FamilyMemberSlimResponse;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.model.FamilyMember;
 import com.manacommunity.api.user.repository.FamilyMemberRepository;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FamilyMemberServiceImpl implements FamilyMemberService {
@@ -90,6 +92,17 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
             }
         }
         return list;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FamilyMemberSlimResponse> getSlimFamilyMembers(Long userId) {
+        if (userId == null) return Collections.emptyList();
+        return repository.findByUserIdOrderByCreatedAtAsc(userId).stream()
+                .map(m -> new FamilyMemberSlimResponse(
+                        m.getId(), m.getName(), m.getGothram(),
+                        m.getRelation(), m.getPhone(), m.getGender()))
+                .collect(Collectors.toList());
     }
 
     @Override

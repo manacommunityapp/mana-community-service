@@ -10,7 +10,6 @@ import com.manacommunity.api.events.enums.ReservationStatus;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
@@ -32,7 +31,6 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     private final EventPoojaScheduleRepository scheduleRepo;
     private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
-    private final EventRegistrationRepository eventRegistrationRepository;
     private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
 
     @Value("${pooja.reservation.ttl-minutes:5}")
@@ -41,12 +39,10 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
                                            EventPoojaSlotReservationRepository reservationRepo,
                                            AuditService auditService,
-                                           EventRegistrationRepository eventRegistrationRepository,
                                            EventBookingRegistrationRepository eventBookingRegistrationRepository) {
         this.scheduleRepo = scheduleRepo;
         this.reservationRepo = reservationRepo;
         this.auditService = auditService;
-        this.eventRegistrationRepository = eventRegistrationRepository;
         this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
     }
 
@@ -261,11 +257,6 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
 
     private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
         if (mainEventId == null || mainEventId <= 0 || userId == null) {
-            return true;
-        }
-        boolean isDirectRegistered = eventRegistrationRepository != null &&
-                eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, userId);
-        if (isDirectRegistered) {
             return true;
         }
         if (eventBookingRegistrationRepository != null) {

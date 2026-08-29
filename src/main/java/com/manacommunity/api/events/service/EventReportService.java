@@ -20,25 +20,28 @@ import java.util.List;
 public class EventReportService {
 
     private final EventCommunityRepository eventRepo;
-    private final EventRegistrationRepository regRepo;
     private final EventPoojaUserRegistrationRepository poojaRegRepo;
     private final EventActivityRegistrationRepository activityRegRepo;
     private final EventBookingRegistrationRepository bookingRegRepo;
     private final EventMealRegistrationRepository mealRegRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventDonationRepository donationRepo;
-    private final EventSponsorRepository sponsorRepo;
     private final EventExpenseRepository expenseRepo;
     private final EventGalleryItemRepository galleryRepo;
     private final EventTaskRepository taskRepo;
     private final EventProgramRepository programRepo;
+    private final EventSponsorRepository sponsorRepo;
 
     @Transactional(readOnly = true)
     public EventReportResponse getEventReport(Long eventId) {
         EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
-        long generalRegs = regRepo.findByEventId(eventId).size();
+        List<EventBookingRegistration> generalBookings = new ArrayList<>();
+        generalBookings.addAll(bookingRegRepo.findByActivityId("event-" + eventId));
+        generalBookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
+        long generalRegs = generalBookings.stream().filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus())).count();
+
         List<EventPoojaUserRegistration> poojaList = poojaRegRepo.findByEventIdOrderByCreatedAtDesc(eventId);
         long poojaRegs = poojaList.stream().filter(p -> !"CANCELLED".equalsIgnoreCase(p.getStatus())).count();
         long activityRegs = activityRegRepo.countByProgramEventId(eventId);
@@ -65,12 +68,12 @@ public class EventReportService {
                 .mapToDouble(EventPoojaUserRegistration::getBookingFee)
                 .sum();
 
-        long totalHeadcount = generalRegs
+        long totalHeadcount = generalBookings.stream().mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L).sum()
                 + poojaList.stream().mapToLong(p -> p.getDevoteeCount() != null ? p.getDevoteeCount() : 1).sum()
                 + mealRegRepo.findByEventIdOrdered(eventId).stream().mapToLong(m -> m.getHeadCount() != null ? m.getHeadCount() : 1).sum();
 
-        long checkedInCount = regRepo.findByEventId(eventId).stream().filter(r -> Boolean.TRUE.equals(r.getCheckedIn())).count()
-                + bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId).stream().filter(b -> Boolean.TRUE.equals(b.getCheckedIn())).count();
+        long checkedInCount = bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId).stream().filter(b -> Boolean.TRUE.equals(b.getCheckedIn())).count()
+                + generalBookings.stream().filter(b -> Boolean.TRUE.equals(b.getCheckedIn())).count();
 
         double totalRevenue = donations + sponsorships + poojaRevenue;
 
@@ -107,34 +110,41 @@ public class EventReportService {
         String cat = categoryFilter != null ? categoryFilter.trim().toLowerCase() : "all";
         List<EventRegistrationReportRowDto> rows = new ArrayList<>();
 
-        // 1. General Event Registrations
+        // 1. General Event Registrations (from event_booking_registrations)
         if ("all".equals(cat) || "general".equals(cat) || "event".equals(cat)) {
-            List<EventRegistration> generalList = regRepo.findByEventId(eventId);
-            for (EventRegistration r : generalList) {
-                String userName = r.getUser() != null ? r.getUser().getFullName() : "Devotee";
+            List<EventBookingRegistration> generalList = new ArrayList<>();
+            generalList.addAll(bookingRegRepo.findByActivityId("event-" + eventId));
+            generalList.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
+            generalList.addAll(bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId));
+
+            java.util.Set<Long> seenBookingIds = new java.util.HashSet<>();
+            for (EventBookingRegistration r : generalList) {
+                if (r == null || !seenBookingIds.add(r.getId())) continue;
+                String userName = r.getParticipantName() != null ? r.getParticipantName()
+                        : (r.getUser() != null ? r.getUser().getFullName() : "Devotee");
                 String email = r.getUser() != null ? r.getUser().getEmail() : "";
                 String phone = r.getUser() != null ? r.getUser().getPhone() : "";
                 rows.add(EventRegistrationReportRowDto.builder()
                         .id("GEN-" + r.getId())
-                        .regCode("EVT-" + r.getId())
-                        .category("General Event")
-                        .activityTitle(event.getTitle())
+                        .regCode(r.getRegCode() != null ? r.getRegCode() : "EVT-" + r.getId())
+                        .category(r.getCategory() != null ? r.getCategory() : "General Event")
+                        .activityTitle(r.getActivityTitle() != null ? r.getActivityTitle() : event.getTitle())
                         .participantName(userName)
                         .email(email)
                         .phone(phone)
                         .gotram(r.getGotram())
-                        .devoteeCount(1)
-                        .eventDate(event.getStartDate() != null ? event.getStartDate().toString() : "")
-                        .eventTime(event.getStartTime() != null ? event.getStartTime().toString() : "")
-                        .venue(event.getVenue())
-                        .bookingFee(0.0)
-                        .paymentStatus("FREE")
-                        .paymentMethod(r.getPaymentMethod() != null ? r.getPaymentMethod() : "Online")
-                        .transactionId(r.getTransactionId())
-                        .status(r.getStatus() != null ? r.getStatus().name() : "CONFIRMED")
+                        .devoteeCount(r.getDevoteeCount() != null ? r.getDevoteeCount() : 1)
+                        .eventDate(r.getEventDate() != null ? r.getEventDate() : (event.getStartDate() != null ? event.getStartDate().toString() : ""))
+                        .eventTime(r.getEventTime() != null ? r.getEventTime() : (event.getStartTime() != null ? event.getStartTime().toString() : ""))
+                        .venue(r.getVenue() != null ? r.getVenue() : event.getVenue())
+                        .bookingFee(r.getBookingFee() != null ? r.getBookingFee() : 0.0)
+                        .paymentStatus(r.getPaymentStatus() != null ? r.getPaymentStatus() : "FREE")
+                        .paymentMethod("Online")
+                        .transactionId(null)
+                        .status(r.getStatus() != null ? r.getStatus() : "CONFIRMED")
                         .checkedIn(Boolean.TRUE.equals(r.getCheckedIn()))
                         .checkedInAt(r.getCheckedInAt())
-                        .registeredAt(r.getRegisteredAt())
+                        .registeredAt(r.getCreatedAt())
                         .build());
             }
         }

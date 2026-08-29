@@ -4,9 +4,14 @@ import com.manacommunity.api.events.dto.MealRegistrationRequest;
 import com.manacommunity.api.events.dto.MealRegistrationResponse;
 import com.manacommunity.api.events.dto.MealSummaryResponse;
 import com.manacommunity.api.events.entity.EventCommunity;
+import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.entity.EventMealRegistration;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
+import com.manacommunity.api.events.repository.LunchDinnerRepository;
+import com.manacommunity.api.exception.AlreadyRegisteredException;
+import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +28,8 @@ public class EventMealService {
 
     private final EventMealRegistrationRepository mealRepo;
     private final EventCommunityRepository eventRepo;
+    private final LunchDinnerRepository lunchDinnerRepo;
+    private final EventBookingRegistrationRepository bookingRepo;
 
     @Transactional(readOnly = true)
     public MealRegistrationResponse getUserMeals(Long eventId, Long userId) {
@@ -50,10 +57,12 @@ public class EventMealService {
             MealRegistrationResponse.DayMealResponse dmr = new MealRegistrationResponse.DayMealResponse();
             dmr.setDate(entry.getKey().toString());
 
-            boolean lunch = entry.getValue().stream().anyMatch(m -> m.getMealType() == EventMealRegistration.MealType.LUNCH);
-            boolean dinner = entry.getValue().stream().anyMatch(m -> m.getMealType() == EventMealRegistration.MealType.DINNER);
+            boolean morning = entry.getValue().stream().anyMatch(m -> m.getMealType() == EventMealRegistration.MealType.MORNING);
+            boolean lunch   = entry.getValue().stream().anyMatch(m -> m.getMealType() == EventMealRegistration.MealType.LUNCH);
+            boolean dinner  = entry.getValue().stream().anyMatch(m -> m.getMealType() == EventMealRegistration.MealType.DINNER);
             int headCount = entry.getValue().stream().mapToInt(m -> m.getHeadCount() != null ? m.getHeadCount() : 1).max().orElse(1);
 
+            dmr.setMorning(morning);
             dmr.setLunch(lunch);
             dmr.setDinner(dinner);
             dmr.setHeadCount(headCount);
@@ -79,37 +88,37 @@ public class EventMealService {
         }
 
         if (req.getMeals() != null) {
+            Long communityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+
             for (MealRegistrationRequest.DayMeal dm : req.getMeals()) {
                 if (dm.getDate() == null) continue;
+                int headCount = dm.getHeadCount() > 0 ? dm.getHeadCount() : 1;
 
-                Long communityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+                if (dm.isMorning()) {
+                    checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.MORNING, headCount, user.getId());
+                    mealRepo.save(EventMealRegistration.builder()
+                            .event(event).user(user).communityId(communityId)
+                            .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.MORNING)
+                            .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
+                            .build());
+                }
 
                 if (dm.isLunch()) {
-                    EventMealRegistration lunchReg = EventMealRegistration.builder()
-                            .event(event)
-                            .user(user)
-                            .communityId(communityId)
-                            .mealDate(dm.getDate())
-                            .mealType(EventMealRegistration.MealType.LUNCH)
-                            .headCount(dm.getHeadCount() > 0 ? dm.getHeadCount() : 1)
-                            .dietaryPref(dietaryPref)
-                            .allergies(req.getAllergies())
-                            .build();
-                    mealRepo.save(lunchReg);
+                    checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.LUNCH, headCount, user.getId());
+                    mealRepo.save(EventMealRegistration.builder()
+                            .event(event).user(user).communityId(communityId)
+                            .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.LUNCH)
+                            .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
+                            .build());
                 }
 
                 if (dm.isDinner()) {
-                    EventMealRegistration dinnerReg = EventMealRegistration.builder()
-                            .event(event)
-                            .user(user)
-                            .communityId(communityId)
-                            .mealDate(dm.getDate())
-                            .mealType(EventMealRegistration.MealType.DINNER)
-                            .headCount(dm.getHeadCount() > 0 ? dm.getHeadCount() : 1)
-                            .dietaryPref(dietaryPref)
-                            .allergies(req.getAllergies())
-                            .build();
-                    mealRepo.save(dinnerReg);
+                    checkMealCapacity(eventId, dm.getDate(), EventMealRegistration.MealType.DINNER, headCount, user.getId());
+                    mealRepo.save(EventMealRegistration.builder()
+                            .event(event).user(user).communityId(communityId)
+                            .mealDate(dm.getDate()).mealType(EventMealRegistration.MealType.DINNER)
+                            .headCount(headCount).dietaryPref(dietaryPref).allergies(req.getAllergies())
+                            .build());
                 }
             }
         }
@@ -133,32 +142,28 @@ public class EventMealService {
             MealSummaryResponse.DaySummary ds = new MealSummaryResponse.DaySummary();
             ds.setDate(entry.getKey().toString());
 
-            MealSummaryResponse.MealBreakdown lunch = new MealSummaryResponse.MealBreakdown();
-            MealSummaryResponse.MealBreakdown dinner = new MealSummaryResponse.MealBreakdown();
+            MealSummaryResponse.MealBreakdown morning = new MealSummaryResponse.MealBreakdown();
+            MealSummaryResponse.MealBreakdown lunch   = new MealSummaryResponse.MealBreakdown();
+            MealSummaryResponse.MealBreakdown dinner  = new MealSummaryResponse.MealBreakdown();
 
             for (EventMealRegistration m : entry.getValue()) {
                 int hc = m.getHeadCount() != null ? m.getHeadCount() : 1;
                 EventMealRegistration.DietaryPref pref = m.getDietaryPref() != null ? m.getDietaryPref() : EventMealRegistration.DietaryPref.VEG;
-
-                if (m.getMealType() == EventMealRegistration.MealType.LUNCH) {
-                    lunch.setTotalHeads(lunch.getTotalHeads() + hc);
-                    switch (pref) {
-                        case VEG -> lunch.setVeg(lunch.getVeg() + hc);
-                        case VEGAN -> lunch.setVegan(lunch.getVegan() + hc);
-                        case JAIN -> lunch.setJain(lunch.getJain() + hc);
-                        case NONVEG -> lunch.setNonveg(lunch.getNonveg() + hc);
-                    }
-                } else if (m.getMealType() == EventMealRegistration.MealType.DINNER) {
-                    dinner.setTotalHeads(dinner.getTotalHeads() + hc);
-                    switch (pref) {
-                        case VEG -> dinner.setVeg(dinner.getVeg() + hc);
-                        case VEGAN -> dinner.setVegan(dinner.getVegan() + hc);
-                        case JAIN -> dinner.setJain(dinner.getJain() + hc);
-                        case NONVEG -> dinner.setNonveg(dinner.getNonveg() + hc);
-                    }
+                MealSummaryResponse.MealBreakdown target = switch (m.getMealType()) {
+                    case MORNING -> morning;
+                    case LUNCH   -> lunch;
+                    case DINNER  -> dinner;
+                };
+                target.setTotalHeads(target.getTotalHeads() + hc);
+                switch (pref) {
+                    case VEG    -> target.setVeg(target.getVeg() + hc);
+                    case VEGAN  -> target.setVegan(target.getVegan() + hc);
+                    case JAIN   -> target.setJain(target.getJain() + hc);
+                    case NONVEG -> target.setNonveg(target.getNonveg() + hc);
                 }
             }
 
+            ds.setMorning(morning);
             ds.setLunch(lunch);
             ds.setDinner(dinner);
             days.add(ds);
@@ -166,5 +171,29 @@ public class EventMealService {
 
         response.setDays(days);
         return response;
+    }
+
+    /** Bug 2 fix: enforce target_plates capacity; Bug 4 fix: block if formal booking already exists. */
+    private void checkMealCapacity(Long eventId, LocalDate date,
+                                    EventMealRegistration.MealType mealType, int requested, Long userId) {
+        lunchDinnerRepo.findByEventAndDateAndType(eventId, date, mealType.name()).ifPresent(config -> {
+            // Bug 4: cross-system duplicate — user already has a formal booking-path registration
+            String foodActivityId = "food-" + config.getId();
+            String mealActivityId = "meal-" + config.getId();
+            if (bookingRepo.existsByUserIdAndActivityIdAndStatusNot(userId, foodActivityId, "CANCELLED")
+                    || bookingRepo.existsByUserIdAndActivityIdAndStatusNot(userId, mealActivityId, "CANCELLED")) {
+                throw new AlreadyRegisteredException(config.getName(),
+                        "You already have a formal booking for this meal. Duplicate meal preference registration blocked.");
+            }
+
+            // Bug 2: capacity check
+            int target = config.getTargetPlates() != null && config.getTargetPlates() > 0
+                    ? config.getTargetPlates() : Integer.MAX_VALUE;
+            int alreadyBooked = mealRepo.sumHeadCountExcludingUser(eventId, date, mealType, userId);
+            if (alreadyBooked + requested > target) {
+                throw new EventFullException(
+                        config.getName() + " (Target: " + target + ", Booked: " + alreadyBooked + ")", target);
+            }
+        });
     }
 }

@@ -15,7 +15,6 @@ import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepos
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.enums.PoojaRegistrationStatus;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
@@ -39,7 +38,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final CommunityRepository communityRepository;
     private final PoojaSlotReservationService reservationService;
     private final EventPoojaScheduleRepository scheduleRepository;
-    private final EventRegistrationRepository eventRegistrationRepository;
     private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
     private final EventPoojaSlotReservationRepository slotReservationRepository;
     private final EventPoojaBookingParticipantRepository participantRepository;
@@ -50,7 +48,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             CommunityRepository communityRepository,
             PoojaSlotReservationService reservationService,
             EventPoojaScheduleRepository scheduleRepository,
-            EventRegistrationRepository eventRegistrationRepository,
             EventBookingRegistrationRepository eventBookingRegistrationRepository,
             EventPoojaSlotReservationRepository slotReservationRepository,
             EventPoojaBookingParticipantRepository participantRepository,
@@ -59,7 +56,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
-        this.eventRegistrationRepository = eventRegistrationRepository;
         this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
         this.slotReservationRepository = slotReservationRepository;
         this.participantRepository = participantRepository;
@@ -80,11 +76,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
 
     private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
         if (mainEventId == null || mainEventId <= 0 || userId == null) {
-            return true;
-        }
-        boolean isDirectRegistered = eventRegistrationRepository != null &&
-                eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, userId);
-        if (isDirectRegistered) {
             return true;
         }
         if (eventBookingRegistrationRepository != null) {

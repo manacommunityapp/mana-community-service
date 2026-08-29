@@ -9,7 +9,6 @@ import com.manacommunity.api.events.repository.EventBookingRegistrationRepositor
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
@@ -115,11 +114,11 @@ class EventBookingRegistrationServiceImplTest {
                 mock(CompetitionRepository.class),
                 culturalRepo,
                 mock(EventCommunityRepository.class),
-                mock(EventRegistrationRepository.class),
                 mock(EventTicketCategoryRepository.class),
                 mock(AppUserRepository.class),
                 mock(PoojaSlotReservationService.class),
-                mock(EventPoojaSlotReservationRepository.class)
+                mock(EventPoojaSlotReservationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class)
         );
 
         EventBookingRegistration req = registration("cultural-5", "2026-08-28", "18:00", 1);
@@ -153,11 +152,11 @@ class EventBookingRegistrationServiceImplTest {
                 mock(CompetitionRepository.class),
                 mock(CulturalEventRepository.class),
                 mock(EventCommunityRepository.class),
-                mock(EventRegistrationRepository.class),
                 mock(EventTicketCategoryRepository.class),
                 mock(AppUserRepository.class),
                 mock(PoojaSlotReservationService.class),
-                mock(EventPoojaSlotReservationRepository.class)
+                mock(EventPoojaSlotReservationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class)
         );
     }
 }
