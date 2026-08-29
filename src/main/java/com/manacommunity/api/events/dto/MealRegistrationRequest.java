@@ -15,6 +15,7 @@ public class MealRegistrationRequest {
     @Data
     public static class DayMeal {
         private LocalDate date;
+        private boolean morning;
         private boolean lunch;
         private boolean dinner;
         private int headCount;

@@ -43,7 +43,7 @@ public class FeedService {
     private final UserEngagementScoreRepository userEngagementScoreRepository;
     private final SportsEventRepository sportsEventRepository;
     private final com.manacommunity.api.events.repository.EventCommunityRepository communityEventRepository;
-    private final com.manacommunity.api.events.repository.EventRegistrationRepository eventRegistrationRepository;
+    private final com.manacommunity.api.events.repository.EventBookingRegistrationRepository eventBookingRegistrationRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;
     private final PostCommentLikeRepository postCommentLikeRepository;
@@ -1193,7 +1193,7 @@ public class FeedService {
         }
 
         long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
-        long myPasses = eventRegistrationRepository.countByUserId(userId);
+        long myPasses = eventBookingRegistrationRepository.countByUserId(userId);
         long trending = trendingTopicRepository.countByCommunityId(communityId);
         long myGroups = groupMembershipRepository.countByUserIdAndStatus(userId, "ACTIVE");
         long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);

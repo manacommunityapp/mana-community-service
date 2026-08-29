@@ -9,7 +9,6 @@ import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepos
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.events.service.impl.EventPoojaUserRegistrationServiceImpl;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -179,7 +178,7 @@ class PoojaRegistrationStatusTest {
 
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
-                    schedRepo, mock(EventRegistrationRepository.class),
+                    schedRepo,
                     mock(EventBookingRegistrationRepository.class),
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
@@ -234,7 +233,6 @@ class PoojaRegistrationStatusTest {
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
                     mock(EventPoojaScheduleRepository.class),
-                    mock(EventRegistrationRepository.class),
                     mock(EventBookingRegistrationRepository.class),
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
@@ -287,6 +285,40 @@ class PoojaRegistrationStatusTest {
 
             assertThat(result.getStatus()).isEqualTo("CONFIRMED");
         }
+
+        @Test
+        @DisplayName("updating status with invalid transition throws IllegalArgumentException")
+        void updateWithInvalidTransitionBlocked() {
+            EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
+            EventPoojaUserRegistration reg = registration("CHECKED_IN");
+            when(repo.findById(1L)).thenReturn(Optional.of(reg));
+
+            EventPoojaUserRegistrationServiceImpl service = service(repo);
+
+            EventPoojaUserRegistration update = new EventPoojaUserRegistration();
+            update.setStatus("CONFIRMED"); // CHECKED_IN cannot go back to CONFIRMED
+
+            assertThatThrownBy(() -> service.updateRegistration(1L, update, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Invalid status transition");
+        }
+
+        @Test
+        @DisplayName("updating status with valid transition succeeds")
+        void updateWithValidTransitionSucceeds() {
+            EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
+            EventPoojaUserRegistration reg = registration("CONFIRMED");
+            when(repo.findById(1L)).thenReturn(Optional.of(reg));
+            when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            EventPoojaUserRegistrationServiceImpl service = service(repo);
+
+            EventPoojaUserRegistration update = new EventPoojaUserRegistration();
+            update.setStatus("CHECKED_IN");
+
+            EventPoojaUserRegistration result = service.updateRegistration(1L, update, null);
+            assertThat(result.getStatus()).isEqualTo("CHECKED_IN");
+        }
     }
 
     @Nested
@@ -297,7 +329,6 @@ class PoojaRegistrationStatusTest {
         @DisplayName("createRegistration succeeds when user is registered in event_booking_registrations")
         void succeedsWhenRegisteredInBookingRegistrations() {
             EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
-            EventRegistrationRepository eventRegRepo = mock(EventRegistrationRepository.class);
             EventBookingRegistrationRepository bookingRegRepo = mock(EventBookingRegistrationRepository.class);
             PoojaSlotReservationService reservationService = mock(PoojaSlotReservationService.class);
 
@@ -307,14 +338,12 @@ class PoojaRegistrationStatusTest {
             reg.setPoojaSlotName("Morning Pooja");
             reg.setParticipantName("Devotee 1");
 
-            when(eventRegRepo.existsByEventIdAndUserId(100L, 5L)).thenReturn(false);
             when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "event-100", "CANCELLED")).thenReturn(true);
             when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
                     mock(EventPoojaScheduleRepository.class),
-                    eventRegRepo,
                     bookingRegRepo,
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
@@ -325,10 +354,9 @@ class PoojaRegistrationStatusTest {
         }
 
         @Test
-        @DisplayName("createRegistration throws when user is not registered in either repository")
+        @DisplayName("createRegistration throws when user is not registered in booking repository")
         void throwsWhenNotRegisteredInEither() {
             EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
-            EventRegistrationRepository eventRegRepo = mock(EventRegistrationRepository.class);
             EventBookingRegistrationRepository bookingRegRepo = mock(EventBookingRegistrationRepository.class);
             PoojaSlotReservationService reservationService = mock(PoojaSlotReservationService.class);
 
@@ -338,14 +366,12 @@ class PoojaRegistrationStatusTest {
             reg.setPoojaSlotName("Morning Pooja");
             reg.setParticipantName("Devotee 1");
 
-            when(eventRegRepo.existsByEventIdAndUserId(100L, 5L)).thenReturn(false);
             when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "event-100", "CANCELLED")).thenReturn(false);
             when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(5L, "100", "CANCELLED")).thenReturn(false);
 
             EventPoojaUserRegistrationServiceImpl service = new EventPoojaUserRegistrationServiceImpl(
                     repo, mock(CommunityRepository.class), reservationService,
                     mock(EventPoojaScheduleRepository.class),
-                    eventRegRepo,
                     bookingRegRepo,
                     mock(EventPoojaSlotReservationRepository.class),
                     mock(EventPoojaBookingParticipantRepository.class),
@@ -374,7 +400,6 @@ class PoojaRegistrationStatusTest {
                 mock(CommunityRepository.class),
                 mock(PoojaSlotReservationService.class),
                 mock(EventPoojaScheduleRepository.class),
-                mock(EventRegistrationRepository.class),
                 mock(EventBookingRegistrationRepository.class),
                 mock(EventPoojaSlotReservationRepository.class),
                 mock(EventPoojaBookingParticipantRepository.class),

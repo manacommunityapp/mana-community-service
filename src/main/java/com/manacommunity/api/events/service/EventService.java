@@ -19,7 +19,6 @@ import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.EventExpense;
 import com.manacommunity.api.events.entity.EventFamilyMember;
 import com.manacommunity.api.events.entity.EventProgram;
-import com.manacommunity.api.events.entity.EventRegistration;
 import com.manacommunity.api.events.entity.EventTask;
 import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventSponsor;
@@ -39,7 +38,6 @@ import com.manacommunity.api.events.repository.EventFamilyMemberRepository;
 import com.manacommunity.api.events.repository.EventGalleryItemRepository;
 import com.manacommunity.api.events.repository.EventInvoiceRepository;
 import com.manacommunity.api.events.repository.EventProgramRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
@@ -84,7 +82,6 @@ public class EventService {
     private static final Logger log = LoggerFactory.getLogger(EventService.class);
 
     private final EventCommunityRepository eventRepo;
-    private final EventRegistrationRepository regRepo;
     private final EventVolunteerRepository volunteerRepo;
     private final EventDonationRepository donationRepo;
     private final EventExpenseRepository expenseRepo;
@@ -135,11 +132,23 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getMyEvents(Long userId) {
-        List<Long> eventIds = regRepo.findByUserIdOrderByRegisteredAtDesc(userId)
-                .stream().map(r -> r.getEvent().getId()).toList();
+        List<EventBookingRegistration> bookings = bookingRegRepo != null
+                ? bookingRegRepo.findByUserIdOrderByCreatedAtDesc(userId)
+                : Collections.emptyList();
+        Set<Long> eventIds = new LinkedHashSet<>();
+        for (EventBookingRegistration b : bookings) {
+            if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
+            if (b.getMainEventId() != null) {
+                eventIds.add(b.getMainEventId());
+            } else if (b.getActivityId() != null && b.getActivityId().startsWith("event-")) {
+                try {
+                    eventIds.add(Long.parseLong(b.getActivityId().substring("event-".length())));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
         return eventIds.stream()
                 .map(id -> eventRepo.findById(id).orElse(null))
-                .filter(e -> e != null)
+                .filter(Objects::nonNull)
                 .map(e -> toResponse(e, userId))
                 .toList();
     }
@@ -323,7 +332,10 @@ public class EventService {
             event.setPrice(req.getPrice());
         }
         if (req.getCapacity() != null) {
-            long currentRegs = regRepo.countByEventId(id);
+            long currentRegs = (bookingRegRepo != null && id != null)
+                    ? (bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED")
+                    + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(id), "CANCELLED"))
+                    : 0;
             if (req.getCapacity() < currentRegs) {
                 throw new ManaCommunityException(
                         "Capacity cannot be less than current registrations (" + currentRegs + ")",
@@ -371,7 +383,10 @@ public class EventService {
         }
 
         if (req.getMaxAttendees() != null) {
-            long currentRegs = regRepo.countByEventId(id);
+            long currentRegs = (bookingRegRepo != null && id != null)
+                    ? (bookingRegRepo.countByActivityIdAndStatusNot("event-" + id, "CANCELLED")
+                    + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(id), "CANCELLED"))
+                    : 0;
             if (req.getMaxAttendees() < currentRegs) {
                 throw new ManaCommunityException(
                         "Max attendees cannot be less than current registrations (" + currentRegs + ")",
@@ -466,9 +481,9 @@ public class EventService {
         List<EventProgram> programs = programRepo.findByEventId(id);
 
         // 2. Check ANY registrations across main event and all sub-events (including CANCELLED, PENDING, CONFIRMED)
-        long registrationCount = regRepo.countByEventId(id);
         long bookingRegCount = bookingRegRepo.findByActivityId("event-" + id).size()
-                + bookingRegRepo.findByActivityId(String.valueOf(id)).size();
+                + bookingRegRepo.findByActivityId(String.valueOf(id)).size()
+                + bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(id).size();
 
         long poojaBookingCount = 0;
         for (EventPoojaSeva pooja : poojas) {
@@ -498,7 +513,7 @@ public class EventService {
 
         long mealRegCount = mealRegRepo.findByEventIdOrdered(id).size();
 
-        long totalRegs = registrationCount + bookingRegCount + poojaBookingCount + culturalBookingCount
+        long totalRegs = bookingRegCount + poojaBookingCount + culturalBookingCount
                 + competitionBookingCount + lunchDinnerBookingCount + programActivityCount + mealRegCount;
 
         if (totalRegs > 0) {
@@ -507,19 +522,11 @@ public class EventService {
             event.setStatus(EventCommunity.EventStatus.CANCELLED);
             eventRepo.save(event);
 
-            // 1. Cancel direct event registrations
-            List<EventRegistration> directRegs = regRepo.findByEventId(id);
-            for (EventRegistration reg : directRegs) {
-                reg.setStatus(EventRegistration.RegistrationStatus.CANCELLED);
-            }
-            if (!directRegs.isEmpty()) {
-                regRepo.saveAll(directRegs);
-            }
-
-            // 2. Cancel booking registrations for main event and all sub-events
+            // 1. Cancel booking registrations for main event and all sub-events
             List<EventBookingRegistration> eventBookings = new ArrayList<>();
             eventBookings.addAll(bookingRegRepo.findByActivityId("event-" + id));
             eventBookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(id)));
+            eventBookings.addAll(bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(id));
             for (EventPoojaSeva pooja : poojas) {
                 eventBookings.addAll(bookingRegRepo.findByActivityId("pooja-" + pooja.getId()));
             }
@@ -540,7 +547,7 @@ public class EventService {
                 bookingRegRepo.saveAll(eventBookings);
             }
 
-            // 3. Cancel program activity registrations
+            // 2. Cancel program activity registrations
             for (EventProgram prog : programs) {
                 List<EventActivityRegistration> progRegs = activityRegRepo.findByProgramIdOrderByRegisteredAtDesc(prog.getId());
                 for (EventActivityRegistration actReg : progRegs) {
@@ -583,7 +590,6 @@ public class EventService {
         auctionItemRepo.deleteAuctionBidsByEventId(id);
 
         // Delete all direct children of the event
-        regRepo.deleteByEventId(id);
         volunteerRepo.deleteByEventId(id);
         donationRepo.deleteByEventId(id);
         expenseRepo.deleteByEventId(id);
@@ -637,11 +643,10 @@ public class EventService {
         }
 
         if (user != null && user.getId() != null) {
-            if (regRepo.existsByEventIdAndUserId(eventId, user.getId())
-                    || (bookingRegRepo != null && (
-                            bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), "event-" + eventId, "CANCELLED")
-                            || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), String.valueOf(eventId), "CANCELLED")
-                    ))) {
+            if (bookingRegRepo != null && (
+                    bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), "event-" + eventId, "CANCELLED")
+                    || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(user.getId(), String.valueOf(eventId), "CANCELLED")
+            )) {
                 throw new AlreadyRegisteredException(event.getTitle(), "You are already registered for the event: '" + event.getTitle() + "'.");
             }
         }
@@ -649,7 +654,6 @@ public class EventService {
         // Use DB count for concurrent-safe capacity check
         Integer maxLimit = event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity();
         if (maxLimit != null && maxLimit > 0) {
-            long directCount = regRepo.countByEventId(eventId);
             long bookingCount = 0;
             if (bookingRegRepo != null) {
                 List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings = new java.util.ArrayList<>();
@@ -660,18 +664,29 @@ public class EventService {
                         .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
                         .sum();
             }
-            long currentCount = Math.max(directCount, bookingCount);
-            if (currentCount >= maxLimit) {
+            if (bookingCount >= maxLimit) {
                 throw new EventFullException(event.getTitle(), maxLimit);
             }
         }
 
-        EventRegistration reg = EventRegistration.builder()
-                .event(event)
+        EventBookingRegistration reg = EventBookingRegistration.builder()
+                .regCode("EVT-" + System.currentTimeMillis())
+                .mainEventId(eventId)
+                .activityId("event-" + eventId)
+                .activityTitle(event.getTitle())
+                .category("Event")
+                .participantName(user.getFullName())
                 .user(user)
-                .communityId(event.getCommunity().getId())
+                .community(event.getCommunity())
+                .eventDate(event.getStartDate() != null ? event.getStartDate().toString() : null)
+                .eventTime(event.getStartTime() != null ? event.getStartTime().toString() : null)
+                .venue(event.getVenue())
+                .devoteeCount(1)
+                .bookingFee(event.getPrice() != null ? event.getPrice().doubleValue() : 0.0)
+                .paymentStatus(event.getPriceType() == EventCommunity.PriceType.FREE ? "FREE" : "PENDING")
+                .status("CONFIRMED")
                 .build();
-        regRepo.save(reg);
+        bookingRegRepo.save(reg);
         return toResponse(eventRepo.findById(eventId).orElseThrow(), user.getId());
     }
 
@@ -686,10 +701,6 @@ public class EventService {
             totalEvents = eventRepo.count();
         }
         long upcomingEvents = eventRepo.countUpcomingByCommunity(communityId);
-        long mainEventRegs = communityId != null ? regRepo.countByEventCommunityId(communityId) : regRepo.count();
-        if (mainEventRegs == 0) {
-            mainEventRegs = regRepo.count();
-        }
         long bookingRegs = 0;
         if (bookingRegRepo != null) {
             java.util.List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings = communityId != null
@@ -702,7 +713,7 @@ public class EventService {
                         .sum();
             }
         }
-        long totalRegistrations = Math.max(mainEventRegs, bookingRegs);
+        long totalRegistrations = bookingRegs;
         long totalVolunteers = volunteerRepo.countByCommunityId(communityId);
         double totalExpenses = expenseRepo.sumAmountByCommunity(communityId);
 
@@ -795,7 +806,6 @@ public class EventService {
     @Transactional(readOnly = true)
     public DashboardAnalyticsResponse getDashboardAnalytics(Long communityId) {
         // 1. Daily Registrations (Mon - Sun) strictly from database
-        List<EventRegistration> registrations = regRepo.findByEventCommunityId(communityId);
         List<EventBookingRegistration> bookingRegs = bookingRegRepo != null
                 ? (communityId != null ? bookingRegRepo.findByCommunityId(communityId) : bookingRegRepo.findAll())
                 : Collections.emptyList();
@@ -804,18 +814,6 @@ public class EventService {
         Map<String, Long> countMap = new HashMap<>();
         Map<String, Long> vipMap = new HashMap<>();
         for (String d : days) { countMap.put(d, 0L); vipMap.put(d, 0L); }
-
-        if (registrations != null && !registrations.isEmpty()) {
-            for (EventRegistration r : registrations) {
-                if (r.getRegisteredAt() != null) {
-                    String d = r.getRegisteredAt().getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
-                    countMap.put(d, countMap.getOrDefault(d, 0L) + 1);
-                    if (r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED) {
-                        vipMap.put(d, vipMap.getOrDefault(d, 0L) + 1);
-                    }
-                }
-            }
-        }
 
         if (bookingRegs != null && !bookingRegs.isEmpty()) {
             for (EventBookingRegistration b : bookingRegs) {
@@ -851,13 +849,6 @@ public class EventService {
                 String cat = (b.getCategory() != null && !b.getCategory().isBlank()) ? b.getCategory() : "Event Pass";
                 long devotees = b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L;
                 catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + devotees);
-            }
-        }
-        if (registrations != null && !registrations.isEmpty()) {
-            for (EventRegistration r : registrations) {
-                if ("CANCELLED".equalsIgnoreCase(String.valueOf(r.getStatus()))) continue;
-                String cat = r.getStatus() == EventRegistration.RegistrationStatus.CONFIRMED ? "Confirmed Passes" : "General Passes";
-                catDistribution.put(cat, catDistribution.getOrDefault(cat, 0L) + 1);
             }
         }
 
@@ -1010,21 +1001,8 @@ public class EventService {
 
         List<RegistrationResponse> list = new ArrayList<>();
 
-        // 1. Direct registrations from event_registration
-        if (regRepo != null) {
-            regRepo.findByEventId(eventId).stream()
-                    .filter(r -> r != null && !"CANCELLED".equalsIgnoreCase(r.getStatus().toString()))
-                    .map(this::toRegistrationResponse)
-                    .forEach(list::add);
-        }
-
-        // 2. Registrations from event_booking_registrations (unified passes ledger)
+        // Registrations from event_booking_registrations (unified passes ledger)
         if (bookingRegRepo != null) {
-            Set<Long> directUserIds = list.stream()
-                    .map(RegistrationResponse::getUserId)
-                    .filter(Objects::nonNull)
-                    .collect(java.util.stream.Collectors.toSet());
-
             Set<Long> processedBookingIds = new HashSet<>();
             List<EventBookingRegistration> bookings = new ArrayList<>();
             bookings.addAll(bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId));
@@ -1036,10 +1014,6 @@ public class EventService {
                 processedBookingIds.add(b.getId());
 
                 Long bUserId = b.getUser() != null ? b.getUser().getId() : b.getCreatedBy();
-                // Avoid duplicate if same user is already added from direct table
-                if (bUserId != null && directUserIds.contains(bUserId) && "CONFIRMED".equalsIgnoreCase(b.getStatus())) {
-                    continue;
-                }
 
                 list.add(RegistrationResponse.builder()
                         .id(b.getId())
@@ -1060,12 +1034,7 @@ public class EventService {
 
     @Transactional
     public RegistrationResponse confirmRegistration(Long registrationId) {
-        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
-        if (regOpt.isPresent()) {
-            EventRegistration reg = regOpt.get();
-            reg.setStatus(EventRegistration.RegistrationStatus.CONFIRMED);
-            return toRegistrationResponse(regRepo.save(reg));
-        } else if (bookingRegRepo != null) {
+        if (bookingRegRepo != null) {
             EventBookingRegistration b = bookingRegRepo.findById(registrationId)
                     .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
             b.setStatus("CONFIRMED");
@@ -1088,12 +1057,7 @@ public class EventService {
 
     @Transactional
     public RegistrationResponse rejectRegistration(Long registrationId) {
-        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
-        if (regOpt.isPresent()) {
-            EventRegistration reg = regOpt.get();
-            reg.setStatus(EventRegistration.RegistrationStatus.REJECTED);
-            return toRegistrationResponse(regRepo.save(reg));
-        } else if (bookingRegRepo != null) {
+        if (bookingRegRepo != null) {
             EventBookingRegistration b = bookingRegRepo.findById(registrationId)
                     .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
             b.setStatus("CANCELLED");
@@ -1116,13 +1080,7 @@ public class EventService {
 
     @Transactional
     public RegistrationResponse toggleCheckIn(Long registrationId, boolean checkedIn) {
-        Optional<EventRegistration> regOpt = regRepo.findById(registrationId);
-        if (regOpt.isPresent()) {
-            EventRegistration reg = regOpt.get();
-            reg.setCheckedIn(checkedIn);
-            reg.setCheckedInAt(checkedIn ? LocalDateTime.now() : null);
-            return toRegistrationResponse(regRepo.save(reg));
-        } else if (bookingRegRepo != null) {
+        if (bookingRegRepo != null) {
             EventBookingRegistration b = bookingRegRepo.findById(registrationId)
                     .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
             b.setCheckedIn(checkedIn);
@@ -1146,29 +1104,28 @@ public class EventService {
 
     @Transactional
     public EventResponse unregister(Long eventId, Long userId) {
-        EventRegistration reg = regRepo.findByEventIdAndUserId(eventId, userId)
+        List<EventBookingRegistration> bookings = new ArrayList<>();
+        if (bookingRegRepo != null) {
+            bookings.addAll(bookingRegRepo.findByActivityId("event-" + eventId));
+            bookings.addAll(bookingRegRepo.findByActivityId(String.valueOf(eventId)));
+            bookings.addAll(bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(eventId));
+        }
+
+        EventBookingRegistration userBooking = bookings.stream()
+                .filter(b -> b.getUser() != null && b.getUser().getId().equals(userId) && !"CANCELLED".equalsIgnoreCase(b.getStatus()))
+                .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", "eventId and userId", eventId + "/" + userId));
-        regRepo.delete(reg);
+
+        userBooking.setStatus("CANCELLED");
+        bookingRegRepo.save(userBooking);
         return toResponse(eventRepo.findById(eventId).orElseThrow(), userId);
     }
 
-    private RegistrationResponse toRegistrationResponse(EventRegistration r) {
-        return RegistrationResponse.builder()
-                .id(r.getId())
-                .eventId(r.getEvent().getId())
-                .eventTitle(r.getEvent().getTitle())
-                .userId(r.getUser().getId())
-                .userName(r.getUser().getFullName())
-                .userEmail(r.getUser().getEmail())
-                .status(r.getStatus().name())
-                .registeredAt(formatDt(r.getRegisteredAt()))
-                .checkedIn(Boolean.TRUE.equals(r.getCheckedIn()))
-                .checkedInAt(r.getCheckedInAt() != null ? formatDt(r.getCheckedInAt()) : null)
-                .build();
-    }
-
     private EventResponse toResponse(EventCommunity e, Long currentUserId) {
-        boolean isRegistered = currentUserId != null && regRepo.existsByEventIdAndUserId(e.getId(), currentUserId);
+        boolean isRegistered = currentUserId != null && bookingRegRepo != null && (
+                bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "event-" + e.getId(), "CANCELLED")
+                || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, String.valueOf(e.getId()), "CANCELLED")
+        );
 
         // Generate fresh S3/CloudFront URLs from stored media objects at read time
         java.util.Optional<MediaObject> imageMOpt = e.getImageMediaExternalId() != null
@@ -1229,25 +1186,29 @@ public class EventService {
             } catch (Exception ignored) {}
         }
 
-        // Live dynamic active attendees count (direct + booking registrations)
+        // Live dynamic active attendees count (from booking registrations)
         int liveAttendees = 0;
-        if (e.getRegistrations() != null && !e.getRegistrations().isEmpty()) {
-            liveAttendees += (int) e.getRegistrations().stream()
-                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
-                    .count();
-        } else if (regRepo != null && e.getId() != null) {
-            liveAttendees += (int) regRepo.findByEventId(e.getId()).stream()
-                    .filter(r -> r.getStatus() != EventRegistration.RegistrationStatus.CANCELLED)
-                    .count();
-        }
-
         if (bookingRegRepo != null && e.getId() != null) {
-            liveAttendees += (int) (bookingRegRepo.countByActivityIdAndStatusNot("event-" + e.getId(), "CANCELLED")
-                    + bookingRegRepo.countByActivityIdAndStatusNot(String.valueOf(e.getId()), "CANCELLED"));
+            List<EventBookingRegistration> activeRegs = bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(e.getId());
+            if (activeRegs != null && !activeRegs.isEmpty()) {
+                liveAttendees = (int) activeRegs.stream()
+                        .filter(r -> !"CANCELLED".equalsIgnoreCase(r.getStatus()) && !"REJECTED".equalsIgnoreCase(r.getStatus()))
+                        .mapToLong(r -> r.getDevoteeCount() != null && r.getDevoteeCount() > 0 ? r.getDevoteeCount() : 1L)
+                        .sum();
+            }
+            if (liveAttendees == 0) {
+                List<EventBookingRegistration> legacyRegs = new ArrayList<>();
+                legacyRegs.addAll(bookingRegRepo.findByActivityId("event-" + e.getId()));
+                legacyRegs.addAll(bookingRegRepo.findByActivityId(String.valueOf(e.getId())));
+                liveAttendees = (int) legacyRegs.stream()
+                        .filter(r -> !"CANCELLED".equalsIgnoreCase(r.getStatus()) && !"REJECTED".equalsIgnoreCase(r.getStatus()))
+                        .mapToLong(r -> r.getDevoteeCount() != null && r.getDevoteeCount() > 0 ? r.getDevoteeCount() : 1L)
+                        .sum();
+            }
         }
 
         Integer remainingCapacity = e.getCapacity();
-        Integer totalCapacity = e.getMaxAttendees() != null ? e.getMaxAttendees()
+        Integer totalCapacity = e.getMaxAttendees() != null && e.getMaxAttendees() > 0 ? e.getMaxAttendees()
                 : (remainingCapacity != null ? remainingCapacity : 100);
 
         return EventResponse.builder()
@@ -1263,7 +1224,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(remainingCapacity != null ? remainingCapacity : totalCapacity)
+                .capacity(totalCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -1297,10 +1258,13 @@ public class EventService {
 
     private void notifyRegisteredUsers(EventCommunity event, String title, String body) {
         try {
-            List<EventRegistration> registrations = event.getRegistrations();
+            List<EventBookingRegistration> registrations = bookingRegRepo != null
+                    ? bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(event.getId())
+                    : Collections.emptyList();
             if (registrations == null || registrations.isEmpty()) return;
-            for (EventRegistration reg : registrations) {
-                if (reg.getUser() == null) continue;
+            Set<Long> notifiedUserIds = new HashSet<>();
+            for (EventBookingRegistration reg : registrations) {
+                if (reg.getUser() == null || !notifiedUserIds.add(reg.getUser().getId())) continue;
                 Notification notification = Notification.builder()
                         .user(reg.getUser())
                         .community(event.getCommunity())

@@ -23,7 +23,7 @@ Feature: Admin registers a devotee for a Pooja slot on their behalf
     Then status 200
     And match response[0].status == 'OPEN'
     * def adminScheduleId       = response[0].id
-    * def adminTimeSlotConfigId = response[0].poojaSevaTimeSlotsId
+    * def adminTimeSlotConfigId = response[0].timeSlotConfigId
     * print 'Admin schedule ID:', adminScheduleId
 
   Scenario: Admin creates registration on behalf of a devotee (admin-create endpoint)
@@ -34,7 +34,7 @@ Feature: Admin registers a devotee for a Pooja slot on their behalf
     When method GET
     Then status 200
     * def adminScheduleId       = response[0].id
-    * def adminTimeSlotConfigId = response[0].poojaSevaTimeSlotsId
+    * def adminTimeSlotConfigId = response[0].timeSlotConfigId
 
     # Use admin-create — no reservation needed; admin bypasses the reserve step
     Given path '/events/pooja-registrations/admin-create'

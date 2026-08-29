@@ -2,6 +2,7 @@ package com.manacommunity.api.events.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.events.dto.PoojaRegistrationSummaryResponse;
 import com.manacommunity.api.events.dto.PoojaReserveRequest;
 import com.manacommunity.api.events.dto.PoojaReserveResponse;
 import com.manacommunity.api.events.entity.EventPoojaBookingParticipant;
@@ -14,7 +15,6 @@ import com.manacommunity.api.events.repository.EventPoojaBookingParticipantRepos
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.EventPoojaUserRegistrationService;
 import com.manacommunity.api.events.enums.PoojaRegistrationStatus;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
@@ -38,7 +38,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
     private final CommunityRepository communityRepository;
     private final PoojaSlotReservationService reservationService;
     private final EventPoojaScheduleRepository scheduleRepository;
-    private final EventRegistrationRepository eventRegistrationRepository;
     private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
     private final EventPoojaSlotReservationRepository slotReservationRepository;
     private final EventPoojaBookingParticipantRepository participantRepository;
@@ -49,7 +48,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             CommunityRepository communityRepository,
             PoojaSlotReservationService reservationService,
             EventPoojaScheduleRepository scheduleRepository,
-            EventRegistrationRepository eventRegistrationRepository,
             EventBookingRegistrationRepository eventBookingRegistrationRepository,
             EventPoojaSlotReservationRepository slotReservationRepository,
             EventPoojaBookingParticipantRepository participantRepository,
@@ -58,7 +56,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         this.communityRepository = communityRepository;
         this.reservationService = reservationService;
         this.scheduleRepository = scheduleRepository;
-        this.eventRegistrationRepository = eventRegistrationRepository;
         this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
         this.slotReservationRepository = slotReservationRepository;
         this.participantRepository = participantRepository;
@@ -79,11 +76,6 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
 
     private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
         if (mainEventId == null || mainEventId <= 0 || userId == null) {
-            return true;
-        }
-        boolean isDirectRegistered = eventRegistrationRepository != null &&
-                eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, userId);
-        if (isDirectRegistered) {
             return true;
         }
         if (eventBookingRegistrationRepository != null) {
@@ -332,6 +324,51 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             return repository.findByCommunityIdAndPoojaSevaIdOrderByCreatedAtDesc(communityId, poojaSevaId);
         }
         return repository.findByPoojaSevaIdOrderByCreatedAtDesc(poojaSevaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PoojaRegistrationSummaryResponse> getRegistrationSummariesByCommunity(Long communityId, Long poojaSevaId) {
+        List<EventPoojaUserRegistration> list = getRegistrationsByCommunity(communityId, poojaSevaId);
+        return list.stream().map(this::toSummaryResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventPoojaBookingParticipant> getParticipantsByRegistrationId(Long registrationId, AppUser user) {
+        getRegistrationById(registrationId, user);
+        return participantRepository.findByRegistrationIdOrderByIdAsc(registrationId);
+    }
+
+    private PoojaRegistrationSummaryResponse toSummaryResponse(EventPoojaUserRegistration reg) {
+        if (reg == null) return null;
+        return PoojaRegistrationSummaryResponse.builder()
+                .id(reg.getId())
+                .regCode(reg.getRegCode())
+                .eventId(reg.getEventId())
+                .poojaSevaId(reg.getPoojaSevaId())
+                .userId(reg.getUser() != null ? reg.getUser().getId() : null)
+                .participantName(reg.getParticipantName())
+                .gotram(reg.getGotram())
+                .phone(reg.getPhone())
+                .email(reg.getEmail())
+                .devoteeCount(reg.getDevoteeCount())
+                .attendingDevotees(reg.getAttendingDevotees())
+                .poojaSlotName(reg.getPoojaSlotName())
+                .poojaSlotDate(reg.getPoojaSlotDate())
+                .poojaSlotTime(reg.getPoojaSlotTime())
+                .venue(reg.getVenue())
+                .category(reg.getCategory())
+                .bookingFee(reg.getBookingFee())
+                .paymentStatus(reg.getPaymentStatus())
+                .status(reg.getStatus())
+                .scheduleId(reg.getScheduleId())
+                .poojaSevaTimeSlotsId(reg.getPoojaSevaTimeSlotsId())
+                .tokenNumber(reg.getTokenNumber())
+                .registrationSource(reg.getRegistrationSource())
+                .overrideUsed(reg.getOverrideUsed())
+                .createdAt(reg.getCreatedAt())
+                .build();
     }
 
     @Override

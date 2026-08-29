@@ -3,7 +3,7 @@ package com.manacommunity.api.events.service;
 import com.manacommunity.api.events.dto.EventMemberFlowResponse;
 import com.manacommunity.api.events.entity.EventActivityRegistration;
 import com.manacommunity.api.events.repository.EventActivityRegistrationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ public class EventMemberFlowService {
             EventActivityRegistration.ActivityRegStatus.WAITLISTED
     );
 
-    private final EventRegistrationRepository eventRegistrationRepo;
+    private final EventBookingRegistrationRepository bookingRegistrationRepo;
     private final EventActivityRegistrationRepository activityRegistrationRepo;
     private final EventMealRegistrationRepository mealRegistrationRepo;
 
@@ -42,7 +42,7 @@ public class EventMemberFlowService {
                 .max()
                 .orElse(0);
 
-        int eventRegistrations = Math.toIntExact(eventRegistrationRepo.countByUserId(user.getId()));
+        int eventRegistrations = Math.toIntExact(bookingRegistrationRepo.countByUserId(user.getId()));
         int mealRegistrations = Math.toIntExact(mealRegistrationRepo.countByUserId(user.getId()));
 
         return EventMemberFlowResponse.builder()

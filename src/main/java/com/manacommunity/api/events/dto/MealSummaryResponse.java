@@ -12,6 +12,7 @@ public class MealSummaryResponse {
     @Data
     public static class DaySummary {
         private String date;
+        private MealBreakdown morning;
         private MealBreakdown lunch;
         private MealBreakdown dinner;
     }

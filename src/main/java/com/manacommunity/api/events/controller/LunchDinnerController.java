@@ -1,5 +1,7 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.LunchDinnerRegistrationSummaryResponse;
+import com.manacommunity.api.events.dto.LunchDinnerSummaryResponse;
 import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.service.LunchDinnerService;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -29,6 +31,32 @@ public class LunchDinnerController {
         Long targetEventId = mainEventId != null ? mainEventId : eventId;
         Long communityId = principal != null ? principal.getCommunityId() : null;
         List<EventLunchDinner> list = service.getAllLunchDinners(communityId, targetEventId);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Optimized lightweight endpoint returning meal summaries with aggregated booked plate counters.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<List<LunchDinnerSummaryResponse>> getSummaries(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long mainEventId,
+            @RequestParam(required = false) Long eventId) {
+        Long targetEventId = mainEventId != null ? mainEventId : eventId;
+        Long communityId = principal != null ? principal.getCommunityId() : null;
+        List<LunchDinnerSummaryResponse> list = service.getAllLunchDinnerSummaries(communityId, targetEventId);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Dedicated on-demand endpoint to fetch attendee/devotee registrations for a specific meal session.
+     */
+    @GetMapping("/{id}/registrations")
+    public ResponseEntity<List<LunchDinnerRegistrationSummaryResponse>> getMealRegistrations(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
+        List<LunchDinnerRegistrationSummaryResponse> list = service.getRegistrationsForMeal(id, communityId);
         return ResponseEntity.ok(list);
     }
 
