@@ -240,13 +240,9 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
                 // Communities: only the public GET endpoints used by the registration form
                 // (list all communities, filter by type, and per-community public info) are open.
-                // Any other /api/communities/** operation requires authentication +
-                // method-level @PreAuthorize for role enforcement.
-                .requestMatchers(HttpMethod.GET, "/api/communities").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/communities/by-type").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/communities/check-unit").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/communities/*/public").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/communities/*/blocks").permitAll()
+                // Communities: public GET endpoints for listing, filtering, looking up communities and registration
+                .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/community", "/api/community/**").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)

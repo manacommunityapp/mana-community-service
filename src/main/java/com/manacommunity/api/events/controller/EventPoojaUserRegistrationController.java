@@ -127,7 +127,7 @@ public class EventPoojaUserRegistrationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<EventPoojaUserRegistration>> getAllRegistrations(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
@@ -135,11 +135,17 @@ public class EventPoojaUserRegistrationController {
         if (communityId == null && principal != null && principal.getCommunityId() != null) {
             communityId = principal.getCommunityId();
         }
-        if (communityId == null) {
-            AppUser user = loggedInUserService.resolve(principal);
-            if (user != null && user.getCommunity() != null) {
-                communityId = user.getCommunity().getId();
-            }
+        AppUser user = loggedInUserService.resolve(principal);
+        if (communityId == null && user != null && user.getCommunity() != null) {
+            communityId = user.getCommunity().getId();
+        }
+        boolean isAdmin = user != null && (
+                user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN") ||
+                user.hasRole("COMMUNITY_ADMIN") || user.hasRole("EVENT_ADMIN") ||
+                user.hasRole("ROLE_ADMIN") || user.hasRole("ROLE_SUPER_ADMIN") ||
+                user.hasRole("ROLE_COMMUNITY_ADMIN") || user.hasRole("ROLE_EVENT_ADMIN"));
+        if (!isAdmin && user != null) {
+            return ResponseEntity.ok(service.getMyRegistrations(user, communityId));
         }
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId, poojaSevaId));
     }
@@ -151,7 +157,7 @@ public class EventPoojaUserRegistrationController {
      * GET /api/events/pooja-registrations/summary
      */
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<PoojaRegistrationSummaryResponse>> getRegistrationSummaries(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId,
@@ -159,11 +165,9 @@ public class EventPoojaUserRegistrationController {
         if (communityId == null && principal != null && principal.getCommunityId() != null) {
             communityId = principal.getCommunityId();
         }
-        if (communityId == null) {
-            AppUser user = loggedInUserService.resolve(principal);
-            if (user != null && user.getCommunity() != null) {
-                communityId = user.getCommunity().getId();
-            }
+        AppUser user = loggedInUserService.resolve(principal);
+        if (communityId == null && user != null && user.getCommunity() != null) {
+            communityId = user.getCommunity().getId();
         }
         return ResponseEntity.ok(service.getRegistrationSummariesByCommunity(communityId, poojaSevaId));
     }
