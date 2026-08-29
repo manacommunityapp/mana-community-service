@@ -678,14 +678,72 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             return Collections.emptyList();
         }
 
+        List<EventBookingRegistration> list = new java.util.ArrayList<>();
         if (status != null && !status.isBlank()) {
             if ("ACTIVE".equalsIgnoreCase(status.trim())) {
-                return repository.findByUserIdAndStatusNotOrderByCreatedAtDesc(user.getId(), "CANCELLED");
+                list.addAll(repository.findByUserIdAndStatusNotOrderByCreatedAtDesc(user.getId(), "CANCELLED"));
+            } else {
+                list.addAll(repository.findByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), status.trim().toUpperCase()));
             }
-            return repository.findByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), status.trim().toUpperCase());
+        } else {
+            list.addAll(repository.findByUserIdOrderByCreatedAtDesc(user.getId()));
         }
 
-        return repository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        // Include any meal registrations from event_meal_registrations not already in list
+        try {
+            List<EventMealRegistration> mealRegs = mealRegistrationRepository.findByUserId(user.getId());
+            if (mealRegs != null && !mealRegs.isEmpty()) {
+                java.util.Set<String> existingActIds = list.stream()
+                        .map(EventBookingRegistration::getActivityId)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toSet());
+
+                for (EventMealRegistration mr : mealRegs) {
+                    Long ldId = mr.getLunchDinner() != null ? mr.getLunchDinner().getId() : mr.getId();
+                    String actId = "meal-" + ldId;
+                    String foodActId = "food-" + ldId;
+                    if (!existingActIds.contains(actId) && !existingActIds.contains(foodActId)) {
+                        EventBookingRegistration synth = new EventBookingRegistration();
+                        synth.setId(mr.getId());
+                        synth.setUser(user);
+                        synth.setParticipantName(user.getFullName() != null ? user.getFullName() : user.getUsername());
+                        synth.setPhone(user.getPhone());
+                        synth.setCategory("Food");
+                        synth.setPassType("Meal Registration Pass");
+                        synth.setActivityType("LUNCH_DINNER");
+                        synth.setActivityId(actId);
+                        synth.setMainEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
+                        synth.setEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
+                        String title = mr.getLunchDinner() != null && mr.getLunchDinner().getName() != null
+                                ? mr.getLunchDinner().getName()
+                                : (mr.getMealType() != null ? mr.getMealType().name() + " Feast" : "Community Feast");
+                        synth.setActivityTitle(title);
+                        synth.setEventName(mr.getEvent() != null ? mr.getEvent().getTitle() : title);
+                        synth.setEventDate(mr.getMealDate() != null ? mr.getMealDate().toString() : null);
+                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getStartTime() != null) {
+                            String t = mr.getLunchDinner().getStartTime().toString();
+                            if (mr.getLunchDinner().getEndTime() != null) {
+                                t += " - " + mr.getLunchDinner().getEndTime().toString();
+                            }
+                            synth.setEventTime(t);
+                        }
+                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getVenue() != null) {
+                            synth.setVenue(mr.getLunchDinner().getVenue());
+                        }
+                        synth.setDevoteeCount(mr.getHeadCount() != null ? mr.getHeadCount() : 1);
+                        synth.setStatus("CONFIRMED");
+                        synth.setPaymentStatus("FREE");
+                        synth.setBookingFee(0.0);
+                        synth.setRegCode("MNA-2026-MEAL-" + String.format("%06d", mr.getId()));
+                        synth.setQrCodeUrl("https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + synth.getRegCode());
+                        synth.setCreatedAt(mr.getCreatedAt() != null ? mr.getCreatedAt() : LocalDateTime.now());
+                        list.add(synth);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return list;
     }
 
     @Override

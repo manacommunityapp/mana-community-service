@@ -20,6 +20,8 @@ public interface EventMealRegistrationRepository extends JpaRepository<EventMeal
 
     long countByUserId(Long userId);
 
+    List<EventMealRegistration> findByUserId(Long userId);
+
     @Query("SELECT m FROM EventMealRegistration m WHERE m.event.id = :eventId ORDER BY m.mealDate, m.mealType")
     List<EventMealRegistration> findByEventIdOrdered(@Param("eventId") Long eventId);
 

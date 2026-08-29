@@ -24,15 +24,18 @@ public class EventBookingRegistrationController {
     private final EventMealService mealService;
     private final LoggedInUserService loggedInUserService;
     private final AppUserRepository userRepository;
+    private final com.manacommunity.api.events.repository.EventBookingRegistrationRepository bookingRepository;
 
     public EventBookingRegistrationController(EventBookingRegistrationService service,
                                               EventMealService mealService,
                                               LoggedInUserService loggedInUserService,
-                                              AppUserRepository userRepository) {
+                                              AppUserRepository userRepository,
+                                              com.manacommunity.api.events.repository.EventBookingRegistrationRepository bookingRepository) {
         this.service = service;
         this.mealService = mealService;
         this.loggedInUserService = loggedInUserService;
         this.userRepository = userRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @PostMapping
@@ -72,7 +75,7 @@ public class EventBookingRegistrationController {
             effectiveUser = userRepository.findById(effectiveTargetId).orElse(caller);
         }
 
-        // Meal activities → save to event_meal_registrations, not event_booking_registrations
+        // Meal activities → save to event_meal_registrations AND event_booking_registrations
         boolean isMeal = (actId != null && (actId.startsWith("meal-") || actId.startsWith("food-")))
                 || "LUNCH_DINNER".equalsIgnoreCase(registration.getActivityType())
                 || "Meal".equalsIgnoreCase(registration.getCategory());
@@ -83,7 +86,42 @@ public class EventBookingRegistrationController {
                     ? registration.getDevoteeCount() : 1;
             MealRegistrationResponse result = mealService.registerSingleMeal(
                     lunchDinnerId, headCount, null, effectiveUser);
-            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+
+            if (registration.getCategory() == null || registration.getCategory().isBlank()) {
+                registration.setCategory("Food");
+            }
+            if (registration.getActivityType() == null || registration.getActivityType().isBlank()) {
+                registration.setActivityType("LUNCH_DINNER");
+            }
+            if (registration.getActivityId() == null || registration.getActivityId().isBlank()) {
+                registration.setActivityId("meal-" + lunchDinnerId);
+            }
+            if (registration.getPassType() == null || registration.getPassType().isBlank()) {
+                registration.setPassType("Meal Registration Pass");
+            }
+
+            EventBookingRegistration created = null;
+            if (effectiveUser != null && effectiveUser.getId() != null) {
+                List<EventBookingRegistration> existing = bookingRepository.findByUserIdOrderByCreatedAtDesc(effectiveUser.getId());
+                EventBookingRegistration match = existing.stream()
+                        .filter(r -> ("meal-" + lunchDinnerId).equalsIgnoreCase(r.getActivityId()) || ("food-" + lunchDinnerId).equalsIgnoreCase(r.getActivityId()))
+                        .findFirst().orElse(null);
+                if (match != null) {
+                    match.setDevoteeCount(headCount);
+                    if (registration.getParticipantName() != null && !registration.getParticipantName().isBlank()) {
+                        match.setParticipantName(registration.getParticipantName());
+                    }
+                    if (registration.getPhone() != null && !registration.getPhone().isBlank()) {
+                        match.setPhone(registration.getPhone());
+                    }
+                    match.setStatus("CONFIRMED");
+                    match.setUpdatedAt(java.time.LocalDateTime.now());
+                    created = bookingRepository.save(match);
+                } else {
+                    created = service.createRegistration(registration, effectiveUser, communityId, true);
+                }
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(created != null ? created : result);
         }
 
         EventBookingRegistration created = service.createRegistration(registration, effectiveUser, communityId, adminOverride && isAdmin);
