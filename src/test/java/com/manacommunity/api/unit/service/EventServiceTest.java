@@ -65,6 +65,7 @@ class EventServiceTest {
     @Mock MediaUrlService mediaUrlService;
     @Mock EventTicketCategoryRepository ticketCategoryRepo;
     @Mock EventContactRepository eventContactRepo;
+    @Mock EventPoojaUserRegistrationRepository poojaUserRegRepo;
     @Mock NotificationRepository notificationRepo;
     @Mock AppUserRepository appUserRepo;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -84,7 +85,7 @@ class EventServiceTest {
                 activityRegRepo, programRepo, galleryRepo, invoiceRepo, mediaRepo,
                 mediaUrlService, bookingRegRepo, notificationRepo, poojaSevaRepo,
                 culturalEventRepo, competitionRepo, lunchDinnerRepo, familyMemberRepo,
-                ticketCategoryRepo, eventContactRepo, appUserRepo, objectMapper
+                ticketCategoryRepo, eventContactRepo, poojaUserRegRepo, appUserRepo, objectMapper
         );
         community = TestDataBuilder.community(1L, "INVITE123");
         adminUser = TestDataBuilder.adminUser();
@@ -122,14 +123,16 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("getAllEvents returns all community events ordered by start date desc")
+        @DisplayName("getAllEvents returns all community events ordered by start date desc and populates registrationCount from event_pooja_user_registrations")
         void getAllEvents_success() {
             when(eventRepo.findByCommunityIdOrderByStartDateDesc(1L)).thenReturn(List.of(event));
+            when(poojaUserRegRepo.countByEventIdAndStatusNot(100L, "CANCELLED")).thenReturn(15L);
 
             List<EventResponse> result = eventService.getAllEvents(1L, adminUser.getId());
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getId()).isEqualTo(100L);
+            assertThat(result.get(0).getRegistrationCount()).isEqualTo(15);
         }
 
         @Test

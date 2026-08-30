@@ -43,6 +43,7 @@ import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.EventFullException;
@@ -105,6 +106,7 @@ public class EventService {
     private final EventFamilyMemberRepository familyMemberRepo;
     private final EventTicketCategoryRepository ticketCategoryRepo;
     private final EventContactRepository eventContactRepo;
+    private final EventPoojaUserRegistrationRepository poojaUserRegRepo;
     private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
     private final ObjectMapper objectMapper;
 
@@ -1122,9 +1124,16 @@ public class EventService {
     }
 
     private EventResponse toResponse(EventCommunity e, Long currentUserId) {
-        boolean isRegistered = currentUserId != null && bookingRegRepo != null && (
-                bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "event-" + e.getId(), "CANCELLED")
-                || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, String.valueOf(e.getId()), "CANCELLED")
+        boolean isRegistered = currentUserId != null && (
+                (poojaUserRegRepo != null && e.getId() != null && (
+                        poojaUserRegRepo.existsByUserIdAndEventIdAndStatusNot(currentUserId, e.getId(), "CANCELLED")
+                        || poojaUserRegRepo.existsByUserIdAndEventId(currentUserId, e.getId())
+                ))
+                || (bookingRegRepo != null && (
+                        bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "event-" + e.getId(), "CANCELLED")
+                        || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, String.valueOf(e.getId()), "CANCELLED")
+                        || (e.getId() != null && bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "pooja-" + e.getId(), "CANCELLED"))
+                ))
         );
 
         // Generate fresh S3/CloudFront URLs from stored media objects at read time
@@ -1186,9 +1195,18 @@ public class EventService {
             } catch (Exception ignored) {}
         }
 
-        // Live dynamic active attendees count (from booking registrations)
+        // Live dynamic active attendees / registration count (from event_pooja_user_registrations table)
         int liveAttendees = 0;
-        if (bookingRegRepo != null && e.getId() != null) {
+        if (poojaUserRegRepo != null && e.getId() != null) {
+            long poojaCount = poojaUserRegRepo.countByEventIdAndStatusNot(e.getId(), "CANCELLED");
+            if (poojaCount == 0) {
+                poojaCount = poojaUserRegRepo.countByEventId(e.getId());
+            }
+            liveAttendees = (int) poojaCount;
+        }
+
+        // Fallback to booking registrations if zero in event_pooja_user_registrations
+        if (liveAttendees == 0 && bookingRegRepo != null && e.getId() != null) {
             List<EventBookingRegistration> activeRegs = bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(e.getId());
             if (activeRegs != null && !activeRegs.isEmpty()) {
                 liveAttendees = (int) activeRegs.stream()

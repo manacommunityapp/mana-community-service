@@ -26,6 +26,12 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
 
     long countByEventIdAndStatusNot(Long eventId, String status);
 
+    long countByEventId(Long eventId);
+
+    boolean existsByUserIdAndEventId(Long userId, Long eventId);
+
+    boolean existsByUserIdAndEventIdAndStatusNot(Long userId, Long eventId, String status);
+
     boolean existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(Long userId, Long eventId, String slotDate, String status);
 
     /** Count confirmed (non-cancelled) registrations for a given schedule. */
