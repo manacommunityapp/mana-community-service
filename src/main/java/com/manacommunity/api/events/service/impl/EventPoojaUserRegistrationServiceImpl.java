@@ -120,6 +120,23 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
             }
         }
 
+        // ── Early resolution of poojaSevaId ─────────────────────────────────────
+        // Must happen BEFORE the duplicate guards so Guard 1 can scope the check to
+        // the specific seva type. (The full auto-population block runs later, this is
+        // the minimum needed for the guard to work correctly.)
+        if (registration.getPoojaSevaId() == null) {
+            if (registration.getScheduleId() != null) {
+                scheduleRepository.findById(registration.getScheduleId()).ifPresent(s -> {
+                    if (s.getPoojaSeva() != null) registration.setPoojaSevaId(s.getPoojaSeva().getId());
+                });
+            }
+            if (registration.getPoojaSevaId() == null && registration.getPoojaSevaTimeSlotsId() != null) {
+                scheduleRepository.findByTimeSlotConfigId(registration.getPoojaSevaTimeSlotsId()).ifPresent(s -> {
+                    if (s.getPoojaSeva() != null) registration.setPoojaSevaId(s.getPoojaSeva().getId());
+                });
+            }
+        }
+
         // #1: Duplicate registration guard — skipped when adminOverride=true (#4)
         // When poojaSevaId is known, scope the check to that specific seva type so the
         // same user can book different sevas on the same date (e.g. Satyanarayana Pooja
