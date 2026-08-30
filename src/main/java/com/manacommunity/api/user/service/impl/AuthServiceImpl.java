@@ -75,6 +75,8 @@ public class AuthServiceImpl implements AuthService {
     private OtpService otpService;
     @Autowired
     private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Autowired
+    private com.manacommunity.api.service.NotificationManagementService notificationService;
 
     @Override
     @Transactional
@@ -184,6 +186,21 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(saved.getId()),
                 null,
                 "role=MEMBER, community=" + (community != null ? community.getId() : "none"));
+
+        notificationService.createNotification(
+                saved.getId(),
+                com.manacommunity.api.model.NotificationType.SIGNUP_SUCCESS,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Welcome to " + community.getName() + "!",
+                "Your registration is complete. Welcome aboard, " + saved.getFullName() + "!",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.NORMAL,
+                null,
+                community.getId()
+        );
+
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
 
@@ -418,6 +435,20 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(user.getId()),
                 null,
                 "Password reset via OTP verification");
+
+        notificationService.createNotification(
+                user.getId(),
+                com.manacommunity.api.model.NotificationType.PASSWORD_RESET,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Password Reset Successful",
+                "Your password has been reset successfully. If you did not request this change, please contact support immediately.",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.HIGH,
+                null,
+                user.getCommunity() != null ? user.getCommunity().getId() : null
+        );
     }
 
     @Override

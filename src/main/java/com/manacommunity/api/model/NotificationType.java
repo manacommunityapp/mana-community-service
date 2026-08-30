@@ -48,5 +48,9 @@ public enum NotificationType {
 
     // Visitor
     VISITOR_PENDING,
-    VISITOR_CHECK_IN
+    VISITOR_CHECK_IN,
+
+    // Account
+    SIGNUP_SUCCESS,
+    PASSWORD_RESET
 }
