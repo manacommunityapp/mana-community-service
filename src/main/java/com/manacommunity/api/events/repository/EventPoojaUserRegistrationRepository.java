@@ -34,6 +34,13 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
 
     boolean existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(Long userId, Long eventId, String slotDate, String status);
 
+    /**
+     * Guard 1 (scoped by pooja type): same user + same event + same seva type + same date.
+     * Used when poojaSevaId is available so different seva types on the same date are allowed.
+     */
+    boolean existsByUserIdAndEventIdAndPoojaSevaIdAndPoojaSlotDateAndStatusNot(
+            Long userId, Long eventId, Long poojaSevaId, String slotDate, String status);
+
     /** Count confirmed (non-cancelled) registrations for a given schedule. */
     @Query("""
            SELECT COUNT(r) FROM EventPoojaUserRegistration r

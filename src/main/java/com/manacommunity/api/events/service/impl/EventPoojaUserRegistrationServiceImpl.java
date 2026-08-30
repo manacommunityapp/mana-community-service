@@ -121,12 +121,25 @@ public class EventPoojaUserRegistrationServiceImpl implements EventPoojaUserRegi
         }
 
         // #1: Duplicate registration guard — skipped when adminOverride=true (#4)
+        // When poojaSevaId is known, scope the check to that specific seva type so the
+        // same user can book different sevas on the same date (e.g. Satyanarayana Pooja
+        // + Ganapathi Homa). Falls back to the broader eventId+slotDate check for legacy
+        // registrations that were created before poojaSevaId was populated.
         if (!adminOverride
                 && user != null
                 && registration.getEventId() != null
                 && registration.getPoojaSlotDate() != null && !registration.getPoojaSlotDate().isBlank()) {
-            boolean duplicate = repository.existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(
-                    user.getId(), registration.getEventId(), registration.getPoojaSlotDate(), "CANCELLED");
+
+            boolean duplicate;
+            if (registration.getPoojaSevaId() != null) {
+                duplicate = repository.existsByUserIdAndEventIdAndPoojaSevaIdAndPoojaSlotDateAndStatusNot(
+                        user.getId(), registration.getEventId(), registration.getPoojaSevaId(),
+                        registration.getPoojaSlotDate(), "CANCELLED");
+            } else {
+                duplicate = repository.existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(
+                        user.getId(), registration.getEventId(), registration.getPoojaSlotDate(), "CANCELLED");
+            }
+
             if (duplicate) {
                 String slotName = registration.getPoojaSlotName() != null ? registration.getPoojaSlotName() : "this pooja slot";
                 throw new AlreadyRegisteredException(slotName,
