@@ -7,6 +7,7 @@ import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RefreshTokenRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.user.dto.ResetPasswordRequest;
+import com.manacommunity.api.user.dto.SendSignupOtpRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +32,19 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    /**
+     * Sends a 6-digit OTP to the provided email to verify it before signup.
+     * Call this first, then include the received code in the /register request.
+     */
+    @PostMapping("/send-signup-otp")
+    public ResponseEntity<Map<String, Object>> sendSignupOtp(@Valid @RequestBody SendSignupOtpRequest request) {
+        authService.sendSignupOtp(request.getEmail());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Verification code has been sent to your email address."
+        ));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) throws Exception {
