@@ -4,9 +4,11 @@ import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.entity.EventPoojaSevaDaySlot;
 import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
+import com.manacommunity.api.events.enums.PoojaSevaStatus;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventPoojaSevaTimeSlotRepository;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
 import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.PoojaSevaService;
@@ -21,6 +23,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -31,17 +34,20 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
     private final EventBookingRegistrationRepository bookingRepo;
     private final PoojaTypeRepository poojaTypeRepository;
     private final EventPoojaSevaTimeSlotRepository timeSlotRepository;
+    private final EventPoojaUserRegistrationRepository poojaRegRepo;
 
     public PoojaSevaServiceImpl(PoojaSevaRepository repository,
                                 EventCommunityRepository eventRepository,
                                 EventBookingRegistrationRepository bookingRepo,
                                 PoojaTypeRepository poojaTypeRepository,
-                                EventPoojaSevaTimeSlotRepository timeSlotRepository) {
+                                EventPoojaSevaTimeSlotRepository timeSlotRepository,
+                                EventPoojaUserRegistrationRepository poojaRegRepo) {
         this.repository = repository;
         this.eventRepository = eventRepository;
         this.bookingRepo = bookingRepo;
         this.poojaTypeRepository = poojaTypeRepository;
         this.timeSlotRepository = timeSlotRepository;
+        this.poojaRegRepo = poojaRegRepo;
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -303,6 +309,22 @@ public class PoojaSevaServiceImpl implements PoojaSevaService {
         }
         // DB ON DELETE CASCADE handles the child rows in event_pooja_seva_time_slots
         repository.delete(existing);
+    }
+
+    @Override
+    public EventPoojaSeva updatePoojaSevaStatus(Long id, Long communityId, PoojaSevaStatus status) {
+        EventPoojaSeva existing = getPoojaSevaById(id, communityId);
+        existing.setStatus(status);
+        EventPoojaSeva saved = repository.save(existing);
+        if (status == PoojaSevaStatus.CANCELLED) {
+            // Cascade-cancel all non-terminal registrations for this pooja
+            poojaRegRepo.bulkUpdateStatusByPoojaSevaId(
+                id, "CANCELLED",
+                Set.of("CANCELLED", "COMPLETED", "EXPIRED", "NO_SHOW")
+            );
+        }
+        populateTimeSlots(saved);
+        return saved;
     }
 
     // ── validation ────────────────────────────────────────────────────────────

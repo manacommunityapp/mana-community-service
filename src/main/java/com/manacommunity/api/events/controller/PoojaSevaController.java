@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.controller;
 
+import com.manacommunity.api.events.dto.PoojaSevaStatusRequest;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
 import com.manacommunity.api.events.service.PoojaSevaService;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -69,5 +70,16 @@ public class PoojaSevaController {
         Long communityId = principal != null ? principal.getCommunityId() : null;
         service.deletePoojaSeva(id, communityId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    public ResponseEntity<EventPoojaSeva> updateStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody PoojaSevaStatusRequest body) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
+        EventPoojaSeva updated = service.updatePoojaSevaStatus(id, communityId, body.getStatus());
+        return ResponseEntity.ok(updated);
     }
 }

@@ -75,17 +75,50 @@ public class AuthServiceImpl implements AuthService {
     private OtpService otpService;
     @Autowired
     private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Autowired
+    private com.manacommunity.api.service.NotificationManagementService notificationService;
+
+    @Override
+    public void sendSignupOtp(String rawEmail, String phone) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (phone != null && !phone.trim().isEmpty() && userRepository.existsByPhone(phone.trim())) {
+            throw new DuplicateResourceException("User", "phone", phone.trim());
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(email, "User");
+        if (!otpResp.success()) {
+            throw new ManaCommunityException(
+                    otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
+                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
+        }
+    }
 
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
+
+        // 0. Verify email OTP before any other processing
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+        com.manacommunity.api.dto.otp.OtpResponse otpVerify = otpService.verify(email, request.getEmailOtpCode());
+        if (!otpVerify.success() || !otpVerify.verified()) {
+            throw new ManaCommunityException(
+                    otpVerify.message() != null ? otpVerify.message() : "Invalid or expired email verification code.",
+                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
 
         // 1. Verify Community Invite Code
         Community community = communityRepository.findByInviteCode(request.getInviteCode())
                 .orElseThrow(() -> new InvalidInviteCodeException(request.getInviteCode()));
 
         // 2. Duplicate email / phone check (both are UNIQUE in DB)
-        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email))
             throw new DuplicateResourceException("User", "email", email);
 
@@ -184,6 +217,21 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(saved.getId()),
                 null,
                 "role=MEMBER, community=" + (community != null ? community.getId() : "none"));
+
+        notificationService.createNotification(
+                saved.getId(),
+                com.manacommunity.api.model.NotificationType.SIGNUP_SUCCESS,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Welcome to " + community.getName() + "!",
+                "Your registration is complete. Welcome aboard, " + saved.getFullName() + "!",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.NORMAL,
+                null,
+                community.getId()
+        );
+
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
 
@@ -418,6 +466,20 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(user.getId()),
                 null,
                 "Password reset via OTP verification");
+
+        notificationService.createNotification(
+                user.getId(),
+                com.manacommunity.api.model.NotificationType.PASSWORD_RESET,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Password Reset Successful",
+                "Your password has been reset successfully. If you did not request this change, please contact support immediately.",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.HIGH,
+                null,
+                user.getCommunity() != null ? user.getCommunity().getId() : null
+        );
     }
 
     @Override

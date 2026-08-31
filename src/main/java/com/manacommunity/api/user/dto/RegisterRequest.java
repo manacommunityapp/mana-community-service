@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -40,4 +41,8 @@ public class RegisterRequest {
     String userType;        // OWNER / TENANT / Owner / Tenant
     String occupancyStatus; // Owner / Tenant / Staff
     String residentType;    // Resident / Non-Resident / Guest
+
+    @NotBlank(message = "Email verification code is required")
+    @Size(min = 4, max = 9, message = "Invalid verification code")
+    String emailOtpCode;
 }
