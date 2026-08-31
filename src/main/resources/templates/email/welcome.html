@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${appName} + ' — Welcome!'">Welcome!</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2933;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#4f46e5 0%,#6366f1 100%);padding:32px;">
+              <span style="color:#ffffff;font-size:22px;font-weight:700;" th:text="${appName}">Mana Community</span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <div style="font-size:48px;line-height:1;margin-bottom:12px;">🎉</div>
+              <h1 style="margin:0 0 8px;font-size:24px;color:#111827;">
+                Welcome, <span th:text="${recipientName}">Resident</span>!
+              </h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">
+                Your account has been created successfully. You are now a registered member of
+                <strong th:text="${communityName}">your community</strong>.
+              </p>
+
+              <!-- Unit info (shown only when flatNo or block are present) -->
+              <div th:if="${flatNo or block}" style="margin:0 0 24px;padding:16px;background-color:#f5f3ff;border-left:4px solid #4f46e5;border-radius:6px;">
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6d28d9;margin-bottom:6px;">Your Residence</div>
+                <div style="font-size:15px;font-weight:600;color:#1e1b4b;">
+                  <span th:if="${block}">Block <span th:text="${block}">A</span></span>
+                  <span th:if="${block and flatNo}"> · </span>
+                  <span th:if="${flatNo}">Flat <span th:text="${flatNo}">101</span></span>
+                </div>
+              </div>
+
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+                Your registration is pending admin verification. Once approved, you'll have full access
+                to community features — event bookings, visitor management, community feed, and more.
+              </p>
+
+              <a th:href="${actionUrl}" href="#"
+                 style="display:inline-block;background:linear-gradient(135deg,#4f46e5 0%,#6366f1 100%);color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:8px;font-size:14px;font-weight:600;">
+                Open the App
+              </a>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 32px;">
+              <hr style="border:none;border-top:1px solid #eef0f2;margin:0;"/>
+            </td>
+          </tr>
+
+          <!-- What's next -->
+          <tr>
+            <td style="padding:24px 32px;">
+              <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.04em;">What happens next?</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="padding:8px 0;vertical-align:top;width:24px;font-size:18px;">✅</td>
+                  <td style="padding:8px 0 8px 10px;font-size:14px;color:#4b5563;">Account created &amp; email verified</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;vertical-align:top;font-size:18px;">⏳</td>
+                  <td style="padding:8px 0 8px 10px;font-size:14px;color:#4b5563;">Community admin verifies your residence details</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;vertical-align:top;font-size:18px;">🚀</td>
+                  <td style="padding:8px 0 8px 10px;font-size:14px;color:#4b5563;">Full community access unlocked</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;background-color:#f9fafb;border-top:1px solid #eef0f2;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
+                &copy; <span th:text="${year}">2026</span> <span th:text="${appName}">Mana Community</span>.
+                This is an automated message — please do not reply directly to this email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

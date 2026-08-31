@@ -77,6 +77,12 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
     @Autowired
     private com.manacommunity.api.service.NotificationManagementService notificationService;
+    @Autowired
+    private com.manacommunity.api.email.EmailService emailService;
+    @Autowired
+    private com.manacommunity.api.email.EmailTemplateRenderer emailRenderer;
+    @Autowired
+    private com.manacommunity.api.email.EmailSupport emailSupport;
 
     @Override
     public void sendSignupOtp(String rawEmail, String phone) {
@@ -231,6 +237,24 @@ public class AuthServiceImpl implements AuthService {
                 null,
                 community.getId()
         );
+
+        // Send welcome email — failure is swallowed so it never breaks registration
+        try {
+            java.util.Map<String, Object> vars = emailSupport.baseVars(saved.getFullName());
+            vars.put("communityName", community.getName());
+            vars.put("block", saved.getBlock());
+            vars.put("flatNo", saved.getFlatNo());
+            vars.put("actionUrl", emailSupport.props().getBaseUrl());
+            String html = emailRenderer.render(com.manacommunity.api.email.EmailTemplate.WELCOME, vars);
+            emailService.send(new com.manacommunity.api.email.EmailMessage(
+                    saved.getEmail(),
+                    saved.getFullName(),
+                    "Welcome to " + community.getName() + "! 🎉",
+                    html
+            ));
+        } catch (Exception ex) {
+            log.warn("Welcome email failed for user {} — registration still succeeded: {}", saved.getId(), ex.getMessage());
+        }
 
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
