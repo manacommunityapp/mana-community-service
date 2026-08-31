@@ -32,17 +32,17 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserProfileResponse getProfile(AppUser user) {
         UserProfile profile = userProfileRepository.findByUserId(user.getId())
                 .orElseGet(() -> {
-                    // Create default profile with initial mock stats if none exists
+                    // Create default empty profile if none exists
                     UserProfile newProfile = UserProfile.builder()
                             .user(user)
-                            .bio("Software Engineer | Sports enthusiast | Community member.")
-                            .skills("Cricket,Community Building,Badminton")
-                            .posts(15)
-                            .connections(52)
-                            .eventsAttended(4)
-                            .itemsSold(2)
-                            .jobsPosted(1)
-                            .sportsPlayed(3)
+                            .bio(null)
+                            .skills(null)
+                            .posts(0)
+                            .connections(0)
+                            .eventsAttended(0)
+                            .itemsSold(0)
+                            .jobsPosted(0)
+                            .sportsPlayed(0)
                             .build();
                     return userProfileRepository.save(newProfile);
                 });
