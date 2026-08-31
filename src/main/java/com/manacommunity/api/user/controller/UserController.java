@@ -204,6 +204,10 @@ public class UserController {
                 .dateOfBirth(u.getDateOfBirth())
                 .flatNo(u.getFlatNo())
                 .block(u.getBlock())
+                .tower(u.getTower())
+                .employeeId(u.getEmployeeId())
+                .govtIdType(u.getGovtIdType())
+                .govtIdNumber(u.getGovtIdNumber())
                 .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
                 .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
                 .isActive(u.getIsActive())
@@ -340,6 +344,9 @@ public class UserController {
         if (req.getTower() != null) user.setTower(req.getTower());
         if (req.getResidentType() != null) user.setResidentType(req.getResidentType());
         if (req.getOccupancyStatus() != null) user.setOccupancyStatus(req.getOccupancyStatus());
+        if (req.getEmployeeId() != null) user.setEmployeeId(req.getEmployeeId());
+        if (req.getGovtIdType() != null) user.setGovtIdType(req.getGovtIdType());
+        if (req.getGovtIdNumber() != null) user.setGovtIdNumber(req.getGovtIdNumber());
 
         AppUser saved = appUserRepo.save(user);
 

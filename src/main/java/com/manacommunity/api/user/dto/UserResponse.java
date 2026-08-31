@@ -24,6 +24,10 @@ public class UserResponse {
     private LocalDate dateOfBirth;
     private String flatNo;
     private String block;
+    private String tower;
+    private String employeeId;
+    private String govtIdType;
+    private String govtIdNumber;
     private Long communityId;
     private Long roleId;
     private Boolean isActive;
