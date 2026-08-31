@@ -45,6 +45,16 @@ public class RolePermissionController {
     }
 
     /**
+     * GET /api/roles/permissions/template
+     * Returns all global parent/template role permissions (not scoped to any community).
+     * Used by the "Access & Roles" UI to import parent menu permissions into the community matrix.
+     */
+    @GetMapping("/permissions/template")
+    public ResponseEntity<Map<String, List<String>>> getTemplateRolePermissions() {
+        return ResponseEntity.ok(rolePermissionService.getAllRolePermissions(null));
+    }
+
+    /**
      * GET /api/roles/details
      * Returns all roles with their permission lists as structured DTOs,
      * scoped to the caller's community. Designed for the "Access &amp; Roles" admin UI page.
