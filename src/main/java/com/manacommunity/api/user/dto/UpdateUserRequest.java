@@ -31,6 +31,10 @@ public class UpdateUserRequest {
     private String occupancyStatus;
     private Boolean isActive;
 
+    private String employeeId;
+    private String govtIdType;
+    private String govtIdNumber;
+
     @JsonAlias({"password", "newPassword"})
     private String password;
     @JsonAlias({"currentPassword", "oldPassword"})
