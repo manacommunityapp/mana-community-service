@@ -79,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.NotificationManagementService notificationService;
 
     @Override
-    public void sendSignupOtp(String rawEmail) {
+    public void sendSignupOtp(String rawEmail, String phone) {
         if (rawEmail == null || rawEmail.trim().isEmpty()) {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
@@ -87,6 +87,10 @@ public class AuthServiceImpl implements AuthService {
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (phone != null && !phone.trim().isEmpty() && userRepository.existsByPhone(phone.trim())) {
+            throw new DuplicateResourceException("User", "phone", phone.trim());
         }
 
         com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(email, "User");
