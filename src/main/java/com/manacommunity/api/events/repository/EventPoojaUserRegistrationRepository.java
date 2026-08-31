@@ -2,10 +2,12 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -92,4 +94,10 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
     List<EventPoojaUserRegistration> findByPoojaSevaIdOrderByCreatedAtDesc(Long poojaSevaId);
 
     List<EventPoojaUserRegistration> findByCommunityIdAndPoojaSevaIdOrderByCreatedAtDesc(Long communityId, Long poojaSevaId);
+
+    @Modifying
+    @Query("UPDATE EventPoojaUserRegistration r SET r.status = :newStatus WHERE r.poojaSevaId = :poojaSevaId AND r.status NOT IN :excludedStatuses")
+    int bulkUpdateStatusByPoojaSevaId(@Param("poojaSevaId") Long poojaSevaId,
+                                      @Param("newStatus") String newStatus,
+                                      @Param("excludedStatuses") Collection<String> excludedStatuses);
 }
