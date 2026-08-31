@@ -118,7 +118,7 @@ public class EventPoojaSeva {
     private Boolean approvalRequired = false;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20, nullable = false)
+    @Column(name = "status", length = 20)
     private PoojaSevaStatus status = PoojaSevaStatus.ACTIVE;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -143,6 +143,9 @@ public class EventPoojaSeva {
     protected void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+        if (this.status == null) {
+            this.status = PoojaSevaStatus.ACTIVE;
         }
         this.updatedAt = LocalDateTime.now();
     }

@@ -21,3 +21,20 @@ ALTER TABLE manacommunity.notification
             'SIGNUP_SUCCESS', 'PASSWORD_RESET'
         )
     );
+
+
+    -- V99: Safely add and backfill status column in event_pooja_sevas table.
+
+    ALTER TABLE IF EXISTS event_pooja_sevas
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';
+
+    ALTER TABLE IF EXISTS manacommunity.event_pooja_sevas
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';
+
+    UPDATE event_pooja_sevas
+        SET status = 'ACTIVE'
+        WHERE status IS NULL;
+
+    ALTER TABLE IF EXISTS event_pooja_sevas
+        ALTER COLUMN status SET DEFAULT 'ACTIVE';
+
