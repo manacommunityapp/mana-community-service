@@ -39,7 +39,7 @@ public class AuthController {
      */
     @PostMapping("/send-signup-otp")
     public ResponseEntity<Map<String, Object>> sendSignupOtp(@Valid @RequestBody SendSignupOtpRequest request) {
-        authService.sendSignupOtp(request.getEmail());
+        authService.sendSignupOtp(request.getEmail(), request.getPhone());
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Verification code has been sent to your email address."
