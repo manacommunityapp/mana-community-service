@@ -112,7 +112,12 @@ public enum EmailTemplate {
     /** Notice that a previously announced event has been cancelled. */
     EVENT_CANCELLATION("event-cancellation", "Important: {{eventName}} Has Been Cancelled", EmailCategory.EVENT,
             new Trigger("Events → Admin → Cancel Event", false,
-                    "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the cancellation flow is under development."));
+                    "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the cancellation flow is under development.")),
+
+    /** Welcome email sent immediately after a resident completes registration. */
+    WELCOME("welcome", "Welcome to {{communityName}}! 🎉", EmailCategory.AUTH,
+            new Trigger("Auth → Register", true,
+                    "Sent automatically to a new resident after their account is created successfully."));
 
 
     private final String templateName;
