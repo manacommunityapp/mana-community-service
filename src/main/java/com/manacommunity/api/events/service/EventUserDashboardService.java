@@ -57,32 +57,42 @@ public class EventUserDashboardService {
                 .map(e -> toCardItem(e, userId))
                 .toList();
 
-        // 2. User's registrations — single query, filtered in-stream
-        List<EventBookingRegistration> allUserRegs = bookingRegRepo.findByUserIdOrderByCreatedAtDesc(userId);
+        // 2. My registrations — single native JOIN query (fixes N+1 from eventRepo.findById per row)
+        //    Native result: [0]=id [1]=main_event_id [2]=activity_title [3]=category
+        //                   [4]=status [5]=created_at (Timestamp) [6]=start_date (Date/String)
+        List<Object[]> regRows = bookingRegRepo.findUserRegProjectionsWithEventDate(userId);
 
-        List<MyRegistrationItem> myRegs = allUserRegs.stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
-                .filter(b -> b.getMainEventId() != null)
-                .map(b -> {
-                    String eventStartDate = eventRepo.findById(b.getMainEventId())
-                            .map(e -> e.getStartDate() != null ? e.getStartDate().toString() : null)
-                            .orElse(null);
+        List<MyRegistrationItem> myRegs = regRows.stream()
+                .map(row -> {
+                    String registeredAt = null;
+                    if (row[5] != null) {
+                        // Native query returns java.sql.Timestamp — format to ISO string
+                        registeredAt = row[5] instanceof java.sql.Timestamp
+                                ? ((java.sql.Timestamp) row[5]).toLocalDateTime()
+                                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                : row[5].toString();
+                    }
+                    String eventStartDate = row[6] != null ? row[6].toString() : null;
                     return new MyRegistrationItem(
-                            b.getId(),
-                            b.getMainEventId(),
-                            b.getActivityTitle(),
-                            b.getCategory(),
-                            b.getStatus(),
-                            formatDt(b),
+                            ((Number) row[0]).longValue(),
+                            row[1] != null ? ((Number) row[1]).longValue() : null,
+                            (String) row[2],
+                            (String) row[3],
+                            (String) row[4],
+                            registeredAt,
                             eventStartDate
                     );
                 })
                 .toList();
 
-        // 3. Pending payment actions — filtered from the same user regs list
-        List<PendingItem> pending = allUserRegs.stream()
+        // 3. Pending payment actions — separate fetch to keep the JOIN query slim
+        List<EventBookingRegistration> pendingRegs = bookingRegRepo
+                .findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(b -> "PENDING".equalsIgnoreCase(b.getPaymentStatus())
                         && !"CANCELLED".equalsIgnoreCase(b.getStatus()))
+                .toList();
+
+        List<PendingItem> pending = pendingRegs.stream()
                 .map(b -> new PendingItem(
                         "pay-" + b.getId(),
                         "PAYMENT_PENDING",
@@ -93,33 +103,15 @@ public class EventUserDashboardService {
                 ))
                 .toList();
 
-        // 4. User stats — derived from data already in memory, zero extra queries
-        long myPoojaCount = allUserRegs.stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
-                .filter(b -> b.getCategory() != null && (
-                        b.getCategory().toLowerCase().contains("pooja")
-                        || b.getCategory().toLowerCase().contains("seva")))
-                .count();
-
-        long myMealCount = allUserRegs.stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
-                .filter(b -> b.getCategory() != null && (
-                        b.getCategory().toLowerCase().contains("meal")
-                        || b.getCategory().toLowerCase().contains("food")
-                        || b.getCategory().toLowerCase().contains("lunch")
-                        || b.getCategory().toLowerCase().contains("dinner")))
-                .count();
-
-        long myCulturalCount = allUserRegs.stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
-                .filter(b -> b.getCategory() != null && (
-                        b.getCategory().toLowerCase().contains("cultural")
-                        || b.getCategory().toLowerCase().contains("cult")))
-                .count();
+        // 4. User stats — dedicated COUNT queries, one per category (no entity hydration)
+        long myRegistrationsCount = bookingRegRepo.countUserRegistrations(userId);
+        long myPoojaCount        = bookingRegRepo.countUserPoojaRegistrations(userId);
+        long myMealCount         = bookingRegRepo.countUserMealRegistrations(userId);
+        long myCulturalCount     = bookingRegRepo.countUserCulturalRegistrations(userId);
 
         UserStats stats = new UserStats(
                 cards.size(),
-                myRegs.size(),
+                myRegistrationsCount,
                 myPoojaCount,
                 myMealCount,
                 myCulturalCount

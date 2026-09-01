@@ -238,9 +238,6 @@ public class EventDonationService {
         } catch (org.apache.poi.poifs.filesystem.NotOLE2FileException e) {
             throw new com.manacommunity.api.exception.InvalidFileUploadException(
                 "The uploaded file is not a valid Excel (.xlsx) file. Please use the provided template.");
-        } catch (org.apache.poi.openxml4j.exceptions.InvalidFormatException e) {
-            throw new com.manacommunity.api.exception.InvalidFileUploadException(
-                "The uploaded file has an invalid Excel format. Please upload a valid .xlsx file.");
         } catch (IOException e) {
             throw new com.manacommunity.api.exception.InvalidFileUploadException(
                 "Failed to read the uploaded file. Please ensure the file is not corrupted.");
