@@ -3,17 +3,23 @@ package com.manacommunity.api.events.controller;
 import com.manacommunity.api.events.dto.EventDonationRequest;
 import com.manacommunity.api.events.dto.EventDonationResponse;
 import com.manacommunity.api.events.service.EventDonationService;
+import com.manacommunity.api.events.service.EventDonationService.BulkUploadOutcome;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -61,5 +67,37 @@ public class EventDonationController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         donationService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/bulk-upload/template")
+    @PreAuthorize("hasAuthority('Create Event')")
+    public ResponseEntity<byte[]> downloadTemplate() throws IOException {
+        byte[] bytes = donationService.generateUploadTemplate();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("donation_upload_template.xlsx").build().toString())
+                .body(bytes);
+    }
+
+    @PostMapping(value = "/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('Create Event')")
+    public ResponseEntity<byte[]> bulkUpload(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal principal) throws IOException {
+        AppUser user = loggedInUserService.resolve(principal);
+        BulkUploadOutcome outcome = donationService.bulkUpload(file, user, user.getCommunity());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Total-Rows",  String.valueOf(outcome.total()));
+        headers.set("X-Saved-Count", String.valueOf(outcome.saved()));
+        headers.set("X-Failed-Count", String.valueOf(outcome.failed()));
+        headers.setAccessControlExposeHeaders(List.of("X-Total-Rows", "X-Saved-Count", "X-Failed-Count"));
+        headers.setContentDisposition(
+                ContentDisposition.attachment().filename("donation_upload_result.xlsx").build());
+        headers.setContentType(
+                MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+
+        return ResponseEntity.ok().headers(headers).body(outcome.resultExcel());
     }
 }
