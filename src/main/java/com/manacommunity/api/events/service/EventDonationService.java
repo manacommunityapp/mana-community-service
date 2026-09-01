@@ -55,6 +55,7 @@ public class EventDonationService {
                 .donorName(req.getDonorName())
                 .donorEmail(req.getDonorEmail())
                 .donorPhone(req.getDonorPhone())
+                .flatNumber(req.getFlatNumber())
                 .amount(req.getAmount())
                 .paymentMethod(parseEnumOrDefault(EventDonation.PaymentMethod.class, req.getPaymentMethod(), EventDonation.PaymentMethod.CASH))
                 .transactionRef(req.getTransactionRef())
@@ -73,6 +74,7 @@ public class EventDonationService {
         d.setDonorName(req.getDonorName());
         d.setDonorEmail(req.getDonorEmail());
         d.setDonorPhone(req.getDonorPhone());
+        d.setFlatNumber(req.getFlatNumber());
         d.setAmount(req.getAmount());
         d.setPaymentMethod(parseEnumOrDefault(EventDonation.PaymentMethod.class, req.getPaymentMethod(), d.getPaymentMethod()));
         d.setTransactionRef(req.getTransactionRef());
@@ -94,6 +96,7 @@ public class EventDonationService {
                 .donorName(d.getDonorName())
                 .donorEmail(d.getDonorEmail())
                 .donorPhone(d.getDonorPhone())
+                .flatNumber(d.getFlatNumber())
                 .amount(d.getAmount())
                 .paymentMethod(d.getPaymentMethod().name())
                 .transactionRef(d.getTransactionRef())
@@ -106,7 +109,7 @@ public class EventDonationService {
 
     // ── Template columns ────────────────────────────────────────────────────────
     private static final String[] TEMPLATE_HEADERS = {
-        "Event ID*", "Donor Name*", "Donor Email", "Donor Phone",
+        "Event ID*", "Donor Name*", "Donor Email", "Phone Number*", "Flat Number*",
         "Amount*", "Payment Method", "Transaction Reference", "Note", "Anonymous"
     };
 
@@ -129,17 +132,18 @@ public class EventDonationService {
                 sheet.setColumnWidth(i, 5000);
             }
 
-            // Sample row
+            // Sample row: Event ID, Donor Name, Email, Phone*, Flat Number*, Amount*, Method, TxnRef, Note, Anonymous
             Row sample = sheet.createRow(1);
             sample.createCell(0).setCellValue(1);
             sample.createCell(1).setCellValue("Ramesh Kumar");
             sample.createCell(2).setCellValue("ramesh@example.com");
             sample.createCell(3).setCellValue("+91 9876543210");
-            sample.createCell(4).setCellValue(5000);
-            sample.createCell(5).setCellValue("CASH");
-            sample.createCell(6).setCellValue("");
-            sample.createCell(7).setCellValue("Prasadam donation");
-            sample.createCell(8).setCellValue("FALSE");
+            sample.createCell(4).setCellValue("A-101");
+            sample.createCell(5).setCellValue(5000);
+            sample.createCell(6).setCellValue("CASH");
+            sample.createCell(7).setCellValue("");
+            sample.createCell(8).setCellValue("Prasadam donation");
+            sample.createCell(9).setCellValue("FALSE");
 
             // Notes sheet
             Sheet notes = wb.createSheet("Notes");
@@ -147,7 +151,8 @@ public class EventDonationService {
                 "Payment Method values: CASH, UPI, CHEQUE, BANK_TRANSFER, ONLINE",
                 "Anonymous: TRUE or FALSE",
                 "Fields marked with * are required",
-                "Event ID must match an existing event in the system"
+                "Event ID must match an existing event in the system",
+                "Phone Number and Flat Number are mandatory for all rows"
             };
             for (int i = 0; i < noteLines.length; i++) {
                 notes.createRow(i).createCell(0).setCellValue(noteLines[i]);
@@ -230,20 +235,25 @@ public class EventDonationService {
     }
 
     private String validateAndSaveRow(Row row, AppUser user, Community community) {
+        // Column order: Event ID*, Donor Name*, Donor Email, Phone Number*, Flat Number*,
+        //               Amount*, Payment Method, Transaction Reference, Note, Anonymous
         List<String> errors = new ArrayList<>();
 
-        Long eventId   = parseLong(row, 0);
+        Long eventId     = parseLong(row, 0);
         String donorName = parseString(row, 1);
-        String email   = parseString(row, 2);
-        String phone   = parseString(row, 3);
-        Double amount  = parseDouble(row, 4);
-        String method  = parseString(row, 5);
-        String txnRef  = parseString(row, 6);
-        String note    = parseString(row, 7);
-        boolean anon   = parseBoolean(row, 8);
+        String email     = parseString(row, 2);
+        String phone     = parseString(row, 3);
+        String flatNo    = parseString(row, 4);
+        Double amount    = parseDouble(row, 5);
+        String method    = parseString(row, 6);
+        String txnRef    = parseString(row, 7);
+        String note      = parseString(row, 8);
+        boolean anon     = parseBoolean(row, 9);
 
         if (eventId == null) errors.add("Event ID is required");
         if (!anon && (donorName == null || donorName.isBlank())) errors.add("Donor Name is required");
+        if (phone == null || phone.isBlank()) errors.add("Phone Number is required");
+        if (flatNo == null || flatNo.isBlank()) errors.add("Flat Number is required");
         if (amount == null || amount <= 0) errors.add("Amount must be > 0");
 
         if (!errors.isEmpty()) return String.join("; ", errors);
@@ -256,6 +266,7 @@ public class EventDonationService {
                 .donorName(anon ? "Anonymous" : donorName)
                 .donorEmail(email)
                 .donorPhone(phone)
+                .flatNumber(flatNo)
                 .amount(amount)
                 .paymentMethod(parseEnumOrDefault(EventDonation.PaymentMethod.class, method, EventDonation.PaymentMethod.CASH))
                 .transactionRef(txnRef)

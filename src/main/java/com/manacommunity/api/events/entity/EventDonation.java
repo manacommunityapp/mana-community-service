@@ -34,6 +34,9 @@ public class EventDonation {
     @Column(name = "donor_phone", length = 50)
     private String donorPhone;
 
+    @Column(name = "flat_number", length = 50)
+    private String flatNumber;
+
     @Column(nullable = false)
     private Double amount;
 
