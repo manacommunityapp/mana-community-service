@@ -113,7 +113,7 @@ public class EventDonationService {
         "Amount*", "Payment Method", "Transaction Reference", "Note", "Anonymous"
     };
 
-    public byte[] generateUploadTemplate() throws IOException {
+    public byte[] generateUploadTemplate() {
         try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = wb.createSheet("Donations");
             Row header = sheet.createRow(0);
@@ -160,10 +160,12 @@ public class EventDonationService {
 
             wb.write(out);
             return out.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate upload template", e);
         }
     }
 
-    public BulkUploadOutcome bulkUpload(MultipartFile file, AppUser user, Community community) throws IOException {
+    public BulkUploadOutcome bulkUpload(MultipartFile file, AppUser user, Community community) {
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rows = sheet.iterator();
@@ -231,6 +233,20 @@ public class EventDonationService {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             wb.write(out);
             return new BulkUploadOutcome(total, saved, failed, out.toByteArray());
+        } catch (com.manacommunity.api.exception.InvalidFileUploadException e) {
+            throw e;
+        } catch (org.apache.poi.poifs.filesystem.NotOLE2FileException e) {
+            throw new com.manacommunity.api.exception.InvalidFileUploadException(
+                "The uploaded file is not a valid Excel (.xlsx) file. Please use the provided template.");
+        } catch (org.apache.poi.openxml4j.exceptions.InvalidFormatException e) {
+            throw new com.manacommunity.api.exception.InvalidFileUploadException(
+                "The uploaded file has an invalid Excel format. Please upload a valid .xlsx file.");
+        } catch (IOException e) {
+            throw new com.manacommunity.api.exception.InvalidFileUploadException(
+                "Failed to read the uploaded file. Please ensure the file is not corrupted.");
+        } catch (Exception e) {
+            throw new com.manacommunity.api.exception.InvalidFileUploadException(
+                "Failed to process the uploaded file: " + (e.getMessage() != null ? e.getMessage() : "Unexpected error"));
         }
     }
 

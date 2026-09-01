@@ -4,6 +4,7 @@ import com.manacommunity.api.events.dto.EventDonationRequest;
 import com.manacommunity.api.events.dto.EventDonationResponse;
 import com.manacommunity.api.events.service.EventDonationService;
 import com.manacommunity.api.events.service.EventDonationService.BulkUploadOutcome;
+import com.manacommunity.api.exception.InvalidFileUploadException;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -19,7 +20,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -71,7 +71,7 @@ public class EventDonationController {
 
     @GetMapping("/bulk-upload/template")
     @PreAuthorize("hasAuthority('Create Event')")
-    public ResponseEntity<byte[]> downloadTemplate() throws IOException {
+    public ResponseEntity<byte[]> downloadTemplate() {
         byte[] bytes = donationService.generateUploadTemplate();
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
@@ -84,8 +84,21 @@ public class EventDonationController {
     @PreAuthorize("hasAuthority('Create Event')")
     public ResponseEntity<byte[]> bulkUpload(
             @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal UserPrincipal principal) throws IOException {
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidFileUploadException("No file provided. Please upload a valid .xlsx file.");
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".xlsx")) {
+            throw new InvalidFileUploadException(
+                "Invalid file type. Only Excel (.xlsx) files are accepted. Please use the provided template.");
+        }
+
         AppUser user = loggedInUserService.resolve(principal);
+        if (user.getCommunity() == null) {
+            throw new InvalidFileUploadException("Your account is not linked to any community. Bulk upload is unavailable.");
+        }
+
         BulkUploadOutcome outcome = donationService.bulkUpload(file, user, user.getCommunity());
 
         HttpHeaders headers = new HttpHeaders();
