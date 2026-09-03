@@ -65,7 +65,7 @@ public class FamilyMember {
     @Builder.Default
     private Boolean isDevotee = true;
 
-    @Column(length = 20)
+    @Column(name = "avatar", columnDefinition = "TEXT")
     private String avatar;
 
     @Column(columnDefinition = "TEXT")
