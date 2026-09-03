@@ -1225,9 +1225,8 @@ public class EventService {
             }
         }
 
-        Integer remainingCapacity = e.getCapacity();
-        Integer totalCapacity = e.getMaxAttendees() != null && e.getMaxAttendees() > 0 ? e.getMaxAttendees()
-                : (remainingCapacity != null ? remainingCapacity : 100);
+        Integer dbCapacity = e.getCapacity();
+        Integer maxAttendees = e.getMaxAttendees() != null ? e.getMaxAttendees() : dbCapacity;
 
         return EventResponse.builder()
                 .id(e.getId())
@@ -1242,7 +1241,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(totalCapacity)
+                .capacity(dbCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -1261,7 +1260,7 @@ public class EventService {
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
-                .maxAttendees(totalCapacity)
+                .maxAttendees(maxAttendees)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
                 .registrationCount(liveAttendees)
                 .createdById(e.getCreatedBy() != null ? e.getCreatedBy().getId() : null)

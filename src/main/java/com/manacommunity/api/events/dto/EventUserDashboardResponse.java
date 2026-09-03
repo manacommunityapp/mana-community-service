@@ -53,6 +53,7 @@ public final class EventUserDashboardResponse {
             boolean registered,
             int attendeeCount,
             Integer maxAttendees,
+            Integer capacity,
             String registrationDeadline,
             ActivityFlags activitySummary
     ) {}

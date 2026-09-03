@@ -195,7 +195,8 @@ public class EventUserDashboardService {
                 e.getPrice(),
                 isRegistered,
                 (int) attendeeCount,
-                e.getMaxAttendees() != null ? e.getMaxAttendees() : e.getCapacity(),
+                e.getMaxAttendees(),
+                e.getCapacity(),
                 e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null,
                 new ActivityFlags(hasPooja, hasMeal, hasCultural)
         );
