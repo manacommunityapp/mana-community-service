@@ -164,6 +164,61 @@ public class UserController {
         return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
     }
 
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<com.manacommunity.api.user.dto.UserStatsResponse> getUserStats(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        long totalUsers;
+        long activeUsers;
+        long pendingKyc;
+        long approvedKyc;
+        long rejectedKyc;
+        java.util.Map<String, Long> roleBreakdown = new java.util.HashMap<>();
+
+        if (targetCommunityId != null) {
+            totalUsers = appUserRepo.countByCommunityId(targetCommunityId);
+            activeUsers = appUserRepo.countByCommunityIdAndIsActiveTrue(targetCommunityId);
+            pendingKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "PENDING");
+            approvedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "APPROVED")
+                    + appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "VERIFIED");
+            rejectedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGroupedForCommunity(targetCommunityId);
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
+            }
+        } else {
+            totalUsers = appUserRepo.count();
+            activeUsers = appUserRepo.countByIsActiveTrue();
+            pendingKyc = appUserRepo.countByKycStatus("PENDING");
+            approvedKyc = appUserRepo.countByKycStatus("APPROVED") + appUserRepo.countByKycStatus("VERIFIED");
+            rejectedKyc = appUserRepo.countByKycStatus("REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGrouped();
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
+            }
+        }
+
+        return ResponseEntity.ok(com.manacommunity.api.user.dto.UserStatsResponse.builder()
+                .totalUsers(totalUsers)
+                .activeUsers(activeUsers)
+                .pendingKyc(pendingKyc)
+                .approvedKyc(approvedKyc)
+                .rejectedKyc(rejectedKyc)
+                .roleBreakdown(roleBreakdown)
+                .build());
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<UserResponse> createUser(

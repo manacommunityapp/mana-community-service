@@ -38,6 +38,14 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+    long countByIsActiveTrue();
+    long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u WHERE u.community.id = :communityId GROUP BY u.role")
+    List<Object[]> countByRoleGroupedForCommunity(@Param("communityId") Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u GROUP BY u.role")
+    List<Object[]> countByRoleGrouped();
     boolean existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(Long communityId, String block, String flatNo);
 
     /**
