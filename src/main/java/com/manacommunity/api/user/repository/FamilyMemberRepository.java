@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface FamilyMemberRepository extends JpaRepository<FamilyMember, Long> {
@@ -12,4 +13,5 @@ public interface FamilyMemberRepository extends JpaRepository<FamilyMember, Long
     List<FamilyMember> findByCommunityIdOrderByCreatedAtAsc(Long communityId);
     List<FamilyMember> findByUserIdAndNameIgnoreCase(Long userId, String name);
     boolean existsByUserIdAndNameIgnoreCase(Long userId, String name);
+    Optional<FamilyMember> findByIdAndUserId(Long id, Long userId);
 }
