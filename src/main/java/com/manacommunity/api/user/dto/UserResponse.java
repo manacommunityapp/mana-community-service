@@ -44,4 +44,6 @@ public class UserResponse {
     /** ID of the admin who last changed this user's role. */
     private Long roleChangedBy;
     private String userType;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

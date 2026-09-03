@@ -302,6 +302,8 @@ public class UserController {
                 .menuPermissions(getMenuPermissions(u))
                 .roleChangedAt(u.getRoleChangedAt())
                 .roleChangedBy(u.getRoleChangedBy())
+                .createdAt(u.getCreatedAt())
+                .updatedAt(u.getUpdatedAt())
                 .build();
     }
 
