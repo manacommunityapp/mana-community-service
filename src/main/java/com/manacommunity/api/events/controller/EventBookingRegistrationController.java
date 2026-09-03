@@ -75,10 +75,11 @@ public class EventBookingRegistrationController {
             effectiveUser = userRepository.findById(effectiveTargetId).orElse(caller);
         }
 
-        // Meal activities → save to event_meal_registrations AND event_booking_registrations
+        // Meal activities → save exclusively to event_meal_registrations (NOT event_booking_registrations)
         boolean isMeal = (actId != null && (actId.startsWith("meal-") || actId.startsWith("food-")))
                 || "LUNCH_DINNER".equalsIgnoreCase(registration.getActivityType())
-                || "Meal".equalsIgnoreCase(registration.getCategory());
+                || "Meal".equalsIgnoreCase(registration.getCategory())
+                || "Food".equalsIgnoreCase(registration.getCategory());
         if (isMeal) {
             Long lunchDinnerId = parseMealId(actId, registration);
             if (lunchDinnerId == null) return ResponseEntity.badRequest().body("Missing lunchDinnerId");
@@ -86,39 +87,7 @@ public class EventBookingRegistrationController {
                     ? registration.getDevoteeCount() : 1;
             MealRegistrationResponse result = mealService.registerSingleMeal(
                     lunchDinnerId, headCount, null, effectiveUser);
-
-            if (registration.getCategory() == null || registration.getCategory().isBlank()) {
-                registration.setCategory("Food");
-            }
-            if (registration.getActivityType() == null || registration.getActivityType().isBlank()) {
-                registration.setActivityType("LUNCH_DINNER");
-            }
-            if (registration.getActivityId() == null || registration.getActivityId().isBlank()) {
-                registration.setActivityId("meal-" + lunchDinnerId);
-            }
-            if (registration.getPassType() == null || registration.getPassType().isBlank()) {
-                registration.setPassType("Meal Registration Pass");
-            }
-
-            EventBookingRegistration created = null;
-            if (effectiveUser != null && effectiveUser.getId() != null) {
-                List<EventBookingRegistration> existing = bookingRepository.findByUserIdOrderByCreatedAtDesc(effectiveUser.getId());
-                EventBookingRegistration match = existing.stream()
-                        .filter(r -> ("meal-" + lunchDinnerId).equalsIgnoreCase(r.getActivityId()) || ("food-" + lunchDinnerId).equalsIgnoreCase(r.getActivityId()))
-                        .findFirst().orElse(null);
-                if (match != null) {
-                    match.setDevoteeCount(headCount);
-                    if (registration.getParticipantName() != null && !registration.getParticipantName().isBlank()) {
-                        match.setParticipantName(registration.getParticipantName());
-                    }
-                    match.setStatus("CONFIRMED");
-                    match.setUpdatedAt(java.time.LocalDateTime.now());
-                    created = bookingRepository.save(match);
-                } else {
-                    created = service.createRegistration(registration, effectiveUser, communityId, true);
-                }
-            }
-            return ResponseEntity.status(HttpStatus.CREATED).body(created != null ? created : result);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
         }
 
         EventBookingRegistration created = service.createRegistration(registration, effectiveUser, communityId, adminOverride && isAdmin);
