@@ -172,6 +172,6 @@ public class EventCommunity {
     }
 
     public enum EventStatus {
-        DRAFT, PUBLISHED, CANCELLED
+        DRAFT, PUBLISHED, CANCELLED, ACTIVE, CLOSED, COMPLETED
     }
 }

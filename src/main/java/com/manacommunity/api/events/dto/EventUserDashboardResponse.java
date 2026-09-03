@@ -10,6 +10,7 @@ import java.util.List;
  *                         replaces the current 10-call fan-out on mount
  *   - EventCardItem     → 11-field projection; replaces the 30+ field EventResponse on list
  *   - MyActivitiesPayload → lazy-loaded per event on modal open
+ *   - ScheduledActivitiesPayload → live scheduled activities (pooja, meal, cultural) per event
  */
 public final class EventUserDashboardResponse {
 
@@ -21,7 +22,28 @@ public final class EventUserDashboardResponse {
             UserStats stats,
             List<EventCardItem> upcomingEvents,
             List<MyRegistrationItem> myRegistrations,
-            List<PendingItem> pendingActions
+            List<PendingItem> pendingActions,
+            UserPassSummaryView passSummary,
+            List<FamilyMemberItem> familyMembers
+    ) {
+        public DashboardPayload(UserStats stats, List<EventCardItem> upcomingEvents, List<MyRegistrationItem> myRegistrations, List<PendingItem> pendingActions, UserPassSummaryView passSummary) {
+            this(stats, upcomingEvents, myRegistrations, pendingActions, passSummary, java.util.Collections.emptyList());
+        }
+
+        public DashboardPayload(UserStats stats, List<EventCardItem> upcomingEvents, List<MyRegistrationItem> myRegistrations, List<PendingItem> pendingActions) {
+            this(stats, upcomingEvents, myRegistrations, pendingActions, null, java.util.Collections.emptyList());
+        }
+    }
+
+    public record FamilyMemberItem(
+            Long id,
+            String name,
+            String relation,
+            Integer age,
+            String gender,
+            String gothram,
+            String phone,
+            String dob
     ) {}
 
     // ── User stats (KPI bar) ─────────────────────────────────────────────────
@@ -31,8 +53,16 @@ public final class EventUserDashboardResponse {
             long myRegistrationsCount,
             long myPoojaCount,
             long myMealCount,
-            long myCulturalCount
-    ) {}
+            long myCulturalCount,
+            long totalPassesCount,
+            long myPoojaPassesCount,
+            long myMealPassesCount,
+            long myCulturalPassesCount
+    ) {
+        public UserStats(long upcomingCount, long myRegistrationsCount, long myPoojaCount, long myMealCount, long myCulturalCount) {
+            this(upcomingCount, myRegistrationsCount, myPoojaCount, myMealCount, myCulturalCount, 0, 0, 0, 0);
+        }
+    }
 
     // ── Slim event card (list view) ──────────────────────────────────────────
 
@@ -62,8 +92,15 @@ public final class EventUserDashboardResponse {
     public record ActivityFlags(
             boolean hasPooja,
             boolean hasMeal,
-            boolean hasCultural
-    ) {}
+            boolean hasCultural,
+            long poojaCount,
+            long mealCount,
+            long culturalCount
+    ) {
+        public ActivityFlags(boolean hasPooja, boolean hasMeal, boolean hasCultural) {
+            this(hasPooja, hasMeal, hasCultural, hasPooja ? 1 : 0, hasMeal ? 1 : 0, hasCultural ? 1 : 0);
+        }
+    }
 
     // ── User's own registrations (slim) ──────────────────────────────────────
 
@@ -88,7 +125,7 @@ public final class EventUserDashboardResponse {
             String priority
     ) {}
 
-    // ── Lazy-loaded activity detail (fetched only when modal opens) ──────────
+    // ── Lazy-loaded user activity detail (fetched only when modal opens) ─────
 
     public record MyActivitiesPayload(
             Long eventId,
@@ -105,4 +142,17 @@ public final class EventUserDashboardResponse {
             String time,
             String registeredAt
     ) {}
+
+    // ── Scheduled activities per event for dashboard/registration modal ──────
+
+    public record ScheduledActivitiesPayload(
+            Long eventId,
+            long livePoojaCount,
+            long liveMealCount,
+            long liveCulturalCount,
+            List<PoojaScheduledActivityView> poojaActivities,
+            List<LunchDinnerDashboardView> meals,
+            List<CulturalScheduledActivityView> culturalActivities
+    ) {}
 }
+
