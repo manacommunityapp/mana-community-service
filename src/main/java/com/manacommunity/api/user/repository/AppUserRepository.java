@@ -22,7 +22,7 @@ import java.util.Optional;
  * Added findByPhone for duplicate-phone check during registration.
  */
 @Repository
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<AppUser> {
     Optional<AppUser> findByEmail(String email);
     Optional<AppUser> findByEmailIgnoreCase(String email);
     Optional<AppUser> findByPhone(String phone);
