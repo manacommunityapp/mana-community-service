@@ -78,14 +78,14 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<FamilyMemberResponse> getFamilyMembersResponse(AppUser user, Long communityId) {
         List<FamilyMember> list = getFamilyMembers(user, communityId);
         return list.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<FamilyMember> getFamilyMembers(AppUser user, Long communityId) {
         if (user == null || user.getId() == null) {
             if (communityId != null) {
@@ -109,7 +109,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 boolean isFemale = "FEMALE".equalsIgnoreCase(user.getGender()) || "F".equalsIgnoreCase(user.getGender());
                 String avatar = (user.getProfilePicUrl() != null && !user.getProfilePicUrl().isBlank())
                         ? user.getProfilePicUrl()
-                        : (isFemale ? "??" : "??");
+                        : (isFemale ? "👩" : "👤");
 
                 String familyGothram = list.stream()
                         .map(FamilyMember::getGothram)
@@ -122,6 +122,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                         : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
 
                 FamilyMember selfMember = FamilyMember.builder()
+                        .id(null)
                         .user(user)
                         .community(comm)
                         .name(user.getFullName().trim())
@@ -138,10 +139,6 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
-
-                try {
-                    selfMember = repository.save(selfMember);
-                } catch (Exception ignored) {}
 
                 List<FamilyMember> updatedList = new java.util.ArrayList<>();
                 updatedList.add(selfMember);
