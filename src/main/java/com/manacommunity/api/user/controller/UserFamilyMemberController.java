@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.controller;
 
+import com.manacommunity.api.user.dto.FamilyMemberSlimResponse;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.model.FamilyMember;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -33,6 +34,15 @@ public class UserFamilyMemberController {
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
         List<FamilyMember> list = service.getFamilyMembers(user, communityId);
         return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/slim")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<FamilyMemberSlimResponse>> getSlimFamilyMembers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long userId) {
+        Long targetId = (userId != null) ? userId : (principal != null ? principal.getId() : null);
+        return ResponseEntity.ok(service.getSlimFamilyMembers(targetId));
     }
 
     @PostMapping

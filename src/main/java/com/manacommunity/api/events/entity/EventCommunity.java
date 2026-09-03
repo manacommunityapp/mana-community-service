@@ -142,10 +142,6 @@ public class EventCommunity {
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
 
-    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<EventRegistration> registrations = new ArrayList<>();
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

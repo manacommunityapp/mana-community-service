@@ -2,10 +2,12 @@ package com.manacommunity.api.events.repository;
 
 import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +28,20 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
 
     long countByEventIdAndStatusNot(Long eventId, String status);
 
+    long countByEventId(Long eventId);
+
+    boolean existsByUserIdAndEventId(Long userId, Long eventId);
+
+    boolean existsByUserIdAndEventIdAndStatusNot(Long userId, Long eventId, String status);
+
     boolean existsByUserIdAndEventIdAndPoojaSlotDateAndStatusNot(Long userId, Long eventId, String slotDate, String status);
+
+    /**
+     * Guard 1 (scoped by pooja type): same user + same event + same seva type + same date.
+     * Used when poojaSevaId is available so different seva types on the same date are allowed.
+     */
+    boolean existsByUserIdAndEventIdAndPoojaSevaIdAndPoojaSlotDateAndStatusNot(
+            Long userId, Long eventId, Long poojaSevaId, String slotDate, String status);
 
     /** Count confirmed (non-cancelled) registrations for a given schedule. */
     @Query("""
@@ -63,4 +78,26 @@ public interface EventPoojaUserRegistrationRepository extends JpaRepository<Even
              AND r.status NOT IN ('CANCELLED')
            """)
     int sumDirectDevoteesByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * G-4: Schedule-level duplicate guard — returns true when the user already has a
+     * non-cancelled registration for the given schedule row.
+     * Used alongside the pessimistic-lock reservation path to catch admin-direct bookings
+     * that bypass the reservation flow.
+     */
+    boolean existsByUserIdAndScheduleIdAndStatusNot(Long userId, Long scheduleId, String status);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE EventPoojaUserRegistration r SET r.scheduleId = :targetScheduleId WHERE r.scheduleId = :sourceScheduleId")
+    int migrateScheduleId(@Param("sourceScheduleId") Long sourceScheduleId, @Param("targetScheduleId") Long targetScheduleId);
+
+    List<EventPoojaUserRegistration> findByPoojaSevaIdOrderByCreatedAtDesc(Long poojaSevaId);
+
+    List<EventPoojaUserRegistration> findByCommunityIdAndPoojaSevaIdOrderByCreatedAtDesc(Long communityId, Long poojaSevaId);
+
+    @Modifying
+    @Query("UPDATE EventPoojaUserRegistration r SET r.status = :newStatus WHERE r.poojaSevaId = :poojaSevaId AND r.status NOT IN :excludedStatuses")
+    int bulkUpdateStatusByPoojaSevaId(@Param("poojaSevaId") Long poojaSevaId,
+                                      @Param("newStatus") String newStatus,
+                                      @Param("excludedStatuses") Collection<String> excludedStatuses);
 }

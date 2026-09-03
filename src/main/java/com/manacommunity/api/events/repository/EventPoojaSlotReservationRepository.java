@@ -100,6 +100,15 @@ public interface EventPoojaSlotReservationRepository extends JpaRepository<Event
     Optional<EventPoojaSlotReservation> findByIdempotencyKeyAndScheduleId(
             @Param("key") String key, @Param("scheduleId") Long scheduleId);
 
+    /** True when the user already holds an active (RESERVED or CONFIRMED) slot for any schedule in the same seva. */
+    @Query("""
+           SELECT COUNT(r) > 0 FROM EventPoojaSlotReservation r
+           WHERE r.schedule.poojaSeva.id = :sevaId
+             AND r.user.id = :userId
+             AND r.status IN ('RESERVED', 'CONFIRMED')
+           """)
+    boolean existsActiveBySevaAndUser(@Param("sevaId") Long sevaId, @Param("userId") Long userId);
+
     Optional<EventPoojaSlotReservation> findByRegistrationId(Long registrationId);
 
     List<EventPoojaSlotReservation> findByScheduleIdOrderByCreatedAtDesc(Long scheduleId);
@@ -108,4 +117,8 @@ public interface EventPoojaSlotReservationRepository extends JpaRepository<Event
     @Modifying
     @Query("DELETE FROM EventPoojaSlotReservation r WHERE r.status IN ('EXPIRED','CANCELLED') AND r.updatedAt < :before")
     int deleteExpiredOrCancelledBefore(@Param("before") LocalDateTime before);
+
+    @Modifying
+    @Query("UPDATE EventPoojaSlotReservation r SET r.schedule.id = :targetScheduleId WHERE r.schedule.id = :sourceScheduleId")
+    int migrateScheduleId(@Param("sourceScheduleId") Long sourceScheduleId, @Param("targetScheduleId") Long targetScheduleId);
 }

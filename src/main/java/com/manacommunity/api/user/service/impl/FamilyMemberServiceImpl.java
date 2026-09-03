@@ -2,6 +2,7 @@ package com.manacommunity.api.user.service.impl;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.user.dto.FamilyMemberSlimResponse;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.model.FamilyMember;
 import com.manacommunity.api.user.repository.FamilyMemberRepository;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FamilyMemberServiceImpl implements FamilyMemberService {
@@ -33,7 +35,74 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
             }
             return Collections.emptyList();
         }
-        return repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        List<FamilyMember> list = repository.findByUserIdOrderByCreatedAtAsc(user.getId());
+        if (user.getFullName() != null && !user.getFullName().isBlank()) {
+            boolean hasSelf = list.stream().anyMatch(m ->
+                    (m.getRelation() != null && (m.getRelation().equalsIgnoreCase("Self")
+                            || m.getRelation().equalsIgnoreCase("Self (Head)")
+                            || m.getRelation().equalsIgnoreCase("Head")))
+                    || (m.getName() != null && m.getName().trim().equalsIgnoreCase(user.getFullName().trim()))
+            );
+            if (!hasSelf) {
+                int age = 30;
+                if (user.getDateOfBirth() != null) {
+                    age = java.time.Period.between(user.getDateOfBirth(), java.time.LocalDate.now()).getYears();
+                }
+                boolean isFemale = "FEMALE".equalsIgnoreCase(user.getGender()) || "F".equalsIgnoreCase(user.getGender());
+                String avatar = (user.getProfilePicUrl() != null && !user.getProfilePicUrl().isBlank())
+                        ? user.getProfilePicUrl()
+                        : (isFemale ? "👩" : "👨");
+
+                String familyGothram = list.stream()
+                        .map(FamilyMember::getGothram)
+                        .filter(g -> g != null && !g.isBlank())
+                        .findFirst()
+                        .orElse(null);
+
+                Community comm = (user.getCommunity() != null)
+                        ? user.getCommunity()
+                        : (communityId != null ? communityRepository.findById(communityId).orElse(null) : null);
+
+                FamilyMember selfMember = FamilyMember.builder()
+                        .user(user)
+                        .community(comm)
+                        .name(user.getFullName().trim())
+                        .relation("Self (Head)")
+                        .age(age)
+                        .gender(user.getGender() != null ? user.getGender() : (isFemale ? "FEMALE" : "MALE"))
+                        .avatar(avatar)
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .gothram(familyGothram)
+                        .emergencyContact(false)
+                        .isDevotee(true)
+                        .status("ACTIVE")
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+                try {
+                    selfMember = repository.save(selfMember);
+                } catch (Exception ignored) {}
+
+                List<FamilyMember> updatedList = new java.util.ArrayList<>();
+                updatedList.add(selfMember);
+                updatedList.addAll(list);
+                list = updatedList;
+            }
+        }
+        return list;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FamilyMemberSlimResponse> getSlimFamilyMembers(Long userId) {
+        if (userId == null) return Collections.emptyList();
+        return repository.findByUserIdOrderByCreatedAtAsc(userId).stream()
+                .map(m -> new FamilyMemberSlimResponse(
+                        m.getId(), m.getName(), m.getGothram(),
+                        m.getRelation(), m.getPhone(), m.getGender()))
+                .collect(Collectors.toList());
     }
 
     @Override

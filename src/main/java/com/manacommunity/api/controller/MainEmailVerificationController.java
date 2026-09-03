@@ -167,6 +167,7 @@ public class MainEmailVerificationController {
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("mailEnabled", props.isEnabled());
+        resp.put("otpOnlyMode", props.isOtpOnlyMode());
         resp.put("from", props.getFrom());
         resp.put("fromName", props.getFromName());
         resp.put("recipientMode", props.getRecipientMode().name());
@@ -178,6 +179,8 @@ public class MainEmailVerificationController {
         String status;
         if (!props.isEnabled()) {
             status = "DISABLED - emails are rendered and logged but never sent";
+        } else if (props.isOtpOnlyMode()) {
+            status = "OTP-ONLY - only forgot-password/OTP emails are sent; all other notifications suppressed";
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.REDIRECT) {
             status = "REDIRECT - all emails go to " + props.getDefaultRecipient();
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.CC) {

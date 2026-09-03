@@ -73,34 +73,88 @@ public class AuthServiceImpl implements AuthService {
     private TokenBlacklistService tokenBlacklistService;
     @Autowired
     private OtpService otpService;
+    @Autowired
+    private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Autowired
+    private com.manacommunity.api.service.NotificationManagementService notificationService;
+    @Autowired
+    private com.manacommunity.api.email.EmailService emailService;
+    @Autowired
+    private com.manacommunity.api.email.EmailTemplateRenderer emailRenderer;
+    @Autowired
+    private com.manacommunity.api.email.EmailSupport emailSupport;
+
+    @Override
+    public void sendSignupOtp(String rawEmail, String phone) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (phone != null && !phone.trim().isEmpty() && userRepository.existsByPhone(phone.trim())) {
+            throw new DuplicateResourceException("User", "phone", phone.trim());
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(email, "User");
+        if (!otpResp.success()) {
+            throw new ManaCommunityException(
+                    otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
+                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
+        }
+    }
 
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
+
+        // 0. Verify email OTP before any other processing
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+        com.manacommunity.api.dto.otp.OtpResponse otpVerify = otpService.verify(email, request.getEmailOtpCode());
+        if (!otpVerify.success() || !otpVerify.verified()) {
+            throw new ManaCommunityException(
+                    otpVerify.message() != null ? otpVerify.message() : "Invalid or expired email verification code.",
+                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
 
         // 1. Verify Community Invite Code
         Community community = communityRepository.findByInviteCode(request.getInviteCode())
                 .orElseThrow(() -> new InvalidInviteCodeException(request.getInviteCode()));
 
         // 2. Duplicate email / phone check (both are UNIQUE in DB)
-        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email))
             throw new DuplicateResourceException("User", "email", email);
 
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
 
-        // 2c. Check if block & flat number combination is already registered in this community
-        if (community != null && request.getBlock() != null && !request.getBlock().trim().isEmpty()
-                && request.getFlatNo() != null && !request.getFlatNo().trim().isEmpty()) {
-            boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
-                    community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        // 2c. Validate block name and flat number against community block config FIRST.
+        //     This ensures the submitted block/flat actually exists in this community's
+        //     layout before we check if it is already taken (non-APARTMENT communities
+        //     with no block config skip this step automatically).
+        try {
+            blockConfigService.validateBlockAndFlat(
+                    community.getId(),
+                    request.getBlock(),
+                    request.getFlatNo()
             );
-            if (unitExists) {
-                throw new ManaCommunityException(
-                        "Unit Block " + request.getBlock().trim().toUpperCase() + " Flat " + request.getFlatNo().trim() + " is already registered in this community.",
-                        HttpStatus.CONFLICT, "DUPLICATE_UNIT");
-            }
+        } catch (IllegalArgumentException ex) {
+            throw new ManaCommunityException(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+        }
+
+        // 2d. Now that the flat is confirmed valid, check it is not already taken
+        //     (one registration per flat per community).
+        boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        );
+        if (unitExists) {
+            throw new ManaCommunityException(
+                    "Block " + request.getBlock().trim().toUpperCase() + " Flat " +
+                    request.getFlatNo().trim() + " is already registered in this community.",
+                    HttpStatus.CONFLICT, "DUPLICATE_UNIT");
         }
 
         // 2b. Enforce password strength before hashing — also reject passwords
@@ -152,6 +206,15 @@ public class AuthServiceImpl implements AuthService {
         user.setFlatNo(request.getFlatNo());
         user.setBlock(request.getBlock());
 
+        String rawOccupancy = request.getUserType() != null && !request.getUserType().isBlank()
+                ? request.getUserType().trim()
+                : (request.getOccupancyStatus() != null && !request.getOccupancyStatus().isBlank()
+                        ? request.getOccupancyStatus().trim() : "Owner");
+        String normalizedOccupancy = "Tenant".equalsIgnoreCase(rawOccupancy) ? "Tenant" : "Owner";
+        user.setOccupancyStatus(normalizedOccupancy);
+        user.setResidentType(request.getResidentType() != null && !request.getResidentType().isBlank()
+                ? request.getResidentType().trim() : "Resident");
+
         AppUser saved = userRepository.save(user);
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
         auditService.record(
@@ -160,6 +223,39 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(saved.getId()),
                 null,
                 "role=MEMBER, community=" + (community != null ? community.getId() : "none"));
+
+        notificationService.createNotification(
+                saved.getId(),
+                com.manacommunity.api.model.NotificationType.SIGNUP_SUCCESS,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Welcome to " + community.getName() + "!",
+                "Your registration is complete. Welcome aboard, " + saved.getFullName() + "!",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.NORMAL,
+                null,
+                community.getId()
+        );
+
+        // Send welcome email — failure is swallowed so it never breaks registration
+        try {
+            java.util.Map<String, Object> vars = emailSupport.baseVars(saved.getFullName());
+            vars.put("communityName", community.getName());
+            vars.put("block", saved.getBlock());
+            vars.put("flatNo", saved.getFlatNo());
+            vars.put("actionUrl", emailSupport.props().getBaseUrl());
+            String html = emailRenderer.render(com.manacommunity.api.email.EmailTemplate.WELCOME, vars);
+            emailService.send(new com.manacommunity.api.email.EmailMessage(
+                    saved.getEmail(),
+                    saved.getFullName(),
+                    "Welcome to " + community.getName() + "! 🎉",
+                    html
+            ));
+        } catch (Exception ex) {
+            log.warn("Welcome email failed for user {} — registration still succeeded: {}", saved.getId(), ex.getMessage());
+        }
+
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
 
@@ -303,6 +399,9 @@ public class AuthServiceImpl implements AuthService {
                     : java.util.Collections.emptyList();
         }
         response.setEnabledModules(enabledModules);
+        response.setOccupancyStatus(user.getOccupancyStatus());
+        response.setUserType(user.getOccupancyStatus() != null ? user.getOccupancyStatus() : "Owner");
+        response.setResidentType(user.getResidentType());
         
         return response;
     }
@@ -391,6 +490,20 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(user.getId()),
                 null,
                 "Password reset via OTP verification");
+
+        notificationService.createNotification(
+                user.getId(),
+                com.manacommunity.api.model.NotificationType.PASSWORD_RESET,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Password Reset Successful",
+                "Your password has been reset successfully. If you did not request this change, please contact support immediately.",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.HIGH,
+                null,
+                user.getCommunity() != null ? user.getCommunity().getId() : null
+        );
     }
 
     @Override

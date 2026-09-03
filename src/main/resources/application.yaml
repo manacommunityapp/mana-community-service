@@ -22,7 +22,15 @@ spring:
     baseline-description: "pre-flyway baseline schema"
     out-of-order: false
     validate-on-migrate: true
-    clean-disabled: true
+  # ── Timezone & Localization (Indian Standard Time) ─────────────────────
+  jackson:
+    time-zone: Asia/Kolkata
+    locale: en_IN
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Kolkata
 
 
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
@@ -109,6 +117,10 @@ app:
     recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
     # Default recipient address used when recipient-mode is REDIRECT or CC.
     default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:}
+    # When true, ONLY forgot-password / OTP verification emails are sent.
+    # All other notification emails (registration, tournament, match, etc.)
+    # are rendered and logged but never dispatched. Set to false to re-enable all.
+    otp-only-mode: ${APP_MAIL_OTP_ONLY_MODE:true}
     # ── Brevo (Sendinblue) Cloud Delivery & Activity Tracking API ───────────
     brevo:
       enabled: ${BREVO_ENABLED:true}

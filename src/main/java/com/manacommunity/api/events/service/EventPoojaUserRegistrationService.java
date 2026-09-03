@@ -17,6 +17,12 @@ public interface EventPoojaUserRegistrationService {
 
     List<EventPoojaUserRegistration> getRegistrationsByCommunity(Long communityId);
 
+    List<EventPoojaUserRegistration> getRegistrationsByCommunity(Long communityId, Long poojaSevaId);
+
+    List<com.manacommunity.api.events.dto.PoojaRegistrationSummaryResponse> getRegistrationSummariesByCommunity(Long communityId, Long poojaSevaId);
+
+    List<com.manacommunity.api.events.entity.EventPoojaBookingParticipant> getParticipantsByRegistrationId(Long registrationId, AppUser user);
+
     EventPoojaUserRegistration getRegistrationById(Long id, AppUser user);
 
     void cancelRegistration(Long id, AppUser user);

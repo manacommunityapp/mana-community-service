@@ -3,18 +3,17 @@ package com.manacommunity.api.user.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
 
 /**
- * BUG FIX: RegisterRequest was a plain class with no accessor methods.
- * SportsEventServiceImpl uses record-style accessors (req.dateOfBirth();
- * req.gender()) — converted to a Java record.
- *
- * Also added required fields missing from the original:
- * - dateOfBirth (NOT NULL in app_user table)
- * - gender (NOT NULL in app_user table)
+ * Self-registration payload.
+ * All residential fields (block, flatNo) are mandatory for apartment communities.
+ * Validation against the community's actual block/flat config is enforced by
+ * CommunityBlockConfigService.validateBlockAndFlat in AuthServiceImpl.
  */
 @Data
 public class RegisterRequest {
@@ -23,6 +22,7 @@ public class RegisterRequest {
     @NotBlank
     String email;
     @NotBlank
+    @Pattern(regexp = "\\d{10}", message = "Phone number must be exactly 10 digits")
     String phone;
     String aadharNumber;
     @NotBlank
@@ -31,10 +31,18 @@ public class RegisterRequest {
     String password;
     @NotNull
     @Past
-    LocalDate dateOfBirth; // BUG FIX: required by app_user schema
+    LocalDate dateOfBirth;
     @NotBlank
-    String gender; // BUG FIX: required by app_user schema (MALE/FEMALE/OTHER)
+    String gender; // MALE / FEMALE / OTHER
     @NotBlank
     String flatNo;
-    String block;
+    @NotBlank
+    String block;  // A, B, C, D — mandatory; validated against community_block_config
+    String userType;        // OWNER / TENANT / Owner / Tenant
+    String occupancyStatus; // Owner / Tenant / Staff
+    String residentType;    // Resident / Non-Resident / Guest
+
+    @NotBlank(message = "Email verification code is required")
+    @Size(min = 4, max = 9, message = "Invalid verification code")
+    String emailOtpCode;
 }

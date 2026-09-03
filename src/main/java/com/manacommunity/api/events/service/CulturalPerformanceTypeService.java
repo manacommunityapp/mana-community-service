@@ -8,4 +8,8 @@ public interface CulturalPerformanceTypeService {
     List<EventCulturalPerformanceType> getAllPerformanceTypes(Long communityId);
 
     EventCulturalPerformanceType createPerformanceType(Long communityId, String name, String description);
+
+    EventCulturalPerformanceType updatePerformanceType(Long id, Long communityId, String name, String description);
+
+    void deletePerformanceType(Long id, Long communityId);
 }

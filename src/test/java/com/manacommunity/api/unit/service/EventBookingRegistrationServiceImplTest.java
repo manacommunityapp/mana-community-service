@@ -3,16 +3,16 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
-import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
 import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
+import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.events.service.impl.EventBookingRegistrationServiceImpl;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.user.model.AppUser;
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,8 +32,8 @@ import static org.mockito.Mockito.when;
 class EventBookingRegistrationServiceImplTest {
 
     @Test
-    @DisplayName("pooja booking decrements top-level slots for single-day seva")
-    void poojaBookingDecrementsTopLevelSlotsForSingleDaySeva() {
+    @DisplayName("pooja booking does NOT mutate event_pooja_sevas.slots — capacity is owned by event_pooja_schedule")
+    void poojaBookingDoesNotMutateTopLevelSlots() {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
 
@@ -50,24 +49,21 @@ class EventBookingRegistrationServiceImplTest {
         EventBookingRegistration saved = service.createRegistration(registration("pooja-10", "2026-08-28", "08:30", 3), null, null);
 
         assertThat(saved).isNotNull();
-        assertThat(seva.getSlots()).isEqualTo(17);
+        // slots must remain untouched — it is a configuration value, not a live counter
+        assertThat(seva.getSlots()).isEqualTo(20);
     }
 
     @Test
-    @DisplayName("pooja booking decrements specific timeSlotConfig slot for multi-day seva")
-    void poojaBookingDecrementsSpecificTimeSlotConfig() {
+    @DisplayName("pooja booking does NOT mutate timeSlotConfig slot counts — counts are owned by event_pooja_schedule")
+    void poojaBookingDoesNotMutateTimeSlotConfigCounts() {
         EventBookingRegistrationRepository regRepo = mock(EventBookingRegistrationRepository.class);
         PoojaSevaRepository poojaRepo = mock(PoojaSevaRepository.class);
-
-        EventPoojaSevaDayTimeSlot slot1 = new EventPoojaSevaDayTimeSlot(null, LocalDate.of(2026, 8, 28), "08:30", 10);
-        EventPoojaSevaDayTimeSlot slot2 = new EventPoojaSevaDayTimeSlot(null, LocalDate.of(2026, 8, 28), "18:30", 10);
 
         EventPoojaSeva seva = new EventPoojaSeva();
         seva.setId(20L);
         seva.setMultiDay(true);
         seva.setDate(LocalDate.now().plusDays(2));
         seva.setEndDate(LocalDate.now().plusDays(4));
-        seva.setTimeSlotConfig(List.of(slot1, slot2));
 
         when(poojaRepo.findById(20L)).thenReturn(Optional.of(seva));
         when(regRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -76,8 +72,8 @@ class EventBookingRegistrationServiceImplTest {
         EventBookingRegistration saved = service.createRegistration(registration("pooja-20", "2026-08-28", "08:30", 3), null, null);
 
         assertThat(saved).isNotNull();
-        assertThat(slot1.getSlotCount()).isEqualTo(7);
-        assertThat(slot2.getSlotCount()).isEqualTo(10);
+        // seva.slots must remain untouched
+        assertThat(seva.getSlots()).isNull();
     }
 
     @Test
@@ -118,9 +114,12 @@ class EventBookingRegistrationServiceImplTest {
                 mock(CompetitionRepository.class),
                 culturalRepo,
                 mock(EventCommunityRepository.class),
-                mock(EventRegistrationRepository.class),
                 mock(EventTicketCategoryRepository.class),
-                mock(AppUserRepository.class)
+                mock(AppUserRepository.class),
+                mock(PoojaSlotReservationService.class),
+                mock(EventPoojaSlotReservationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventPoojaScheduleRepository.class)
         );
 
         EventBookingRegistration req = registration("cultural-5", "2026-08-28", "18:00", 1);
@@ -154,9 +153,12 @@ class EventBookingRegistrationServiceImplTest {
                 mock(CompetitionRepository.class),
                 mock(CulturalEventRepository.class),
                 mock(EventCommunityRepository.class),
-                mock(EventRegistrationRepository.class),
                 mock(EventTicketCategoryRepository.class),
-                mock(AppUserRepository.class)
+                mock(AppUserRepository.class),
+                mock(PoojaSlotReservationService.class),
+                mock(EventPoojaSlotReservationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventMealRegistrationRepository.class),
+                mock(com.manacommunity.api.events.repository.EventPoojaScheduleRepository.class)
         );
     }
 }

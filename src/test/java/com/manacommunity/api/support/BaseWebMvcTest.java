@@ -45,6 +45,9 @@ public abstract class BaseWebMvcTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     protected com.manacommunity.api.security.TokenBlacklistService tokenBlacklistService;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.service.RolePermissionService rolePermissionService;
+
     protected String toJson(Object obj) throws Exception {
         return objectMapper.writeValueAsString(obj);
     }

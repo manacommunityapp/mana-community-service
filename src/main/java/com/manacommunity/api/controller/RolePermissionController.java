@@ -45,6 +45,16 @@ public class RolePermissionController {
     }
 
     /**
+     * GET /api/roles/permissions/template
+     * Returns all global parent/template role permissions (not scoped to any community).
+     * Used by the "Access & Roles" UI to import parent menu permissions into the community matrix.
+     */
+    @GetMapping("/permissions/template")
+    public ResponseEntity<Map<String, List<String>>> getTemplateRolePermissions() {
+        return ResponseEntity.ok(rolePermissionService.getAllRolePermissions(null));
+    }
+
+    /**
      * GET /api/roles/details
      * Returns all roles with their permission lists as structured DTOs,
      * scoped to the caller's community. Designed for the "Access &amp; Roles" admin UI page.
@@ -179,24 +189,12 @@ public class RolePermissionController {
     }
 
     /**
-     * Returns the effective permissions for a user sourced from the role template rows
-     * in the {@code role_permissions} table (no user-override rows included here,
-     * since those require the full RolePermissionRepository — use the
-     * {@code GET /api/users/{id}/permissions} endpoint when user-level overrides matter).
+     * Returns the effective permissions for a user properly scoped to their community.
      */
     private List<String> resolvePermissions(AppUser user) {
-        if (user.getUserRoles() == null || user.getUserRoles().isEmpty()) {
+        if (user == null || user.getId() == null) {
             return java.util.Collections.emptyList();
         }
-        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
-        for (com.manacommunity.api.model.Role r : user.getUserRoles()) {
-            if (r.getPermissions() != null) {
-                r.getPermissions().stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        }
-        return java.util.List.copyOf(seen);
+        return rolePermissionService.getEffectivePermissionsForUser(user);
     }
 }

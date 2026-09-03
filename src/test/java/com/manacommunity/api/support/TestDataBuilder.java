@@ -93,8 +93,9 @@ public final class TestDataBuilder {
         req.setInviteCode("INVITE123");
         req.setDateOfBirth(LocalDate.of(1995, 6, 15));
         req.setGender("MALE");
-        req.setFlatNo("A-101");
         req.setBlock("A");
+        req.setFlatNo("101");  // Floor 1, Flat 1 of Block A
+        req.setUserType("Owner");
         return req;
     }
 
@@ -145,7 +146,6 @@ public final class TestDataBuilder {
                 .priceType(com.manacommunity.api.events.entity.EventCommunity.PriceType.FREE)
                 .community(community != null ? community : community())
                 .createdBy(user != null ? user : adminUser())
-                .registrations(new java.util.ArrayList<>())
                 .build();
     }
 
@@ -160,16 +160,5 @@ public final class TestDataBuilder {
         req.setLocationType("IN_PERSON");
         req.setLocation("Clubhouse");
         return req;
-    }
-
-    public static com.manacommunity.api.events.entity.EventRegistration eventRegistration(
-            Long id, com.manacommunity.api.events.entity.EventCommunity event, AppUser user) {
-        return com.manacommunity.api.events.entity.EventRegistration.builder()
-                .id(id)
-                .event(event)
-                .user(user)
-                .status(com.manacommunity.api.events.entity.EventRegistration.RegistrationStatus.CONFIRMED)
-                .registeredAt(LocalDateTime.now())
-                .build();
     }
 }

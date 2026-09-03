@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.events.enums.RegistrationSource;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
@@ -103,6 +104,49 @@ public class EventBookingRegistration {
     @Column(name = "qr_code_url", length = 500)
     private String qrCodeUrl;
 
+    // ── Admin / audit fields ──────────────────────────────────────────────────
+
+    /** How this booking was created: SELF (normal user), ADMIN (on behalf), IMPORT (bulk). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_source", length = 20, nullable = false)
+    @Builder.Default
+    private RegistrationSource registrationSource = RegistrationSource.SELF;
+
+    /** ID of the admin who created this booking when registrationSource = ADMIN. Null for SELF bookings. */
+    @Column(name = "registered_by")
+    private Long registeredBy;
+
+    /** True when the admin bypassed capacity or duplicate-registration checks (adminOverride=true). */
+    @Column(name = "override_used", nullable = false)
+    @Builder.Default
+    private Boolean overrideUsed = false;
+
+    /** Free-text reason the admin gave for overriding normal booking rules. */
+    @Column(name = "override_reason", columnDefinition = "TEXT")
+    private String overrideReason;
+
+    /** Reservation ID obtained from the /reserve endpoint before booking. Not persisted here — carried transiently. */
+    @Transient
+    private Long reservationId;
+
+    /** Schedule ID of the specific slot being booked. Not persisted here — derived from the reservation. */
+    @Transient
+    private Long scheduleId;
+
+    /** Activity type sent by frontend (e.g. "LUNCH_DINNER"). Not persisted — used for routing only. */
+    @Transient
+    private String activityType;
+
+    /** LunchDinner / meal slot id sent by frontend. Not persisted — used for routing meal registrations. */
+    @Transient
+    private Long lunchDinnerId;
+
+    @Transient
+    private String phone;
+
+    @Transient
+    private String email;
+
     @Column(name = "checked_in")
     @Builder.Default
     private Boolean checkedIn = false;
@@ -136,6 +180,12 @@ public class EventBookingRegistration {
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (overrideUsed == null) {
+            overrideUsed = false;
+        }
+        if (registrationSource == null) {
+            registrationSource = RegistrationSource.SELF;
         }
         updatedAt = LocalDateTime.now();
     }

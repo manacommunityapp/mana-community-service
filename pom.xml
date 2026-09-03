@@ -88,6 +88,12 @@
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio</artifactId>
             <version>9.14.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-io</groupId>
+                    <artifactId>commons-io</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- JavaMail / SMTP support (JavaMailSender) for email notifications -->
@@ -199,6 +205,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Karate — API automation framework (JUnit 5 runner) -->
+        <dependency>
+            <groupId>io.karatelabs</groupId>
+            <artifactId>karate-junit5</artifactId>
+            <version>1.5.1</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- TestContainers — version managed by Spring Boot parent BOM -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -285,6 +299,20 @@
             <version>2.9.2</version>
         </dependency>
 
+        <!-- Apache Commons IO — modern version required by Apache POI 5.2.x+ -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+
+        <!-- Apache POI — Excel (.xlsx) read/write for bulk upload features. -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -305,6 +333,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <!-- Karate requires a live server; file-level exclude blocks accidental discovery.
+                         Run Karate: ./mvnw test -Dtest=KarateRunner (bypasses the exclude below) -->
+                    <excludes>
+                        <exclude>**/karate/KarateRunner.java</exclude>
+                    </excludes>
                     <includes>
                         <!-- 1. User & Auth related tests -->
                         <include>**/unit/service/AuthServiceTest.java</include>
@@ -321,6 +354,9 @@
                         <include>**/unit/service/EventServiceTest.java</include>
                         <include>**/unit/service/EventDonationServiceTest.java</include>
                         <include>**/unit/service/EventVolunteerServiceTest.java</include>
+                        <include>**/unit/service/PoojaSevaServiceImplTest.java</include>
+                        <include>**/unit/service/EventBookingRegistrationServiceImplTest.java</include>
+                        <include>**/unit/service/PoojaRegistrationStatusTest.java</include>
                         <include>**/slice/controller/EventControllerTest.java</include>
                         <include>**/slice/controller/EventDonationControllerTest.java</include>
                         <include>**/slice/controller/EventVolunteerControllerTest.java</include>

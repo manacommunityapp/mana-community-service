@@ -1,5 +1,6 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.events.enums.PoojaSevaStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -116,6 +117,10 @@ public class EventPoojaSeva {
     @Column(name = "approval_required")
     private Boolean approvalRequired = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    private PoojaSevaStatus status = PoojaSevaStatus.ACTIVE;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -138,6 +143,9 @@ public class EventPoojaSeva {
     protected void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+        if (this.status == null) {
+            this.status = PoojaSevaStatus.ACTIVE;
         }
         this.updatedAt = LocalDateTime.now();
     }
@@ -249,5 +257,8 @@ public class EventPoojaSeva {
 
     public Boolean getNeedsRegistration() { return needsRegistration; }
     public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
+
+    public PoojaSevaStatus getStatus() { return status; }
+    public void setStatus(PoojaSevaStatus status) { this.status = status != null ? status : PoojaSevaStatus.ACTIVE; }
 }
 

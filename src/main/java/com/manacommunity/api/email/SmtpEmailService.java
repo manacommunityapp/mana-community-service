@@ -68,6 +68,17 @@ public class SmtpEmailService implements EmailService {
             return;
         }
 
+        // OTP-only mode: deliver only auth/OTP emails, suppress everything else.
+        if (props.isOtpOnlyMode()) {
+            String type = templateType; // already read from MDC above
+            if (!"EMAIL_OTP".equalsIgnoreCase(type)) {
+                log.info("[EMAIL OTP-ONLY] Suppressed '{}' to {} (template type: {})",
+                        message.subject(), message.to(), type != null ? type : "unknown");
+                persistSafe(EmailDeliveryLog.skipped(message, "otp-only-mode: non-OTP email suppressed"));
+                return;
+            }
+        }
+
         String effectiveTo = resolveRecipient(message.to());
         if (effectiveTo == null || effectiveTo.isBlank()) {
             log.debug("[EMAIL] Skipped — no effective recipient after mode resolution");

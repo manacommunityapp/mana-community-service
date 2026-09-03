@@ -43,7 +43,6 @@ import static org.mockito.Mockito.*;
 class EventServiceTest {
 
     @Mock EventCommunityRepository eventRepo;
-    @Mock EventRegistrationRepository regRepo;
     @Mock EventVolunteerRepository volunteerRepo;
     @Mock EventDonationRepository donationRepo;
     @Mock EventExpenseRepository expenseRepo;
@@ -66,6 +65,7 @@ class EventServiceTest {
     @Mock MediaUrlService mediaUrlService;
     @Mock EventTicketCategoryRepository ticketCategoryRepo;
     @Mock EventContactRepository eventContactRepo;
+    @Mock EventPoojaUserRegistrationRepository poojaUserRegRepo;
     @Mock NotificationRepository notificationRepo;
     @Mock AppUserRepository appUserRepo;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -80,12 +80,12 @@ class EventServiceTest {
     @BeforeEach
     void setUp() {
         eventService = new EventService(
-                eventRepo, regRepo, volunteerRepo, donationRepo, expenseRepo,
+                eventRepo, volunteerRepo, donationRepo, expenseRepo,
                 sponsorRepo, taskRepo, mealRegRepo, auctionItemRepo, auctionPlayerRepo,
                 activityRegRepo, programRepo, galleryRepo, invoiceRepo, mediaRepo,
                 mediaUrlService, bookingRegRepo, notificationRepo, poojaSevaRepo,
                 culturalEventRepo, competitionRepo, lunchDinnerRepo, familyMemberRepo,
-                ticketCategoryRepo, eventContactRepo, appUserRepo, objectMapper
+                ticketCategoryRepo, eventContactRepo, poojaUserRegRepo, appUserRepo, objectMapper
         );
         community = TestDataBuilder.community(1L, "INVITE123");
         adminUser = TestDataBuilder.adminUser();
@@ -123,14 +123,16 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("getAllEvents returns all community events ordered by start date desc")
+        @DisplayName("getAllEvents returns all community events ordered by start date desc and populates registrationCount from event_pooja_user_registrations")
         void getAllEvents_success() {
             when(eventRepo.findByCommunityIdOrderByStartDateDesc(1L)).thenReturn(List.of(event));
+            when(poojaUserRegRepo.countByEventIdAndStatusNot(100L, "CANCELLED")).thenReturn(15L);
 
             List<EventResponse> result = eventService.getAllEvents(1L, adminUser.getId());
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getId()).isEqualTo(100L);
+            assertThat(result.get(0).getRegistrationCount()).isEqualTo(15);
         }
 
         @Test
@@ -301,7 +303,7 @@ class EventServiceTest {
             EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
-            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAscSortOrderAsc(100L)).thenReturn(List.of(cultural));
 
             EventCompetition comp = new EventCompetition();
             comp.setId(30L);
@@ -328,7 +330,6 @@ class EventServiceTest {
             verify(familyMemberRepo).deleteAll(List.of(familyMember));
             verify(activityRegRepo).deleteByProgramEventId(100L);
             verify(auctionItemRepo).deleteAuctionBidsByEventId(100L);
-            verify(regRepo).deleteByEventId(100L);
             verify(volunteerRepo).deleteByEventId(100L);
             verify(donationRepo).deleteByEventId(100L);
             verify(expenseRepo).deleteByEventId(100L);
@@ -343,10 +344,12 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("delete cancels event and registrations when main event has direct registrations")
+        @DisplayName("delete cancels event and registrations when main event has registrations")
         void delete_cancelsEvent_whenMainEventHasRegistrations() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.countByEventId(100L)).thenReturn(2L);
+            EventBookingRegistration booking = new EventBookingRegistration();
+            booking.setActivityId("event-100");
+            when(bookingRegRepo.findByActivityId("event-100")).thenReturn(List.of(booking));
 
             eventService.delete(100L, adminUser.getId());
 
@@ -385,7 +388,7 @@ class EventServiceTest {
             EventCulturalEvent cultural = new EventCulturalEvent();
             cultural.setId(20L);
             cultural.setMainEventId(100L);
-            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAsc(100L)).thenReturn(List.of(cultural));
+            when(culturalEventRepo.findByMainEventIdOrderByDateAscStartTimeAscSortOrderAsc(100L)).thenReturn(List.of(cultural));
             EventBookingRegistration booking = new EventBookingRegistration();
             booking.setActivityId("cultural-20");
             when(bookingRegRepo.findByActivityId("cultural-20")).thenReturn(List.of(booking));
@@ -460,9 +463,9 @@ class EventServiceTest {
         @DisplayName("register happy path creates registration")
         void register_success() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.existsByEventIdAndUserId(100L, memberUser.getId())).thenReturn(false);
-            when(regRepo.save(any(EventRegistration.class))).thenAnswer(inv -> {
-                EventRegistration r = inv.getArgument(0);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(memberUser.getId(), "event-100", "CANCELLED")).thenReturn(false);
+            when(bookingRegRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> {
+                EventBookingRegistration r = inv.getArgument(0);
                 r.setId(10L);
                 return r;
             });
@@ -470,14 +473,14 @@ class EventServiceTest {
             EventResponse response = eventService.register(100L, memberUser);
 
             assertThat(response).isNotNull();
-            verify(regRepo).save(any(EventRegistration.class));
+            verify(bookingRegRepo).save(any(EventBookingRegistration.class));
         }
 
         @Test
         @DisplayName("register throws AlreadyRegisteredException if already registered")
         void register_alreadyRegistered() {
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.existsByEventIdAndUserId(100L, memberUser.getId())).thenReturn(true);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(memberUser.getId(), "event-100", "CANCELLED")).thenReturn(true);
 
             assertThatThrownBy(() -> eventService.register(100L, memberUser))
                     .isInstanceOf(AlreadyRegisteredException.class);
@@ -487,11 +490,13 @@ class EventServiceTest {
         @DisplayName("register throws EventFullException when capacity is reached")
         void register_capacityFull() {
             event.setCapacity(1);
-            event.getRegistrations().add(TestDataBuilder.eventRegistration(1L, event, adminUser));
 
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.existsByEventIdAndUserId(100L, memberUser.getId())).thenReturn(false);
-            when(regRepo.countByEventId(100L)).thenReturn(1L);
+            when(bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(memberUser.getId(), "event-100", "CANCELLED")).thenReturn(false);
+            EventBookingRegistration existing = new EventBookingRegistration();
+            existing.setStatus("CONFIRMED");
+            existing.setDevoteeCount(1);
+            when(bookingRegRepo.findByActivityId("event-100")).thenReturn(List.of(existing));
 
             assertThatThrownBy(() -> eventService.register(100L, memberUser))
                     .isInstanceOf(EventFullException.class);
@@ -500,23 +505,28 @@ class EventServiceTest {
         @Test
         @DisplayName("unregister removes existing registration")
         void unregister_success() {
-            EventRegistration registration = TestDataBuilder.eventRegistration(10L, event, memberUser);
+            EventBookingRegistration registration = new EventBookingRegistration();
+            registration.setId(10L);
+            registration.setUser(memberUser);
+            registration.setStatus("CONFIRMED");
             when(eventRepo.findById(100L)).thenReturn(Optional.of(event));
-            when(regRepo.findByEventIdAndUserId(100L, memberUser.getId())).thenReturn(Optional.of(registration));
+            when(bookingRegRepo.findByActivityId("event-100")).thenReturn(List.of(registration));
 
             EventResponse response = eventService.unregister(100L, memberUser.getId());
 
             assertThat(response).isNotNull();
-            verify(regRepo).delete(registration);
+            assertThat(registration.getStatus()).isEqualTo("CANCELLED");
+            verify(bookingRegRepo).save(registration);
         }
 
         @Test
         @DisplayName("confirmRegistration updates status to CONFIRMED")
         void confirmRegistration_success() {
-            EventRegistration reg = TestDataBuilder.eventRegistration(10L, event, memberUser);
-            reg.setStatus(EventRegistration.RegistrationStatus.PENDING);
-            when(regRepo.findById(10L)).thenReturn(Optional.of(reg));
-            when(regRepo.save(any(EventRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
+            EventBookingRegistration reg = new EventBookingRegistration();
+            reg.setId(10L);
+            reg.setStatus("PENDING");
+            when(bookingRegRepo.findById(10L)).thenReturn(Optional.of(reg));
+            when(bookingRegRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
 
             RegistrationResponse response = eventService.confirmRegistration(10L);
 
@@ -525,17 +535,18 @@ class EventServiceTest {
         }
 
         @Test
-        @DisplayName("rejectRegistration updates status to REJECTED")
+        @DisplayName("rejectRegistration updates status to CANCELLED")
         void rejectRegistration_success() {
-            EventRegistration reg = TestDataBuilder.eventRegistration(10L, event, memberUser);
-            reg.setStatus(EventRegistration.RegistrationStatus.PENDING);
-            when(regRepo.findById(10L)).thenReturn(Optional.of(reg));
-            when(regRepo.save(any(EventRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
+            EventBookingRegistration reg = new EventBookingRegistration();
+            reg.setId(10L);
+            reg.setStatus("PENDING");
+            when(bookingRegRepo.findById(10L)).thenReturn(Optional.of(reg));
+            when(bookingRegRepo.save(any(EventBookingRegistration.class))).thenAnswer(inv -> inv.getArgument(0));
 
             RegistrationResponse response = eventService.rejectRegistration(10L);
 
             assertThat(response).isNotNull();
-            assertThat(response.getStatus()).isEqualTo("REJECTED");
+            assertThat(response.getStatus()).isEqualTo("CANCELLED");
         }
     }
 
@@ -549,7 +560,6 @@ class EventServiceTest {
         @DisplayName("getDashboardStats aggregates community metrics")
         void getDashboardStats_success() {
             when(eventRepo.countByCommunityId(1L)).thenReturn(5L);
-            when(regRepo.countByEventCommunityId(1L)).thenReturn(50L);
             when(volunteerRepo.countByCommunityId(1L)).thenReturn(10L);
             when(donationRepo.sumAmountByCommunity(1L)).thenReturn(15000.0);
             when(expenseRepo.sumAmountByCommunity(1L)).thenReturn(5000.0);
@@ -557,6 +567,11 @@ class EventServiceTest {
             when(sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
             when(auctionItemRepo.sumCurrentBidsByCommunity(1L)).thenReturn(2500.0);
             when(eventRepo.findByCommunityIdOrderByStartDateDesc(1L)).thenReturn(List.of(event));
+
+            EventBookingRegistration b = new EventBookingRegistration();
+            b.setStatus("CONFIRMED");
+            b.setDevoteeCount(50);
+            when(bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(b));
 
             DashboardStatsResponse stats = eventService.getDashboardStats(1L);
 

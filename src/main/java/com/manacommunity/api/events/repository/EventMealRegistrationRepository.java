@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface EventMealRegistrationRepository extends JpaRepository<EventMealRegistration, Long> {
@@ -19,9 +20,39 @@ public interface EventMealRegistrationRepository extends JpaRepository<EventMeal
 
     long countByUserId(Long userId);
 
+    List<EventMealRegistration> findByUserId(Long userId);
+
     @Query("SELECT m FROM EventMealRegistration m WHERE m.event.id = :eventId ORDER BY m.mealDate, m.mealType")
     List<EventMealRegistration> findByEventIdOrdered(@Param("eventId") Long eventId);
 
+    List<EventMealRegistration> findByEventId(Long eventId);
+
+    List<EventMealRegistration> findByCommunityId(Long communityId);
+
     @Query("SELECT COALESCE(SUM(m.headCount), 0) FROM EventMealRegistration m WHERE m.event.community.id = :communityId")
     long sumHeadCountByCommunity(@Param("communityId") Long communityId);
+
+    /** Sum of headCounts for a specific event+date+mealType, excluding a specific user (for capacity pre-check). */
+    @Query("""
+           SELECT COALESCE(SUM(m.headCount), 0) FROM EventMealRegistration m
+           WHERE m.event.id = :eventId
+             AND m.mealDate = :date
+             AND m.mealType = :mealType
+             AND m.user.id <> :excludeUserId
+           """)
+    int sumHeadCountExcludingUser(@Param("eventId") Long eventId,
+                                  @Param("date") LocalDate date,
+                                  @Param("mealType") EventMealRegistration.MealType mealType,
+                                  @Param("excludeUserId") Long excludeUserId);
+
+    /** True when the user already has a meal registration for this event+date+mealType. */
+    boolean existsByEventIdAndUserIdAndMealDateAndMealType(Long eventId, Long userId, LocalDate mealDate,
+                                                           EventMealRegistration.MealType mealType);
+
+    java.util.Optional<EventMealRegistration> findByEventIdAndUserIdAndMealDateAndMealType(
+            Long eventId, Long userId, LocalDate mealDate, EventMealRegistration.MealType mealType);
+
+    /** True when any meal registration exists for this event+date+mealType (for delete guard). */
+    boolean existsByEventIdAndMealDateAndMealType(Long eventId, LocalDate mealDate,
+                                                   EventMealRegistration.MealType mealType);
 }

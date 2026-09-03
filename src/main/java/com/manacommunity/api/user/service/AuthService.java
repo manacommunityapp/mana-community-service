@@ -23,6 +23,9 @@ public interface AuthService {
 
     boolean submitKyc(Long userId, KycRequest req);
 
+    /** Sends a 6-digit OTP verification code to the supplied email address to verify it before signup. */
+    void sendSignupOtp(String email, String phone);
+
     /** Sends a 6-digit OTP verification code to the user''s registered email address for password reset. */
     void sendPasswordResetOtp(String email);
 

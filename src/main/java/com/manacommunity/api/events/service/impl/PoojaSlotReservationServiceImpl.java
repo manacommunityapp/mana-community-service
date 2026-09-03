@@ -7,9 +7,9 @@ import com.manacommunity.api.events.entity.EventPoojaSchedule;
 import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
 import com.manacommunity.api.events.enums.PoojaScheduleStatus;
 import com.manacommunity.api.events.enums.ReservationStatus;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
 import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
 import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
@@ -31,7 +31,7 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     private final EventPoojaScheduleRepository scheduleRepo;
     private final EventPoojaSlotReservationRepository reservationRepo;
     private final AuditService auditService;
-    private final EventRegistrationRepository eventRegistrationRepository;
+    private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
 
     @Value("${pooja.reservation.ttl-minutes:5}")
     private int reservationTtlMinutes;
@@ -39,11 +39,11 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
     public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
                                            EventPoojaSlotReservationRepository reservationRepo,
                                            AuditService auditService,
-                                           EventRegistrationRepository eventRegistrationRepository) {
+                                           EventBookingRegistrationRepository eventBookingRegistrationRepository) {
         this.scheduleRepo = scheduleRepo;
         this.reservationRepo = reservationRepo;
         this.auditService = auditService;
-        this.eventRegistrationRepository = eventRegistrationRepository;
+        this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
     }
 
     /**
@@ -78,13 +78,14 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
             }
         }
 
-        // ── #15: Return existing active pre-hold rather than creating a duplicate ──
+        // ── #15: Return existing active pre-hold or reject if already confirmed ──
         if (user != null) {
             Optional<EventPoojaSlotReservation> activeForUser =
                     reservationRepo.findActiveByScheduleAndUser(scheduleId, user.getId());
             if (activeForUser.isPresent()) {
                 EventPoojaSlotReservation r = activeForUser.get();
                 if (r.getStatus() == ReservationStatus.RESERVED) {
+                    // Return the existing hold — idempotent re-reserve
                     return PoojaReserveResponse.builder()
                             .reservationId(r.getId())
                             .scheduleId(scheduleId)
@@ -96,6 +97,12 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
                             .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
                             .build();
                 }
+                if (r.getStatus() == ReservationStatus.CONFIRMED) {
+                    // User already completed registration for this exact slot — reject immediately
+                    throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                            "this pooja slot",
+                            "You have already registered for this slot. Only one booking per slot is allowed.");
+                }
             }
         }
 
@@ -103,10 +110,22 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         EventPoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", scheduleId));
 
+        // G-2: Reject if the slot's date+time is already in the past
+        java.time.LocalDate slotDate = schedule.getScheduleDate();
+        java.time.LocalTime slotTime = schedule.getStartTime();
+        java.time.LocalDate today    = java.time.LocalDate.now();
+        boolean slotInPast = slotDate.isBefore(today) ||
+                (slotDate.isEqual(today) && slotTime != null && slotTime.isBefore(java.time.LocalTime.now()));
+        if (slotInPast) {
+            throw new RegistrationClosedException(
+                    "This Pooja slot (" + slotDate + " " + (slotTime != null ? slotTime : "") +
+                    ") is in the past and can no longer accept bookings.");
+        }
+
         // Enforce mandatory main event registration if pooja belongs to a main event
         if (user != null && schedule.getPoojaSeva() != null && schedule.getPoojaSeva().getMainEventId() != null && schedule.getPoojaSeva().getMainEventId() > 0) {
             Long mainEventId = schedule.getPoojaSeva().getMainEventId();
-            boolean isMainRegistered = eventRegistrationRepository.existsByEventIdAndUserId(mainEventId, user.getId());
+            boolean isMainRegistered = isRegisteredForMainEvent(mainEventId, user.getId());
             if (!isMainRegistered) {
                 throw new IllegalArgumentException("Registration for the main event is required before reserving this Pooja Seva slot. Please register for the main event first.");
             }
@@ -121,6 +140,15 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
         // ── 1a. Enforce EventPoojaSeva booking-engine constraints (#5) ──
         LocalDateTime now = LocalDateTime.now();
         EventPoojaSeva seva = schedule.getPoojaSeva();
+
+        // One active slot per logged-in user per seva (any date, any slot).
+        // Runs after releaseReservation() in the reschedule path so the old CANCELLED row never blocks.
+        if (user != null && reservationRepo.existsActiveBySevaAndUser(seva.getId(), user.getId())) {
+            throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                    seva.getName(),
+                    "You already have an active booking for this pooja seva. Only one slot per seva is allowed.");
+        }
+
         if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
             throw new RegistrationClosedException(
                     "Bookings for '" + seva.getName() + "' are not open yet. " +
@@ -225,5 +253,18 @@ public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationServ
             auditService.record(AuditAction.POOJA_SLOT_RESERVATION_CANCELLED, AuditModule.EVENTS,
                     "EventPoojaSlotReservation", reservationId.toString());
         });
+    }
+
+    private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
+        if (mainEventId == null || mainEventId <= 0 || userId == null) {
+            return true;
+        }
+        if (eventBookingRegistrationRepository != null) {
+            return eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + mainEventId, "CANCELLED")
+                    || eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(mainEventId), "CANCELLED");
+        }
+        return false;
     }
 }

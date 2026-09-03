@@ -10,6 +10,10 @@ import java.time.LocalTime;
 @Table(name = "event_cultural_events")
 public class EventCulturalEvent extends BaseAuditEntity {
 
+    public enum CulturalEventStatus {
+        PENDING, CONFIRMED, CANCELLED
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -48,13 +52,26 @@ public class EventCulturalEvent extends BaseAuditEntity {
     private String requirements;
 
     @Column(name = "has_backtrack")
-    private Boolean hasBacktrack = true;
+    private Boolean hasBacktrack = false;
 
     @Column(name = "has_live_music")
     private Boolean hasLiveMusic = false;
 
     @Column(name = "needs_registration")
     private Boolean needsRegistration = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private CulturalEventStatus status = CulturalEventStatus.PENDING;
+
+    @Column(name = "capacity")
+    private Integer capacity;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    @Column(name = "reg_deadline")
+    private java.time.LocalDate regDeadline;
 
     // Getters and Setters
     public Long getId() { return id; }
@@ -101,5 +118,17 @@ public class EventCulturalEvent extends BaseAuditEntity {
 
     public Boolean getNeedsRegistration() { return needsRegistration; }
     public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
+
+    public CulturalEventStatus getStatus() { return status; }
+    public void setStatus(CulturalEventStatus status) { this.status = status; }
+
+    public Integer getCapacity() { return capacity; }
+    public void setCapacity(Integer capacity) { this.capacity = capacity; }
+
+    public Integer getSortOrder() { return sortOrder; }
+    public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
+    public java.time.LocalDate getRegDeadline() { return regDeadline; }
+    public void setRegDeadline(java.time.LocalDate regDeadline) { this.regDeadline = regDeadline; }
 }
 

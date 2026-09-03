@@ -5,20 +5,24 @@ import com.manacommunity.api.events.entity.EventCompetition;
 import com.manacommunity.api.events.entity.EventBookingRegistration;
 import com.manacommunity.api.events.entity.EventLunchDinner;
 import com.manacommunity.api.events.entity.EventPoojaSeva;
-import com.manacommunity.api.events.entity.EventPoojaSevaDayTimeSlot;
 import com.manacommunity.api.events.entity.EventTicketCategory;
 import com.manacommunity.api.events.entity.EventCulturalEvent;
+import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
+import com.manacommunity.api.events.enums.RegistrationSource;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.CompetitionRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
-import com.manacommunity.api.events.repository.EventRegistrationRepository;
+import com.manacommunity.api.events.entity.EventMealRegistration;
+import com.manacommunity.api.events.repository.EventMealRegistrationRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
+import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.repository.EventTicketCategoryRepository;
 import com.manacommunity.api.events.repository.LunchDinnerRepository;
 import com.manacommunity.api.events.repository.PoojaSevaRepository;
-import com.manacommunity.api.events.entity.EventPoojaUserRegistration;
-import com.manacommunity.api.events.repository.EventPoojaUserRegistrationRepository;
 import com.manacommunity.api.events.service.EventBookingRegistrationService;
+import com.manacommunity.api.events.service.PoojaSlotReservationService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
@@ -31,12 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 
 @Service
@@ -50,9 +50,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
     private final CompetitionRepository competitionRepository;
     private final CulturalEventRepository culturalEventRepository;
     private final EventCommunityRepository communityEventRepository;
-    private final EventRegistrationRepository eventRegistrationRepository;
     private final EventTicketCategoryRepository ticketCategoryRepository;
     private final AppUserRepository appUserRepository;
+    private final PoojaSlotReservationService poojaSlotReservationService;
+    private final EventPoojaSlotReservationRepository poojaSlotReservationRepository;
+    private final EventMealRegistrationRepository mealRegistrationRepository;
+    private final EventPoojaScheduleRepository scheduleRepository;
 
     public EventBookingRegistrationServiceImpl(
             EventBookingRegistrationRepository repository,
@@ -63,9 +66,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             CompetitionRepository competitionRepository,
             CulturalEventRepository culturalEventRepository,
             EventCommunityRepository communityEventRepository,
-            EventRegistrationRepository eventRegistrationRepository,
             EventTicketCategoryRepository ticketCategoryRepository,
-            AppUserRepository appUserRepository) {
+            AppUserRepository appUserRepository,
+            PoojaSlotReservationService poojaSlotReservationService,
+            EventPoojaSlotReservationRepository poojaSlotReservationRepository,
+            EventMealRegistrationRepository mealRegistrationRepository,
+            EventPoojaScheduleRepository scheduleRepository) {
         this.repository = repository;
         this.poojaUserRegRepo = poojaUserRegRepo;
         this.communityRepository = communityRepository;
@@ -74,9 +80,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         this.competitionRepository = competitionRepository;
         this.culturalEventRepository = culturalEventRepository;
         this.communityEventRepository = communityEventRepository;
-        this.eventRegistrationRepository = eventRegistrationRepository;
         this.ticketCategoryRepository = ticketCategoryRepository;
         this.appUserRepository = appUserRepository;
+        this.poojaSlotReservationService = poojaSlotReservationService;
+        this.poojaSlotReservationRepository = poojaSlotReservationRepository;
+        this.mealRegistrationRepository = mealRegistrationRepository;
+        this.scheduleRepository = scheduleRepository;
     }
 
     private boolean isUserAdmin(AppUser user) {
@@ -111,8 +120,16 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         if (!isAdmin) {
             Long validatingUserId = (targetUser != null) ? targetUser.getId() : null;
-            validateCapacityAndDeadline(registration, validatingUserId);
+            // When the user pre-reserved a pooja slot, capacity was already enforced atomically
+            // (SELECT FOR UPDATE + count check) at reserve time. Skip the racy SELECT COUNT here.
+            boolean hasPoojaReservation = registration.getReservationId() != null
+                    && registration.getActivityId() != null
+                    && registration.getActivityId().startsWith("pooja-");
+            if (!hasPoojaReservation) {
+                validateCapacityAndDeadline(registration, validatingUserId);
+            }
             if (validatingUserId != null && registration.getActivityId() != null && !registration.getActivityId().isBlank()) {
+                // One registration per seva (pooja type). Different sevas in the same event are each allowed.
                 if (repository.existsByUserIdAndActivityIdAndStatusNot(validatingUserId, registration.getActivityId(), "CANCELLED")) {
                     throw new AlreadyRegisteredException(registration.getActivityTitle() != null ? registration.getActivityTitle() : "this activity",
                             "You are already registered for this activity.");
@@ -141,7 +158,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 if (catCode.length() > 4) catCode = catCode.substring(0, 4);
                 if (!catCode.isEmpty()) prefix = "MNA-2026-" + catCode + "-";
             }
-            int rnd = new Random().nextInt(9000) + 1000;
+            String rnd = String.format("%06d", new Random().nextInt(900000) + 100000);
             registration.setRegCode(prefix + rnd);
         }
 
@@ -172,6 +189,20 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         registration.setCreatedAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
+
+        // Stamp audit / source fields
+        if (isAdmin) {
+            registration.setRegistrationSource(RegistrationSource.ADMIN);
+            if (user != null) registration.setRegisteredBy(user.getId());
+        } else {
+            registration.setRegistrationSource(RegistrationSource.SELF);
+        }
+        if (adminOverride) {
+            registration.setOverrideUsed(true);
+            // overrideReason is caller-supplied; preserve whatever was set on the incoming object
+        } else {
+            registration.setOverrideUsed(false);
+        }
 
         EventBookingRegistration saved = repository.save(registration);
 
@@ -230,25 +261,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         // Only check duplicate for new registrations (not updates)
         boolean isNewRegistration = (registration.getId() == null);
 
-        // 1. Block re-registration for the exact same seva
+        // Block re-registration for the exact same seva. Different sevas in the same event are each allowed.
         if (isNewRegistration && userId != null
                 && repository.existsByUserIdAndActivityIdAndStatusNot(userId, "pooja-" + id, "CANCELLED")) {
             throw new AlreadyRegisteredException(p.getName());
-        }
-
-        // 2. Block registration if user already has an active booking for ANY seva in the same parent event
-        if (isNewRegistration && userId != null && p.getMainEventId() != null) {
-            List<EventPoojaSeva> siblingSevas = poojaSevaRepository
-                    .findByMainEventIdOrderByDateAscStartTimeAsc(p.getMainEventId());
-            List<String> siblingActivityIds = siblingSevas.stream()
-                    .map(s -> "pooja-" + s.getId())
-                    .collect(java.util.stream.Collectors.toList());
-            if (!siblingActivityIds.isEmpty()
-                    && repository.existsByUserIdAndActivityIdInAndStatusNot(userId, siblingActivityIds, "CANCELLED")) {
-                throw new AlreadyRegisteredException(p.getName(),
-                        "Only one pooja seva registration is allowed per family per event. "
-                        + "You already have an active registration for a seva in this event.");
-            }
         }
 
         LocalDate today = LocalDate.now();
@@ -377,9 +393,22 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         boolean isNewRegistration = (registration.getId() == null);
         if (isNewRegistration && userId != null) {
+            // Check event_booking_registrations (same-path duplicate)
             if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "food-" + id, "CANCELLED")
                     || repository.existsByUserIdAndActivityIdAndStatusNot(userId, "meal-" + id, "CANCELLED")) {
                 throw new AlreadyRegisteredException(m.getName(), "You are already registered for this meal.");
+            }
+            // Cross-system check: block if user already registered via the meal-preference path
+            if (m.getMainEventId() != null && m.getDate() != null && m.getMealType() != null) {
+                try {
+                    EventMealRegistration.MealType mt =
+                            EventMealRegistration.MealType.valueOf(m.getMealType().toUpperCase());
+                    if (mealRegistrationRepository.existsByEventIdAndUserIdAndMealDateAndMealType(
+                            m.getMainEventId(), userId, m.getDate(), mt)) {
+                        throw new AlreadyRegisteredException(m.getName(),
+                                "You have already indicated attendance for this meal via meal preferences. Duplicate registration blocked.");
+                    }
+                } catch (IllegalArgumentException ignored) {}
             }
         }
 
@@ -417,8 +446,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         boolean isNewRegistration = (registration.getId() == null);
         if (isNewRegistration && userId != null) {
             if (repository.existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + eventId, "CANCELLED")
-                    || repository.existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(eventId), "CANCELLED")
-                    || (eventRegistrationRepository != null && eventRegistrationRepository.existsByEventIdAndUserId(eventId, userId))) {
+                    || repository.existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(eventId), "CANCELLED")) {
                 throw new AlreadyRegisteredException(ev.getTitle(), "You are already registered for the event: '" + ev.getTitle() + "'.");
             }
         }
@@ -433,7 +461,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         // 1. Overall Event Capacity Check (check maxAttendees or capacity)
         Integer maxLimit = ev.getMaxAttendees() != null ? ev.getMaxAttendees() : ev.getCapacity();
         if (maxLimit != null && maxLimit > 0) {
-            long directCount = eventRegistrationRepository != null ? eventRegistrationRepository.countByEventId(eventId) : 0;
             List<EventBookingRegistration> existingBookings = new java.util.ArrayList<>();
             existingBookings.addAll(repository.findByActivityId("event-" + eventId));
             existingBookings.addAll(repository.findByActivityId(String.valueOf(eventId)));
@@ -444,7 +471,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
                     .sum();
 
-            long currentOccupancy = Math.max(directCount, bookingAttendeeCount);
+            long currentOccupancy = bookingAttendeeCount;
             if (currentOccupancy + requestedDevotees > maxLimit) {
                 throw new EventFullException(ev.getTitle() + " (Capacity: " + maxLimit + ", Currently Registered: " + currentOccupancy + ")", maxLimit);
             }
@@ -549,21 +576,12 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         try {
             if (actId.startsWith("pooja-")) {
-                Long id = Long.parseLong(actId.replace("pooja-", ""));
-                poojaSevaRepository.findById(id).ifPresent(p -> {
-                    if (!decrementPoojaTimeSlot(p, registration, booked)) {
-                        int current = p.getSlots() != null ? p.getSlots() : 20;
-                        p.setSlots(Math.max(0, current - booked));
-                    }
-                    poojaSevaRepository.save(p);
-                });
+                // Capacity is owned by event_pooja_schedule.devotee_capacity, enforced atomically at
+                // reserve time (SELECT FOR UPDATE). event_pooja_sevas.slots is a config value only.
+                return;
             } else if (actId.startsWith("food-")) {
-                Long id = Long.parseLong(actId.replace("food-", ""));
-                lunchDinnerRepository.findById(id).ifPresent(m -> {
-                    int current = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
-                    m.setTargetPlates(Math.max(0, current - booked));
-                    lunchDinnerRepository.save(m);
-                });
+                // target_plates is a fixed total ceiling; capacity is checked live from booking rows.
+                // Do NOT mutate target_plates — doing so would corrupt the ceiling used in validation.
             } else if (actId.startsWith("comp-")) {
                 Long id = Long.parseLong(actId.replace("comp-", ""));
                 competitionRepository.findById(id).ifPresent(c -> {
@@ -597,66 +615,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private boolean decrementPoojaTimeSlot(EventPoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
-        if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
-        if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
-
-        LocalDate bookedDate = parseBookingDate(registration.getEventDate());
-        LocalTime bookedTime = parseBookingTime(registration.getEventTime());
-        if (bookedDate == null || bookedTime == null) return false;
-
-        for (EventPoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
-            if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
-            LocalTime slotTime = parseBookingTime(slot.getStartTime());
-            if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
-                int current = slot.getSlotCount() != null ? slot.getSlotCount() : defaultPoojaSlotCount(poojaSeva);
-                slot.setSlotCount(Math.max(0, current - booked));
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private int defaultPoojaSlotCount(EventPoojaSeva poojaSeva) {
-        return poojaSeva.getSlots() != null ? poojaSeva.getSlots() : 20;
-    }
-
-    private LocalDate parseBookingDate(String value) {
-        if (value == null || value.isBlank()) return null;
-        String clean = value.trim();
-        if (clean.contains("T")) clean = clean.substring(0, clean.indexOf('T'));
-        try {
-            return LocalDate.parse(clean);
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-    }
-
-    private LocalTime parseBookingTime(String value) {
-        if (value == null || value.isBlank()) return null;
-        String clean = value.trim();
-        if (clean.contains("T")) clean = clean.substring(clean.indexOf('T') + 1);
-        if (clean.length() >= 8 && clean.charAt(2) == ':' && clean.charAt(5) == ':') {
-            clean = clean.substring(0, 8);
-        }
-
-        List<DateTimeFormatter> formats = List.of(
-                DateTimeFormatter.ISO_LOCAL_TIME,
-                DateTimeFormatter.ofPattern("H:mm"),
-                DateTimeFormatter.ofPattern("HH:mm"),
-                DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
-                DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH)
-        );
-        for (DateTimeFormatter format : formats) {
-            try {
-                return LocalTime.parse(clean.toUpperCase(Locale.ENGLISH), format);
-            } catch (DateTimeParseException ignored) {
-            }
-        }
-        return null;
-    }
-
     private void incrementActivitySlots(EventBookingRegistration registration) {
         String actId = registration.getActivityId();
         if (actId == null || actId.isBlank()) return;
@@ -667,21 +625,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
 
         try {
             if (actId.startsWith("pooja-")) {
-                Long id = Long.parseLong(actId.replace("pooja-", ""));
-                poojaSevaRepository.findById(id).ifPresent(p -> {
-                    if (!incrementPoojaTimeSlot(p, registration, booked)) {
-                        int current = p.getSlots() != null ? p.getSlots() : 20;
-                        p.setSlots(current + booked);
-                    }
-                    poojaSevaRepository.save(p);
-                });
+                // Reservation release is handled in syncToPoojaTableIfApplicable when status = CANCELLED.
+                return;
             } else if (actId.startsWith("food-")) {
-                Long id = Long.parseLong(actId.replace("food-", ""));
-                lunchDinnerRepository.findById(id).ifPresent(m -> {
-                    int current = m.getTargetPlates() != null ? m.getTargetPlates() : 500;
-                    m.setTargetPlates(current + booked);
-                    lunchDinnerRepository.save(m);
-                });
+                // target_plates is a fixed total ceiling — do not restore it on cancellation.
             } else if (actId.startsWith("comp-")) {
                 Long id = Long.parseLong(actId.replace("comp-", ""));
                 competitionRepository.findById(id).ifPresent(c -> {
@@ -713,27 +660,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         }
     }
 
-    private boolean incrementPoojaTimeSlot(EventPoojaSeva poojaSeva, EventBookingRegistration registration, int booked) {
-        if (poojaSeva == null || !Boolean.TRUE.equals(poojaSeva.getMultiDay())) return false;
-        if (poojaSeva.getTimeSlotConfig() == null || poojaSeva.getTimeSlotConfig().isEmpty()) return false;
-
-        LocalDate bookedDate = parseBookingDate(registration.getEventDate());
-        LocalTime bookedTime = parseBookingTime(registration.getEventTime());
-        if (bookedDate == null || bookedTime == null) return false;
-
-        for (EventPoojaSevaDayTimeSlot slot : poojaSeva.getTimeSlotConfig()) {
-            if (slot == null || slot.getSlotDate() == null || slot.getStartTime() == null) continue;
-            LocalTime slotTime = parseBookingTime(slot.getStartTime());
-            if (bookedDate.equals(slot.getSlotDate()) && bookedTime.equals(slotTime)) {
-                int current = slot.getSlotCount() != null ? slot.getSlotCount() : defaultPoojaSlotCount(poojaSeva);
-                slot.setSlotCount(current + booked);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     @Override
     @Transactional(readOnly = true)
     public List<EventBookingRegistration> getMyRegistrations(AppUser user, Long communityId) {
@@ -756,14 +682,69 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             return Collections.emptyList();
         }
 
+        List<EventBookingRegistration> list = new java.util.ArrayList<>();
         if (status != null && !status.isBlank()) {
             if ("ACTIVE".equalsIgnoreCase(status.trim())) {
-                return repository.findByUserIdAndStatusNotOrderByCreatedAtDesc(user.getId(), "CANCELLED");
+                list.addAll(repository.findByUserIdAndStatusNotOrderByCreatedAtDesc(user.getId(), "CANCELLED"));
+            } else {
+                list.addAll(repository.findByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), status.trim().toUpperCase()));
             }
-            return repository.findByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), status.trim().toUpperCase());
+        } else {
+            list.addAll(repository.findByUserIdOrderByCreatedAtDesc(user.getId()));
         }
 
-        return repository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        // Include any meal registrations from event_meal_registrations not already in list
+        try {
+            List<EventMealRegistration> mealRegs = mealRegistrationRepository.findByUserId(user.getId());
+            if (mealRegs != null && !mealRegs.isEmpty()) {
+                java.util.Set<String> existingActIds = list.stream()
+                        .map(EventBookingRegistration::getActivityId)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toSet());
+
+                for (EventMealRegistration mr : mealRegs) {
+                    Long ldId = mr.getLunchDinner() != null ? mr.getLunchDinner().getId() : mr.getId();
+                    String actId = "meal-" + ldId;
+                    String foodActId = "food-" + ldId;
+                    if (!existingActIds.contains(actId) && !existingActIds.contains(foodActId)) {
+                        EventBookingRegistration synth = new EventBookingRegistration();
+                        synth.setId(mr.getId());
+                        synth.setUser(user);
+                        synth.setParticipantName(user.getFullName() != null ? user.getFullName() : (user.getEmail() != null ? user.getEmail() : "Devotee"));
+                        synth.setCategory("Food");
+                        synth.setPassType("Meal Registration Pass");
+                        synth.setActivityType("LUNCH_DINNER");
+                        synth.setActivityId(actId);
+                        synth.setMainEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
+                        String title = mr.getLunchDinner() != null && mr.getLunchDinner().getName() != null
+                                ? mr.getLunchDinner().getName()
+                                : (mr.getMealType() != null ? mr.getMealType().name() + " Feast" : "Community Feast");
+                        synth.setActivityTitle(title);
+                        synth.setEventDate(mr.getMealDate() != null ? mr.getMealDate().toString() : null);
+                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getStartTime() != null) {
+                            String t = mr.getLunchDinner().getStartTime().toString();
+                            if (mr.getLunchDinner().getEndTime() != null) {
+                                t += " - " + mr.getLunchDinner().getEndTime().toString();
+                            }
+                            synth.setEventTime(t);
+                        }
+                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getVenue() != null) {
+                            synth.setVenue(mr.getLunchDinner().getVenue());
+                        }
+                        synth.setDevoteeCount(mr.getHeadCount() != null ? mr.getHeadCount() : 1);
+                        synth.setStatus("CONFIRMED");
+                        synth.setPaymentStatus("FREE");
+                        synth.setBookingFee(0.0);
+                        synth.setRegCode("MNA-2026-MEAL-" + String.format("%06d", mr.getId()));
+                        synth.setQrCodeUrl("https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + synth.getRegCode());
+                        synth.setCreatedAt(mr.getCreatedAt() != null ? mr.getCreatedAt() : LocalDateTime.now());
+                        list.add(synth);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return list;
     }
 
     @Override
@@ -1011,7 +992,57 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             poojaReg.setStatus(reg.getStatus());
             poojaReg.setQrCodeUrl(reg.getQrCodeUrl());
 
-            poojaUserRegRepo.save(poojaReg);
+            // Stamp reservation fields on first save or update (reservation_id is @Transient on EventBookingRegistration)
+            Long incomingReservationId = reg.getReservationId();
+            if (incomingReservationId != null) {
+                poojaSlotReservationRepository.findById(incomingReservationId).ifPresent(reservation -> {
+                    poojaReg.setReservationId(reservation.getId());
+                    if (reservation.getTokenNumber() != null) {
+                        poojaReg.setTokenNumber(reservation.getTokenNumber());
+                    }
+                    if (reservation.getSchedule() != null) {
+                        poojaReg.setScheduleId(reservation.getSchedule().getId());
+                        if (reservation.getSchedule().getTimeSlotConfigId() != null) {
+                            poojaReg.setPoojaSevaTimeSlotsId(reservation.getSchedule().getTimeSlotConfigId());
+                        }
+                    }
+                });
+            }
+
+            // Auto-resolve correct scheduleId from schedule table if not set or if date/time changed
+            if (poojaReg.getPoojaSlotDate() != null && poojaReg.getPoojaSlotTime() != null) {
+                try {
+                    Long poojaId = poojaReg.getPoojaSevaId() != null ? poojaReg.getPoojaSevaId() : poojaReg.getEventId();
+                    if (poojaId != null) {
+                        java.time.LocalDate d = java.time.LocalDate.parse(poojaReg.getPoojaSlotDate().trim());
+                        String tStr = poojaReg.getPoojaSlotTime().trim();
+                        if (tStr.contains(" - ")) tStr = tStr.split(" - ")[0].trim();
+                        if (tStr.length() == 5) tStr += ":00";
+                        java.time.LocalTime t = java.time.LocalTime.parse(tStr);
+                        scheduleRepository.findByPoojaSeva_IdAndScheduleDateAndStartTime(poojaId, d, t)
+                                .ifPresent(sch -> {
+                                    poojaReg.setScheduleId(sch.getId());
+                                    if (sch.getTimeSlotConfigId() != null) {
+                                        poojaReg.setPoojaSevaTimeSlotsId(sch.getTimeSlotConfigId());
+                                    }
+                                });
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            EventPoojaUserRegistration savedPoojaReg = poojaUserRegRepo.save(poojaReg);
+
+            // Confirm or release the linked reservation based on final registration status
+            Long linkedReservationId = savedPoojaReg.getReservationId() != null
+                    ? savedPoojaReg.getReservationId()
+                    : incomingReservationId;
+            if (linkedReservationId != null) {
+                if ("CANCELLED".equalsIgnoreCase(reg.getStatus())) {
+                    poojaSlotReservationService.releaseReservation(linkedReservationId);
+                } else {
+                    poojaSlotReservationService.confirmReservation(linkedReservationId, savedPoojaReg.getId());
+                }
+            }
         } catch (Exception ignored) {}
     }
 }
