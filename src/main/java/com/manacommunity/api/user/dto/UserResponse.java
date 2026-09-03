@@ -25,6 +25,8 @@ public class UserResponse {
     private String flatNo;
     private String block;
     private String tower;
+    private String residentType;
+    private String occupancyStatus;
     private String employeeId;
     private String govtIdType;
     private String govtIdNumber;
@@ -41,7 +43,5 @@ public class UserResponse {
     private LocalDateTime roleChangedAt;
     /** ID of the admin who last changed this user's role. */
     private Long roleChangedBy;
-    private String occupancyStatus;
-    private String residentType;
     private String userType;
 }

@@ -136,31 +136,59 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
-        int safeSize = Math.min(Math.max(size, 1), 200);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        if (!isSuperAdmin && targetCommunityId == null) {
+            return ResponseEntity.ok(PagedResponse.empty());
+        }
+
+        int safeSize = Math.min(Math.max(size, 1), 500);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
 
-        Page<AppUser> userPage;
-        if (isSuperAdmin) {
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByKycStatus(kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findAll(pageable);
+        org.springframework.data.jpa.domain.Specification<AppUser> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+
+            if (targetCommunityId != null) {
+                predicates.add(cb.equal(root.get("community").get("id"), targetCommunityId));
             }
-        } else {
-            Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-            if (communityId == null) {
-                return ResponseEntity.ok(PagedResponse.empty());
+
+            if (kycStatus != null && !kycStatus.trim().isEmpty() && !"ALL".equalsIgnoreCase(kycStatus.trim())) {
+                predicates.add(cb.equal(cb.upper(root.get("kycStatus")), kycStatus.trim().toUpperCase()));
             }
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByCommunityIdAndKycStatus(communityId, kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findByCommunityId(communityId, pageable);
+
+            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status.trim())) {
+                if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isTrue(root.get("isActive")));
+                } else if ("INACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isFalse(root.get("isActive")));
+                }
             }
-        }
+            if (search != null && !search.trim().isEmpty()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                java.util.List<jakarta.persistence.criteria.Predicate> searchPredicates = new java.util.ArrayList<>();
+                searchPredicates.add(cb.like(cb.lower(root.get("fullName")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("email")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("phone")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("role")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("flatNo")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("block")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("tower")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("employeeId")), pattern));
+                predicates.add(cb.or(searchPredicates.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<AppUser> userPage = appUserRepo.findAll(spec, pageable);
+
         return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
     }
 
