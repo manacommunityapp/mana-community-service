@@ -42,7 +42,6 @@ public class RegisterRequest {
     String occupancyStatus; // Owner / Tenant / Staff
     String residentType;    // Resident / Non-Resident / Guest
 
-    @NotBlank(message = "Email verification code is required")
-    @Size(min = 4, max = 9, message = "Invalid verification code")
+    // No longer validated at registration — email is verified via POST /api/otp/verify at step 3.
     String emailOtpCode;
 }

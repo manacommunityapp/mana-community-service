@@ -111,14 +111,11 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
 
-        // 0. Verify email OTP before any other processing
+        // 0. Assert the registrant's email was verified via OTP before reaching this step.
+        //    The frontend calls POST /api/otp/verify at step 3, which consumes the code and
+        //    marks it verified. assertEmailVerified checks that flag rather than re-consuming.
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
-        com.manacommunity.api.dto.otp.OtpResponse otpVerify = otpService.verify(email, request.getEmailOtpCode());
-        if (!otpVerify.success() || !otpVerify.verified()) {
-            throw new ManaCommunityException(
-                    otpVerify.message() != null ? otpVerify.message() : "Invalid or expired email verification code.",
-                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
-        }
+        otpService.assertEmailVerified(email);
 
         // 1. Verify Community Invite Code
         Community community = communityRepository.findByInviteCode(request.getInviteCode())
