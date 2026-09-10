@@ -214,4 +214,8 @@ public class AppUser {
         syncRoleString();
         updatedAt = LocalDateTime.now();
     }
+
+    public String getUsername() {
+        return email != null ? email : (fullName != null ? fullName : "User");
+    }
 }

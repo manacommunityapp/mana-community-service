@@ -1,11 +1,15 @@
 package com.manacommunity.api.retail.service;
 
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.retail.dto.RetailOrderDto;
 import com.manacommunity.api.retail.entity.RetailOrder;
 import com.manacommunity.api.retail.entity.RetailOrderLine;
 import com.manacommunity.api.retail.repository.RetailOrderRepository;
 import com.manacommunity.api.retail.repository.RetailProductRepository;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class RetailOrderService {
     private final RetailProductRepository productRepository;
     private final SupplierService supplierService;
     private final CustomerService customerService;
+    private final AuditService auditService;
 
     @Transactional(readOnly = true)
     public List<RetailOrderDto> getOrders(Long communityId, String type) {
@@ -42,7 +46,7 @@ public class RetailOrderService {
 
         long count = orderRepository.countByCommunityIdAndOrderType(community.getId(), orderType);
         String prefix = orderType == RetailOrder.OrderType.PURCHASE ? "PO" : "SO";
-        String code = prefix + String.valueOf(count + 1);
+        String code = prefix + (count + 1);
 
         RetailOrder order = RetailOrder.builder()
                 .code(code)
@@ -67,13 +71,19 @@ public class RetailOrderService {
 
         order = orderRepository.save(order);
         updateProductCounters(order);
+        auditService.record(AuditAction.RETAIL_ORDER_CREATED, AuditModule.RETAIL,
+                "RetailOrder", String.valueOf(order.getId()));
         return toDto(order);
     }
 
     @Transactional
-    public RetailOrderDto updateOrder(Long id, RetailOrderDto dto) {
+    public RetailOrderDto updateOrder(Long id, RetailOrderDto dto, Long callerCommunityId) {
         RetailOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        // IDOR protection: caller must belong to the same community as the order
+        if (order.getCommunity() == null || !order.getCommunity().getId().equals(callerCommunityId)) {
+            throw new UnauthorizedActionException("Order does not belong to your community");
+        }
 
         var oldStatus = order.getStatus();
         order.setPartyId(dto.getPartyId());
@@ -100,11 +110,21 @@ public class RetailOrderService {
             updateProductCounters(order);
         }
 
+        auditService.record(AuditAction.RETAIL_ORDER_UPDATED, AuditModule.RETAIL,
+                "RetailOrder", String.valueOf(id));
         return toDto(order);
     }
 
     @Transactional
-    public void deleteOrder(Long id) {
+    public void deleteOrder(Long id, Long callerCommunityId) {
+        RetailOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        // IDOR protection: caller must belong to the same community as the order
+        if (order.getCommunity() == null || !order.getCommunity().getId().equals(callerCommunityId)) {
+            throw new UnauthorizedActionException("Order does not belong to your community");
+        }
+        auditService.record(AuditAction.RETAIL_ORDER_DELETED, AuditModule.RETAIL,
+                "RetailOrder", String.valueOf(id));
         orderRepository.deleteById(id);
     }
 

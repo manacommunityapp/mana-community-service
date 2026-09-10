@@ -19,6 +19,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -86,11 +90,11 @@ public class VisitorPassService {
     public VisitorPassResponse create(VisitorPassRequest req, AppUser resident, Community community) {
         String code = generatePassCode();
         String otp = generateOtpCode();
-        
+
         VisitorPass pass = VisitorPass.builder()
                 .passCode(code)
-                .otp(otp)
-                .otpExpiresAt(LocalDateTime.now().plusHours(12)) // Pre-approved codes valid for 12 hours
+                .otpHash(hashOtp(otp))  // Store only the hash — never the plain OTP
+                .otpExpiresAt(LocalDateTime.now().plusHours(12))
                 .visitorName(req.getVisitorName())
                 .visitorPhone(req.getVisitorPhone())
                 .vehicleNumber(req.getVehicleNumber())
@@ -111,12 +115,15 @@ public class VisitorPassService {
 
         VisitorPass saved = repo.save(pass);
 
-        // Write Audit log
-        writeAudit(saved.getId(), saved.getVisitorName(), "CREATED", 
-                "Resident (" + resident.getFullName() + ")", 
-                "Pre-approved visitor pass created. OTP: " + otp + ". QR Token Generated.");
+        // Audit log — do NOT include OTP
+        writeAudit(saved.getId(), saved.getVisitorName(), "CREATED",
+                "Resident (" + resident.getFullName() + ")",
+                "Pre-approved visitor pass created. QR Token Generated.");
 
-        return toResponse(saved);
+        // Return plain OTP ONCE at creation — all subsequent reads return null
+        VisitorPassResponse response = toResponse(saved);
+        response.setOtpOnCreation(otp);
+        return response;
     }
 
     @Transactional
@@ -132,8 +139,8 @@ public class VisitorPassService {
 
         VisitorPass pass = VisitorPass.builder()
                 .passCode(code)
-                .otp(otp)
-                .otpExpiresAt(LocalDateTime.now().plusMinutes(15)) // Walk-ins expire in 15 mins if not approved
+                .otpHash(hashOtp(otp))  // Store only the hash
+                .otpExpiresAt(LocalDateTime.now().plusMinutes(15))
                 .visitorName(req.getVisitorName())
                 .visitorPhone(req.getVisitorPhone())
                 .vehicleNumber(req.getVehicleNumber())
@@ -142,7 +149,7 @@ public class VisitorPassService {
                 .flatNumber(req.getFlatNumber() != null ? req.getFlatNumber() : resident.getFlatNo())
                 .resident(resident)
                 .community(community)
-                .status(VisitorPass.PassStatus.PENDING) // Pending resident approval
+                .status(VisitorPass.PassStatus.PENDING)
                 .gateIn(req.getGate())
                 .guardIn(guard != null ? guard.getFullName() : "Guard")
                 .visitorPhoto(req.getVisitorPhoto())
@@ -154,7 +161,6 @@ public class VisitorPassService {
                 "Guard (" + (guard != null ? guard.getFullName() : "System") + ")",
                 "Walk-in visitor record created. Awaiting Resident approval.");
 
-        // Send simulated Resident Notification
         try {
             notificationService.createNotification(
                     resident.getId(),
@@ -173,14 +179,17 @@ public class VisitorPassService {
             log.error("Failed to send walk-in approval notification to resident: {}", e.getMessage());
         }
 
-        return toResponse(saved);
+        // Return plain OTP ONCE for guard to communicate to resident
+        VisitorPassResponse response = toResponse(saved);
+        response.setOtpOnCreation(otp);
+        return response;
     }
 
     @Transactional
     public VisitorPassResponse approvePass(Long id, AppUser resident) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
-        
+
         pass.setStatus(VisitorPass.PassStatus.APPROVED);
         VisitorPass saved = repo.save(pass);
 
@@ -195,7 +204,7 @@ public class VisitorPassService {
     public VisitorPassResponse rejectPass(Long id, String performer) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
-        
+
         pass.setStatus(VisitorPass.PassStatus.REJECTED);
         VisitorPass saved = repo.save(pass);
 
@@ -239,7 +248,6 @@ public class VisitorPassService {
                 guard != null ? "Guard (" + guard + ")" : "Guard",
                 "Visitor check-in successful at " + (gate != null ? gate : "Gate") + ".");
 
-        // Send checked-in notification to Resident
         try {
             if (saved.getResident() != null) {
                 notificationService.createNotification(
@@ -305,7 +313,8 @@ public class VisitorPassService {
         String search = codeOrOtpOrPhone.trim();
         Optional<VisitorPass> optPass = repo.findByPassCode(search);
         if (optPass.isEmpty()) {
-            optPass = repo.findByOtp(search);
+            // OTP lookup: hash the input and compare against stored hash
+            optPass = repo.findByOtpHash(hashOtp(search));
         }
         if (optPass.isEmpty()) {
             // Find by phone
@@ -313,9 +322,10 @@ public class VisitorPassService {
                     search, List.of(VisitorPass.PassStatus.APPROVED, VisitorPass.PassStatus.CHECKED_IN, VisitorPass.PassStatus.PENDING));
         }
 
-        VisitorPass pass = optPass.orElseThrow(() -> new IllegalArgumentException("No active visitor pass found for code/OTP/phone: " + search));
-        
-        // Safety checks for expiry
+        VisitorPass pass = optPass.orElseThrow(() -> new IllegalArgumentException(
+                "No active visitor pass found for the provided code/OTP/phone"));
+
+        // Safety check for expiry
         if (pass.getStatus() == VisitorPass.PassStatus.APPROVED && pass.getOtpExpiresAt() != null) {
             if (LocalDateTime.now().isAfter(pass.getOtpExpiresAt())) {
                 pass.setStatus(VisitorPass.PassStatus.EXPIRED);
@@ -329,13 +339,12 @@ public class VisitorPassService {
     @Transactional(readOnly = true)
     public Map<String, Object> getAnalytics(Long communityId) {
         List<VisitorPass> all = repo.findByCommunityIdOrderByCreatedAtDesc(communityId);
-        
+
         int total = all.size();
         long inside = all.stream().filter(p -> p.getStatus() == VisitorPass.PassStatus.CHECKED_IN).count();
         long pending = all.stream().filter(p -> p.getStatus() == VisitorPass.PassStatus.PENDING).count();
         long approved = all.stream().filter(p -> p.getStatus() == VisitorPass.PassStatus.APPROVED).count();
 
-        // Visits per day (last 7 days)
         Map<String, Integer> dailyCounts = new LinkedHashMap<>();
         for (int i = 6; i >= 0; i--) {
             String dateKey = LocalDateTime.now().minusDays(i).toLocalDate().toString();
@@ -350,7 +359,6 @@ public class VisitorPassService {
             }
         }
 
-        // Peak Hours (group check-in hours)
         Map<Integer, Integer> hourCounts = new TreeMap<>();
         for (int h = 0; h < 24; h++) hourCounts.put(h, 0);
         for (VisitorPass p : all) {
@@ -360,14 +368,12 @@ public class VisitorPassService {
             }
         }
 
-        // Category breakdown
         Map<String, Integer> categories = new HashMap<>();
         for (VisitorPass p : all) {
             String type = p.getPassType() != null ? p.getPassType().name() : "OTHER";
             categories.put(type, categories.getOrDefault(type, 0) + 1);
         }
 
-        // Top flats visited
         Map<String, Integer> topFlats = new HashMap<>();
         for (VisitorPass p : all) {
             if (p.getFlatNumber() != null && !p.getFlatNumber().isBlank()) {
@@ -396,6 +402,28 @@ public class VisitorPassService {
         return stats;
     }
 
+    // ── OTP Helpers ──────────────────────────────────────────────────────────
+
+    /** Generates a cryptographically random 6-digit OTP. */
+    private String generateOtpCode() {
+        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
+    }
+
+    /** SHA-256 hash of the OTP for secure storage. */
+    private String hashOtp(String otp) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(otp.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(64);
+            for (byte b : hash) hex.append(String.format("%02x", b));
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available on this JVM", e);
+        }
+    }
+
+    // ── Other Helpers ─────────────────────────────────────────────────────────
+
     private void writeAudit(Long passId, String name, String action, String user, String details) {
         try {
             auditLogRepo.save(VisitorAuditLog.builder()
@@ -415,10 +443,6 @@ public class VisitorPassService {
         return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    private String generateOtpCode() {
-        return String.format("%06d", new java.util.Random().nextInt(1000000));
-    }
-
     private String generateEncryptedToken(String code, AppUser user) {
         try {
             String raw = "VISITOR:" + code + "|FLAT:" + (user != null ? user.getFlatNo() : "N/A") + "|GEN:" + System.currentTimeMillis();
@@ -428,6 +452,11 @@ public class VisitorPassService {
         }
     }
 
+    /**
+     * Converts a VisitorPass entity to a response DTO.
+     * The {@code otpOnCreation} field is always null here — it is set only in
+     * {@link #create} and {@link #createWalkIn} immediately after saving.
+     */
     private VisitorPassResponse toResponse(VisitorPass p) {
         return VisitorPassResponse.builder()
                 .id(p.getId())
@@ -446,16 +475,15 @@ public class VisitorPassService {
                 .residentName(p.getResident() != null ? p.getResident().getFullName() : "Walk-In")
                 .communityId(p.getCommunity() != null ? p.getCommunity().getId() : null)
                 .createdAt(formatDt(p.getCreatedAt()))
-                
-                // Enhanced columns mapping
-                .otp(p.getOtp())
+                // OTP is NEVER included in reads — set to null always
+                .otpOnCreation(null)
                 .otpExpiresAt(formatDt(p.getOtpExpiresAt()))
                 .gateIn(p.getGateIn())
                 .gateOut(p.getGateOut())
                 .guardIn(p.getGuardIn())
                 .guardOut(p.getGuardOut())
                 .visitorPhoto(p.getVisitorPhoto())
-                .encryptedToken(p.getEncryptedToken())
+                // encryptedToken is NEVER returned in responses
                 .build();
     }
 
