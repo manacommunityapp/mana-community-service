@@ -6,7 +6,7 @@ import com.manacommunity.api.dto.VenueResponse;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Contact;
-import com.manacommunity.api.model.Court;
+import com.manacommunity.api.model.SportsCourt;
 import com.manacommunity.api.model.Venue;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.ContactRepository;
@@ -155,7 +155,7 @@ public class VenueServiceImpl implements VenueService {
     private void applyCourts(Venue venue, List<VenueRequest.CourtDto> courtDtos) {
         if (courtDtos == null) return;
         for (VenueRequest.CourtDto dto : courtDtos) {
-            Court court = Court.builder()
+            SportsCourt court = SportsCourt.builder()
                     .name(dto.getName())
                     .color(dto.getColor())
                     .openingTime(dto.getOpeningTime())

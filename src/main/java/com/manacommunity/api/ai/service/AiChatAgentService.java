@@ -9,8 +9,8 @@ import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import com.manacommunity.api.ai.dto.AiChatRequest;
 import com.manacommunity.api.ai.dto.AiChatResponse;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.AuctionTeam;
-import com.manacommunity.api.repository.AuctionTeamRepository;
+import com.manacommunity.api.model.SportsAuctionTeam;
+import com.manacommunity.api.repository.SportsAuctionTeamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -40,7 +40,7 @@ import java.util.List;
 public class AiChatAgentService {
 
     private final ChatClient chatClient;
-    private final AuctionTeamRepository auctionTeamRepository;
+    private final SportsAuctionTeamRepository auctionTeamRepository;
 
     /**
      * Synchronous chat — returns the full response once the model finishes.
@@ -113,7 +113,7 @@ public class AiChatAgentService {
     }
 
     private Long resolveTeamId(Long userId) {
-        List<AuctionTeam> ownedTeams = auctionTeamRepository
+        List<SportsAuctionTeam> ownedTeams = auctionTeamRepository
                 .findByOwnerUserIdOrCaptainUserId(userId, userId);
         return ownedTeams.isEmpty() ? null : ownedTeams.get(0).getId();
     }

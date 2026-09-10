@@ -74,7 +74,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 
-import com.manacommunity.api.repository.AuctionPlayerRepository;
+import com.manacommunity.api.repository.SportsAuctionPlayerRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +90,7 @@ public class EventService {
     private final EventTaskRepository taskRepo;
     private final EventMealRegistrationRepository mealRegRepo;
     private final EventAuctionItemRepository auctionItemRepo;
-    private final AuctionPlayerRepository auctionPlayerRepo;
+    private final SportsAuctionPlayerRepository auctionPlayerRepo;
     private final EventActivityRegistrationRepository activityRegRepo;
     private final EventProgramRepository programRepo;
     private final EventGalleryItemRepository galleryRepo;
@@ -753,7 +753,7 @@ public class EventService {
             }
         }
 
-        // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
+        // Live Auction Revenue (Event Item Auctions + SportsTournament Player Auctions)
         double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
         long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countSoldOrBidItemsByCommunity(communityId) : 0;
         long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;

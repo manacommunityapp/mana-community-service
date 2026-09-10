@@ -4,7 +4,7 @@ import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.model.Tournament;
+import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.RecaptchaService;
 import com.manacommunity.api.service.OtpService;
@@ -32,16 +32,16 @@ class SportsEventServiceRegistrationTest {
 
     @Mock private SportsEventRepository eventRepo;
     @Mock private SportsEventRegistrationRepository regRepo;
-    @Mock private SportMetaRepository sportMetaRepo;
-    @Mock private PlayerCategoryRepository categoryRepo;
+    @Mock private SportsMetaRepository sportMetaRepo;
+    @Mock private SportsPlayerCategoryRepository categoryRepo;
     @Mock private SportsNotificationSchedulerRepository schedulerRepo;
     @Mock private AppUserRepository userRepo;
     @Mock private CommunityRepository communityRepo;
     @Mock private VenueRepository venueRepo;
-    @Mock private AuctionConfigRepository auctionConfigRepo;
-    @Mock private AuctionTeamRepository auctionTeamRepo;
-    @Mock private AuctionPlayerRepository playerRepo;
-    @Mock private TournamentRepository tournamentRepo;
+    @Mock private SportsAuctionConfigRepository auctionConfigRepo;
+    @Mock private SportsAuctionTeamRepository auctionTeamRepo;
+    @Mock private SportsAuctionPlayerRepository playerRepo;
+    @Mock private SportsTournamentRepository tournamentRepo;
     @Mock private com.manacommunity.api.email.RegistrationEmailService registrationEmailService;
     @Mock private com.manacommunity.api.service.NotificationManagementService notificationService;
     @Mock private RecaptchaService recaptchaService;
@@ -62,7 +62,7 @@ class SportsEventServiceRegistrationTest {
         SportsMeta sport = new SportsMeta();
         sport.setName("Cricket");
 
-        Tournament tournament = new Tournament();
+        SportsTournament tournament = new SportsTournament();
         tournament.setMaxParticipants(3);
 
         SportsEvent event = new SportsEvent();

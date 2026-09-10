@@ -20,7 +20,7 @@ import com.manacommunity.api.support.TestDataBuilder;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.email.EmailService;
-import com.manacommunity.api.repository.AuctionPlayerRepository;
+import com.manacommunity.api.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,7 +50,7 @@ class EventServiceTest {
     @Mock EventTaskRepository taskRepo;
     @Mock EventMealRegistrationRepository mealRegRepo;
     @Mock EventAuctionItemRepository auctionItemRepo;
-    @Mock AuctionPlayerRepository auctionPlayerRepo;
+    @Mock SportsAuctionPlayerRepository auctionPlayerRepo;
     @Mock EventActivityRegistrationRepository activityRegRepo;
     @Mock EventInvoiceRepository invoiceRepo;
     @Mock EventGalleryItemRepository galleryRepo;

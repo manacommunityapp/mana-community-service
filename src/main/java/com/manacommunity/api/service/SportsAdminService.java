@@ -9,12 +9,12 @@ import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.EventRow;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.SportRef;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.TournamentRow;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.PlayerCategory;
+import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.model.Tournament;
-import com.manacommunity.api.repository.PlayerCategoryRepository;
-import com.manacommunity.api.repository.SportMetaRepository;
+import com.manacommunity.api.model.SportsTournament;
+import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
+import com.manacommunity.api.repository.SportsMetaRepository;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.dto.dashboard.SportsAdminOverviewResponse.RegistrationRow;
@@ -36,11 +36,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SportsAdminService {
 
-    private final TournamentService tournamentService;
+    private final SportsTournamentService tournamentService;
     private final SportsEventService eventService;
     private final CommunityService communityService;
-    private final SportMetaRepository sportMetaRepo;
-    private final PlayerCategoryRepository categoryRepo;
+    private final SportsMetaRepository sportMetaRepo;
+    private final SportsPlayerCategoryRepository categoryRepo;
     private final SportsEventRegistrationRepository regRepo;
 
     // ── Overview (Dashboard / Sports Event tabs) ──────────────────────
@@ -50,7 +50,7 @@ public class SportsAdminService {
         boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
         Long activeCommId = isSuperAdmin ? communityId : (user.getCommunity() != null ? user.getCommunity().getId() : null);
 
-        List<Tournament> tournaments = isSuperAdmin && activeCommId == null
+        List<SportsTournament> tournaments = isSuperAdmin && activeCommId == null
                 ? tournamentService.getAllTournaments()
                 : (activeCommId != null ? tournamentService.getCommunityTournaments(activeCommId) : List.of());
 
@@ -109,7 +109,7 @@ public class SportsAdminService {
         );
     }
 
-    private TournamentRow toTournamentRow(Tournament t) {
+    private TournamentRow toTournamentRow(SportsTournament t) {
         List<EventRow> nested = t.getSportsEvents() == null ? List.of()
                 : t.getSportsEvents().stream().map(this::toEventRow).toList();
         return new TournamentRow(
@@ -125,7 +125,7 @@ public class SportsAdminService {
 
     private EventRow toEventRow(SportsEvent e) {
         SportsMeta sport = e.getSport();
-        Tournament t = e.getTournament();
+        SportsTournament t = e.getTournament();
         return new EventRow(
                 e.getId(),
                 e.getName(),
@@ -145,7 +145,7 @@ public class SportsAdminService {
         );
     }
 
-    // ── Form data (Create Tournament / Create Venue tabs) ─────────────
+    // ── Form data (Create SportsTournament / Create Venue tabs) ─────────────
 
     @Transactional(readOnly = true)
     public SportsAdminFormDataResponse getFormData(AppUser user) {
@@ -159,7 +159,7 @@ public class SportsAdminService {
                 .toList();
 
         // Same visibility rule as SportsController#getCategories.
-        List<PlayerCategory> rawCategories = (isSuperAdmin || communityId == null)
+        List<SportsPlayerCategory> rawCategories = (isSuperAdmin || communityId == null)
                 ? categoryRepo.findAll()
                 : categoryRepo.findDefaultAndCommunityCategories(communityId);
 

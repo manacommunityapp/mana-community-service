@@ -7,7 +7,7 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.model.AppUser;
 
 import com.manacommunity.api.dto.SportsEventRequest;
-import com.manacommunity.api.dto.NotificationScheduleDto;
+import com.manacommunity.api.dto.SportsNotificationScheduleDto;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.exception.*;
@@ -39,16 +39,16 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     private final SportsEventRepository eventRepo;
     private final SportsEventRegistrationRepository regRepo;
-    private final SportMetaRepository sportMetaRepo;
-    private final PlayerCategoryRepository categoryRepo;
+    private final SportsMetaRepository sportMetaRepo;
+    private final SportsPlayerCategoryRepository categoryRepo;
     private final SportsNotificationSchedulerRepository schedulerRepo;
     private final AppUserRepository userRepo;
     private final CommunityRepository communityRepo;
     private final VenueRepository venueRepo;
-    private final AuctionConfigRepository auctionConfigRepo;
-    private final AuctionTeamRepository auctionTeamRepo;
-    private final AuctionPlayerRepository playerRepo;
-    private final TournamentRepository tournamentRepo;
+    private final SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsAuctionTeamRepository auctionTeamRepo;
+    private final SportsAuctionPlayerRepository playerRepo;
+    private final SportsTournamentRepository tournamentRepo;
     private final RegistrationEmailService registrationEmailService;
     private final NotificationManagementService notificationService;
     private final com.manacommunity.api.service.RecaptchaService recaptchaService;
@@ -151,8 +151,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         if (req.getTournamentId() != null) {
-            Tournament tournament = tournamentRepo.findById(req.getTournamentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tournament", req.getTournamentId()));
+            SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
             event.setTournament(tournament);
             validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
         }
@@ -205,8 +205,8 @@ public class SportsEventServiceImpl implements SportsEventService {
             throw new EventFullException(event.getName(), maxParticipants);
         }
 
-        PlayerCategory category = categoryRepo.findById(req.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("PlayerCategory", req.getCategoryId()));
+        SportsPlayerCategory category = categoryRepo.findById(req.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("SportsPlayerCategory", req.getCategoryId()));
 
         int age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
         int minAge = event.getMinAge() != null ? event.getMinAge() : 0;
@@ -329,7 +329,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 else if ("Wicket Keeper".equalsIgnoreCase(saved.getRole())) cat = "Wicket Keeper";
 
                 long count = playerRepo.countByConfigId(config.getId());
-                AuctionPlayer player = AuctionPlayer.builder()
+                SportsAuctionPlayer player = SportsAuctionPlayer.builder()
                         .config(config)
                         .user(saved.getUser())
                         .playerName(saved.getPlayerName() != null && !saved.getPlayerName().isEmpty() ? saved.getPlayerName() : saved.getUser().getFullName())
@@ -339,7 +339,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .basePrice(config.getBasePrice() != null ? config.getBasePrice() : 1000)
                         .statsJson("{\"matches\":24,\"runs\":620,\"wickets\":18}")
                         .queueOrder((int) count + 1)
-                        .status(AuctionPlayer.PlayerStatus.QUEUED)
+                        .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
                         .uploadedAt(LocalDateTime.now())
                         .build();
                 playerRepo.save(player);
@@ -370,11 +370,11 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        AuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("AuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
 
-        AuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
-                .orElseGet(() -> AuctionTeam.builder()
+        SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
+                .orElseGet(() -> SportsAuctionTeam.builder()
                         .config(config)
                         .ownerUser(reg.getUser())
                         .captainUser(reg.getUser())
@@ -401,11 +401,11 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        AuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("AuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
 
-        AuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("AuctionTeam for user", reg.getUser().getId()));
+        SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam for user", reg.getUser().getId()));
 
         team.setCaptainConfirmation(confirm);
         auctionTeamRepo.save(team);
@@ -417,7 +417,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private void hydrateCaptaincy(List<SportsEventRegistration> regs, Long eventId) {
         if (regs.isEmpty()) return;
         auctionConfigRepo.findByEventId(eventId).ifPresent(config -> {
-            List<AuctionTeam> teams = auctionTeamRepo.findByConfigIdOrderByTeamName(config.getId());
+            List<SportsAuctionTeam> teams = auctionTeamRepo.findByConfigIdOrderByTeamName(config.getId());
             for (SportsEventRegistration reg : regs) {
                 teams.stream()
                     .filter(t -> t.getOwnerUser() != null && t.getOwnerUser().getId().equals(reg.getUser().getId()))
@@ -433,9 +433,9 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Transactional
     public SportsEvent updateStatus(Long id, String status) {
-        Tournament.EventStatus tournamentStatus;
+        SportsTournament.EventStatus tournamentStatus;
         try {
-            tournamentStatus = Tournament.EventStatus.valueOf(status);
+            tournamentStatus = SportsTournament.EventStatus.valueOf(status);
         } catch (IllegalArgumentException e) {
             throw new ManaCommunityException(
                     "Invalid event status: '" + status + "'. Valid values: DRAFT, REGISTRATION_OPEN, "
@@ -446,14 +446,14 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
-        Tournament tournament = event.getTournament();
+        SportsTournament tournament = event.getTournament();
         if (tournament != null) {
             tournament.setRegistrationStatus(tournamentStatus);
             tournamentRepo.save(tournament);
         }
 
-        boolean isClosing = tournamentStatus == Tournament.EventStatus.COMPLETED
-                || tournamentStatus == Tournament.EventStatus.CANCELLED;
+        boolean isClosing = tournamentStatus == SportsTournament.EventStatus.COMPLETED
+                || tournamentStatus == SportsTournament.EventStatus.CANCELLED;
 
         if (isClosing && tournament != null && tournament.getSportsEvents() != null) {
             for (SportsEvent sibling : tournament.getSportsEvents()) {
@@ -512,12 +512,12 @@ public class SportsEventServiceImpl implements SportsEventService {
         return date.atTime(hours, minutes);
     }
 
-    private void scheduleNotifications(SportsEvent event, List<NotificationScheduleDto> configs) {
+    private void scheduleNotifications(SportsEvent event, List<SportsNotificationScheduleDto> configs) {
         LocalDateTime eventStart = event.getEventDateStart().atTime(8, 0);
         LocalDateTime preciseStart = getTournamentStartDateTime(event);
         if (preciseStart == null) preciseStart = eventStart;
 
-        for (NotificationScheduleDto cfg : configs) {
+        for (SportsNotificationScheduleDto cfg : configs) {
             if (cfg.getId() == null && cfg.getOffsetType() != null) {
                 // Legacy DTO shape (seeders / test mocks) — map onto the rich scheduler.
                 LocalDateTime notifyAt = switch (cfg.getOffsetType()) {
@@ -579,17 +579,17 @@ public class SportsEventServiceImpl implements SportsEventService {
     public List<SportsEvent> getOpenEvents(Long communityId) {
         return eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
                 communityId,
-                List.of(Tournament.EventStatus.REGISTRATION_OPEN));
+                List.of(SportsTournament.EventStatus.REGISTRATION_OPEN));
     }
 
     @Override
     public List<SportsEvent> getAllOpenEvents() {
-        return eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(Tournament.EventStatus.REGISTRATION_OPEN);
+        return eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsTournament.EventStatus.REGISTRATION_OPEN);
     }
 
     @Override
     public List<SportsEvent> getClosedEvents() {
-        List<SportsEvent> events = eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(Tournament.EventStatus.REGISTRATION_CLOSED);
+        List<SportsEvent> events = eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsTournament.EventStatus.REGISTRATION_CLOSED);
         for (SportsEvent event : events) {
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
@@ -601,7 +601,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     public List<SportsEvent> getClosedEvents(Long communityId) {
         List<SportsEvent> events = eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
-                communityId, List.of(Tournament.EventStatus.REGISTRATION_CLOSED));
+                communityId, List.of(SportsTournament.EventStatus.REGISTRATION_CLOSED));
         for (SportsEvent event : events) {
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
@@ -616,7 +616,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         for (SportsEvent event : events) {
             boolean exists = tournamentRepo.existsByEventId(event.getId());
             if (!exists) {
-                Tournament tournament = Tournament.builder()
+                SportsTournament tournament = SportsTournament.builder()
                         .name(event.getName())
                         .sportsEvents(new java.util.ArrayList<>())
                         .community(event.getCommunity())
@@ -807,7 +807,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         return eventRepo.save(event);
     }
 
-     private void notifyEventParticipants(SportsEvent event, Tournament.EventStatus newStatus) {
+     private void notifyEventParticipants(SportsEvent event, SportsTournament.EventStatus newStatus) {
         try {
             List<Long> userIds = regRepo.findByEventId(event.getId()).stream()
                     .filter(r -> r.getUser() != null && r.getUser().getId() != null)
@@ -864,7 +864,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         return ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
     }
 
-    private void validateEventDatesWithinTournament(LocalDate eventStart, LocalDate eventEnd, Tournament tournament) {
+    private void validateEventDatesWithinTournament(LocalDate eventStart, LocalDate eventEnd, SportsTournament tournament) {
         if (tournament == null) return;
         LocalDate tourneyStart = tournament.getEventDateStart();
         LocalDate tourneyEnd = tournament.getEventDateEnd();

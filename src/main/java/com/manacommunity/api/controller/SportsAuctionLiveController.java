@@ -1,0 +1,150 @@
+package com.manacommunity.api.controller;
+
+import com.manacommunity.api.dto.*;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.SportsAuctionBid;
+import com.manacommunity.api.model.SportsAuctionPlayer;
+import com.manacommunity.api.model.SportsAuctionTeam;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.service.SportsAuctionService;
+import com.manacommunity.api.service.SportsAuctionTeamService;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.service.PermissionCheckService;
+import static com.manacommunity.api.constants.PermissionConstants.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_LIVE_AUCTION;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_LIVE_AUCTION;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/auction/live")
+@RequiredArgsConstructor
+public class SportsAuctionLiveController {
+
+    private final SportsAuctionService auctionService;
+    private final SportsAuctionTeamService auctionTeamService;
+    private final LoggedInUserService loggedInUserService;
+    private final PermissionCheckService permissionCheckService;
+
+    @GetMapping("/{configId}/current-player")
+    public ResponseEntity<PlayerWithBidResponse> getCurrentPlayer(
+            @PathVariable Long configId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(auctionService.getCurrentPlayer(configId));
+    }
+
+    @GetMapping("/{configId}/random-player")
+    public ResponseEntity<PlayerWithBidResponse> pickRandomPlayer(
+            @PathVariable Long configId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(auctionService.pickRandomPlayer(configId));
+    }
+
+    @PostMapping("/bid")
+    public ResponseEntity<SportsAuctionBidResponse> placeBid(
+            @Valid @RequestBody BidRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(toBidResponse(auctionService.placeBid(req, loggedInUser.getId())));
+    }
+
+    @PostMapping("/sold")
+    public ResponseEntity<SportsAuctionPlayerResponse> soldPlayer(
+            @Valid @RequestBody SoldPlayerRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        SportsAuctionPlayer player = auctionService.soldPlayer(req, loggedInUser.getId());
+        return ResponseEntity.ok(SportsAuctionPlayerController.toResponse(player));
+    }
+
+    @PostMapping("/{playerId}/pass")
+    public ResponseEntity<SportsAuctionPlayerResponse> passPlayer(
+            @PathVariable Long playerId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        SportsAuctionPlayer player = auctionService.passPlayer(playerId, loggedInUser.getId());
+        return ResponseEntity.ok(SportsAuctionPlayerController.toResponse(player));
+    }
+
+    @GetMapping("/bids/{playerId}")
+    public ResponseEntity<List<SportsAuctionBidResponse>> getBidHistory(
+            @PathVariable Long playerId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(auctionService.getBidHistory(playerId).stream()
+                .map(this::toBidResponse).toList());
+    }
+
+    @GetMapping("/{configId}/teams")
+    public ResponseEntity<List<SportsAuctionTeamResponse>> getTeams(
+            @PathVariable Long configId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(auctionTeamService.getTeams(configId).stream()
+                .map(this::toTeamResponse).toList());
+    }
+
+    @GetMapping("/{configId}/players")
+    public ResponseEntity<List<SportsAuctionPlayerResponse>> getPlayers(
+            @PathVariable Long configId,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_LIVE_AUCTION);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(auctionService.getPlayers(configId, category, status).stream()
+                .map(SportsAuctionPlayerController::toResponse).toList());
+    }
+
+    private SportsAuctionBidResponse toBidResponse(SportsAuctionBid b) {
+        return SportsAuctionBidResponse.builder()
+                .id(b.getId())
+                .configId(b.getConfig() != null ? b.getConfig().getId() : null)
+                .playerId(b.getPlayer() != null ? b.getPlayer().getId() : null)
+                .teamId(b.getTeam() != null ? b.getTeam().getId() : null)
+                .teamName(b.getTeam() != null ? b.getTeam().getTeamName() : null)
+                .bidAmount(b.getBidAmount())
+                .incrementUsed(b.getIncrementUsed())
+                .isRtm(b.getIsRtm())
+                .bidByUserId(b.getBidByUser() != null ? b.getBidByUser().getId() : null)
+                .bidAt(b.getBidAt())
+                .build();
+    }
+
+    private SportsAuctionTeamResponse toTeamResponse(SportsAuctionTeam t) {
+        return SportsAuctionTeamResponse.builder()
+                .id(t.getId())
+                .configId(t.getConfig() != null ? t.getConfig().getId() : null)
+                .eventId(t.getEventId())
+                .teamName(t.getTeamName())
+                .ownerName(t.getOwnerName())
+                .ownerUserId(t.getOwnerUser() != null ? t.getOwnerUser().getId() : null)
+                .captainUserId(t.getCaptainUser() != null ? t.getCaptainUser().getId() : null)
+                .colorHex(t.getColorHex())
+                .totalBudget(t.getTotalBudget())
+                .remainingBudget(t.getRemainingBudget())
+                .spent(t.getSpent())
+                .captainNomination(t.getCaptainNomination())
+                .captainConfirmation(t.getCaptainConfirmation())
+                .createdAt(t.getCreatedAt())
+                .build();
+    }
+}

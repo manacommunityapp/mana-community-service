@@ -27,10 +27,10 @@ import java.util.stream.Collectors;
  *
  * <p>Entity field mappings (vs the original broken script):</p>
  * <ul>
- *   <li>{@code AuctionConfig} → community via {@code createdBy.community.id}</li>
- *   <li>{@code AuctionPlayer.config} (ManyToOne), not {@code configId}</li>
- *   <li>{@code AuctionPlayer.status} enum: QUEUED, SELLING, SOLD, PASSED, RETAINED</li>
- *   <li>{@code AuctionTeam.ownerUser} (ManyToOne), not {@code ownerUserId}</li>
+ *   <li>{@code SportsAuctionConfig} → community via {@code createdBy.community.id}</li>
+ *   <li>{@code SportsAuctionPlayer.config} (ManyToOne), not {@code configId}</li>
+ *   <li>{@code SportsAuctionPlayer.status} enum: QUEUED, SELLING, SOLD, PASSED, RETAINED</li>
+ *   <li>{@code SportsAuctionTeam.ownerUser} (ManyToOne), not {@code ownerUserId}</li>
  * </ul>
  */
 @Slf4j
@@ -51,7 +51,7 @@ public class AuctionQueryTools {
         if (configId == null) return false;
         UserContext ctx = AgentSecurityContext.get();
         Long count = em.createQuery(
-                        "SELECT COUNT(c) FROM AuctionConfig c " +
+                        "SELECT COUNT(c) FROM SportsAuctionConfig c " +
                         "WHERE c.id = :cid AND c.createdBy.community.id = :comId", Long.class)
                 .setParameter("cid", configId)
                 .setParameter("comId", ctx.communityId())
@@ -78,7 +78,7 @@ public class AuctionQueryTools {
 
         return em.createQuery(
                         "SELECT c.id, c.seasonName, c.auctionFormat, c.status, c.totalTeams, c.totalPlayers " +
-                        "FROM AuctionConfig c WHERE c.createdBy.community.id = :comId " +
+                        "FROM SportsAuctionConfig c WHERE c.createdBy.community.id = :comId " +
                         "ORDER BY c.id DESC", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .getResultList().stream()
@@ -108,7 +108,7 @@ public class AuctionQueryTools {
                         "SELECT c.seasonName, c.auctionFormat, c.totalTeams, c.totalPlayers, " +
                         "c.budgetPerTeam, c.basePrice, c.bidIncrementDefault, c.bidTimerSeconds, " +
                         "c.rtmEnabled, c.unsoldRule, c.status " +
-                        "FROM AuctionConfig c WHERE c.id = :cid", Object[].class)
+                        "FROM SportsAuctionConfig c WHERE c.id = :cid", Object[].class)
                 .setParameter("cid", auctionConfigId)
                 .getResultList();
 
@@ -130,7 +130,7 @@ public class AuctionQueryTools {
 
         // Player status breakdown
         var statusCounts = em.createQuery(
-                        "SELECT p.status, COUNT(p) FROM AuctionPlayer p " +
+                        "SELECT p.status, COUNT(p) FROM SportsAuctionPlayer p " +
                         "WHERE p.config.id = :cid GROUP BY p.status", Object[].class)
                 .setParameter("cid", auctionConfigId)
                 .getResultList();
@@ -166,7 +166,7 @@ public class AuctionQueryTools {
         StringBuilder jpql = new StringBuilder(
                 "SELECT p.playerName, p.category, p.playerRole, p.age, p.basePrice, " +
                 "p.status, p.statsJson, p.queueOrder, p.soldPrice, p.assignedTeam.teamName " +
-                "FROM AuctionPlayer p WHERE p.config.id = :cid");
+                "FROM SportsAuctionPlayer p WHERE p.config.id = :cid");
 
         if (category != null) jpql.append(" AND p.category = :cat");
         if (status != null) jpql.append(" AND p.status = :st");
@@ -218,7 +218,7 @@ public class AuctionQueryTools {
         StringBuilder jpql = new StringBuilder(
                 "SELECT t.id, t.teamName, t.ownerName, t.ownerUser.id, t.colorHex, " +
                 "t.totalBudget, t.remainingBudget, t.spent " +
-                "FROM AuctionTeam t WHERE t.config.id = :cid");
+                "FROM SportsAuctionTeam t WHERE t.config.id = :cid");
 
         if (Boolean.TRUE.equals(myTeamOnly) && ctx.teamId() != null) {
             jpql.append(" AND t.id = :tid");
@@ -274,7 +274,7 @@ public class AuctionQueryTools {
             var rows = em.createQuery(
                             "SELECT p.playerName, p.category, p.playerRole, p.age, p.basePrice, " +
                             "p.status, p.statsJson, p.soldPrice, p.assignedTeam.teamName " +
-                            "FROM AuctionPlayer p WHERE p.config.id = :cid " +
+                            "FROM SportsAuctionPlayer p WHERE p.config.id = :cid " +
                             "AND LOWER(p.playerName) LIKE LOWER(:nm)", Object[].class)
                     .setParameter("cid", auctionConfigId)
                     .setParameter("nm", "%" + name + "%")
@@ -313,7 +313,7 @@ public class AuctionQueryTools {
 
         return em.createQuery(
                         "SELECT p.queueOrder, p.playerName, p.category, p.playerRole, p.basePrice " +
-                        "FROM AuctionPlayer p WHERE p.config.id = :cid AND p.status = 'QUEUED' " +
+                        "FROM SportsAuctionPlayer p WHERE p.config.id = :cid AND p.status = 'QUEUED' " +
                         "ORDER BY p.queueOrder ASC", Object[].class)
                 .setParameter("cid", auctionConfigId)
                 .setMaxResults(limit != null ? limit : 10)
@@ -354,9 +354,9 @@ public class AuctionQueryTools {
         }
 
         int updated = em.createQuery(
-                        "UPDATE AuctionConfig c SET c.status = :st, c.updatedAt = CURRENT_TIMESTAMP " +
+                        "UPDATE SportsAuctionConfig c SET c.status = :st, c.updatedAt = CURRENT_TIMESTAMP " +
                         "WHERE c.id = :cid AND c.createdBy.community.id = :comId")
-                .setParameter("st", com.manacommunity.api.model.AuctionConfig.AuctionStatus.valueOf(newStatus))
+                .setParameter("st", com.manacommunity.api.model.SportsAuctionConfig.AuctionStatus.valueOf(newStatus))
                 .setParameter("cid", auctionConfigId)
                 .setParameter("comId", ctx.communityId())
                 .executeUpdate();
@@ -380,7 +380,7 @@ public class AuctionQueryTools {
         }
 
         Long passedCount = em.createQuery(
-                        "SELECT COUNT(p) FROM AuctionPlayer p " +
+                        "SELECT COUNT(p) FROM SportsAuctionPlayer p " +
                         "WHERE p.config.id = :cid AND p.status = 'PASSED'", Long.class)
                 .setParameter("cid", auctionConfigId)
                 .getSingleResult();
@@ -392,7 +392,7 @@ public class AuctionQueryTools {
         }
 
         int updated = em.createQuery(
-                        "UPDATE AuctionPlayer p SET p.status = 'QUEUED' " +
+                        "UPDATE SportsAuctionPlayer p SET p.status = 'QUEUED' " +
                         "WHERE p.config.id = :cid AND p.status = 'PASSED'")
                 .setParameter("cid", auctionConfigId)
                 .executeUpdate();

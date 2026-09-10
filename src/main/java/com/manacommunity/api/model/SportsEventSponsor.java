@@ -29,7 +29,7 @@ public class SportsEventSponsor {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tournament_id")
     @JsonIgnoreProperties({"sponsors"})
-    private Tournament tournament;
+    private SportsTournament tournament;
 
     @Column(name = "category", nullable = false, length = 100)
     private String category;

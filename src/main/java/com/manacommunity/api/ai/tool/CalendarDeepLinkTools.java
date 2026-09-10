@@ -52,7 +52,7 @@ public class CalendarDeepLinkTools {
         var rows = em.createQuery(
                 "SELECT m.scheduledAt, m.durationMinutes, m.round, " +
                 "ta.teamName, tb.teamName, v.name, v.address, c.name, tc.tournamentName " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                 "JOIN m.config tc " +
@@ -82,7 +82,7 @@ public class CalendarDeepLinkTools {
         String title = teamA + " vs " + teamB + " — " + round;
         String location = venue + (!court.isEmpty() ? ", " + court : "")
                 + (!address.isEmpty() ? ", " + address : "");
-        String description = "Tournament: " + tournament + "\\nRound: " + round
+        String description = "SportsTournament: " + tournament + "\\nRound: " + round
                 + "\\nVenue: " + location;
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -114,7 +114,7 @@ public class CalendarDeepLinkTools {
         icsData.put("DTEND", end.format(ICS));
         icsData.put("SUMMARY", title);
         icsData.put("LOCATION", location);
-        icsData.put("DESCRIPTION", "Tournament: " + tournament + " | Round: " + round);
+        icsData.put("DESCRIPTION", "SportsTournament: " + tournament + " | Round: " + round);
         icsData.put("REMINDER", "30 minutes before");
         result.put("ics_data", icsData);
         result.put("apple_calendar_instruction",
@@ -134,7 +134,7 @@ public class CalendarDeepLinkTools {
         var matches = em.createQuery(
                 "SELECT m.id, m.scheduledAt, m.durationMinutes, m.round, " +
                 "ta.teamName, tb.teamName, v.name, v.address, c.name, tc.tournamentName " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                 "JOIN m.config tc " +
@@ -143,8 +143,8 @@ public class CalendarDeepLinkTools {
                 "AND m.scheduledAt IS NOT NULL " +
                 "AND (ta.ownerUser.id = :uid OR tb.ownerUser.id = :uid " +
                 "OR ta.captainUser.id = :uid OR tb.captainUser.id = :uid " +
-                "OR ta.id IN (SELECT ap.assignedTeam.id FROM AuctionPlayer ap WHERE ap.user.id = :uid) " +
-                "OR tb.id IN (SELECT ap2.assignedTeam.id FROM AuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
+                "OR ta.id IN (SELECT ap.assignedTeam.id FROM SportsAuctionPlayer ap WHERE ap.user.id = :uid) " +
+                "OR tb.id IN (SELECT ap2.assignedTeam.id FROM SportsAuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
                 "ORDER BY m.scheduledAt ASC", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .setParameter("uid", ctx.userId())

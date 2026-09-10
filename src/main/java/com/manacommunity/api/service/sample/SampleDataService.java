@@ -29,22 +29,22 @@ public class SampleDataService implements ApplicationRunner {
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
     private final UserSeeder userSeeder;
-    private final PlayerCategorySeeder playerCategorySeeder;
+    private final SportsPlayerCategorySeeder playerCategorySeeder;
     private final VenueSeeder venueSeeder;
     private final CommunityLeaderSeeder communityLeaderSeeder;
     private final SportsEventSeeder sportsEventSeeder;
-    private final TournamentSeeder tournamentSeeder;
-    private final AuctionSeeder auctionSeeder;
+    private final SportsTournamentSeeder tournamentSeeder;
+    private final SportsAuctionSeeder auctionSeeder;
     private final InventorySeeder inventorySeeder;
 
     private final DefaultCommunityModuleDataService defaultCommunityModuleDataService;
     // Dedicated per-table sample seeders
     private final RolePermissionDataSeeder rolePermissionDataSeeder;
     private final VenueDataSeeder venueDataSeeder;
-    private final CourtDataSeeder courtDataSeeder;
+    private final SportsCourtDataSeeder courtDataSeeder;
     private final SportsEventDataSeeder sportsEventDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
-    private final TournamentDataSeeder tournamentDataSeeder;
+    private final SportsTournamentDataSeeder tournamentDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
 

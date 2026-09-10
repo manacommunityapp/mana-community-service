@@ -86,7 +86,7 @@ public class EventCreationTools {
         List<Map<String, Object>> results = new ArrayList<>();
         for (Object[] v : venues) {
             Long courtCount = em.createQuery(
-                    "SELECT COUNT(c) FROM Court c WHERE c.venue.id = :vid", Long.class)
+                    "SELECT COUNT(c) FROM SportsCourt c WHERE c.venue.id = :vid", Long.class)
                     .setParameter("vid", v[0]).getSingleResult();
 
             Map<String, Object> m = new LinkedHashMap<>();
@@ -110,7 +110,7 @@ public class EventCreationTools {
 
         return em.createQuery(
                 "SELECT c.id, c.name, c.category_type, c.minAge, c.maxAge, c.gender " +
-                "FROM PlayerCategory c " +
+                "FROM SportsPlayerCategory c " +
                 "WHERE (c.type = 'DEFAULT' OR c.community.id = :comId) " +
                 "AND (LOWER(c.name) LIKE LOWER(:q) OR LOWER(c.category_type) LIKE LOWER(:q))",
                 Object[].class)
@@ -145,7 +145,7 @@ public class EventCreationTools {
             @ToolParam(required = false, description = "Max participants/teams") Integer maxParticipants,
             @ToolParam(required = false, description = "Format: SINGLES, DOUBLES, MIXED_DOUBLES, TEAM")
             String format,
-            @ToolParam(required = false, description = "Tournament type: KNOCKOUT, ROUND_ROBIN, GROUP_PLAYOFF, SWISS")
+            @ToolParam(required = false, description = "SportsTournament type: KNOCKOUT, ROUND_ROBIN, GROUP_PLAYOFF, SWISS")
             String tournamentType,
             @ToolParam(required = false, description = "Category IDs (from resolveCategoriesByName)")
             List<Long> categoryIds,

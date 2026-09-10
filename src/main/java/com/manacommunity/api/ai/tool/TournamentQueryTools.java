@@ -24,11 +24,11 @@ import java.util.stream.Collectors;
  *
  * <p>Entity relationships:</p>
  * <ul>
- *   <li>{@code Tournament} ↔ {@code SportsEvent} (many-to-many via {@code tournament_sports_events})</li>
- *   <li>{@code TournamentConfig} → {@code Tournament}</li>
- *   <li>{@code TournamentMatch} → {@code TournamentConfig}, {@code AuctionTeam} (teamA/teamB),
- *       {@code Venue}, {@code Court}</li>
- *   <li>{@code GroupTeamStanding} → {@code TournamentGroup}, {@code AuctionTeam}</li>
+ *   <li>{@code SportsTournament} ↔ {@code SportsEvent} (many-to-many via {@code tournament_sports_events})</li>
+ *   <li>{@code SportsTournamentConfig} → {@code SportsTournament}</li>
+ *   <li>{@code SportsTournamentMatch} → {@code SportsTournamentConfig}, {@code SportsAuctionTeam} (teamA/teamB),
+ *       {@code Venue}, {@code SportsCourt}</li>
+ *   <li>{@code SportsGroupTeamStanding} → {@code SportsTournamentGroup}, {@code SportsAuctionTeam}</li>
  * </ul>
  */
 @Slf4j
@@ -51,7 +51,7 @@ public class TournamentQueryTools {
         return em.createQuery(
                         "SELECT DISTINCT t.id, t.name, t.registrationStatus, " +
                         "se.id, se.name, se.eventDateStart " +
-                        "FROM Tournament t JOIN t.sportsEvents se " +
+                        "FROM SportsTournament t JOIN t.sportsEvents se " +
                         "WHERE se.community.id = :comId " +
                         "ORDER BY se.eventDateStart DESC", Object[].class)
                 .setParameter("comId", ctx.communityId())
@@ -72,7 +72,7 @@ public class TournamentQueryTools {
     @Tool(description = "Get upcoming matches for a tournament or for the current user. "
             + "Community-scoped, read-only. Shows teams, venue, court, scheduled time, and status.")
     public Object getUpcomingMatches(
-            @ToolParam(required = false, description = "Tournament config ID (optional — omit to see all)")
+            @ToolParam(required = false, description = "SportsTournament config ID (optional — omit to see all)")
             Long tournamentConfigId,
             @ToolParam(required = false, description = "Only show the current user's matches")
             Boolean myMatchesOnly,
@@ -86,7 +86,7 @@ public class TournamentQueryTools {
                 "m.durationMinutes, m.status, " +
                 "ta.teamName, tb.teamName, " +
                 "v.name, c.name " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                 "JOIN m.config tc JOIN tc.tournament t JOIN t.sportsEvents se " +
@@ -131,7 +131,7 @@ public class TournamentQueryTools {
     @Tool(description = "Get match results — completed matches with scores and winners. "
             + "Community-scoped, read-only.")
     public Object getMatchResults(
-            @ToolParam(required = false, description = "Tournament config ID (optional)")
+            @ToolParam(required = false, description = "SportsTournament config ID (optional)")
             Long tournamentConfigId,
             @ToolParam(required = false, description = "Team name filter")
             String teamName,
@@ -144,7 +144,7 @@ public class TournamentQueryTools {
                 "SELECT m.id, m.round, m.matchNumber, m.scheduledAt, " +
                 "ta.teamName, tb.teamName, " +
                 "m.scoreTeamA, m.scoreTeamB, m.status " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "JOIN m.config tc JOIN tc.tournament t JOIN t.sportsEvents se " +
                 "WHERE se.community.id = :comId " +
@@ -183,25 +183,25 @@ public class TournamentQueryTools {
     @Tool(description = "Get group standings for a tournament — points table with wins, losses, "
             + "and net run rate. Community-scoped, read-only.")
     public Object getGroupStandings(
-            @ToolParam(description = "Tournament config ID") Long tournamentConfigId) {
+            @ToolParam(description = "SportsTournament config ID") Long tournamentConfigId) {
 
         UserContext ctx = AgentSecurityContext.get();
 
         // Verify tournament belongs to user's community
         Long count = em.createQuery(
-                        "SELECT COUNT(tc) FROM TournamentConfig tc " +
+                        "SELECT COUNT(tc) FROM SportsTournamentConfig tc " +
                         "JOIN tc.tournament t JOIN t.sportsEvents se " +
                         "WHERE tc.id = :tcId AND se.community.id = :comId", Long.class)
                 .setParameter("tcId", tournamentConfigId)
                 .setParameter("comId", ctx.communityId())
                 .getSingleResult();
 
-        if (count == 0) return Map.of("error", "Tournament not found in your community");
+        if (count == 0) return Map.of("error", "SportsTournament not found in your community");
 
         return em.createQuery(
                         "SELECT g.name, s.rank, t.teamName, s.played, s.won, s.lost, s.drawn, " +
                         "s.points, s.netRunRate " +
-                        "FROM GroupTeamStanding s " +
+                        "FROM SportsGroupTeamStanding s " +
                         "JOIN s.group g JOIN s.team t " +
                         "WHERE g.config.id = :tcId " +
                         "ORDER BY g.name, s.rank ASC", Object[].class)

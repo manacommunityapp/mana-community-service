@@ -30,7 +30,7 @@ public class SportsEventRegistration {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
-    private PlayerCategory category;
+    private SportsPlayerCategory category;
 
     @Enumerated(EnumType.STRING)
     private SportsEvent.MatchFormat matchType;

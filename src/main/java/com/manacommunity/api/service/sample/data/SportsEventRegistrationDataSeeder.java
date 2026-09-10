@@ -1,7 +1,7 @@
 package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.PlayerCategory;
+import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
@@ -28,7 +28,7 @@ public class SportsEventRegistrationDataSeeder {
     private final SportsEventRepository sportsEventRepo;
     private final SportsEventDataSeeder sportsEventDataSeeder;
     private final UserSeeder userSeeder;
-    private final PlayerCategorySeeder playerCategorySeeder;
+    private final SportsPlayerCategorySeeder playerCategorySeeder;
 
     @Transactional
     public void seed() {
@@ -46,7 +46,7 @@ public class SportsEventRegistrationDataSeeder {
      */
     private void seedWinterLeagueRegistrations() {
         SportsEvent event = sportsEventDataSeeder.getOrCreateWinterLeague();
-        PlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
 
         int created = 0;
         created += register(event, userSeeder.getSandeep(), mensA19,
@@ -72,7 +72,7 @@ public class SportsEventRegistrationDataSeeder {
      * <p>
      * Source: sample_participants.csv
      * All participants are registered in the "Men's Single" category
-     * under the "Men's Above 19" PlayerCategory.
+     * under the "Men's Above 19" SportsPlayerCategory.
      */
     private void seedBadmintonRegistrations() {
         SportsEvent badmintonEvent = sportsEventRepo.findAll().stream()
@@ -85,7 +85,7 @@ public class SportsEventRegistrationDataSeeder {
             return;
         }
 
-        PlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
 
         int created = 0;
 
@@ -187,7 +187,7 @@ public class SportsEventRegistrationDataSeeder {
      * @param flatNumberOverride if non-null, uses this flat number from CSV;
      *                           otherwise derives from user's block + flatNo.
      */
-    private int register(SportsEvent event, AppUser user, PlayerCategory category,
+    private int register(SportsEvent event, AppUser user, SportsPlayerCategory category,
                          SportsEvent.MatchFormat matchType,
                          SportsEventRegistration.RegistrationStatus status,
                          String playerName, int age, String role,

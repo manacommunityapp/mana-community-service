@@ -22,7 +22,7 @@ public class SportsNotificationScheduler {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tournament_id")
-    private Tournament tournament;
+    private SportsTournament tournament;
 
     @Column(name = "trigger_key", length = 50)
     private String triggerKey; // '7d', '1d', etc.

@@ -1,7 +1,7 @@
 package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.repository.SportMetaRepository;
+import com.manacommunity.api.repository.SportsMetaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SportsMetaSeeder {
 
-    private final SportMetaRepository sportRepo;
+    private final SportsMetaRepository sportRepo;
 
     @Transactional
     public void defaultSeed() {

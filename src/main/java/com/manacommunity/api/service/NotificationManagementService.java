@@ -20,7 +20,7 @@ import java.util.*;
 /**
  * General-purpose notification service that manages the user-facing
  * notification inbox (table: notification). Separate from the existing
- * SchedulerNotificationService which handles push dispatch.
+ * SportsSchedulerNotificationService which handles push dispatch.
  */
 @Slf4j
 @Service
