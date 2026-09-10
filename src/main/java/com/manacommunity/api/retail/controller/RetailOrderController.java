@@ -45,7 +45,9 @@ public class RetailOrderController {
             @PathVariable Long id,
             @RequestBody RetailOrderDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(orderService.updateOrder(id, dto));
+        // IDOR fix: pass communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(orderService.updateOrder(id, dto, user.getCommunity().getId()));
     }
 
     @DeleteMapping("/{id}")
@@ -53,7 +55,9 @@ public class RetailOrderController {
     public ResponseEntity<Void> deleteOrder(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        orderService.deleteOrder(id);
+        // IDOR fix: pass communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        orderService.deleteOrder(id, user.getCommunity().getId());
         return ResponseEntity.ok().build();
     }
 }

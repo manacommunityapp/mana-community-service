@@ -44,7 +44,9 @@ public class RetailProductController {
             @PathVariable Long id,
             @RequestBody RetailProductDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(productService.updateProduct(id, dto));
+        // IDOR fix: pass communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(productService.updateProduct(id, dto, user.getCommunity().getId()));
     }
 
     @DeleteMapping("/{id}")
@@ -52,7 +54,9 @@ public class RetailProductController {
     public ResponseEntity<Void> deleteProduct(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        productService.deleteProduct(id);
+        // IDOR fix: pass communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        productService.deleteProduct(id, user.getCommunity().getId());
         return ResponseEntity.ok().build();
     }
 }

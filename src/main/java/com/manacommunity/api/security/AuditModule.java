@@ -13,5 +13,7 @@ public enum AuditModule {
     NOTIFICATION,
     EVENTS,
     ADMIN,
-    SERVICE_PLATFORM
+    SERVICE_PLATFORM,
+    RETAIL,
+    PRIVACY
 }

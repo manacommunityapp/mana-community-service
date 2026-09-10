@@ -207,6 +207,8 @@ app:
       region: ${S3_REGION:eu-north-1}
       access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
       secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      # Presigned GET URL expiry for the file storage service (replaces permanent public URLs)
+      presigned-get-expiry-minutes: ${S3_PRESIGNED_GET_EXPIRY:60}
 
   # ── Centralized Media Management Service (S3-backed) ─────────────────────
   media:

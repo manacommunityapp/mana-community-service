@@ -13,7 +13,8 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     Optional<VisitorPass> findByPassCode(String passCode);
 
-    Optional<VisitorPass> findByOtp(String otp);
+    /** Looks up a pass by the SHA-256 hash of its OTP. Never pass the plain OTP here. */
+    Optional<VisitorPass> findByOtpHash(String otpHash);
 
     Optional<VisitorPass> findFirstByVisitorPhoneAndStatusInOrderByCreatedAtDesc(
             String phone, List<VisitorPass.PassStatus> statuses);
