@@ -102,24 +102,18 @@ public class SampleDataService implements ApplicationRunner {
     public String executeSampleDataSql() {
         try {
             log.info("Starting Java-based database seeding...");
-//            try {
-//                entityManager.createNativeQuery("ALTER TABLE manacommunity.role_permissions DROP CONSTRAINT IF EXISTS ukan4n77iv8oyxb9vm5ce46nly").executeUpdate();
-//                log.info("✓ Legacy unique constraint ukan4n77iv8oyxb9vm5ce46nly dropped successfully.");
-//            } catch (Exception e) {
-//                log.warn("Could not drop legacy unique constraint: {}", e.getMessage());
-//            }
 
-            //executeDefaultDataSql();
             // ════════════════════════════════════════════════════════════════════
             // Execute modular seeders in strict dependency order
             // ════════════════════════════════════════════════════════════════════
-            //rolePermissionSeeder.seed();
-            //communitySeeder.seed();
+
+            // Layer 1 — users, permissions, base categories
             userSeeder.seed();
             rolePermissionSeeder.seedUserPermissions();
             playerCategorySeeder.seed();
+
+            // Layer 2 — venues and community setup
             venueSeeder.seed();
-            //inventorySeeder.seed();
             Community le = communitySeeder.getLeCommunity();
             defaultCommunityModuleDataService.seedModulesForCommunity(
                     le.getId(),
@@ -128,18 +122,21 @@ public class SampleDataService implements ApplicationRunner {
                            ModuleConstants.MODULE_EVENTS,
                            ModuleConstants.MODULE_ADMIN_HUB));
             communityLeaderSeeder.seed();
-            //emailTemplateFeeder.seed();
-            //sportsEventSeeder.seed();
-            //tournamentSeeder.seed();
-            //auctionSeeder.seed();
 
-            // Dedicated per-table seeders (run after their dependencies above)
-            //rolePermissionDataSeeder.seed();
-            //venueDataSeeder.seed();
-            //courtDataSeeder.seed();
-            //sportsEventDataSeeder.seed();
-            //sportsEventRegistrationDataSeeder.seed();
-            //tournamentDataSeeder.seed();
+            // Layer 3 — sports events + registrations (depends on users, venues, player categories)
+            sportsEventSeeder.seed();
+
+            // Layer 4 — tournaments (depends on sports events)
+            tournamentSeeder.seed();
+            tournamentDataSeeder.seed();
+
+            // Layer 5 — auction (depends on sports events and users)
+            auctionSeeder.seed();
+
+            // Layer 6 — dedicated per-table seeders (depend on previous layers)
+            courtDataSeeder.seed();
+            sportsEventDataSeeder.seed();
+            sportsEventRegistrationDataSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");

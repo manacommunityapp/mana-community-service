@@ -7,7 +7,6 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
-import com.manacommunity.api.repository.SportsTournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,8 +27,7 @@ public class SportsEventSeeder {
 
     private final SportsEventRepository sportsEventRepo;
     private final SportsEventRegistrationRepository regRepo;
-    private final SportsTournamentRepository tournamentRepo;
-    
+
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
     private final VenueSeeder venueSeeder;
@@ -181,30 +179,6 @@ public class SportsEventSeeder {
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
                             .build());
-
-//                    // Save corresponding SportsTournament record to tournament table
-//                    SportsTournament.MatchFormat matchFormat = null;
-//                    if (saved.getFormat() != null && !saved.getFormat().isEmpty()) {
-//                        try {
-//                            matchFormat = SportsTournament.MatchFormat.valueOf(saved.getFormat().get(0));
-//                        } catch (Exception ignored) {}
-//                    }
-//                    SportsTournament.TournamentType tType = null;
-//                    if (saved.getTournamentType() != null) {
-//                        try {
-//                            tType = SportsTournament.TournamentType.valueOf(saved.getTournamentType().name());
-//                        } catch (Exception ignored) {}
-//                    }
-//
-//                    SportsTournament tournament = SportsTournament.builder()
-//                            .name(saved.getName())
-//                            .event(saved)
-//                            .format(matchFormat)
-//                            .tournamentType(tType)
-//                            .createdAt(saved.getCreatedAt() != null ? saved.getCreatedAt() : LocalDateTime.now())
-//                            .updatedAt(saved.getUpdatedAt() != null ? saved.getUpdatedAt() : LocalDateTime.now())
-//                            .build();
-//                    tournamentRepo.save(tournament);
 
                     return saved;
                 });
