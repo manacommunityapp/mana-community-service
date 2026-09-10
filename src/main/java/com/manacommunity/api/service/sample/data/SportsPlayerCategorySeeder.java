@@ -39,17 +39,7 @@ public class SportsPlayerCategorySeeder {
 
     @Transactional
     public void seed() {
-        log.info("Seeding player categories...");
-        Community generalCommunity = communitySeeder.getGeneralCommunity();
-
-        getOrCreatePlayerCategory("Boy's Under 19",    "BOYS",    "MALE",    0, 9,  generalCommunity);
-        getOrCreatePlayerCategory("Men's Above 19",    "MENS",    "MALE",   19, 45, generalCommunity);
-        getOrCreatePlayerCategory("Women's Above 19",  "WOMENS",  "FEMALE", 18, 50, generalCommunity);
-        getOrCreatePlayerCategory("Girl's Under 19",   "GIRLS",   "FEMALE",  0, 19, generalCommunity);
-        getOrCreatePlayerCategory("Kid's Under 12",    "KIDS",    "ALL",     5, 12, generalCommunity);
-        getOrCreatePlayerCategory("Senior's Above 45", "SENIORS", "ALL",    45, 55, generalCommunity);
-
-        log.info("✓ Player categories seeded successfully.");
+        defaultSeed();
     }
 
     public SportsPlayerCategory getCategoryByName(String name) {
