@@ -7,7 +7,7 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
-import com.manacommunity.api.repository.TournamentRepository;
+import com.manacommunity.api.repository.SportsTournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,13 +28,13 @@ public class SportsEventSeeder {
 
     private final SportsEventRepository sportsEventRepo;
     private final SportsEventRegistrationRepository regRepo;
-    private final TournamentRepository tournamentRepo;
+    private final SportsTournamentRepository tournamentRepo;
     
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
     private final VenueSeeder venueSeeder;
     private final UserSeeder userSeeder;
-    private final PlayerCategorySeeder playerCategorySeeder;
+    private final SportsPlayerCategorySeeder playerCategorySeeder;
 
     @Transactional
     public void seed() {
@@ -45,8 +45,8 @@ public class SportsEventSeeder {
         Venue leBoxCricket = venueSeeder.getLeBoxCricket();
         AppUser ramesh = userSeeder.getRamesh();
         
-        PlayerCategory boysU19 = playerCategorySeeder.getCategoryByName("Boy's Under 19");
-        PlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory boysU19 = playerCategorySeeder.getCategoryByName("Boy's Under 19");
+        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
 
         SportsEvent summerCup = getOrCreateSportsEvent(
                 "Annual Summer Cricket Cup",
@@ -143,7 +143,7 @@ public class SportsEventSeeder {
     }
 
     private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus,SportsMeta sport, Community community,
-                                               Venue venue, AppUser createdBy, Set<PlayerCategory> categories,
+                                               Venue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
                                                SportsEvent.EventStatus status,
                                                List<String> formats,
                                                SportsEvent.TournamentType tournamentType,
@@ -182,21 +182,21 @@ public class SportsEventSeeder {
                             .updatedAt(LocalDateTime.now())
                             .build());
 
-//                    // Save corresponding Tournament record to tournament table
-//                    Tournament.MatchFormat matchFormat = null;
+//                    // Save corresponding SportsTournament record to tournament table
+//                    SportsTournament.MatchFormat matchFormat = null;
 //                    if (saved.getFormat() != null && !saved.getFormat().isEmpty()) {
 //                        try {
-//                            matchFormat = Tournament.MatchFormat.valueOf(saved.getFormat().get(0));
+//                            matchFormat = SportsTournament.MatchFormat.valueOf(saved.getFormat().get(0));
 //                        } catch (Exception ignored) {}
 //                    }
-//                    Tournament.TournamentType tType = null;
+//                    SportsTournament.TournamentType tType = null;
 //                    if (saved.getTournamentType() != null) {
 //                        try {
-//                            tType = Tournament.TournamentType.valueOf(saved.getTournamentType().name());
+//                            tType = SportsTournament.TournamentType.valueOf(saved.getTournamentType().name());
 //                        } catch (Exception ignored) {}
 //                    }
 //
-//                    Tournament tournament = Tournament.builder()
+//                    SportsTournament tournament = SportsTournament.builder()
 //                            .name(saved.getName())
 //                            .event(saved)
 //                            .format(matchFormat)
@@ -210,7 +210,7 @@ public class SportsEventSeeder {
                 });
     }
 
-    private void createRegistration(SportsEvent event, AppUser user, PlayerCategory category,
+    private void createRegistration(SportsEvent event, AppUser user, SportsPlayerCategory category,
                                     SportsEvent.MatchFormat matchType,
                                     SportsEventRegistration.RegistrationStatus status,
                                     String playerName, int age, String role) {

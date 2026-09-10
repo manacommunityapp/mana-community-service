@@ -2,7 +2,7 @@ package com.manacommunity.api.email;
 
 /**
  * The set of transactional emails this application sends — the full Sports
- * Tournament email flow. Each value maps to a Thymeleaf template under
+ * SportsTournament email flow. Each value maps to a Thymeleaf template under
  * {@code classpath:/templates/email/} and a default subject line.
  */
 public enum EmailTemplate {
@@ -38,7 +38,7 @@ public enum EmailTemplate {
                     "An admin records a completed match result; the winning side's players are emailed automatically.")),
 
     /** The tournament finished — champion, runner-up and third place. */
-    TOURNAMENT_COMPLETION("tournament-completion", "Tournament results are in", EmailCategory.TOURNAMENT,
+    TOURNAMENT_COMPLETION("tournament-completion", "SportsTournament results are in", EmailCategory.TOURNAMENT,
             new Trigger("Sports → Schedule (bracket / match result entry)", true,
                     "Fires automatically to all confirmed participants once the FINAL round's result is recorded (champion, runner-up, third place).")),
 
@@ -47,14 +47,14 @@ public enum EmailTemplate {
             new Trigger(null, false,
                     "Not currently wired to any UI action or automatic job — defined for a future prize-ceremony flow. Reachable only from this admin test-send tool.")),
 
-    /** Tournament created — announcing registration is open. */
+    /** SportsTournament created — announcing registration is open. */
     TOURNAMENT_OPEN("tournament-open", "Registration is now open!", EmailCategory.TOURNAMENT,
-            new Trigger("Sports → Admin → Tournament management → \"Notify Registration Open\"", true,
+            new Trigger("Sports → Admin → SportsTournament management → \"Notify Registration Open\"", true,
                     "An admin clicks \"Notify Registration Open\" for a tournament (or picks this template in the Announcement composer).")),
 
     /** General tournament announcement (custom or pre-built). */
-    TOURNAMENT_ANNOUNCEMENT("tournament-announcement", "Tournament announcement", EmailCategory.ANNOUNCEMENT,
-            new Trigger("Sports → Admin → Tournament management → Announcement", true,
+    TOURNAMENT_ANNOUNCEMENT("tournament-announcement", "SportsTournament announcement", EmailCategory.ANNOUNCEMENT,
+            new Trigger("Sports → Admin → SportsTournament management → Announcement", true,
                     "Default template for the admin's free-form tournament announcement composer (venue changes, general updates, etc.).")),
 
     /** One-time passcode emailed to verify an address before registration. */
@@ -62,12 +62,12 @@ public enum EmailTemplate {
             new Trigger("Sports → Register (event registration form)", true,
                     "A player requests an email verification code before submitting a sports event registration.")),
 
-    /** Tournament registrations are now open for the community. */
+    /** SportsTournament registrations are now open for the community. */
     REGISTRATION_OPEN("registration-open", "Registrations are now open!", EmailCategory.REGISTRATION,
-            new Trigger("Sports → Admin → Tournament management → Update Status", true,
+            new Trigger("Sports → Admin → SportsTournament management → Update Status", true,
                     "Sent automatically to all participants when an admin changes a tournament's status to \"Registration Open.\"")),
 
-    /** Tournament has officially started / opening ceremony. */
+    /** SportsTournament has officially started / opening ceremony. */
     TOURNAMENT_START("tournament-start", "Welcome to the tournament! 🚀", EmailCategory.TOURNAMENT,
             new Trigger(null, false,
                     "Not currently wired to any UI action or automatic job — defined for a future opening-ceremony flow. Reachable only from this admin test-send tool.")),

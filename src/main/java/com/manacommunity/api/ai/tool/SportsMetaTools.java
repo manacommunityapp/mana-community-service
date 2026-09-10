@@ -72,7 +72,7 @@ public class SportsMetaTools {
         StringBuilder jpql = new StringBuilder(
                 "SELECT c.id, c.name, c.category_type, c.description, c.minAge, c.maxAge, " +
                 "c.gender, c.type " +
-                "FROM PlayerCategory c WHERE (c.type = 'DEFAULT' " +
+                "FROM SportsPlayerCategory c WHERE (c.type = 'DEFAULT' " +
                 "OR c.community.id = :comId)");
 
         if (gender != null) jpql.append(" AND c.gender = :gen");

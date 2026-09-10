@@ -2,7 +2,7 @@ package com.manacommunity.api.service.scheduler.seeding;
 
 import com.manacommunity.api.model.Community;
 
-import com.manacommunity.api.dto.scheduler.PlayoffMatchDraftResponse.ParticipantRef;
+import com.manacommunity.api.dto.scheduler.SportsPlayoffMatchDraftResponse.ParticipantRef;
 
 /**
  * Community first-round pairing rules, keyed off the player's flat number:

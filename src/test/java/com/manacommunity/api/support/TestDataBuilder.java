@@ -9,7 +9,7 @@ import com.manacommunity.api.user.model.AppUser;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import static com.manacommunity.api.model.scheduler.TournamentConfig.TournamentStatus;
+import static com.manacommunity.api.model.scheduler.SportsTournamentConfig.TournamentStatus;
 
 /**
  * Factory class for building test entities.
@@ -106,10 +106,10 @@ public final class TestDataBuilder {
         return req;
     }
 
-    // ── TournamentConfig ──────────────────────────────────────────────
+    // ── SportsTournamentConfig ──────────────────────────────────────────────
 
-    public static TournamentConfig tournamentConfig(Long id) {
-        return TournamentConfig.builder()
+    public static SportsTournamentConfig tournamentConfig(Long id) {
+        return SportsTournamentConfig.builder()
                 .id(id)
                 .tournamentName("Test Cup")
                 .tournamentType(TournamentType.KNOCKOUT)
@@ -119,10 +119,10 @@ public final class TestDataBuilder {
                 .build();
     }
 
-    // ── TournamentMatch ───────────────────────────────────────────────
+    // ── SportsTournamentMatch ───────────────────────────────────────────────
 
-    public static TournamentMatch match(TournamentConfig config, int number) {
-        return TournamentMatch.builder()
+    public static SportsTournamentMatch match(SportsTournamentConfig config, int number) {
+        return SportsTournamentMatch.builder()
                 .config(config)
                 .round(MatchRound.FINAL)
                 .matchNumber(number)

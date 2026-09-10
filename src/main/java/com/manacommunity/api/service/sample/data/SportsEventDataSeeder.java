@@ -33,7 +33,7 @@ public class SportsEventDataSeeder {
     private final CommunitySeeder communitySeeder;
     private final VenueDataSeeder venueDataSeeder;
     private final UserSeeder userSeeder;
-    private final PlayerCategorySeeder playerCategorySeeder;
+    private final SportsPlayerCategorySeeder playerCategorySeeder;
 
     @Transactional
     public void seed() {
@@ -48,7 +48,7 @@ public class SportsEventDataSeeder {
         Community community = communitySeeder.getLeCommunity();
         Venue arena = venueDataSeeder.getOrCreateArena();
         AppUser createdBy = userSeeder.getRamesh();
-        PlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
 
         return sportsEventRepo.findAll().stream()
                 .filter(e -> EVENT_NAME.equalsIgnoreCase(e.getName()))

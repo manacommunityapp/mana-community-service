@@ -3,7 +3,7 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.user.model.AppUser;
 
 import com.manacommunity.api.dto.PagedResponse;
-import com.manacommunity.api.dto.PlayerCategoryRequest;
+import com.manacommunity.api.dto.SportsPlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.dto.SportsEventRequest;
@@ -11,16 +11,16 @@ import com.manacommunity.api.dto.SportsEventResponse;
 import com.manacommunity.api.dto.SportsRegistrationResponse;
 import com.manacommunity.api.dto.SportsMetaRequest;
 import com.manacommunity.api.dto.SportsMetaResponse;
-import com.manacommunity.api.dto.TournamentRequest;
+import com.manacommunity.api.dto.SportsTournamentRequest;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
-import com.manacommunity.api.repository.PlayerCategoryRepository;
-import com.manacommunity.api.repository.SportMetaRepository;
+import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
+import com.manacommunity.api.repository.SportsMetaRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.user.service.LoggedInUserService.ResolvedUser;
 import com.manacommunity.api.service.SportsEventService;
-import com.manacommunity.api.service.TournamentService;
+import com.manacommunity.api.service.SportsTournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -46,10 +46,10 @@ import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 public class SportsController {
 
     private final SportsEventService eventService;
-    private final SportMetaRepository sportMetaRepo;
-    private final PlayerCategoryRepository categoryRepo;
+    private final SportsMetaRepository sportMetaRepo;
+    private final SportsPlayerCategoryRepository categoryRepo;
     private final LoggedInUserService loggedInUserService;
-    private final TournamentService tournamentService;
+    private final SportsTournamentService tournamentService;
     private final PermissionCheckService permissionCheckService;
     private final SportsEventCsvImportService csvImportService;
 
@@ -169,11 +169,11 @@ public class SportsController {
 
     @PutMapping("/tournaments/{id}")
     public ResponseEntity<SportsEventResponse> updateTournament(
-            @PathVariable Long id, @Valid @RequestBody TournamentRequest req,
+            @PathVariable Long id, @Valid @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         // Update the existing tournament in place (never insert a duplicate).
-        Tournament tournament = tournamentService.updateTournamentRecord(id, req, req.getAllowAdminChat());
+        SportsTournament tournament = tournamentService.updateTournamentRecord(id, req, req.getAllowAdminChat());
         // Respond with the tournament's primary linked event when it has one;
         // fall back to null for tournaments that have no events yet.
         SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())

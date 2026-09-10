@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
  * <p>Usage:</p>
  * <pre>{@code
  * @ExtendWith(MockitoExtension.class)
- * class AuctionQueryToolsTest extends BaseAiToolTest {
+ * class SportsAuctionQueryToolsTest extends BaseAiToolTest {
  *     @InjectMocks AuctionQueryTools tools;
  *
  *     @Test void searchPlayers_deniesWrongCommunity() { ... }

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * AI tools for tournament scheduling: configuration details, match schedules with
  * venue/court/time assignments, bracket structure, and schedule generation logs.
  *
- * <p>Scoped via {@code TournamentConfig.community.id}.</p>
+ * <p>Scoped via {@code SportsTournamentConfig.community.id}.</p>
  */
 @Slf4j
 @Component
@@ -35,7 +35,7 @@ public class ScheduleManagementTools {
         if (configId == null) return false;
         UserContext ctx = AgentSecurityContext.get();
         return em.createQuery(
-                        "SELECT COUNT(tc) FROM TournamentConfig tc " +
+                        "SELECT COUNT(tc) FROM SportsTournamentConfig tc " +
                         "WHERE tc.id = :tcId AND tc.community.id = :comId", Long.class)
                 .setParameter("tcId", configId)
                 .setParameter("comId", ctx.communityId())
@@ -47,10 +47,10 @@ public class ScheduleManagementTools {
     @Tool(description = "Get full tournament schedule configuration — type, groups, knockout "
             + "settings, points system, timings, venue, and status. Community-scoped, read-only.")
     public Object getTournamentConfig(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         var rows = em.createQuery(
@@ -60,7 +60,7 @@ public class ScheduleManagementTools {
                 "tc.startDate, tc.endDate, tc.matchDurationMinutes, tc.breakBetweenMatchesMinutes, " +
                 "tc.pointsForWin, tc.pointsForDraw, tc.pointsForLoss, tc.status, " +
                 "s.name, v.name, e.name " +
-                "FROM TournamentConfig tc " +
+                "FROM SportsTournamentConfig tc " +
                 "LEFT JOIN tc.sport s LEFT JOIN tc.venue v LEFT JOIN tc.event e " +
                 "WHERE tc.id = :tcId", Object[].class)
                 .setParameter("tcId", configId)
@@ -98,14 +98,14 @@ public class ScheduleManagementTools {
 
         // Match and group counts
         Long matchCount = em.createQuery(
-                        "SELECT COUNT(m) FROM TournamentMatch m WHERE m.config.id = :tcId",
+                        "SELECT COUNT(m) FROM SportsTournamentMatch m WHERE m.config.id = :tcId",
                         Long.class)
                 .setParameter("tcId", configId)
                 .getSingleResult();
         result.put("total_matches", matchCount);
 
         Long groupCount = em.createQuery(
-                        "SELECT COUNT(g) FROM TournamentGroup g WHERE g.config.id = :tcId",
+                        "SELECT COUNT(g) FROM SportsTournamentGroup g WHERE g.config.id = :tcId",
                         Long.class)
                 .setParameter("tcId", configId)
                 .getSingleResult();
@@ -122,7 +122,7 @@ public class ScheduleManagementTools {
         return em.createQuery(
                         "SELECT tc.id, tc.tournamentName, tc.tournamentType, tc.totalTeams, " +
                         "tc.status, tc.startDate, s.name, e.name " +
-                        "FROM TournamentConfig tc " +
+                        "FROM SportsTournamentConfig tc " +
                         "LEFT JOIN tc.sport s LEFT JOIN tc.event e " +
                         "WHERE tc.community.id = :comId " +
                         "ORDER BY tc.createdAt DESC", Object[].class)
@@ -147,7 +147,7 @@ public class ScheduleManagementTools {
             + "venue, court, time, round, and status. Ordered chronologically. "
             + "Community-scoped, read-only.")
     public Object getFullSchedule(
-            @ToolParam(description = "Tournament config ID") Long configId,
+            @ToolParam(description = "SportsTournament config ID") Long configId,
             @ToolParam(required = false, description = "Filter by round: GROUP_STAGE, QUARTER_FINAL, SEMI_FINAL, FINAL, etc.")
             String round,
             @ToolParam(required = false, description = "Filter by status: SCHEDULED, LIVE, COMPLETED, POSTPONED, CANCELLED")
@@ -155,7 +155,7 @@ public class ScheduleManagementTools {
             @ToolParam(required = false, description = "Max results (default 25)") Integer limit) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         StringBuilder jpql = new StringBuilder(
@@ -164,7 +164,7 @@ public class ScheduleManagementTools {
                 "ta.teamName, tb.teamName, " +
                 "m.scoreTeamA, m.scoreTeamB, " +
                 "v.name, c.name, g.name " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                 "LEFT JOIN m.group g " +
@@ -209,10 +209,10 @@ public class ScheduleManagementTools {
             + "feed into which matches (winner-of-M1 vs winner-of-M2 → M5). "
             + "Community-scoped, read-only.")
     public Object getBracketStructure(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         return em.createQuery(
@@ -221,7 +221,7 @@ public class ScheduleManagementTools {
                         "m.winnerFeedFromMatchA, m.winnerFeedFromMatchB, " +
                         "m.winnerAdvancesToMatchId, m.loserSentToMatchId, " +
                         "m.scoreTeamA, m.scoreTeamB, m.status " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "WHERE m.config.id = :tcId " +
                         "AND m.round <> 'GROUP_STAGE' " +
@@ -252,15 +252,15 @@ public class ScheduleManagementTools {
     @Tool(description = "Get group assignments — which teams are in which groups with their "
             + "seed rank. Community-scoped, read-only.")
     public Object getGroupAssignments(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         return em.createQuery(
                         "SELECT g.name, t.teamName, s.seedRank " +
-                        "FROM GroupTeamStanding s JOIN s.group g JOIN s.team t " +
+                        "FROM SportsGroupTeamStanding s JOIN s.group g JOIN s.team t " +
                         "WHERE g.config.id = :tcId " +
                         "ORDER BY g.name, s.seedRank", Object[].class)
                 .setParameter("tcId", configId)
@@ -278,17 +278,17 @@ public class ScheduleManagementTools {
     @Tool(description = "Get schedule generation history — logs of when schedules were generated, "
             + "published, or modified. Community-scoped, read-only.")
     public Object getScheduleGenerationLogs(
-            @ToolParam(description = "Tournament config ID") Long configId,
+            @ToolParam(description = "SportsTournament config ID") Long configId,
             @ToolParam(required = false, description = "Max results (default 10)") Integer limit) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         return em.createQuery(
                         "SELECT l.id, l.action, l.status, l.message, l.matchesGenerated, " +
                         "l.createdAt, u.fullName " +
-                        "FROM ScheduleGenerationLog l LEFT JOIN l.createdBy u " +
+                        "FROM SportsScheduleGenerationLog l LEFT JOIN l.createdBy u " +
                         "WHERE l.config.id = :tcId " +
                         "ORDER BY l.createdAt DESC", Object[].class)
                 .setParameter("tcId", configId)
@@ -311,17 +311,17 @@ public class ScheduleManagementTools {
     @Tool(description = "Get a schedule summary — match counts by status and round, "
             + "with date range and venue breakdown. Community-scoped, read-only.")
     public Object getScheduleSummary(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         if (!isConfigInCommunity(configId)) {
-            return Map.of("error", "Tournament config not found in your community");
+            return Map.of("error", "SportsTournament config not found in your community");
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
 
         // By status
         var byStatus = em.createQuery(
-                        "SELECT m.status, COUNT(m) FROM TournamentMatch m " +
+                        "SELECT m.status, COUNT(m) FROM SportsTournamentMatch m " +
                         "WHERE m.config.id = :tcId GROUP BY m.status", Object[].class)
                 .setParameter("tcId", configId)
                 .getResultList();
@@ -332,7 +332,7 @@ public class ScheduleManagementTools {
 
         // By round
         var byRound = em.createQuery(
-                        "SELECT m.round, COUNT(m) FROM TournamentMatch m " +
+                        "SELECT m.round, COUNT(m) FROM SportsTournamentMatch m " +
                         "WHERE m.config.id = :tcId GROUP BY m.round " +
                         "ORDER BY MIN(m.roundNumber)", Object[].class)
                 .setParameter("tcId", configId)
@@ -344,7 +344,7 @@ public class ScheduleManagementTools {
 
         // Date range
         var dateRange = em.createQuery(
-                        "SELECT MIN(m.scheduledAt), MAX(m.scheduledAt) FROM TournamentMatch m " +
+                        "SELECT MIN(m.scheduledAt), MAX(m.scheduledAt) FROM SportsTournamentMatch m " +
                         "WHERE m.config.id = :tcId AND m.scheduledAt IS NOT NULL", Object[].class)
                 .setParameter("tcId", configId)
                 .getResultList();
@@ -357,7 +357,7 @@ public class ScheduleManagementTools {
         // By venue
         var byVenue = em.createQuery(
                         "SELECT COALESCE(v.name, 'Unassigned'), COUNT(m) " +
-                        "FROM TournamentMatch m LEFT JOIN m.venue v " +
+                        "FROM SportsTournamentMatch m LEFT JOIN m.venue v " +
                         "WHERE m.config.id = :tcId GROUP BY v.name", Object[].class)
                 .setParameter("tcId", configId)
                 .getResultList();

@@ -13,7 +13,7 @@ import java.util.Optional;
 
 /**
  * BUG FIX: Renamed from UserRepository to AppUserRepository to match
- * the AppUser entity (used in SportsEventServiceImpl, AuctionServiceImpl,
+ * the AppUser entity (used in SportsEventServiceImpl, SportsAuctionServiceImpl,
  * NotificationScheduler). The old UserRepository worked against the
  * legacy User entity (String PK / "users" table) which conflicts with
  * the schema's app_user table (Long PK).

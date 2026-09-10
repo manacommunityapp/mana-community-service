@@ -5,10 +5,10 @@ import com.manacommunity.api.model.Role;
 import com.manacommunity.api.exception.CsvParseException;
 import com.manacommunity.api.exception.InvalidFileUploadException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
-import com.manacommunity.api.model.PlayerCategory;
+import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
-import com.manacommunity.api.repository.PlayerCategoryRepository;
+import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class SportsEventCsvImportService {
 
     private final SportsEventRepository eventRepo;
     private final SportsEventRegistrationRepository regRepo;
-    private final PlayerCategoryRepository categoryRepo;
+    private final SportsPlayerCategoryRepository categoryRepo;
 
     public record ImportResult(int imported, int skipped, List<String> skippedReasons) {}
 
@@ -124,7 +124,7 @@ public class SportsEventCsvImportService {
                 }
 
                 // Resolve category
-                PlayerCategory category = null;
+                SportsPlayerCategory category = null;
                 if (!categoryName.isEmpty()) {
                     category = categoryRepo.findByNameIgnoreCase(categoryName).orElse(null);
                     if (category == null) {

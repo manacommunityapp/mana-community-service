@@ -2,7 +2,7 @@ package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.schedule.SportsScheduleResponse.EventListItem;
 import com.manacommunity.api.dto.schedule.SportsScheduleResponse.RegistrationListItem;
-import com.manacommunity.api.model.PlayerCategory;
+import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.user.model.AppUser;
@@ -96,7 +96,7 @@ public class SportsScheduleService {
         );
     }
 
-    private String firstCategoryName(Set<PlayerCategory> categories) {
+    private String firstCategoryName(Set<SportsPlayerCategory> categories) {
         if (categories == null || categories.isEmpty()) return null;
         return categories.iterator().next().getName();
     }

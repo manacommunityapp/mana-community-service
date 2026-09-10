@@ -6,11 +6,11 @@ import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse;
 import com.manacommunity.api.dto.dashboard.SportsDashboardResponse.*;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.PlayerCategory;
+import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
-import com.manacommunity.api.model.Tournament;
-import com.manacommunity.api.repository.TournamentRepository;
+import com.manacommunity.api.model.SportsTournament;
+import com.manacommunity.api.repository.SportsTournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class SportsDashboardService {
 
     private final SportsEventService eventService;
-    private final TournamentRepository tournamentRepo;
+    private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
 
     @Transactional(readOnly = true)
@@ -45,12 +45,12 @@ public class SportsDashboardService {
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
 
         int liveCount = (int) (isSuperAdmin
-                ? eventRepo.countByTournamentRegistrationStatus(Tournament.EventStatus.LIVE)
-                : (communityId != null ? eventRepo.countByCommunityIdAndTournamentRegistrationStatus(communityId, Tournament.EventStatus.LIVE) : 0));
+                ? eventRepo.countByTournamentRegistrationStatus(SportsTournament.EventStatus.LIVE)
+                : (communityId != null ? eventRepo.countByCommunityIdAndTournamentRegistrationStatus(communityId, SportsTournament.EventStatus.LIVE) : 0));
 
-        List<Tournament.EventStatus> upcomingStatuses = List.of(
-                Tournament.EventStatus.DRAFT,
-                Tournament.EventStatus.REGISTRATION_OPEN
+        List<SportsTournament.EventStatus> upcomingStatuses = List.of(
+                SportsTournament.EventStatus.DRAFT,
+                SportsTournament.EventStatus.REGISTRATION_OPEN
         );
         int upcomingTournamentsCount = (int) (isSuperAdmin
                 ? tournamentRepo.countByRegistrationStatusIn(upcomingStatuses)
@@ -85,10 +85,10 @@ public class SportsDashboardService {
                         Function.identity(),
                         (a, b) -> a)); // keep first on duplicate
 
-        List<Tournament> openTournamentEntities = isSuperAdmin
-                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_OPEN)
+        List<SportsTournament> openTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsTournament.EventStatus.REGISTRATION_OPEN)
                 : (communityId != null
-                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_OPEN, communityId)
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsTournament.EventStatus.REGISTRATION_OPEN, communityId)
                     : List.of());
         return buildTournamentCards(openTournamentEntities, regByEvent);
     }
@@ -106,10 +106,10 @@ public class SportsDashboardService {
                         Function.identity(),
                         (a, b) -> a)); // keep first on duplicate
 
-        List<Tournament> closedTournamentEntities = isSuperAdmin
-                ? tournamentRepo.findByRegistrationStatusWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED)
+        List<SportsTournament> closedTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsTournament.EventStatus.REGISTRATION_CLOSED)
                 : (communityId != null
-                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(Tournament.EventStatus.REGISTRATION_CLOSED, communityId)
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsTournament.EventStatus.REGISTRATION_CLOSED, communityId)
                     : List.of());
         return buildTournamentCards(closedTournamentEntities, regByEvent);
     }
@@ -122,14 +122,14 @@ public class SportsDashboardService {
                 .toList();
     }
 
-    // ── Tournament grouping ────────────────────────────────────────────
+    // ── SportsTournament grouping ────────────────────────────────────────────
 
     private List<TournamentCard> buildTournamentCards(
-            List<Tournament> tournaments,
+            List<SportsTournament> tournaments,
             Map<Long, SportsEventRegistration> regByEvent) {
 
         List<TournamentCard> cards = new ArrayList<>();
-        for (Tournament t : tournaments) {
+        for (SportsTournament t : tournaments) {
             List<SportsEvent> childEvents = t.getSportsEvents() != null ? t.getSportsEvents() : List.of();
             List<EventCard> eventCards = childEvents.stream()
                     .filter(e -> e.getActive() == null || e.getActive())
@@ -205,7 +205,7 @@ public class SportsDashboardService {
 
     /** Event status lives on the linked tournament (REGISTRATION_OPEN / CLOSED / LIVE …). */
     private String registrationStatus(SportsEvent e) {
-        Tournament t = e.getTournament();
+        SportsTournament t = e.getTournament();
         if (t != null && t.getRegistrationStatus() != null) {
             return t.getRegistrationStatus().name();
         }
@@ -221,7 +221,7 @@ public class SportsDashboardService {
         if (e.getCategories() == null || e.getCategories().isEmpty()) return null;
         return e.getCategories().stream()
                 .filter(Objects::nonNull)
-                .map(PlayerCategory::getName)
+                .map(SportsPlayerCategory::getName)
                 .findFirst()
                 .orElse(null);
     }

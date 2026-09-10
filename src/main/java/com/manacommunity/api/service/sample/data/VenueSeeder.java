@@ -2,7 +2,7 @@ package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Venue;
-import com.manacommunity.api.model.Court;
+import com.manacommunity.api.model.SportsCourt;
 import com.manacommunity.api.repository.VenueRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,13 +47,13 @@ public class VenueSeeder {
                 "10:00 AM", "08:00 PM",
                 "sunil", "8801357225", "kskreddy1989@gmail.com");
 
-        List<Court> badmintonCourts = List.of(
-                Court.builder().name("Court 1").color("#3b82f6").build(),
-                Court.builder().name("Court 2").color("#f73bb2").build()
+        List<SportsCourt> badmintonCourts = List.of(
+                SportsCourt.builder().name("SportsCourt 1").color("#3b82f6").build(),
+                SportsCourt.builder().name("SportsCourt 2").color("#f73bb2").build()
         );
 
         getOrCreateVenue(
-                "LE Badminton Court", "APARTMENT", leCommunity,
+                "LE Badminton SportsCourt", "APARTMENT", leCommunity,
                 "hyderabad", "beside super market", "miyapur",
                 "500049", 2, "COMMUNITY",
                 "10:00 AM", "08:00 PM",
@@ -73,9 +73,9 @@ public class VenueSeeder {
 
     public Venue getLeBadmintonCourt() {
         return venueRepo.findAll().stream()
-                .filter(v -> v.getName().equals("LE Badminton Court"))
+                .filter(v -> v.getName().equals("LE Badminton SportsCourt"))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("LE Badminton Court venue has not been seeded yet."));
+                .orElseThrow(() -> new IllegalStateException("LE Badminton SportsCourt venue has not been seeded yet."));
     }
 
     private Venue getOrCreateVenue(String name, String venueType, Community community,
@@ -100,7 +100,7 @@ public class VenueSeeder {
                                    String pinCode, Integer capacity, String venueCategory,
                                    String openingTime, String closingTime,
                                    String contactName, String contactNumber, String contactEmail,
-                                   List<Court> courts) {
+                                   List<SportsCourt> courts) {
         Venue venue = venueRepo.findAll().stream()
                 .filter(v -> v.getName().equals(name))
                 .findFirst()
@@ -131,7 +131,7 @@ public class VenueSeeder {
                 if (venue.getCourts() == null) {
                     venue.setCourts(new ArrayList<>());
                 }
-                for (Court c : courts) {
+                for (SportsCourt c : courts) {
                     c.setVenue(venue);
                     venue.getCourts().add(c);
                 }
