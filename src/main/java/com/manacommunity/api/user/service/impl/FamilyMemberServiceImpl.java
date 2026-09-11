@@ -137,6 +137,13 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
         FamilyMember existing = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Family member not found with id: " + id));
 
+        // IDOR check: Only owner or admin can update family member
+        boolean isOwner = user != null && existing.getUser() != null && existing.getUser().getId().equals(user.getId());
+        boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN") || user.hasRole("COMMUNITY_ADMIN"));
+        if (!isOwner && !isAdmin) {
+            throw new com.manacommunity.api.exception.UnauthorizedActionException("You can only modify your own family members.");
+        }
+
         if (member.getName() != null && !member.getName().isBlank()) {
             existing.setName(member.getName().trim());
         }
@@ -187,6 +194,16 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
     @Override
     @Transactional
     public void deleteFamilyMember(Long id, AppUser user, Long communityId) {
-        repository.deleteById(id);
+        FamilyMember existing = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Family member not found with id: " + id));
+
+        // IDOR check: Only owner or admin can delete family member
+        boolean isOwner = user != null && existing.getUser() != null && existing.getUser().getId().equals(user.getId());
+        boolean isAdmin = user != null && (user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN") || user.hasRole("COMMUNITY_ADMIN"));
+        if (!isOwner && !isAdmin) {
+            throw new com.manacommunity.api.exception.UnauthorizedActionException("You can only delete your own family members.");
+        }
+
+        repository.delete(existing);
     }
 }
