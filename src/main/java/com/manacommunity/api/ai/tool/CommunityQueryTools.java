@@ -130,7 +130,7 @@ public class CommunityQueryTools {
             // Fetch courts for this venue
             var courts = em.createQuery(
                             "SELECT c.id, c.name, c.courtType, c.surface " +
-                            "FROM Court c WHERE c.venue.id = :vid ORDER BY c.name", Object[].class)
+                            "FROM SportsCourt c WHERE c.venue.id = :vid ORDER BY c.name", Object[].class)
                     .setParameter("vid", v[0])
                     .getResultList();
 

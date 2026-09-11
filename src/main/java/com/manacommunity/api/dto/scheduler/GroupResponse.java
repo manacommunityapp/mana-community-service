@@ -6,5 +6,5 @@ public record GroupResponse(
     Long                       groupId,
     String                     groupName,
     List<StandingResponse>     standings,
-    List<MatchResponse>        matches
+    List<SportsMatchResponse>        matches
 ) {}

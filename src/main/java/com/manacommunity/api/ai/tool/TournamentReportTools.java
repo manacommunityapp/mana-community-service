@@ -46,7 +46,7 @@ public class TournamentReportTools {
             + "match stats (total matches, highest score, closest match), and team records. "
             + "Community-scoped, read-only.")
     public Object generateTournamentReport(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         UserContext ctx = AgentSecurityContext.get();
 
@@ -54,13 +54,13 @@ public class TournamentReportTools {
         var configRows = em.createQuery(
                 "SELECT tc.tournamentName, tc.tournamentType, tc.totalTeams, tc.status, " +
                 "tc.startDate, tc.endDate, s.name " +
-                "FROM TournamentConfig tc LEFT JOIN tc.sport s " +
+                "FROM SportsTournamentConfig tc LEFT JOIN tc.sport s " +
                 "WHERE tc.id = :tcId AND tc.community.id = :comId", Object[].class)
                 .setParameter("tcId", configId)
                 .setParameter("comId", ctx.communityId())
                 .getResultList();
 
-        if (configRows.isEmpty()) return Map.of("error", "Tournament not found in your community");
+        if (configRows.isEmpty()) return Map.of("error", "SportsTournament not found in your community");
 
         Object[] cfg = configRows.get(0);
         Map<String, Object> report = new LinkedHashMap<>();
@@ -77,7 +77,7 @@ public class TournamentReportTools {
                 "SELECT COUNT(m), " +
                 "SUM(CASE WHEN m.status = 'COMPLETED' THEN 1 ELSE 0 END), " +
                 "MAX(m.scoreTeamA + m.scoreTeamB) " +
-                "FROM TournamentMatch m WHERE m.config.id = :tcId", Object[].class)
+                "FROM SportsTournamentMatch m WHERE m.config.id = :tcId", Object[].class)
                 .setParameter("tcId", configId)
                 .getResultList();
 
@@ -90,7 +90,7 @@ public class TournamentReportTools {
         // Final / championship match
         var finalMatch = em.createQuery(
                 "SELECT ta.teamName, tb.teamName, m.scoreTeamA, m.scoreTeamB, m.scheduledAt " +
-                "FROM TournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
+                "FROM SportsTournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "WHERE m.config.id = :tcId AND m.round = 'FINAL' AND m.status = 'COMPLETED'",
                 Object[].class)
                 .setParameter("tcId", configId)
@@ -112,7 +112,7 @@ public class TournamentReportTools {
         var standings = em.createQuery(
                 "SELECT g.name, s.rank, t.teamName, s.played, s.won, s.lost, " +
                 "s.drawn, s.points, s.netRunRate " +
-                "FROM GroupTeamStanding s JOIN s.group g JOIN s.team t " +
+                "FROM SportsGroupTeamStanding s JOIN s.group g JOIN s.team t " +
                 "WHERE g.config.id = :tcId ORDER BY g.name, s.rank", Object[].class)
                 .setParameter("tcId", configId)
                 .getResultList();
@@ -139,7 +139,7 @@ public class TournamentReportTools {
         var results = em.createQuery(
                 "SELECT m.round, m.matchNumber, ta.teamName, tb.teamName, " +
                 "m.scoreTeamA, m.scoreTeamB, m.scheduledAt " +
-                "FROM TournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
+                "FROM SportsTournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "WHERE m.config.id = :tcId AND m.status = 'COMPLETED' " +
                 "ORDER BY m.scheduledAt ASC", Object[].class)
                 .setParameter("tcId", configId)
@@ -169,7 +169,7 @@ public class TournamentReportTools {
                 "  (m.teamA.id = t.id AND m.scoreTeamA < m.scoreTeamB) OR " +
                 "  (m.teamB.id = t.id AND m.scoreTeamB < m.scoreTeamA) THEN 1 ELSE 0 END), " +
                 "COUNT(m) " +
-                "FROM TournamentMatch m, AuctionTeam t " +
+                "FROM SportsTournamentMatch m, SportsAuctionTeam t " +
                 "WHERE m.config.id = :tcId AND m.status = 'COMPLETED' " +
                 "AND (m.teamA.id = t.id OR m.teamB.id = t.id) " +
                 "GROUP BY t.teamName ORDER BY " +
@@ -190,7 +190,7 @@ public class TournamentReportTools {
             + "into a formatted HTML email. Requires confirmation.")
     @Transactional
     public Object emailTournamentReport(
-            @ToolParam(description = "Tournament config ID") Long configId,
+            @ToolParam(description = "SportsTournament config ID") Long configId,
             @ToolParam(description = "Has the user explicitly confirmed?") Boolean confirmed) {
 
         UserContext ctx = AgentSecurityContext.get();
@@ -233,10 +233,10 @@ public class TournamentReportTools {
 
         emailService.send(new EmailMessage(
                 user.getEmail(), user.getFullName(),
-                "🏆 " + report.get("tournament_name") + " — Tournament Report",
+                "🏆 " + report.get("tournament_name") + " — SportsTournament Report",
                 html.toString()));
 
-        log.info("Tournament report emailed for config={} to user={}", configId, ctx.userId());
+        log.info("SportsTournament report emailed for config={} to user={}", configId, ctx.userId());
         return Map.of("success", true, "email", user.getEmail());
     }
 }

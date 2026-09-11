@@ -620,7 +620,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.group_team_standing (group_id, points DESC, net_run_rate DESC)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_event_notify ON manacommunity.sports_notification_scheduler (event_id, notify_at)");
 
-                log.info("Tournament scheduler tables ensured before Hibernate validation.");
+                log.info("SportsTournament scheduler tables ensured before Hibernate validation.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher tournament scheduler table patch failed: {}", e.getMessage(), e);
             }
@@ -1044,7 +1044,7 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher event-delete-subtree FK patch failed: {}", e.getMessage(), e);
             }
 
-            // Tournament announcement content tables (announcements, gallery,
+            // SportsTournament announcement content tables (announcements, gallery,
             // timeline) that back the announcement email. Prod runs
             // ddl-auto=validate, which won't create new entity tables. Idempotent;
             // FKs cascade so a tournament's content is removed with it.
@@ -1092,7 +1092,7 @@ public class SchemaConstraintPatcher {
                         """);
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.tournament_timeline_entry (tournament_id)");
 
-                log.info("Tournament content tables ensured (announcement, gallery, timeline).");
+                log.info("SportsTournament content tables ensured (announcement, gallery, timeline).");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher tournament content tables patch failed: {}", e.getMessage(), e);
             }

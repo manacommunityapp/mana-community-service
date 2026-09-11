@@ -115,10 +115,10 @@ public class SportsEvent {
     private TournamentType tournamentType;
 
     @ManyToMany
-    @JoinTable(name = "event_category",
+    @JoinTable(name = "sports_event_category",
             joinColumns = @JoinColumn(name = "event_id"),
             inverseJoinColumns = @JoinColumn(name = "category_id"))
-    private Set<PlayerCategory> categories;
+    private Set<SportsPlayerCategory> categories;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"event"})
@@ -156,12 +156,12 @@ public class SportsEvent {
     private String otherContacts;
 
     // Intent flag: marks a (team-sport) event as auction-based. The actual
-    // AuctionConfig is still created separately on the Auction screen; this
+    // SportsAuctionConfig is still created separately on the Auction screen; this
     // only records that the organiser intends to run a player auction.
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
-    // URL or inline base64 data-URI — see Tournament.bannerImage; must be TEXT
+    // URL or inline base64 data-URI — see SportsTournament.bannerImage; must be TEXT
     // to avoid the default varchar(255) overflow (SQLSTATE 22001).
     @Column(columnDefinition = "TEXT")
     private String bannerImage;
@@ -176,11 +176,11 @@ public class SportsEvent {
     private EventStatus status = EventStatus.DRAFT;
 
     // The foreign key. It MUST be nullable (nullable = true) because
-    // you are creating the SportsEvent BEFORE the Tournament exists.
+    // you are creating the SportsEvent BEFORE the SportsTournament exists.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tournament_id", nullable = true)
     @JsonIgnoreProperties({"sportsEvents"})
-    private Tournament tournament;
+    private SportsTournament tournament;
 
     @PrePersist
     protected void onCreate() {

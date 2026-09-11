@@ -2,13 +2,13 @@ package com.manacommunity.api.slice.controller;
 
 import com.manacommunity.api.controller.SportsController;
 import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.repository.PlayerCategoryRepository;
-import com.manacommunity.api.repository.SportMetaRepository;
+import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
+import com.manacommunity.api.repository.SportsMetaRepository;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsEventCsvImportService;
 import com.manacommunity.api.service.SportsEventService;
-import com.manacommunity.api.service.TournamentService;
+import com.manacommunity.api.service.SportsTournamentService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.WithMockUserPrincipal;
 import org.junit.jupiter.api.DisplayName;
@@ -30,10 +30,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SportsControllerTest extends BaseWebMvcTest {
 
     @MockitoBean SportsEventService         eventService;
-    @MockitoBean SportMetaRepository        sportMetaRepo;
-    @MockitoBean PlayerCategoryRepository   categoryRepo;
+    @MockitoBean SportsMetaRepository        sportMetaRepo;
+    @MockitoBean SportsPlayerCategoryRepository   categoryRepo;
     @MockitoBean LoggedInUserService        loggedInUserService;
-    @MockitoBean TournamentService          tournamentService;
+    @MockitoBean SportsTournamentService          tournamentService;
     @MockitoBean PermissionCheckService     permissionCheckService;
     @MockitoBean SportsEventCsvImportService csvImportService;
 

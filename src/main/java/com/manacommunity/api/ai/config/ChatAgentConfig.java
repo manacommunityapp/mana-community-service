@@ -85,8 +85,8 @@ public class ChatAgentConfig {
                         - Real-time Push: instant WebSocket popup notifications to connected devices.
                         - Auction: search players, budgets, compare, queue, status, list auctions.
                           Admin: update status, reset passed players.
-                        - Tournament: upcoming matches, results, group standings.
-                        - Tournament Reports: comprehensive post-tournament summary (champion, standings,
+                        - SportsTournament: upcoming matches, results, group standings.
+                        - SportsTournament Reports: comprehensive post-tournament summary (champion, standings,
                           all results, team records). Can email the report.
                         - Community: events, registrations, venues/courts, overview.
                         - Billing: user invoices, outstanding balance. Admin: expenses, financial overview.

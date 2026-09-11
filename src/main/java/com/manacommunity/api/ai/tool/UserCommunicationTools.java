@@ -175,7 +175,7 @@ public class UserCommunicationTools {
         var rows = em.createQuery(
                         "SELECT m.round, m.scheduledAt, ta.teamName, tb.teamName, " +
                         "v.name, v.address, c.name, tc.tournamentName " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc " +
@@ -237,7 +237,7 @@ public class UserCommunicationTools {
 
         var rows = em.createQuery(
                         "SELECT m.scheduledAt, ta.teamName, tb.teamName, v.name " +
-                        "FROM TournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
+                        "FROM SportsTournamentMatch m LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v JOIN m.config tc " +
                         "WHERE m.id = :mid AND tc.community.id = :comId", Object[].class)
                 .setParameter("mid", matchId)
@@ -283,7 +283,7 @@ public class UserCommunicationTools {
         return em.createQuery(
                         "SELECT m.id, m.round, m.scheduledAt, ta.teamName, tb.teamName, " +
                         "v.name, c.name, tc.tournamentName " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc " +
@@ -291,8 +291,8 @@ public class UserCommunicationTools {
                         "AND m.status IN ('SCHEDULED', 'PUBLISHED') " +
                         "AND (ta.ownerUser.id = :uid OR tb.ownerUser.id = :uid " +
                         "OR ta.captainUser.id = :uid OR tb.captainUser.id = :uid " +
-                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM AuctionPlayer ap WHERE ap.user.id = :uid) " +
-                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM AuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
+                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM SportsAuctionPlayer ap WHERE ap.user.id = :uid) " +
+                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM SportsAuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
                         "ORDER BY m.scheduledAt ASC", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .setParameter("uid", ctx.userId())
@@ -306,7 +306,7 @@ public class UserCommunicationTools {
                         r[4] != null ? (String) r[4] : "TBD",
                         r[5] != null ? (String) r[5] : "TBA",
                         r[6] != null ? (String) r[6] : "",
-                        r[7] != null ? (String) r[7] : "Tournament"))
+                        r[7] != null ? (String) r[7] : "SportsTournament"))
                 .collect(Collectors.toList());
     }
 

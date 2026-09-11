@@ -34,12 +34,12 @@ public enum NotificationType {
     CAPTAIN_NOMINATED,
     CAPTAIN_CONFIRMED,
 
-    // Tournament results
+    // SportsTournament results
     WINNER_NOTIFICATION,
     TOURNAMENT_COMPLETED,
     PRIZE_DISTRIBUTION,
 
-    // Tournament announcements
+    // SportsTournament announcements
     TOURNAMENT_OPEN,
     TOURNAMENT_ANNOUNCEMENT,
 

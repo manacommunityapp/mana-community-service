@@ -67,6 +67,12 @@ public class EventLunchDinner extends BaseAuditEntity {
     @Column(name = "notes", length = 1000)
     private String notes;
 
+    @Transient
+    private Long attendeeHeadcount = 0L;
+
+    @Transient
+    private Long bookedCount = 0L;
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -118,5 +124,11 @@ public class EventLunchDinner extends BaseAuditEntity {
 
     public Boolean getNeedsRegistration() { return needsRegistration; }
     public void setNeedsRegistration(Boolean needsRegistration) { this.needsRegistration = needsRegistration; }
+
+    public Long getAttendeeHeadcount() { return attendeeHeadcount; }
+    public void setAttendeeHeadcount(Long attendeeHeadcount) { this.attendeeHeadcount = attendeeHeadcount; }
+
+    public Long getBookedCount() { return bookedCount; }
+    public void setBookedCount(Long bookedCount) { this.bookedCount = bookedCount; }
 }
 

@@ -117,6 +117,19 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("email not verified throws ManaCommunityException")
+        void emailNotVerified() {
+            RegisterRequest req = TestDataBuilder.registerRequest();
+            doThrow(new ManaCommunityException("Please verify your email before registering.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "EMAIL_NOT_VERIFIED"))
+                    .when(otpService).assertEmailVerified(req.getEmail().trim().toLowerCase());
+
+            assertThatThrownBy(() -> authService.registerUser(req))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("verify your email");
+        }
+
+        @Test
         @DisplayName("invalid invite code throws InvalidInviteCodeException")
         void invalidInviteCode() {
             RegisterRequest req = TestDataBuilder.registerRequest();

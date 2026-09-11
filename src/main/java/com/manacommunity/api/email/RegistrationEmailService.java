@@ -64,8 +64,8 @@ public class RegistrationEmailService {
             vars.put("actionUrl", support.props().getBaseUrl() + "/profile");
             vars.put("matchType", reg.getMatchType() != null ? support.prettify(reg.getMatchType().name()) : "");
 
-            // Tournament context (if the event belongs to a tournament)
-            Tournament tournament = event != null ? event.getTournament() : null;
+            // SportsTournament context (if the event belongs to a tournament)
+            SportsTournament tournament = event != null ? event.getTournament() : null;
             vars.put("tournamentName", tournament != null ? tournament.getName() : null);
 
             // Event date range (start — end)

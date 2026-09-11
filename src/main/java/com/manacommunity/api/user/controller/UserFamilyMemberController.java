@@ -1,11 +1,13 @@
 package com.manacommunity.api.user.controller;
 
+import com.manacommunity.api.user.dto.FamilyMemberRequest;
+import com.manacommunity.api.user.dto.FamilyMemberResponse;
 import com.manacommunity.api.user.dto.FamilyMemberSlimResponse;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.user.model.FamilyMember;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.FamilyMemberService;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,11 +30,11 @@ public class UserFamilyMemberController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<FamilyMember>> getFamilyMembers(
+    public ResponseEntity<List<FamilyMemberResponse>> getFamilyMembers(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
-        List<FamilyMember> list = service.getFamilyMembers(user, communityId);
+        List<FamilyMemberResponse> list = service.getFamilyMembersResponse(user, communityId);
         return ResponseEntity.ok(list);
     }
 
@@ -41,30 +43,30 @@ public class UserFamilyMemberController {
     public ResponseEntity<List<FamilyMemberSlimResponse>> getSlimFamilyMembers(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Long userId) {
-        Long targetId = (userId != null) ? userId : (principal != null ? principal.getId() : null);
-        return ResponseEntity.ok(service.getSlimFamilyMembers(targetId));
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(service.getSlimFamilyMembers(userId, user));
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<FamilyMember> addFamilyMember(
+    public ResponseEntity<FamilyMemberResponse> addFamilyMember(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody FamilyMember member) {
+            @Valid @RequestBody FamilyMemberRequest member) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
-        FamilyMember created = service.addFamilyMember(member, user, communityId);
+        FamilyMemberResponse created = service.addFamilyMember(member, user, communityId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<FamilyMember> updateFamilyMember(
+    public ResponseEntity<FamilyMemberResponse> updateFamilyMember(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
-            @RequestBody FamilyMember member) {
+            @Valid @RequestBody FamilyMemberRequest member) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = (principal != null) ? principal.getCommunityId() : null;
-        FamilyMember updated = service.updateFamilyMember(id, member, user, communityId);
+        FamilyMemberResponse updated = service.updateFamilyMember(id, member, user, communityId);
         return ResponseEntity.ok(updated);
     }
 

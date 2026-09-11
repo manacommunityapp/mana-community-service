@@ -39,7 +39,7 @@ public class SportsEventRequest {
     private String format;
     private String tournamentType;
     private List<Long> categoryIds;
-    private List<NotificationScheduleDto> notifications;
+    private List<SportsNotificationScheduleDto> notifications;
     private List<Long> disputeCommitteeIds;
     
     private Integer minPlayers;

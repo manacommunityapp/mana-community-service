@@ -26,7 +26,7 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
      * Fixed by using Spring Data method derivation which handles enum properly.
      */
     List<SportsEvent> findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
-            Long communityId, List<com.manacommunity.api.model.Tournament.EventStatus> registrationStatuses);
+            Long communityId, List<com.manacommunity.api.model.SportsTournament.EventStatus> registrationStatuses);
 
     /**
      * BUG FIX: `JOIN EventRegistration r ON r.event.id = e.id` is invalid JPQL.
@@ -42,13 +42,13 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
             SELECT r.event.id FROM SportsEventRegistration r
             WHERE r.user.id = :userId
         )
-        AND e.tournament.registrationStatus <> com.manacommunity.api.model.Tournament$EventStatus.CANCELLED
+        AND e.tournament.registrationStatus <> com.manacommunity.api.model.SportsTournament$EventStatus.CANCELLED
         ORDER BY e.eventDateStart ASC
     """)
     List<SportsEvent> findEventsForUser(@Param("userId") Long userId);
 
     /** Find all events by registrationStatus, ordered by start date */
-    List<SportsEvent> findByTournamentRegistrationStatusOrderByEventDateStartAsc(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
+    List<SportsEvent> findByTournamentRegistrationStatusOrderByEventDateStartAsc(com.manacommunity.api.model.SportsTournament.EventStatus registrationStatus);
 
     /** Find all events for a specific community */
     List<SportsEvent> findByCommunityIdOrderByEventDateStartDesc(Long communityId);
@@ -61,9 +61,9 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
 
     Page<SportsEvent> findByCommunityIdAndActiveTrue(Long communityId, Pageable pageable);
 
-    long countByTournamentRegistrationStatus(com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
+    long countByTournamentRegistrationStatus(com.manacommunity.api.model.SportsTournament.EventStatus registrationStatus);
 
-    long countByCommunityIdAndTournamentRegistrationStatus(Long communityId, com.manacommunity.api.model.Tournament.EventStatus registrationStatus);
+    long countByCommunityIdAndTournamentRegistrationStatus(Long communityId, com.manacommunity.api.model.SportsTournament.EventStatus registrationStatus);
 
-    long countByCommunityIdAndTournamentRegistrationStatusIn(Long communityId, List<com.manacommunity.api.model.Tournament.EventStatus> registrationStatuses);
+    long countByCommunityIdAndTournamentRegistrationStatusIn(Long communityId, List<com.manacommunity.api.model.SportsTournament.EventStatus> registrationStatuses);
 }

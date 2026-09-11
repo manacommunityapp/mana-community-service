@@ -74,7 +74,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 
-import com.manacommunity.api.repository.AuctionPlayerRepository;
+import com.manacommunity.api.repository.SportsAuctionPlayerRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +90,7 @@ public class EventService {
     private final EventTaskRepository taskRepo;
     private final EventMealRegistrationRepository mealRegRepo;
     private final EventAuctionItemRepository auctionItemRepo;
-    private final AuctionPlayerRepository auctionPlayerRepo;
+    private final SportsAuctionPlayerRepository auctionPlayerRepo;
     private final EventActivityRegistrationRepository activityRegRepo;
     private final EventProgramRepository programRepo;
     private final EventGalleryItemRepository galleryRepo;
@@ -753,7 +753,7 @@ public class EventService {
             }
         }
 
-        // Live Auction Revenue (Event Item Auctions + Tournament Player Auctions)
+        // Live Auction Revenue (Event Item Auctions + SportsTournament Player Auctions)
         double itemAuctionRev = auctionItemRepo != null ? auctionItemRepo.sumCurrentBidsByCommunity(communityId) : 0.0;
         long itemAuctionCount = auctionItemRepo != null ? auctionItemRepo.countSoldOrBidItemsByCommunity(communityId) : 0;
         long playerAuctionRev = auctionPlayerRepo != null ? auctionPlayerRepo.sumSoldPriceByCommunity(communityId) : 0;
@@ -1225,9 +1225,8 @@ public class EventService {
             }
         }
 
-        Integer remainingCapacity = e.getCapacity();
-        Integer totalCapacity = e.getMaxAttendees() != null && e.getMaxAttendees() > 0 ? e.getMaxAttendees()
-                : (remainingCapacity != null ? remainingCapacity : 100);
+        Integer dbCapacity = e.getCapacity();
+        Integer maxAttendees = e.getMaxAttendees() != null ? e.getMaxAttendees() : dbCapacity;
 
         return EventResponse.builder()
                 .id(e.getId())
@@ -1242,7 +1241,7 @@ public class EventService {
                 .location(e.getLocation())
                 .priceType(e.getPriceType().name())
                 .price(e.getPrice())
-                .capacity(totalCapacity)
+                .capacity(dbCapacity)
                 .imageUrl(imageUrl)
                 .imageMediaId(imageMediaId)
                 .scannerUrl(scannerUrl)
@@ -1261,7 +1260,7 @@ public class EventService {
                 .paymentInstructions(e.getPaymentInstructions())
                 .ticketTypesJson(e.getTicketTypesJson())
                 .ticketTypes(parsedTicketTypes)
-                .maxAttendees(totalCapacity)
+                .maxAttendees(maxAttendees)
                 .registrationDeadline(e.getRegistrationDeadline() != null ? e.getRegistrationDeadline().toString() : null)
                 .registrationCount(liveAttendees)
                 .createdById(e.getCreatedBy() != null ? e.getCreatedBy().getId() : null)

@@ -50,6 +50,14 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
             raw = repository.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
         }
 
+        List<EventMealRegistration> allMealRegs = communityId != null
+                ? mealRepo.findByCommunityId(communityId)
+                : mealRepo.findAll();
+
+        List<EventBookingRegistration> allBookingRegs = communityId != null
+                ? bookingRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
+                : bookingRepo.findAll();
+
         List<EventLunchDinner> filtered = new java.util.ArrayList<>();
         java.util.Map<Long, Boolean> eventCancelledCache = new java.util.HashMap<>();
         for (EventLunchDinner m : raw) {
@@ -62,25 +70,8 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
                     continue;
                 }
             }
-            filtered.add(m);
-        }
-        return filtered;
-    }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<LunchDinnerSummaryResponse> getAllLunchDinnerSummaries(Long communityId, Long mainEventId) {
-        List<EventLunchDinner> meals = getAllLunchDinners(communityId, mainEventId);
-        List<EventBookingRegistration> allBookingRegs = communityId != null
-                ? bookingRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
-                : bookingRepo.findAll();
-
-        List<EventMealRegistration> allMealRegs = communityId != null
-                ? mealRepo.findByCommunityId(communityId)
-                : mealRepo.findAll();
-
-        List<LunchDinnerSummaryResponse> result = new ArrayList<>();
-        for (EventLunchDinner m : meals) {
+            // Calculate registered headcount and booking count
             String actId1 = "meal-" + m.getId();
             String actId2 = "food-" + m.getId();
             String actId3 = String.valueOf(m.getId());
@@ -98,6 +89,9 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
 
             List<EventMealRegistration> mealRegs = allMealRegs.stream()
                     .filter(r -> {
+                        if (r.getLunchDinner() != null && r.getLunchDinner().getId().equals(m.getId())) {
+                            return true;
+                        }
                         if (m.getMainEventId() != null && r.getEvent() != null && !r.getEvent().getId().equals(m.getMainEventId())) {
                             return false;
                         }
@@ -122,6 +116,20 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
                     .mapToLong(r -> r.getHeadCount() != null ? r.getHeadCount() : 1)
                     .sum();
 
+            m.setBookedCount(bookedCount);
+            m.setAttendeeHeadcount(attendeeHeadcount);
+
+            filtered.add(m);
+        }
+        return filtered;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LunchDinnerSummaryResponse> getAllLunchDinnerSummaries(Long communityId, Long mainEventId) {
+        List<EventLunchDinner> meals = getAllLunchDinners(communityId, mainEventId);
+        List<LunchDinnerSummaryResponse> result = new ArrayList<>();
+        for (EventLunchDinner m : meals) {
             result.add(LunchDinnerSummaryResponse.builder()
                     .id(m.getId())
                     .communityId(m.getCommunityId())
@@ -140,8 +148,8 @@ public class LunchDinnerServiceImpl implements LunchDinnerService {
                     .needsRegistration(m.getNeedsRegistration())
                     .menuItems(m.getMenuItems())
                     .notes(m.getNotes())
-                    .bookedCount(bookedCount)
-                    .attendeeHeadcount(attendeeHeadcount)
+                    .bookedCount(m.getBookedCount())
+                    .attendeeHeadcount(m.getAttendeeHeadcount())
                     .build());
         }
         return result;

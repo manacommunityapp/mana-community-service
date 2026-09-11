@@ -3,10 +3,10 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.MarkReadRequest;
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
-import com.manacommunity.api.dto.TournamentAnnouncementRequest;
-import com.manacommunity.api.email.TournamentAnnouncementService;
-import com.manacommunity.api.model.Tournament;
-import com.manacommunity.api.service.TournamentService;
+import com.manacommunity.api.dto.SportsTournamentAnnouncementRequest;
+import com.manacommunity.api.email.SportsTournamentAnnouncementService;
+import com.manacommunity.api.model.SportsTournament;
+import com.manacommunity.api.service.SportsTournamentService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +29,8 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationManagementService notificationService;
-    private final TournamentAnnouncementService announcementService;
-    private final TournamentService tournamentService;
+    private final SportsTournamentAnnouncementService announcementService;
+    private final SportsTournamentService tournamentService;
 
     /** GET /api/notifications — paginated notification feed for the logged-in user. */
     @GetMapping
@@ -89,13 +89,13 @@ public class NotificationController {
     public ResponseEntity<Map<String, Object>> notifyTournamentOpen(
             @PathVariable Long tournamentId,
             @RequestBody(required = false) Map<String, Object> body) {
-        Tournament tournament = tournamentService.getTournamentById(tournamentId);
+        SportsTournament tournament = tournamentService.getTournamentById(tournamentId);
         String message = body != null && body.get("message") instanceof String m ? m
                 : "Registration for " + tournament.getName() + " is now open!";
         boolean sendEmail = body == null || !Boolean.FALSE.equals(body.get("sendEmail"));
         boolean sendPush = body == null || !Boolean.FALSE.equals(body.get("sendPush"));
 
-        TournamentAnnouncementRequest req = new TournamentAnnouncementRequest(
+        SportsTournamentAnnouncementRequest req = new SportsTournamentAnnouncementRequest(
                 "TOURNAMENT_OPEN",
                 "Registration is now open — " + tournament.getName(),
                 message, sendEmail, sendPush, null);

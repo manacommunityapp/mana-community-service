@@ -465,15 +465,14 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             existingBookings.addAll(repository.findByActivityId("event-" + eventId));
             existingBookings.addAll(repository.findByActivityId(String.valueOf(eventId)));
 
-            long bookingAttendeeCount = existingBookings.stream()
+            long currentOccupancy = existingBookings.stream()
                     .filter(b -> (registration.getId() == null || !registration.getId().equals(b.getId())))
                     .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()) && !"REJECTED".equalsIgnoreCase(b.getStatus()))
-                    .mapToLong(b -> b.getDevoteeCount() != null && b.getDevoteeCount() > 0 ? b.getDevoteeCount() : 1L)
-                    .sum();
+                    .count();
 
-            long currentOccupancy = bookingAttendeeCount;
-            if (currentOccupancy + requestedDevotees > maxLimit) {
-                throw new EventFullException(ev.getTitle() + " (Capacity: " + maxLimit + ", Currently Registered: " + currentOccupancy + ")", maxLimit);
+            // Capacity of event_community is evaluated by user registration record count (1 per user registration)
+            if (currentOccupancy + 1 > maxLimit) {
+                throw new EventFullException(ev.getTitle() + " (Capacity: " + maxLimit + ", Currently Registered Users: " + currentOccupancy + ")", maxLimit);
             }
         }
 
@@ -593,7 +592,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 Long id = Long.parseLong(actId.replace("event-", ""));
                 communityEventRepository.findById(id).ifPresent(ev -> {
                     if (ev.getCapacity() != null) {
-                        ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
+                        // Capacity decreases by 1 for the logged-in user registration record
+                        ev.setCapacity(Math.max(0, ev.getCapacity() - 1));
                     }
                     // maxAttendees is the fixed total maximum — do not decrement it
                     communityEventRepository.save(ev);
@@ -603,7 +603,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     Long id = Long.parseLong(actId);
                     communityEventRepository.findById(id).ifPresent(ev -> {
                         if (ev.getCapacity() != null) {
-                            ev.setCapacity(Math.max(0, ev.getCapacity() - booked));
+                            // Capacity decreases by 1 for the logged-in user registration record
+                            ev.setCapacity(Math.max(0, ev.getCapacity() - 1));
                         }
                         // maxAttendees is the fixed total maximum — do not decrement it
                         communityEventRepository.save(ev);
@@ -640,7 +641,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 Long id = Long.parseLong(actId.replace("event-", ""));
                 communityEventRepository.findById(id).ifPresent(ev -> {
                     if (ev.getCapacity() != null) {
-                        ev.setCapacity(ev.getCapacity() + booked);
+                        // Restore capacity by 1 for the cancelled user registration
+                        ev.setCapacity(ev.getCapacity() + 1);
                     }
                     communityEventRepository.save(ev);
                 });
@@ -649,7 +651,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     Long id = Long.parseLong(actId);
                     communityEventRepository.findById(id).ifPresent(ev -> {
                         if (ev.getCapacity() != null) {
-                            ev.setCapacity(ev.getCapacity() + booked);
+                            // Restore capacity by 1 for the cancelled user registration
+                            ev.setCapacity(ev.getCapacity() + 1);
                         }
                         communityEventRepository.save(ev);
                     });
@@ -692,57 +695,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
         } else {
             list.addAll(repository.findByUserIdOrderByCreatedAtDesc(user.getId()));
         }
-
-        // Include any meal registrations from event_meal_registrations not already in list
-        try {
-            List<EventMealRegistration> mealRegs = mealRegistrationRepository.findByUserId(user.getId());
-            if (mealRegs != null && !mealRegs.isEmpty()) {
-                java.util.Set<String> existingActIds = list.stream()
-                        .map(EventBookingRegistration::getActivityId)
-                        .filter(java.util.Objects::nonNull)
-                        .collect(java.util.stream.Collectors.toSet());
-
-                for (EventMealRegistration mr : mealRegs) {
-                    Long ldId = mr.getLunchDinner() != null ? mr.getLunchDinner().getId() : mr.getId();
-                    String actId = "meal-" + ldId;
-                    String foodActId = "food-" + ldId;
-                    if (!existingActIds.contains(actId) && !existingActIds.contains(foodActId)) {
-                        EventBookingRegistration synth = new EventBookingRegistration();
-                        synth.setId(mr.getId());
-                        synth.setUser(user);
-                        synth.setParticipantName(user.getFullName() != null ? user.getFullName() : (user.getEmail() != null ? user.getEmail() : "Devotee"));
-                        synth.setCategory("Food");
-                        synth.setPassType("Meal Registration Pass");
-                        synth.setActivityType("LUNCH_DINNER");
-                        synth.setActivityId(actId);
-                        synth.setMainEventId(mr.getEvent() != null ? mr.getEvent().getId() : null);
-                        String title = mr.getLunchDinner() != null && mr.getLunchDinner().getName() != null
-                                ? mr.getLunchDinner().getName()
-                                : (mr.getMealType() != null ? mr.getMealType().name() + " Feast" : "Community Feast");
-                        synth.setActivityTitle(title);
-                        synth.setEventDate(mr.getMealDate() != null ? mr.getMealDate().toString() : null);
-                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getStartTime() != null) {
-                            String t = mr.getLunchDinner().getStartTime().toString();
-                            if (mr.getLunchDinner().getEndTime() != null) {
-                                t += " - " + mr.getLunchDinner().getEndTime().toString();
-                            }
-                            synth.setEventTime(t);
-                        }
-                        if (mr.getLunchDinner() != null && mr.getLunchDinner().getVenue() != null) {
-                            synth.setVenue(mr.getLunchDinner().getVenue());
-                        }
-                        synth.setDevoteeCount(mr.getHeadCount() != null ? mr.getHeadCount() : 1);
-                        synth.setStatus("CONFIRMED");
-                        synth.setPaymentStatus("FREE");
-                        synth.setBookingFee(0.0);
-                        synth.setRegCode("MNA-2026-MEAL-" + String.format("%06d", mr.getId()));
-                        synth.setQrCodeUrl("https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + synth.getRegCode());
-                        synth.setCreatedAt(mr.getCreatedAt() != null ? mr.getCreatedAt() : LocalDateTime.now());
-                        list.add(synth);
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
 
         return list;
     }

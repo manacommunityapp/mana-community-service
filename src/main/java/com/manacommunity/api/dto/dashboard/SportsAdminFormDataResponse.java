@@ -5,7 +5,7 @@ import com.manacommunity.api.response.CommunityResponse;
 import java.util.List;
 
 /**
- * Reference data for the Sports Admin "Create Tournament" / "Create Venue" forms.
+ * Reference data for the Sports Admin "Create SportsTournament" / "Create Venue" forms.
  * Consolidates the three dropdown fetches (sports meta, player categories,
  * communities) into one call, each trimmed to the fields the form binds to.
  */

@@ -142,32 +142,115 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
-        int safeSize = Math.min(Math.max(size, 1), 200);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        if (!isSuperAdmin && targetCommunityId == null) {
+            return ResponseEntity.ok(PagedResponse.empty());
+        }
+
+        int safeSize = Math.min(Math.max(size, 1), 500);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
 
-        Page<AppUser> userPage;
-        if (isSuperAdmin) {
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByKycStatus(kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findAll(pageable);
+        org.springframework.data.jpa.domain.Specification<AppUser> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+
+            if (targetCommunityId != null) {
+                predicates.add(cb.equal(root.get("community").get("id"), targetCommunityId));
+            }
+
+            if (kycStatus != null && !kycStatus.trim().isEmpty() && !"ALL".equalsIgnoreCase(kycStatus.trim())) {
+                predicates.add(cb.equal(cb.upper(root.get("kycStatus")), kycStatus.trim().toUpperCase()));
+            }
+
+            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status.trim())) {
+                if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isTrue(root.get("isActive")));
+                } else if ("INACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isFalse(root.get("isActive")));
+                }
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                java.util.List<jakarta.persistence.criteria.Predicate> searchPredicates = new java.util.ArrayList<>();
+                searchPredicates.add(cb.like(cb.lower(root.get("fullName")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("email")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("phone")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("role")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("flatNo")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("block")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("tower")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("employeeId")), pattern));
+                predicates.add(cb.or(searchPredicates.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<AppUser> userPage = appUserRepo.findAll(spec, pageable);
+
+        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
+    }
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<com.manacommunity.api.user.dto.UserStatsResponse> getUserStats(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        long totalUsers;
+        long activeUsers;
+        long pendingKyc;
+        long approvedKyc;
+        long rejectedKyc;
+        java.util.Map<String, Long> roleBreakdown = new java.util.HashMap<>();
+
+        if (targetCommunityId != null) {
+            totalUsers = appUserRepo.countByCommunityId(targetCommunityId);
+            activeUsers = appUserRepo.countByCommunityIdAndIsActiveTrue(targetCommunityId);
+            pendingKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "PENDING");
+            approvedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "APPROVED")
+                    + appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "VERIFIED");
+            rejectedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGroupedForCommunity(targetCommunityId);
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
             }
         } else {
-            Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-            if (communityId == null) {
-                return ResponseEntity.ok(PagedResponse.empty());
-            }
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByCommunityIdAndKycStatus(communityId, kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findByCommunityId(communityId, pageable);
+            totalUsers = appUserRepo.count();
+            activeUsers = appUserRepo.countByIsActiveTrue();
+            pendingKyc = appUserRepo.countByKycStatus("PENDING");
+            approvedKyc = appUserRepo.countByKycStatus("APPROVED") + appUserRepo.countByKycStatus("VERIFIED");
+            rejectedKyc = appUserRepo.countByKycStatus("REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGrouped();
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
             }
         }
-        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
+
+        return ResponseEntity.ok(com.manacommunity.api.user.dto.UserStatsResponse.builder()
+                .totalUsers(totalUsers)
+                .activeUsers(activeUsers)
+                .pendingKyc(pendingKyc)
+                .approvedKyc(approvedKyc)
+                .rejectedKyc(rejectedKyc)
+                .roleBreakdown(roleBreakdown)
+                .build());
     }
 
     @PostMapping
@@ -251,6 +334,8 @@ public class UserController {
                 .menuPermissions(getMenuPermissions(u))
                 .roleChangedAt(u.getRoleChangedAt())
                 .roleChangedBy(u.getRoleChangedBy())
+                .createdAt(u.getCreatedAt())
+                .updatedAt(u.getUpdatedAt())
                 .build();
     }
 

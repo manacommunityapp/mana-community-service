@@ -13,7 +13,7 @@ import java.util.Optional;
 
 /**
  * BUG FIX: Renamed from UserRepository to AppUserRepository to match
- * the AppUser entity (used in SportsEventServiceImpl, AuctionServiceImpl,
+ * the AppUser entity (used in SportsEventServiceImpl, SportsAuctionServiceImpl,
  * NotificationScheduler). The old UserRepository worked against the
  * legacy User entity (String PK / "users" table) which conflicts with
  * the schema's app_user table (Long PK).
@@ -22,7 +22,7 @@ import java.util.Optional;
  * Added findByPhone for duplicate-phone check during registration.
  */
 @Repository
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<AppUser> {
     Optional<AppUser> findByEmail(String email);
     Optional<AppUser> findByEmailIgnoreCase(String email);
     Optional<AppUser> findByPhone(String phone);
@@ -38,6 +38,14 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+    long countByIsActiveTrue();
+    long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u WHERE u.community.id = :communityId GROUP BY u.role")
+    List<Object[]> countByRoleGroupedForCommunity(@Param("communityId") Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u GROUP BY u.role")
+    List<Object[]> countByRoleGrouped();
     boolean existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(Long communityId, String block, String flatNo);
 
     /**
