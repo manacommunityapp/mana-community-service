@@ -6,6 +6,7 @@ import com.manacommunity.api.model.Vendor;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
+import com.manacommunity.api.privacy.PiiMaskingService;
 import com.manacommunity.api.serviceplatform.dto.request.CreateOfferingRequest;
 import com.manacommunity.api.serviceplatform.dto.request.RegisterProviderRequest;
 import com.manacommunity.api.serviceplatform.dto.response.ServiceOfferingResponse;
@@ -39,6 +40,7 @@ public class ServiceProviderService {
     private final ProviderServiceOfferingRepository offeringRepository;
     private final ServiceCategoryRepository categoryRepository;
     private final AuditService auditService;
+    private final PiiMaskingService piiMaskingService;
 
     @Transactional
     public ServiceProviderResponse register(RegisterProviderRequest req, AppUser user) {
@@ -87,7 +89,7 @@ public class ServiceProviderService {
     public ServiceProviderResponse getProviderById(Long providerId) {
         ServiceProvider provider = providerRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider", providerId));
-        ServiceProviderResponse resp = toResponse(provider);
+        ServiceProviderResponse resp = toResponseMasked(provider);
         resp.setOfferings(provider.getOfferings().stream()
                 .map(this::toOfferingResponse)
                 .collect(Collectors.toList()));
@@ -122,7 +124,7 @@ public class ServiceProviderService {
             providers = providerRepository.findByCommunityIdAndVerificationStatusNot(
                     communityId, VerificationStatus.SUSPENDED, pageable);
         }
-        return providers.map(this::toResponse);
+        return providers.map(this::toResponseMasked);
     }
 
     @Transactional
@@ -225,6 +227,20 @@ public class ServiceProviderService {
     }
 
     private ServiceProviderResponse toResponse(ServiceProvider p) {
+        return toResponse(p, false);
+    }
+
+    private ServiceProviderResponse toResponseMasked(ServiceProvider p) {
+        return toResponse(p, true);
+    }
+
+    private ServiceProviderResponse toResponse(ServiceProvider p, boolean maskContact) {
+        String phone = p.getPhone();
+        String email = p.getEmail();
+        if (maskContact) {
+            if (phone != null) phone = piiMaskingService.maskPhone(phone);
+            if (email != null) email = piiMaskingService.maskEmail(email);
+        }
         return ServiceProviderResponse.builder()
                 .id(p.getId())
                 .userId(p.getUser() != null ? p.getUser().getId() : null)
@@ -232,8 +248,8 @@ public class ServiceProviderService {
                 .vendorId(p.getVendor() != null ? p.getVendor().getId() : null)
                 .providerType(p.getProviderType().name())
                 .businessName(p.getBusinessName())
-                .phone(p.getPhone())
-                .email(p.getEmail())
+                .phone(phone)
+                .email(email)
                 .bio(p.getBio())
                 .profileImageUrl(p.getProfileImageUrl())
                 .verificationStatus(p.getVerificationStatus().name())

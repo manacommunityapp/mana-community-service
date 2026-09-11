@@ -116,7 +116,7 @@ public class SportsMatchPersistenceService {
     }
 
     private SportsTournamentConfig buildConfig(SportsTournamentConfigRequest req, Long adminUserId) {
-        SportsTournamentConfig.TournamentConfigBuilder builder = SportsTournamentConfig.builder()
+        SportsTournamentConfig.SportsTournamentConfigBuilder builder = SportsTournamentConfig.builder()
             .tournamentName(req.tournamentName())
             .sport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())))
             .community(communityRepo.findById(req.communityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.communityId())))

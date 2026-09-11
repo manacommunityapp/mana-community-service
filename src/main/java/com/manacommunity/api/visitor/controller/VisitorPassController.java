@@ -1,5 +1,6 @@
 package com.manacommunity.api.visitor.controller;
 
+import com.manacommunity.api.privacy.PiiMaskingService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/visitors")
@@ -25,6 +27,43 @@ public class VisitorPassController {
 
     private final VisitorPassService visitorPassService;
     private final LoggedInUserService loggedInUserService;
+    private final PiiMaskingService piiMaskingService;
+
+    /**
+     * Masks the visitorPhone in all responses for security guard callers.
+     * Guards have 'Manage Gate' permission but should not see full phone numbers.
+     */
+    private List<VisitorPassResponse> maskPhoneForGuard(List<VisitorPassResponse> passes) {
+        return passes.stream().map(p -> {
+            if (p.getVisitorPhone() != null) {
+                return VisitorPassResponse.builder()
+                        .id(p.getId())
+                        .passCode(p.getPassCode())
+                        .visitorName(p.getVisitorName())
+                        .visitorPhone(piiMaskingService.maskPhone(p.getVisitorPhone()))
+                        .vehicleNumber(p.getVehicleNumber())
+                        .purpose(p.getPurpose())
+                        .passType(p.getPassType())
+                        .status(p.getStatus())
+                        .expectedAt(p.getExpectedAt())
+                        .checkedInAt(p.getCheckedInAt())
+                        .checkedOutAt(p.getCheckedOutAt())
+                        .flatNumber(p.getFlatNumber())
+                        .residentId(p.getResidentId())
+                        .residentName(p.getResidentName())
+                        .communityId(p.getCommunityId())
+                        .createdAt(p.getCreatedAt())
+                        .otpExpiresAt(p.getOtpExpiresAt())
+                        .gateIn(p.getGateIn())
+                        .gateOut(p.getGateOut())
+                        .guardIn(p.getGuardIn())
+                        .guardOut(p.getGuardOut())
+                        .visitorPhoto(p.getVisitorPhoto())
+                        .build();
+            }
+            return p;
+        }).collect(Collectors.toList());
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Visitors')")
@@ -43,7 +82,8 @@ public class VisitorPassController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(visitorPassService.getActivePasses(communityId));
+        // Mask visitor phone for security guards who should not see full numbers
+        return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getActivePasses(communityId)));
     }
 
     @GetMapping("/today")
@@ -53,7 +93,8 @@ public class VisitorPassController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(visitorPassService.getTodaysPasses(communityId));
+        // Mask visitor phone for security guards who should not see full numbers
+        return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
     @GetMapping("/mine")

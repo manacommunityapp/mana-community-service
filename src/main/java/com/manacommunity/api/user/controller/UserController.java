@@ -21,6 +21,8 @@ import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.security.PasswordPolicy;
+import com.manacommunity.api.privacy.PiiMaskingService;
+import com.manacommunity.api.privacy.UserPrivacySettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +51,8 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
     private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
+    private final PiiMaskingService piiMaskingService;
+    private final UserPrivacySettingsService userPrivacySettingsService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -102,6 +106,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
         if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
@@ -110,7 +115,7 @@ public class UserController {
         }
         final Long finalCommId = targetCommunityId;
         return ResponseEntity.ok(appUserRepo.findByCommunityIdAndFullNameContainingIgnoreCase(finalCommId, query)
-                .stream().map(this::toUserResponse).toList());
+                .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
     @GetMapping("/community/{communityId}")
@@ -119,6 +124,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
         if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
             if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
@@ -128,7 +134,7 @@ public class UserController {
         }
         final Long finalCommId = targetCommunityId;
         return ResponseEntity.ok(appUserRepo.findByCommunityId(finalCommId)
-                .stream().map(this::toUserResponse).toList());
+                .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
     @GetMapping
@@ -274,23 +280,49 @@ public class UserController {
     }
 
     private UserResponse toUserResponse(AppUser u) {
+        return toUserResponse(u, true);
+    }
+
+    private UserResponse toUserResponse(AppUser u, boolean isSelfOrAdmin) {
+        String phone = u.getPhone();
+        String email = u.getEmail();
+        java.time.LocalDate dob = u.getDateOfBirth();
+        String govtIdType = u.getGovtIdType();
+        String govtIdNumber = u.getGovtIdNumber();
+
+        if (!isSelfOrAdmin) {
+            // Consult the target user's own privacy preferences.
+            // If the target user has opted in to sharing their phone/email with neighbours,
+            // show it unmasked. Otherwise apply PII masking regardless of caller role.
+            var privacySettings = userPrivacySettingsService.getSettings(u.getId());
+            if (!Boolean.TRUE.equals(privacySettings.getShowPhoneToNeighbours())) {
+                phone = piiMaskingService.maskPhone(phone);
+            }
+            if (!Boolean.TRUE.equals(privacySettings.getShowEmailToNeighbours())) {
+                email = piiMaskingService.maskEmail(email);
+            }
+            dob = null;         // DOB is never shared in directory
+            govtIdType = null;
+            govtIdNumber = null;
+        }
+
         return UserResponse.builder()
                 .id(u.getId())
                 .fullName(u.getFullName())
-                .email(u.getEmail())
-                .phone(u.getPhone())
+                .email(email)
+                .phone(phone)
                 .role(u.getRole())
                 .roles(getRolesList(u.getRole()))
                 .kycStatus(u.getKycStatus())
                 .profilePicUrl(u.getProfilePicUrl())
                 .gender(u.getGender())
-                .dateOfBirth(u.getDateOfBirth())
+                .dateOfBirth(dob)
                 .flatNo(u.getFlatNo())
                 .block(u.getBlock())
                 .tower(u.getTower())
-                .employeeId(u.getEmployeeId())
-                .govtIdType(u.getGovtIdType())
-                .govtIdNumber(u.getGovtIdNumber())
+                .employeeId(isSelfOrAdmin ? u.getEmployeeId() : null)
+                .govtIdType(govtIdType)
+                .govtIdNumber(govtIdNumber)
                 .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
                 .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
                 .isActive(u.getIsActive())
