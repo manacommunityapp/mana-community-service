@@ -21,6 +21,10 @@ public class SportsNotificationScheduler {
     private SportsEvent event;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tournament_id")
     private SportsTournament tournament;
 

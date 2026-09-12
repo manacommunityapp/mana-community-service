@@ -56,4 +56,18 @@ public class UserProfileResponse {
         private int jobsPosted;
         private int sportsPlayed;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserActivityItem {
+        private Long id;
+        private String type;
+        private String text;
+        private String time;
+        private String timestamp;
+        private String iconType;
+        private String color;
+    }
 }

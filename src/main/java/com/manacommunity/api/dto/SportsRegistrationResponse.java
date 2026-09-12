@@ -27,6 +27,10 @@ public class SportsRegistrationResponse {
     private Boolean captainConfirmation;
     private String proposedTeamName;
 
+    private String partnerConfirmationStatus;
+    private LocalDateTime partnerConfirmedAt;
+    private String partnerDeclineReason;
+
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;
 

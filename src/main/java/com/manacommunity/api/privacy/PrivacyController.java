@@ -73,6 +73,18 @@ public class PrivacyController {
         return ResponseEntity.ok(dataDeletionService.getUserRequests(user.getId()));
     }
 
+    @PostMapping("/deletion-request/cancel")
+    public ResponseEntity<DataDeletionRequestDto> cancelAccountDeletion(
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long requestId = null;
+        if (body != null && body.containsKey("requestId") && body.get("requestId") != null) {
+            requestId = Long.valueOf(body.get("requestId").toString());
+        }
+        return ResponseEntity.ok(dataDeletionService.cancelRequest(requestId, user.getId()));
+    }
+
     @GetMapping("/admin/deletion-requests")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<List<DataDeletionRequestDto>> getAdminDeletionRequests(

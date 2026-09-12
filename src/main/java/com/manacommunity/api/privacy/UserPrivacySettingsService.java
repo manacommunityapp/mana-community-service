@@ -40,6 +40,12 @@ public class UserPrivacySettingsService {
         if (dto.getShowFamilyMembers() != null) {
             settings.setShowFamilyMembers(dto.getShowFamilyMembers());
         }
+        if (dto.getShowVehicleInDirectory() != null) {
+            settings.setShowVehicleInDirectory(dto.getShowVehicleInDirectory());
+        }
+        if (dto.getEmergencyContactRestricted() != null) {
+            settings.setEmergencyContactRestricted(dto.getEmergencyContactRestricted());
+        }
         if (dto.getAllowMarketplaceContact() != null) {
             settings.setAllowMarketplaceContact(dto.getAllowMarketplaceContact());
         }
@@ -74,6 +80,8 @@ public class UserPrivacySettingsService {
                 .showEmailToNeighbours(false)
                 .showFlatInDirectory(true)
                 .showFamilyMembers(false)
+                .showVehicleInDirectory(false)
+                .emergencyContactRestricted(true)
                 .allowMarketplaceContact(true)
                 .allowEventTagging(true)
                 .activityVisibility("COMMUNITY")
@@ -88,6 +96,8 @@ public class UserPrivacySettingsService {
                 .showEmailToNeighbours(entity.getShowEmailToNeighbours())
                 .showFlatInDirectory(entity.getShowFlatInDirectory())
                 .showFamilyMembers(entity.getShowFamilyMembers())
+                .showVehicleInDirectory(entity.getShowVehicleInDirectory())
+                .emergencyContactRestricted(entity.getEmergencyContactRestricted())
                 .allowMarketplaceContact(entity.getAllowMarketplaceContact())
                 .allowEventTagging(entity.getAllowEventTagging())
                 .activityVisibility(entity.getActivityVisibility())

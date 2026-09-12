@@ -105,6 +105,7 @@ public class SportsAuctionSeeder {
                 configRepo.save(SportsAuctionConfig.builder()
                         .sport(sport)
                         .event(event)
+                        .community(event != null ? event.getCommunity() : null)
                         .seasonName(seasonName)
                         .auctionFormat(auctionFormat)
                         .totalTeams(totalTeams)
@@ -156,6 +157,8 @@ public class SportsAuctionSeeder {
         if (!exists) {
             teamRepo.save(SportsAuctionTeam.builder()
                     .config(config)
+                    .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
+                    .event(config.getEvent())
                     .teamName(teamName)
                     .captainUser(owner)
                     .ownerUser(owner)
@@ -176,7 +179,7 @@ public class SportsAuctionSeeder {
         int queueOrder = 1;
         for (SportsEventRegistration reg : confirmedRegs) {
             boolean exists = playerRepo.findByConfigId(config.getId()).stream()
-                    .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(reg.getUser().getId()));
+                .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(reg.getUser().getId()));
             if (!exists) {
                 String cat = "Batsmen";
                 if ("Bowler".equalsIgnoreCase(reg.getRole())) cat = "Bowler";
@@ -185,6 +188,7 @@ public class SportsAuctionSeeder {
 
                 SportsAuctionPlayer player = SportsAuctionPlayer.builder()
                         .config(config)
+                        .community(config.getCommunity() != null ? config.getCommunity() : (event != null ? event.getCommunity() : null))
                         .user(reg.getUser())
                         .playerName(reg.getPlayerName())
                         .category(cat)

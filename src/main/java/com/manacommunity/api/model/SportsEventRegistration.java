@@ -25,8 +25,16 @@ public class SportsEventRegistration {
     private SportsEvent event;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private AppUser user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by_user_id")
+    private AppUser reviewedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -52,6 +60,16 @@ public class SportsEventRegistration {
     @Column(name = "reject_reason", length = 1000)
     private String rejectReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "partner_confirmation_status")
+    private PartnerConfirmationStatus partnerConfirmationStatus;
+
+    @Column(name = "partner_confirmed_at")
+    private LocalDateTime partnerConfirmedAt;
+
+    @Column(name = "partner_decline_reason", length = 1000)
+    private String partnerDeclineReason;
+
     private Boolean captainNomination;
     private Boolean captainConfirmation;
     private String proposedTeamName;
@@ -71,4 +89,5 @@ public class SportsEventRegistration {
     }
 
     public enum RegistrationStatus { PENDING, REGISTERED, CONFIRMED, WITHDRAWN, REJECTED }
+    public enum PartnerConfirmationStatus { PENDING, CONFIRMED, DECLINED }
 }

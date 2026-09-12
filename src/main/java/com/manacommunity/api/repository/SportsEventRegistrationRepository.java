@@ -9,6 +9,8 @@ import java.util.List;
 public interface SportsEventRegistrationRepository extends JpaRepository<SportsEventRegistration, Long> {
     boolean existsByEventIdAndUserId(Long eventId, Long userId);
     boolean existsByEventIdAndUserIdAndPlayerName(Long eventId, Long userId, String playerName);
+    boolean existsByEventIdAndPartnerIdAndStatusIn(Long eventId, Long partnerId, List<SportsEventRegistration.RegistrationStatus> statuses);
+    boolean existsByEventIdAndUserIdAndStatusIn(Long eventId, Long userId, List<SportsEventRegistration.RegistrationStatus> statuses);
 
     boolean existsByEventIdAndUserIsNullAndPlayerName(Long eventId, String playerName);
     long countByEventId(Long eventId);
@@ -18,6 +20,14 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
 
     @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner"})
     List<SportsEventRegistration> findByUserId(Long userId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner"})
+    List<SportsEventRegistration> findByPartnerId(Long partnerId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner"})
+    List<SportsEventRegistration> findByPartnerIdAndPartnerConfirmationStatus(
+            Long partnerId, SportsEventRegistration.PartnerConfirmationStatus partnerConfirmationStatus);
+
     List<SportsEventRegistration> findByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
     long countByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
 

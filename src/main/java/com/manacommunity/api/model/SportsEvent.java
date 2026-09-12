@@ -73,6 +73,15 @@ public class SportsEvent {
     @Builder.Default
     private Boolean adminApprovalRequired = true;
 
+    /**
+     * When true, mixed doubles categories strictly require complementary genders (1 Male + 1 Female).
+     * When false, mixed doubles validation is relaxed/optional.
+     * Defaults to true.
+     */
+    @Column(name = "mandatory_mixed_doubles", nullable = false)
+    @Builder.Default
+    private Boolean mandatoryMixedDoubles = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

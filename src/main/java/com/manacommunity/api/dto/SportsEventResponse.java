@@ -23,6 +23,7 @@ public class SportsEventResponse {
     private LocalDate playersBorn;
     private Boolean active;
     private Boolean adminApprovalRequired;
+    private Boolean mandatoryMixedDoubles;
 
     private SportRef sport;
     private CommunityRef community;

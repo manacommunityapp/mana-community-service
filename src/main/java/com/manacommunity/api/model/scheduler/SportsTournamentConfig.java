@@ -79,6 +79,10 @@ public class SportsTournamentConfig {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by_user_id")
+    private AppUser updatedBy;
+
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL)
     private List<SportsTournamentGroup> groups;
 

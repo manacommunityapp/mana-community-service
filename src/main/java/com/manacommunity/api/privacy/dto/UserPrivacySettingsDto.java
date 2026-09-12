@@ -18,6 +18,8 @@ public class UserPrivacySettingsDto {
     private Boolean showEmailToNeighbours;
     private Boolean showFlatInDirectory;
     private Boolean showFamilyMembers;
+    private Boolean showVehicleInDirectory;
+    private Boolean emergencyContactRestricted;
     private Boolean allowMarketplaceContact;
     private Boolean allowEventTagging;
     private String activityVisibility;

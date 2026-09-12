@@ -71,5 +71,10 @@ public class SportsEventRequest {
      */
     private Boolean adminApprovalRequired;
 
+    /**
+     * When true (default), mixed doubles events enforce complementary genders (1 Male + 1 Female).
+     */
+    private Boolean mandatoryMixedDoubles;
+
     private Long tournamentId;
 }

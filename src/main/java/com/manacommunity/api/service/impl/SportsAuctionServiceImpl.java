@@ -114,9 +114,11 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         if (configRepo.existsBySportIdAndSeasonName(req.sportId(), req.seasonName()))
             throw new AuctionStateException("Auction already exists for this sport and season");
 
+        SportsEvent sportsEvent = req.eventId() != null ? eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())) : null;
         SportsAuctionConfig config = SportsAuctionConfig.builder()
             .sport(sportRepo.findById(req.sportId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", req.sportId())))
-            .event(req.eventId() != null ? eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())) : null)
+            .event(sportsEvent)
+            .community(sportsEvent != null ? sportsEvent.getCommunity() : null)
             .seasonName(req.seasonName())
             .auctionFormat(SportsAuctionConfig.AuctionFormat.valueOf(req.auctionFormat()))
             .totalTeams(req.totalTeams())
@@ -148,6 +150,16 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                     .config(saved).memberName(name).role("COMMITTEE_MEMBER").build()));
         }
         log.info("Auction config created: sport={} season={}", req.sportId(), req.seasonName());
+
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.AUCTION_CONFIG_CREATED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "SportsAuctionConfig",
+            String.valueOf(saved.getId()),
+            null,
+            "sportId=" + req.sportId() + ", season=" + req.seasonName() + ", teams=" + req.totalTeams()
+        );
+
         return saved;
     }
 
@@ -179,7 +191,18 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         if (req.unsoldRule() != null)
             config.setUnsoldRule(SportsAuctionConfig.UnsoldRule.valueOf(req.unsoldRule()));
 
-        return configRepo.save(config);
+        SportsAuctionConfig saved = configRepo.save(config);
+
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.AUCTION_CONFIG_UPDATED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "SportsAuctionConfig",
+            String.valueOf(saved.getId()),
+            null,
+            "status=" + saved.getStatus() + ", teams=" + saved.getTotalTeams()
+        );
+
+        return saved;
     }
 
     @Override
@@ -592,6 +615,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
 
         SportsAuctionPlayer player = SportsAuctionPlayer.builder()
             .config(config)
+            .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
             .playerName(req.getPlayerName())
             .category(req.getCategory())
             .playerRole(req.getPlayerRole())

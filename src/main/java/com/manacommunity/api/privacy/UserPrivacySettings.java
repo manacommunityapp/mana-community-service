@@ -39,6 +39,14 @@ public class UserPrivacySettings {
     @Builder.Default
     private Boolean showFamilyMembers = false;
 
+    @Column(name = "show_vehicle_in_directory", nullable = false)
+    @Builder.Default
+    private Boolean showVehicleInDirectory = false;
+
+    @Column(name = "emergency_contact_restricted", nullable = false)
+    @Builder.Default
+    private Boolean emergencyContactRestricted = true;
+
     @Column(name = "allow_marketplace_contact", nullable = false)
     @Builder.Default
     private Boolean allowMarketplaceContact = true;

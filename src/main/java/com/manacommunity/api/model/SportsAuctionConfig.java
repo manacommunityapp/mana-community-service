@@ -24,6 +24,10 @@ public class SportsAuctionConfig {
     private SportsMeta sport;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private com.manacommunity.api.model.Community community;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
     private SportsEvent event;
 
@@ -76,6 +80,10 @@ public class SportsAuctionConfig {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by_user_id")
+    private AppUser updatedBy;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL)

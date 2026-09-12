@@ -91,6 +91,7 @@ public class SportsBracketGenerator {
             // not advanced for it) — real matches keep consecutive times.
             matches.add(SportsTournamentMatch.builder()
                 .config(config)
+                .community(config.getCommunity())
                 .round(rounds == 1 ? MatchRound.FINAL : roundLabel(rounds, 1))
                 .roundNumber(1)
                 .matchNumber(matchNum++)
@@ -115,6 +116,7 @@ public class SportsBracketGenerator {
             for (int i = 0; i < roundSize; i++) {
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
+                    .community(config.getCommunity())
                     .round(label)
                     .roundNumber(round)
                     .matchNumber(i + 1)
@@ -133,6 +135,7 @@ public class SportsBracketGenerator {
             if (round == rounds && Boolean.TRUE.equals(config.getThirdPlaceMatch())) {
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
+                    .community(config.getCommunity())
                     .round(MatchRound.THIRD_PLACE)
                     .roundNumber(round)
                     .matchNumber(99)
@@ -359,6 +362,7 @@ public class SportsBracketGenerator {
 
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
+                    .community(config.getCommunity())
                     .round(MatchRound.LEAGUE_MATCH)
                     .roundNumber(round + 1)
                     .matchNumber(matchNum++)
@@ -408,6 +412,7 @@ public class SportsBracketGenerator {
             for (int i = 0; i < roundSize; i++) {
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
+                    .community(config.getCommunity())
                     .round(MatchRound.WINNERS_BRACKET)
                     .roundNumber(round)
                     .matchNumber(matchNum++)
@@ -431,6 +436,7 @@ public class SportsBracketGenerator {
             for (int i = 0; i < lbSize; i++) {
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
+                    .community(config.getCommunity())
                     .round(MatchRound.LOSERS_BRACKET)
                     .roundNumber(round)
                     .matchNumber(matchNum++)
@@ -447,7 +453,8 @@ public class SportsBracketGenerator {
 
         // ── Grand Final ─────────────────────────────────────────
         matches.add(SportsTournamentMatch.builder()
-            .config(config).round(MatchRound.GRAND_FINAL).roundNumber(rounds + lbRounds + 1)
+            .config(config).community(config.getCommunity())
+            .round(MatchRound.GRAND_FINAL).roundNumber(rounds + lbRounds + 1)
             .matchNumber(matchNum++)
             .scheduledAt(slots.next()).durationMinutes(dur).venue(config.getVenue())
             .court(courts.pick(venueCourts, courtIdx++))
@@ -665,7 +672,7 @@ public class SportsBracketGenerator {
         for (int i = 0; i < teams.size(); i++) {
             for (int j = i + 1; j < teams.size(); j++) {
                 matches.add(SportsTournamentMatch.builder()
-                    .config(config).group(grp)
+                    .config(config).community(config.getCommunity()).group(grp)
                     .round(MatchRound.GROUP_STAGE).roundNumber(matchNum).matchNumber(matchNum)
                     .teamA(teams.get(i)).teamB(teams.get(j))
                     .scheduledAt(slots.next()).durationMinutes(dur).venue(config.getVenue())
@@ -687,7 +694,7 @@ public class SportsBracketGenerator {
         int courtIdx = 0;
         for (int i = 0; i + 1 < teams.size(); i += 2) {
             matches.add(SportsTournamentMatch.builder()
-                .config(config).round(MatchRound.SWISS_ROUND)
+                .config(config).community(config.getCommunity()).round(MatchRound.SWISS_ROUND)
                 .roundNumber(roundNum).swissRoundNumber(roundNum)
                 .matchNumber(i / 2 + 1).bracketSlot(i / 2)
                 .teamA(teams.get(i)).teamB(teams.get(i + 1))
@@ -726,7 +733,7 @@ public class SportsBracketGenerator {
             int roundNum, LocalDateTime at, int dur,
             List<SportsCourt> venueCourts, int courtIndex) {
         return SportsTournamentMatch.builder()
-            .config(config).round(round).roundNumber(roundNum).matchNumber(1)
+            .config(config).community(config.getCommunity()).round(round).roundNumber(roundNum).matchNumber(1)
             .scheduledAt(at).durationMinutes(dur).venue(config.getVenue())
             .court(courts.pick(venueCourts, courtIndex))
             .status(MatchStatus.SCHEDULED).build();

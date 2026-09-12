@@ -12,6 +12,9 @@ import com.manacommunity.api.model.SportsAuctionTeam;
 import com.manacommunity.api.model.scheduler.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.repository.scheduler.*;
+import com.manacommunity.api.security.AuditService;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +49,7 @@ public class SportsMatchPersistenceService {
     private final VenueRepository             venueRepo;
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
+    private final AuditService                      auditService;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD
@@ -211,6 +215,7 @@ public class SportsMatchPersistenceService {
 
         SportsTournamentMatch m = SportsTournamentMatch.builder()
             .config(config)
+            .community(config.getCommunity())
             .group(group)
             .round("GROUP_STAGE".equals(req.matchType()) ? MatchRound.GROUP_STAGE : MatchRound.valueOf(req.stage()))
             .teamA(home)
@@ -221,7 +226,16 @@ public class SportsMatchPersistenceService {
             .status(MatchStatus.SCHEDULED)
             .build();
 
-        matchRepo.save(m);
+        SportsTournamentMatch saved = matchRepo.save(m);
+
+        auditService.record(
+            AuditAction.MATCH_SCHEDULED,
+            AuditModule.TOURNAMENT,
+            "SportsTournamentMatch",
+            String.valueOf(saved.getId()),
+            null,
+            "configId=" + configId + ", round=" + saved.getRound() + ", time=" + saved.getScheduledAt()
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -278,6 +292,16 @@ public class SportsMatchPersistenceService {
 
         log.info("Unified save: config {} ({}) with {} matches", configId,
             managed.getStatus(), entities.size());
+
+        auditService.record(
+            AuditAction.TOURNAMENT_SCHEDULE_SAVED,
+            AuditModule.TOURNAMENT,
+            "SportsTournamentConfig",
+            String.valueOf(configId),
+            null,
+            "name=" + managed.getTournamentName() + ", status=" + managed.getStatus() + ", matches=" + entities.size()
+        );
+
         return new SportsScheduleSaveResponse(toConfigResponse(managed), entities.size());
     }
 
@@ -352,6 +376,7 @@ public class SportsMatchPersistenceService {
 
         return SportsTournamentMatch.builder()
             .config(config)
+            .community(config.getCommunity())
             .round(round)
             .matchNumber(m.matchNumber() != null ? m.matchNumber() : 0)
             .teamA(teamA)

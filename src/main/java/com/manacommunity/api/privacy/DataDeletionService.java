@@ -187,6 +187,44 @@ public class DataDeletionService {
         return toDto(saved);
     }
 
+    @Transactional
+    public DataDeletionRequestDto cancelRequest(Long requestId, Long userId) {
+        DataDeletionRequest request;
+        if (requestId != null) {
+            request = requestRepo.findById(requestId)
+                    .orElseThrow(() -> new ResourceNotFoundException("DataDeletionRequest", requestId));
+        } else {
+            request = requestRepo.findFirstByUserIdAndStatusInOrderByRequestedAtDesc(
+                    userId, List.of(DataDeletionRequest.DeletionStatus.PENDING, DataDeletionRequest.DeletionStatus.VERIFIED))
+                    .orElseThrow(() -> new ResourceNotFoundException("Active DataDeletionRequest for user " + userId));
+        }
+
+        if (!request.getUserId().equals(userId)) {
+            throw new InvalidInputException("You can only cancel your own deletion request.");
+        }
+
+        if (request.getStatus() != DataDeletionRequest.DeletionStatus.PENDING &&
+            request.getStatus() != DataDeletionRequest.DeletionStatus.VERIFIED) {
+            throw new InvalidInputException("Only pending deletion requests can be cancelled.");
+        }
+
+        request.setStatus(DataDeletionRequest.DeletionStatus.CANCELLED);
+        request.setProcessedAt(LocalDateTime.now());
+        request.setNotes("Cancelled by resident");
+        DataDeletionRequest saved = requestRepo.save(request);
+
+        auditService.record(
+                AuditAction.CONFIG_UPDATED,
+                AuditModule.PRIVACY,
+                "DataDeletionRequest",
+                String.valueOf(saved.getId()),
+                "PENDING",
+                "CANCELLED"
+        );
+
+        return toDto(saved);
+    }
+
     private DataDeletionRequestDto toDto(DataDeletionRequest r) {
         return DataDeletionRequestDto.builder()
                 .id(r.getId())

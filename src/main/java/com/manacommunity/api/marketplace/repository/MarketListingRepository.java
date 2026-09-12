@@ -23,6 +23,8 @@ public interface MarketListingRepository extends JpaRepository<MarketListing, Lo
 
     List<MarketListing> findBySellerIdOrderByCreatedAtDesc(Long sellerId);
 
+    long countBySellerId(Long sellerId);
+
     List<MarketListing> findBySellerIdAndStatus(Long sellerId, MarketListing.ListingStatus status);
 
     int countBySellerIdAndStatus(Long sellerId, MarketListing.ListingStatus status);

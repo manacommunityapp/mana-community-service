@@ -418,6 +418,27 @@ public class SportsController {
         return ResponseEntity.ok(toRegistrationResponse(eventService.confirmCaptain(id, confirm)));
     }
 
+    @PutMapping("/registrations/{id}/partner-confirm")
+    public ResponseEntity<SportsRegistrationResponse> respondToPartnerInvitation(
+            @PathVariable Long id,
+            @RequestParam boolean accept,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.respondToPartnerInvitation(id, ctx.userId(), accept, reason)));
+    }
+
+    @GetMapping("/registrations/partner-invitations")
+    public ResponseEntity<List<SportsRegistrationResponse>> getPartnerInvitations(
+            @RequestParam(required = false) SportsEventRegistration.PartnerConfirmationStatus status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.ok(eventService.getPartnerInvitations(ctx.userId(), status).stream()
+                .map(this::toRegistrationResponse).toList());
+    }
+
     // ── Mappers ──────────────────────────────────────────────────────────────
 
     private SportsEventResponse toEventResponse(SportsEvent e) {
@@ -505,6 +526,7 @@ public class SportsController {
                 .playersBorn(e.getPlayersBorn())
                 .active(e.getActive())
                 .adminApprovalRequired(e.getAdminApprovalRequired())
+                .mandatoryMixedDoubles(e.getMandatoryMixedDoubles() != null ? e.getMandatoryMixedDoubles() : true)
                 .sport(sportRef)
                 .community(communityRef)
                 .venue(venueRef)
@@ -614,6 +636,9 @@ public class SportsController {
                 .captainNomination(r.getCaptainNomination())
                 .captainConfirmation(r.getCaptainConfirmation())
                 .proposedTeamName(r.getProposedTeamName())
+                .partnerConfirmationStatus(r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null)
+                .partnerConfirmedAt(r.getPartnerConfirmedAt())
+                .partnerDeclineReason(r.getPartnerDeclineReason())
                 .registeredAt(r.getRegisteredAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();
