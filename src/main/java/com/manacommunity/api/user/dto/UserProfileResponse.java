@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.manacommunity.api.model.Community;
 
 import lombok.AllArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserProfileResponse {
     private Long userId;
     private String fullName;

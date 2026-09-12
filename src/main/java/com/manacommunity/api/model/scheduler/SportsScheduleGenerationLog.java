@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "sports_schedule_generation_log", indexes = {
-    @Index(name = "idx_sgl_config",    columnList = "config_id"),
-    @Index(name = "idx_sgl_event",     columnList = "event_id"),
-    @Index(name = "idx_sgl_community", columnList = "community_id"),
-    @Index(name = "idx_sgl_created",   columnList = "created_at")
+    @Index(name = "idx_ssgl_config",    columnList = "config_id"),
+    @Index(name = "idx_ssgl_event",     columnList = "event_id"),
+    @Index(name = "idx_ssgl_community", columnList = "community_id"),
+    @Index(name = "idx_ssgl_created",   columnList = "created_at")
 })
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class SportsScheduleGenerationLog {

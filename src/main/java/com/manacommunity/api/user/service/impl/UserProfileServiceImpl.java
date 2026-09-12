@@ -349,7 +349,6 @@ public class UserProfileServiceImpl implements UserProfileService {
         UserProfileResponse.UserStats stats = getProfileStats(user);
 
         return UserProfileResponse.builder()
-                .userId(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .phone(user.getPhone())

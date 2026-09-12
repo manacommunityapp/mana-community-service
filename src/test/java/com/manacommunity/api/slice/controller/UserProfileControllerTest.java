@@ -34,7 +34,6 @@ class UserProfileControllerTest extends BaseWebMvcTest {
     void getProfile_returns200() throws Exception {
         AppUser user = AppUser.builder().id(1L).fullName("Test User").email("test@example.com").build();
         UserProfileResponse response = UserProfileResponse.builder()
-                .userId(1L)
                 .fullName("Test User")
                 .email("test@example.com")
                 .stats(UserProfileResponse.UserStats.builder()
@@ -49,7 +48,6 @@ class UserProfileControllerTest extends BaseWebMvcTest {
 
         mockMvc.perform(get("/api/profile"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.fullName").value("Test User"))
                 .andExpect(jsonPath("$.stats.posts").value(5))
                 .andExpect(jsonPath("$.stats.eventsAttended").value(2));
