@@ -89,6 +89,8 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                 config.getEvent() != null ? config.getEvent().getId() : null,
                 config.getEvent() != null ? config.getEvent().getName() : null,
                 config.getSport().getName(),
+                config.getSport().getId(),
+                config.getCommunity() != null ? config.getCommunity().getId() : null,
                 config.getSeasonName(),
                 config.getAuctionFormat().name(),
                 config.getTotalTeams(),

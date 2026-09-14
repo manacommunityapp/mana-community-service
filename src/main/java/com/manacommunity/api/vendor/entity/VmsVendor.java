@@ -2,6 +2,7 @@ package com.manacommunity.api.vendor.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VmsVendor {
+public class VmsVendor extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -129,23 +130,10 @@ public class VmsVendor {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    protected void initDefaults() {
         if (status == null) status = VendorStatus.PENDING;
         if (businessType == null) businessType = BusinessType.INDIVIDUAL;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 
     public enum VendorStatus { PENDING, APPROVED, SUSPENDED, REJECTED, BLOCKED }

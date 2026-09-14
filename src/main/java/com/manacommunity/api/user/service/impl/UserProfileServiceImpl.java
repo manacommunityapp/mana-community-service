@@ -71,7 +71,21 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
             user.setPhone(request.getPhone());
         }
-        if (request.getDob() != null) user.setDateOfBirth(request.getDob());
+        if (request.getDob() != null && !request.getDob().equals(user.getDateOfBirth())) {
+            List<com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+            );
+            boolean hasActiveRegistrations = sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
+                    || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses);
+            if (hasActiveRegistrations) {
+                throw new com.manacommunity.api.exception.InvalidInputException(
+                        "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
+                        "To register family members or kids, please use the Family Members feature.");
+            }
+            user.setDateOfBirth(request.getDob());
+        }
         if (request.getGender() != null) user.setGender(request.getGender());
         if (request.getFlatNo() != null) user.setFlatNo(request.getFlatNo());
         if (request.getBlock() != null) user.setBlock(request.getBlock());

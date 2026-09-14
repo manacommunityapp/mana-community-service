@@ -30,11 +30,11 @@ public abstract class BaseAuditEntity {
     private LocalDateTime updatedAt;
 
     @CreatedBy
-    @Column(name = "created_by", nullable = false, updatable = false)
+    @Column(name = "created_by", updatable = false)
     private Long createdBy;
 
     @LastModifiedBy
-    @Column(name = "updated_by", nullable = false)
+    @Column(name = "updated_by")
     private Long updatedBy;
 
     @PrePersist

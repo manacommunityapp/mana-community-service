@@ -2,6 +2,7 @@ package com.manacommunity.api.helpdesk.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,7 +16,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Ticket {
+public class Ticket extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,22 +69,6 @@ public class Ticket {
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     public enum TicketCategory { GENERAL, PLUMBING, ELECTRICAL, SECURITY, PARKING, NOISE, CLEANLINESS, ELEVATOR, OTHER }
     public enum TicketPriority { LOW, MEDIUM, HIGH, CRITICAL }

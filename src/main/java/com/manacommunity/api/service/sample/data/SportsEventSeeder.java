@@ -43,13 +43,13 @@ public class SportsEventSeeder {
         Venue leBoxCricket = venueSeeder.getLeBoxCricket();
         AppUser ramesh = userSeeder.getRamesh();
         
-        SportsPlayerCategory boysU19 = playerCategorySeeder.getCategoryByName("Boy's Under 19");
-        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory cricketYouth = playerCategorySeeder.getCategoryByName("Cricket Youth (8 - 18)");
+        SportsPlayerCategory cricketMen = playerCategorySeeder.getCategoryByName("Cricket Men (Above 18)");
 
         SportsEvent summerCup = getOrCreateSportsEvent(
                 "Annual Summer Cricket Cup",
                 true,
-                cricket, leCommunity, leBoxCricket, ramesh, Set.of(boysU19, mensA19),
+                cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketYouth, cricketMen),
                 SportsEvent.EventStatus.REGISTRATION_OPEN,
                 List.of("SINGLES", "DOUBLES", "MIXED_DOUBLES", "TEAM"),
                 SportsEvent.TournamentType.KNOCKOUT,
@@ -69,10 +69,12 @@ public class SportsEventSeeder {
         SportsMeta badminton = sportsMetaSeeder.getOrCreateSport("Badminton", "🏸");
         Venue leBadmintonCourt = venueSeeder.getLeBadmintonCourt();
 
+        SportsPlayerCategory badmintonMen = playerCategorySeeder.getCategoryByName("Badminton Men (18+)");
+
         SportsEvent badmintonEvent = getOrCreateSportsEvent(
                 "Badminton — Men's Above 19",
                 true,
-                badminton, leCommunity, leBadmintonCourt, ramesh, Set.of(mensA19),
+                badminton, leCommunity, leBadmintonCourt, ramesh, Set.of(badmintonMen),
                 SportsEvent.EventStatus.DRAFT,
                 List.of("SINGLES", "DOUBLES"),
                 SportsEvent.TournamentType.KNOCKOUT_SINGLE,
@@ -81,7 +83,7 @@ public class SportsEventSeeder {
                 null,
                 null,
                 60,
-                19, 45,
+                18, 100,
                 "MALE",
                 LocalDate.of(1900, 1, 1),
                 null
@@ -92,45 +94,45 @@ public class SportsEventSeeder {
         // ════════════════════════════════════════════════════════════════════
         // SPORTS EVENT REGISTRATIONS
         // ════════════════════════════════════════════════════════════════════
-        createRegistration(summerCup, userSeeder.getSandeep(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sandeep Kamarapu", 36, "All-rounder");
-        createRegistration(summerCup, userSeeder.getSunil(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sunil Kanthala", 36, "Batsman");
-        createRegistration(summerCup, ramesh, mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Ramesh Korlakunta", 36, "Bowler");
-        createRegistration(summerCup, userSeeder.getVarshitha(), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "user1", 36, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getSandeep(), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sandeep Kamarapu", 36, "All-rounder");
+        createRegistration(summerCup, userSeeder.getSunil(), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sunil Kanthala", 36, "Batsman");
+        createRegistration(summerCup, ramesh, cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Ramesh Korlakunta", 36, "Bowler");
+        createRegistration(summerCup, userSeeder.getVarshitha(), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "user1", 36, "Wicket Keeper");
 
         // Block A
-        createRegistration(summerCup, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rahul Sharma", 38, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("amit.kumar@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Amit Kumar", 41, "Bowler");
-        createRegistration(summerCup, userSeeder.getUserByEmail("vikram.singh@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vikram Singh", 36, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("rohit.verma@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohit Verma", 44, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("karan.malhotra@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Karan Malhotra", 32, "Bowler");
-        createRegistration(summerCup, userSeeder.getUserByEmail("suresh.nair@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Suresh Nair", 48, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rahul Sharma", 38, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("amit.kumar@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Amit Kumar", 41, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("vikram.singh@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vikram Singh", 36, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("rohit.verma@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohit Verma", 44, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("karan.malhotra@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Karan Malhotra", 32, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("suresh.nair@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Suresh Nair", 48, "Wicket Keeper");
 
         // Block B
-        createRegistration(summerCup, userSeeder.getUserByEmail("rajat.bhatia@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rajat Bhatia", 30, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("deepak.pillai@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Deepak Pillai", 46, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("manish.tiwari@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Manish Tiwari", 39, "Bowler");
-        createRegistration(summerCup, userSeeder.getUserByEmail("arjun.kapoor@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Arjun Kapoor", 35, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("tarun.garg@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Tarun Garg", 28, "Wicket Keeper");
-        createRegistration(summerCup, userSeeder.getUserByEmail("nitin.das@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Nitin Das", 47, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("rajat.bhatia@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rajat Bhatia", 30, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("deepak.pillai@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Deepak Pillai", 46, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("manish.tiwari@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Manish Tiwari", 39, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("arjun.kapoor@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Arjun Kapoor", 35, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("tarun.garg@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Tarun Garg", 28, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getUserByEmail("nitin.das@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Nitin Das", 47, "All-rounder");
 
         // Block C
-        createRegistration(summerCup, userSeeder.getUserByEmail("siddharth.bose@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Siddharth Bose", 33, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("varun.mehta@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Varun Mehta", 38, "Bowler");
-        createRegistration(summerCup, userSeeder.getUserByEmail("gourav.pandey@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Gourav Pandey", 31, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("abhishek.mishra@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Abhishek Mishra", 40, "Wicket Keeper");
-        createRegistration(summerCup, userSeeder.getUserByEmail("vishal.shetty@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vishal Shetty", 43, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("prashant.kadam@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Prashant Kadam", 49, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("siddharth.bose@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Siddharth Bose", 33, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("varun.mehta@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Varun Mehta", 38, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("gourav.pandey@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Gourav Pandey", 31, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("abhishek.mishra@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Abhishek Mishra", 40, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getUserByEmail("vishal.shetty@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vishal Shetty", 43, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("prashant.kadam@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Prashant Kadam", 49, "Bowler");
 
         // Block D
-        createRegistration(summerCup, userSeeder.getUserByEmail("harsh.vardhan@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Harsh Vardhan", 35, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("yash.chopra@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Yash Chopra", 44, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("akash.ambani@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Akash Ambani", 36, "Bowler");
-        createRegistration(summerCup, userSeeder.getUserByEmail("naveen.kumar@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Naveen Kumar", 41, "All-rounder");
-        createRegistration(summerCup, userSeeder.getUserByEmail("sanjay.dutt@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sanjay Dutt", 51, "Wicket Keeper");
-        createRegistration(summerCup, userSeeder.getUserByEmail("mahesh.babu@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Mahesh Babu", 46, "Batsman");
-        createRegistration(summerCup, userSeeder.getUserByEmail("ajay.devgn@gmail.com"), mensA19, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ajay Devgn", 48, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("harsh.vardhan@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Harsh Vardhan", 35, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("yash.chopra@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Yash Chopra", 44, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("akash.ambani@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Akash Ambani", 36, "Bowler");
+        createRegistration(summerCup, userSeeder.getUserByEmail("naveen.kumar@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Naveen Kumar", 41, "All-rounder");
+        createRegistration(summerCup, userSeeder.getUserByEmail("sanjay.dutt@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sanjay Dutt", 51, "Wicket Keeper");
+        createRegistration(summerCup, userSeeder.getUserByEmail("mahesh.babu@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Mahesh Babu", 46, "Batsman");
+        createRegistration(summerCup, userSeeder.getUserByEmail("ajay.devgn@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ajay Devgn", 48, "Bowler");
 
-        log.info("✓ Registrations seeded: 31 confirmed players (Men above 19) for Annual Summer Cricket Cup");
+        log.info("✓ Registrations seeded: 31 confirmed players (Men above 18) for Annual Summer Cricket Cup");
     }
 
     public SportsEvent getSummerCup() {

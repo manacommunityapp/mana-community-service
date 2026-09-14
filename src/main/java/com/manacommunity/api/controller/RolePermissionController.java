@@ -159,8 +159,9 @@ public class RolePermissionController {
      * Returns a list of all roles.
      */
     @GetMapping
-    public ResponseEntity<List<Role>> getRoles() {
-        return ResponseEntity.ok(roleService.getAllRoles());
+    public ResponseEntity<List<Role>> getRoles(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        return ResponseEntity.ok(roleService.getAllRoles(communityId));
     }
 
     /**

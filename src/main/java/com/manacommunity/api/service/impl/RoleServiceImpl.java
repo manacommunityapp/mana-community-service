@@ -25,10 +25,37 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
+    public List<Role> getAllRoles(Long communityId) {
+        List<Role> allRoles;
+        if (communityId != null) {
+            allRoles = roleRepo.findByCommunityIdOrCommunityIdIsNull(communityId);
+        } else {
+            allRoles = roleRepo.findAll();
+        }
+
+        // Deduplicate by upper-cased trimmed role name.
+        // If both community-scoped and global roles exist for the same name, prefer community-scoped.
+        java.util.Map<String, Role> uniqueRoles = new java.util.LinkedHashMap<>();
+        for (Role role : allRoles) {
+            if (role == null || role.getName() == null || isRestrictedRole(role.getName())) {
+                continue;
+            }
+            String key = role.getName().trim().toUpperCase();
+            Role existing = uniqueRoles.get(key);
+            if (existing == null) {
+                uniqueRoles.put(key, role);
+            } else if (existing.getCommunityId() == null && role.getCommunityId() != null) {
+                // Replace global fallback with community-scoped role
+                uniqueRoles.put(key, role);
+            }
+        }
+
+        return new java.util.ArrayList<>(uniqueRoles.values());
+    }
+
+    @Override
     public List<Role> getAllRoles() {
-        return roleRepo.findAll().stream()
-                .filter(r -> r.getName() != null && !isRestrictedRole(r.getName()))
-                .toList();
+        return getAllRoles(null);
     }
 
     @Override

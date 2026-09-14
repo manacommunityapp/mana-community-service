@@ -125,7 +125,6 @@ class ServiceRequestServiceTest {
         void assignsProviderSuccessfully() {
             ServiceRequest request = ServiceRequest.builder()
                     .id(50L).status(ServiceRequestStatus.SUBMITTED)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                     .build();
             ServiceProvider provider = ServiceProvider.builder()
                     .id(10L).verificationStatus(VerificationStatus.VERIFIED)
@@ -138,8 +137,6 @@ class ServiceRequestServiceTest {
             when(workOrderRepository.save(any(WorkOrder.class))).thenAnswer(inv -> {
                 WorkOrder w = inv.getArgument(0);
                 w.setId(70L);
-                w.setCreatedAt(LocalDateTime.now());
-                w.setUpdatedAt(LocalDateTime.now());
                 return w;
             });
 
@@ -163,7 +160,6 @@ class ServiceRequestServiceTest {
             AppUser user = testUser();
             ServiceRequest request = ServiceRequest.builder()
                     .id(50L).requester(user).status(ServiceRequestStatus.SUBMITTED)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                     .build();
             when(requestRepository.findById(50L)).thenReturn(Optional.of(request));
             when(requestRepository.save(any())).thenReturn(request);
@@ -179,7 +175,6 @@ class ServiceRequestServiceTest {
             AppUser user = testUser();
             ServiceRequest request = ServiceRequest.builder()
                     .id(50L).requester(user).status(ServiceRequestStatus.COMPLETED)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                     .build();
             when(requestRepository.findById(50L)).thenReturn(Optional.of(request));
 

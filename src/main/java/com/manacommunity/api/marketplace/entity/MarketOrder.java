@@ -2,13 +2,14 @@ package com.manacommunity.api.marketplace.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 
 @Entity
 @Table(name = "marketplace_orders", indexes = {
@@ -22,7 +23,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MarketOrder {
+public class MarketOrder extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -93,27 +94,14 @@ public class MarketOrder {
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private MarketHandoverPass handoverPass;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    protected void initDefaults() {
         if (status == null) status = OrderStatus.PENDING;
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
         if (deliveryFee == null) deliveryFee = BigDecimal.ZERO;
         if (paymentMethod == null) paymentMethod = PaymentMethod.UPI;
         if (paymentStatus == null) paymentStatus = PaymentStatus.PAID;
         if (deliveryMode == null) deliveryMode = DeliveryMode.DOORSTEP;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 
     public enum OrderStatus { PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, COMPLETED, CANCELLED, REFUNDED }

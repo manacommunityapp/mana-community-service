@@ -81,6 +81,12 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <!-- Hibernate Envers — field-level audit shadow tables for Tier 1 entities -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-envers</artifactId>
+        </dependency>
+
 
 
         <!-- Twilio Java SDK — SMS / WhatsApp / Voice provider -->

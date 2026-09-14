@@ -37,7 +37,7 @@ DECLARE
     user_ajay INT;
 BEGIN
     SELECT id INTO event_id_val FROM sports_event WHERE name = 'Annual Summer Cricket Cup';
-    SELECT id INTO cat_mens_id FROM player_category WHERE name = 'Men''s Above 19';
+    SELECT id INTO cat_mens_id FROM sports_player_category WHERE name = 'Cricket Men (Above 18)';
     
     SELECT id INTO user_sandeep FROM app_user WHERE email = 'sandeep@gmail.com';
     SELECT id INTO user_sunil FROM app_user WHERE email = 'sunil@gmail.com';

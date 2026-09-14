@@ -182,8 +182,6 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
                                             .emergencyContact(false)
                                             .isDevotee(true)
                                             .status("ACTIVE")
-                                            .createdAt(LocalDateTime.now())
-                                            .updatedAt(LocalDateTime.now())
                                             .build();
                             userFamilyMemberRepository.save(masterSelf);
                         }
@@ -249,8 +247,6 @@ public class EventFamilyMemberServiceImpl implements EventFamilyMemberService {
                                     .emergencyContact(false)
                                     .isDevotee(true)
                                     .status("ACTIVE")
-                                    .createdAt(LocalDateTime.now())
-                                    .updatedAt(LocalDateTime.now())
                                     .build();
                     userFamilyMemberRepository.save(masterMember);
                 }

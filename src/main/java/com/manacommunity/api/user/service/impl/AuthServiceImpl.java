@@ -109,6 +109,34 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    public void verifySignupOtp(String rawEmail, String rawPhone, String code) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (rawPhone != null && !rawPhone.trim().isEmpty() && userRepository.existsByPhone(rawPhone.trim())) {
+            throw new DuplicateResourceException("User", "phone", rawPhone.trim());
+        }
+
+        if (code == null || code.trim().isEmpty()) {
+            throw new ManaCommunityException("Verification code is required", HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.verify(email, code.trim());
+        if (!otpResp.verified() && !otpResp.success()) {
+            throw new ManaCommunityException(
+                    otpResp.message() != null ? otpResp.message() : "Incorrect or expired verification code.",
+                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
+    }
+
+    @Override
+    @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
 
         // 0. Assert the registrant's email was verified via OTP before reaching this step.

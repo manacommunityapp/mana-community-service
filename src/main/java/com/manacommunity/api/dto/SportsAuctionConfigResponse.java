@@ -5,6 +5,8 @@ public record SportsAuctionConfigResponse(
     Long   eventId,
     String eventName,
     String sportName,
+    Long   sportId,
+    Long   communityId,
     String seasonName,
     String auctionFormat,
     int    totalTeams,

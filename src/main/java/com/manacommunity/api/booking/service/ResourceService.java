@@ -72,7 +72,6 @@ public class ResourceService {
                 .cancellationHours(req.getCancellationHours())
                 .maxCapacity(req.getMaxCapacity())
                 .community(community)
-                .createdBy(user)
                 .build();
 
         if (req.getLatitude() != null) resource.setLatitude(req.getLatitude().doubleValue());

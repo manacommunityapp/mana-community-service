@@ -48,7 +48,7 @@ public class SportsEventDataSeeder {
         Community community = communitySeeder.getLeCommunity();
         Venue arena = venueDataSeeder.getOrCreateArena();
         AppUser createdBy = userSeeder.getRamesh();
-        SportsPlayerCategory mensA19 = playerCategorySeeder.getCategoryByName("Men's Above 19");
+        SportsPlayerCategory mensOpen = playerCategorySeeder.getCategoryByName("Men Above 15 (15+)");
 
         return sportsEventRepo.findAll().stream()
                 .filter(e -> EVENT_NAME.equalsIgnoreCase(e.getName()))
@@ -67,9 +67,9 @@ public class SportsEventDataSeeder {
                         .eventDateStart(LocalDate.of(2026, 12, 1))
                         .eventDateEnd(LocalDate.of(2026, 12, 15))
                         .maxParticipants(32)
-                        .categories(Set.of(mensA19))
-                        .minAge(19)
-                        .maxAge(45)
+                        .categories(Set.of(mensOpen))
+                        .minAge(15)
+                        .maxAge(100)
                         .gender("MALE")
                         .playersBorn(LocalDate.of(1900, 1, 1))
                         .status(SportsEvent.EventStatus.DRAFT)

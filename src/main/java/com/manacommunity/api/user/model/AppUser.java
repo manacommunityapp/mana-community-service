@@ -8,6 +8,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +29,7 @@ import java.util.stream.Collectors;
  */
 @Entity
 @Table(name = "app_user")
+@Audited
 @Getter
 @Setter
 @Builder
@@ -50,6 +54,7 @@ public class AppUser {
     private String phone;
 
     // Sensitive: never serialise out (login/registration set it via DTOs, never via AppUser JSON).
+    @NotAudited
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
@@ -92,6 +97,7 @@ public class AppUser {
      * <p>Callers that add/remove roles should manipulate this set and then call
      * {@link #syncRoleString()} (or let {@link #prePersistOrUpdate()} do it).
      */
+    @NotAudited
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "app_user_roles",
@@ -132,6 +138,7 @@ public class AppUser {
     @Column(name = "occupancy_status", length = 30)
     private String occupancyStatus; // Owner, Tenant, Staff
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
     private Community community;
@@ -159,11 +166,13 @@ public class AppUser {
 
     // ── Brute-force lockout (stateless session security) ──────────────────
     // Consecutive failed logins; reset to 0 on a successful login.
+    @NotAudited
     @Column(name = "failed_login_attempts", nullable = false)
     @Builder.Default
     private Integer failedLoginAttempts = 0;
 
     // When set and in the future, login is refused until this instant.
+    @NotAudited
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
 

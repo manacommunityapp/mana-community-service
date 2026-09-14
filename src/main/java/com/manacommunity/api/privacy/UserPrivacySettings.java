@@ -2,10 +2,12 @@ package com.manacommunity.api.privacy;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Audited
 @Table(name = "user_privacy_settings", indexes = {
     @Index(name = "idx_ups_user", columnList = "user_id", unique = true)
 })

@@ -27,14 +27,31 @@ public class SportsPlayerCategorySeeder {
         log.info("Seeding player categories...");
         Community generalCommunity = communitySeeder.getGeneralCommunity();
 
-        getOrCreatePlayerCategory("Boy's Under 19",    "BOYS",    "MALE",    0, 9,  generalCommunity);
-        getOrCreatePlayerCategory("Men's Above 19",    "MENS",    "MALE",   19, 45, generalCommunity);
-        getOrCreatePlayerCategory("Women's Above 19",  "WOMENS",  "FEMALE", 18, 50, generalCommunity);
-        getOrCreatePlayerCategory("Girl's Under 19",   "GIRLS",   "FEMALE",  0, 19, generalCommunity);
-        getOrCreatePlayerCategory("Kid's Under 12",    "KIDS",    "ALL",     5, 12, generalCommunity);
-        getOrCreatePlayerCategory("Senior's Above 45", "SENIORS", "ALL",    45, 55, generalCommunity);
+        // ── 1. Cricket Brackets (3 categories) ──────────────────────────
+        getOrCreatePlayerCategory("Cricket Kids (Under 8)",   "KIDS",    "ALL",     4,   7, generalCommunity, "Cricket (Combined Boys & Girls)");
+        getOrCreatePlayerCategory("Cricket Youth (8 - 18)",   "OPEN",    "ALL",     8,  18, generalCommunity, "Cricket (Combined Boys & Girls)");
+        getOrCreatePlayerCategory("Cricket Men (Above 18)",   "MENS",    "MALE",   18, 100, generalCommunity, "Cricket (Men Only)");
 
-        log.info("✓ Player categories seeded successfully.");
+        // ── 2. Badminton Brackets (6 categories - strictly separate) ─────
+        getOrCreatePlayerCategory("Badminton Boys (< 12)",     "BOYS",    "MALE",    4,  11, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Girls (< 12)",    "GIRLS",   "FEMALE",  4,  11, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Boys (12 - 18)",  "BOYS",    "MALE",   12,  18, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Girls (12 - 18)", "GIRLS",   "FEMALE", 12,  18, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Men (18+)",       "MENS",    "MALE",   18, 100, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Women (18+)",     "WOMENS",  "FEMALE", 18, 100, generalCommunity, "Badminton");
+
+        // ── 3. Chess, Carroms, TT, Basketball, Skating (< 15) ────────────
+        getOrCreatePlayerCategory("Boys Under 15 (< 15)",      "BOYS",    "MALE",    4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
+        getOrCreatePlayerCategory("Girls Under 15 (< 15)",     "GIRLS",   "FEMALE",  4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
+
+        // ── 4. Chess, Carroms, TT, Basketball (15+) ───────────────────────
+        getOrCreatePlayerCategory("Men Above 15 (15+)",        "MENS",    "MALE",   15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
+        getOrCreatePlayerCategory("Women Above 15 (15+)",      "WOMENS",  "FEMALE", 15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
+
+        // ── 5. Volleyball (Adult Men Only) (1 category) ──────────────────
+        getOrCreatePlayerCategory("Volleyball Men (18+)",      "MENS",    "MALE",   18, 100, generalCommunity, "Volleyball (Adult Men Only)");
+
+        log.info("✓ Player categories seeded successfully (14 standard categories).");
     }
 
     @Transactional
@@ -50,14 +67,14 @@ public class SportsPlayerCategorySeeder {
     }
 
     public Set<SportsPlayerCategory> getSummerCupCategories() {
-        SportsPlayerCategory boysU19 = getCategoryByName("Boy's Under 19");
-        SportsPlayerCategory mensA19 = getCategoryByName("Men's Above 19");
-        return Set.of(boysU19, mensA19);
+        SportsPlayerCategory cricketYouth = getCategoryByName("Cricket Youth (8 - 18)");
+        SportsPlayerCategory cricketMen = getCategoryByName("Cricket Men (Above 18)");
+        return Set.of(cricketYouth, cricketMen);
     }
 
     private SportsPlayerCategory getOrCreatePlayerCategory(String name, String categoryType,
                                                      String gender, int minAge, int maxAge,
-                                                     Community community) {
+                                                     Community community, String description) {
         return playerCategoryRepo.findAll().stream()
                 .filter(c -> c.getName().equals(name))
                 .findFirst()
@@ -69,7 +86,7 @@ public class SportsPlayerCategorySeeder {
                         .maxAge(maxAge)
                         .community(community)
                         .type("DEFAULT")
-                        .description("Sample " + name + " category")
+                        .description(description != null ? description : "Sample " + name + " category")
                         .build()));
     }
 }

@@ -53,8 +53,6 @@ class ListingServiceTest {
                 .seller(seller)
                 .community(community)
                 .images(new ArrayList<>())
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
     }
 

@@ -33,6 +33,10 @@ public class SportsEventRegistration {
     private AppUser user;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "family_member_id")
+    private com.manacommunity.api.user.model.FamilyMember familyMember;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by_user_id")
     private AppUser reviewedBy;
 
@@ -46,6 +50,10 @@ public class SportsEventRegistration {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "partner_user_id")
     private AppUser partner;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "partner_family_member_id")
+    private com.manacommunity.api.user.model.FamilyMember partnerFamilyMember;
 
     @Enumerated(EnumType.STRING)
     private RegistrationStatus status = RegistrationStatus.PENDING;
@@ -73,6 +81,10 @@ public class SportsEventRegistration {
     private Boolean captainNomination;
     private Boolean captainConfirmation;
     private String proposedTeamName;
+
+    /** Admin-assigned seed for bracket draw (1 = top seed). Overrides global ranking for this event. */
+    @Column(name = "seed")
+    private Integer seed;
 
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;

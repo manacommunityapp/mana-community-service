@@ -2,6 +2,9 @@ package com.manacommunity.api.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -11,6 +14,7 @@ import java.util.Set;
  * Maps user roles (e.g. ADMIN, MEMBER, VENDOR) to dynamic menu-based permission keys.
  */
 @Entity
+@Audited
 @Getter
 @Setter
 @Builder
@@ -37,6 +41,7 @@ public class Role {
      * Writes still go through {@link #communityId}; the DB FK on community_id is
      * managed by SchemaConstraintPatcher, so Hibernate must not generate its own.
      */
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", insertable = false, updatable = false,
                 foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
@@ -44,6 +49,7 @@ public class Role {
     private Community community;
 
     // The core mapping linked directly by role_id to role_permissions.role_id
+    @NotAudited
     @OneToMany(mappedBy = "roleEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private Set<RolePermission> permissions = new HashSet<>();
 }

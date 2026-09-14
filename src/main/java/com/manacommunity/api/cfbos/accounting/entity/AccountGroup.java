@@ -1,14 +1,14 @@
 package com.manacommunity.api.cfbos.accounting.entity;
 
 import com.manacommunity.api.cfbos.accounting.enums.AccountType;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cfbos_account_group")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class AccountGroup {
+public class AccountGroup extends BaseAuditEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false, unique = true, length = 10)
@@ -25,6 +25,4 @@ public class AccountGroup {
     private Integer displayOrder = 0;
     @Column(name = "is_system", nullable = false) @Builder.Default
     private Boolean isSystem = false;
-    private LocalDateTime createdAt;
-    @PrePersist protected void onCreate() { createdAt = LocalDateTime.now(); }
 }

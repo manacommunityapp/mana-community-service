@@ -2,6 +2,7 @@ package com.manacommunity.api.vendor.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,7 +17,7 @@ import java.time.LocalTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VmsBooking {
+public class VmsBooking extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -93,22 +94,9 @@ public class VmsBooking {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    protected void initDefaults() {
         if (status == null) status = BookingStatus.PENDING;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 
     public enum BookingStatus { PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW }

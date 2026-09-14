@@ -53,7 +53,7 @@ class WorkOrderServiceTest {
                     .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
             WorkOrder wo = WorkOrder.builder().id(70L).status(WorkOrderStatus.CREATED)
                     .provider(provider)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
 
             when(workOrderRepository.findById(70L)).thenReturn(Optional.of(wo));
             when(providerRepository.findByUserId(1L)).thenReturn(Optional.of(provider));
@@ -76,10 +76,10 @@ class WorkOrderServiceTest {
                     .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
             ServiceRequest sr = ServiceRequest.builder().id(50L)
                     .status(ServiceRequestStatus.IN_PROGRESS)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
             WorkOrder wo = WorkOrder.builder().id(70L).status(WorkOrderStatus.ARRIVED)
                     .provider(provider).serviceRequest(sr)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
 
             when(workOrderRepository.findById(70L)).thenReturn(Optional.of(wo));
             when(providerRepository.findByUserId(1L)).thenReturn(Optional.of(provider));
@@ -102,7 +102,7 @@ class WorkOrderServiceTest {
                     .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
             WorkOrder wo = WorkOrder.builder().id(70L).status(WorkOrderStatus.COMPLETED)
                     .provider(provider)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
 
             when(workOrderRepository.findById(70L)).thenReturn(Optional.of(wo));
             when(providerRepository.findByUserId(1L)).thenReturn(Optional.of(provider));
@@ -126,10 +126,10 @@ class WorkOrderServiceTest {
             user.setId(1L);
             ServiceRequest sr = ServiceRequest.builder().id(50L).requester(user)
                     .status(ServiceRequestStatus.IN_PROGRESS)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
             WorkOrder wo = WorkOrder.builder().id(70L).status(WorkOrderStatus.COMPLETED)
                     .serviceRequest(sr)
-                    .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+                    .build();
 
             when(workOrderRepository.findById(70L)).thenReturn(Optional.of(wo));
             when(workOrderRepository.save(any())).thenReturn(wo);

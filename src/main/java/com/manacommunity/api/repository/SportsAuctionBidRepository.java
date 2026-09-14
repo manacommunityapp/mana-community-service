@@ -24,7 +24,4 @@ public interface SportsAuctionBidRepository extends JpaRepository<SportsAuctionB
     @Query("SELECT b FROM SportsAuctionBid b WHERE b.player.id = :pid ORDER BY b.bidAmount DESC")
     List<SportsAuctionBid> findTopBidsForPlayer(@Param("pid") Long playerId, Pageable pageable);
     
-    // Existing method mapping
-    @Query("SELECT MAX(b.bidAmount) FROM SportsAuctionBid b WHERE b.player.id = :playerId")
-    Integer findMaxBidByPlayer(@Param("playerId") Long playerId);
 }
