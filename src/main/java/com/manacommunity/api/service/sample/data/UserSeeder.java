@@ -177,7 +177,7 @@ public class UserSeeder {
     }
 
     public AppUser getVarshitha() {
-        return userRepo.findByEmail("varshitha@gmail.com")
+        return userRepo.findByEmail("kusivarshitha23@gmail.com")
                 .orElseThrow(() -> new IllegalStateException("varshitha has not been seeded yet."));
     }
 
