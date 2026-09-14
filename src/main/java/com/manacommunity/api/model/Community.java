@@ -1,9 +1,8 @@
 package com.manacommunity.api.model;
 
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 /**
  * BUG FIX: Community entity had wrong table name ("communities" vs
@@ -22,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Community {
+public class Community extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,14 +57,8 @@ public class Community {
     @Column(name = "active", nullable = false)
     private Boolean active;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (active == null) {
-            active = true;
-        }
+    protected void initDefaults() {
+        if (active == null) active = true;
     }
 }

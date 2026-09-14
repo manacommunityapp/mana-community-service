@@ -2,11 +2,13 @@ package com.manacommunity.api.cfbos.accounting.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cfbos_fiscal_year")
+@Audited
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class FiscalYear {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

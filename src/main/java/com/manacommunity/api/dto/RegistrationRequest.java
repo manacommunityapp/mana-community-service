@@ -23,6 +23,8 @@ public class RegistrationRequest {
     Integer age;
     String role;
     Long partnerUserId;
+    Long partnerFamilyMemberId;
+    Long familyMemberId;
 
     /**
      * Google reCAPTCHA token from the public registration form. Only verified

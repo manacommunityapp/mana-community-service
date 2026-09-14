@@ -41,8 +41,11 @@ public interface SportsEventService {
     SportsEventRegistration rejectRegistration(Long registrationId, String reason);
     SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName);
     SportsEventRegistration confirmCaptain(Long registrationId, boolean confirm);
+    SportsEventRegistration respondToPartnerInvitation(Long registrationId, Long partnerUserId, boolean accept, String declineReason);
+    List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status);
     
     java.util.List<java.util.Map<String, Object>> getEventMap(Long communityId);
     long getConfirmedRegistrationCount(Long eventId);
     SportsEvent updateDisputeCommittee(Long eventId, java.util.List<Long> userIds);
+    SportsEventRegistration setRegistrationSeed(Long registrationId, Integer seed);
 }

@@ -3,11 +3,14 @@ package com.manacommunity.api.cfbos.accounting.entity;
 import com.manacommunity.api.cfbos.accounting.enums.AccountType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cfbos_account")
+@Audited
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Account {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,6 +19,7 @@ public class Account {
     private String code;
     @Column(nullable = false, length = 150)
     private String name;
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_group_id", nullable = false)
     private AccountGroup accountGroup;

@@ -1,6 +1,7 @@
 package com.manacommunity.api.ai.tool;
 
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.service.SportsAuctionService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.ai.config.AgentSecurityContext;
@@ -44,6 +45,7 @@ public class AuctionQueryTools {
     private EntityManager em;
 
     private final ObjectMapper objectMapper;
+    private final SportsAuctionService auctionService;
 
     // ── Community-scoping helper ───────────────────────────────────────
 
@@ -353,16 +355,14 @@ public class AuctionQueryTools {
                     "message", "Please confirm: change auction status to " + newStatus + "?");
         }
 
-        int updated = em.createQuery(
-                        "UPDATE SportsAuctionConfig c SET c.status = :st, c.updatedAt = CURRENT_TIMESTAMP " +
-                        "WHERE c.id = :cid AND c.createdBy.community.id = :comId")
-                .setParameter("st", com.manacommunity.api.model.SportsAuctionConfig.AuctionStatus.valueOf(newStatus))
-                .setParameter("cid", auctionConfigId)
-                .setParameter("comId", ctx.communityId())
-                .executeUpdate();
-
-        log.info("Auction {} status updated to {} by admin user={}", auctionConfigId, newStatus, ctx.userId());
-        return Map.of("success", updated > 0, "new_status", newStatus);
+        try {
+            auctionService.updateStatus(auctionConfigId, newStatus);
+            log.info("Auction {} status updated to {} by admin user={}", auctionConfigId, newStatus, ctx.userId());
+            return Map.of("success", true, "new_status", newStatus);
+        } catch (Exception e) {
+            log.warn("Auction {} status update to {} failed: {}", auctionConfigId, newStatus, e.getMessage());
+            return Map.of("success", false, "error", e.getMessage());
+        }
     }
 
     @Tool(description = "[SUPER_ADMIN ONLY] Reset PASSED players back to QUEUED. "

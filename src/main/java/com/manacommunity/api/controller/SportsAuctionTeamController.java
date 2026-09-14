@@ -89,14 +89,6 @@ public class SportsAuctionTeamController {
         return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
     }
 
-    @GetMapping("/captain/all")
-    public ResponseEntity<List<SportsAuctionTeamResponse>> getAllCaptainNominations(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, VIEW_PLAYER_POOL);
-        AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionTeamService.getCaptainRegistration(loggedInUser.getId()).stream().map(this::toResponse).toList());
-    }
-
     private SportsAuctionTeamResponse toResponse(SportsAuctionTeam t) {
         return SportsAuctionTeamResponse.builder()
                 .id(t.getId())

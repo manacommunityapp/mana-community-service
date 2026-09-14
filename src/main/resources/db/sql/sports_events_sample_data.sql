@@ -15,8 +15,8 @@ BEGIN
     SELECT id INTO venue_id_val FROM venue WHERE name = 'LE Box Cricket';
     SELECT id INTO user_id_val FROM app_user WHERE email = 'ramesh@gmail.com';
     
-    SELECT id INTO cat_boys_id FROM player_category WHERE name = 'Boy''s Under 19';
-    SELECT id INTO cat_mens_id FROM player_category WHERE name = 'Men''s Above 19';
+    SELECT id INTO cat_boys_id FROM sports_player_category WHERE name = 'Cricket Youth (8 - 18)';
+    SELECT id INTO cat_mens_id FROM sports_player_category WHERE name = 'Cricket Men (Above 18)';
 
     IF sport_id_val IS NOT NULL AND comm_id_val IS NOT NULL AND venue_id_val IS NOT NULL AND user_id_val IS NOT NULL THEN
         -- Insert tournament event if not exists
@@ -30,12 +30,12 @@ BEGIN
 
         -- Map categories in the join table
         IF event_id_val IS NOT NULL THEN
-            IF cat_boys_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM event_category WHERE event_id = event_id_val AND category_id = cat_boys_id) THEN
-                INSERT INTO event_category (event_id, category_id) VALUES (event_id_val, cat_boys_id);
+            IF cat_boys_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sports_event_category WHERE event_id = event_id_val AND category_id = cat_boys_id) THEN
+                INSERT INTO sports_event_category (event_id, category_id) VALUES (event_id_val, cat_boys_id);
             END IF;
 
-            IF cat_mens_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM event_category WHERE event_id = event_id_val AND category_id = cat_mens_id) THEN
-                INSERT INTO event_category (event_id, category_id) VALUES (event_id_val, cat_mens_id);
+            IF cat_mens_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sports_event_category WHERE event_id = event_id_val AND category_id = cat_mens_id) THEN
+                INSERT INTO sports_event_category (event_id, category_id) VALUES (event_id_val, cat_mens_id);
             END IF;
         END IF;
     END IF;

@@ -75,6 +75,8 @@ class UserPrivacySettingsServiceTest {
             assertThat(dto.getShowEmailToNeighbours()).isFalse();
             assertThat(dto.getShowFlatInDirectory()).isTrue(); // OK to show flat
             assertThat(dto.getShowFamilyMembers()).isFalse(); // private by default
+            assertThat(dto.getShowVehicleInDirectory()).isFalse();
+            assertThat(dto.getEmergencyContactRestricted()).isTrue();
             assertThat(dto.getActivityVisibility()).isEqualTo("COMMUNITY");
         }
     }

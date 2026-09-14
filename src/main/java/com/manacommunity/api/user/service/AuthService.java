@@ -26,6 +26,9 @@ public interface AuthService {
     /** Sends a 6-digit OTP verification code to the supplied email address to verify it before signup. */
     void sendSignupOtp(String email, String phone);
 
+    /** Verifies the signup OTP code while checking that email and phone do not already exist. */
+    void verifySignupOtp(String email, String phone, String code);
+
     /** Sends a 6-digit OTP verification code to the user''s registered email address for password reset. */
     void sendPasswordResetOtp(String email);
 

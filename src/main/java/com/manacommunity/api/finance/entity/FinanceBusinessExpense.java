@@ -1,11 +1,11 @@
 package com.manacommunity.api.finance.entity;
 
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +16,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class FinanceBusinessExpense {
+public class FinanceBusinessExpense extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,15 +67,4 @@ public class FinanceBusinessExpense {
     @Builder.Default
     private List<FinanceLineItem> lines = new ArrayList<>();
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
-
-    @PreUpdate
-    void onUpdate() { updatedAt = LocalDateTime.now(); }
 }

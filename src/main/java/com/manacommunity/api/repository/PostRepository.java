@@ -41,6 +41,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p.postType, COUNT(p) FROM Post p WHERE p.community.id = :communityId AND p.deleted = false GROUP BY p.postType")
     java.util.List<Object[]> countPostsByType(Long communityId);
 
+    Page<Post> findByUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    long countByUserIdAndDeletedFalse(Long userId);
+
     long countByCommunityIdAndDeletedFalse(Long communityId);
 
     long countByCommunityIdAndOfficialTrueAndDeletedFalse(Long communityId);

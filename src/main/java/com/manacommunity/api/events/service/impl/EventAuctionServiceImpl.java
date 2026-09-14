@@ -169,6 +169,9 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         if (item.getStatus() == ItemStatus.CLOSED) {
             throw new IllegalStateException("This auction item is closed. No further bids are accepted.");
         }
+        if (item.getStatus() == ItemStatus.UPCOMING) {
+            throw new IllegalStateException("This auction item has not started yet. Bidding opens once the item is set to Live.");
+        }
 
         BigDecimal bidAmount = bidReq.getAmount();
         BigDecimal minRequired;

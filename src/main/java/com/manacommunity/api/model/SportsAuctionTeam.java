@@ -24,6 +24,10 @@ public class SportsAuctionTeam {
     @JoinColumn(name = "config_id")
     private SportsAuctionConfig config;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
+
     @Column(nullable = false)
     private String teamName;
 
@@ -39,8 +43,16 @@ public class SportsAuctionTeam {
     @JoinColumn(name = "captain_user_id")
     private AppUser captainUser;
 
-    @Column(nullable = false,name = "event_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
+    private SportsEvent event;
+
+    @Column(name = "event_id", insertable = false, updatable = false)
     private Long eventId;
+
+    public Long getEventId() {
+        return eventId != null ? eventId : (event != null ? event.getId() : null);
+    }
 
     private String colorHex;
 

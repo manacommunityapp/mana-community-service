@@ -2,10 +2,9 @@ package com.manacommunity.api.user.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "family_members")
@@ -15,7 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
-public class FamilyMember {
+public class FamilyMember extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -75,12 +74,6 @@ public class FamilyMember {
     @Builder.Default
     private String status = "ACTIVE";
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
     public String getGotram() {
         return gothram;
     }
@@ -89,14 +82,4 @@ public class FamilyMember {
         this.gothram = gotram;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        if (updatedAt == null) updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

@@ -8,11 +8,13 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.hibernate.envers.Audited;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "cfbos_journal_entry")
+@Audited
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class JournalEntry {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

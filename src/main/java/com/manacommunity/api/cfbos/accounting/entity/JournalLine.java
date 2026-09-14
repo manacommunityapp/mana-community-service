@@ -2,10 +2,12 @@ package com.manacommunity.api.cfbos.accounting.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "cfbos_journal_line")
+@Audited
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class JournalLine {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

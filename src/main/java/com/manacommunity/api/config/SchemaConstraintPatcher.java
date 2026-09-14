@@ -2464,7 +2464,25 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_module ON manacommunity.media_objects (module, module_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_community ON manacommunity.media_objects (community_id)");
 
-                log.info("event_ticket_categories, event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log tables ensured.");
+                // Clean up legacy sports_schedule_generation_log indexes and ensure standard idx_ssgl_* indexes
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_schedule_generation_log') IS NOT NULL THEN
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_created;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_config;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_event;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_community;
+                            
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_created ON manacommunity.sports_schedule_generation_log (created_at);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_config ON manacommunity.sports_schedule_generation_log (config_id);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_event ON manacommunity.sports_schedule_generation_log (event_id);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_community ON manacommunity.sports_schedule_generation_log (community_id);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("event_ticket_categories, event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log, sports_schedule_generation_log tables ensured.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher event_ticket_categories/event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }

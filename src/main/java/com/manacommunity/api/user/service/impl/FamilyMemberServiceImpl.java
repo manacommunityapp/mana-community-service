@@ -136,8 +136,6 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                         .emergencyContact(false)
                         .isDevotee(true)
                         .status("ACTIVE")
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
                         .build();
 
                 List<FamilyMember> updatedList = new java.util.ArrayList<>();
@@ -219,8 +217,6 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 .avatar(avatar)
                 .notes(request.getNotes())
                 .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
 
         FamilyMember saved = repository.save(member);

@@ -23,6 +23,10 @@ public class SportsTournamentMatch {
     @OnDelete(action = OnDeleteAction.CASCADE)   // delete matches when their config is deleted
     private SportsTournamentConfig config;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private com.manacommunity.api.model.Community community;
+
     // ── Bracket / group context ───────────────────────────────────
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")

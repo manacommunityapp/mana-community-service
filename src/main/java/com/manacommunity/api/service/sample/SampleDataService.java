@@ -36,6 +36,7 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsTournamentSeeder tournamentSeeder;
     private final SportsAuctionSeeder auctionSeeder;
     private final InventorySeeder inventorySeeder;
+    private final SportsKarateBeltSeeder karateSeeder;
 
     private final DefaultCommunityModuleDataService defaultCommunityModuleDataService;
     // Dedicated per-table sample seeders
@@ -137,6 +138,9 @@ public class SampleDataService implements ApplicationRunner {
             courtDataSeeder.seed();
             sportsEventDataSeeder.seed();
             sportsEventRegistrationDataSeeder.seed();
+
+            // Layer 7 — karate belt levels (depends on community + sports meta)
+            karateSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");

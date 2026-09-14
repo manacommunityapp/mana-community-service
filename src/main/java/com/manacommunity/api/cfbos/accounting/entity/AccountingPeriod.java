@@ -2,11 +2,13 @@ package com.manacommunity.api.cfbos.accounting.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cfbos_accounting_period")
+@Audited
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class AccountingPeriod {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

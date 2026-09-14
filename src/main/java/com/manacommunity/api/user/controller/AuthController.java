@@ -8,6 +8,7 @@ import com.manacommunity.api.user.dto.RefreshTokenRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.user.dto.ResetPasswordRequest;
 import com.manacommunity.api.user.dto.SendSignupOtpRequest;
+import com.manacommunity.api.user.dto.VerifySignupOtpRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +44,19 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Verification code has been sent to your email address."
+        ));
+    }
+
+    /**
+     * Validates that email and phone do not exist, and verifies the 6-digit code.
+     */
+    @PostMapping("/verify-signup-otp")
+    public ResponseEntity<Map<String, Object>> verifySignupOtp(@Valid @RequestBody VerifySignupOtpRequest request) {
+        authService.verifySignupOtp(request.getEmail(), request.getPhone(), request.getCode());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "verified", true,
+                "message", "Email and phone verified successfully."
         ));
     }
 

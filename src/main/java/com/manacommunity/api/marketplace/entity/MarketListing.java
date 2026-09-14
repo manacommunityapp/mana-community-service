@@ -2,13 +2,14 @@ package com.manacommunity.api.marketplace.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 
 @Entity
 @Table(name = "marketplace_listings", indexes = {
@@ -20,7 +21,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MarketListing {
+public class MarketListing extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -80,24 +81,11 @@ public class MarketListing {
     @Builder.Default
     private List<MarketListingImage> images = new ArrayList<>();
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    protected void initDefaults() {
         if (status == null) status = ListingStatus.ACTIVE;
         if (visibility == null) visibility = ListingVisibility.COMMUNITY;
         if (priceUnit == null) priceUnit = "INR";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 
     public enum Condition { NEW, LIKE_NEW, GOOD, FAIR }

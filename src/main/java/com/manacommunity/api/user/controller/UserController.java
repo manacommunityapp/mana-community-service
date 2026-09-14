@@ -53,6 +53,7 @@ public class UserController {
     private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
     private final PiiMaskingService piiMaskingService;
     private final UserPrivacySettingsService userPrivacySettingsService;
+    private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -423,7 +424,22 @@ public class UserController {
             user.setPhone(newPhone);
         }
 
-        if (req.getDateOfBirth() != null) user.setDateOfBirth(req.getDateOfBirth());
+        if (req.getDateOfBirth() != null && !req.getDateOfBirth().equals(user.getDateOfBirth())) {
+            if (isSelf && !isAdmin) {
+                java.util.List<com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus> activeStatuses = java.util.List.of(
+                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+                );
+                if (sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
+                        || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses)) {
+                    throw new InvalidInputException(
+                            "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
+                            "To register family members or kids, please use the Family Members feature.");
+                }
+            }
+            user.setDateOfBirth(req.getDateOfBirth());
+        }
         if (req.getGender() != null) user.setGender(req.getGender());
         if (req.getFlatNo() != null) user.setFlatNo(req.getFlatNo());
         if (req.getBlock() != null) user.setBlock(req.getBlock());

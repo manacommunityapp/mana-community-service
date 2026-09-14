@@ -4,10 +4,10 @@ import com.manacommunity.api.booking.entity.enums.BookingType;
 import com.manacommunity.api.booking.entity.enums.ResourceStatus;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
@@ -21,7 +21,7 @@ import java.time.LocalTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Resource {
+public class Resource extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -138,26 +138,10 @@ public class Resource {
     private Community community;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
-    private AppUser createdBy;
+    @JoinColumn(name = "created_by", insertable = false, updatable = false)
+    private AppUser createdByUser;
 
     @Column(name = "deleted")
     @Builder.Default
     private boolean deleted = false;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

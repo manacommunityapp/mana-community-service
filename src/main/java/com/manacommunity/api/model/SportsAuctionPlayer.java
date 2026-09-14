@@ -23,6 +23,10 @@ public class SportsAuctionPlayer {
     private SportsAuctionConfig config;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private AppUser user;
 
@@ -44,6 +48,10 @@ public class SportsAuctionPlayer {
 
     @Column(nullable = false)
     private Integer queueOrder;
+
+    /** Player's numeric rating copied from SportsPlayerRanking at auction player creation time. */
+    @Column
+    private Integer rating;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

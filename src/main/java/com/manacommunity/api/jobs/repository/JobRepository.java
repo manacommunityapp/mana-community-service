@@ -13,6 +13,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByPostedByIdOrderByCreatedAtDesc(Long userId);
 
+    long countByPostedById(Long userId);
+
     @Query("SELECT j FROM Job j WHERE j.community.id = :communityId AND j.status = 'ACTIVE' ORDER BY j.createdAt DESC")
     List<Job> findActiveByCommunity(@Param("communityId") Long communityId);
 

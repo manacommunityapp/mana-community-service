@@ -89,6 +89,9 @@ public class SportsTournament {
     @Column(name = "registration_status", length = 20)
     private EventStatus registrationStatus;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id")
+    private com.manacommunity.api.user.model.AppUser createdBy;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

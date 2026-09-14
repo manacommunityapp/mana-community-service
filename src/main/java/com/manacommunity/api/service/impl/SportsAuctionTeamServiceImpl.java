@@ -57,6 +57,8 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
         AppUser teamOwner = userRepo.findById(ownerUserId).orElseThrow(() -> new ResourceNotFoundException("AppUser", ownerUserId));
         SportsAuctionTeam team = SportsAuctionTeam.builder()
             .config(config)
+            .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
+            .event(config.getEvent())
             .teamName(req.teamName())
             .ownerName(req.ownerName())
             .ownerUser(teamOwner)
@@ -110,6 +112,13 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
         team.setCaptainConfirmation(confirm);
         SportsAuctionTeam saved = teamRepo.save(team);
 
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.CAPTAIN_CONFIRMED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "SportsAuctionTeam", String.valueOf(saved.getId()),
+            "confirmed=" + !confirm,
+            "confirmed=" + confirm + ", team=" + saved.getTeamName());
+
         try {
             Long recipientId = saved.getCaptainUser() != null ? saved.getCaptainUser().getId()
                     : (saved.getOwnerUser() != null ? saved.getOwnerUser().getId() : null);
@@ -140,6 +149,8 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
         SportsAuctionTeam team = teamRepo.findByConfigIdAndOwnerUserId(config.getId(), userId)
                 .orElseGet(() -> SportsAuctionTeam.builder()
                         .config(config)
+                        .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
+                        .event(config.getEvent())
                         .ownerUser(user)
                         .captainUser(user)
                         .ownerName(user.getFullName())
@@ -161,6 +172,13 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
         }
 
         SportsAuctionTeam saved = teamRepo.save(team);
+
+        auditService.record(
+            com.manacommunity.api.security.AuditAction.CAPTAIN_NOMINATED,
+            com.manacommunity.api.security.AuditModule.AUCTION,
+            "SportsAuctionTeam", String.valueOf(saved.getId()),
+            null,
+            "teamName=" + saved.getTeamName() + ", nominated=" + nominate);
 
         try {
             if (nominate) {

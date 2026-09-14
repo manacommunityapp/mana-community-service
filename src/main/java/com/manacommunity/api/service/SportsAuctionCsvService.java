@@ -113,6 +113,7 @@ public class SportsAuctionCsvService {
 
                 SportsAuctionPlayer player = SportsAuctionPlayer.builder()
                     .config(config)
+                    .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
                     .playerName(playerName)
                     .category(category)
                     .playerRole(role)

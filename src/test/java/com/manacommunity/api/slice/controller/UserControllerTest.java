@@ -44,6 +44,9 @@ class UserControllerTest extends BaseWebMvcTest {
     @MockitoBean private AdminUserService adminUserService;
     @MockitoBean private PasswordEncoder passwordEncoder;
     @MockitoBean private AuthService authService;
+    @MockitoBean private com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
+    @MockitoBean private com.manacommunity.api.privacy.UserPrivacySettingsService userPrivacySettingsService;
+    @MockitoBean private com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     @Nested
     @DisplayName("POST /api/users - Create User (Single & Bulk Row Insertion)")

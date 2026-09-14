@@ -2,10 +2,12 @@ package com.manacommunity.api.privacy;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Audited
 @Table(name = "data_deletion_request", indexes = {
     @Index(name = "idx_ddr_user",   columnList = "user_id"),
     @Index(name = "idx_ddr_status", columnList = "status")

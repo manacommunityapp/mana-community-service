@@ -14,6 +14,8 @@ public class SportsRegistrationResponse {
     private CategoryRef category;
     private String matchType;
     private UserRef partner;
+    private FamilyMemberRef partnerFamilyMember;
+    private FamilyMemberRef familyMember;
     private String status;
 
     private String playerName;
@@ -27,6 +29,11 @@ public class SportsRegistrationResponse {
     private Boolean captainConfirmation;
     private String proposedTeamName;
 
+    private String partnerConfirmationStatus;
+    private LocalDateTime partnerConfirmedAt;
+    private String partnerDeclineReason;
+
+    private Integer seed;
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;
 
@@ -68,5 +75,15 @@ public class SportsRegistrationResponse {
         private Integer minAge;
         private Integer maxAge;
         private String gender;
+    }
+
+    @Data
+    @Builder
+    public static class FamilyMemberRef {
+        private Long id;
+        private String name;
+        private String relation;
+        private String gender;
+        private Integer age;
     }
 }
