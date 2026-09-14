@@ -7,5 +7,6 @@ public enum ResultType {
     NO_RESULT,
     ABANDONED,
     DLS,
-    SUPER_OVER
+    SUPER_OVER,
+    PENALTY_SHOOTOUT
 }
