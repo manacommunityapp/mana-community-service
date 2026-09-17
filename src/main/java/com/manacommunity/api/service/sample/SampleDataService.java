@@ -11,6 +11,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -44,7 +47,6 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsCourtDataSeeder courtDataSeeder;
     private final SportsEventDataSeeder sportsEventDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
-    private final SportsTournamentDataSeeder tournamentDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
 
@@ -128,7 +130,6 @@ public class SampleDataService implements ApplicationRunner {
 
             // Layer 4 — tournaments (depends on sports events)
             tournamentSeeder.seed();
-            tournamentDataSeeder.seed();
 
             // Layer 5 — auction (depends on sports events and users)
             auctionSeeder.seed();
@@ -146,6 +147,103 @@ public class SampleDataService implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Failed to seed database: ", e);
             return "Failed to execute sample data: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Dedicated method to feed "LE 2026 Season Fest" tournament with all 6 sub-events,
+     * base sports metadata, venues, player categories, and auction configurations.
+     *
+     * @param includeSampleRegistrations if true, seeds sample registrations across Badminton, TT, Chess, Carroms, Volleyball
+     */
+    @Transactional
+    public Map<String, Object> feedSportsData(boolean includeSampleRegistrations) {
+        try {
+            log.info("Starting Sports Data Feed (LE 2026 Season Fest)... includeRegistrations={}", includeSampleRegistrations);
+
+            // Layer 1 — users & categories & venues
+            userSeeder.seed();
+            rolePermissionSeeder.seedUserPermissions();
+            playerCategorySeeder.seed();
+            sportsMetaSeeder.defaultSeed();
+            venueSeeder.seed();
+
+            // Layer 2 — community module activation
+            Community le = communitySeeder.getLeCommunity();
+            defaultCommunityModuleDataService.seedModulesForCommunity(
+                    le.getId(),
+                    Set.of(ModuleConstants.MODULE_COMMUNITY_FEED,
+                            ModuleConstants.MODULE_SPORTS,
+                            ModuleConstants.MODULE_EVENTS,
+                            ModuleConstants.MODULE_ADMIN_HUB));
+            communityLeaderSeeder.seed();
+
+            // Layer 3 — sports events
+            sportsEventSeeder.seed();
+
+            // Layer 4 — tournament linking
+            tournamentSeeder.seed();
+
+            // Layer 5 — cricket auction
+            auctionSeeder.seed();
+
+            // Layer 6 — courts
+            courtDataSeeder.seed();
+
+            int extraRegistrations = 0;
+            if (includeSampleRegistrations) {
+                extraRegistrations = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
+            }
+
+            log.info("✓ Sports Data Feed completed successfully! (sampleRegistrations={})", includeSampleRegistrations);
+
+            return Map.of(
+                    "status", "SUCCESS",
+                    "tournament", "LE 2026 Season Fest",
+                    "eventDates", "2026-10-02 to 2026-12-31",
+                    "registrationDates", "2026-09-17 to 2026-09-19",
+                    "subEvents", List.of(
+                            "Annual 2026 Cricket Cup (Auction Enabled)",
+                            "Badminton - Singles & Doubles (5 Categories)",
+                            "Chess Championship (5 Categories)",
+                            "Carroms - Singles and Doubles (5 Categories)",
+                            "Table Tennis - Singles and Doubles (5 Categories)",
+                            "Volleyball Premier League (1 Category)"
+                    ),
+                    "sampleRegistrationsIncluded", includeSampleRegistrations,
+                    "additionalSampleRegistrationsCount", extraRegistrations,
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        } catch (Exception e) {
+            log.error("Failed to feed sports data: ", e);
+            return Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to feed sports data: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        }
+    }
+
+    /**
+     * Seeds sample registrations across all sports sub-events.
+     */
+    @Transactional
+    public Map<String, Object> feedSportsRegistrations() {
+        try {
+            int total = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
+            return Map.of(
+                    "status", "SUCCESS",
+                    "message", "Successfully seeded " + total + " sample registrations across sports sub-events.",
+                    "totalRegistrationsSeeded", total,
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        } catch (Exception e) {
+            log.error("Failed to feed sports registrations: ", e);
+            return Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to feed sports registrations: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now().toString()
+            );
         }
     }
 }

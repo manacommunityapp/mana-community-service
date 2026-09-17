@@ -33,7 +33,7 @@ public class SportsTournamentSeeder {
         Community leCommunity = communitySeeder.getLeCommunity();
 
         // 1. Find and disassociate existing tournament if present (clean current & legacy)
-        List<String> namesToClean = List.of(TOURNAMENT_NAME, "LE 2026 Summer Champ");
+        List<String> namesToClean = List.of(TOURNAMENT_NAME, "LE 2026 Summer Champ", "LE 2026 Winter Cup");
         for (String name : namesToClean) {
             tournamentRepo.findAll().stream()
                     .filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(name))
@@ -55,10 +55,10 @@ public class SportsTournamentSeeder {
         SportsTournament tournament = tournamentRepo.save(SportsTournament.builder()
                 .name(TOURNAMENT_NAME)
                 .description("Lakshmi's Emperia Annual Sports Season Fest 2026 featuring Cricket, Badminton, Chess, Carroms, Table Tennis, and Volleyball.")
-                .eventDateStart(LocalDate.of(2026, 6, 1))
-                .eventDateEnd(LocalDate.of(2026, 9, 30))
-                .registrationDateStart(LocalDate.of(2026, 5, 15))
-                .registrationDateEnd(LocalDate.of(2026, 6, 20))
+                .eventDateStart(LocalDate.of(2026, 10, 2))
+                .eventDateEnd(LocalDate.of(2026, 12, 31))
+                .registrationDateStart(LocalDate.of(2026, 9, 17))
+                .registrationDateEnd(LocalDate.of(2026, 9, 19))
                 .maxParticipants(500)
                 .contactName("Ramesh Korlakunta")
                 .contactNumber("8801357225")
@@ -79,12 +79,10 @@ public class SportsTournamentSeeder {
         // 3. Link all configured sub-events to this tournament
         List<String> eventNames = List.of(
                 "Annual 2026 Cricket Cup",
-                "Annual Summer Cricket Cup",
-                "Badminton Community Championship",
-                "Badminton — Men's Above 19",
-                "Community Chess Championship",
-                "Carroms Community Cup",
-                "Table Tennis Open Championship",
+                "Badminton - Singles & Doubles",
+                "Chess Championship",
+                "Carroms - Singles and Doubles",
+                "Table Tennis - Singles and Doubles",
                 "Volleyball Premier League"
         );
 
