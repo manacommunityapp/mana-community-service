@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_ANALYTICS;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 
 /**
@@ -39,7 +40,7 @@ public class SportsAdminController {
     public ResponseEntity<SportsAdminOverviewResponse> overview(
             @org.springframework.web.bind.annotation.RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_ANALYTICS, VIEW_SPORTS_MAIN);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(adminService.getOverview(user, communityId));
     }

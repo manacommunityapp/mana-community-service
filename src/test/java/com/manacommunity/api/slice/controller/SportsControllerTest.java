@@ -1,9 +1,11 @@
 package com.manacommunity.api.slice.controller;
 
 import com.manacommunity.api.controller.SportsController;
+import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.repository.SportsMetaRepository;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.service.SportsEventCsvImportService;
@@ -20,7 +22,10 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MENU;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -51,7 +56,10 @@ class SportsControllerTest extends BaseWebMvcTest {
             badminton.setId(1L);
             badminton.setName("Badminton");
 
-            doNothing().when(permissionCheckService).requireAnyPermission(any(), any());
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(VIEW_SPORTS_MAIN), eq(VIEW_SPORTS_MENU));
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, true, 100L));
             when(sportMetaRepo.findByActiveTrue()).thenReturn(List.of(badminton));
 
             mockMvc.perform(get("/api/sports/meta"))
@@ -64,7 +72,7 @@ class SportsControllerTest extends BaseWebMvcTest {
         @DisplayName("missing permission returns 403")
         void forbidden_returns403() throws Exception {
             doThrow(new AccessDeniedException("Insufficient permissions"))
-                    .when(permissionCheckService).requireAnyPermission(any(), any());
+                    .when(permissionCheckService).requireAnyPermission(any(), eq(VIEW_SPORTS_MAIN), eq(VIEW_SPORTS_MENU));
 
             mockMvc.perform(get("/api/sports/meta"))
                     .andExpect(status().isForbidden());
@@ -78,22 +86,28 @@ class SportsControllerTest extends BaseWebMvcTest {
         }
     }
 
-    // ── GET /api/sports/events ────────────────────────────────────────
+    // ── GET /api/sports/events/{id} ───────────────────────────────────
 
     @Nested
-    @DisplayName("GET /api/sports/events")
-    class GetEvents {
+    @DisplayName("GET /api/sports/events/{id}")
+    class GetEventById {
 
         @Test
         @WithMockUserPrincipal(role = "ADMIN")
-        @DisplayName("returns 200 with empty list when no events exist")
-        void emptyEvents_returns200() throws Exception {
-            doNothing().when(permissionCheckService).requireAnyPermission(any(), any());
-            when(eventService.getAllEvents(any())).thenReturn(org.springframework.data.domain.Page.empty());
+        @DisplayName("returns 200 when event exists")
+        void eventExists_returns200() throws Exception {
+            SportsEvent event = SportsEvent.builder()
+                    .id(10L)
+                    .name("Badminton Singles")
+                    .build();
 
-            mockMvc.perform(get("/api/sports/events"))
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(VIEW_SPORTS_MAIN));
+            when(eventService.getEventById(10L)).thenReturn(event);
+
+            mockMvc.perform(get("/api/sports/events/10"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray());
+                    .andExpect(jsonPath("$.id").value(10))
+                    .andExpect(jsonPath("$.name").value("Badminton Singles"));
         }
     }
 }

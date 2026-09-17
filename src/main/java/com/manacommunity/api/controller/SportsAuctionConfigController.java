@@ -40,12 +40,15 @@ public class SportsAuctionConfigController {
 
     @GetMapping
     public ResponseEntity<List<SportsAuctionConfigResponse>> getConfigs(
-            @RequestParam Long sportId,
+            @RequestParam(required = false) Long sportId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        return ResponseEntity.ok(auctionService.getConfigResponsesBySportAndCommunity(sportId, communityId));
+        if (sportId != null) {
+            return ResponseEntity.ok(auctionService.getConfigResponsesBySportAndCommunity(sportId, communityId));
+        }
+        return ResponseEntity.ok(auctionService.getConfigResponsesByCommunity(communityId));
     }
 
     /** GET all configs for the user's community across all sports */
@@ -61,12 +64,14 @@ public class SportsAuctionConfigController {
     /** GET check if auction config exists for the logged-in user's community */
     @GetMapping("/check")
     public ResponseEntity<Map<String, Object>> checkConfigExists(
-            @RequestParam Long sportId,
+            @RequestParam(required = false) Long sportId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        List<SportsAuctionConfig> configs = auctionService.getConfigsBySportAndCommunity(sportId, communityId);
+        List<SportsAuctionConfig> configs = (sportId != null)
+                ? auctionService.getConfigsBySportAndCommunity(sportId, communityId)
+                : auctionService.getAllConfigsByCommunity(communityId);
         boolean exists = !configs.isEmpty();
         return ResponseEntity.ok(Map.of(
                 "configExists", exists,

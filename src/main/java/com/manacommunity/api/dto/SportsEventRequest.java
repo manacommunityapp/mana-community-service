@@ -55,6 +55,7 @@ public class SportsEventRequest {
     private java.util.List<ContactDto> contacts;
     private String otherContacts;
     private Boolean auctionEnabled;
+    private Boolean auction;
     private String bannerImage;
     private String tournamentLevel;
     private String description;

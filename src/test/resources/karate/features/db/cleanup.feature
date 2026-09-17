@@ -114,7 +114,92 @@ Feature: Test data cleanup — wipe all Karate-generated data before and after r
     * print '✅ Feed test user cleanup complete'
 
   # ═══════════════════════════════════════════════════════════
-  # 4. SIGNUP / GENERAL TEST USERS
+  # 4. SPORTS MODULE — Karate test data
+  #    Naming sentinel: all Karate-created sports data uses
+  #    "Karate Test" in name fields for safe targeted cleanup.
+  # ═══════════════════════════════════════════════════════════
+  Scenario: Wipe sports module Karate test data
+    # ── Auction module (deepest FKs first) ────────────────
+    * def sa1 = db.execute("DELETE FROM sports_auction_bid WHERE config_id IN (SELECT id FROM sports_auction_config WHERE season_name LIKE '%Karate Test%')")
+    * print '  [cleanup] sports auction bids deleted:', sa1
+
+    * def sa2 = db.execute("DELETE FROM sports_auction_player WHERE config_id IN (SELECT id FROM sports_auction_config WHERE season_name LIKE '%Karate Test%')")
+    * print '  [cleanup] sports auction players deleted:', sa2
+
+    * def sa3 = db.execute("DELETE FROM sports_auction_team WHERE config_id IN (SELECT id FROM sports_auction_config WHERE season_name LIKE '%Karate Test%')")
+    * print '  [cleanup] sports auction teams deleted:', sa3
+
+    * def sa4 = db.execute("DELETE FROM sports_auction_config WHERE season_name LIKE '%Karate Test%'")
+    * print '  [cleanup] sports auction configs deleted:', sa4
+
+    # ── Tournament scheduler (matches, groups, standings, config) ──
+    * def st1 = db.execute("DELETE FROM sports_match_ball_event WHERE match_id IN (SELECT id FROM sports_tournament_match WHERE community_id = " + communityId + " AND home_team_id IN (SELECT id FROM sports_auction_team WHERE team_name LIKE '%Karate Test%'))")
+    * print '  [cleanup] ball events deleted:', st1
+
+    * def st2 = db.execute("DELETE FROM sports_match_result WHERE match_id IN (SELECT id FROM sports_tournament_match WHERE id IN (SELECT match_id FROM sports_tournament_group WHERE config_id IN (SELECT id FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%')))")
+    * print '  [cleanup] match results deleted:', st2
+
+    * def st3 = db.execute("DELETE FROM sports_tournament_match WHERE id IN (SELECT match_id FROM sports_tournament_group WHERE config_id IN (SELECT id FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%'))")
+    * print '  [cleanup] tournament matches deleted:', st3
+
+    * def st4 = db.execute("DELETE FROM sports_group_team_standing WHERE group_id IN (SELECT id FROM sports_tournament_group WHERE config_id IN (SELECT id FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%'))")
+    * print '  [cleanup] group standings deleted:', st4
+
+    * def st5 = db.execute("DELETE FROM sports_tournament_group WHERE config_id IN (SELECT id FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%')")
+    * print '  [cleanup] tournament groups deleted:', st5
+
+    * def st6 = db.execute("DELETE FROM sports_schedule_generation_log WHERE config_id IN (SELECT id FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%')")
+    * print '  [cleanup] schedule generation logs deleted:', st6
+
+    * def st7 = db.execute("DELETE FROM sports_tournament_config WHERE tournament_name LIKE '%Karate Test%'")
+    * print '  [cleanup] tournament scheduler configs deleted:', st7
+
+    # ── Tournament content and top-level tournaments ───────
+    * def sc1 = db.execute("DELETE FROM sports_tournament_announcement WHERE tournament_id IN (SELECT id FROM sports_tournament WHERE name LIKE '%Karate Test%')")
+    * print '  [cleanup] tournament announcements deleted:', sc1
+
+    * def sc2 = db.execute("DELETE FROM sports_tournament_gallery_image WHERE tournament_id IN (SELECT id FROM sports_tournament WHERE name LIKE '%Karate Test%')")
+    * print '  [cleanup] tournament gallery images deleted:', sc2
+
+    * def sc3 = db.execute("DELETE FROM sports_tournament_timeline_entry WHERE tournament_id IN (SELECT id FROM sports_tournament WHERE name LIKE '%Karate Test%')")
+    * print '  [cleanup] tournament timeline entries deleted:', sc3
+
+    * def sc4 = db.execute("DELETE FROM sports_tournament WHERE name LIKE '%Karate Test%'")
+    * print '  [cleanup] tournaments deleted:', sc4
+
+    # ── Sports event registrations ─────────────────────────
+    * def sr1 = db.execute("DELETE FROM sports_event_registration WHERE event_id IN (SELECT id FROM sports_event WHERE name LIKE '%Karate Test%')")
+    * print '  [cleanup] sports registrations deleted:', sr1
+
+    # ── Sports events ──────────────────────────────────────
+    * def se1 = db.execute("DELETE FROM sports_event WHERE name LIKE '%Karate Test%'")
+    * print '  [cleanup] sports events deleted:', se1
+
+    # ── Player categories ──────────────────────────────────
+    * def spc = db.execute("DELETE FROM sports_player_category WHERE name LIKE '%Karate Test%'")
+    * print '  [cleanup] player categories deleted:', spc
+
+    # ── Sports meta (soft-delete already done, hard-delete here for test isolation) ──
+    * def sm1 = db.execute("DELETE FROM sports_meta WHERE name LIKE '%Karate Test%'")
+    * print '  [cleanup] sports meta entries deleted:', sm1
+
+    # ── Sports test users (@sports.test) ───────────────────
+    * def su1 = db.execute("DELETE FROM sports_event_registration WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@sports.test')")
+    * print '  [cleanup] sports user registrations deleted:', su1
+
+    * def su2 = db.execute("DELETE FROM sports_player_ranking WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@sports.test')")
+    * print '  [cleanup] sports user rankings deleted:', su2
+
+    * def su3 = db.execute("DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@sports.test')")
+    * print '  [cleanup] sports user sessions deleted:', su3
+
+    * def su4 = db.execute("DELETE FROM app_user WHERE email LIKE '%@sports.test'")
+    * print '  [cleanup] sports test users deleted:', su4
+
+    * print '✅ Sports module cleanup complete'
+
+  # ═══════════════════════════════════════════════════════════
+  # 5. SIGNUP / GENERAL TEST USERS
   # ═══════════════════════════════════════════════════════════
   Scenario: Wipe accumulated signup test accounts
     * def s1 = db.execute("DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM app_user WHERE email LIKE '%@signup.test' OR email LIKE 'signup\\_%' OR email LIKE 'testuser\\_%')")
