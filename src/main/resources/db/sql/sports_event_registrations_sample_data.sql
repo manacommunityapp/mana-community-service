@@ -1,3 +1,9 @@
+-- ============================================================================
+-- sports_event_registrations_sample_data.sql
+-- COMMENTED OUT: Sports Event Registrations sample data is now managed and seeded via Java
+-- (com.manacommunity.api.service.sample.data.SportsEventSeeder & SportsEventRegistrationDataSeeder).
+-- ============================================================================
+/*
 -- Seeding sports_event_registration table with tournament registrations
 -- Mapped under the 'Annual Summer Cricket Cup' and 'Men''s Above 19' category
 DO $$
@@ -221,3 +227,4 @@ BEGIN
         END IF;
     END IF;
 END $$;
+*/

@@ -71,6 +71,9 @@ public final class PermissionConstants {
     public static final String VIEW_AUCTION_RESULTS           = SportsPermissions.VIEW_AUCTION_RESULTS;
     public static final String CREATE_EDIT_AUCTION_RESULTS    = SportsPermissions.CREATE_EDIT_AUCTION_RESULTS;
     public static final String DELETE_AUCTION_RESULTS         = SportsPermissions.DELETE_AUCTION_RESULTS;
+    public static final String VIEW_SPORTS_ANALYTICS          = SportsPermissions.VIEW_SPORTS_ANALYTICS;
+    public static final String CREATE_EDIT_SPORTS_ANALYTICS   = SportsPermissions.CREATE_EDIT_SPORTS_ANALYTICS;
+    public static final String DELETE_SPORTS_ANALYTICS         = SportsPermissions.DELETE_SPORTS_ANALYTICS;
 
     // ──── RE-EXPORTS: Marketplace ───────────────────────────────────
     public static final String VIEW_MARKETPLACE   = MarketplacePermissions.VIEW_MARKETPLACE;

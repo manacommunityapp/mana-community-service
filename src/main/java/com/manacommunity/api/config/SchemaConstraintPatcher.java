@@ -74,13 +74,14 @@ public class SchemaConstraintPatcher {
                 // Drop both possible names — original migration used chk_tournament_type,
                 // Hibernate ddl-auto:update generates tournament_config_tournament_type_check.
                 stmt.execute("""
-                        ALTER TABLE manacommunity.tournament_config
+                        ALTER TABLE manacommunity.sports_tournament_config
                             DROP CONSTRAINT IF EXISTS chk_tournament_type,
-                            DROP CONSTRAINT IF EXISTS tournament_config_tournament_type_check
+                            DROP CONSTRAINT IF EXISTS tournament_config_tournament_type_check,
+                            DROP CONSTRAINT IF EXISTS sports_tournament_config_tournament_type_check
                         """);
 
                 stmt.execute("""
-                        ALTER TABLE manacommunity.tournament_config
+                        ALTER TABLE manacommunity.sports_tournament_config
                             ADD CONSTRAINT chk_tournament_type CHECK (tournament_type IN (
                                 'KNOCKOUT','GROUP_KNOCKOUT','ROUND_ROBIN',
                                 'DOUBLE_ELIMINATION','SWISS','SUPER_LEAGUE',
@@ -89,24 +90,25 @@ public class SchemaConstraintPatcher {
                             ))
                         """);
 
-                log.info("tournament_config tournament_type constraint patched with extended values.");
+                log.info("sports_tournament_config tournament_type constraint patched with extended values.");
 
                 // Drop and recreate tournament_match status constraint to include DRAFT and BYE
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.tournament_match') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.tournament_match
-                                DROP CONSTRAINT IF EXISTS tournament_match_status_check;
-                                
-                            ALTER TABLE manacommunity.tournament_match
-                                ADD CONSTRAINT tournament_match_status_check CHECK (status IN (
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_tournament_match
+                                DROP CONSTRAINT IF EXISTS tournament_match_status_check,
+                                DROP CONSTRAINT IF EXISTS sports_tournament_match_status_check;
+
+                            ALTER TABLE manacommunity.sports_tournament_match
+                                ADD CONSTRAINT sports_tournament_match_status_check CHECK (status IN (
                                     'DRAFT','PUBLISHED','SCHEDULED','LIVE','COMPLETED','POSTPONED','CANCELLED','BYE','AUTO_ADVANCED'
                                 ));
                           END IF;
                         END $$;
                         """);
-                log.info("tournament_match status constraint patched to support DRAFT.");
+                log.info("sports_tournament_match status constraint patched to support DRAFT.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }
@@ -124,7 +126,7 @@ public class SchemaConstraintPatcher {
                           col_attnum  smallint;
                         BEGIN
                           -- Skip on fresh databases where the table isn't created yet.
-                          IF to_regclass('manacommunity.tournament_match') IS NULL THEN
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NULL THEN
                             RETURN;
                           END IF;
 
@@ -134,7 +136,7 @@ public class SchemaConstraintPatcher {
                             JOIN pg_class rel ON rel.oid = con.conrelid
                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                             WHERE nsp.nspname = 'manacommunity'
-                              AND rel.relname = 'tournament_match'
+                              AND rel.relname = 'sports_tournament_match'
                               AND con.conname = 'fk_tournament_match_config'
                               AND con.contype = 'f'
                               AND con.confdeltype = 'c'
@@ -147,7 +149,7 @@ public class SchemaConstraintPatcher {
                           JOIN pg_class rel ON rel.oid = a.attrelid
                           JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                           WHERE nsp.nspname = 'manacommunity'
-                            AND rel.relname = 'tournament_match'
+                            AND rel.relname = 'sports_tournament_match'
                             AND a.attname = 'config_id';
 
                           -- Drop any existing FK defined on config_id (e.g. a non-cascading one).
@@ -157,17 +159,17 @@ public class SchemaConstraintPatcher {
                             JOIN pg_class rel ON rel.oid = con.conrelid
                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                             WHERE nsp.nspname = 'manacommunity'
-                              AND rel.relname = 'tournament_match'
+                              AND rel.relname = 'sports_tournament_match'
                               AND con.contype = 'f'
                               AND con.conkey = ARRAY[col_attnum]
                           LOOP
-                            EXECUTE format('ALTER TABLE manacommunity.tournament_match DROP CONSTRAINT %I', existing_fk);
+                            EXECUTE format('ALTER TABLE manacommunity.sports_tournament_match DROP CONSTRAINT %I', existing_fk);
                           END LOOP;
 
-                          ALTER TABLE manacommunity.tournament_match
+                          ALTER TABLE manacommunity.sports_tournament_match
                             ADD CONSTRAINT fk_tournament_match_config
                             FOREIGN KEY (config_id)
-                            REFERENCES manacommunity.tournament_config(id)
+                            REFERENCES manacommunity.sports_tournament_config(id)
                             ON DELETE CASCADE;
                         END $$;
                         """);
@@ -192,21 +194,21 @@ public class SchemaConstraintPatcher {
                         BEGIN
                           FOR fk IN
                             SELECT * FROM (VALUES
-                              ('tournament_config','sport_id'),
-                              ('tournament_config','community_id'),
-                              ('tournament_config','event_id'),
-                              ('tournament_config','venue_id'),
-                              ('tournament_config','created_by'),
-                              ('tournament_match','config_id'),
-                              ('tournament_match','group_id'),
-                              ('tournament_match','team_a_id'),
-                              ('tournament_match','team_b_id'),
-                              ('tournament_match','venue_id'),
-                              ('tournament_match','court_id'),
-                              ('tournament_match','winner_team_id'),
-                              ('tournament_group','config_id'),
-                              ('group_team_standing','group_id'),
-                              ('group_team_standing','team_id'),
+                              ('sports_tournament_config','sport_id'),
+                              ('sports_tournament_config','community_id'),
+                              ('sports_tournament_config','event_id'),
+                              ('sports_tournament_config','venue_id'),
+                              ('sports_tournament_config','created_by'),
+                              ('sports_tournament_match','config_id'),
+                              ('sports_tournament_match','group_id'),
+                              ('sports_tournament_match','team_a_id'),
+                              ('sports_tournament_match','team_b_id'),
+                              ('sports_tournament_match','venue_id'),
+                              ('sports_tournament_match','court_id'),
+                              ('sports_tournament_match','winner_team_id'),
+                              ('sports_tournament_group','config_id'),
+                              ('sports_group_team_standing','group_id'),
+                              ('sports_group_team_standing','team_id'),
                               ('sports_event','sport_id'),
                               ('sports_event','community_id'),
                               ('sports_event','venue_id'),
@@ -225,24 +227,24 @@ public class SchemaConstraintPatcher {
                               ('app_user','role_id'),
                               ('app_user','community_id'),
                               ('roles','community_id'),
-                              ('court','venue_id'),
+                              ('sports_court','venue_id'),
                               ('event_sponsor','event_id'),
                               ('sports_event_sponsor','event_id'),
                               ('sports_event_sponsor','tournament_id'),
-                              ('auction_team','config_id'),
-                              ('auction_team','owner_user_id'),
-                              ('auction_team','captain_user_id'),
-                              ('auction_player','config_id'),
-                              ('auction_player','user_id'),
-                              ('auction_player','assigned_team_id'),
-                              ('auction_bid','config_id'),
-                              ('auction_bid','player_id'),
-                              ('auction_bid','team_id'),
-                              ('auction_bid','bid_by_user_id'),
-                              ('auction_session_log','config_id'),
-                              ('auction_session_log','player_id'),
-                              ('auction_session_log','team_id'),
-                              ('auction_session_log','performed_by_user_id')
+                              ('sports_auction_team','config_id'),
+                              ('sports_auction_team','owner_user_id'),
+                              ('sports_auction_team','captain_user_id'),
+                              ('sports_auction_player','config_id'),
+                              ('sports_auction_player','user_id'),
+                              ('sports_auction_player','assigned_team_id'),
+                              ('sports_auction_bid','config_id'),
+                              ('sports_auction_bid','player_id'),
+                              ('sports_auction_bid','team_id'),
+                              ('sports_auction_bid','bid_by_user_id'),
+                              ('sports_auction_session_log','config_id'),
+                              ('sports_auction_session_log','player_id'),
+                              ('sports_auction_session_log','team_id'),
+                              ('sports_auction_session_log','performed_by_user_id')
                             ) AS t(tbl, col)
                           LOOP
                             IF EXISTS (
@@ -496,7 +498,7 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_config (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_config (
                             id                          BIGSERIAL PRIMARY KEY,
                             tournament_name             VARCHAR(150) NOT NULL,
                             sport_id                    BIGINT REFERENCES manacommunity.sport_meta(id),
@@ -526,9 +528,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_group (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_group (
                             id          BIGSERIAL PRIMARY KEY,
-                            config_id   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id) ON DELETE CASCADE,
+                            config_id   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_config(id) ON DELETE CASCADE,
                             group_name  VARCHAR(20) NOT NULL,
                             group_order INT NOT NULL,
                             CONSTRAINT uq_group_config UNIQUE (config_id, group_name)
@@ -536,10 +538,10 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.group_team_standing (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_group_team_standing (
                             id              BIGSERIAL PRIMARY KEY,
-                            group_id        BIGINT NOT NULL REFERENCES manacommunity.tournament_group(id) ON DELETE CASCADE,
-                            team_id         BIGINT NOT NULL REFERENCES manacommunity.auction_team(id),
+                            group_id        BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_group(id) ON DELETE CASCADE,
+                            team_id         BIGINT NOT NULL REFERENCES manacommunity.sports_auction_team(id),
                             seed_rank       INT,
                             played          INT DEFAULT 0,
                             won             INT DEFAULT 0,
@@ -558,20 +560,20 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_match (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_match (
                             id                          BIGSERIAL PRIMARY KEY,
-                            config_id                   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id),
-                            group_id                    BIGINT REFERENCES manacommunity.tournament_group(id),
+                            config_id                   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_config(id),
+                            group_id                    BIGINT REFERENCES manacommunity.sports_tournament_group(id),
                             round                       VARCHAR(30),
                             round_number                INT,
                             match_number                INT,
                             bracket_slot                INT,
-                            team_a_id                   BIGINT REFERENCES manacommunity.auction_team(id),
-                            team_b_id                   BIGINT REFERENCES manacommunity.auction_team(id),
-                            winner_feed_from_match_a    BIGINT REFERENCES manacommunity.tournament_match(id),
-                            winner_feed_from_match_b    BIGINT REFERENCES manacommunity.tournament_match(id),
-                            winner_advances_to_match_id BIGINT REFERENCES manacommunity.tournament_match(id),
-                            loser_sent_to_match_id      BIGINT REFERENCES manacommunity.tournament_match(id),
+                            team_a_id                   BIGINT REFERENCES manacommunity.sports_auction_team(id),
+                            team_b_id                   BIGINT REFERENCES manacommunity.sports_auction_team(id),
+                            winner_feed_from_match_a    BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            winner_feed_from_match_b    BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            winner_advances_to_match_id BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            loser_sent_to_match_id      BIGINT REFERENCES manacommunity.sports_tournament_match(id),
                             scheduled_at                TIMESTAMP NOT NULL,
                             duration_minutes            INT DEFAULT 90,
                             venue_name                  VARCHAR(200),
@@ -579,7 +581,7 @@ public class SchemaConstraintPatcher {
                             status                      VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
                             score_team_a                VARCHAR(50),
                             score_team_b                VARCHAR(50),
-                            winner_team_id              BIGINT REFERENCES manacommunity.auction_team(id),
+                            winner_team_id              BIGINT REFERENCES manacommunity.sports_auction_team(id),
                             started_at                  TIMESTAMP,
                             completed_at                TIMESTAMP,
                             match_notes                 TEXT,
@@ -595,7 +597,7 @@ public class SchemaConstraintPatcher {
                         CREATE TABLE IF NOT EXISTS manacommunity.sports_notification_scheduler (
                             id            BIGSERIAL PRIMARY KEY,
                             event_id      BIGINT NOT NULL REFERENCES manacommunity.sports_event(id),
-                            tournament_id BIGINT REFERENCES manacommunity.tournament(id),
+                            tournament_id BIGINT REFERENCES manacommunity.sports_tournament(id),
                             trigger_key   VARCHAR(50),
                             label         VARCHAR(100) NOT NULL,
                             offset_minutes INT NOT NULL,
@@ -613,11 +615,11 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_config_status ON manacommunity.tournament_match (config_id, status)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_scheduled_at ON manacommunity.tournament_match (scheduled_at)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_round ON manacommunity.tournament_match (config_id, round_number)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_group ON manacommunity.tournament_match (group_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.group_team_standing (group_id, points DESC, net_run_rate DESC)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_config_status ON manacommunity.sports_tournament_match (config_id, status)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_scheduled_at ON manacommunity.sports_tournament_match (scheduled_at)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_round ON manacommunity.sports_tournament_match (config_id, round_number)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_group ON manacommunity.sports_tournament_match (group_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.sports_group_team_standing (group_id, points DESC, net_run_rate DESC)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_event_notify ON manacommunity.sports_notification_scheduler (event_id, notify_at)");
 
                 log.info("SportsTournament scheduler tables ensured before Hibernate validation.");
@@ -790,7 +792,7 @@ public class SchemaConstraintPatcher {
                         BEGIN
                           FOR rec IN
                             SELECT * FROM (VALUES
-                              ('tournament','banner_image'),
+                              ('sports_tournament','banner_image'),
                               ('sports_event','banner_image')
                             ) AS t(tbl, col)
                           LOOP
@@ -874,7 +876,7 @@ public class SchemaConstraintPatcher {
                           ALTER TABLE manacommunity.sports_event
                             ADD CONSTRAINT fk_sports_event_tournament
                             FOREIGN KEY (tournament_id)
-                            REFERENCES manacommunity.tournament(id)
+                            REFERENCES manacommunity.sports_tournament(id)
                             ON DELETE SET NULL;
                         END $$;
                         """);
@@ -953,40 +955,40 @@ public class SchemaConstraintPatcher {
                             SELECT * FROM (VALUES
                               -- (child_table, fk_column, parent_table, action)
                               ('sports_event_registration','event_id','sports_event','c'),
-                              ('tournament_config','event_id','sports_event','c'),
-                              ('auction_config','event_id','sports_event','c'),
+                              ('sports_tournament_config','event_id','sports_event','c'),
+                              ('sports_auction_config','event_id','sports_event','c'),
                               ('sports_event_sponsor','event_id','sports_event','c'),
                               ('sports_notification_scheduler','event_id','sports_event','c'),
-                              ('tournament_group','config_id','tournament_config','c'),
-                              ('tournament_match','config_id','tournament_config','c'),
-                              ('group_team_standing','group_id','tournament_group','c'),
-                              ('auction_team','config_id','auction_config','c'),
-                              ('auction_player','config_id','auction_config','c'),
-                              ('auction_bid','config_id','auction_config','c'),
-                              ('auction_session_log','config_id','auction_config','c'),
-                              ('auction_dispute_committee','config_id','auction_config','c'),
-                              ('auction_bid','team_id','auction_team','c'),
-                              ('auction_bid','player_id','auction_player','c'),
-                              ('auction_session_log','team_id','auction_team','c'),
-                              ('auction_session_log','player_id','auction_player','c'),
-                              ('group_team_standing','team_id','auction_team','c'),
-                              ('auction_player','assigned_team_id','auction_team','n'),
-                              ('tournament_match','group_id','tournament_group','n'),
-                              ('tournament_match','team_a_id','auction_team','n'),
-                              ('tournament_match','team_b_id','auction_team','n'),
-                              ('tournament_match','winner_team_id','auction_team','n'),
-                              ('tournament_match','toss_winner_team_id','auction_team','n'),
-                              ('tournament_match','man_of_match_id','auction_player','n'),
+                              ('sports_tournament_group','config_id','sports_tournament_config','c'),
+                              ('sports_tournament_match','config_id','sports_tournament_config','c'),
+                              ('sports_group_team_standing','group_id','sports_tournament_group','c'),
+                              ('sports_auction_team','config_id','sports_auction_config','c'),
+                              ('sports_auction_player','config_id','sports_auction_config','c'),
+                              ('sports_auction_bid','config_id','sports_auction_config','c'),
+                              ('sports_auction_session_log','config_id','sports_auction_config','c'),
+                              ('sports_auction_dispute_committee','config_id','sports_auction_config','c'),
+                              ('sports_auction_bid','team_id','sports_auction_team','c'),
+                              ('sports_auction_bid','player_id','sports_auction_player','c'),
+                              ('sports_auction_session_log','team_id','sports_auction_team','c'),
+                              ('sports_auction_session_log','player_id','sports_auction_player','c'),
+                              ('sports_group_team_standing','team_id','sports_auction_team','c'),
+                              ('sports_auction_player','assigned_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','group_id','sports_tournament_group','n'),
+                              ('sports_tournament_match','team_a_id','sports_auction_team','n'),
+                              ('sports_tournament_match','team_b_id','sports_auction_team','n'),
+                              ('sports_tournament_match','winner_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','toss_winner_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','man_of_match_id','sports_auction_player','n'),
                               -- Venue delete: courts belong to the venue (removed with
                               -- it); events/matches survive with a null (TBD) venue.
                               ('court','venue_id','venue','c'),
                               ('sports_event','venue_id','venue','n'),
-                              ('tournament_match','venue_id','venue','n'),
+                              ('sports_tournament_match','venue_id','venue','n'),
                               -- Player-category delete: unlink from events (join rows)
                               -- and null the category on registrations, which survive.
-                              ('event_category','category_id','player_category','c'),
-                              ('event_category','event_id','sports_event','c'),
-                              ('sports_event_registration','category_id','player_category','n')
+                              ('sports_event_category','category_id','sports_player_category','c'),
+                              ('sports_event_category','event_id','sports_event','c'),
+                              ('sports_event_registration','category_id','sports_player_category','n')
                             ) AS t(child, col, parent, act)
                           LOOP
                             CONTINUE WHEN to_regclass('manacommunity.' || rec.child) IS NULL;
@@ -1052,9 +1054,9 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_announcement (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_announcement (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             title         VARCHAR(150),
                             content       VARCHAR(2000) NOT NULL,
                             icon          VARCHAR(20),
@@ -1062,12 +1064,12 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_announcement_tid ON manacommunity.tournament_announcement (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_announcement_tid ON manacommunity.sports_tournament_announcement (tournament_id)");
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_gallery_image (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_gallery_image (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             title         VARCHAR(100),
                             image_url     TEXT,
                             bg_color      VARCHAR(20),
@@ -1076,12 +1078,12 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_gallery_tid ON manacommunity.tournament_gallery_image (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_gallery_tid ON manacommunity.sports_tournament_gallery_image (tournament_id)");
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_timeline_entry (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_timeline_entry (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             entry_date    DATE,
                             date_label    VARCHAR(60),
                             title         VARCHAR(150) NOT NULL,
@@ -1090,7 +1092,7 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.tournament_timeline_entry (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.sports_tournament_timeline_entry (tournament_id)");
 
                 log.info("SportsTournament content tables ensured (announcement, gallery, timeline).");
             } catch (Exception e) {

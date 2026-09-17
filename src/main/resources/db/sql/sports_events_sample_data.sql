@@ -1,3 +1,9 @@
+-- ============================================================================
+-- sports_events_sample_data.sql
+-- COMMENTED OUT: Sports Events sample data is now managed and seeded via Java
+-- (com.manacommunity.api.service.sample.data.SportsEventSeeder).
+-- ============================================================================
+/*
 -- Seeding sports_event table with baseline events
 -- Binds to dynamic IDs for: Cricket sport, Lakshmi's Emperia community, LE Box Cricket venue, and Ramesh as created_by
 DO $$
@@ -21,8 +27,8 @@ BEGIN
     IF sport_id_val IS NOT NULL AND comm_id_val IS NOT NULL AND venue_id_val IS NOT NULL AND user_id_val IS NOT NULL THEN
         -- Insert tournament event if not exists
         IF NOT EXISTS (SELECT 1 FROM sports_event WHERE name = 'Annual Summer Cricket Cup') THEN
-            INSERT INTO sports_event (name, min_age, max_age, active, created_at, updated_at, sport_id, community_id, venue_id, created_by, format, tournament_type, event_date_start, event_date_end, registration_date_start, registration_date_end, max_participants, dispute_committee_ids)
-            VALUES ('Annual Summer Cricket Cup', 0, 100, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, sport_id_val, comm_id_val, venue_id_val, user_id_val, 'TEAM', 'KNOCKOUT', '2026-05-22', '2026-05-24', '2026-05-16', '2026-05-18', 100, '3,4');
+            INSERT INTO sports_event (name, min_age, max_age, active, created_at, updated_at, sport_id, community_id, venue_id, created_by, format, tournament_type, event_date_start, event_date_end, registration_date_start, registration_date_end, max_participants, dispute_committee_ids, auction, auction_enabled)
+            VALUES ('Annual Summer Cricket Cup', 0, 100, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, sport_id_val, comm_id_val, venue_id_val, user_id_val, 'TEAM', 'KNOCKOUT', '2026-09-25', '2026-09-27', '2026-09-16', '2026-09-20', 100, '3,4', TRUE, TRUE);
         END IF;
 
         -- Get the sports event ID
@@ -40,3 +46,4 @@ BEGIN
         END IF;
     END IF;
 END $$;
+*/

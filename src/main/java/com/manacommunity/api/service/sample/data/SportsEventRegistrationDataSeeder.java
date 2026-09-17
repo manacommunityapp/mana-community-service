@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * SportsEventRegistrationDataSeeder — dedicated seeder for the
@@ -32,21 +33,27 @@ public class SportsEventRegistrationDataSeeder {
 
     @Transactional
     public void seed() {
-        log.info("Seeding sports_event_registration table sample data...");
+        log.info("Seeding sports_event_registration table sample data (delete & recreate if exists)...");
 
         // ── Winter Football League registrations (existing) ──────────────
-        seedWinterLeagueRegistrations();
+       // seedWinterLeagueRegistrations();
 
         // ── Badminton — Men's Above 19 registrations (from CSV) ──────────
-        seedBadmintonRegistrations();
+        //seedBadmintonRegistrations();
     }
 
     /**
-     * Seeds 3 registrations for the Winter Football League (existing logic).
+     * Seeds 3 registrations for the Winter Football League (deletes existing first).
      */
     private void seedWinterLeagueRegistrations() {
         SportsEvent event = sportsEventDataSeeder.getOrCreateWinterLeague();
         SportsPlayerCategory mensOpen = playerCategorySeeder.getCategoryByName("Men Above 15 (15+)");
+
+        List<SportsEventRegistration> existing = regRepo.findByEventId(event.getId());
+        if (!existing.isEmpty()) {
+            regRepo.deleteAll(existing);
+            regRepo.flush();
+        }
 
         int created = 0;
         created += register(event, userSeeder.getSandeep(), mensOpen,
@@ -68,7 +75,7 @@ public class SportsEventRegistrationDataSeeder {
 
     /**
      * Seeds 16 badminton participant registrations for the
-     * "Badminton — Men's Above 19" event based on CSV data.
+     * "Badminton — Men's Above 19" event based on CSV data (deletes existing first).
      * <p>
      * Source: sample_participants.csv
      * All participants are registered in the "Men's Single" category
@@ -83,6 +90,12 @@ public class SportsEventRegistrationDataSeeder {
         if (badmintonEvent == null) {
             log.warn("⚠ Badminton — Men's Above 19 event not found. Skipping badminton registrations.");
             return;
+        }
+
+        List<SportsEventRegistration> existing = regRepo.findByEventId(badmintonEvent.getId());
+        if (!existing.isEmpty()) {
+            regRepo.deleteAll(existing);
+            regRepo.flush();
         }
 
         SportsPlayerCategory badmintonMen = playerCategorySeeder.getCategoryByName("Badminton Men (18+)");

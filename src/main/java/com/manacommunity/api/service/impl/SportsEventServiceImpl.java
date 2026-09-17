@@ -129,7 +129,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .contactEmail(req.getContactEmail())
                 .contacts(resolveContacts(req.getContacts()))
                 .otherContacts(req.getOtherContacts())
-                .auctionEnabled(req.getAuctionEnabled() != null && req.getAuctionEnabled())
+                .auctionEnabled(req.getAuction() != null ? req.getAuction() : (req.getAuctionEnabled() != null && req.getAuctionEnabled()))
+                .auction(req.getAuction() != null ? req.getAuction() : (req.getAuctionEnabled() != null && req.getAuctionEnabled()))
                 .bannerImage(req.getBannerImage())
                 .tournamentLevel(req.getTournamentLevel())
                 .description(req.getDescription())
@@ -1228,8 +1229,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.getContacts().clear();
         event.getContacts().addAll(resolveContacts(req.getContacts()));
         event.setOtherContacts(req.getOtherContacts());
-        if (req.getAuctionEnabled() != null) {
-            event.setAuctionEnabled(req.getAuctionEnabled());
+        if (req.getAuction() != null || req.getAuctionEnabled() != null) {
+            Boolean isAuction = req.getAuction() != null ? req.getAuction() : req.getAuctionEnabled();
+            event.setAuction(isAuction);
+            event.setAuctionEnabled(isAuction);
         }
         event.setBannerImage(req.getBannerImage());
         event.setTournamentLevel(req.getTournamentLevel());

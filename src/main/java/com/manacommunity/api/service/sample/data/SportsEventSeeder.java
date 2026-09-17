@@ -5,8 +5,9 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 
 import com.manacommunity.api.model.*;
-import com.manacommunity.api.repository.SportsEventRegistrationRepository;
-import com.manacommunity.api.repository.SportsEventRepository;
+import com.manacommunity.api.model.scheduler.SportsTournamentConfig;
+import com.manacommunity.api.repository.*;
+import com.manacommunity.api.repository.scheduler.SportsTournamentConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.Set;
 
 /**
  * SportsEventSeeder — Seeds community tournaments and handles user event registrations.
+ * Checks if test data already exists; if found, cleans and recreates it fresh.
  */
 @Slf4j
 @Service
@@ -27,6 +29,15 @@ public class SportsEventSeeder {
 
     private final SportsEventRepository sportsEventRepo;
     private final SportsEventRegistrationRepository regRepo;
+    private final SportsNotificationSchedulerRepository notificationSchedulerRepo;
+    private final SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsAuctionConfigCategoryRepository auctionConfigCategoryRepo;
+    private final SportsAuctionDisputeCommitteeRepository auctionCommitteeRepo;
+    private final SportsAuctionTeamRepository auctionTeamRepo;
+    private final SportsAuctionPlayerRepository auctionPlayerRepo;
+    private final SportsAuctionBidRepository auctionBidRepo;
+    private final SportsAuctionSessionLogRepository auctionSessionLogRepo;
+    private final SportsTournamentConfigRepository tournamentConfigRepo;
 
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
@@ -36,7 +47,7 @@ public class SportsEventSeeder {
 
     @Transactional
     public void seed() {
-        log.info("Seeding community sports events...");
+        log.info("Seeding community sports events (delete & recreate if exists)...");
         
         SportsMeta cricket = sportsMetaSeeder.getOrCreateSport("Cricket", "🏏");
         Community leCommunity = communitySeeder.getLeCommunity();
@@ -47,25 +58,37 @@ public class SportsEventSeeder {
         SportsPlayerCategory cricketYouth = playerCategorySeeder.getCategoryByName("Cricket Youth (11-19)");
         SportsPlayerCategory cricketMen = playerCategorySeeder.getCategoryByName("Cricket Men (20+)");
 
+        // Clean legacy event if present in DB
+        sportsEventRepo.findAll().stream()
+                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Annual Summer Cricket Cup"))
+                .findFirst()
+                .ifPresent(legacy -> {
+                    cleanDependentEventData(legacy.getId());
+                    if (legacy.getTournament() != null) legacy.setTournament(null);
+                    sportsEventRepo.delete(legacy);
+                    sportsEventRepo.flush();
+                });
+
         SportsEvent summerCup = getOrCreateSportsEvent(
-                "Annual Summer Cricket Cup",
+                "Annual 2026 Cricket Cup",
                 true,
                 cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketKids, cricketYouth, cricketMen),
                 SportsEvent.EventStatus.REGISTRATION_OPEN,
                 List.of("TEAM"),
                 SportsEvent.TournamentType.KNOCKOUT,
-                LocalDate.of(2026, 5, 22),
-                LocalDate.of(2026, 5, 24),
-                LocalDate.of(2026, 5, 16),
-                LocalDate.of(2026, 5, 18),
+                LocalDate.of(2026, 9, 25),
+                LocalDate.of(2026, 9, 27),
+                LocalDate.of(2026, 9, 16),
+                LocalDate.of(2026, 9, 20),
                 100,
                 4, 100,
                 "ALL",
                 LocalDate.of(1900, 1, 1),
-                "3,4" // dispute committee: Sunil(3), Ramesh(4)
+                "3,4", // dispute committee: Sunil(3), Ramesh(4)
+                true   // auction = true
         );
 
-        log.info("✓ Sports events seeded: Annual Summer Cricket Cup (id={})", summerCup.getId());
+        log.info("✓ Sports events seeded: Annual 2026 Cricket Cup (id={})", summerCup.getId());
 
         // ── 2. Badminton Tournament ──────────────────────────────────────
         SportsMeta badminton = sportsMetaSeeder.getOrCreateSport("Badminton", "🏸");
@@ -281,17 +304,17 @@ public class SportsEventSeeder {
         createRegistration(summerCup, userSeeder.getUserByEmail("mahesh.babu@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Mahesh Babu", 46, "Batsman");
         createRegistration(summerCup, userSeeder.getUserByEmail("ajay.devgn@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ajay Devgn", 48, "Bowler");
 
-        log.info("✓ Registrations seeded: 31 confirmed players (Men above 18) for Annual Summer Cricket Cup");
+        log.info("✓ Registrations seeded: 31 confirmed players (Men above 18) for Annual 2026 Cricket Cup");
     }
 
     public SportsEvent getSummerCup() {
         return sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName().equalsIgnoreCase("Annual Summer Cricket Cup"))
+                .filter(e -> e.getName() != null && (e.getName().equalsIgnoreCase("Annual 2026 Cricket Cup") || e.getName().equalsIgnoreCase("Annual Summer Cricket Cup")))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Annual Summer Cricket Cup has not been seeded yet."));
+                .orElseThrow(() -> new IllegalStateException("Annual 2026 Cricket Cup has not been seeded yet."));
     }
 
-    private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus,SportsMeta sport, Community community,
+    private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus, SportsMeta sport, Community community,
                                                Venue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
                                                SportsEvent.EventStatus status,
                                                List<String> formats,
@@ -302,46 +325,130 @@ public class SportsEventSeeder {
                                                int minAge, int maxAge,
                                                String gender,
                                                LocalDate playersBorn,
-                                               String ignoredDisputeCommitteeIds) {
-        return sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName().equals(name))
-                .findFirst()
-                .orElseGet(() -> {
-                    SportsEvent saved = sportsEventRepo.save(SportsEvent.builder()
-                            .name(name)
-                            .active(activeStatus)
-                            .sport(sport)
-                            .community(community)
-                            .venue(venue)
-                            .createdBy(createdBy)
-                            .status(status)
-                            .format(formats != null ? formats : java.util.Collections.emptyList())
-                            .tournamentType(tournamentType)
-                            .registrationDateStart(regDateStart)
-                            .registrationDateEnd(regDateEnd)
-                            .eventDateStart(dateStart)
-                            .eventDateEnd(dateEnd)
-                            .maxParticipants(maxParticipants)
-                            .categories(categories)
-                            .minAge(minAge)
-                            .maxAge(maxAge)
-                            .gender(gender)
-                            .playersBorn(playersBorn)
-                            .createdAt(LocalDateTime.now())
-                            .updatedAt(LocalDateTime.now())
-                            .build());
+                                               String disputeCommitteeIds) {
+        return getOrCreateSportsEvent(name, activeStatus, sport, community, venue, createdBy, categories,
+                status, formats, tournamentType, dateStart, dateEnd, regDateStart, regDateEnd,
+                maxParticipants, minAge, maxAge, gender, playersBorn, disputeCommitteeIds, false);
+    }
 
-                    return saved;
-                });
+    private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus, SportsMeta sport, Community community,
+                                               Venue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
+                                               SportsEvent.EventStatus status,
+                                               List<String> formats,
+                                               SportsEvent.TournamentType tournamentType,
+                                               LocalDate dateStart, LocalDate dateEnd,
+                                               LocalDate regDateStart, LocalDate regDateEnd,
+                                               int maxParticipants,
+                                               int minAge, int maxAge,
+                                               String gender,
+                                               LocalDate playersBorn,
+                                               String disputeCommitteeIds,
+                                               boolean auction) {
+        SportsEvent existing = sportsEventRepo.findAll().stream()
+                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+
+        if (existing != null) {
+            cleanDependentEventData(existing.getId());
+            if (existing.getTournament() != null) {
+                existing.setTournament(null);
+            }
+            sportsEventRepo.delete(existing);
+            sportsEventRepo.flush();
+            log.info("✓ Re-creating sports event: {} (cleaned previous id={})", name, existing.getId());
+        }
+
+        return sportsEventRepo.save(SportsEvent.builder()
+                .name(name)
+                .active(activeStatus)
+                .sport(sport)
+                .community(community)
+                .venue(venue)
+                .createdBy(createdBy)
+                .status(status)
+                .format(formats != null ? formats : java.util.Collections.emptyList())
+                .tournamentType(tournamentType)
+                .registrationDateStart(regDateStart)
+                .registrationDateEnd(regDateEnd)
+                .eventDateStart(dateStart)
+                .eventDateEnd(dateEnd)
+                .maxParticipants(maxParticipants)
+                .categories(categories)
+                .minAge(minAge)
+                .maxAge(maxAge)
+                .gender(gender)
+                .playersBorn(playersBorn)
+                .auction(auction)
+                .auctionEnabled(auction)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build());
+    }
+
+    private void cleanDependentEventData(Long eventId) {
+        if (eventId == null) return;
+        try {
+            // 1. Delete notifications
+            notificationSchedulerRepo.findByEventId(eventId).forEach(notificationSchedulerRepo::delete);
+            notificationSchedulerRepo.flush();
+
+            // 2. Delete auction data if any
+            auctionConfigRepo.findByEventId(eventId).ifPresent(config -> {
+                Long configId = config.getId();
+                List<SportsAuctionPlayer> players = auctionPlayerRepo.findByConfigId(configId);
+                for (SportsAuctionPlayer p : players) {
+                    List<SportsAuctionBid> bids = auctionBidRepo.findByPlayerIdOrderByBidAtDesc(p.getId());
+                    if (!bids.isEmpty()) auctionBidRepo.deleteAll(bids);
+                }
+                if (!players.isEmpty()) auctionPlayerRepo.deleteAll(players);
+                auctionPlayerRepo.flush();
+
+                List<SportsAuctionSessionLog> logs = auctionSessionLogRepo.findAll().stream()
+                        .filter(l -> l.getConfig() != null && l.getConfig().getId().equals(configId))
+                        .toList();
+                if (!logs.isEmpty()) auctionSessionLogRepo.deleteAll(logs);
+
+                List<SportsAuctionTeam> teams = auctionTeamRepo.findByConfigIdOrderByTeamName(configId);
+                if (!teams.isEmpty()) auctionTeamRepo.deleteAll(teams);
+                auctionTeamRepo.flush();
+
+                List<SportsAuctionDisputeCommittee> committee = auctionCommitteeRepo.findAll().stream()
+                        .filter(c -> c.getConfig() != null && c.getConfig().getId().equals(configId))
+                        .toList();
+                if (!committee.isEmpty()) auctionCommitteeRepo.deleteAll(committee);
+
+                List<SportsAuctionConfigCategory> categories = auctionConfigCategoryRepo.findAll().stream()
+                        .filter(c -> c.getConfig() != null && c.getConfig().getId().equals(configId))
+                        .toList();
+                if (!categories.isEmpty()) auctionConfigCategoryRepo.deleteAll(categories);
+
+                auctionConfigRepo.delete(config);
+                auctionConfigRepo.flush();
+            });
+
+            // 3. Delete tournament scheduler configs if any
+            tournamentConfigRepo.findByEventId(eventId).forEach(tc -> {
+                tournamentConfigRepo.delete(tc);
+                tournamentConfigRepo.flush();
+            });
+
+            // 4. Delete event registrations
+            List<SportsEventRegistration> existingRegs = regRepo.findByEventId(eventId);
+            if (!existingRegs.isEmpty()) {
+                regRepo.deleteAll(existingRegs);
+                regRepo.flush();
+            }
+        } catch (Exception e) {
+            log.warn("Notice during cleaning dependent event data for event {}: {}", eventId, e.getMessage());
+        }
     }
 
     private void createRegistration(SportsEvent event, AppUser user, SportsPlayerCategory category,
                                     SportsEvent.MatchFormat matchType,
                                     SportsEventRegistration.RegistrationStatus status,
                                     String playerName, int age, String role) {
-        if (regRepo.existsByEventIdAndUserIdAndPlayerName(event.getId(), user.getId(), playerName)) {
-            return; // Already exists, skip
-        }
+        String flatNumber = user != null ? (user.getBlock() + " " + user.getFlatNo()) : "";
         regRepo.save(SportsEventRegistration.builder()
                 .event(event)
                 .user(user)
@@ -350,7 +457,7 @@ public class SportsEventSeeder {
                 .status(status)
                 .playerName(playerName)
                 .age(age)
-                .flatNumber(user.getBlock() + " " + user.getFlatNo())
+                .flatNumber(flatNumber)
                 .role(role)
                 .registeredAt(LocalDateTime.now())
                 .build());

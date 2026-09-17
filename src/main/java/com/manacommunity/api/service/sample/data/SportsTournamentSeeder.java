@@ -1,8 +1,8 @@
 package com.manacommunity.api.service.sample.data;
 
+import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsTournament;
-import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import com.manacommunity.api.repository.SportsTournamentRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,69 +13,100 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsTournamentSeeder {
 
+    public static final String TOURNAMENT_NAME = "LE 2026 Season Fest";
+
     private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository sportsEventRepo;
-    private final CommunityRepository communityRepo;
+    private final CommunitySeeder communitySeeder;
 
     @Transactional
     public void seed() {
-        log.info("Seeding tournament sample data...");
+        log.info("Seeding tournament sample data with all sports sub-events (delete & recreate if exists)...");
 
-        SportsEvent badmintonEvent = sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName().equalsIgnoreCase("Badminton — Men's Above 19"))
-                .findFirst()
-                .orElse(null);
+        Community leCommunity = communitySeeder.getLeCommunity();
 
-        SportsTournament tournament = tournamentRepo.findAll().stream()
-                .filter(t -> t.getName().equalsIgnoreCase("LE 2026 Summer Champ"))
-                .findFirst()
-                .orElseGet(() -> {
-                    SportsTournament newT = SportsTournament.builder()
-                            .name("LE 2026 Summer Champ")
-                            .description("LE 2026 Summer Champ")
-                            .eventDateStart(LocalDate.of(2026, 6, 14))
-                            .eventDateEnd(LocalDate.of(2026, 6, 16))
-                            .registrationDateStart(LocalDate.of(2026, 6, 1))
-                            .registrationDateEnd(LocalDate.of(2026, 6, 2))
-                            .maxParticipants(64)
-                            .contactNumber("8801357225")
-                            .contactEmail("kskreddy1989@gmail.com")
-                            .allowAdminChat(false)
-                            .startTime("09:00 AM")
-                            .dueTime("06:00 PM")
-                            .otherContacts("[]")
-                            .bannerImage("")
-                            .registrationStatus(SportsTournament.EventStatus.REGISTRATION_CLOSED)
-                            .sportsEvents(new ArrayList<>())
-                            .sponsors(new ArrayList<>())
-                            .community(communityRepo.findById(2L).orElse(null))
-                            .createdAt(LocalDateTime.of(2026, 6, 1, 0, 5, 7))
-                            .updatedAt(LocalDateTime.of(2026, 6, 1, 0, 10, 45))
-                            .build();
-                    
-                    return tournamentRepo.save(newT);
-                });
-
-        if (badmintonEvent != null && badmintonEvent.getTournament() == null) {
-            badmintonEvent.setTournament(tournament);
-            sportsEventRepo.save(badmintonEvent);
-            
-            if (tournament.getSportsEvents() == null) {
-                tournament.setSportsEvents(new ArrayList<>());
-            }
-            if (!tournament.getSportsEvents().contains(badmintonEvent)) {
-                tournament.getSportsEvents().add(badmintonEvent);
-                tournamentRepo.save(tournament);
-            }
-            log.info("✓ Linked sports event 'Badminton — Men's Above 19' to tournament 'LE 2026 Summer Champ'");
+        // 1. Find and disassociate existing tournament if present (clean current & legacy)
+        List<String> namesToClean = List.of(TOURNAMENT_NAME, "LE 2026 Summer Champ");
+        for (String name : namesToClean) {
+            tournamentRepo.findAll().stream()
+                    .filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(name))
+                    .toList()
+                    .forEach(existing -> {
+                        List<SportsEvent> linkedEvents = sportsEventRepo.findByTournamentId(existing.getId());
+                        for (SportsEvent e : linkedEvents) {
+                            e.setTournament(null);
+                            sportsEventRepo.save(e);
+                        }
+                        sportsEventRepo.flush();
+                        tournamentRepo.delete(existing);
+                        tournamentRepo.flush();
+                        log.info("✓ Cleaned existing tournament: {}", name);
+                    });
         }
 
-        log.info("✓ SportsTournament seeded: LE 2026 Summer Champ (id={})", tournament.getId());
+        // 2. Create parent tournament fresh
+        SportsTournament tournament = tournamentRepo.save(SportsTournament.builder()
+                .name(TOURNAMENT_NAME)
+                .description("Lakshmi's Emperia Annual Sports Season Fest 2026 featuring Cricket, Badminton, Chess, Carroms, Table Tennis, and Volleyball.")
+                .eventDateStart(LocalDate.of(2026, 6, 1))
+                .eventDateEnd(LocalDate.of(2026, 9, 30))
+                .registrationDateStart(LocalDate.of(2026, 5, 15))
+                .registrationDateEnd(LocalDate.of(2026, 6, 20))
+                .maxParticipants(500)
+                .contactName("Ramesh Korlakunta")
+                .contactNumber("8801357225")
+                .contactEmail("kskreddy1989@gmail.com")
+                .allowAdminChat(true)
+                .startTime("08:00 AM")
+                .dueTime("08:00 PM")
+                .otherContacts("[]")
+                .bannerImage("")
+                .registrationStatus(SportsTournament.EventStatus.REGISTRATION_OPEN)
+                .sportsEvents(new ArrayList<>())
+                .sponsors(new ArrayList<>())
+                .community(leCommunity)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build());
+
+        // 3. Link all configured sub-events to this tournament
+        List<String> eventNames = List.of(
+                "Annual 2026 Cricket Cup",
+                "Annual Summer Cricket Cup",
+                "Badminton Community Championship",
+                "Badminton — Men's Above 19",
+                "Community Chess Championship",
+                "Carroms Community Cup",
+                "Table Tennis Open Championship",
+                "Volleyball Premier League"
+        );
+
+        for (String eventName : eventNames) {
+            sportsEventRepo.findAll().stream()
+                    .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase(eventName))
+                    .findFirst()
+                    .ifPresent(event -> {
+                        event.setTournament(tournament);
+                        sportsEventRepo.save(event);
+                        if (!tournament.getSportsEvents().contains(event)) {
+                            tournament.getSportsEvents().add(event);
+                        }
+                        log.info("✓ Linked sub-event '{}' (categories={}) to tournament '{}'",
+                                event.getName(),
+                                event.getCategories() != null ? event.getCategories().size() : 0,
+                                tournament.getName());
+                    });
+        }
+
+        tournamentRepo.save(tournament);
+        log.info("✓ SportsTournament seeded: {} with {} sub-events (id={})",
+                tournament.getName(), tournament.getSportsEvents().size(), tournament.getId());
     }
 }
