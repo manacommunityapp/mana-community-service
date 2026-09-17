@@ -58,6 +58,7 @@ public class SportsEventSeeder {
         SportsPlayerCategory cricketYouth = playerCategorySeeder.getCategoryByName("Cricket Youth (11-19)");
         SportsPlayerCategory cricketMen = playerCategorySeeder.getCategoryByName("Cricket Men (20+)");
 
+
         // Clean legacy event if present in DB
         sportsEventRepo.findAll().stream()
                 .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Annual Summer Cricket Cup"))
@@ -68,6 +69,7 @@ public class SportsEventSeeder {
                     sportsEventRepo.delete(legacy);
                     sportsEventRepo.flush();
                 });
+
 
         SportsEvent summerCup = getOrCreateSportsEvent(
                 "Annual 2026 Cricket Cup",
