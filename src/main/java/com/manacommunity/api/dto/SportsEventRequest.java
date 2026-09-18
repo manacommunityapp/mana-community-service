@@ -77,5 +77,15 @@ public class SportsEventRequest {
      */
     private Boolean mandatoryMixedDoubles;
 
+    /**
+     * When true (default), younger players can opt for higher age categories.
+     */
+    private Boolean allowHigherAgeCategory;
+
+    /**
+     * When true (default / Option B), players can register in multiple different formats (1 Singles + 1 Doubles).
+     */
+    private Boolean allowMultipleCategories;
+
     private Long tournamentId;
 }

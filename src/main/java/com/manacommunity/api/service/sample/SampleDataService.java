@@ -202,13 +202,14 @@ public class SampleDataService implements ApplicationRunner {
                     "tournament", "LE 2026 Season Fest",
                     "eventDates", "2026-10-02 to 2026-12-31",
                     "registrationDates", "2026-09-17 to 2026-09-19",
-                    "subEvents", List.of(
-                            "Annual 2026 Cricket Cup (Auction Enabled)",
-                            "Badminton - Singles & Doubles (5 Categories)",
-                            "Chess Championship (5 Categories)",
-                            "Carroms - Singles and Doubles (5 Categories)",
-                            "Table Tennis - Singles and Doubles (5 Categories)",
-                            "Volleyball Premier League (1 Category)"
+                    "totalSubEvents", 24,
+                    "subEventsSummary", List.of(
+                            "Cricket (3 events): Annual 2026 Cricket Cup (20+ Men Auction), Cricket - Under 10 Kids, Cricket - 11-19 Youth",
+                            "Badminton (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Chess (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Carroms (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Table Tennis (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Volleyball (1 event): Volleyball Premier League (15+ Men)"
                     ),
                     "sampleRegistrationsIncluded", includeSampleRegistrations,
                     "additionalSampleRegistrationsCount", extraRegistrations,

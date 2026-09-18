@@ -23,7 +23,7 @@ public class SampleDataController {
 
     @Operation(
             summary = "Feed Sports Data",
-            description = "Feeds the 'LE 2026 Season Fest' tournament with all 6 sports sub-events (Cricket, Badminton, Chess, Carroms, Table Tennis, Volleyball), player categories, venues, and cricket auction configuration. Optionally seeds sample participant registrations for all events."
+            description = "Feeds the 'LE 2026 Season Fest' parent tournament with 24 discrete category sub-events across Cricket, Badminton, Chess, Carroms, Table Tennis, and Volleyball, along with player categories, venues, and cricket auction configuration. Optionally seeds sample participant registrations for all events."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Sports data successfully seeded"),

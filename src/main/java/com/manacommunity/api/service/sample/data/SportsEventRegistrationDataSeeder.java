@@ -53,18 +53,12 @@ public class SportsEventRegistrationDataSeeder {
     }
 
     /**
-     * Seeds 16 badminton participant registrations for "Badminton - Singles & Doubles".
+     * Seeds 16 badminton participant registrations into discrete Badminton events.
      */
     public int seedBadmintonRegistrations() {
-        SportsEvent badmintonEvent = sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Badminton - Singles & Doubles"))
-                .findFirst()
-                .orElse(null);
-
-        if (badmintonEvent == null) {
-            log.warn("⚠ 'Badminton - Singles & Doubles' event not found. Skipping badminton registrations.");
-            return 0;
-        }
+        SportsEvent badMenEvent = getEventByName("Badminton - 19+ Men");
+        SportsEvent badWomenEvent = getEventByName("Badminton - 19+ Women");
+        SportsEvent badKidsEvent = getEventByName("Badminton - Under 12");
 
         SportsPlayerCategory badMen = playerCategorySeeder.getCategoryByName("Badminton Men (19+)");
         SportsPlayerCategory badWomen = playerCategorySeeder.getCategoryByName("Badminton Women (19+)");
@@ -72,116 +66,138 @@ public class SportsEventRegistrationDataSeeder {
 
         int created = 0;
         // Men 19+ (8 players)
-        created += register(badmintonEvent, userSeeder.getSandeep(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sandeep Kamarapu", 35, null, "B-402");
-        created += register(badmintonEvent, userSeeder.getSunil(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 30, null, "C-101");
-        created += register(badmintonEvent, userSeeder.getRamesh(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ramesh Korlakunta", 26, null, "C-102");
-        created += register(badmintonEvent, userSeeder.getMady(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Mady", 28, null, "A-103");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rahul Sharma", 28, null, "D-105");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("amit.kumar@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Amit Kumar", 40, null, "C-107");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("vikram.singh@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vikram Singh", 28, null, "C-109");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("rohit.verma@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohit Verma", 36, null, "D-111");
+        if (badMenEvent != null) {
+            created += register(badMenEvent, userSeeder.getSandeep(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sandeep Kamarapu", 35, null, "B-402");
+            created += register(badMenEvent, userSeeder.getSunil(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 30, null, "C-101");
+            created += register(badMenEvent, userSeeder.getRamesh(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ramesh Korlakunta", 26, null, "C-102");
+            created += register(badMenEvent, userSeeder.getMady(), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Mady", 28, null, "A-103");
+            created += register(badMenEvent, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rahul Sharma", 28, null, "D-105");
+            created += register(badMenEvent, userSeeder.getUserByEmail("amit.kumar@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Amit Kumar", 40, null, "C-107");
+            created += register(badMenEvent, userSeeder.getUserByEmail("vikram.singh@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vikram Singh", 28, null, "C-109");
+            created += register(badMenEvent, userSeeder.getUserByEmail("rohit.verma@gmail.com"), badMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohit Verma", 36, null, "D-111");
+        }
 
         // Women 19+ (5 players)
-        created += register(badmintonEvent, userSeeder.getUserByEmail("priya.patel@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Priya Patel", 28, null, "C-106");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-108");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("ananya.desai@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Desai", 28, null, "C-110");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("neha.gupta@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Neha Gupta", 28, null, "C-112");
-        created += register(badmintonEvent, userSeeder.getUserByEmail("pooja.joshi@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Pooja Joshi", 28, null, "C-114");
+        if (badWomenEvent != null) {
+            created += register(badWomenEvent, userSeeder.getUserByEmail("priya.patel@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Priya Patel", 28, null, "C-106");
+            created += register(badWomenEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-108");
+            created += register(badWomenEvent, userSeeder.getUserByEmail("ananya.desai@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Desai", 28, null, "C-110");
+            created += register(badWomenEvent, userSeeder.getUserByEmail("neha.gupta@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Neha Gupta", 28, null, "C-112");
+            created += register(badWomenEvent, userSeeder.getUserByEmail("pooja.joshi@gmail.com"), badWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Pooja Joshi", 28, null, "C-114");
+        }
 
         // Under-12 (3 players)
-        created += register(badmintonEvent, userSeeder.getSandeep(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aarav Sharma", 10, null, "B-402");
-        created += register(badmintonEvent, userSeeder.getSunil(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Nair", 9, null, "C-101");
-        created += register(badmintonEvent, userSeeder.getRamesh(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vihaan Kumar", 11, null, "C-102");
+        if (badKidsEvent != null) {
+            created += register(badKidsEvent, userSeeder.getSandeep(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aarav Sharma", 10, null, "B-402");
+            created += register(badKidsEvent, userSeeder.getSunil(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Nair", 9, null, "C-101");
+            created += register(badKidsEvent, userSeeder.getRamesh(), badKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Vihaan Kumar", 11, null, "C-102");
+        }
 
-        log.info("✓ Badminton registrations seeded: {} players for {}", created, badmintonEvent.getName());
+        log.info("✓ Badminton registrations seeded: {} players", created);
         return created;
     }
 
     /**
-     * Seeds 8 table tennis participant registrations.
+     * Seeds 8 table tennis participant registrations into discrete TT events.
      */
     public int seedTableTennisRegistrations() {
-        SportsEvent ttEvent = sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Table Tennis - Singles and Doubles"))
-                .findFirst()
-                .orElse(null);
-
-        if (ttEvent == null) return 0;
+        SportsEvent ttMenEvent = getEventByName("Table Tennis - 19+ Men");
+        SportsEvent ttWomenEvent = getEventByName("Table Tennis - 19+ Women");
+        SportsEvent ttBoysEvent = getEventByName("Table Tennis - 12-19 Boys");
 
         SportsPlayerCategory ttMen = playerCategorySeeder.getCategoryByName("TT Men (19+)");
         SportsPlayerCategory ttWomen = playerCategorySeeder.getCategoryByName("TT Women (19+)");
         SportsPlayerCategory ttBoys = playerCategorySeeder.getCategoryByName("TT Boys (12-19)");
 
         int created = 0;
-        created += register(ttEvent, userSeeder.getSandeep(), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sandeep Kamarapu", 35, null, "B-402");
-        created += register(ttEvent, userSeeder.getSunil(), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 30, null, "C-101");
-        created += register(ttEvent, userSeeder.getUserByEmail("karan.malhotra@gmail.com"), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Karan Malhotra", 28, null, "B-113");
-        created += register(ttEvent, userSeeder.getUserByEmail("suresh.nair@gmail.com"), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Suresh Nair", 32, null, "B-115");
-        created += register(ttEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), ttWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-108");
-        created += register(ttEvent, userSeeder.getUserByEmail("pooja.joshi@gmail.com"), ttWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Pooja Joshi", 28, null, "C-114");
-        created += register(ttEvent, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), ttBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohan Sharma", 15, null, "D-105");
-        created += register(ttEvent, userSeeder.getUserByEmail("amit.kumar@gmail.com"), ttBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Dhruv Kumar", 16, null, "C-107");
+        if (ttMenEvent != null) {
+            created += register(ttMenEvent, userSeeder.getSandeep(), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sandeep Kamarapu", 35, null, "B-402");
+            created += register(ttMenEvent, userSeeder.getSunil(), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 30, null, "C-101");
+            created += register(ttMenEvent, userSeeder.getUserByEmail("karan.malhotra@gmail.com"), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Karan Malhotra", 28, null, "B-113");
+            created += register(ttMenEvent, userSeeder.getUserByEmail("suresh.nair@gmail.com"), ttMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Suresh Nair", 32, null, "B-115");
+        }
+        if (ttWomenEvent != null) {
+            created += register(ttWomenEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), ttWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-108");
+            created += register(ttWomenEvent, userSeeder.getUserByEmail("pooja.joshi@gmail.com"), ttWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Pooja Joshi", 28, null, "C-114");
+        }
+        if (ttBoysEvent != null) {
+            created += register(ttBoysEvent, userSeeder.getUserByEmail("rahul.sharma@gmail.com"), ttBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Rohan Sharma", 15, null, "D-105");
+            created += register(ttBoysEvent, userSeeder.getUserByEmail("amit.kumar@gmail.com"), ttBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Dhruv Kumar", 16, null, "C-107");
+        }
 
-        log.info("✓ Table Tennis registrations seeded: {} players for {}", created, ttEvent.getName());
+        log.info("✓ Table Tennis registrations seeded: {} players", created);
         return created;
     }
 
     /**
-     * Seeds 8 chess participant registrations.
+     * Seeds 8 chess participant registrations into discrete Chess events.
      */
     public int seedChessRegistrations() {
-        SportsEvent chessEvent = sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Chess Championship"))
-                .findFirst()
-                .orElse(null);
-
-        if (chessEvent == null) return 0;
+        SportsEvent chessMenEvent = getEventByName("Chess - 19+ Men");
+        SportsEvent chessWomenEvent = getEventByName("Chess - 19+ Women");
+        SportsEvent chessKidsEvent = getEventByName("Chess - Under 12");
 
         SportsPlayerCategory chessMen = playerCategorySeeder.getCategoryByName("Chess Men (19+)");
         SportsPlayerCategory chessWomen = playerCategorySeeder.getCategoryByName("Chess Women (19+)");
         SportsPlayerCategory chessKids = playerCategorySeeder.getCategoryByName("Chess (Under-12)");
 
         int created = 0;
-        created += register(chessEvent, userSeeder.getRamesh(), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ramesh Korlakunta", 36, null, "B-907");
-        created += register(chessEvent, userSeeder.getUserByEmail("siddharth.bose@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Siddharth Bose", 33, null, "C-301");
-        created += register(chessEvent, userSeeder.getUserByEmail("varun.mehta@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Varun Mehta", 38, null, "C-302");
-        created += register(chessEvent, userSeeder.getUserByEmail("gourav.pandey@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Gourav Pandey", 31, null, "C-303");
-        created += register(chessEvent, userSeeder.getUserByEmail("priya.patel@gmail.com"), chessWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Priya Patel", 28, null, "A-102");
-        created += register(chessEvent, userSeeder.getUserByEmail("ananya.desai@gmail.com"), chessWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Desai", 28, null, "A-202");
-        created += register(chessEvent, userSeeder.getSandeep(), chessKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aditya Sharma", 10, null, "B-806");
-        created += register(chessEvent, userSeeder.getSunil(), chessKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Riya Kanthala", 11, null, "C-212");
+        if (chessMenEvent != null) {
+            created += register(chessMenEvent, userSeeder.getRamesh(), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ramesh Korlakunta", 36, null, "B-907");
+            created += register(chessMenEvent, userSeeder.getUserByEmail("siddharth.bose@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Siddharth Bose", 33, null, "C-301");
+            created += register(chessMenEvent, userSeeder.getUserByEmail("varun.mehta@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Varun Mehta", 38, null, "C-302");
+            created += register(chessMenEvent, userSeeder.getUserByEmail("gourav.pandey@gmail.com"), chessMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Gourav Pandey", 31, null, "C-303");
+        }
+        if (chessWomenEvent != null) {
+            created += register(chessWomenEvent, userSeeder.getUserByEmail("priya.patel@gmail.com"), chessWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Priya Patel", 28, null, "A-102");
+            created += register(chessWomenEvent, userSeeder.getUserByEmail("ananya.desai@gmail.com"), chessWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ananya Desai", 28, null, "A-202");
+        }
+        if (chessKidsEvent != null) {
+            created += register(chessKidsEvent, userSeeder.getSandeep(), chessKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aditya Sharma", 10, null, "B-806");
+            created += register(chessKidsEvent, userSeeder.getSunil(), chessKids, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Riya Kanthala", 11, null, "C-212");
+        }
 
-        log.info("✓ Chess registrations seeded: {} players for {}", created, chessEvent.getName());
+        log.info("✓ Chess registrations seeded: {} players", created);
         return created;
     }
 
     /**
-     * Seeds 8 carroms participant registrations.
+     * Seeds 8 carroms participant registrations into discrete Carroms events.
      */
     public int seedCarromsRegistrations() {
-        SportsEvent carromEvent = sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Carroms - Singles and Doubles"))
-                .findFirst()
-                .orElse(null);
-
-        if (carromEvent == null) return 0;
+        SportsEvent carromMenEvent = getEventByName("Carroms - 19+ Men");
+        SportsEvent carromWomenEvent = getEventByName("Carroms - 19+ Women");
+        SportsEvent carromBoysEvent = getEventByName("Carroms - 12-19 Boys");
 
         SportsPlayerCategory carromMen = playerCategorySeeder.getCategoryByName("Carroms Men (19+)");
         SportsPlayerCategory carromWomen = playerCategorySeeder.getCategoryByName("Carroms Women (19+)");
         SportsPlayerCategory carromBoys = playerCategorySeeder.getCategoryByName("Carroms Boys (12-19)");
 
         int created = 0;
-        created += register(carromEvent, userSeeder.getSunil(), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 36, null, "C-212");
-        created += register(carromEvent, userSeeder.getUserByEmail("Bhupal@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Bhupal", 38, null, "B-209");
-        created += register(carromEvent, userSeeder.getUserByEmail("prashant.kadam@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Prashant Kadam", 49, null, "C-306");
-        created += register(carromEvent, userSeeder.getUserByEmail("harsh.vardhan@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Harsh Vardhan", 35, null, "D-101");
-        created += register(carromEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), carromWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-104");
-        created += register(carromEvent, userSeeder.getUserByEmail("neha.gupta@gmail.com"), carromWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Neha Gupta", 28, null, "A-204");
-        created += register(carromEvent, userSeeder.getUserByEmail("vikram.singh@gmail.com"), carromBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aryan Singh", 14, null, "A-201");
-        created += register(carromEvent, userSeeder.getUserByEmail("yash.chopra@gmail.com"), carromBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Yash Chopra Jr", 17, null, "D-102");
+        if (carromMenEvent != null) {
+            created += register(carromMenEvent, userSeeder.getSunil(), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sunil Kanthala", 36, null, "C-212");
+            created += register(carromMenEvent, userSeeder.getUserByEmail("Bhupal@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Bhupal", 38, null, "B-209");
+            created += register(carromMenEvent, userSeeder.getUserByEmail("prashant.kadam@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Prashant Kadam", 49, null, "C-306");
+            created += register(carromMenEvent, userSeeder.getUserByEmail("harsh.vardhan@gmail.com"), carromMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Harsh Vardhan", 35, null, "D-101");
+        }
+        if (carromWomenEvent != null) {
+            created += register(carromWomenEvent, userSeeder.getUserByEmail("sneha.reddy@gmail.com"), carromWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Sneha Reddy", 28, null, "A-104");
+            created += register(carromWomenEvent, userSeeder.getUserByEmail("neha.gupta@gmail.com"), carromWomen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Neha Gupta", 28, null, "A-204");
+        }
+        if (carromBoysEvent != null) {
+            created += register(carromBoysEvent, userSeeder.getUserByEmail("vikram.singh@gmail.com"), carromBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Aryan Singh", 14, null, "A-201");
+            created += register(carromBoysEvent, userSeeder.getUserByEmail("yash.chopra@gmail.com"), carromBoys, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Yash Chopra Jr", 17, null, "D-102");
+        }
 
-        log.info("✓ Carroms registrations seeded: {} players for {}", created, carromEvent.getName());
+        log.info("✓ Carroms registrations seeded: {} players", created);
         return created;
+    }
+
+    private SportsEvent getEventByName(String name) {
+        return sportsEventRepo.findAll().stream()
+                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
     }
 
     /**

@@ -78,11 +78,35 @@ public class SportsTournamentSeeder {
 
         // 3. Link all configured sub-events to this tournament
         List<String> eventNames = List.of(
+                // Cricket
                 "Annual 2026 Cricket Cup",
-                "Badminton - Singles & Doubles",
-                "Chess Championship",
-                "Carroms - Singles and Doubles",
-                "Table Tennis - Singles and Doubles",
+                "Cricket - Under 10 Kids",
+                "Cricket - 11-19 Youth",
+                // Chess
+                "Chess - Under 12",
+                "Chess - 12-19 Boys",
+                "Chess - 12-19 Girls",
+                "Chess - 19+ Men",
+                "Chess - 19+ Women",
+                // Carroms
+                "Carroms - Under 12",
+                "Carroms - 12-19 Boys",
+                "Carroms - 12-19 Girls",
+                "Carroms - 19+ Men",
+                "Carroms - 19+ Women",
+                // Table Tennis
+                "Table Tennis - Under 12",
+                "Table Tennis - 12-19 Boys",
+                "Table Tennis - 12-19 Girls",
+                "Table Tennis - 19+ Men",
+                "Table Tennis - 19+ Women",
+                // Badminton
+                "Badminton - Under 12",
+                "Badminton - 12-19 Boys",
+                "Badminton - 12-19 Girls",
+                "Badminton - 19+ Men",
+                "Badminton - 19+ Women",
+                // Volleyball
                 "Volleyball Premier League"
         );
 

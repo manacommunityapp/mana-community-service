@@ -24,6 +24,8 @@ public class SportsEventResponse {
     private Boolean active;
     private Boolean adminApprovalRequired;
     private Boolean mandatoryMixedDoubles;
+    private Boolean allowHigherAgeCategory;
+    private Boolean allowMultipleCategories;
 
     private SportRef sport;
     private CommunityRef community;
