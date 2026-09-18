@@ -27,8 +27,6 @@ public class SportsTournamentDataSeeder {
 
     @Transactional
     public void seed() {
-        log.info("Seeding tournament table sample data (delete & recreate if exists)...");
-
         SportsTournament existing = tournamentRepo.findAll().stream()
                 .filter(t -> TOURNAMENT_NAME.equalsIgnoreCase(t.getName()))
                 .findFirst()
@@ -39,30 +37,5 @@ public class SportsTournamentDataSeeder {
             tournamentRepo.flush();
             log.info("✓ Cleaned existing tournament: {}", TOURNAMENT_NAME);
         }
-
-        SportsTournament tournament = tournamentRepo.save(SportsTournament.builder()
-                .name(TOURNAMENT_NAME)
-                .description("LE 2026 Winter Cup")
-                .eventDateStart(LocalDate.of(2026, 12, 1))
-                .eventDateEnd(LocalDate.of(2026, 12, 15))
-                .registrationDateStart(LocalDate.of(2026, 11, 1))
-                .registrationDateEnd(LocalDate.of(2026, 11, 10))
-                .maxParticipants(32)
-                .contactNumber("9000000002")
-                .contactEmail("wintercup@community.com")
-                .allowAdminChat(false)
-                .startTime("09:00 AM")
-                .dueTime("06:00 PM")
-                .otherContacts("[]")
-                .bannerImage("")
-                .registrationStatus(SportsTournament.EventStatus.DRAFT)
-                .sportsEvents(new ArrayList<>())
-                .sponsors(new ArrayList<>())
-                .community(communityRepo.findById(2L).orElse(null))
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build());
-
-        log.info("✓ SportsTournament table seeded: {} (id={})", TOURNAMENT_NAME, tournament.getId());
     }
 }

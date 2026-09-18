@@ -19,10 +19,14 @@ DECLARE
     sample_event_names text[] := ARRAY[
         'Annual 2026 Cricket Cup',
         'Annual Summer Cricket Cup',
+        'Badminton - Singles & Doubles',
         'Badminton Community Championship',
         'Badminton — Men''s Above 19',
+        'Chess Championship',
         'Community Chess Championship',
+        'Carroms - Singles and Doubles',
         'Carroms Community Cup',
+        'Table Tennis - Singles and Doubles',
         'Table Tennis Open Championship',
         'Volleyball Premier League',
         'Community Badminton League 2026'

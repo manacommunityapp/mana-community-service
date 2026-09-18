@@ -140,6 +140,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .maxAge(req.getMaxAge() != null ? req.getMaxAge() : 100)
                 .adminApprovalRequired(req.getAdminApprovalRequired() == null || req.getAdminApprovalRequired())
                 .mandatoryMixedDoubles(req.getMandatoryMixedDoubles() == null || req.getMandatoryMixedDoubles())
+                .allowHigherAgeCategory(req.getAllowHigherAgeCategory() == null || req.getAllowHigherAgeCategory())
+                .allowMultipleCategories(req.getAllowMultipleCategories() == null || req.getAllowMultipleCategories())
                 .build();
 
         if (req.getCategoryIds() != null)
@@ -294,19 +296,19 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsPlayerCategory category = categoryRepo.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("SportsPlayerCategory", req.getCategoryId()));
 
-        // 1. Validate against Event overall age limits
-        int minAge = event.getMinAge() != null ? event.getMinAge() : 0;
-        int maxAge = event.getMaxAge() != null ? event.getMaxAge() : 100;
-        if (age < minAge || age > maxAge) {
-            throw new AgeMismatchException(age, minAge, maxAge, event.getSport().getName());
+        // Check if category is valid for this specific event (if event specifies categories)
+        if (event.getCategories() != null && !event.getCategories().isEmpty()) {
+            boolean validForEvent = event.getCategories().stream()
+                    .anyMatch(c -> c.getId().equals(category.getId()));
+            if (!validForEvent) {
+                throw new InvalidInputException(
+                        "Category '" + category.getName() + "' is not eligible for event '" + event.getName() + "'."
+                );
+            }
         }
 
-        // 2. Validate against Category age limits
-        int catMinAge = category.getMinAge() != null ? category.getMinAge() : 0;
-        int catMaxAge = category.getMaxAge() != null ? category.getMaxAge() : 100;
-        if (age < catMinAge || age > catMaxAge) {
-            throw new AgeMismatchException(age, catMinAge, catMaxAge, category.getName());
-        }
+        // 1 & 2. Validate participant age against Event & Category age rules
+        validateAgeEligibility(age, event, category, null);
 
         // 3. Validate against Category Gender restrictions
         if (category.getGender() != null && !category.getGender().isBlank()) {
@@ -322,7 +324,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
         }
 
-        // 3. Historical Age Conflict Detection (Layer 2)
+        // 4. Historical Age Conflict Detection (Layer 2)
         // If registering self (not via family member, and pName matches user) as a junior (< 18),
         // but historical records show prior participation as adult (18+)
         boolean isSelfRegistration = req.getFamilyMemberId() == null && normEq(pName, user.getFullName());
@@ -356,6 +358,9 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
         }
 
+        // Option B: Check for duplicate registration in the same match format across the tournament/sport
+        validateOptionBDuplicates(user, familyMember, pName, event, category, matchFormat, activeStatuses);
+
         // Partner validation & duplicate guard
         AppUser partner = null;
         com.manacommunity.api.user.model.FamilyMember partnerFamilyMember = null;
@@ -384,6 +389,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 }
             } else if (partnerFamilyMember.getAge() != null) {
                 partnerAge = partnerFamilyMember.getAge();
+            } else {
+                throw new InvalidInputException("Please update Date of Birth for partner family member " + partnerDisplayName + " in your Profile before registering.");
             }
 
             // 1. Check if partner family member is already picked as partner in another active registration for this event
@@ -403,12 +410,10 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
 
             // 3. Partner age bounds validation (event and category limits)
-            if (partnerAge < minAge || partnerAge > maxAge) {
-                throw new AgeMismatchException(partnerAge, minAge, maxAge, event.getSport().getName() + " (Partner)");
-            }
-            if (partnerAge < catMinAge || partnerAge > catMaxAge) {
-                throw new AgeMismatchException(partnerAge, catMinAge, catMaxAge, category.getName() + " (Partner)");
-            }
+            validateAgeEligibility(partnerAge, event, category, "Partner");
+
+            // 4. Partner Option B duplicate guard
+            validateOptionBDuplicates(partner, partnerFamilyMember, partnerDisplayName, event, category, matchFormat, activeStatuses);
 
         } else if (req.getPartnerUserId() != null) {
             if (req.getPartnerUserId().equals(userId) && familyMember == null) {
@@ -437,15 +442,14 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
 
             // 3. Partner age bounds validation (event and category limits)
-            if (partner.getDateOfBirth() != null) {
-                int partnerAge = Period.between(partner.getDateOfBirth(), LocalDate.now()).getYears();
-                if (partnerAge < minAge || partnerAge > maxAge) {
-                    throw new AgeMismatchException(partnerAge, minAge, maxAge, event.getSport().getName() + " (Partner)");
-                }
-                if (partnerAge < catMinAge || partnerAge > catMaxAge) {
-                    throw new AgeMismatchException(partnerAge, catMinAge, catMaxAge, category.getName() + " (Partner)");
-                }
+            if (partner.getDateOfBirth() == null) {
+                throw new InvalidInputException("Selected partner " + partnerDisplayName + " must update their Date of Birth in their Profile before registering for sports events.");
             }
+            int partnerAge = Period.between(partner.getDateOfBirth(), LocalDate.now()).getYears();
+            validateAgeEligibility(partnerAge, event, category, "Partner");
+
+            // 4. Partner Option B duplicate guard
+            validateOptionBDuplicates(partner, null, partnerDisplayName, event, category, matchFormat, activeStatuses);
         }
 
         // Check if the primary registering participant is already someone else's partner
@@ -1251,6 +1255,12 @@ public class SportsEventServiceImpl implements SportsEventService {
         if (req.getMandatoryMixedDoubles() != null) {
             event.setMandatoryMixedDoubles(req.getMandatoryMixedDoubles());
         }
+        if (req.getAllowHigherAgeCategory() != null) {
+            event.setAllowHigherAgeCategory(req.getAllowHigherAgeCategory());
+        }
+        if (req.getAllowMultipleCategories() != null) {
+            event.setAllowMultipleCategories(req.getAllowMultipleCategories());
+        }
 
         event.setUpdatedAt(LocalDateTime.now());
         
@@ -1393,5 +1403,114 @@ public class SportsEventServiceImpl implements SportsEventService {
                 throw new InvalidInputException("Event end date cannot be after tournament end date (" + tourneyEnd + ")");
             }
         }
+    }
+
+    private void validateAgeEligibility(int playerAge, SportsEvent event, SportsPlayerCategory category, String entityName) {
+        // 1. Overall event age bounds
+        int minAge = event.getMinAge() != null ? event.getMinAge() : 0;
+        int maxAge = event.getMaxAge() != null ? event.getMaxAge() : 100;
+        if (playerAge < minAge || playerAge > maxAge) {
+            String sportName = event.getSport() != null ? event.getSport().getName() : event.getName();
+            throw new AgeMismatchException(playerAge, minAge, maxAge, sportName + (entityName != null ? " (" + entityName + ")" : ""));
+        }
+
+        // 2. Category age bounds
+        int catMinAge = category.getMinAge() != null ? category.getMinAge() : 0;
+        int catMaxAge = category.getMaxAge() != null ? category.getMaxAge() : 100;
+        boolean allowHigher = event.getAllowHigherAgeCategory() == null || event.getAllowHigherAgeCategory();
+
+        boolean isSeniorCategory = "SENIORS".equalsIgnoreCase(category.getCategory_type())
+                || (category.getName() != null && (category.getName().toLowerCase().contains("senior")
+                || category.getName().toLowerCase().contains("master")
+                || category.getName().contains("40+")
+                || category.getName().contains("50+")
+                || category.getName().contains("60+")));
+
+        if (allowHigher) {
+            // Higher Age Category mode (playing up):
+            // a) Player cannot play down into a younger category:
+            if (playerAge > catMaxAge) {
+                throw new AgeMismatchException(playerAge, catMinAge, catMaxAge, category.getName() + (entityName != null ? " (" + entityName + ")" : ""));
+            }
+            // b) Senior / Masters categories strictly enforce the minimum age requirement:
+            if (isSeniorCategory && playerAge < catMinAge) {
+                throw new AgeMismatchException(playerAge, catMinAge, catMaxAge, category.getName() + (entityName != null ? " (" + entityName + ")" : ""));
+            }
+        } else {
+            // Strict category bounds
+            if (playerAge < catMinAge || playerAge > catMaxAge) {
+                throw new AgeMismatchException(playerAge, catMinAge, catMaxAge, category.getName() + (entityName != null ? " (" + entityName + ")" : ""));
+            }
+        }
+    }
+
+    private void validateOptionBDuplicates(
+            AppUser user,
+            com.manacommunity.api.user.model.FamilyMember familyMember,
+            String participantName,
+            SportsEvent currentEvent,
+            SportsPlayerCategory currentCategory,
+            SportsEvent.MatchFormat currentFormat,
+            List<SportsEventRegistration.RegistrationStatus> activeStatuses
+    ) {
+        if (currentEvent == null || currentEvent.getSport() == null || user == null) return;
+        Long sportId = currentEvent.getSport().getId();
+        Long tourneyId = currentEvent.getTournament() != null ? currentEvent.getTournament().getId() : null;
+        boolean allowMultiCats = currentEvent.getAllowMultipleCategories() == null || currentEvent.getAllowMultipleCategories();
+
+        List<SportsEventRegistration> existingRegs = regRepo.findByUserId(user.getId()).stream()
+                .filter(r -> {
+                    if (familyMember != null) {
+                        return r.getFamilyMember() != null && r.getFamilyMember().getId().equals(familyMember.getId());
+                    } else {
+                        return r.getFamilyMember() == null;
+                    }
+                })
+                .toList();
+
+        for (SportsEventRegistration r : existingRegs) {
+            if (r.getEvent() == null || r.getEvent().getId().equals(currentEvent.getId())) {
+                continue;
+            }
+            if (r.getStatus() == null || !activeStatuses.contains(r.getStatus())) {
+                continue;
+            }
+            SportsEvent otherEvent = r.getEvent();
+            if (otherEvent.getSport() == null || !otherEvent.getSport().getId().equals(sportId)) {
+                continue;
+            }
+
+            boolean inSameTournament = tourneyId != null && otherEvent.getTournament() != null && tourneyId.equals(otherEvent.getTournament().getId());
+            boolean hasDateOverlap = datesOverlap(currentEvent, otherEvent);
+
+            if (inSameTournament || hasDateOverlap) {
+                String otherCatName = r.getCategory() != null ? r.getCategory().getName() : "another category";
+                String sportName = currentEvent.getSport().getName();
+
+                if (!allowMultiCats) {
+                    throw new AlreadyRegisteredException(
+                            participantName + " is already registered for " + sportName + " in '" + otherEvent.getName()
+                            + "' (" + otherCatName + "). Multiple event registrations for the same sport are not permitted."
+                    );
+                }
+
+                // Option B: Format-specific single entry (e.g. at most 1 Singles, 1 Doubles)
+                if (r.getMatchType() != null && currentFormat != null && r.getMatchType() == currentFormat) {
+                    throw new AlreadyRegisteredException(
+                            participantName + " is already registered for " + sportName + " " + currentFormat.name().replace('_', ' ')
+                            + " in '" + otherEvent.getName() + "' (" + otherCatName + "). A player cannot enter multiple age categories of the same match format."
+                    );
+                }
+            }
+        }
+    }
+
+    private boolean datesOverlap(SportsEvent e1, SportsEvent e2) {
+        LocalDate s1 = e1.getEventDateStart();
+        LocalDate eDate1 = e1.getEventDateEnd() != null ? e1.getEventDateEnd() : s1;
+        LocalDate s2 = e2.getEventDateStart();
+        LocalDate eDate2 = e2.getEventDateEnd() != null ? e2.getEventDateEnd() : s2;
+        if (s1 == null || s2 == null) return false;
+        return !eDate1.isBefore(s2) && !s1.isAfter(eDate2);
     }
 }

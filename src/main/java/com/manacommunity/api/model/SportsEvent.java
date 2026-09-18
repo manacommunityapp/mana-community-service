@@ -82,6 +82,22 @@ public class SportsEvent {
     @Builder.Default
     private Boolean mandatoryMixedDoubles = true;
 
+    /**
+     * When true (default), younger players are permitted to opt for higher age categories (playing up).
+     * When false, players are strictly bounded by both minAge and maxAge of the category.
+     */
+    @Column(name = "allow_higher_age_category", nullable = false)
+    @Builder.Default
+    private Boolean allowHigherAgeCategory = true;
+
+    /**
+     * When true (default / Option B), a player can enter multiple distinct match formats (e.g. 1 Singles + 1 Doubles).
+     * When false, a player is restricted to strictly 1 event entry in this sport across the tournament.
+     */
+    @Column(name = "allow_multiple_categories", nullable = false)
+    @Builder.Default
+    private Boolean allowMultipleCategories = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

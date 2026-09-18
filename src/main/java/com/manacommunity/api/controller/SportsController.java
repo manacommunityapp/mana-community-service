@@ -536,6 +536,8 @@ public class SportsController {
                 .active(e.getActive())
                 .adminApprovalRequired(e.getAdminApprovalRequired())
                 .mandatoryMixedDoubles(e.getMandatoryMixedDoubles() != null ? e.getMandatoryMixedDoubles() : true)
+                .allowHigherAgeCategory(e.getAllowHigherAgeCategory() != null ? e.getAllowHigherAgeCategory() : true)
+                .allowMultipleCategories(e.getAllowMultipleCategories() != null ? e.getAllowMultipleCategories() : true)
                 .sport(sportRef)
                 .community(communityRef)
                 .venue(venueRef)

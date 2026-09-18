@@ -59,186 +59,235 @@ public class SportsEventSeeder {
         SportsPlayerCategory cricketMen = playerCategorySeeder.getCategoryByName("Cricket Men (20+)");
 
 
-        // Clean legacy event if present in DB
-        sportsEventRepo.findAll().stream()
-                .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Annual Summer Cricket Cup"))
-                .findFirst()
-                .ifPresent(legacy -> {
-                    cleanDependentEventData(legacy.getId());
-                    if (legacy.getTournament() != null) legacy.setTournament(null);
-                    sportsEventRepo.delete(legacy);
-                    sportsEventRepo.flush();
-                });
+        // Clean legacy / bundled event names if present in DB
+        List.of(
+                "Annual Summer Cricket Cup",
+                "Badminton - Singles & Doubles",
+                "Badminton Community Championship",
+                "Badminton — Men's Above 19",
+                "Chess Championship",
+                "Community Chess Championship",
+                "Carroms - Singles and Doubles",
+                "Carroms Community Cup",
+                "Table Tennis - Singles and Doubles",
+                "Table Tennis Open Championship"
+        ).forEach(legacyName -> {
+            sportsEventRepo.findAll().stream()
+                    .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase(legacyName))
+                    .toList()
+                    .forEach(legacy -> {
+                        cleanDependentEventData(legacy.getId());
+                        if (legacy.getTournament() != null) legacy.setTournament(null);
+                        sportsEventRepo.delete(legacy);
+                        sportsEventRepo.flush();
+                    });
+        });
 
-
+        // ── 1. Cricket Events (3 Category Events - Dec 1st Week) ──────────
         SportsEvent summerCup = getOrCreateSportsEvent(
                 "Annual 2026 Cricket Cup",
                 true,
-                cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketKids, cricketYouth, cricketMen),
+                cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketMen),
                 SportsEvent.EventStatus.REGISTRATION_OPEN,
                 List.of("TEAM"),
                 SportsEvent.TournamentType.KNOCKOUT,
-                LocalDate.of(2026, 9, 25),
-                LocalDate.of(2026, 9, 27),
-                LocalDate.of(2026, 9, 16),
-                LocalDate.of(2026, 9, 20),
+                LocalDate.of(2026, 12, 1),
+                LocalDate.of(2026, 12, 6),
+                LocalDate.of(2026, 9, 17),
+                LocalDate.of(2026, 9, 19),
                 100,
-                4, 100,
-                "ALL",
+                20, 100,
+                "MALE",
                 LocalDate.of(1900, 1, 1),
                 "3,4", // dispute committee: Sunil(3), Ramesh(4)
                 true   // auction = true
         );
 
-        log.info("✓ Sports events seeded: Annual 2026 Cricket Cup (id={})", summerCup.getId());
+        getOrCreateSportsEvent(
+                "Cricket - Under 10 Kids",
+                true,
+                cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketKids),
+                SportsEvent.EventStatus.REGISTRATION_OPEN,
+                List.of("TEAM"),
+                SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 12, 1),
+                LocalDate.of(2026, 12, 6),
+                LocalDate.of(2026, 9, 17),
+                LocalDate.of(2026, 9, 19),
+                40,
+                4, 10,
+                "ALL",
+                LocalDate.of(1900, 1, 1),
+                null
+        );
 
-        // ── 2. Badminton Tournament ──────────────────────────────────────
+        getOrCreateSportsEvent(
+                "Cricket - 11-19 Youth",
+                true,
+                cricket, leCommunity, leBoxCricket, ramesh, Set.of(cricketYouth),
+                SportsEvent.EventStatus.REGISTRATION_OPEN,
+                List.of("TEAM"),
+                SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 12, 1),
+                LocalDate.of(2026, 12, 6),
+                LocalDate.of(2026, 9, 17),
+                LocalDate.of(2026, 9, 19),
+                50,
+                11, 19,
+                "ALL",
+                LocalDate.of(1900, 1, 1),
+                null
+        );
+
+        log.info("✓ Sports events seeded: Cricket events (Annual 2026 Cricket Cup id={})", summerCup.getId());
+
+        // ── 2. Badminton Events (5 Category Events) ──────────────────────
         SportsMeta badminton = sportsMetaSeeder.getOrCreateSport("Badminton", "🏸");
         Venue leBadmintonCourt = venueSeeder.getLeBadmintonCourt();
 
-        SportsPlayerCategory badBoysU12 = playerCategorySeeder.getCategoryByName("Badminton Boys (Under-12)");
-        SportsPlayerCategory badGirlsU12 = playerCategorySeeder.getCategoryByName("Badminton Girls (Under-12)");
-        SportsPlayerCategory badBoysTeens = playerCategorySeeder.getCategoryByName("Badminton Boys (13-19)");
-        SportsPlayerCategory badGirlsTeens = playerCategorySeeder.getCategoryByName("Badminton Girls (13-19)");
-        SportsPlayerCategory badMen20_50 = playerCategorySeeder.getCategoryByName("Badminton Men (20-50)");
-        SportsPlayerCategory badWomen20_50 = playerCategorySeeder.getCategoryByName("Badminton Women (20-50)");
-        SportsPlayerCategory badSeniorMen = playerCategorySeeder.getCategoryByName("Badminton Senior Men (50+)");
-        SportsPlayerCategory badSeniorWomen = playerCategorySeeder.getCategoryByName("Badminton Senior Women (50+)");
+        SportsPlayerCategory badUnder12 = playerCategorySeeder.getCategoryByName("Badminton (Under-12)");
+        SportsPlayerCategory badBoys12_19 = playerCategorySeeder.getCategoryByName("Badminton Boys (12-19)");
+        SportsPlayerCategory badGirls12_19 = playerCategorySeeder.getCategoryByName("Badminton Girls (12-19)");
+        SportsPlayerCategory badMen19Plus = playerCategorySeeder.getCategoryByName("Badminton Men (19+)");
+        SportsPlayerCategory badWomen19Plus = playerCategorySeeder.getCategoryByName("Badminton Women (19+)");
 
-        SportsEvent badmintonEvent = getOrCreateSportsEvent(
-                "Badminton Community Championship",
-                true,
-                badminton, leCommunity, leBadmintonCourt, ramesh,
-                Set.of(badBoysU12, badGirlsU12, badBoysTeens, badGirlsTeens, badMen20_50, badWomen20_50, badSeniorMen, badSeniorWomen),
-                SportsEvent.EventStatus.REGISTRATION_OPEN,
-                List.of("SINGLES", "DOUBLES"),
-                SportsEvent.TournamentType.KNOCKOUT,
-                LocalDate.of(2026, 6, 3),
-                LocalDate.of(2026, 6, 6),
-                LocalDate.of(2026, 5, 20),
-                LocalDate.of(2026, 5, 30),
-                64,
-                4, 100,
-                "ALL",
-                LocalDate.of(1900, 1, 1),
-                null
-        );
+        getOrCreateSportsEvent("Badminton - Under 12", true, badminton, leCommunity, leBadmintonCourt, ramesh,
+                Set.of(badUnder12), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 17), LocalDate.of(2026, 10, 17), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 4, 12, "ALL", LocalDate.of(1900, 1, 1), null);
 
-        // Keep legacy badminton event name for existing tests/seeds
-        SportsPlayerCategory badmintonMenLegacy = playerCategorySeeder.getCategoryByName("Badminton Men (18+)");
-        getOrCreateSportsEvent(
-                "Badminton — Men's Above 19",
-                true,
-                badminton, leCommunity, leBadmintonCourt, ramesh, Set.of(badmintonMenLegacy),
-                SportsEvent.EventStatus.REGISTRATION_OPEN,
-                List.of("SINGLES", "DOUBLES"),
-                SportsEvent.TournamentType.KNOCKOUT_SINGLE,
-                LocalDate.of(2026, 6, 3),
-                LocalDate.of(2026, 6, 6),
-                null,
-                null,
-                60,
-                18, 100,
-                "MALE",
-                LocalDate.of(1900, 1, 1),
-                null
-        );
+        getOrCreateSportsEvent("Badminton - 12-19 Boys", true, badminton, leCommunity, leBadmintonCourt, ramesh,
+                Set.of(badBoys12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 18), LocalDate.of(2026, 10, 18), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "MALE", LocalDate.of(1900, 1, 1), null);
 
-        log.info("✓ Sports events seeded: Badminton Championship (id={})", badmintonEvent.getId());
+        getOrCreateSportsEvent("Badminton - 12-19 Girls", true, badminton, leCommunity, leBadmintonCourt, ramesh,
+                Set.of(badGirls12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 18), LocalDate.of(2026, 10, 18), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "FEMALE", LocalDate.of(1900, 1, 1), null);
 
-        // ── 3. Chess Tournament ──────────────────────────────────────────
+        getOrCreateSportsEvent("Badminton - 19+ Men", true, badminton, leCommunity, leBadmintonCourt, ramesh,
+                Set.of(badMen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 25), LocalDate.of(2026, 10, 25), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                64, 19, 100, "MALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Badminton - 19+ Women", true, badminton, leCommunity, leBadmintonCourt, ramesh,
+                Set.of(badWomen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 25), LocalDate.of(2026, 10, 25), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                64, 19, 100, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        log.info("✓ Sports events seeded: 5 Badminton category events");
+
+        // ── 3. Chess Events (5 Category Events) ──────────────────────────
         SportsMeta chess = sportsMetaSeeder.getOrCreateSport("Chess", "♟️");
         Venue clubhouse = venueSeeder.getLeClubhouse();
 
-        SportsPlayerCategory chessBoysU15 = playerCategorySeeder.getCategoryByName("Chess Boys (Under-15)");
-        SportsPlayerCategory chessGirlsU15 = playerCategorySeeder.getCategoryByName("Chess Girls (Under-15)");
-        SportsPlayerCategory chessMen16 = playerCategorySeeder.getCategoryByName("Chess Men (16+)");
-        SportsPlayerCategory chessWomen16 = playerCategorySeeder.getCategoryByName("Chess Women (16+)");
+        SportsPlayerCategory chessUnder12 = playerCategorySeeder.getCategoryByName("Chess (Under-12)");
+        SportsPlayerCategory chessBoys12_19 = playerCategorySeeder.getCategoryByName("Chess Boys (12-19)");
+        SportsPlayerCategory chessGirls12_19 = playerCategorySeeder.getCategoryByName("Chess Girls (12-19)");
+        SportsPlayerCategory chessMen19Plus = playerCategorySeeder.getCategoryByName("Chess Men (19+)");
+        SportsPlayerCategory chessWomen19Plus = playerCategorySeeder.getCategoryByName("Chess Women (19+)");
 
-        SportsEvent chessEvent = getOrCreateSportsEvent(
-                "Community Chess Championship",
-                true,
-                chess, leCommunity, clubhouse, ramesh,
-                Set.of(chessBoysU15, chessGirlsU15, chessMen16, chessWomen16),
-                SportsEvent.EventStatus.REGISTRATION_OPEN,
-                List.of("SINGLES"),
-                SportsEvent.TournamentType.ROUND_ROBIN,
-                LocalDate.of(2026, 6, 10),
-                LocalDate.of(2026, 6, 12),
-                LocalDate.of(2026, 5, 25),
-                LocalDate.of(2026, 6, 5),
-                32,
-                4, 100,
-                "ALL",
-                LocalDate.of(1900, 1, 1),
-                null
-        );
+        getOrCreateSportsEvent("Chess - Under 12", true, chess, leCommunity, clubhouse, ramesh,
+                Set.of(chessUnder12), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES"), SportsEvent.TournamentType.ROUND_ROBIN,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 10), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 4, 12, "ALL", LocalDate.of(1900, 1, 1), null);
 
-        log.info("✓ Sports events seeded: Chess Championship (id={})", chessEvent.getId());
+        getOrCreateSportsEvent("Chess - 12-19 Boys", true, chess, leCommunity, clubhouse, ramesh,
+                Set.of(chessBoys12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES"), SportsEvent.TournamentType.ROUND_ROBIN,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 10), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "MALE", LocalDate.of(1900, 1, 1), null);
 
-        // ── 4. Carroms Tournament ────────────────────────────────────────
+        getOrCreateSportsEvent("Chess - 12-19 Girls", true, chess, leCommunity, clubhouse, ramesh,
+                Set.of(chessGirls12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES"), SportsEvent.TournamentType.ROUND_ROBIN,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 10), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Chess - 19+ Men", true, chess, leCommunity, clubhouse, ramesh,
+                Set.of(chessMen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES"), SportsEvent.TournamentType.ROUND_ROBIN,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 10), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "MALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Chess - 19+ Women", true, chess, leCommunity, clubhouse, ramesh,
+                Set.of(chessWomen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES"), SportsEvent.TournamentType.ROUND_ROBIN,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 10), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        log.info("✓ Sports events seeded: 5 Chess category events");
+
+        // ── 4. Carroms Events (5 Category Events) ────────────────────────
         SportsMeta carroms = sportsMetaSeeder.getOrCreateSport("Carrom", "🔴");
 
-        SportsPlayerCategory carromBoysU12 = playerCategorySeeder.getCategoryByName("Carroms Boys (Under-12)");
-        SportsPlayerCategory carromGirlsU12 = playerCategorySeeder.getCategoryByName("Carroms Girls (Under-12)");
-        SportsPlayerCategory carromBoysTeens = playerCategorySeeder.getCategoryByName("Carroms Boys (13-19)");
-        SportsPlayerCategory carromGirlsTeens = playerCategorySeeder.getCategoryByName("Carroms Girls (13-19)");
-        SportsPlayerCategory carromMen = playerCategorySeeder.getCategoryByName("Carroms Men (20-50)");
-        SportsPlayerCategory carromWomen = playerCategorySeeder.getCategoryByName("Carroms Women (20-50)");
+        SportsPlayerCategory carromUnder12 = playerCategorySeeder.getCategoryByName("Carroms (Under-12)");
+        SportsPlayerCategory carromBoys12_19 = playerCategorySeeder.getCategoryByName("Carroms Boys (12-19)");
+        SportsPlayerCategory carromGirls12_19 = playerCategorySeeder.getCategoryByName("Carroms Girls (12-19)");
+        SportsPlayerCategory carromMen19Plus = playerCategorySeeder.getCategoryByName("Carroms Men (19+)");
+        SportsPlayerCategory carromWomen19Plus = playerCategorySeeder.getCategoryByName("Carroms Women (19+)");
 
-        SportsEvent carromEvent = getOrCreateSportsEvent(
-                "Carroms Community Cup",
-                true,
-                carroms, leCommunity, clubhouse, ramesh,
-                Set.of(carromBoysU12, carromGirlsU12, carromBoysTeens, carromGirlsTeens, carromMen, carromWomen),
-                SportsEvent.EventStatus.REGISTRATION_OPEN,
-                List.of("SINGLES", "DOUBLES"),
-                SportsEvent.TournamentType.KNOCKOUT,
-                LocalDate.of(2026, 6, 15),
-                LocalDate.of(2026, 6, 17),
-                LocalDate.of(2026, 6, 1),
-                LocalDate.of(2026, 6, 10),
-                48,
-                4, 50,
-                "ALL",
-                LocalDate.of(1900, 1, 1),
-                null
-        );
+        getOrCreateSportsEvent("Carroms - Under 12", true, carroms, leCommunity, clubhouse, ramesh,
+                Set.of(carromUnder12), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 11), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 4, 12, "ALL", LocalDate.of(1900, 1, 1), null);
 
-        log.info("✓ Sports events seeded: Carroms Cup (id={})", carromEvent.getId());
+        getOrCreateSportsEvent("Carroms - 12-19 Boys", true, carroms, leCommunity, clubhouse, ramesh,
+                Set.of(carromBoys12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 11), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "MALE", LocalDate.of(1900, 1, 1), null);
 
-        // ── 5. Table Tennis Tournament ───────────────────────────────────
+        getOrCreateSportsEvent("Carroms - 12-19 Girls", true, carroms, leCommunity, clubhouse, ramesh,
+                Set.of(carromGirls12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 11), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Carroms - 19+ Men", true, carroms, leCommunity, clubhouse, ramesh,
+                Set.of(carromMen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 11), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "MALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Carroms - 19+ Women", true, carroms, leCommunity, clubhouse, ramesh,
+                Set.of(carromWomen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 11), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        log.info("✓ Sports events seeded: 5 Carroms category events");
+
+        // ── 5. Table Tennis Events (5 Category Events) ───────────────────
         SportsMeta tableTennis = sportsMetaSeeder.getOrCreateSport("Table Tennis", "🏓");
 
-        SportsPlayerCategory ttBoysU12 = playerCategorySeeder.getCategoryByName("TT Boys (Under-12)");
-        SportsPlayerCategory ttGirlsU12 = playerCategorySeeder.getCategoryByName("TT Girls (Under-12)");
-        SportsPlayerCategory ttBoysTeens = playerCategorySeeder.getCategoryByName("TT Boys (13-19)");
-        SportsPlayerCategory ttGirlsTeens = playerCategorySeeder.getCategoryByName("TT Girls (13-19)");
-        SportsPlayerCategory ttMen20 = playerCategorySeeder.getCategoryByName("TT Men (20+)");
-        SportsPlayerCategory ttWomen20 = playerCategorySeeder.getCategoryByName("TT Women (20+)");
+        SportsPlayerCategory ttUnder12 = playerCategorySeeder.getCategoryByName("TT (Under-12)");
+        SportsPlayerCategory ttBoys12_19 = playerCategorySeeder.getCategoryByName("TT Boys (12-19)");
+        SportsPlayerCategory ttGirls12_19 = playerCategorySeeder.getCategoryByName("TT Girls (12-19)");
+        SportsPlayerCategory ttMen19Plus = playerCategorySeeder.getCategoryByName("TT Men (19+)");
+        SportsPlayerCategory ttWomen19Plus = playerCategorySeeder.getCategoryByName("TT Women (19+)");
 
-        SportsEvent ttEvent = getOrCreateSportsEvent(
-                "Table Tennis Open Championship",
-                true,
-                tableTennis, leCommunity, clubhouse, ramesh,
-                Set.of(ttBoysU12, ttGirlsU12, ttBoysTeens, ttGirlsTeens, ttMen20, ttWomen20),
-                SportsEvent.EventStatus.REGISTRATION_OPEN,
-                List.of("SINGLES", "DOUBLES"),
-                SportsEvent.TournamentType.KNOCKOUT,
-                LocalDate.of(2026, 6, 20),
-                LocalDate.of(2026, 6, 22),
-                LocalDate.of(2026, 6, 5),
-                LocalDate.of(2026, 6, 15),
-                32,
-                4, 100,
-                "ALL",
-                LocalDate.of(1900, 1, 1),
-                null
-        );
+        getOrCreateSportsEvent("Table Tennis - Under 12", true, tableTennis, leCommunity, clubhouse, ramesh,
+                Set.of(ttUnder12), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 17), LocalDate.of(2026, 10, 17), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 4, 12, "ALL", LocalDate.of(1900, 1, 1), null);
 
-        log.info("✓ Sports events seeded: Table Tennis Championship (id={})", ttEvent.getId());
+        getOrCreateSportsEvent("Table Tennis - 12-19 Boys", true, tableTennis, leCommunity, clubhouse, ramesh,
+                Set.of(ttBoys12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 18), LocalDate.of(2026, 10, 18), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "MALE", LocalDate.of(1900, 1, 1), null);
 
-        // ── 6. Volleyball Tournament ─────────────────────────────────────
+        getOrCreateSportsEvent("Table Tennis - 12-19 Girls", true, tableTennis, leCommunity, clubhouse, ramesh,
+                Set.of(ttGirls12_19), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 18), LocalDate.of(2026, 10, 18), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 12, 19, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Table Tennis - 19+ Men", true, tableTennis, leCommunity, clubhouse, ramesh,
+                Set.of(ttMen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 24), LocalDate.of(2026, 10, 24), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "MALE", LocalDate.of(1900, 1, 1), null);
+
+        getOrCreateSportsEvent("Table Tennis - 19+ Women", true, tableTennis, leCommunity, clubhouse, ramesh,
+                Set.of(ttWomen19Plus), SportsEvent.EventStatus.REGISTRATION_OPEN, List.of("SINGLES", "DOUBLES"), SportsEvent.TournamentType.KNOCKOUT,
+                LocalDate.of(2026, 10, 24), LocalDate.of(2026, 10, 24), LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 19),
+                32, 19, 100, "FEMALE", LocalDate.of(1900, 1, 1), null);
+
+        log.info("✓ Sports events seeded: 5 Table Tennis category events");
+
+        // ── 6. Volleyball Event (1 Category Event) ───────────────────────
         SportsMeta volleyball = sportsMetaSeeder.getOrCreateSport("Volleyball", "🏐");
         Venue volleyballCourt = venueSeeder.getLeVolleyballCourt();
 
@@ -252,10 +301,10 @@ public class SportsEventSeeder {
                 SportsEvent.EventStatus.REGISTRATION_OPEN,
                 List.of("TEAM"),
                 SportsEvent.TournamentType.ROUND_ROBIN,
-                LocalDate.of(2026, 7, 1),
-                LocalDate.of(2026, 7, 5),
-                LocalDate.of(2026, 6, 15),
-                LocalDate.of(2026, 6, 25),
+                LocalDate.of(2026, 10, 26),
+                LocalDate.of(2026, 10, 31),
+                LocalDate.of(2026, 9, 17),
+                LocalDate.of(2026, 9, 19),
                 16,
                 15, 100,
                 "MALE",
