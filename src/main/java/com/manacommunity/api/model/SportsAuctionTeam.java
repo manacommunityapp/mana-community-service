@@ -28,9 +28,10 @@ public class SportsAuctionTeam {
     @JoinColumn(name = "community_id")
     private Community community;
 
-    @Column(nullable = false)
+    @Column(name = "team_name", nullable = false, length = 100)
     private String teamName;
 
+    @Column(name = "owner_name", length = 100)
     private String ownerName;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
@@ -54,6 +55,7 @@ public class SportsAuctionTeam {
         return eventId != null ? eventId : (event != null ? event.getId() : null);
     }
 
+    @Column(name = "color_hex", length = 10)
     private String colorHex;
 
     @Column(nullable = false)

@@ -3,6 +3,7 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.*;
@@ -72,7 +73,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Weekend League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMaxParticipants(null);
         event.setTournament(tournament);
         event.setSport(sport);
@@ -246,7 +247,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Mixed Doubles Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(true);
 
@@ -294,7 +295,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Open Mixed Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(false);
 
@@ -342,7 +343,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -395,7 +396,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -457,7 +458,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -503,7 +504,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -532,7 +533,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -561,7 +562,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -595,7 +596,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Junior Badminton Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -667,7 +668,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Open Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(100);
         event.setSport(sport);
@@ -720,7 +721,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Championship");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -767,7 +768,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Carroms Open Doubles");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -815,7 +816,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Junior Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMinAge(5);
         event.setMaxAge(60);
@@ -869,7 +870,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Adults Only");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setCategories(java.util.Set.of(eventCategory));
 
@@ -906,7 +907,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Tennis Doubles");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -954,7 +955,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Open Youth Championship");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setAllowHigherAgeCategory(true);
 
@@ -1008,7 +1009,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event2 = new SportsEvent();
         event2.setId(2L);
         event2.setName("Badminton U16 Singles");
-        event2.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event2.setSport(sport);
         event2.setTournament(tournament);
 
@@ -1076,7 +1077,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event2 = new SportsEvent();
         event2.setId(2L);
         event2.setName("Badminton Open Doubles");
-        event2.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event2.setSport(sport);
         event2.setTournament(tournament);
         event2.setAllowMultipleCategories(true);

@@ -72,7 +72,7 @@ public class SportsEventDataSeeder {
                 .community(community)
                 .venue(arena)
                 .createdBy(createdBy)
-                .format(List.of("TEAM"))
+                .format(List.of(SportsEvent.MatchFormat.TEAM))
                 .tournamentType(SportsEvent.TournamentType.ROUND_ROBIN)
                 .registrationDateStart(LocalDate.of(2026, 11, 1))
                 .registrationDateEnd(LocalDate.of(2026, 11, 10))
@@ -84,7 +84,7 @@ public class SportsEventDataSeeder {
                 .maxAge(100)
                 .gender("MALE")
                 .playersBorn(LocalDate.of(1900, 1, 1))
-                .status(SportsEvent.EventStatus.DRAFT)
+                .status(SportsEventStatus.DRAFT)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build());

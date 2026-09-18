@@ -37,7 +37,7 @@ public class SportsEvent {
     @Column(name = "uuid", unique = true, updatable = false)
     private UUID uuid;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 150)
     private String name;
 
     @Column(length = 10)
@@ -123,18 +123,24 @@ public class SportsEvent {
     private Venue venue;
 
     private Integer maxParticipants;
+
+    @Column(name = "start_time", length = 20)
     private String startTime;
+
+    @Column(name = "due_time", length = 20)
     private String dueTime;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auction_status", length = 20)
     private AuctionEventStatus auctionStatus;
 
-    @Column(name = "format", length = 255)
-    @Convert(converter = StringListConverter.class)
+    @ElementCollection
+    @CollectionTable(name = "sports_event_format",
+            joinColumns = @JoinColumn(name = "event_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "format", length = 30)
     @Builder.Default
-    private List<String> format = new ArrayList<>();
-
+    private List<MatchFormat> format = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private TournamentType tournamentType;
@@ -164,8 +170,13 @@ public class SportsEvent {
     @Builder.Default
     private Set<AppUser> disputeCommittee = new java.util.HashSet<>();
 
+    @Column(name = "contact_name", length = 100)
     private String contactName;
+
+    @Column(name = "contact_number", length = 20)
     private String contactNumber;
+
+    @Column(name = "contact_email", length = 150)
     private String contactEmail;
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -180,19 +191,13 @@ public class SportsEvent {
     @Column(name = "other_contacts", length = 1000)
     private String otherContacts;
 
-    // Intent flag: marks a (team-sport) event as auction-based. The actual
-    // SportsAuctionConfig is still created separately on the Auction screen; this
-    // only records that the organiser intends to run a player auction.
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
-    @Column(name = "auction")
-    private Boolean auction;
-
-    // URL or inline base64 data-URI — see SportsTournament.bannerImage; must be TEXT
-    // to avoid the default varchar(255) overflow (SQLSTATE 22001).
     @Column(columnDefinition = "TEXT")
     private String bannerImage;
+
+    @Column(name = "tournament_level", length = 50)
     private String tournamentLevel;
 
     @Column(length = 2000)
@@ -201,7 +206,7 @@ public class SportsEvent {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
     @Builder.Default
-    private EventStatus status = EventStatus.DRAFT;
+    private SportsEventStatus status = SportsEventStatus.DRAFT;
 
     // The foreign key. It MUST be nullable (nullable = true) because
     // you are creating the SportsEvent BEFORE the SportsTournament exists.
@@ -224,7 +229,6 @@ public class SportsEvent {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum EventStatus { DRAFT, REGISTRATION_OPEN, REGISTRATION_CLOSED, LIVE, COMPLETED, CANCELLED }
     public enum AuctionEventStatus { DRAFT, ACTIVE, LIVE, COMPLETED, CANCELLED }
     public enum MatchFormat { SINGLES, DOUBLES, MIXED_DOUBLES, TEAM }
     public enum TournamentType { KNOCKOUT, ROUND_ROBIN, LEAGUE, KNOCKOUT_SINGLE, KNOCKOUT_DOUBLE, GROUP_PLAYOFF, CUSTOM }

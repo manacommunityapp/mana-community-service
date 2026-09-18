@@ -22,8 +22,8 @@ public class SportsAuctionSessionLog {
     @JoinColumn(name = "config_id", nullable = false)
     private SportsAuctionConfig config;
 
-    @Column(nullable = false)
-    private String action; // e.g. PLAYER_SOLD, PLAYER_PASSED
+    @Column(nullable = false, length = 50)
+    private String action;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id")
@@ -39,6 +39,7 @@ public class SportsAuctionSessionLog {
     @JoinColumn(name = "performed_by_user_id")
     private AppUser performedBy;
 
+    @Column(length = 2000)
     private String notes;
 
     @Column(nullable = false, updatable = false)

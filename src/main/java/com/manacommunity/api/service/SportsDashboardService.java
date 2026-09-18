@@ -9,6 +9,7 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
 import com.manacommunity.api.model.SportsEventRegistration;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.SportsTournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
@@ -45,12 +46,12 @@ public class SportsDashboardService {
         List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
 
         int liveCount = (int) (isSuperAdmin
-                ? eventRepo.countByTournamentRegistrationStatus(SportsTournament.EventStatus.LIVE)
-                : (communityId != null ? eventRepo.countByCommunityIdAndTournamentRegistrationStatus(communityId, SportsTournament.EventStatus.LIVE) : 0));
+                ? eventRepo.countByTournamentRegistrationStatus(SportsEventStatus.LIVE)
+                : (communityId != null ? eventRepo.countByCommunityIdAndTournamentRegistrationStatus(communityId, SportsEventStatus.LIVE) : 0));
 
-        List<SportsTournament.EventStatus> upcomingStatuses = List.of(
-                SportsTournament.EventStatus.DRAFT,
-                SportsTournament.EventStatus.REGISTRATION_OPEN
+        List<SportsEventStatus> upcomingStatuses = List.of(
+                SportsEventStatus.DRAFT,
+                SportsEventStatus.REGISTRATION_OPEN
         );
         int upcomingTournamentsCount = (int) (isSuperAdmin
                 ? tournamentRepo.countByRegistrationStatusIn(upcomingStatuses)
@@ -86,9 +87,9 @@ public class SportsDashboardService {
                         (a, b) -> a)); // keep first on duplicate
 
         List<SportsTournament> openTournamentEntities = isSuperAdmin
-                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsTournament.EventStatus.REGISTRATION_OPEN)
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.REGISTRATION_OPEN)
                 : (communityId != null
-                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsTournament.EventStatus.REGISTRATION_OPEN, communityId)
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.REGISTRATION_OPEN, communityId)
                     : List.of());
         return buildTournamentCards(openTournamentEntities, regByEvent);
     }
@@ -107,9 +108,9 @@ public class SportsDashboardService {
                         (a, b) -> a)); // keep first on duplicate
 
         List<SportsTournament> closedTournamentEntities = isSuperAdmin
-                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsTournament.EventStatus.REGISTRATION_CLOSED)
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.REGISTRATION_CLOSED)
                 : (communityId != null
-                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsTournament.EventStatus.REGISTRATION_CLOSED, communityId)
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.REGISTRATION_CLOSED, communityId)
                     : List.of());
         return buildTournamentCards(closedTournamentEntities, regByEvent);
     }
@@ -213,8 +214,8 @@ public class SportsDashboardService {
     }
 
     private boolean isTeamSport(SportsEvent e) {
-        List<String> format = e.getFormat();
-        return format != null && format.contains("TEAM");
+        List<SportsEvent.MatchFormat> format = e.getFormat();
+        return format != null && format.contains(SportsEvent.MatchFormat.TEAM);
     }
 
     private String firstCategoryName(SportsEvent e) {

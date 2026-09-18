@@ -18,35 +18,48 @@ public class Venue {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 150)
     private String name;
 
+    @Column(length = 500)
     private String address;
 
+    @Column(length = 100)
     private String city;
 
+    @Column(length = 100)
     private String area;
 
+    @Column(name = "pin_code", length = 10)
     private String pinCode;
 
+    @Column(name = "map_link", length = 1000)
     private String mapLink;
 
     private Integer capacity;
 
-    private String venueType; // APARTMENT, COLLEGE, SCHOOL, OFFICE, CLUB, OUTSIDE
+    @Column(name = "venue_type", length = 30)
+    private String venueType;
 
-    private String venueCategory; // Community name or SPORTS_VENUE, PUBLIC_PARK, etc.
+    @Column(name = "venue_category", length = 50)
+    private String venueCategory;
 
-    private String openingTime; // e.g. "08:00 AM"
+    @Column(name = "opening_time", length = 20)
+    private String openingTime;
 
-    private String closingTime; // e.g. "08:00 PM"
+    @Column(name = "closing_time", length = 20)
+    private String closingTime;
 
+    @Column(name = "contact_name", length = 100)
     private String contactName;
 
+    @Column(name = "contact_number", length = 20)
     private String contactNumber;
 
+    @Column(name = "contact_email", length = 150)
     private String contactEmail;
 
+    @Column(name = "contact_title", length = 100)
     private String contactTitle;
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -58,7 +71,7 @@ public class Venue {
     @Builder.Default
     private List<Contact> contacts = new ArrayList<>();
 
-    @OneToMany(mappedBy = "venue", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "venue", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SportsCourt> courts = new ArrayList<>();
 

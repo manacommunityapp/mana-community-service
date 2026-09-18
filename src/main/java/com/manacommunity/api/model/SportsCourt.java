@@ -18,14 +18,16 @@ public class SportsCourt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String name;
 
     @Column(length = 20)
-    private String color; // e.g., "#3b82f6"
+    private String color;
 
+    @Column(name = "opening_time", length = 20)
     private String openingTime;
 
+    @Column(name = "closing_time", length = 20)
     private String closingTime;
 
     @ManyToOne(fetch = FetchType.LAZY)

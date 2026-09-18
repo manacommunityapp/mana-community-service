@@ -21,13 +21,14 @@ public class SportsAuctionDisputeCommittee {
     @JoinColumn(name = "config_id")
     private SportsAuctionConfig config;
 
-    @Column(nullable = false)
+    @Column(name = "member_name", nullable = false, length = 100)
     private String memberName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private AppUser user;
 
+    @Column(length = 30)
     private String role;
     private LocalDateTime addedAt;
     

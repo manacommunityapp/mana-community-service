@@ -1,5 +1,6 @@
 package com.manacommunity.api.repository;
 
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsTournament;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -28,13 +29,13 @@ public interface SportsTournamentRepository extends JpaRepository<SportsTourname
     }
 
     @Query("SELECT DISTINCT t FROM SportsTournament t LEFT JOIN FETCH t.sportsEvents WHERE t.registrationStatus = :status ORDER BY t.createdAt DESC")
-    List<SportsTournament> findByRegistrationStatusWithEvents(@Param("status") SportsTournament.EventStatus status);
+    List<SportsTournament> findByRegistrationStatusWithEvents(@Param("status") SportsEventStatus status);
 
     @Query("SELECT DISTINCT t FROM SportsTournament t LEFT JOIN FETCH t.sportsEvents se WHERE t.registrationStatus = :status AND t.community.id = :communityId ORDER BY t.createdAt DESC")
-    List<SportsTournament> findByRegistrationStatusAndCommunityWithEvents(@Param("status") SportsTournament.EventStatus status, @Param("communityId") Long communityId);
+    List<SportsTournament> findByRegistrationStatusAndCommunityWithEvents(@Param("status") SportsEventStatus status, @Param("communityId") Long communityId);
 
-    long countByRegistrationStatusIn(List<SportsTournament.EventStatus> statuses);
-    long countByCommunityIdAndRegistrationStatusIn(Long communityId, List<SportsTournament.EventStatus> statuses);
+    long countByRegistrationStatusIn(List<SportsEventStatus> statuses);
+    long countByCommunityIdAndRegistrationStatusIn(Long communityId, List<SportsEventStatus> statuses);
 
     @Modifying
     @Transactional
