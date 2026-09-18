@@ -57,6 +57,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final com.manacommunity.api.service.RecaptchaService recaptchaService;
     private final com.manacommunity.api.service.OtpService otpService;
     private final ContactRepository contactRepository;
+    private final com.manacommunity.api.repository.SportsEventFormatRepository formatRepo;
     private final AuditService auditService;
     private final com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     private final SportsPlayerRankingRepository rankingRepo;
@@ -112,8 +113,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .registrationDateEnd(req.getRegistrationDateEnd())
                 .venue(venue)
                 .maxParticipants(req.getMaxParticipants() != null ? req.getMaxParticipants() : 64)
-                .status(SportsEvent.EventStatus.DRAFT)
-                .format(req.getFormat() != null ? java.util.Arrays.asList(req.getFormat().split(",")) : new java.util.ArrayList<>())
+                .status(SportsEventStatus.DRAFT)
                 .tournamentType(req.getTournamentType() != null
                         ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null)
                 .createdBy(userRepo.getReferenceById(adminUserId))
@@ -130,7 +130,6 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .contacts(resolveContacts(req.getContacts()))
                 .otherContacts(req.getOtherContacts())
                 .auctionEnabled(req.getAuction() != null ? req.getAuction() : (req.getAuctionEnabled() != null && req.getAuctionEnabled()))
-                .auction(req.getAuction() != null ? req.getAuction() : (req.getAuctionEnabled() != null && req.getAuctionEnabled()))
                 .bannerImage(req.getBannerImage())
                 .tournamentLevel(req.getTournamentLevel())
                 .description(req.getDescription())
@@ -143,6 +142,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .allowHigherAgeCategory(req.getAllowHigherAgeCategory() == null || req.getAllowHigherAgeCategory())
                 .allowMultipleCategories(req.getAllowMultipleCategories() == null || req.getAllowMultipleCategories())
                 .build();
+
+        event.setFormat(parseMatchFormats(req.getFormat()));
 
         if (req.getCategoryIds() != null)
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
@@ -189,7 +190,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
-        if (event.getStatus() != SportsEvent.EventStatus.REGISTRATION_OPEN)
+        if (event.getStatus() != SportsEventStatus.REGISTRATION_OPEN)
             throw new RegistrationClosedException(event.getName(), event.getStatus().name());
 
         // Anti-abuse gates (both no-ops unless enabled in config): bot check then
@@ -274,12 +275,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         String finalFlat = flat;
         String finalPlayerName = pName;
 
-        // Duplicate guard: a registration is a duplicate when name + email + flat number all match
-        // an existing one for this event (case-insensitive, trimmed)
-        boolean duplicate = regRepo.findByEventId(req.getEventId()).stream().anyMatch(r ->
-                normEq(r.getPlayerName(), finalPlayerName)
-                        && normEq(r.getEmail(), finalEmail)
-                        && normEq(r.getFlatNumber(), finalFlat));
+        boolean duplicate = regRepo.existsDuplicateRegistration(
+                req.getEventId(), finalPlayerName, finalEmail, finalFlat);
         if (duplicate) {
             throw new AlreadyRegisteredException(
                     "Registration for " + pName
@@ -328,25 +325,32 @@ public class SportsEventServiceImpl implements SportsEventService {
         // If registering self (not via family member, and pName matches user) as a junior (< 18),
         // but historical records show prior participation as adult (18+)
         boolean isSelfRegistration = req.getFamilyMemberId() == null && normEq(pName, user.getFullName());
-        if (isSelfRegistration) {
-            List<SportsEventRegistration> pastRegistrations = regRepo.findByUserId(userId);
-            for (SportsEventRegistration pastReg : pastRegistrations) {
-                if (pastReg.getAge() != null && pastReg.getAge() >= 18 && age < 18) {
-                    throw new InvalidInputException(
-                            "Age conflict detected: Historical records show prior participation in Adult categories (" +
-                            pastReg.getAge() + " yrs in '" + (pastReg.getEvent() != null ? pastReg.getEvent().getName() : "past event") + "'). " +
-                            "To register your child/family member, please add them via Family Members."
-                    );
-                }
+        if (isSelfRegistration && age < 18) {
+            boolean hasAdultHistory = regRepo.existsByUserIdAndAgeGreaterThanEqual(userId, 18);
+            if (hasAdultHistory) {
+                throw new InvalidInputException(
+                        "Age conflict detected: Historical records show prior participation in Adult categories. " +
+                        "To register your child/family member, please add them via Family Members."
+                );
             }
         }
 
         SportsEvent.MatchFormat matchFormat = null;
-        if (req.getMatchType() != null && !req.getMatchType().isBlank()) {
+        com.manacommunity.api.model.SportsEventFormat selectedFormat = null;
+
+        if (req.getFormatId() != null) {
+            selectedFormat = formatRepo.findById(req.getFormatId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SportsEventFormat", req.getFormatId()));
+            if (!selectedFormat.getEvent().getId().equals(event.getId())) {
+                throw new InvalidInputException("The selected format does not belong to this event.");
+            }
+            matchFormat = selectedFormat.getFormat();
+        } else if (req.getMatchType() != null && !req.getMatchType().isBlank()) {
             try {
-                matchFormat = SportsEvent.MatchFormat.valueOf(req.getMatchType());
+                matchFormat = SportsEvent.MatchFormat.valueOf(req.getMatchType().trim());
             } catch (IllegalArgumentException ignored) {}
         }
+
         if (matchFormat == null) {
             String catName = category.getName() != null ? category.getName().toUpperCase() : "";
             if (catName.contains("MIXED")) {
@@ -355,6 +359,19 @@ public class SportsEventServiceImpl implements SportsEventService {
                 matchFormat = SportsEvent.MatchFormat.DOUBLES;
             } else {
                 matchFormat = SportsEvent.MatchFormat.SINGLES;
+            }
+        }
+
+        if (selectedFormat == null && matchFormat != null) {
+            final SportsEvent.MatchFormat targetFmt = matchFormat;
+            if (event.getEventFormats() != null && !event.getEventFormats().isEmpty()) {
+                selectedFormat = event.getEventFormats().stream()
+                        .filter(f -> f.getFormat() == targetFmt)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (selectedFormat == null) {
+                selectedFormat = formatRepo.findByEventIdAndFormat(event.getId(), targetFmt).orElse(null);
             }
         }
 
@@ -387,53 +404,33 @@ public class SportsEventServiceImpl implements SportsEventService {
                 } catch (Exception e) {
                     partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
                 }
-            } else if (partnerFamilyMember.getAge() != null) {
-                partnerAge = partnerFamilyMember.getAge();
             } else {
-                throw new InvalidInputException("Please update Date of Birth for partner family member " + partnerDisplayName + " in your Profile before registering.");
+                partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
             }
-
-            // 1. Check if partner family member is already picked as partner in another active registration for this event
-            boolean partnerAlreadyPicked = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndStatusIn(
-                    req.getEventId(), partnerFamilyMember.getId(), activeStatuses);
-            if (partnerAlreadyPicked) {
-                throw new AlreadyRegisteredException(
-                        partnerDisplayName + " is already selected as a partner in another registration for this event.");
-            }
-
-            // 2. Check if partner family member has already registered as a primary player
-            boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndFamilyMemberIdAndStatusIn(
-                    req.getEventId(), partnerFamilyMember.getId(), activeStatuses);
-            if (partnerAlreadyPrimary) {
-                throw new AlreadyRegisteredException(
-                        partnerDisplayName + " has already registered for this event.");
-            }
-
-            // 3. Partner age bounds validation (event and category limits)
             validateAgeEligibility(partnerAge, event, category, "Partner");
 
-            // 4. Partner Option B duplicate guard
+            // Partner Option B duplicate guard
             validateOptionBDuplicates(partner, partnerFamilyMember, partnerDisplayName, event, category, matchFormat, activeStatuses);
-
         } else if (req.getPartnerUserId() != null) {
-            if (req.getPartnerUserId().equals(userId) && familyMember == null) {
+            // Self as partner check
+            if (req.getPartnerUserId().equals(userId)) {
                 throw new InvalidInputException("You cannot select yourself as a doubles partner.");
             }
 
             partner = userRepo.findById(req.getPartnerUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Partner User", req.getPartnerUserId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("User", req.getPartnerUserId()));
             partnerDisplayName = partner.getFullName();
             partnerGender = partner.getGender() != null ? partner.getGender().trim().toUpperCase() : "";
 
-            // 1. Check if partner is already picked as partner in another active registration for this event
-            boolean partnerAlreadyPicked = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
+            // 1. Partner cannot already be partner in another registration for THIS event
+            boolean partnerAlreadySelected = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
                     req.getEventId(), req.getPartnerUserId(), activeStatuses);
-            if (partnerAlreadyPicked) {
+            if (partnerAlreadySelected) {
                 throw new AlreadyRegisteredException(
-                        partner.getFullName() + " is already selected as a partner in another registration for this event.");
+                        partner.getFullName() + " is already registered / pending as a partner for this event.");
             }
 
-            // 2. Check if partner has already registered themselves as a primary player
+            // 2. Partner cannot already be a primary registrant for THIS event
             boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndStatusIn(
                     req.getEventId(), req.getPartnerUserId(), activeStatuses);
             if (partnerAlreadyPrimary) {
@@ -493,7 +490,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         );
                     }
                 }
-                // 3. Strict Mixed Doubles Category or Format
+                // 3. Mixed Doubles (1 Male + 1 Female mandatory when configured)
                 else if ("MIXED".equals(catGender) || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) {
                     boolean isMandatoryMixed = event.getMandatoryMixedDoubles() == null || event.getMandatoryMixedDoubles();
                     if (isMandatoryMixed) {
@@ -526,6 +523,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .familyMember(familyMember)
                 .category(category)
                 .matchType(matchFormat)
+                .eventFormat(selectedFormat)
                 .partner(partner)
                 .partnerFamilyMember(partnerFamilyMember)
                 .partnerConfirmationStatus(partner != null ? SportsEventRegistration.PartnerConfirmationStatus.PENDING : null)
@@ -598,6 +596,15 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    private static List<SportsEvent.MatchFormat> parseMatchFormats(String csv) {
+        if (csv == null || csv.isBlank()) return new java.util.ArrayList<>();
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(SportsEvent.MatchFormat::valueOf)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     /** Null-safe, case-insensitive, trimmed equality (treats null and blank as equal). */
     private static boolean normEq(String a, String b) {
         return java.util.Objects.equals(
@@ -653,6 +660,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
         reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setReviewedAt(LocalDateTime.now());
         SportsEventRegistration saved = regRepo.save(reg);
 
         handleConfirmationSideEffects(saved);
@@ -718,6 +726,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
         reg.setStatus(SportsEventRegistration.RegistrationStatus.REJECTED);
         reg.setRejectReason(reason);
+        reg.setReviewedAt(LocalDateTime.now());
         SportsEventRegistration saved = regRepo.save(reg);
 
         // Registration process — the entry was not approved (optional reason).
@@ -911,9 +920,9 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Transactional
     public SportsEvent updateStatus(Long id, String status) {
-        SportsTournament.EventStatus tournamentStatus;
+        SportsEventStatus tournamentStatus;
         try {
-            tournamentStatus = SportsTournament.EventStatus.valueOf(status);
+            tournamentStatus = SportsEventStatus.valueOf(status);
         } catch (IllegalArgumentException e) {
             throw new ManaCommunityException(
                     "Invalid event status: '" + status + "'. Valid values: DRAFT, REGISTRATION_OPEN, "
@@ -930,20 +939,20 @@ public class SportsEventServiceImpl implements SportsEventService {
             tournamentRepo.save(tournament);
         }
 
-        boolean isClosing = tournamentStatus == SportsTournament.EventStatus.COMPLETED
-                || tournamentStatus == SportsTournament.EventStatus.CANCELLED;
+        boolean isClosing = tournamentStatus == SportsEventStatus.COMPLETED
+                || tournamentStatus == SportsEventStatus.CANCELLED;
 
         if (isClosing && tournament != null && tournament.getSportsEvents() != null) {
             for (SportsEvent sibling : tournament.getSportsEvents()) {
                 sibling.setActive(false);
-                sibling.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                sibling.setStatus(tournamentStatus);
                 sibling.setUpdatedAt(LocalDateTime.now());
                 eventRepo.save(sibling);
             }
         } else if (tournament != null && tournament.getSportsEvents() != null) {
             for (SportsEvent sibling : tournament.getSportsEvents()) {
                 sibling.setActive(true);
-                sibling.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                sibling.setStatus(tournamentStatus);
                 sibling.setUpdatedAt(LocalDateTime.now());
                 eventRepo.save(sibling);
             }
@@ -955,7 +964,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         } else {
             event.setActive(true);
         }
-        event.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+        event.setStatus(tournamentStatus);
         SportsEvent saved = eventRepo.save(event);
 
         notifyEventParticipants(saved, tournamentStatus);
@@ -1059,17 +1068,17 @@ public class SportsEventServiceImpl implements SportsEventService {
     public List<SportsEvent> getOpenEvents(Long communityId) {
         return eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
                 communityId,
-                List.of(SportsTournament.EventStatus.REGISTRATION_OPEN));
+                List.of(SportsEventStatus.REGISTRATION_OPEN));
     }
 
     @Override
     public List<SportsEvent> getAllOpenEvents() {
-        return eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsTournament.EventStatus.REGISTRATION_OPEN);
+        return eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsEventStatus.REGISTRATION_OPEN);
     }
 
     @Override
     public List<SportsEvent> getClosedEvents() {
-        List<SportsEvent> events = eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsTournament.EventStatus.REGISTRATION_CLOSED);
+        List<SportsEvent> events = eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsEventStatus.REGISTRATION_CLOSED);
         for (SportsEvent event : events) {
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
@@ -1081,7 +1090,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     public List<SportsEvent> getClosedEvents(Long communityId) {
         List<SportsEvent> events = eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
-                communityId, List.of(SportsTournament.EventStatus.REGISTRATION_CLOSED));
+                communityId, List.of(SportsEventStatus.REGISTRATION_CLOSED));
         for (SportsEvent event : events) {
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
@@ -1223,7 +1232,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setMaxPlayers(req.getMaxPlayers());
         event.setGender(req.getGender());
         event.setPlayersBorn(req.getPlayersBorn());
-        event.setFormat(req.getFormat() != null ? java.util.Arrays.asList(req.getFormat().split(",")) : new java.util.ArrayList<>());
+        event.setFormat(parseMatchFormats(req.getFormat()));
         event.setTournamentType(req.getTournamentType() != null
                 ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null);
         
@@ -1235,7 +1244,6 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setOtherContacts(req.getOtherContacts());
         if (req.getAuction() != null || req.getAuctionEnabled() != null) {
             Boolean isAuction = req.getAuction() != null ? req.getAuction() : req.getAuctionEnabled();
-            event.setAuction(isAuction);
             event.setAuctionEnabled(isAuction);
         }
         event.setBannerImage(req.getBannerImage());
@@ -1325,7 +1333,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         return regRepo.save(reg);
     }
 
-     private void notifyEventParticipants(SportsEvent event, SportsTournament.EventStatus newStatus) {
+     private void notifyEventParticipants(SportsEvent event, SportsEventStatus newStatus) {
         try {
             List<Long> userIds = regRepo.findByEventId(event.getId()).stream()
                     .filter(r -> r.getUser() != null && r.getUser().getId() != null)
@@ -1469,7 +1477,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .toList();
 
         for (SportsEventRegistration r : existingRegs) {
-            if (r.getEvent() == null || r.getEvent().getId().equals(currentEvent.getId())) {
+            if (r.getEvent() == null || r.getEvent().getId() == null || currentEvent.getId() == null || r.getEvent().getId().equals(currentEvent.getId())) {
                 continue;
             }
             if (r.getStatus() == null || !activeStatuses.contains(r.getStatus())) {

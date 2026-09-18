@@ -64,7 +64,7 @@ public class SportsEventTools {
                 "e.eventDateStart, e.eventDateEnd, " +
                 "e.registrationDateStart, e.registrationDateEnd, " +
                 "e.maxParticipants, e.startTime, e.dueTime, " +
-                "e.format, e.tournamentType, e.auctionStatus, e.auctionEnabled, " +
+                "e.tournamentType, e.auctionStatus, e.auctionEnabled, " +
                 "e.adminApprovalRequired, e.active, " +
                 "e.contactName, e.contactNumber, e.contactEmail, " +
                 "e.bannerImage, e.tournamentLevel, " +
@@ -77,6 +77,11 @@ public class SportsEventTools {
                 .getResultList();
 
         if (rows.isEmpty()) return Map.of("error", "Event not found");
+
+        List<String> formats = em.createQuery(
+                "SELECT f FROM SportsEvent e JOIN e.format f WHERE e.id = :eid", String.class)
+                .setParameter("eid", eventId)
+                .getResultList();
 
         Object[] r = rows.get(0);
         Map<String, Object> result = new LinkedHashMap<>();
@@ -96,21 +101,21 @@ public class SportsEventTools {
         result.put("max_participants", r[13]);
         result.put("start_time", r[14]);
         result.put("due_time", r[15]);
-        result.put("format", r[16]);
-        result.put("tournament_type", r[17] != null ? r[17].toString() : null);
-        result.put("auction_status", r[18] != null ? r[18].toString() : null);
-        result.put("auction_enabled", r[19]);
-        result.put("admin_approval_required", r[20]);
-        result.put("active", r[21]);
-        result.put("contact_name", r[22]);
-        result.put("contact_number", r[23]);
-        result.put("contact_email", r[24]);
-        result.put("sport", r[27]);
-        result.put("sport_icon", r[28]);
-        result.put("venue", r[29]);
-        result.put("venue_address", r[30]);
-        result.put("venue_city", r[31]);
-        result.put("registration_status", r[32] != null ? r[32].toString() : null);
+        result.put("format", formats);
+        result.put("tournament_type", r[16] != null ? r[16].toString() : null);
+        result.put("auction_status", r[17] != null ? r[17].toString() : null);
+        result.put("auction_enabled", r[18]);
+        result.put("admin_approval_required", r[19]);
+        result.put("active", r[20]);
+        result.put("contact_name", r[21]);
+        result.put("contact_number", r[22]);
+        result.put("contact_email", r[23]);
+        result.put("sport", r[26]);
+        result.put("sport_icon", r[27]);
+        result.put("venue", r[28]);
+        result.put("venue_address", r[29]);
+        result.put("venue_city", r[30]);
+        result.put("registration_status", r[31] != null ? r[31].toString() : null);
 
         // Registration counts by status
         var statusCounts = em.createQuery(
@@ -292,7 +297,7 @@ public class SportsEventTools {
 
         StringBuilder jpql = new StringBuilder(
                 "SELECT e.id, e.name, s.name, v.name, e.eventDateStart, e.eventDateEnd, " +
-                "e.format, e.tournamentType, t.registrationStatus, e.maxParticipants " +
+                "e.tournamentType, t.registrationStatus, e.maxParticipants " +
                 "FROM SportsEvent e " +
                 "LEFT JOIN e.sport s LEFT JOIN e.venue v LEFT JOIN e.tournament t " +
                 "WHERE e.community.id = :comId");
@@ -317,10 +322,9 @@ public class SportsEventTools {
                     m.put("venue", r[3]);
                     m.put("start_date", r[4] != null ? r[4].toString() : null);
                     m.put("end_date", r[5] != null ? r[5].toString() : null);
-                    m.put("format", r[6]);
-                    m.put("tournament_type", r[7] != null ? r[7].toString() : null);
-                    m.put("registration_status", r[8] != null ? r[8].toString() : null);
-                    m.put("max_participants", r[9]);
+                    m.put("tournament_type", r[6] != null ? r[6].toString() : null);
+                    m.put("registration_status", r[7] != null ? r[7].toString() : null);
+                    m.put("max_participants", r[8]);
                     return m;
                 })
                 .collect(Collectors.toList());

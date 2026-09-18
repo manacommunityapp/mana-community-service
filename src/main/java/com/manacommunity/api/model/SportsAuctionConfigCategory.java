@@ -19,7 +19,7 @@ public class SportsAuctionConfigCategory {
     @JoinColumn(name = "config_id", nullable = false)
     private SportsAuctionConfig config;
 
-    @Column(nullable = false)
+    @Column(name = "category_name", nullable = false, length = 100)
     private String categoryName;
 
     public SportsAuctionConfigCategory(SportsAuctionConfig config, String categoryName) {

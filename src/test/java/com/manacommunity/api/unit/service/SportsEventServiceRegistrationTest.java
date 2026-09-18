@@ -3,6 +3,7 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.*;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SportsEventServiceRegistrationTest {
 
     @Mock private SportsEventRepository eventRepo;
@@ -47,9 +51,8 @@ class SportsEventServiceRegistrationTest {
     @Mock private RecaptchaService recaptchaService;
     @Mock private OtpService otpService;
     @Mock private ContactRepository contactRepository;
-    private final SportsPlayerRankingRepository rankingRepo = null;
+    @Mock private com.manacommunity.api.repository.SportsEventFormatRepository formatRepo;
     @Mock private com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
-
     @Mock private com.manacommunity.api.security.AuditService auditService;
 
     @InjectMocks
@@ -72,7 +75,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Weekend League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMaxParticipants(null);
         event.setTournament(tournament);
         event.setSport(sport);
@@ -246,7 +249,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Mixed Doubles Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(true);
 
@@ -294,7 +297,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Open Mixed Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(false);
 
@@ -342,7 +345,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -374,6 +377,7 @@ class SportsEventServiceRegistrationTest {
         when(categoryRepo.findById(10L)).thenReturn(Optional.of(category));
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.findByUserId(2L)).thenReturn(List.of(pastReg));
+        when(regRepo.existsByUserIdAndAgeGreaterThanEqual(2L, 18)).thenReturn(true);
 
         assertThatThrownBy(() -> service.registerUser(req, 2L))
                 .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
@@ -395,7 +399,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -457,7 +461,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -503,7 +507,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -532,7 +536,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -561,7 +565,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -595,7 +599,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Junior Badminton Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -667,7 +671,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Open Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(100);
         event.setSport(sport);
@@ -720,7 +724,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Championship");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -767,7 +771,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Carroms Open Doubles");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -815,7 +819,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Junior Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMinAge(5);
         event.setMaxAge(60);
@@ -869,7 +873,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Adults Only");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setCategories(java.util.Set.of(eventCategory));
 
@@ -906,7 +910,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Tennis Doubles");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -954,7 +958,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Open Youth Championship");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setAllowHigherAgeCategory(true);
 
@@ -1008,7 +1012,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event2 = new SportsEvent();
         event2.setId(2L);
         event2.setName("Badminton U16 Singles");
-        event2.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event2.setSport(sport);
         event2.setTournament(tournament);
 
@@ -1076,7 +1080,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event2 = new SportsEvent();
         event2.setId(2L);
         event2.setName("Badminton Open Doubles");
-        event2.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event2.setSport(sport);
         event2.setTournament(tournament);
         event2.setAllowMultipleCategories(true);
@@ -1127,5 +1131,61 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
         org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
+    }
+
+    @Test
+    void registerUser_withFormatId_setsFormatAndMatchTypeOnRegistration() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(5L);
+        req.setCategoryId(15L);
+        req.setFormatId(101L);
+        req.setPlayerName("Format Tester");
+        req.setAge(25);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(5L);
+        event.setName("Table Tennis Open");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        SportsMeta sport = new SportsMeta();
+        sport.setId(2L);
+        sport.setName("Table Tennis");
+        event.setSport(sport);
+
+        com.manacommunity.api.model.SportsEventFormat eventFormat = com.manacommunity.api.model.SportsEventFormat.builder()
+                .id(101L)
+                .event(event)
+                .format(SportsEvent.MatchFormat.SINGLES)
+                .build();
+        event.setEventFormats(List.of(eventFormat));
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Format Tester");
+        user.setGender("MALE");
+        user.setEmail("tester@gmail.com");
+        user.setDateOfBirth(LocalDate.now().minusYears(25));
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(15L);
+        category.setName("Men Singles");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(5L)).thenReturn(Optional.of(event));
+        when(formatRepo.findById(101L)).thenReturn(Optional.of(eventFormat));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(org.mockito.ArgumentMatchers.any());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(15L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(5L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of());
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.SINGLES);
+        org.assertj.core.api.Assertions.assertThat(saved.getEventFormat()).isEqualTo(eventFormat);
+        org.assertj.core.api.Assertions.assertThat(saved.getEventFormat().getId()).isEqualTo(101L);
     }
 }

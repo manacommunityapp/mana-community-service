@@ -42,8 +42,8 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
                 : tournamentRepo.findByEventCommunityIdOrderByCreatedAtDesc(targetCommunityId);
 
         long activeTournaments = tournaments.stream()
-                .filter(t -> t.getRegistrationStatus() == SportsTournament.EventStatus.REGISTRATION_OPEN
-                        || t.getRegistrationStatus() == SportsTournament.EventStatus.LIVE)
+                .filter(t -> t.getRegistrationStatus() == SportsEventStatus.REGISTRATION_OPEN
+                        || t.getRegistrationStatus() == SportsEventStatus.LIVE)
                 .count();
 
         // 2. Fetch Events

@@ -131,7 +131,7 @@ public class SportsAdminService {
                 e.getName(),
                 e.getEventDateStart(),
                 e.getEventDateEnd(),
-                e.getFormat(),
+                e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : java.util.List.of(),
                 e.getTournamentType() != null ? e.getTournamentType().name() : null,
                 e.getGender(),
                 e.getMinAge(),

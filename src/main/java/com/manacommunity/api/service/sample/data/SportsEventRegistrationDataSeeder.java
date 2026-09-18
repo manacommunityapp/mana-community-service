@@ -3,6 +3,7 @@ package com.manacommunity.api.service.sample.data;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.SportsPlayerCategory;
 import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.SportsEventFormat;
 import com.manacommunity.api.model.SportsEventRegistration;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
@@ -27,7 +28,6 @@ public class SportsEventRegistrationDataSeeder {
 
     private final SportsEventRegistrationRepository regRepo;
     private final SportsEventRepository sportsEventRepo;
-    private final SportsEventDataSeeder sportsEventDataSeeder;
     private final UserSeeder userSeeder;
     private final SportsPlayerCategorySeeder playerCategorySeeder;
 
@@ -37,10 +37,13 @@ public class SportsEventRegistrationDataSeeder {
     }
 
     /**
-     * Seeds sample registrations across all sports sub-events.
+     * Seeds sample registrations across all sports sub-events (COMMENTED OUT).
      */
     @Transactional
     public int seedAllSportsRegistrations() {
+        log.info("SportsEventRegistrationDataSeeder: registration seeding is disabled (commented out).");
+        return 0;
+        /*
         log.info("Seeding sample participant registrations across all sports sub-events...");
         int total = 0;
         total += seedBadmintonRegistrations();
@@ -50,12 +53,16 @@ public class SportsEventRegistrationDataSeeder {
         total += seedVolleyballRegistrations();
         log.info("✓ Total sample registrations seeded across all sports: {}", total);
         return total;
+        */
     }
 
     /**
-     * Seeds 16 badminton participant registrations into discrete Badminton events.
+     * Seeds 16 badminton participant registrations into discrete Badminton events (COMMENTED OUT).
      */
     public int seedBadmintonRegistrations() {
+        log.info("seedBadmintonRegistrations is disabled (commented out).");
+        return 0;
+        /*
         SportsEvent badMenEvent = getEventByName("Badminton - 19+ Men");
         SportsEvent badWomenEvent = getEventByName("Badminton - 19+ Women");
         SportsEvent badKidsEvent = getEventByName("Badminton - Under 12");
@@ -95,12 +102,16 @@ public class SportsEventRegistrationDataSeeder {
 
         log.info("✓ Badminton registrations seeded: {} players", created);
         return created;
+        */
     }
 
     /**
-     * Seeds 8 table tennis participant registrations into discrete TT events.
+     * Seeds 8 table tennis participant registrations into discrete TT events (COMMENTED OUT).
      */
     public int seedTableTennisRegistrations() {
+        log.info("seedTableTennisRegistrations is disabled (commented out).");
+        return 0;
+        /*
         SportsEvent ttMenEvent = getEventByName("Table Tennis - 19+ Men");
         SportsEvent ttWomenEvent = getEventByName("Table Tennis - 19+ Women");
         SportsEvent ttBoysEvent = getEventByName("Table Tennis - 12-19 Boys");
@@ -127,12 +138,16 @@ public class SportsEventRegistrationDataSeeder {
 
         log.info("✓ Table Tennis registrations seeded: {} players", created);
         return created;
+        */
     }
 
     /**
-     * Seeds 8 chess participant registrations into discrete Chess events.
+     * Seeds 8 chess participant registrations into discrete Chess events (COMMENTED OUT).
      */
     public int seedChessRegistrations() {
+        log.info("seedChessRegistrations is disabled (commented out).");
+        return 0;
+        /*
         SportsEvent chessMenEvent = getEventByName("Chess - 19+ Men");
         SportsEvent chessWomenEvent = getEventByName("Chess - 19+ Women");
         SportsEvent chessKidsEvent = getEventByName("Chess - Under 12");
@@ -159,12 +174,16 @@ public class SportsEventRegistrationDataSeeder {
 
         log.info("✓ Chess registrations seeded: {} players", created);
         return created;
+        */
     }
 
     /**
-     * Seeds 8 carroms participant registrations into discrete Carroms events.
+     * Seeds 8 carroms participant registrations into discrete Carroms events (COMMENTED OUT).
      */
     public int seedCarromsRegistrations() {
+        log.info("seedCarromsRegistrations is disabled (commented out).");
+        return 0;
+        /*
         SportsEvent carromMenEvent = getEventByName("Carroms - 19+ Men");
         SportsEvent carromWomenEvent = getEventByName("Carroms - 19+ Women");
         SportsEvent carromBoysEvent = getEventByName("Carroms - 12-19 Boys");
@@ -191,6 +210,7 @@ public class SportsEventRegistrationDataSeeder {
 
         log.info("✓ Carroms registrations seeded: {} players", created);
         return created;
+        */
     }
 
     private SportsEvent getEventByName(String name) {
@@ -201,9 +221,12 @@ public class SportsEventRegistrationDataSeeder {
     }
 
     /**
-     * Seeds 12 volleyball participant registrations.
+     * Seeds 12 volleyball participant registrations (COMMENTED OUT).
      */
     public int seedVolleyballRegistrations() {
+        log.info("seedVolleyballRegistrations is disabled (commented out).");
+        return 0;
+        /*
         SportsEvent vEvent = sportsEventRepo.findAll().stream()
                 .filter(e -> e.getName() != null && e.getName().equalsIgnoreCase("Volleyball Premier League"))
                 .findFirst()
@@ -229,17 +252,19 @@ public class SportsEventRegistrationDataSeeder {
 
         log.info("✓ Volleyball registrations seeded: {} players for {}", created, vEvent.getName());
         return created;
+        */
     }
 
     /**
      * Idempotent registration helper. Checks existence by event + user + playerName
-     * before inserting.
+     * before inserting (COMMENTED OUT).
      */
     private int register(SportsEvent event, AppUser user, SportsPlayerCategory category,
                          SportsEvent.MatchFormat matchType,
                          SportsEventRegistration.RegistrationStatus status,
                          String playerName, int age, String role,
                          String flatNumberOverride) {
+        /*
         if (user == null || event == null || category == null) return 0;
         if (regRepo.existsByEventIdAndUserIdAndPlayerName(event.getId(), user.getId(), playerName)) {
             return 0; // already exists
@@ -248,11 +273,20 @@ public class SportsEventRegistrationDataSeeder {
                 ? flatNumberOverride
                 : (user.getBlock() + " " + user.getFlatNo());
 
+        SportsEventFormat eventFormat = null;
+        if (event.getEventFormats() != null) {
+            eventFormat = event.getEventFormats().stream()
+                    .filter(f -> f.getFormat() == matchType)
+                    .findFirst()
+                    .orElse(null);
+        }
+
         regRepo.save(SportsEventRegistration.builder()
                 .event(event)
                 .user(user)
                 .category(category)
                 .matchType(matchType)
+                .eventFormat(eventFormat)
                 .status(status)
                 .playerName(playerName)
                 .age(age)
@@ -261,5 +295,7 @@ public class SportsEventRegistrationDataSeeder {
                 .registeredAt(LocalDateTime.now())
                 .build());
         return 1;
+        */
+        return 0;
     }
 }

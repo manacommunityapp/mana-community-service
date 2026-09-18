@@ -2,6 +2,7 @@ package com.manacommunity.api.service.sample.data;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.SportsEventRepository;
 import com.manacommunity.api.repository.SportsTournamentRepository;
@@ -68,7 +69,7 @@ public class SportsTournamentSeeder {
                 .dueTime("08:00 PM")
                 .otherContacts("[]")
                 .bannerImage("")
-                .registrationStatus(SportsTournament.EventStatus.REGISTRATION_OPEN)
+                .registrationStatus(SportsEventStatus.REGISTRATION_OPEN)
                 .sportsEvents(new ArrayList<>())
                 .sponsors(new ArrayList<>())
                 .community(leCommunity)

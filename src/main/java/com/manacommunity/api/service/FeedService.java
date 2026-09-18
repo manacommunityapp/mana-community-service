@@ -1184,8 +1184,8 @@ public class FeedService {
             sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
                     communityId,
                     List.of(
-                            com.manacommunity.api.model.SportsTournament.EventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.model.SportsTournament.EventStatus.LIVE
+                            com.manacommunity.api.model.SportsEventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.model.SportsEventStatus.LIVE
                     )
             );
         } catch (Exception ignored) {

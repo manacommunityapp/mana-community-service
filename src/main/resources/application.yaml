@@ -22,6 +22,9 @@ spring:
     baseline-description: "pre-flyway baseline schema"
     out-of-order: false
     validate-on-migrate: true
+    # Allow startup even if a previous migration (e.g. V127) is in FAILED state;
+    # V128 will repair whatever V127 missed.
+    ignore-migration-patterns: "*:failed"
   # ── Timezone & Localization (Indian Standard Time) ─────────────────────
   jackson:
     time-zone: Asia/Kolkata

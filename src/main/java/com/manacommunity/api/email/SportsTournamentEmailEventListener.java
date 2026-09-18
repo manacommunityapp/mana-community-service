@@ -1,6 +1,6 @@
 package com.manacommunity.api.email;
 
-import com.manacommunity.api.model.SportsTournament;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.repository.SportsTournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,7 @@ public class SportsTournamentEmailEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onStatusChanged(SportsTournamentStatusChangedEvent event) {
-        if (event.newStatus() != SportsTournament.EventStatus.REGISTRATION_OPEN) return;
+        if (event.newStatus() != SportsEventStatus.REGISTRATION_OPEN) return;
 
         tournamentRepository.findById(event.tournamentId()).ifPresentOrElse(
                 tournament -> {

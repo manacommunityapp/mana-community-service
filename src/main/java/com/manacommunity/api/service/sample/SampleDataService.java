@@ -45,7 +45,6 @@ public class SampleDataService implements ApplicationRunner {
     private final RolePermissionDataSeeder rolePermissionDataSeeder;
     private final VenueDataSeeder venueDataSeeder;
     private final SportsCourtDataSeeder courtDataSeeder;
-    private final SportsEventDataSeeder sportsEventDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
@@ -136,7 +135,6 @@ public class SampleDataService implements ApplicationRunner {
 
             // Layer 6 — dedicated per-table seeders (depend on previous layers)
             courtDataSeeder.seed();
-            sportsEventDataSeeder.seed();
             sportsEventRegistrationDataSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");

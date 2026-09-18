@@ -66,7 +66,7 @@ public class SportsScheduleService {
                 e.getEventDateEnd(),
                 status,
                 auctionStatus,
-                e.getFormat(),
+                e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : java.util.List.of(),
                 categoryName,
                 e.getMaxParticipants(),
                 e.getStartTime()

@@ -523,11 +523,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             Long sportId = config.getSport().getId();
             if (communityId != null) {
                 totalPlayers = registrationRepo.countActiveRegistrationsForCommunityAndSport(
-                        communityId, 
-                        sportId, 
-                        //com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED,
-                        java.util.Arrays.asList(com.manacommunity.api.model.SportsEvent.EventStatus.COMPLETED, com.manacommunity.api.model.SportsEvent.EventStatus.CANCELLED)
-                );
+                        communityId, sportId);
             } else {
                 totalPlayers = playerRepo.countByConfigId(configId);
             }
@@ -560,11 +556,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         Long sportId = config.getSport().getId();
         if (communityId != null) {
             return registrationRepo.countActiveRegistrationsForCommunityAndSport(
-                    communityId, 
-                    sportId, 
-                    //com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED,
-                    java.util.Arrays.asList(com.manacommunity.api.model.SportsEvent.EventStatus.COMPLETED, com.manacommunity.api.model.SportsEvent.EventStatus.CANCELLED)
-            );
+                    communityId, sportId);
         }
         return 0;
     }
