@@ -43,6 +43,7 @@ public class SportsEventResponse {
     private String status;
     private String auctionStatus;
     private List<String> format;
+    private List<FormatRef> formats;
     private String tournamentType;
 
     private List<CategoryRef> categories;
@@ -119,5 +120,12 @@ public class SportsEventResponse {
         private Long id;
         private String name;
         private String registrationStatus;
+    }
+
+    @Data
+    @Builder
+    public static class FormatRef {
+        private Long id;
+        private String format;
     }
 }

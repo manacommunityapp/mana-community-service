@@ -134,13 +134,30 @@ public class SportsEvent {
     @Column(name = "auction_status", length = 20)
     private AuctionEventStatus auctionStatus;
 
-    @ElementCollection
-    @CollectionTable(name = "sports_event_format",
-            joinColumns = @JoinColumn(name = "event_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "format", length = 30)
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"event"})
     @Builder.Default
-    private List<MatchFormat> format = new ArrayList<>();
+    private List<SportsEventFormat> eventFormats = new ArrayList<>();
+
+    public List<MatchFormat> getFormat() {
+        if (eventFormats == null) return new ArrayList<>();
+        return eventFormats.stream().map(SportsEventFormat::getFormat).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    public void setFormat(List<MatchFormat> formats) {
+        if (this.eventFormats == null) {
+            this.eventFormats = new ArrayList<>();
+        } else {
+            this.eventFormats.clear();
+        }
+        if (formats != null) {
+            for (MatchFormat f : formats) {
+                if (f != null) {
+                    this.eventFormats.add(SportsEventFormat.builder().event(this).format(f).build());
+                }
+            }
+        }
+    }
 
     @Enumerated(EnumType.STRING)
     private TournamentType tournamentType;

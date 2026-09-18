@@ -52,6 +52,10 @@ public class SportsEventRegistration {
     private SportsEvent.MatchFormat matchType;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "format_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private SportsEventFormat eventFormat;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "partner_user_id")
     private AppUser partner;
 

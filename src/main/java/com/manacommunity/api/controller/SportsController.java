@@ -552,6 +552,12 @@ public class SportsController {
                 .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : List.of())
+                .formats(e.getEventFormats() != null
+                        ? e.getEventFormats().stream().map(f -> SportsEventResponse.FormatRef.builder()
+                                .id(f.getId())
+                                .format(f.getFormat() != null ? f.getFormat().name() : null)
+                                .build()).toList()
+                        : List.of())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
                 .categories(categoryRefs)
                 .sponsors(sponsorDtos)
@@ -652,12 +658,22 @@ public class SportsController {
                     .build();
         }
 
+        SportsRegistrationResponse.FormatRef formatRef = null;
+        if (r.getEventFormat() != null) {
+            formatRef = SportsRegistrationResponse.FormatRef.builder()
+                    .id(r.getEventFormat().getId())
+                    .format(r.getEventFormat().getFormat() != null ? r.getEventFormat().getFormat().name() : null)
+                    .build();
+        }
+
         return SportsRegistrationResponse.builder()
                 .id(r.getId())
                 .event(eventRef)
                 .user(userRef)
                 .category(categoryRef)
+                .formatId(r.getEventFormat() != null ? r.getEventFormat().getId() : null)
                 .matchType(r.getMatchType() != null ? r.getMatchType().name() : null)
+                .format(formatRef)
                 .partner(partnerRef)
                 .partnerFamilyMember(partnerFamilyMemberRef)
                 .familyMember(familyMemberRef)

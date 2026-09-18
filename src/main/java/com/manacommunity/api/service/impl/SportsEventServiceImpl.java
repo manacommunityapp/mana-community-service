@@ -57,6 +57,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final com.manacommunity.api.service.RecaptchaService recaptchaService;
     private final com.manacommunity.api.service.OtpService otpService;
     private final ContactRepository contactRepository;
+    private final com.manacommunity.api.repository.SportsEventFormatRepository formatRepo;
     private final AuditService auditService;
     private final com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     private final SportsPlayerRankingRepository rankingRepo;
@@ -113,7 +114,6 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .venue(venue)
                 .maxParticipants(req.getMaxParticipants() != null ? req.getMaxParticipants() : 64)
                 .status(SportsEventStatus.DRAFT)
-                .format(parseMatchFormats(req.getFormat()))
                 .tournamentType(req.getTournamentType() != null
                         ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null)
                 .createdBy(userRepo.getReferenceById(adminUserId))
@@ -142,6 +142,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .allowHigherAgeCategory(req.getAllowHigherAgeCategory() == null || req.getAllowHigherAgeCategory())
                 .allowMultipleCategories(req.getAllowMultipleCategories() == null || req.getAllowMultipleCategories())
                 .build();
+
+        event.setFormat(parseMatchFormats(req.getFormat()));
 
         if (req.getCategoryIds() != null)
             event.setCategories(new java.util.HashSet<>(categoryRepo.findAllById(req.getCategoryIds())));
@@ -334,11 +336,21 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         SportsEvent.MatchFormat matchFormat = null;
-        if (req.getMatchType() != null && !req.getMatchType().isBlank()) {
+        com.manacommunity.api.model.SportsEventFormat selectedFormat = null;
+
+        if (req.getFormatId() != null) {
+            selectedFormat = formatRepo.findById(req.getFormatId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SportsEventFormat", req.getFormatId()));
+            if (!selectedFormat.getEvent().getId().equals(event.getId())) {
+                throw new InvalidInputException("The selected format does not belong to this event.");
+            }
+            matchFormat = selectedFormat.getFormat();
+        } else if (req.getMatchType() != null && !req.getMatchType().isBlank()) {
             try {
-                matchFormat = SportsEvent.MatchFormat.valueOf(req.getMatchType());
+                matchFormat = SportsEvent.MatchFormat.valueOf(req.getMatchType().trim());
             } catch (IllegalArgumentException ignored) {}
         }
+
         if (matchFormat == null) {
             String catName = category.getName() != null ? category.getName().toUpperCase() : "";
             if (catName.contains("MIXED")) {
@@ -347,6 +359,19 @@ public class SportsEventServiceImpl implements SportsEventService {
                 matchFormat = SportsEvent.MatchFormat.DOUBLES;
             } else {
                 matchFormat = SportsEvent.MatchFormat.SINGLES;
+            }
+        }
+
+        if (selectedFormat == null && matchFormat != null) {
+            final SportsEvent.MatchFormat targetFmt = matchFormat;
+            if (event.getEventFormats() != null && !event.getEventFormats().isEmpty()) {
+                selectedFormat = event.getEventFormats().stream()
+                        .filter(f -> f.getFormat() == targetFmt)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (selectedFormat == null) {
+                selectedFormat = formatRepo.findByEventIdAndFormat(event.getId(), targetFmt).orElse(null);
             }
         }
 
@@ -379,53 +404,33 @@ public class SportsEventServiceImpl implements SportsEventService {
                 } catch (Exception e) {
                     partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
                 }
-            } else if (partnerFamilyMember.getAge() != null) {
-                partnerAge = partnerFamilyMember.getAge();
             } else {
-                throw new InvalidInputException("Please update Date of Birth for partner family member " + partnerDisplayName + " in your Profile before registering.");
+                partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
             }
-
-            // 1. Check if partner family member is already picked as partner in another active registration for this event
-            boolean partnerAlreadyPicked = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndStatusIn(
-                    req.getEventId(), partnerFamilyMember.getId(), activeStatuses);
-            if (partnerAlreadyPicked) {
-                throw new AlreadyRegisteredException(
-                        partnerDisplayName + " is already selected as a partner in another registration for this event.");
-            }
-
-            // 2. Check if partner family member has already registered as a primary player
-            boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndFamilyMemberIdAndStatusIn(
-                    req.getEventId(), partnerFamilyMember.getId(), activeStatuses);
-            if (partnerAlreadyPrimary) {
-                throw new AlreadyRegisteredException(
-                        partnerDisplayName + " has already registered for this event.");
-            }
-
-            // 3. Partner age bounds validation (event and category limits)
             validateAgeEligibility(partnerAge, event, category, "Partner");
 
-            // 4. Partner Option B duplicate guard
+            // Partner Option B duplicate guard
             validateOptionBDuplicates(partner, partnerFamilyMember, partnerDisplayName, event, category, matchFormat, activeStatuses);
-
         } else if (req.getPartnerUserId() != null) {
-            if (req.getPartnerUserId().equals(userId) && familyMember == null) {
+            // Self as partner check
+            if (req.getPartnerUserId().equals(userId)) {
                 throw new InvalidInputException("You cannot select yourself as a doubles partner.");
             }
 
             partner = userRepo.findById(req.getPartnerUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Partner User", req.getPartnerUserId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("User", req.getPartnerUserId()));
             partnerDisplayName = partner.getFullName();
             partnerGender = partner.getGender() != null ? partner.getGender().trim().toUpperCase() : "";
 
-            // 1. Check if partner is already picked as partner in another active registration for this event
-            boolean partnerAlreadyPicked = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
+            // 1. Partner cannot already be partner in another registration for THIS event
+            boolean partnerAlreadySelected = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
                     req.getEventId(), req.getPartnerUserId(), activeStatuses);
-            if (partnerAlreadyPicked) {
+            if (partnerAlreadySelected) {
                 throw new AlreadyRegisteredException(
-                        partner.getFullName() + " is already selected as a partner in another registration for this event.");
+                        partner.getFullName() + " is already registered / pending as a partner for this event.");
             }
 
-            // 2. Check if partner has already registered themselves as a primary player
+            // 2. Partner cannot already be a primary registrant for THIS event
             boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndStatusIn(
                     req.getEventId(), req.getPartnerUserId(), activeStatuses);
             if (partnerAlreadyPrimary) {
@@ -485,7 +490,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         );
                     }
                 }
-                // 3. Strict Mixed Doubles Category or Format
+                // 3. Mixed Doubles (1 Male + 1 Female mandatory when configured)
                 else if ("MIXED".equals(catGender) || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) {
                     boolean isMandatoryMixed = event.getMandatoryMixedDoubles() == null || event.getMandatoryMixedDoubles();
                     if (isMandatoryMixed) {
@@ -518,6 +523,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .familyMember(familyMember)
                 .category(category)
                 .matchType(matchFormat)
+                .eventFormat(selectedFormat)
                 .partner(partner)
                 .partnerFamilyMember(partnerFamilyMember)
                 .partnerConfirmationStatus(partner != null ? SportsEventRegistration.PartnerConfirmationStatus.PENDING : null)
@@ -1471,7 +1477,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .toList();
 
         for (SportsEventRegistration r : existingRegs) {
-            if (r.getEvent() == null || r.getEvent().getId().equals(currentEvent.getId())) {
+            if (r.getEvent() == null || r.getEvent().getId() == null || currentEvent.getId() == null || r.getEvent().getId().equals(currentEvent.getId())) {
                 continue;
             }
             if (r.getStatus() == null || !activeStatuses.contains(r.getStatus())) {

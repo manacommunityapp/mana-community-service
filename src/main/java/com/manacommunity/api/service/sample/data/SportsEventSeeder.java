@@ -62,6 +62,7 @@ public class SportsEventSeeder {
         // Clean legacy / bundled event names if present in DB
         List.of(
                 "Annual Summer Cricket Cup",
+                "Winter Football League",
                 "Badminton - Singles & Doubles",
                 "Badminton Community Championship",
                 "Badminton — Men's Above 19",
@@ -315,8 +316,9 @@ public class SportsEventSeeder {
         log.info("✓ Sports events seeded: Volleyball Premier League (id={})", volleyballEvent.getId());
 
         // ════════════════════════════════════════════════════════════════════
-        // SPORTS EVENT REGISTRATIONS
+        // SPORTS EVENT REGISTRATIONS (COMMENTED OUT - NO SAMPLE REGISTRATIONS SEEDED)
         // ════════════════════════════════════════════════════════════════════
+        /*
         createRegistration(summerCup, userSeeder.getSandeep(), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sandeep Kamarapu", 36, "All-rounder");
         createRegistration(summerCup, userSeeder.getSunil(), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Sunil Kanthala", 36, "Batsman");
         createRegistration(summerCup, ramesh, cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.REGISTERED, "Ramesh Korlakunta", 36, "Bowler");
@@ -356,6 +358,7 @@ public class SportsEventSeeder {
         createRegistration(summerCup, userSeeder.getUserByEmail("ajay.devgn@gmail.com"), cricketMen, SportsEvent.MatchFormat.SINGLES, SportsEventRegistration.RegistrationStatus.CONFIRMED, "Ajay Devgn", 48, "Bowler");
 
         log.info("✓ Registrations seeded: 31 confirmed players (Men above 18) for Annual 2026 Cricket Cup");
+        */
     }
 
     public SportsEvent getSummerCup() {
@@ -410,7 +413,7 @@ public class SportsEventSeeder {
             log.info("✓ Re-creating sports event: {} (cleaned previous id={})", name, existing.getId());
         }
 
-        return sportsEventRepo.save(SportsEvent.builder()
+        SportsEvent event = SportsEvent.builder()
                 .name(name)
                 .active(activeStatus)
                 .sport(sport)
@@ -418,7 +421,6 @@ public class SportsEventSeeder {
                 .venue(venue)
                 .createdBy(createdBy)
                 .status(status)
-                .format(formats != null ? formats : java.util.Collections.emptyList())
                 .tournamentType(tournamentType)
                 .registrationDateStart(regDateStart)
                 .registrationDateEnd(regDateEnd)
@@ -433,7 +435,9 @@ public class SportsEventSeeder {
                 .auctionEnabled(auction)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .build());
+                .build();
+        event.setFormat(formats != null ? formats : java.util.Collections.emptyList());
+        return sportsEventRepo.save(event);
     }
 
     private void cleanDependentEventData(Long eventId) {

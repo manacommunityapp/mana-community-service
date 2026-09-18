@@ -274,6 +274,12 @@ public class SportsTournamentController {
                 .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : java.util.List.of())
+                .formats(e.getEventFormats() != null
+                        ? e.getEventFormats().stream().map(f -> SportsEventResponse.FormatRef.builder()
+                                .id(f.getId())
+                                .format(f.getFormat() != null ? f.getFormat().name() : null)
+                                .build()).toList()
+                        : java.util.List.of())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
                 .categories(categoryRefs)
                 .sponsors(sponsorDtos)

@@ -14,8 +14,8 @@ public class RegistrationRequest {
     Long eventId;
     @NotNull
     Long categoryId;
-    @NotNull
     String matchType;
+    Long formatId;
     String playerName;
     String email;
     String relation;
