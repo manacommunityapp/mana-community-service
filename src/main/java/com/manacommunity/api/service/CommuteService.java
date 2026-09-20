@@ -4,6 +4,8 @@ import com.manacommunity.api.dto.*;
 import com.manacommunity.api.user.model.AppUser;
 import org.springframework.data.domain.Page;
 
+import java.util.List;
+
 public interface CommuteService {
 
     Page<CommuteRideResponse> getUpcomingRides(AppUser user, String rideType, int page, int size);
@@ -31,4 +33,27 @@ public interface CommuteService {
     CommuteBookingResponse rejectBooking(AppUser user, Long bookingId);
 
     CommuteStatsResponse getStats(AppUser user);
+
+    // Ratings
+    CommuteRatingResponse rateRide(AppUser user, Long rideId, CreateCommuteRatingRequest request);
+
+    List<CommuteRatingResponse> getRideRatings(Long rideId);
+
+    CommuteUserProfileResponse getUserProfile(AppUser currentUser, Long userId);
+
+    // Vehicles
+    List<CommuteVehicleResponse> getMyVehicles(AppUser user);
+
+    CommuteVehicleResponse addVehicle(AppUser user, CreateCommuteVehicleRequest request);
+
+    CommuteVehicleResponse updateVehicle(AppUser user, Long vehicleId, CreateCommuteVehicleRequest request);
+
+    void deleteVehicle(AppUser user, Long vehicleId);
+
+    // Favourite routes
+    List<CommuteFavouriteRouteResponse> getMyFavouriteRoutes(AppUser user);
+
+    CommuteFavouriteRouteResponse addFavouriteRoute(AppUser user, CreateCommuteFavouriteRouteRequest request);
+
+    void deleteFavouriteRoute(AppUser user, Long routeId);
 }

@@ -3,6 +3,7 @@ package com.manacommunity.api.service.scheduler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.SportsAuctionPlayer;
 import com.manacommunity.api.model.SportsAuctionTeam;
@@ -88,7 +89,7 @@ public class SportsGenericScoringService {
     @Transactional
     public SportsGenericScoreResponse undoLastEvent(Long matchId) {
         List<SportsMatchEvent> events = eventRepo.findByMatchIdAndIsUndoneFalseOrderByCreatedAt(matchId);
-        if (events.isEmpty()) throw new IllegalStateException("No events to undo");
+        if (events.isEmpty()) throw new InvalidInputException("No events to undo for this match.");
 
         SportsMatchEvent last = events.get(events.size() - 1);
         last.setIsUndone(true);

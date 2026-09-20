@@ -12,6 +12,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/commute")
 @RequiredArgsConstructor
@@ -135,5 +137,90 @@ public class CommuteController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(commuteService.getStats(user));
+    }
+
+    // ── Ratings ──
+
+    @PostMapping("/rides/{id}/rate")
+    public ResponseEntity<CommuteRatingResponse> rateRide(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody CreateCommuteRatingRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.rateRide(user, id, request));
+    }
+
+    @GetMapping("/rides/{id}/ratings")
+    public ResponseEntity<List<CommuteRatingResponse>> getRideRatings(@PathVariable Long id) {
+        return ResponseEntity.ok(commuteService.getRideRatings(id));
+    }
+
+    @GetMapping("/users/{userId}/profile")
+    public ResponseEntity<CommuteUserProfileResponse> getUserProfile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long userId) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.getUserProfile(user, userId));
+    }
+
+    // ── Vehicles ──
+
+    @GetMapping("/vehicles")
+    public ResponseEntity<List<CommuteVehicleResponse>> getMyVehicles(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.getMyVehicles(user));
+    }
+
+    @PostMapping("/vehicles")
+    public ResponseEntity<CommuteVehicleResponse> addVehicle(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreateCommuteVehicleRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.addVehicle(user, request));
+    }
+
+    @PutMapping("/vehicles/{id}")
+    public ResponseEntity<CommuteVehicleResponse> updateVehicle(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody CreateCommuteVehicleRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.updateVehicle(user, id, request));
+    }
+
+    @DeleteMapping("/vehicles/{id}")
+    public ResponseEntity<Void> deleteVehicle(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        commuteService.deleteVehicle(user, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Favourite Routes ──
+
+    @GetMapping("/favourite-routes")
+    public ResponseEntity<List<CommuteFavouriteRouteResponse>> getMyFavouriteRoutes(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.getMyFavouriteRoutes(user));
+    }
+
+    @PostMapping("/favourite-routes")
+    public ResponseEntity<CommuteFavouriteRouteResponse> addFavouriteRoute(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreateCommuteFavouriteRouteRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commuteService.addFavouriteRoute(user, request));
+    }
+
+    @DeleteMapping("/favourite-routes/{id}")
+    public ResponseEntity<Void> deleteFavouriteRoute(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        commuteService.deleteFavouriteRoute(user, id);
+        return ResponseEntity.noContent().build();
     }
 }

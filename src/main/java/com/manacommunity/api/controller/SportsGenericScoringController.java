@@ -1,7 +1,9 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.service.scheduler.SportsGenericScoringService;
+import jakarta.validation.Valid;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -31,7 +33,7 @@ public class SportsGenericScoringController {
     @PostMapping("/score")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<SportsGenericScoreResponse> recordEvent(
-            @RequestBody SportsGenericScoreRequest request,
+            @Valid @RequestBody SportsGenericScoreRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         SportsGenericScoreResponse response = scoringService.recordEvent(request, user.getId());
@@ -82,14 +84,17 @@ public class SportsGenericScoringController {
 
     @PostMapping("/scoring-config")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<SportsScoringConfigResponse> saveScoringConfig(@RequestBody SportsScoringConfigRequest request) {
+    public ResponseEntity<SportsScoringConfigResponse> saveScoringConfig(@Valid @RequestBody SportsScoringConfigRequest request) {
         return ResponseEntity.ok(scoringService.saveScoringConfig(request));
     }
 
     @GetMapping("/scoring-config/{configId}")
     public ResponseEntity<SportsScoringConfigResponse> getScoringConfig(@PathVariable Long configId) {
         SportsScoringConfigResponse response = scoringService.getScoringConfig(configId);
-        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
+        if (response == null) {
+            throw new ResourceNotFoundException("ScoringConfig", configId);
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/scoring-config/defaults/{sportType}")

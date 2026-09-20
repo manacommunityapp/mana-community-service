@@ -100,6 +100,30 @@ public class CommuteRide {
     @Builder.Default
     private boolean ladiesOnly = false;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
+    @Column(name = "distance_km")
+    private Double distanceKm;
+
+    @Column(name = "actual_departure_time")
+    private LocalDateTime actualDepartureTime;
+
+    @Column(name = "actual_arrival_time")
+    private LocalDateTime actualArrivalTime;
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_id")
+    private CommuteVehicle vehicle;
+
     @OneToMany(mappedBy = "ride", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CommuteBooking> bookings = new ArrayList<>();

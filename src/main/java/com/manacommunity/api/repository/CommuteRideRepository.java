@@ -51,4 +51,7 @@ public interface CommuteRideRepository extends JpaRepository<CommuteRide, Long> 
     @Query("SELECT COUNT(r) FROM CommuteRide r WHERE r.community.id = :communityId " +
            "AND r.status = 'ACTIVE' AND r.departureTime >= :fromTime")
     long countActiveRides(@Param("communityId") Long communityId, @Param("fromTime") LocalDateTime fromTime);
+
+    @Query("SELECT r FROM CommuteRide r WHERE r.status = 'ACTIVE' AND r.departureTime < :cutoff")
+    List<CommuteRide> findExpiredActiveRides(@Param("cutoff") LocalDateTime cutoff);
 }

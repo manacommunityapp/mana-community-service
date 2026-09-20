@@ -12,6 +12,7 @@ import com.manacommunity.api.dto.SportsRegistrationResponse;
 import com.manacommunity.api.dto.SportsMetaRequest;
 import com.manacommunity.api.dto.SportsMetaResponse;
 import com.manacommunity.api.dto.SportsTournamentRequest;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
@@ -126,24 +127,21 @@ public class SportsController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
-        return sportMetaRepo.findById(id).map(sport -> {
-            if (principal == null) {
+        SportsMeta sport = sportMetaRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsMeta", id));
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (sport.getCommunityId() == null) {
+            if (!ctx.superAdmin()) {
                 throw new UnauthorizedActionException("You do not have permission to delete this sport.");
             }
-            ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-            if (sport.getCommunityId() == null) {
-                if (!ctx.superAdmin()) {
-                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
-                }
-            } else if (!ctx.superAdmin()) {
-                if (ctx.communityId() == null || !ctx.communityId().equals(sport.getCommunityId())) {
-                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
-                }
+        } else if (!ctx.superAdmin()) {
+            if (ctx.communityId() == null || !ctx.communityId().equals(sport.getCommunityId())) {
+                throw new UnauthorizedActionException("You do not have permission to delete this sport.");
             }
-            sport.setActive(false);
-            sportMetaRepo.save(sport);
-            return ResponseEntity.ok().<Void>build();
-        }).orElse(ResponseEntity.notFound().build());
+        }
+        sport.setActive(false);
+        sportMetaRepo.save(sport);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/events")

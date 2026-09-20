@@ -10,6 +10,7 @@ import com.manacommunity.api.repository.SportsTournamentGalleryImageRepository;
 import com.manacommunity.api.repository.SportsTournamentRepository;
 import com.manacommunity.api.repository.SportsTournamentTimelineEntryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.util.List;
  * CRUD for the custom content shown in a tournament's announcement email:
  * announcements, gallery images and timeline milestones.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsTournamentContentService {

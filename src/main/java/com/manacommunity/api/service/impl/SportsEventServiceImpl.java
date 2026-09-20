@@ -828,11 +828,11 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN ||
                 reg.getStatus() == SportsEventRegistration.RegistrationStatus.REJECTED) {
-            throw new IllegalStateException("Cannot respond to a " + reg.getStatus() + " registration.");
+            throw new InvalidInputException("Cannot respond to a " + reg.getStatus() + " registration.");
         }
 
         if (reg.getPartnerConfirmationStatus() != SportsEventRegistration.PartnerConfirmationStatus.PENDING) {
-            throw new IllegalStateException("Partner invitation has already been " + reg.getPartnerConfirmationStatus() + ".");
+            throw new InvalidInputException("Partner invitation has already been " + reg.getPartnerConfirmationStatus() + ".");
         }
 
         if (accept) {

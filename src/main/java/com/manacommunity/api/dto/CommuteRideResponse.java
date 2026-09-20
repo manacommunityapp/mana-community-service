@@ -19,6 +19,7 @@ public class CommuteRideResponse {
     private String driverName;
     private String driverFlat;
     private String driverPhoto;
+    private double driverRating;
     private String fromLocation;
     private String toLocation;
     private Double fromLat;
@@ -39,6 +40,7 @@ public class CommuteRideResponse {
     private String recurringDays;
     private LocalTime recurringTime;
     private boolean ladiesOnly;
+    private Double distanceKm;
     private int bookingCount;
     private boolean isMyRide;
     private boolean hasBooked;
