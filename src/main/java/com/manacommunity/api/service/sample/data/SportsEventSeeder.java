@@ -494,7 +494,7 @@ public class SportsEventSeeder {
                 regRepo.flush();
             }
         } catch (Exception e) {
-            log.warn("Notice during cleaning dependent event data for event {}: {}", eventId, e.getMessage());
+            log.warn("Notice during cleaning dependent event data for event {}", eventId, e);
         }
     }
 

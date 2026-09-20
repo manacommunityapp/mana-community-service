@@ -39,6 +39,7 @@ public class SportsMatchResultService {
 
     @Transactional
     public SportsMatchDetailResponse recordDetailedResult(SportsMatchResultDetailRequest req) {
+        log.info("Recording detailed match result matchId={} winnerTeamId={}", req.matchId(), req.winnerTeamId());
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
@@ -423,6 +424,7 @@ public class SportsMatchResultService {
         try {
             return new BigDecimal(overs);
         } catch (NumberFormatException e) {
+            log.debug("Unparseable overs value '{}', defaulting to zero", overs);
             return BigDecimal.ZERO;
         }
     }

@@ -6,6 +6,7 @@ import com.manacommunity.api.model.SportsTournamentTimelineEntry;
 import com.manacommunity.api.service.SportsTournamentContentService;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +20,7 @@ import java.util.List;
  * announcements, gallery images and timeline milestones. Mutations are
  * admin-only; the announcement email falls back to defaults when empty.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/tournaments/{tournamentId}")
 @RequiredArgsConstructor
@@ -44,6 +46,7 @@ public class SportsTournamentContentController {
     @PreAuthorize(ADMIN)
     public ResponseEntity<SportsTournamentAnnouncement> addAnnouncement(
             @PathVariable Long tournamentId, @org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid AnnouncementRequest req) {
+        log.info("Adding announcement tournamentId={}", tournamentId);
         SportsTournamentAnnouncement saved = contentService.addAnnouncement(
                 tournamentId, req.title(), req.content(), req.icon(), req.sortOrder());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -52,6 +55,7 @@ public class SportsTournamentContentController {
     @DeleteMapping("/announcements/{id}")
     @PreAuthorize(ADMIN)
     public ResponseEntity<Void> deleteAnnouncement(@PathVariable Long tournamentId, @PathVariable Long id) {
+        log.info("Deleting announcement tournamentId={} id={}", tournamentId, id);
         contentService.deleteAnnouncement(id);
         return ResponseEntity.noContent().build();
     }
@@ -66,6 +70,7 @@ public class SportsTournamentContentController {
     @PreAuthorize(ADMIN)
     public ResponseEntity<SportsTournamentGalleryImage> addGalleryImage(
             @PathVariable Long tournamentId, @org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid GalleryRequest req) {
+        log.info("Adding gallery image tournamentId={}", tournamentId);
         SportsTournamentGalleryImage saved = contentService.addGalleryImage(
                 tournamentId, req.title(), req.imageUrl(), req.bgColor(), req.icon(), req.sortOrder());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -74,6 +79,7 @@ public class SportsTournamentContentController {
     @DeleteMapping("/gallery/{id}")
     @PreAuthorize(ADMIN)
     public ResponseEntity<Void> deleteGalleryImage(@PathVariable Long tournamentId, @PathVariable Long id) {
+        log.info("Deleting gallery image tournamentId={} id={}", tournamentId, id);
         contentService.deleteGalleryImage(id);
         return ResponseEntity.noContent().build();
     }
@@ -88,6 +94,7 @@ public class SportsTournamentContentController {
     @PreAuthorize(ADMIN)
     public ResponseEntity<SportsTournamentTimelineEntry> addTimelineEntry(
             @PathVariable Long tournamentId, @org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid TimelineRequest req) {
+        log.info("Adding timeline entry tournamentId={}", tournamentId);
         SportsTournamentTimelineEntry saved = contentService.addTimelineEntry(
                 tournamentId, req.entryDate(), req.dateLabel(), req.title(), req.description(), req.sortOrder());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -96,6 +103,7 @@ public class SportsTournamentContentController {
     @DeleteMapping("/timeline/{id}")
     @PreAuthorize(ADMIN)
     public ResponseEntity<Void> deleteTimelineEntry(@PathVariable Long tournamentId, @PathVariable Long id) {
+        log.info("Deleting timeline entry tournamentId={} id={}", tournamentId, id);
         contentService.deleteTimelineEntry(id);
         return ResponseEntity.noContent().build();
     }

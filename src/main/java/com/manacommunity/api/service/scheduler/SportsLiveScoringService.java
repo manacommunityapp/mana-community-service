@@ -31,6 +31,7 @@ public class SportsLiveScoringService {
 
     @Transactional
     public BallEventResponse recordBall(BallEventRequest req, Long userId) {
+        log.info("Recording ball event matchId={} innings={} batsmanId={} bowlerId={} userId={}", req.matchId(), req.inningsNumber(), req.batsmanId(), req.bowlerId(), userId);
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
@@ -109,6 +110,7 @@ public class SportsLiveScoringService {
 
     @Transactional
     public BallEventResponse undoLastBall(Long matchId, Integer inningsNumber) {
+        log.info("Undoing last ball matchId={} innings={}", matchId, inningsNumber);
         List<SportsMatchBallEvent> balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(
             matchId, inningsNumber);
         if (balls.isEmpty()) throw new InvalidInputException("No balls to undo for this innings.");
@@ -131,6 +133,7 @@ public class SportsLiveScoringService {
 
     @Transactional
     public void startInnings(Long matchId, Integer inningsNumber) {
+        log.info("Starting innings matchId={} innings={}", matchId, inningsNumber);
         SportsTournamentMatch match = matchRepo.findById(matchId)
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         if (match.getStatus() != MatchStatus.LIVE) {

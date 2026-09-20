@@ -45,6 +45,7 @@ public class SportsTournamentContentService {
     @Transactional
     public SportsTournamentAnnouncement addAnnouncement(Long tournamentId, String title, String content,
                                                   String icon, Integer sortOrder) {
+        log.info("Adding announcement to tournament={} title={}", tournamentId, title);
         SportsTournament tournament = requireTournament(tournamentId);
         return announcementRepository.save(SportsTournamentAnnouncement.builder()
                 .tournament(tournament)
@@ -57,6 +58,7 @@ public class SportsTournamentContentService {
 
     @Transactional
     public void deleteAnnouncement(Long id) {
+        log.info("Deleting announcement id={}", id);
         if (!announcementRepository.existsById(id)) throw new ResourceNotFoundException("SportsTournamentAnnouncement", id);
         announcementRepository.deleteById(id);
     }
@@ -70,6 +72,7 @@ public class SportsTournamentContentService {
     @Transactional
     public SportsTournamentGalleryImage addGalleryImage(Long tournamentId, String title, String imageUrl,
                                                   String bgColor, String icon, Integer sortOrder) {
+        log.info("Adding gallery image to tournament={} title={}", tournamentId, title);
         SportsTournament tournament = requireTournament(tournamentId);
         return galleryRepository.save(SportsTournamentGalleryImage.builder()
                 .tournament(tournament)
@@ -83,6 +86,7 @@ public class SportsTournamentContentService {
 
     @Transactional
     public void deleteGalleryImage(Long id) {
+        log.info("Deleting gallery image id={}", id);
         if (!galleryRepository.existsById(id)) throw new ResourceNotFoundException("SportsTournamentGalleryImage", id);
         galleryRepository.deleteById(id);
     }
@@ -96,6 +100,7 @@ public class SportsTournamentContentService {
     @Transactional
     public SportsTournamentTimelineEntry addTimelineEntry(Long tournamentId, LocalDate entryDate, String dateLabel,
                                                     String title, String description, Integer sortOrder) {
+        log.info("Adding timeline entry to tournament={} title={}", tournamentId, title);
         SportsTournament tournament = requireTournament(tournamentId);
         return timelineRepository.save(SportsTournamentTimelineEntry.builder()
                 .tournament(tournament)
@@ -109,6 +114,7 @@ public class SportsTournamentContentService {
 
     @Transactional
     public void deleteTimelineEntry(Long id) {
+        log.info("Deleting timeline entry id={}", id);
         if (!timelineRepository.existsById(id)) throw new ResourceNotFoundException("SportsTournamentTimelineEntry", id);
         timelineRepository.deleteById(id);
     }

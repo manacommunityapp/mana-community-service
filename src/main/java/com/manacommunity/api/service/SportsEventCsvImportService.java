@@ -146,7 +146,7 @@ public class SportsEventCsvImportService {
                 // Parse age
                 Integer age = null;
                 if (!ageStr.isEmpty()) {
-                    try { age = Integer.parseInt(ageStr); } catch (NumberFormatException ignored) {}
+                    try { age = Integer.parseInt(ageStr); } catch (NumberFormatException e) { log.debug("Unparseable age '{}', skipping age validation", ageStr); }
                 }
 
                 // Age validation against Event & Category limits

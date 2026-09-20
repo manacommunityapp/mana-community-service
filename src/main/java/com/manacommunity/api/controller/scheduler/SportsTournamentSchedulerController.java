@@ -12,6 +12,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.scheduler.SportsTournamentSchedulerService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,6 +24,7 @@ import java.util.Map;
 
 import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/tournament")
 @RequiredArgsConstructor
@@ -50,6 +52,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsTournamentConfigResponse> saveConfig(
             @Valid @RequestBody SportsTournamentConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Creating tournament config userId={}", principal.getId());
         SportsTournamentConfig saved = schedulerService.saveTournamentConfig(req, principal.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(schedulerService.toConfigResponse(saved));
@@ -65,6 +68,7 @@ public class SportsTournamentSchedulerController {
             @PathVariable Long id,
             @Valid @RequestBody SportsTournamentConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Updating tournament config id={}", id);
         SportsTournamentConfig updated = schedulerService.updateTournamentConfig(id, req);
         return ResponseEntity.ok(schedulerService.toConfigResponse(updated));
     }
@@ -186,6 +190,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsTournamentScheduleResponse> createSchedule(
             @Valid @RequestBody SportsTournamentConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Creating tournament schedule userId={}", principal.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(schedulerService.createTournamentSchedule(req, principal.getId()));
     }
@@ -227,6 +232,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsTournamentScheduleResponse> recordResult(
             @Valid @RequestBody SportsMatchResultRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Recording match result matchId={}", req.matchId());
         return ResponseEntity.ok(schedulerService.advanceBracket(req));
     }
 
@@ -237,6 +243,7 @@ public class SportsTournamentSchedulerController {
     @PostMapping("/{configId}/seed-knockout")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> seedKnockout(@PathVariable Long configId) {
+        log.info("Seeding knockout from groups configId={}", configId);
         schedulerService.seedKnockoutFromGroups(configId);
         return ResponseEntity.ok().build();
     }
@@ -248,6 +255,7 @@ public class SportsTournamentSchedulerController {
     @PostMapping("/{configId}/swiss/next-round")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<SportsMatchResponse>> nextSwissRound(@PathVariable Long configId) {
+        log.info("Generating next Swiss round configId={}", configId);
         return ResponseEntity.ok(
             schedulerService.generateNextSwissRound(configId)
                 .stream().map(schedulerService::toMatchResponse).toList());
@@ -261,6 +269,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsMatchResponse> rescheduleMatch(
             @PathVariable Long matchId,
             @Valid @RequestBody SportsRescheduleRequest req) {
+        log.info("Rescheduling match matchId={}", matchId);
         SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue());
         return ResponseEntity.ok(schedulerService.toMatchResponse(updated));
     }
@@ -277,6 +286,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<String> assignTeamsToGroups(
             @PathVariable Long configId,
             @Valid @RequestBody List<GroupAssignmentRequest> assignments) {
+        log.info("Assigning teams to groups configId={}", configId);
         schedulerService.assignTeamsToGroups(configId, assignments);
         return ResponseEntity.ok("Group assignments saved successfully.");
     }
@@ -289,6 +299,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<String> scheduleManualMatch(
             @PathVariable Long configId,
             @Valid @RequestBody SportsMatchScheduleRequest req) {
+        log.info("Scheduling manual match configId={} stage={}", configId, req.stage());
         schedulerService.scheduleManualMatch(configId, req);
         return ResponseEntity.ok("Match scheduled successfully for " + req.stage());
     }
@@ -314,6 +325,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<Map<String, Object>> saveMatchesBulk(
             @PathVariable Long configId,
             @Valid @RequestBody SportsBulkMatchSaveRequest request) {
+        log.info("Saving matches bulk configId={}", configId);
         int saved = schedulerService.saveMatchesBulk(configId, request.matches());
         return ResponseEntity.ok(Map.of("saved", saved, "configId", configId));
     }
@@ -328,6 +340,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<Map<String, Object>> updateMatchesStatus(
             @PathVariable Long configId,
             @Valid @RequestBody SportsMatchStatusUpdateRequest request) {
+        log.info("Updating matches status configId={} status={}", configId, request.status());
         int updated = schedulerService.updateMatchesStatus(configId, request.status());
         return ResponseEntity.ok(Map.of("updated", updated, "configId", configId, "status", request.status()));
     }
@@ -339,6 +352,7 @@ public class SportsTournamentSchedulerController {
     @DeleteMapping("/{configId}/matches")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteMatches(@PathVariable Long configId) {
+        log.info("Deleting matches configId={}", configId);
         int deleted = schedulerService.deleteMatchesByConfigId(configId);
         return ResponseEntity.ok(Map.of("deleted", deleted, "configId", configId));
     }
@@ -354,6 +368,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsScheduleSaveResponse> saveSchedule(
             @Valid @RequestBody SportsScheduleSaveRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Saving schedule userId={}", principal.getId());
         return ResponseEntity.ok(schedulerService.saveSchedule(req, principal.getId()));
     }
 
@@ -366,6 +381,7 @@ public class SportsTournamentSchedulerController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<SportsPlayoffMatchDraftResponse>> generatePlayoff(
             @Valid @RequestBody SportsPlayoffGenerateRequest request) {
+        log.info("Generating playoff bracket");
         return ResponseEntity.ok(playoffGenerator.buildPlayoffBracket(request));
     }
 
@@ -382,6 +398,7 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsMatchDetailResponse> recordDetailedResult(
             @Valid @RequestBody SportsMatchResultDetailRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Recording detailed match result");
         return ResponseEntity.ok(matchResultService.recordDetailedResult(req));
     }
 

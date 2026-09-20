@@ -88,7 +88,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                     null, ReferenceType.AUCTION_TEAM, savedTeam.getId(),
                     NotificationPriority.NORMAL, null, null);
         } catch (Exception e) {
-            log.warn("Failed to persist team-created notification: {}", e.getMessage());
+            log.warn("Failed to persist team-created notification", e);
         }
 
         return savedTeam;
@@ -131,7 +131,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                         NotificationPriority.NORMAL, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist captain-confirmed notification: {}", e.getMessage());
+            log.warn("Failed to persist captain-confirmed notification", e);
         }
 
         return saved;
@@ -190,7 +190,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                         NotificationPriority.NORMAL, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist captain-nomination notification: {}", e.getMessage());
+            log.warn("Failed to persist captain-nomination notification", e);
         }
 
         return saved;

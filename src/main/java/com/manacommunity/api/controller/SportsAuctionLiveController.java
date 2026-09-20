@@ -16,6 +16,7 @@ import static com.manacommunity.api.constants.permissions.SportsPermissions.CREA
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_LIVE_AUCTION;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +25,7 @@ import jakarta.validation.Valid;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auction/live")
 @RequiredArgsConstructor
@@ -57,6 +59,7 @@ public class SportsAuctionLiveController {
             @Valid @RequestBody BidRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        log.info("Placing bid playerId={} teamId={}", req.playerId(), req.teamId());
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(toBidResponse(auctionService.placeBid(req, loggedInUser.getId())));
@@ -67,6 +70,7 @@ public class SportsAuctionLiveController {
             @Valid @RequestBody SoldPlayerRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        log.info("Marking player as sold playerId={}", req.playerId());
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         SportsAuctionPlayer player = auctionService.soldPlayer(req, loggedInUser.getId());
         return ResponseEntity.ok(SportsAuctionPlayerController.toResponse(player));
@@ -77,6 +81,7 @@ public class SportsAuctionLiveController {
             @PathVariable Long playerId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        log.info("Passing player playerId={}", playerId);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         SportsAuctionPlayer player = auctionService.passPlayer(playerId, loggedInUser.getId());
         return ResponseEntity.ok(SportsAuctionPlayerController.toResponse(player));
