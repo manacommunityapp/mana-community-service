@@ -30,7 +30,7 @@ public class SportsTournamentContentController {
 
     // ── Request bodies ───────────────────────────────────────────────────────
     public record AnnouncementRequest(@NotBlank String content, String title, String icon, Integer sortOrder) {}
-    public record GalleryRequest(String title, String imageUrl, String bgColor, String icon, Integer sortOrder) {}
+    public record GalleryRequest(String title, @NotBlank String imageUrl, String bgColor, String icon, Integer sortOrder) {}
     public record TimelineRequest(@NotBlank String title, LocalDate entryDate, String dateLabel,
                                   String description, Integer sortOrder) {}
 
@@ -65,7 +65,7 @@ public class SportsTournamentContentController {
     @PostMapping("/gallery")
     @PreAuthorize(ADMIN)
     public ResponseEntity<SportsTournamentGalleryImage> addGalleryImage(
-            @PathVariable Long tournamentId, @org.springframework.web.bind.annotation.RequestBody GalleryRequest req) {
+            @PathVariable Long tournamentId, @org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid GalleryRequest req) {
         SportsTournamentGalleryImage saved = contentService.addGalleryImage(
                 tournamentId, req.title(), req.imageUrl(), req.bgColor(), req.icon(), req.sortOrder());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);

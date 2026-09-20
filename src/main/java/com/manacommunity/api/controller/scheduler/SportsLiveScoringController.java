@@ -4,6 +4,7 @@ import com.manacommunity.api.dto.scheduler.BallEventRequest;
 import com.manacommunity.api.dto.scheduler.BallEventResponse;
 import com.manacommunity.api.dto.scheduler.SportsLiveMatchStateResponse;
 import com.manacommunity.api.service.scheduler.SportsLiveScoringService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -59,7 +60,7 @@ public class SportsLiveScoringController {
 
     @PostMapping("/api/tournament/match/{matchId}/ball")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
-    public BallEventResponse recordBallRest(@PathVariable Long matchId, @RequestBody BallEventRequest req) {
+    public BallEventResponse recordBallRest(@PathVariable Long matchId, @Valid @RequestBody BallEventRequest req) {
         BallEventResponse response = liveScoringService.recordBall(req, null);
         messagingTemplate.convertAndSend("/topic/match/" + matchId, response);
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);

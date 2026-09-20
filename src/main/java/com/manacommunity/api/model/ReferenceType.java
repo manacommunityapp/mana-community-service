@@ -14,5 +14,7 @@ public enum ReferenceType {
     AUCTION_PLAYER,
     COMMUNITY,
     EVENT,
-    VISITOR_PASS
+    VISITOR_PASS,
+    COMMUTE_RIDE,
+    COMMUTE_BOOKING
 }

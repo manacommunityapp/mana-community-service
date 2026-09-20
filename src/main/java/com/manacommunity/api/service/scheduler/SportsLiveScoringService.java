@@ -2,6 +2,7 @@ package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.*;
 import com.manacommunity.api.dto.scheduler.SportsLiveMatchStateResponse.*;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.SportsAuctionPlayer;
 import com.manacommunity.api.model.scheduler.*;
@@ -110,7 +111,7 @@ public class SportsLiveScoringService {
     public BallEventResponse undoLastBall(Long matchId, Integer inningsNumber) {
         List<SportsMatchBallEvent> balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(
             matchId, inningsNumber);
-        if (balls.isEmpty()) throw new IllegalStateException("No balls to undo");
+        if (balls.isEmpty()) throw new InvalidInputException("No balls to undo for this innings.");
 
         SportsMatchBallEvent last = balls.get(balls.size() - 1);
         last.setIsUndone(true);

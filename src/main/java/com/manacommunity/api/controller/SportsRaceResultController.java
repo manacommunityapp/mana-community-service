@@ -3,6 +3,7 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.scheduler.SportsRaceResultRequest;
 import com.manacommunity.api.dto.scheduler.SportsRaceResultResponse;
 import com.manacommunity.api.service.scheduler.SportsRaceResultService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,7 +21,7 @@ public class SportsRaceResultController {
 
     @PostMapping("/result")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<SportsRaceResultResponse> recordResult(@RequestBody SportsRaceResultRequest request) {
+    public ResponseEntity<SportsRaceResultResponse> recordResult(@Valid @RequestBody SportsRaceResultRequest request) {
         return ResponseEntity.ok(raceService.recordResult(request));
     }
 
