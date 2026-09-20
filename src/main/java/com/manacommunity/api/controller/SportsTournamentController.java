@@ -16,6 +16,7 @@ import com.manacommunity.api.service.SportsEventService;
 import com.manacommunity.api.service.SportsTournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/tournaments")
 @RequiredArgsConstructor
@@ -80,6 +82,7 @@ public class SportsTournamentController {
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTournament(@PathVariable Long id) {
+        log.info("Deleting tournament id={}", id);
         tournamentService.deleteTournament(id);
         return ResponseEntity.noContent().build();
     }
@@ -89,6 +92,7 @@ public class SportsTournamentController {
     public ResponseEntity<SportsTournamentResponse> createTournament(
             @Valid @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Creating tournament");
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         SportsTournament tournament = tournamentService.saveTournamentRecord(req, req.getAllowAdminChat());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(tournament));
@@ -98,6 +102,7 @@ public class SportsTournamentController {
     @PutMapping("/{id}/status")
     public ResponseEntity<SportsTournamentResponse> updateStatus(
             @PathVariable Long id, @RequestParam String status) {
+        log.info("Updating tournament status id={} status={}", id, status);
         return ResponseEntity.ok(toResponse(tournamentService.updateStatus(id, status)));
     }
 
@@ -106,6 +111,7 @@ public class SportsTournamentController {
     public ResponseEntity<Map<String, Object>> announce(
             @PathVariable Long id,
             @Valid @RequestBody SportsTournamentAnnouncementRequest req) {
+        log.info("Announcing tournament id={}", id);
         SportsTournament tournament = tournamentService.getTournamentById(id);
         int sent = announcementService.announce(tournament, req);
         return ResponseEntity.ok(Map.of("sent", sent, "tournamentId", id));
@@ -116,6 +122,7 @@ public class SportsTournamentController {
     public ResponseEntity<Map<String, Object>> notifyRegistrationOpen(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, Object> body) {
+        log.info("Notifying registration open tournamentId={}", id);
         SportsTournament tournament = tournamentService.getTournamentById(id);
         String message = body != null && body.get("message") instanceof String m ? m
                 : "Registration for " + tournament.getName() + " is now open!";

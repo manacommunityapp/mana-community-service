@@ -7,6 +7,7 @@ import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/sports/rankings")
 @RequiredArgsConstructor
@@ -49,6 +51,7 @@ public class SportsRankingController {
             @Valid @RequestBody SportsPlayerRankingRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL);
+        log.info("Creating player ranking sportId={} userId={}", request.sportId(), request.userId());
         return ResponseEntity.status(HttpStatus.CREATED).body(rankingService.upsert(request));
     }
 
@@ -58,6 +61,7 @@ public class SportsRankingController {
             @Valid @RequestBody SportsPlayerRankingRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL);
+        log.info("Updating player ranking id={}", id);
         return ResponseEntity.ok(rankingService.upsert(request));
     }
 
@@ -66,6 +70,7 @@ public class SportsRankingController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN, DELETE_PLAYER_POOL);
+        log.info("Deleting player ranking id={}", id);
         rankingService.delete(id);
         return ResponseEntity.noContent().build();
     }

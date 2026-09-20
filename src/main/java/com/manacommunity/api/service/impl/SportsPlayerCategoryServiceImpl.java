@@ -8,6 +8,7 @@ import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.service.SportsPlayerCategoryService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryService {
@@ -39,6 +41,7 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
     @Override
     @Transactional
     public SportsPlayerCategory createCategory(SportsPlayerCategoryRequest req) {
+        log.info("Creating player category name={} type={} communityId={}", req.getName(), req.getCategoryType(), req.getCommunityId());
         SportsPlayerCategory cat = SportsPlayerCategory.builder()
                 .name(req.getName())
                 .category_type(req.getCategoryType())
@@ -58,6 +61,7 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
     @Override
     @Transactional
     public SportsPlayerCategory updateCategory(Long id, SportsPlayerCategoryRequest req) {
+        log.info("Updating player category id={} name={}", id, req.getName());
         SportsPlayerCategory cat = categoryRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsPlayerCategory", id));
         cat.setName(req.getName());
@@ -81,6 +85,7 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
     @Override
     @Transactional
     public void deleteCategory(Long id) {
+        log.info("Deleting player category id={}", id);
         categoryRepo.deleteById(id);
     }
 }

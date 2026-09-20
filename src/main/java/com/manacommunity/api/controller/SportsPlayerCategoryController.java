@@ -8,6 +8,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,6 +24,7 @@ import static com.manacommunity.api.constants.permissions.SportsPermissions.DELE
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MENU;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/player-categories")
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class SportsPlayerCategoryController {
             @Valid @RequestBody SportsPlayerCategoryRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Creating player category name={}", req.getName());
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         String userRole = loggedInUser.getRole();
@@ -73,6 +76,7 @@ public class SportsPlayerCategoryController {
             @Valid @RequestBody SportsPlayerCategoryRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating player category id={}", id);
         return ResponseEntity.ok(categoryService.updateCategory(id, req));
     }
 
@@ -81,6 +85,7 @@ public class SportsPlayerCategoryController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Deleting player category id={}", id);
         categoryService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }

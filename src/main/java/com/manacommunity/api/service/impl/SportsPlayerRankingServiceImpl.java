@@ -13,12 +13,14 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.service.SportsPlayerRankingService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsPlayerRankingServiceImpl implements SportsPlayerRankingService {
@@ -31,6 +33,7 @@ public class SportsPlayerRankingServiceImpl implements SportsPlayerRankingServic
     @Override
     @Transactional
     public SportsPlayerRankingResponse upsert(SportsPlayerRankingRequest req) {
+        log.info("Upserting player ranking userId={} sportId={} communityId={}", req.userId(), req.sportId(), req.communityId());
         String season = req.resolvedSeason();
         SportsPlayerRanking ranking = rankingRepo
                 .findByUserIdAndSportIdAndCommunityIdAndSeason(req.userId(), req.sportId(), req.communityId(), season)
@@ -76,6 +79,7 @@ public class SportsPlayerRankingServiceImpl implements SportsPlayerRankingServic
     @Override
     @Transactional
     public void delete(Long rankingId) {
+        log.info("Deleting player ranking id={}", rankingId);
         if (!rankingRepo.existsById(rankingId)) {
             throw new ResourceNotFoundException("SportsPlayerRanking", rankingId);
         }

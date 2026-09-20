@@ -391,7 +391,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         NotificationPriority.HIGH, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist outbid notification: {}", e.getMessage());
+            log.warn("Failed to persist outbid notification", e);
         }
 
 
@@ -463,7 +463,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         NotificationPriority.HIGH, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist player-sold notification: {}", e.getMessage());
+            log.warn("Failed to persist player-sold notification", e);
         }
 
 
@@ -639,7 +639,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         priority, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist {} notifications for auction {}: {}", type, config.getId(), e.getMessage());
+            log.warn("Failed to persist {} notifications for auction {}", type, config.getId(), e);
         }
     }
 

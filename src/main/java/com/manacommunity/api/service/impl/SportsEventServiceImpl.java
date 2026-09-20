@@ -580,7 +580,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         event.getCommunity() != null ? event.getCommunity().getId() : null
                 );
             } catch (Exception e) {
-                log.warn("Failed to dispatch partner notification for registration {}: {}", saved.getId(), e.getMessage());
+                log.warn("Failed to dispatch partner notification for registration {}", saved.getId(), e);
             }
         }
 
@@ -633,7 +633,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                     reg.getEvent() != null ? reg.getEvent().getId() : null,
                     NotificationPriority.NORMAL, null, null);
         } catch (Exception e) {
-            log.warn("Failed to persist withdrawal notification: {}", e.getMessage());
+            log.warn("Failed to persist withdrawal notification", e);
         }
     }
 
@@ -877,7 +877,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         null
                 );
             } catch (Exception e) {
-                log.warn("Failed to send partner response notification: {}", e.getMessage());
+                log.warn("Failed to send partner response notification", e);
             }
         }
 
@@ -1381,7 +1381,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                     priority, null,
                     event.getCommunity() != null ? event.getCommunity().getId() : null);
         } catch (Exception e) {
-            log.warn("Failed to persist event-status notifications for event {}: {}", event.getId(), e.getMessage());
+            log.warn("Failed to persist event-status notifications for event {}", event.getId(), e);
         }
     }
 

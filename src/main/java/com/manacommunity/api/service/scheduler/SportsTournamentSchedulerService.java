@@ -85,7 +85,7 @@ public class SportsTournamentSchedulerService {
                 Long venueId = Long.parseLong(venue);
                 match.setVenue(venueRepo.findById(venueId).orElseThrow(() -> new ResourceNotFoundException("Venue", venueId)));
             } catch (NumberFormatException e) {
-                // legacy string venue — ignore
+                log.debug("Non-numeric venue value '{}', treating as legacy string venue", venue);
             }
         }
         return matchRepo.save(match);

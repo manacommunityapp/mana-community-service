@@ -70,6 +70,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public void deleteTournament(Long id) {
+        log.info("Deleting tournament id={}", id);
         SportsTournament tournament = tournamentRepo.findById(id).orElse(null);
         if (tournament == null) {
             return; // already gone — treat delete as idempotent
@@ -96,6 +97,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament saveTournamentRecord(SportsTournamentRequest req, Boolean allowAdminChat) {
+        log.info("Creating tournament name={} communityId={}", req.getName(), req.getCommunityId());
         // Create/resolve path: reuse an existing SportsTournament only if one is already
         // linked to a selected event, otherwise start a fresh record.
         SportsTournament tournament = null;
@@ -117,6 +119,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament updateTournamentRecord(Long id, SportsTournamentRequest req, Boolean allowAdminChat) {
+        log.info("Updating tournament id={} name={}", id, req.getName());
         // Update path: the tournament is identified authoritatively by its id (with a
         // fallback lookup by linked event id for older callers). We NEVER create a new
         // SportsTournament here — doing so was the cause of tournaments duplicating on edit.
@@ -234,6 +237,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament updateStatus(Long id, String status) {
+        log.info("Updating tournament status id={} status={}", id, status);
         SportsEventStatus tournamentStatus;
         try {
             tournamentStatus = SportsEventStatus.valueOf(status);

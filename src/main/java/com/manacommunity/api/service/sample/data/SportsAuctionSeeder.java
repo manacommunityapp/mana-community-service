@@ -156,7 +156,7 @@ public class SportsAuctionSeeder {
                 configRepo.flush();
                 log.info("✓ Cleaned existing auction config (id={}) for event id={}", configId, eventId);
             } catch (Exception e) {
-                log.warn("Notice while cleaning auction data for event id {}: {}", eventId, e.getMessage());
+                log.warn("Notice while cleaning auction data for event id {}", eventId, e);
             }
         });
     }

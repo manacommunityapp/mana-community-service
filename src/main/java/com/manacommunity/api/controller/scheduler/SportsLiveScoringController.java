@@ -6,6 +6,7 @@ import com.manacommunity.api.dto.scheduler.SportsLiveMatchStateResponse;
 import com.manacommunity.api.service.scheduler.SportsLiveScoringService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class SportsLiveScoringController {
@@ -61,6 +63,7 @@ public class SportsLiveScoringController {
     @PostMapping("/api/tournament/match/{matchId}/ball")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public BallEventResponse recordBallRest(@PathVariable Long matchId, @Valid @RequestBody BallEventRequest req) {
+        log.info("Recording ball event matchId={}", matchId);
         BallEventResponse response = liveScoringService.recordBall(req, null);
         messagingTemplate.convertAndSend("/topic/match/" + matchId, response);
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);
@@ -71,6 +74,7 @@ public class SportsLiveScoringController {
     @PostMapping("/api/tournament/match/{matchId}/undo")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public BallEventResponse undoBallRest(@PathVariable Long matchId, @RequestParam(defaultValue = "1") Integer inningsNumber) {
+        log.info("Undoing last ball matchId={} inningsNumber={}", matchId, inningsNumber);
         BallEventResponse response = liveScoringService.undoLastBall(matchId, inningsNumber);
         messagingTemplate.convertAndSend("/topic/match/" + matchId + "/undo", response);
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);
