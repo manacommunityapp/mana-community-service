@@ -261,35 +261,6 @@ public class SportsEventServiceImpl implements SportsEventService {
                 SportsEventRegistration.RegistrationStatus.CONFIRMED
         );
 
-        // Family member explicit duplicate guard
-        if (familyMember != null) {
-            boolean memberAlreadyRegistered = regRepo.existsByEventIdAndFamilyMemberIdAndStatusIn(
-                    req.getEventId(), familyMember.getId(), activeStatuses);
-            if (memberAlreadyRegistered) {
-                throw new AlreadyRegisteredException(
-                        familyMember.getName() + " (" + (familyMember.getRelation() != null ? familyMember.getRelation() : "Family Member") + ") has already been registered for this event.");
-            }
-        }
-
-        String finalEmail = email;
-        String finalFlat = flat;
-        String finalPlayerName = pName;
-
-        boolean duplicate = regRepo.existsDuplicateRegistration(
-                req.getEventId(), finalPlayerName, finalEmail, finalFlat);
-        if (duplicate) {
-            throw new AlreadyRegisteredException(
-                    "Registration for " + pName
-                            + " (" + (email != null && !email.isBlank() ? email : "no email") + ", "
-                            + (flat != null && !flat.isBlank() ? flat : "no flat") + ") already exists.");
-        }
-
-        long currentCount = regRepo.countByEventId(req.getEventId());
-        Integer maxParticipants = resolveMaxParticipants(event);
-        if (maxParticipants != null && currentCount >= maxParticipants) {
-            throw new EventFullException(event.getName(), maxParticipants);
-        }
-
         SportsPlayerCategory category = categoryRepo.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("SportsPlayerCategory", req.getCategoryId()));
 
@@ -375,6 +346,37 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
         }
 
+        // Family member explicit duplicate guard (format-aware)
+        if (familyMember != null) {
+            boolean memberAlreadyRegistered = regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), familyMember.getId(), matchFormat, activeStatuses);
+            if (memberAlreadyRegistered) {
+                throw new AlreadyRegisteredException(
+                        familyMember.getName() + " (" + (familyMember.getRelation() != null ? familyMember.getRelation() : "Family Member") + ") has already been registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+        }
+
+        String finalEmail = email;
+        String finalFlat = flat;
+        String finalPlayerName = pName;
+
+        boolean duplicate = regRepo.existsDuplicateRegistration(
+                req.getEventId(), finalPlayerName, finalEmail, finalFlat, matchFormat);
+        if (duplicate) {
+            throw new AlreadyRegisteredException(
+                    "Registration for " + pName
+                            + " (" + (email != null && !email.isBlank() ? email : "no email") + ", "
+                            + (flat != null && !flat.isBlank() ? flat : "no flat") + ") already exists"
+                            + (matchFormat != null ? " for " + matchFormat.name().replace('_', ' ') : "") + ".");
+        }
+
+        long currentCount = regRepo.countByEventId(req.getEventId());
+        Integer maxParticipants = resolveMaxParticipants(event);
+        if (maxParticipants != null && currentCount >= maxParticipants) {
+            throw new EventFullException(event.getName(), maxParticipants);
+        }
+
         // Option B: Check for duplicate registration in the same match format across the tournament/sport
         validateOptionBDuplicates(user, familyMember, pName, event, category, matchFormat, activeStatuses);
 
@@ -395,6 +397,24 @@ public class SportsEventServiceImpl implements SportsEventService {
             partner = partnerFamilyMember.getUser() != null ? partnerFamilyMember.getUser() : user;
             partnerDisplayName = partnerFamilyMember.getName();
             partnerGender = partnerFamilyMember.getGender() != null ? partnerFamilyMember.getGender().trim().toUpperCase() : "";
+
+            // Check if partner family member is already partner in another registration for this format
+            boolean partnerFamilyAlreadySelected = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), partnerFamilyMember.getId(), matchFormat, activeStatuses);
+            if (partnerFamilyAlreadySelected) {
+                throw new AlreadyRegisteredException(
+                        partnerDisplayName + " is already registered / pending as a partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+
+            // Check if partner family member is already a primary registrant for this format
+            boolean partnerFamilyAlreadyPrimary = regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), partnerFamilyMember.getId(), matchFormat, activeStatuses);
+            if (partnerFamilyAlreadyPrimary) {
+                throw new AlreadyRegisteredException(
+                        partnerDisplayName + " has already registered as a primary player for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
 
             int partnerAge = 0;
             if (partnerFamilyMember.getDob() != null && !partnerFamilyMember.getDob().isBlank()) {
@@ -422,20 +442,22 @@ public class SportsEventServiceImpl implements SportsEventService {
             partnerDisplayName = partner.getFullName();
             partnerGender = partner.getGender() != null ? partner.getGender().trim().toUpperCase() : "";
 
-            // 1. Partner cannot already be partner in another registration for THIS event
-            boolean partnerAlreadySelected = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
-                    req.getEventId(), req.getPartnerUserId(), activeStatuses);
+            // 1. Partner cannot already be partner in another registration for THIS event in the same format
+            boolean partnerAlreadySelected = regRepo.existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), req.getPartnerUserId(), matchFormat, activeStatuses);
             if (partnerAlreadySelected) {
                 throw new AlreadyRegisteredException(
-                        partner.getFullName() + " is already registered / pending as a partner for this event.");
+                        partner.getFullName() + " is already registered / pending as a partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
 
-            // 2. Partner cannot already be a primary registrant for THIS event
-            boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndStatusIn(
-                    req.getEventId(), req.getPartnerUserId(), activeStatuses);
+            // 2. Partner cannot already be a primary registrant for THIS event in the same format
+            boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), req.getPartnerUserId(), matchFormat, activeStatuses);
             if (partnerAlreadyPrimary) {
                 throw new AlreadyRegisteredException(
-                        partner.getFullName() + " has already registered for this event.");
+                        partner.getFullName() + " has already registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
 
             // 3. Partner age bounds validation (event and category limits)
@@ -449,20 +471,22 @@ public class SportsEventServiceImpl implements SportsEventService {
             validateOptionBDuplicates(partner, null, partnerDisplayName, event, category, matchFormat, activeStatuses);
         }
 
-        // Check if the primary registering participant is already someone else's partner
+        // Check if the primary registering participant is already someone else's partner for this format
         if (familyMember != null) {
-            boolean memberAlreadyPartner = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndStatusIn(
-                    req.getEventId(), familyMember.getId(), activeStatuses);
+            boolean memberAlreadyPartner = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), familyMember.getId(), matchFormat, activeStatuses);
             if (memberAlreadyPartner) {
                 throw new AlreadyRegisteredException(
-                        familyMember.getName() + " has already been selected as a partner in another registration for this event.");
+                        familyMember.getName() + " has already been selected as a partner in another registration for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
         } else if (partner != null) {
-            boolean userAlreadyPartner = regRepo.existsByEventIdAndPartnerIdAndStatusIn(
-                    req.getEventId(), userId, activeStatuses);
+            boolean userAlreadyPartner = regRepo.existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), userId, matchFormat, activeStatuses);
             if (userAlreadyPartner) {
                 throw new AlreadyRegisteredException(
-                        "You have already been selected as a partner in another registration for this event.");
+                        "You have already been selected as a partner in another registration for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
         }
 

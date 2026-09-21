@@ -38,6 +38,7 @@ public record SportsDashboardResponse(
             String categoryName,
             String venueName,
             Integer maxParticipants,
+            Integer registeredCount,
             String registrationStatus,
             String auctionStatus,
             boolean teamSport,

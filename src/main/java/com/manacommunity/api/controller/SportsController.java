@@ -43,6 +43,8 @@ import com.manacommunity.api.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
+import com.manacommunity.api.repository.SportsEventRegistrationRepository;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/sports")
@@ -56,6 +58,7 @@ public class SportsController {
     private final SportsTournamentService tournamentService;
     private final PermissionCheckService permissionCheckService;
     private final SportsEventCsvImportService csvImportService;
+    private final SportsEventRegistrationRepository registrationRepo;
 
     @GetMapping("/meta")
     public ResponseEntity<List<SportsMetaResponse>> getAllSports(
@@ -603,6 +606,7 @@ public class SportsController {
                 .registrationDateStart(e.getRegistrationDateStart() != null ? e.getRegistrationDateStart() : (e.getTournament() != null ? e.getTournament().getRegistrationDateStart() : null))
                 .registrationDateEnd(e.getRegistrationDateEnd() != null ? e.getRegistrationDateEnd() : (e.getTournament() != null ? e.getTournament().getRegistrationDateEnd() : null))
                 .maxParticipants(e.getMaxParticipants() != null ? e.getMaxParticipants() : (e.getTournament() != null ? e.getTournament().getMaxParticipants() : null))
+                .registeredCount(e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0)
                 .startTime(e.getStartTime() != null ? e.getStartTime() : (e.getTournament() != null ? e.getTournament().getStartTime() : null))
                 .dueTime(e.getDueTime() != null ? e.getDueTime() : (e.getTournament() != null ? e.getTournament().getDueTime() : null))
                 .status(e.getStatus() != null ? e.getStatus().name() : null)

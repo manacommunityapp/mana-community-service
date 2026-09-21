@@ -86,10 +86,15 @@ class SportsEventServiceRegistrationTest {
         user.setGender("MALE");
         user.setDateOfBirth(LocalDate.of(1995, 1, 1));
 
+        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Open Men");
+
         when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
         doNothing().when(recaptchaService).verify(null, null);
         doNothing().when(otpService).assertEmailVerified(anyString());
         when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.countByEventId(1L)).thenReturn(3L);
 
@@ -220,7 +225,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
 
         assertThatThrownBy(() -> service.respondToPartnerInvitation(500L, 20L, true, null))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
                 .hasMessageContaining("already been CONFIRMED");
     }
 
@@ -483,17 +488,25 @@ class SportsEventServiceRegistrationTest {
                 .age(10)
                 .build();
 
+        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Junior Boys");
+
         when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
         doNothing().when(recaptchaService).verify(null, null);
         doNothing().when(otpService).assertEmailVerified(anyString());
         when(userRepo.findById(2L)).thenReturn(Optional.of(parent));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
         when(familyMemberRepository.findByIdAndUserId(100L, 2L)).thenReturn(Optional.of(child));
-        when(regRepo.existsByEventIdAndFamilyMemberIdAndStatusIn(
-                org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
+        when(regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
 
         assertThatThrownBy(() -> service.registerUser(req, 2L))
                 .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class)
-                .hasMessageContaining("Aarav Child (Son) has already been registered for this event.");
+                .hasMessageContaining("Aarav Child (Son) has already been registered for this event");
     }
 
     @Test
@@ -1187,5 +1200,69 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.SINGLES);
         org.assertj.core.api.Assertions.assertThat(saved.getEventFormat()).isEqualTo(eventFormat);
         org.assertj.core.api.Assertions.assertThat(saved.getEventFormat().getId()).isEqualTo(101L);
+    }
+
+    @Test
+    void registerUser_allowsDoublesRegistrationWhenAlreadyRegisteredForSingles() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(5L);
+        req.setCategoryId(15L);
+        req.setMatchType("DOUBLES");
+        req.setPlayerName("Mady");
+        req.setEmail("mady@gmail.com");
+        req.setFlatNumber("Block D, Flat 107");
+        req.setPartnerUserId(3L);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(5L);
+        event.setName("Badminton Championship 2026");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        SportsMeta sport = new SportsMeta();
+        sport.setId(2L);
+        sport.setName("Badminton");
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Mady");
+        user.setGender("MALE");
+        user.setEmail("mady@gmail.com");
+        user.setFlatNo("Block D, Flat 107");
+        user.setDateOfBirth(LocalDate.now().minusYears(28));
+
+        AppUser partner = new AppUser();
+        partner.setId(3L);
+        partner.setFullName("John Partner");
+        partner.setGender("MALE");
+        partner.setEmail("john@gmail.com");
+        partner.setFlatNo("Block A, Flat 201");
+        partner.setDateOfBirth(LocalDate.now().minusYears(29));
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(15L);
+        category.setName("Men Open");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(5L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(org.mockito.ArgumentMatchers.any());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepo.findById(3L)).thenReturn(Optional.of(partner));
+        when(categoryRepo.findById(15L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(5L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of());
+        when(regRepo.findByUserId(3L)).thenReturn(List.of());
+
+        // Ensure duplicate check for DOUBLES returns false (even if user is registered for SINGLES)
+        when(regRepo.existsDuplicateRegistration(5L, "Mady", "mady@gmail.com", "Block D, Flat 107", SportsEvent.MatchFormat.DOUBLES))
+                .thenReturn(false);
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
+        org.assertj.core.api.Assertions.assertThat(saved.getPartner().getId()).isEqualTo(3L);
     }
 }
