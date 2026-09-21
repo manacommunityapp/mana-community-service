@@ -138,6 +138,30 @@ public class UserController {
                 .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
+    @GetMapping("/community/{communityId}/summary")
+    public ResponseEntity<PagedResponse<com.manacommunity.api.user.dto.UserSummaryResponse>> getCommunityUsersSummary(
+            @PathVariable Long communityId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        Long targetCommunityId = communityId;
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
+            targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
+                throw new com.manacommunity.api.exception.UnauthorizedActionException(
+                        "You can only view users from your own community.");
+            }
+        }
+        final Long finalCommId = targetCommunityId;
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
+        String cleanSearch = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+        Page<AppUser> userPage = appUserRepo.searchCommunityUsersSummary(finalCommId, cleanSearch, pageable);
+        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserSummaryResponse));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
@@ -339,6 +363,27 @@ public class UserController {
                 .updatedAt(u.getUpdatedAt())
                 .build();
     }
+
+    private com.manacommunity.api.user.dto.UserSummaryResponse toUserSummaryResponse(AppUser u) {
+        String avatar = u.getProfilePicUrl();
+        if (avatar == null || avatar.isBlank()) {
+            avatar = "https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media";
+        }
+        return com.manacommunity.api.user.dto.UserSummaryResponse.builder()
+                .id(u.getId())
+                .fullName(u.getFullName())
+                .email(u.getEmail())
+                .phone(u.getPhone())
+                .profilePicUrl(u.getProfilePicUrl())
+                .avatarUrl(avatar)
+                .gender(u.getGender())
+                .dateOfBirth(u.getDateOfBirth())
+                .flatNo(u.getFlatNo())
+                .block(u.getBlock())
+                .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
+                .build();
+    }
+
 
     /**
      * Changes the password for the currently authenticated user via /api/users/change-password.

@@ -13,6 +13,7 @@ import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.SportsTournamentRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
+import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class SportsDashboardService {
     private final SportsEventService eventService;
     private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
+    private final SportsEventRegistrationRepository registrationRepo;
 
     @Transactional(readOnly = true)
     public Stats getStats(AppUser user) {
@@ -154,6 +156,7 @@ public class SportsDashboardService {
     // ── Mapping helpers ───────────────────────────────────────────────
 
     private EventCard toEventCard(SportsEvent e, SportsEventRegistration myReg) {
+        int regCount = e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0;
         return new EventCard(
                 e.getId(),
                 e.getUuid(),
@@ -164,6 +167,7 @@ public class SportsDashboardService {
                 firstCategoryName(e),
                 e.getVenue() != null ? e.getVenue().getName() : null,
                 e.getMaxParticipants(),
+                regCount,
                 registrationStatus(e),
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 isTeamSport(e),

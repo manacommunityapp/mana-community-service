@@ -37,6 +37,7 @@ public class SportsEventResponse {
     private LocalDate registrationDateStart;
     private LocalDate registrationDateEnd;
     private Integer maxParticipants;
+    private Integer registeredCount;
     private String startTime;
     private String dueTime;
 

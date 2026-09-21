@@ -32,6 +32,22 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM AppUser u
+            WHERE u.community.id = :communityId
+              AND (:search IS NULL OR :search = '' OR
+                   LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.phone) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.flatNo) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.block) LIKE LOWER(CONCAT('%', :search, '%')))
+            """)
+    Page<AppUser> searchCommunityUsersSummary(
+            @Param("communityId") Long communityId,
+            @Param("search")      String search,
+            Pageable pageable);
+
     java.util.List<AppUser> findByCommunityIdAndIsActiveTrue(Long communityId);
     Page<AppUser> findByKycStatus(String kycStatus, Pageable pageable);
     Page<AppUser> findByCommunityIdAndKycStatus(Long communityId, String kycStatus, Pageable pageable);

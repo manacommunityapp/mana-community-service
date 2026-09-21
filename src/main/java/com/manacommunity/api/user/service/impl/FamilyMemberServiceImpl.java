@@ -163,9 +163,18 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
         }
 
         return repository.findByUserIdOrderByCreatedAtAsc(resolvedId).stream()
-                .map(m -> new FamilyMemberSlimResponse(
-                        m.getId(), m.getName(), m.getGothram(),
-                        m.getRelation(), m.getPhone(), m.getGender()))
+                .filter(m -> !isSelf(m))
+                .map(m -> FamilyMemberSlimResponse.builder()
+                        .id(m.getId())
+                        .name(m.getName())
+                        .gothram(m.getGothram())
+                        .relation(m.getRelation())
+                        .phone(m.getPhone())
+                        .gender(m.getGender())
+                        .age(m.getAge())
+                        .dob(m.getDob())
+                        .email(m.getEmail())
+                        .build())
                 .collect(Collectors.toList());
     }
 
@@ -174,11 +183,31 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
     public List<FamilyMemberSlimResponse> getSlimFamilyMembers(Long userId) {
         if (userId == null) return Collections.emptyList();
         return repository.findByUserIdOrderByCreatedAtAsc(userId).stream()
-                .map(m -> new FamilyMemberSlimResponse(
-                        m.getId(), m.getName(), m.getGothram(),
-                        m.getRelation(), m.getPhone(), m.getGender()))
+                .filter(m -> !isSelf(m))
+                .map(m -> FamilyMemberSlimResponse.builder()
+                        .id(m.getId())
+                        .name(m.getName())
+                        .gothram(m.getGothram())
+                        .relation(m.getRelation())
+                        .phone(m.getPhone())
+                        .gender(m.getGender())
+                        .age(m.getAge())
+                        .dob(m.getDob())
+                        .email(m.getEmail())
+                        .build())
                 .collect(Collectors.toList());
     }
+
+    private boolean isSelf(FamilyMember m) {
+        if (m == null) return false;
+        String rel = m.getRelation();
+        if (rel != null && (rel.equalsIgnoreCase("SELF") || rel.equalsIgnoreCase("HEAD") || rel.toUpperCase().contains("SELF"))) {
+            return true;
+        }
+        return false;
+    }
+
+
 
     @Override
     @Transactional
