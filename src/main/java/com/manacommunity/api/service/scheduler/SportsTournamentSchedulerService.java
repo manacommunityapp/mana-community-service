@@ -59,7 +59,7 @@ public class SportsTournamentSchedulerService {
 
         // Seed if required
         if (Boolean.TRUE.equals(req.hasSeeding())) {
-            teams = seedingService.seed(teams);
+            teams = seedingService.seed(teams, req.sportId(), req.communityId(), "CURRENT");
         }
 
         // Generate + persist schedule

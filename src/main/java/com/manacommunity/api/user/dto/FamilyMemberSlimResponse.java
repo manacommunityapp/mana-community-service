@@ -1,5 +1,14 @@
 package com.manacommunity.api.user.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class FamilyMemberSlimResponse {
 
     private Long id;
@@ -8,6 +17,9 @@ public class FamilyMemberSlimResponse {
     private String relation;
     private String phone;
     private String gender;
+    private Integer age;
+    private String dob;
+    private String email;
 
     public FamilyMemberSlimResponse(Long id, String name, String gothram,
                                     String relation, String phone, String gender) {
@@ -18,11 +30,5 @@ public class FamilyMemberSlimResponse {
         this.phone = phone;
         this.gender = gender;
     }
-
-    public Long getId() { return id; }
-    public String getName() { return name; }
-    public String getGothram() { return gothram; }
-    public String getRelation() { return relation; }
-    public String getPhone() { return phone; }
-    public String getGender() { return gender; }
 }
+
