@@ -24,6 +24,8 @@ public class SportsEventResponse {
     private Boolean active;
     private Boolean adminApprovalRequired;
     private Boolean mandatoryMixedDoubles;
+    private Boolean allowHigherAgeCategory;
+    private Boolean allowMultipleCategories;
 
     private SportRef sport;
     private CommunityRef community;
@@ -35,12 +37,14 @@ public class SportsEventResponse {
     private LocalDate registrationDateStart;
     private LocalDate registrationDateEnd;
     private Integer maxParticipants;
+    private Integer registeredCount;
     private String startTime;
     private String dueTime;
 
     private String status;
     private String auctionStatus;
     private List<String> format;
+    private List<FormatRef> formats;
     private String tournamentType;
 
     private List<CategoryRef> categories;
@@ -117,5 +121,12 @@ public class SportsEventResponse {
         private Long id;
         private String name;
         private String registrationStatus;
+    }
+
+    @Data
+    @Builder
+    public static class FormatRef {
+        private Long id;
+        private String format;
     }
 }

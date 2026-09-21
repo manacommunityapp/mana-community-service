@@ -70,6 +70,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public void deleteTournament(Long id) {
+        log.info("Deleting tournament id={}", id);
         SportsTournament tournament = tournamentRepo.findById(id).orElse(null);
         if (tournament == null) {
             return; // already gone — treat delete as idempotent
@@ -96,6 +97,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament saveTournamentRecord(SportsTournamentRequest req, Boolean allowAdminChat) {
+        log.info("Creating tournament name={} communityId={}", req.getName(), req.getCommunityId());
         // Create/resolve path: reuse an existing SportsTournament only if one is already
         // linked to a selected event, otherwise start a fresh record.
         SportsTournament tournament = null;
@@ -117,6 +119,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament updateTournamentRecord(Long id, SportsTournamentRequest req, Boolean allowAdminChat) {
+        log.info("Updating tournament id={} name={}", id, req.getName());
         // Update path: the tournament is identified authoritatively by its id (with a
         // fallback lookup by linked event id for older callers). We NEVER create a new
         // SportsTournament here — doing so was the cause of tournaments duplicating on edit.
@@ -195,7 +198,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
         // Only default to DRAFT for brand-new tournaments; editing must not demote
         // an already-open/completed tournament back to DRAFT.
         if (isNew || tournament.getRegistrationStatus() == null) {
-            tournament.setRegistrationStatus(SportsTournament.EventStatus.DRAFT);
+            tournament.setRegistrationStatus(SportsEventStatus.DRAFT);
         }
 
         // Build mainEvent context for sponsors mapping
@@ -234,9 +237,10 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     @Override
     @Transactional
     public SportsTournament updateStatus(Long id, String status) {
-        SportsTournament.EventStatus tournamentStatus;
+        log.info("Updating tournament status id={} status={}", id, status);
+        SportsEventStatus tournamentStatus;
         try {
-            tournamentStatus = SportsTournament.EventStatus.valueOf(status);
+            tournamentStatus = SportsEventStatus.valueOf(status);
         } catch (IllegalArgumentException e) {
             throw new com.manacommunity.api.exception.ManaCommunityException(
                     "Invalid event status: '" + status + "'. Valid values: DRAFT, REGISTRATION_OPEN, "
@@ -260,12 +264,12 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
         tournament.setRegistrationStatus(tournamentStatus);
         SportsTournament saved = tournamentRepo.save(tournament);
 
-        if (tournamentStatus == SportsTournament.EventStatus.COMPLETED
-                || tournamentStatus == SportsTournament.EventStatus.CANCELLED) {
+        if (tournamentStatus == SportsEventStatus.COMPLETED
+                || tournamentStatus == SportsEventStatus.CANCELLED) {
             if (saved.getSportsEvents() != null) {
                 for (SportsEvent ev : saved.getSportsEvents()) {
                     ev.setActive(false);
-                    ev.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                    ev.setStatus(tournamentStatus);
                     ev.setUpdatedAt(java.time.LocalDateTime.now());
                     eventRepo.save(ev);
                 }
@@ -274,7 +278,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             if (saved.getSportsEvents() != null) {
                 for (SportsEvent ev : saved.getSportsEvents()) {
                     ev.setActive(true);
-                    ev.setStatus(SportsEvent.EventStatus.valueOf(tournamentStatus.name()));
+                    ev.setStatus(tournamentStatus);
                     ev.setUpdatedAt(java.time.LocalDateTime.now());
                     eventRepo.save(ev);
                 }
@@ -283,14 +287,14 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
 
         notifyTournamentParticipants(saved, tournamentStatus);
 
-        if (tournamentStatus == SportsTournament.EventStatus.REGISTRATION_OPEN) {
+        if (tournamentStatus == SportsEventStatus.REGISTRATION_OPEN) {
             eventPublisher.publishEvent(new SportsTournamentStatusChangedEvent(saved.getId(), tournamentStatus));
         }
 
         return saved;
     }
 
-    private void notifyTournamentParticipants(SportsTournament tournament, SportsTournament.EventStatus newStatus) {
+    private void notifyTournamentParticipants(SportsTournament tournament, SportsEventStatus newStatus) {
         try {
             if (tournament.getSportsEvents() == null || tournament.getSportsEvents().isEmpty()) return;
 

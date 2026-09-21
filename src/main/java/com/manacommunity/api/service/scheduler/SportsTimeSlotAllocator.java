@@ -1,5 +1,6 @@
 package com.manacommunity.api.service.scheduler;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
  * how successive matches are spaced (duration + break). Extracted from the
  * inline cursors that used to live in every generator.
  */
+@Slf4j
 @Service
 public class SportsTimeSlotAllocator {
 
@@ -34,6 +36,7 @@ public class SportsTimeSlotAllocator {
             String t = (time != null && !time.isBlank()) ? time : "00:00";
             return LocalDateTime.parse(date + "T" + t);
         } catch (Exception e) {
+            log.warn("Failed to parse scheduledAt date={} time={}, falling back to now", date, time, e);
             return LocalDateTime.now();
         }
     }

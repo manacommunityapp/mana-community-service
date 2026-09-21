@@ -416,6 +416,7 @@ public class SportsMatchPersistenceService {
             long teamId = Long.parseLong(id);
             return teamRepo.findById(teamId).orElse(null);
         } catch (NumberFormatException e) {
+            log.debug("Non-numeric team id '{}', skipping team resolution", id);
             return null;
         }
     }

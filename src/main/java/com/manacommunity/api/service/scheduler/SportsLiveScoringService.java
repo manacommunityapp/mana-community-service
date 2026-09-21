@@ -2,6 +2,7 @@ package com.manacommunity.api.service.scheduler;
 
 import com.manacommunity.api.dto.scheduler.*;
 import com.manacommunity.api.dto.scheduler.SportsLiveMatchStateResponse.*;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.SportsAuctionPlayer;
 import com.manacommunity.api.model.scheduler.*;
@@ -30,6 +31,7 @@ public class SportsLiveScoringService {
 
     @Transactional
     public BallEventResponse recordBall(BallEventRequest req, Long userId) {
+        log.info("Recording ball event matchId={} innings={} batsmanId={} bowlerId={} userId={}", req.matchId(), req.inningsNumber(), req.batsmanId(), req.bowlerId(), userId);
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
@@ -108,9 +110,10 @@ public class SportsLiveScoringService {
 
     @Transactional
     public BallEventResponse undoLastBall(Long matchId, Integer inningsNumber) {
+        log.info("Undoing last ball matchId={} innings={}", matchId, inningsNumber);
         List<SportsMatchBallEvent> balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(
             matchId, inningsNumber);
-        if (balls.isEmpty()) throw new IllegalStateException("No balls to undo");
+        if (balls.isEmpty()) throw new InvalidInputException("No balls to undo for this innings.");
 
         SportsMatchBallEvent last = balls.get(balls.size() - 1);
         last.setIsUndone(true);
@@ -130,6 +133,7 @@ public class SportsLiveScoringService {
 
     @Transactional
     public void startInnings(Long matchId, Integer inningsNumber) {
+        log.info("Starting innings matchId={} innings={}", matchId, inningsNumber);
         SportsTournamentMatch match = matchRepo.findById(matchId)
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         if (match.getStatus() != MatchStatus.LIVE) {

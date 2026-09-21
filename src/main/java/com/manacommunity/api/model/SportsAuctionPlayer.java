@@ -30,12 +30,13 @@ public class SportsAuctionPlayer {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
-    @Column(nullable = false)
+    @Column(name = "player_name", nullable = false, length = 150)
     private String playerName;
 
-    @Column(nullable = false)
-    private String category;   // BATSMEN | BOWLERS | ALL_ROUNDERS
+    @Column(nullable = false, length = 50)
+    private String category;
 
+    @Column(name = "player_role", length = 50)
     private String playerRole;
     private Integer age;
 
@@ -54,7 +55,7 @@ public class SportsAuctionPlayer {
     private Integer rating;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PlayerStatus status;
 
     @Version

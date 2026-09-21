@@ -3,6 +3,7 @@ package com.manacommunity.api.unit.service;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.model.SportsEvent;
+import com.manacommunity.api.model.SportsEventStatus;
 import com.manacommunity.api.model.SportsMeta;
 import com.manacommunity.api.model.SportsTournament;
 import com.manacommunity.api.repository.*;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SportsEventServiceRegistrationTest {
 
     @Mock private SportsEventRepository eventRepo;
@@ -47,9 +51,8 @@ class SportsEventServiceRegistrationTest {
     @Mock private RecaptchaService recaptchaService;
     @Mock private OtpService otpService;
     @Mock private ContactRepository contactRepository;
-    private final SportsPlayerRankingRepository rankingRepo = null;
+    @Mock private com.manacommunity.api.repository.SportsEventFormatRepository formatRepo;
     @Mock private com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
-
     @Mock private com.manacommunity.api.security.AuditService auditService;
 
     @InjectMocks
@@ -72,7 +75,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Weekend League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMaxParticipants(null);
         event.setTournament(tournament);
         event.setSport(sport);
@@ -83,10 +86,15 @@ class SportsEventServiceRegistrationTest {
         user.setGender("MALE");
         user.setDateOfBirth(LocalDate.of(1995, 1, 1));
 
+        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Open Men");
+
         when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
         doNothing().when(recaptchaService).verify(null, null);
         doNothing().when(otpService).assertEmailVerified(anyString());
         when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.countByEventId(1L)).thenReturn(3L);
 
@@ -217,7 +225,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
 
         assertThatThrownBy(() -> service.respondToPartnerInvitation(500L, 20L, true, null))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
                 .hasMessageContaining("already been CONFIRMED");
     }
 
@@ -246,7 +254,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Mixed Doubles Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(true);
 
@@ -294,7 +302,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Open Mixed Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
         event.setMandatoryMixedDoubles(false);
 
@@ -342,7 +350,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -374,6 +382,7 @@ class SportsEventServiceRegistrationTest {
         when(categoryRepo.findById(10L)).thenReturn(Optional.of(category));
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.findByUserId(2L)).thenReturn(List.of(pastReg));
+        when(regRepo.existsByUserIdAndAgeGreaterThanEqual(2L, 18)).thenReturn(true);
 
         assertThatThrownBy(() -> service.registerUser(req, 2L))
                 .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
@@ -395,7 +404,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -457,7 +466,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Youth Cricket Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(8);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -479,17 +488,25 @@ class SportsEventServiceRegistrationTest {
                 .age(10)
                 .build();
 
+        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Junior Boys");
+
         when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
         doNothing().when(recaptchaService).verify(null, null);
         doNothing().when(otpService).assertEmailVerified(anyString());
         when(userRepo.findById(2L)).thenReturn(Optional.of(parent));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
         when(familyMemberRepository.findByIdAndUserId(100L, 2L)).thenReturn(Optional.of(child));
-        when(regRepo.existsByEventIdAndFamilyMemberIdAndStatusIn(
-                org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
+        when(regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
 
         assertThatThrownBy(() -> service.registerUser(req, 2L))
                 .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class)
-                .hasMessageContaining("Aarav Child (Son) has already been registered for this event.");
+                .hasMessageContaining("Aarav Child (Son) has already been registered for this event");
     }
 
     @Test
@@ -503,7 +520,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -532,7 +549,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -561,7 +578,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Summer League");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
 
         AppUser user = new AppUser();
         user.setId(2L);
@@ -595,7 +612,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Junior Badminton Cup");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(18);
         event.setSport(sport);
@@ -667,7 +684,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Open Tournament");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setMinAge(4);
         event.setMaxAge(100);
         event.setSport(sport);
@@ -720,7 +737,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Badminton Championship");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -767,7 +784,7 @@ class SportsEventServiceRegistrationTest {
         SportsEvent event = new SportsEvent();
         event.setId(1L);
         event.setName("Carroms Open Doubles");
-        event.setStatus(SportsEvent.EventStatus.REGISTRATION_OPEN);
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
         event.setSport(sport);
 
         AppUser user = new AppUser();
@@ -799,5 +816,453 @@ class SportsEventServiceRegistrationTest {
         com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
+    }
+
+    @Test
+    void registerUser_ageOutsideCategoryLimits_throwsAgeMismatchException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("junior@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Badminton");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Badminton Junior Tournament");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setSport(sport);
+        event.setMinAge(5);
+        event.setMaxAge(60);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Senior Player");
+        user.setGender("MALE");
+        // User is 25 years old
+        user.setDateOfBirth(LocalDate.now().minusYears(25));
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(10L);
+        category.setName("Under 14 Boys");
+        category.setMinAge(6);
+        category.setMaxAge(14);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L))
+                .isInstanceOf(com.manacommunity.api.exception.AgeMismatchException.class)
+                .hasMessageContaining("Under 14 Boys")
+                .hasMessageContaining("25 yrs");
+    }
+
+    @Test
+    void registerUser_categoryNotEligibleForEvent_throwsInvalidInputException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(20L);
+        req.setMatchType("SINGLES");
+        req.setEmail("player@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Badminton");
+
+        com.manacommunity.api.model.SportsPlayerCategory eventCategory = new com.manacommunity.api.model.SportsPlayerCategory();
+        eventCategory.setId(10L);
+        eventCategory.setName("Adults Men (18-40)");
+
+        com.manacommunity.api.model.SportsPlayerCategory otherCategory = new com.manacommunity.api.model.SportsPlayerCategory();
+        otherCategory.setId(20L);
+        otherCategory.setName("Veterans (50+)");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Badminton Adults Only");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setSport(sport);
+        event.setCategories(java.util.Set.of(eventCategory));
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Adult Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.now().minusYears(25));
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(20L)).thenReturn(Optional.of(otherCategory));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
+                .hasMessageContaining("not eligible for event");
+    }
+
+    @Test
+    void registerUser_partnerMissingDob_throwsInvalidInputException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("DOUBLES");
+        req.setPartnerUserId(30L);
+        req.setEmail("player@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Tennis");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Tennis Doubles");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Primary Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.of(1995, 1, 1));
+
+        AppUser partner = new AppUser();
+        partner.setId(30L);
+        partner.setFullName("Partner Without DOB");
+        partner.setGender("MALE");
+        partner.setDateOfBirth(null); // Missing DOB
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(10L);
+        category.setName("Men Doubles (18+)");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepo.findById(30L)).thenReturn(Optional.of(partner));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
+                .hasMessageContaining("must update their Date of Birth");
+    }
+
+    @Test
+    void registerUser_playingUpInHigherAgeCategory_succeeds() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("youngpro@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Badminton");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Badminton Open Youth Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setSport(sport);
+        event.setAllowHigherAgeCategory(true);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Young Prodigy");
+        user.setGender("MALE");
+        // User is 12 years old
+        user.setDateOfBirth(LocalDate.now().minusYears(12));
+
+        // Category is U16 (minAge 14, maxAge 16)
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(10L);
+        category.setName("Under 16 Boys");
+        category.setMinAge(14);
+        category.setMaxAge(16);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of());
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getAge()).isEqualTo(12);
+        org.assertj.core.api.Assertions.assertThat(saved.getCategory().getName()).isEqualTo("Under 16 Boys");
+    }
+
+    @Test
+    void registerUser_optionB_duplicateSameMatchFormatInSameTournament_isBlocked() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(2L);
+        req.setCategoryId(20L);
+        req.setMatchType("SINGLES");
+        req.setEmail("player@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setId(5L);
+        sport.setName("Badminton");
+
+        SportsTournament tournament = new SportsTournament();
+        tournament.setId(100L);
+        tournament.setName("Badminton Annual Tournament");
+
+        // Event 2: U16 Singles in Tournament 100
+        SportsEvent event2 = new SportsEvent();
+        event2.setId(2L);
+        event2.setName("Badminton U16 Singles");
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event2.setSport(sport);
+        event2.setTournament(tournament);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Multi Category Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.now().minusYears(14));
+
+        com.manacommunity.api.model.SportsPlayerCategory category2 = new com.manacommunity.api.model.SportsPlayerCategory();
+        category2.setId(20L);
+        category2.setName("Under 16 Boys");
+        category2.setMinAge(14);
+        category2.setMaxAge(16);
+        category2.setGender("MALE");
+
+        // Existing registration in Event 1 (U14 Singles) for the SAME tournament and SAME format (SINGLES)
+        SportsEvent event1 = new SportsEvent();
+        event1.setId(1L);
+        event1.setName("Badminton U14 Singles");
+        event1.setSport(sport);
+        event1.setTournament(tournament);
+
+        com.manacommunity.api.model.SportsPlayerCategory category1 = new com.manacommunity.api.model.SportsPlayerCategory();
+        category1.setName("Under 14 Boys");
+
+        com.manacommunity.api.model.SportsEventRegistration existingReg = new com.manacommunity.api.model.SportsEventRegistration();
+        existingReg.setEvent(event1);
+        existingReg.setCategory(category1);
+        existingReg.setMatchType(SportsEvent.MatchFormat.SINGLES);
+        existingReg.setStatus(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(eventRepo.findById(2L)).thenReturn(Optional.of(event2));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(20L)).thenReturn(Optional.of(category2));
+        when(regRepo.findByEventId(2L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of(existingReg));
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L))
+                .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class)
+                .hasMessageContaining("already registered for Badminton SINGLES in 'Badminton U14 Singles'")
+                .hasMessageContaining("cannot enter multiple age categories of the same match format");
+    }
+
+    @Test
+    void registerUser_optionB_differentMatchFormatsInSameTournament_isAllowed() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(2L);
+        req.setCategoryId(20L);
+        req.setMatchType("DOUBLES");
+        req.setPartnerUserId(30L);
+        req.setEmail("player@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setId(5L);
+        sport.setName("Badminton");
+
+        SportsTournament tournament = new SportsTournament();
+        tournament.setId(100L);
+        tournament.setName("Badminton Annual Tournament");
+
+        // Event 2: Doubles in Tournament 100
+        SportsEvent event2 = new SportsEvent();
+        event2.setId(2L);
+        event2.setName("Badminton Open Doubles");
+        event2.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event2.setSport(sport);
+        event2.setTournament(tournament);
+        event2.setAllowMultipleCategories(true);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Multi Format Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.now().minusYears(20));
+
+        AppUser partner = new AppUser();
+        partner.setId(30L);
+        partner.setFullName("Partner Player");
+        partner.setGender("MALE");
+        partner.setDateOfBirth(LocalDate.now().minusYears(22));
+
+        com.manacommunity.api.model.SportsPlayerCategory category2 = new com.manacommunity.api.model.SportsPlayerCategory();
+        category2.setId(20L);
+        category2.setName("Open Doubles");
+        category2.setMinAge(16);
+        category2.setMaxAge(50);
+        category2.setGender("ALL");
+
+        // Existing registration in Event 1: SINGLES format in same tournament
+        SportsEvent event1 = new SportsEvent();
+        event1.setId(1L);
+        event1.setName("Badminton Men Singles");
+        event1.setSport(sport);
+        event1.setTournament(tournament);
+
+        com.manacommunity.api.model.SportsEventRegistration existingReg = new com.manacommunity.api.model.SportsEventRegistration();
+        existingReg.setEvent(event1);
+        existingReg.setMatchType(SportsEvent.MatchFormat.SINGLES);
+        existingReg.setStatus(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(eventRepo.findById(2L)).thenReturn(Optional.of(event2));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(anyString());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepo.findById(30L)).thenReturn(Optional.of(partner));
+        when(categoryRepo.findById(20L)).thenReturn(Optional.of(category2));
+        when(regRepo.findByEventId(2L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of(existingReg));
+        when(regRepo.findByUserId(30L)).thenReturn(List.of());
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
+        org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
+    }
+
+    @Test
+    void registerUser_withFormatId_setsFormatAndMatchTypeOnRegistration() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(5L);
+        req.setCategoryId(15L);
+        req.setFormatId(101L);
+        req.setPlayerName("Format Tester");
+        req.setAge(25);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(5L);
+        event.setName("Table Tennis Open");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        SportsMeta sport = new SportsMeta();
+        sport.setId(2L);
+        sport.setName("Table Tennis");
+        event.setSport(sport);
+
+        com.manacommunity.api.model.SportsEventFormat eventFormat = com.manacommunity.api.model.SportsEventFormat.builder()
+                .id(101L)
+                .event(event)
+                .format(SportsEvent.MatchFormat.SINGLES)
+                .build();
+        event.setEventFormats(List.of(eventFormat));
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Format Tester");
+        user.setGender("MALE");
+        user.setEmail("tester@gmail.com");
+        user.setDateOfBirth(LocalDate.now().minusYears(25));
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(15L);
+        category.setName("Men Singles");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(5L)).thenReturn(Optional.of(event));
+        when(formatRepo.findById(101L)).thenReturn(Optional.of(eventFormat));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(org.mockito.ArgumentMatchers.any());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(15L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(5L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of());
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.SINGLES);
+        org.assertj.core.api.Assertions.assertThat(saved.getEventFormat()).isEqualTo(eventFormat);
+        org.assertj.core.api.Assertions.assertThat(saved.getEventFormat().getId()).isEqualTo(101L);
+    }
+
+    @Test
+    void registerUser_allowsDoublesRegistrationWhenAlreadyRegisteredForSingles() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(5L);
+        req.setCategoryId(15L);
+        req.setMatchType("DOUBLES");
+        req.setPlayerName("Mady");
+        req.setEmail("mady@gmail.com");
+        req.setFlatNumber("Block D, Flat 107");
+        req.setPartnerUserId(3L);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(5L);
+        event.setName("Badminton Championship 2026");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        SportsMeta sport = new SportsMeta();
+        sport.setId(2L);
+        sport.setName("Badminton");
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Mady");
+        user.setGender("MALE");
+        user.setEmail("mady@gmail.com");
+        user.setFlatNo("Block D, Flat 107");
+        user.setDateOfBirth(LocalDate.now().minusYears(28));
+
+        AppUser partner = new AppUser();
+        partner.setId(3L);
+        partner.setFullName("John Partner");
+        partner.setGender("MALE");
+        partner.setEmail("john@gmail.com");
+        partner.setFlatNo("Block A, Flat 201");
+        partner.setDateOfBirth(LocalDate.now().minusYears(29));
+
+        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        category.setId(15L);
+        category.setName("Men Open");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+        category.setGender("MALE");
+
+        when(eventRepo.findById(5L)).thenReturn(Optional.of(event));
+        doNothing().when(recaptchaService).verify(null, null);
+        doNothing().when(otpService).assertEmailVerified(org.mockito.ArgumentMatchers.any());
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(userRepo.findById(3L)).thenReturn(Optional.of(partner));
+        when(categoryRepo.findById(15L)).thenReturn(Optional.of(category));
+        when(regRepo.findByEventId(5L)).thenReturn(List.of());
+        when(regRepo.findByUserId(2L)).thenReturn(List.of());
+        when(regRepo.findByUserId(3L)).thenReturn(List.of());
+
+        // Ensure duplicate check for DOUBLES returns false (even if user is registered for SINGLES)
+        when(regRepo.existsDuplicateRegistration(5L, "Mady", "mady@gmail.com", "Block D, Flat 107", SportsEvent.MatchFormat.DOUBLES))
+                .thenReturn(false);
+        when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
+        org.assertj.core.api.Assertions.assertThat(saved.getPartner().getId()).isEqualTo(3L);
     }
 }

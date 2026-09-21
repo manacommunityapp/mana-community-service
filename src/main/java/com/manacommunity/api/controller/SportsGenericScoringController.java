@@ -1,11 +1,14 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.service.scheduler.SportsGenericScoringService;
+import jakarta.validation.Valid;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -18,6 +21,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/tournament/match/generic")
 @RequiredArgsConstructor
@@ -31,8 +35,9 @@ public class SportsGenericScoringController {
     @PostMapping("/score")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<SportsGenericScoreResponse> recordEvent(
-            @RequestBody SportsGenericScoreRequest request,
+            @Valid @RequestBody SportsGenericScoreRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Recording generic score event matchId={}", request.matchId());
         AppUser user = loggedInUserService.resolve(principal);
         SportsGenericScoreResponse response = scoringService.recordEvent(request, user.getId());
         broadcastState(request.matchId());
@@ -42,6 +47,7 @@ public class SportsGenericScoringController {
     @PostMapping("/{matchId}/undo")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<SportsGenericScoreResponse> undoLastEvent(@PathVariable Long matchId) {
+        log.info("Undoing last generic score event matchId={}", matchId);
         SportsGenericScoreResponse response = scoringService.undoLastEvent(matchId);
         broadcastState(matchId);
         return ResponseEntity.ok(response);
@@ -57,6 +63,7 @@ public class SportsGenericScoringController {
     public ResponseEntity<Void> completePeriod(
             @PathVariable Long matchId,
             @PathVariable Integer periodNumber) {
+        log.info("Completing period matchId={} periodNumber={}", matchId, periodNumber);
         scoringService.completePeriod(matchId, periodNumber);
         broadcastState(matchId);
         return ResponseEntity.ok().build();
@@ -68,6 +75,7 @@ public class SportsGenericScoringController {
             @PathVariable Long matchId,
             @PathVariable Integer periodNumber,
             @RequestBody Map<String, Integer> body) {
+        log.info("Recording period score matchId={} periodNumber={}", matchId, periodNumber);
         Integer scoreA = body.get("scoreA");
         Integer scoreB = body.get("scoreB");
         SportsPeriodScoreResponse response = scoringService.recordPeriodResult(matchId, periodNumber, scoreA, scoreB);
@@ -82,14 +90,18 @@ public class SportsGenericScoringController {
 
     @PostMapping("/scoring-config")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<SportsScoringConfigResponse> saveScoringConfig(@RequestBody SportsScoringConfigRequest request) {
+    public ResponseEntity<SportsScoringConfigResponse> saveScoringConfig(@Valid @RequestBody SportsScoringConfigRequest request) {
+        log.info("Saving scoring config");
         return ResponseEntity.ok(scoringService.saveScoringConfig(request));
     }
 
     @GetMapping("/scoring-config/{configId}")
     public ResponseEntity<SportsScoringConfigResponse> getScoringConfig(@PathVariable Long configId) {
         SportsScoringConfigResponse response = scoringService.getScoringConfig(configId);
-        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
+        if (response == null) {
+            throw new ResourceNotFoundException("ScoringConfig", configId);
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/scoring-config/defaults/{sportType}")

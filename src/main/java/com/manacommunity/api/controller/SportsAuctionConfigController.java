@@ -18,6 +18,7 @@ import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_LIVE_AUCTION;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +29,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auction/config")
 @RequiredArgsConstructor
@@ -40,12 +42,15 @@ public class SportsAuctionConfigController {
 
     @GetMapping
     public ResponseEntity<List<SportsAuctionConfigResponse>> getConfigs(
-            @RequestParam Long sportId,
+            @RequestParam(required = false) Long sportId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        return ResponseEntity.ok(auctionService.getConfigResponsesBySportAndCommunity(sportId, communityId));
+        if (sportId != null) {
+            return ResponseEntity.ok(auctionService.getConfigResponsesBySportAndCommunity(sportId, communityId));
+        }
+        return ResponseEntity.ok(auctionService.getConfigResponsesByCommunity(communityId));
     }
 
     /** GET all configs for the user's community across all sports */
@@ -61,12 +66,14 @@ public class SportsAuctionConfigController {
     /** GET check if auction config exists for the logged-in user's community */
     @GetMapping("/check")
     public ResponseEntity<Map<String, Object>> checkConfigExists(
-            @RequestParam Long sportId,
+            @RequestParam(required = false) Long sportId,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        List<SportsAuctionConfig> configs = auctionService.getConfigsBySportAndCommunity(sportId, communityId);
+        List<SportsAuctionConfig> configs = (sportId != null)
+                ? auctionService.getConfigsBySportAndCommunity(sportId, communityId)
+                : auctionService.getAllConfigsByCommunity(communityId);
         boolean exists = !configs.isEmpty();
         return ResponseEntity.ok(Map.of(
                 "configExists", exists,
@@ -101,6 +108,7 @@ public class SportsAuctionConfigController {
             @Valid @RequestBody SportsAuctionConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_AUCTION_CONFIG);
+        log.info("Creating auction config");
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         SportsAuctionConfig created = auctionService.createConfig(req, loggedInUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -114,6 +122,7 @@ public class SportsAuctionConfigController {
             @Valid @RequestBody SportsAuctionConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_AUCTION_CONFIG);
+        log.info("Updating auction config id={}", id);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         auctionService.updateConfig(id, req);
         return ResponseEntity.ok(auctionService.getConfigResponse(id));
@@ -126,6 +135,7 @@ public class SportsAuctionConfigController {
             @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_LIVE_AUCTION);
+        log.info("Updating auction status id={} status={}", id, status);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         auctionService.updateStatus(id, status);
         return ResponseEntity.ok(auctionService.getConfigResponse(id));
@@ -138,6 +148,7 @@ public class SportsAuctionConfigController {
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Uploading players CSV configId={}", id);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(csvService.uploadPlayersFromFile(id, file));
     }
@@ -149,6 +160,7 @@ public class SportsAuctionConfigController {
             @Valid @RequestBody com.manacommunity.api.dto.SportsAuctionPlayerRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Creating player manually configId={}", id);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(SportsAuctionPlayerController.toResponse(auctionService.createPlayer(id, req)));

@@ -27,31 +27,94 @@ public class SportsPlayerCategorySeeder {
         log.info("Seeding player categories...");
         Community generalCommunity = communitySeeder.getGeneralCommunity();
 
-        // ── 1. Cricket Brackets (3 categories) ──────────────────────────
-        getOrCreatePlayerCategory("Cricket Kids (Under 8)",   "KIDS",    "ALL",     4,   7, generalCommunity, "Cricket (Combined Boys & Girls)");
-        getOrCreatePlayerCategory("Cricket Youth (8 - 18)",   "OPEN",    "ALL",     8,  18, generalCommunity, "Cricket (Combined Boys & Girls)");
-        getOrCreatePlayerCategory("Cricket Men (Above 18)",   "MENS",    "MALE",   18, 100, generalCommunity, "Cricket (Men Only)");
+        // ── 1. Badminton Categories ──────────────────────────────────────
+        getOrCreatePlayerCategory("Badminton (Under-12)",         "KIDS",    "ALL",     4,  12, generalCommunity, "Badminton Under 12 (Boys & Girls)");
+        getOrCreatePlayerCategory("Badminton Boys (12-19)",       "BOYS",    "MALE",   12,  19, generalCommunity, "Badminton 12-19 Boys");
+        getOrCreatePlayerCategory("Badminton Girls (12-19)",      "GIRLS",   "FEMALE", 12,  19, generalCommunity, "Badminton 12-19 Girls");
+        getOrCreatePlayerCategory("Badminton Men (19+)",          "MENS",    "MALE",   19, 100, generalCommunity, "Badminton 19+ Men");
+        getOrCreatePlayerCategory("Badminton Women (19+)",        "WOMENS",  "FEMALE", 19, 100, generalCommunity, "Badminton 19+ Women");
 
-        // ── 2. Badminton Brackets (6 categories - strictly separate) ─────
+        // Additional / Generic Badminton Brackets
+        getOrCreatePlayerCategory("Badminton Boys (Under-12)",    "BOYS",    "MALE",    4,  12, generalCommunity, "Badminton Under 12 Boys");
+        getOrCreatePlayerCategory("Badminton Girls (Under-12)",   "GIRLS",   "FEMALE",  4,  12, generalCommunity, "Badminton Under 12 Girls");
+        getOrCreatePlayerCategory("Badminton Boys (13-19)",       "BOYS",    "MALE",   13,  19, generalCommunity, "Badminton 13 to 19 Boys");
+        getOrCreatePlayerCategory("Badminton Girls (13-19)",      "GIRLS",   "FEMALE", 13,  19, generalCommunity, "Badminton 13 to 19 Girls");
+        getOrCreatePlayerCategory("Badminton Men (20-50)",        "MENS",    "MALE",   20,  50, generalCommunity, "Badminton 20 to 50 Men");
+        getOrCreatePlayerCategory("Badminton Women (20-50)",      "WOMENS",  "FEMALE", 20,  50, generalCommunity, "Badminton 20 to 50 Women");
+        getOrCreatePlayerCategory("Badminton Senior Men (50+)",   "SENIORS", "MALE",   50, 100, generalCommunity, "Badminton 50+ Senior Men");
+        getOrCreatePlayerCategory("Badminton Senior Women (50+)", "SENIORS", "FEMALE", 50, 100, generalCommunity, "Badminton 50+ Senior Women");
         getOrCreatePlayerCategory("Badminton Boys (< 12)",     "BOYS",    "MALE",    4,  11, generalCommunity, "Badminton");
         getOrCreatePlayerCategory("Badminton Girls (< 12)",    "GIRLS",   "FEMALE",  4,  11, generalCommunity, "Badminton");
         getOrCreatePlayerCategory("Badminton Boys (12 - 18)",  "BOYS",    "MALE",   12,  18, generalCommunity, "Badminton");
         getOrCreatePlayerCategory("Badminton Girls (12 - 18)", "GIRLS",   "FEMALE", 12,  18, generalCommunity, "Badminton");
+        getOrCreatePlayerCategory("Badminton Boys (Under-18)", "BOYS",    "MALE",    4,  18, generalCommunity, "Badminton Under 18 Boys");
         getOrCreatePlayerCategory("Badminton Men (18+)",       "MENS",    "MALE",   18, 100, generalCommunity, "Badminton");
         getOrCreatePlayerCategory("Badminton Women (18+)",     "WOMENS",  "FEMALE", 18, 100, generalCommunity, "Badminton");
 
-        // ── 3. Chess, Carroms, TT, Basketball, Skating (< 15) ────────────
-        getOrCreatePlayerCategory("Boys Under 15 (< 15)",      "BOYS",    "MALE",    4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
-        getOrCreatePlayerCategory("Girls Under 15 (< 15)",     "GIRLS",   "FEMALE",  4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
+        // ── 2. Chess Categories ───────────────────────────────────────────
+        getOrCreatePlayerCategory("Chess (Under-12)",             "KIDS",    "ALL",     4,  12, generalCommunity, "Chess Under 12 (Boys & Girls)");
+        getOrCreatePlayerCategory("Chess Boys (12-19)",           "BOYS",    "MALE",   12,  19, generalCommunity, "Chess 12-19 Boys");
+        getOrCreatePlayerCategory("Chess Girls (12-19)",          "GIRLS",   "FEMALE", 12,  19, generalCommunity, "Chess 12-19 Girls");
+        getOrCreatePlayerCategory("Chess Men (19+)",              "MENS",    "MALE",   19, 100, generalCommunity, "Chess 19+ Men");
+        getOrCreatePlayerCategory("Chess Women (19+)",            "WOMENS",  "FEMALE", 19, 100, generalCommunity, "Chess 19+ Women");
 
-        // ── 4. Chess, Carroms, TT, Basketball (15+) ───────────────────────
-        getOrCreatePlayerCategory("Men Above 15 (15+)",        "MENS",    "MALE",   15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
-        getOrCreatePlayerCategory("Women Above 15 (15+)",      "WOMENS",  "FEMALE", 15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
+        // Additional / Generic Chess Brackets
+        getOrCreatePlayerCategory("Chess Boys (Under-15)",        "BOYS",    "MALE",    4,  15, generalCommunity, "Chess Under 15 Boys");
+        getOrCreatePlayerCategory("Chess Girls (Under-15)",       "GIRLS",   "FEMALE",  4,  15, generalCommunity, "Chess Under 15 Girls");
+        getOrCreatePlayerCategory("Chess Men (16+)",              "MENS",    "MALE",   16, 100, generalCommunity, "Chess 16+ Men");
+        getOrCreatePlayerCategory("Chess Women (16+)",            "WOMENS",  "FEMALE", 16, 100, generalCommunity, "Chess 16+ Women");
 
-        // ── 5. Volleyball (Adult Men Only) (1 category) ──────────────────
-        getOrCreatePlayerCategory("Volleyball Men (18+)",      "MENS",    "MALE",   18, 100, generalCommunity, "Volleyball (Adult Men Only)");
+        // ── 3. Carroms Categories ─────────────────────────────────────────
+        getOrCreatePlayerCategory("Carroms (Under-12)",           "KIDS",    "ALL",     4,  12, generalCommunity, "Carroms Under 12 (Boys & Girls)");
+        getOrCreatePlayerCategory("Carroms Boys (12-19)",         "BOYS",    "MALE",   12,  19, generalCommunity, "Carroms 12-19 Boys");
+        getOrCreatePlayerCategory("Carroms Girls (12-19)",        "GIRLS",   "FEMALE", 12,  19, generalCommunity, "Carroms 12-19 Girls");
+        getOrCreatePlayerCategory("Carroms Men (19+)",            "MENS",    "MALE",   19, 100, generalCommunity, "Carroms 19+ Men");
+        getOrCreatePlayerCategory("Carroms Women (19+)",          "WOMENS",  "FEMALE", 19, 100, generalCommunity, "Carroms 19+ Women");
 
-        log.info("✓ Player categories seeded successfully (14 standard categories).");
+        // Additional / Generic Carroms Brackets
+        getOrCreatePlayerCategory("Carroms Boys (Under-12)",      "BOYS",    "MALE",    4,  12, generalCommunity, "Carroms Under 12 Boys");
+        getOrCreatePlayerCategory("Carroms Girls (Under-12)",     "GIRLS",   "FEMALE",  4,  12, generalCommunity, "Carroms Under 12 Girls");
+        getOrCreatePlayerCategory("Carroms Boys (13-19)",         "BOYS",    "MALE",   13,  19, generalCommunity, "Carroms 13 to 19 Boys");
+        getOrCreatePlayerCategory("Carroms Girls (13-19)",        "GIRLS",   "FEMALE", 13,  19, generalCommunity, "Carroms 13 to 19 Girls");
+        getOrCreatePlayerCategory("Carroms Men (20-50)",          "MENS",    "MALE",   20,  50, generalCommunity, "Carroms 20 to 50 Men");
+        getOrCreatePlayerCategory("Carroms Women (20-50)",        "WOMENS",  "FEMALE", 20,  50, generalCommunity, "Carroms 20 to 50 Women");
+
+        // ── 4. Table Tennis Categories ────────────────────────────────────
+        getOrCreatePlayerCategory("TT (Under-12)",                "KIDS",    "ALL",     4,  12, generalCommunity, "TT Under 12 (Boys & Girls)");
+        getOrCreatePlayerCategory("TT Boys (12-19)",              "BOYS",    "MALE",   12,  19, generalCommunity, "TT 12-19 Boys");
+        getOrCreatePlayerCategory("TT Girls (12-19)",             "GIRLS",   "FEMALE", 12,  19, generalCommunity, "TT 12-19 Girls");
+        getOrCreatePlayerCategory("TT Men (19+)",                 "MENS",    "MALE",   19, 100, generalCommunity, "TT 19+ Men");
+        getOrCreatePlayerCategory("TT Women (19+)",               "WOMENS",  "FEMALE", 19, 100, generalCommunity, "TT 19+ Women");
+
+        // Additional / Generic TT Brackets
+        getOrCreatePlayerCategory("TT Boys (Under-12)",           "BOYS",    "MALE",    4,  12, generalCommunity, "TT Under 12 Boys");
+        getOrCreatePlayerCategory("TT Girls (Under-12)",          "GIRLS",   "FEMALE",  4,  12, generalCommunity, "TT Under 12 Girls");
+        getOrCreatePlayerCategory("TT Boys (13-19)",              "BOYS",    "MALE",   13,  19, generalCommunity, "TT 13 to 19 Boys");
+        getOrCreatePlayerCategory("TT Girls (13-19)",             "GIRLS",   "FEMALE", 13,  19, generalCommunity, "TT 13 to 19 Girls");
+        getOrCreatePlayerCategory("TT Men (20+)",                 "MENS",    "MALE",   20, 100, generalCommunity, "TT 20+ Men");
+        getOrCreatePlayerCategory("TT Women (20+)",               "WOMENS",  "FEMALE", 20, 100, generalCommunity, "TT 20+ Women");
+
+        // Generic Under/Above 15 categories (multi-sport)
+        getOrCreatePlayerCategory("Boys Under 15 (< 15)",         "BOYS",    "MALE",    4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
+        getOrCreatePlayerCategory("Girls Under 15 (< 15)",        "GIRLS",   "FEMALE",  4,  14, generalCommunity, "Chess, Carroms, TT, Basketball, Skating");
+        getOrCreatePlayerCategory("Men Above 15 (15+)",           "MENS",    "MALE",   15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
+        getOrCreatePlayerCategory("Women Above 15 (15+)",         "WOMENS",  "FEMALE", 15, 100, generalCommunity, "Chess, Carroms, TT, Basketball");
+
+        // ── 5. Volleyball (1 category) ────────────────────────────────────
+        getOrCreatePlayerCategory("Volleyball Men (15+)",         "MENS",    "MALE",   15, 100, generalCommunity, "Volleyball Men (15+)");
+        getOrCreatePlayerCategory("Volleyball Men (18+)",         "MENS",    "MALE",   18, 100, generalCommunity, "Volleyball (Adult Men Only)");
+
+        // ── 6. Cricket (3 categories) ─────────────────────────────────────
+        getOrCreatePlayerCategory("Cricket Kids (Under-10)",      "KIDS",    "ALL",     4,  10, generalCommunity, "Cricket Under 10 (Optional / Co-ed)");
+        getOrCreatePlayerCategory("Cricket Youth (11-19)",        "OPEN",    "ALL",    11,  19, generalCommunity, "Cricket 11 to 19 (Both Male & Female)");
+        getOrCreatePlayerCategory("Cricket Men (20+)",            "MENS",    "MALE",   20, 100, generalCommunity, "Cricket 20+ Men Only");
+
+        // Legacy Cricket Brackets
+        getOrCreatePlayerCategory("Cricket Kids (Under 8)",      "KIDS",    "ALL",     4,   7, generalCommunity, "Cricket (Combined Boys & Girls)");
+        getOrCreatePlayerCategory("Cricket Youth (8 - 18)",      "OPEN",    "ALL",     8,  18, generalCommunity, "Cricket (Combined Boys & Girls)");
+        getOrCreatePlayerCategory("Cricket Men (Above 18)",      "MENS",    "MALE",   18, 100, generalCommunity, "Cricket (Men Only)");
+
+        log.info("✓ Sports player categories seeded successfully.");
     }
 
     @Transactional

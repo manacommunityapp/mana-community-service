@@ -37,7 +37,7 @@ public class SportsEvent {
     @Column(name = "uuid", unique = true, updatable = false)
     private UUID uuid;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 150)
     private String name;
 
     @Column(length = 10)
@@ -82,6 +82,22 @@ public class SportsEvent {
     @Builder.Default
     private Boolean mandatoryMixedDoubles = true;
 
+    /**
+     * When true (default), younger players are permitted to opt for higher age categories (playing up).
+     * When false, players are strictly bounded by both minAge and maxAge of the category.
+     */
+    @Column(name = "allow_higher_age_category", nullable = false)
+    @Builder.Default
+    private Boolean allowHigherAgeCategory = true;
+
+    /**
+     * When true (default / Option B), a player can enter multiple distinct match formats (e.g. 1 Singles + 1 Doubles).
+     * When false, a player is restricted to strictly 1 event entry in this sport across the tournament.
+     */
+    @Column(name = "allow_multiple_categories", nullable = false)
+    @Builder.Default
+    private Boolean allowMultipleCategories = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -107,18 +123,41 @@ public class SportsEvent {
     private Venue venue;
 
     private Integer maxParticipants;
+
+    @Column(name = "start_time", length = 20)
     private String startTime;
+
+    @Column(name = "due_time", length = 20)
     private String dueTime;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auction_status", length = 20)
     private AuctionEventStatus auctionStatus;
 
-    @Column(name = "format", length = 255)
-    @Convert(converter = StringListConverter.class)
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"event"})
     @Builder.Default
-    private List<String> format = new ArrayList<>();
+    private List<SportsEventFormat> eventFormats = new ArrayList<>();
 
+    public List<MatchFormat> getFormat() {
+        if (eventFormats == null) return new ArrayList<>();
+        return eventFormats.stream().map(SportsEventFormat::getFormat).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    public void setFormat(List<MatchFormat> formats) {
+        if (this.eventFormats == null) {
+            this.eventFormats = new ArrayList<>();
+        } else {
+            this.eventFormats.clear();
+        }
+        if (formats != null) {
+            for (MatchFormat f : formats) {
+                if (f != null) {
+                    this.eventFormats.add(SportsEventFormat.builder().event(this).format(f).build());
+                }
+            }
+        }
+    }
 
     @Enumerated(EnumType.STRING)
     private TournamentType tournamentType;
@@ -148,8 +187,13 @@ public class SportsEvent {
     @Builder.Default
     private Set<AppUser> disputeCommittee = new java.util.HashSet<>();
 
+    @Column(name = "contact_name", length = 100)
     private String contactName;
+
+    @Column(name = "contact_number", length = 20)
     private String contactNumber;
+
+    @Column(name = "contact_email", length = 150)
     private String contactEmail;
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -164,16 +208,13 @@ public class SportsEvent {
     @Column(name = "other_contacts", length = 1000)
     private String otherContacts;
 
-    // Intent flag: marks a (team-sport) event as auction-based. The actual
-    // SportsAuctionConfig is still created separately on the Auction screen; this
-    // only records that the organiser intends to run a player auction.
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
-    // URL or inline base64 data-URI — see SportsTournament.bannerImage; must be TEXT
-    // to avoid the default varchar(255) overflow (SQLSTATE 22001).
     @Column(columnDefinition = "TEXT")
     private String bannerImage;
+
+    @Column(name = "tournament_level", length = 50)
     private String tournamentLevel;
 
     @Column(length = 2000)
@@ -182,7 +223,7 @@ public class SportsEvent {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
     @Builder.Default
-    private EventStatus status = EventStatus.DRAFT;
+    private SportsEventStatus status = SportsEventStatus.DRAFT;
 
     // The foreign key. It MUST be nullable (nullable = true) because
     // you are creating the SportsEvent BEFORE the SportsTournament exists.
@@ -205,7 +246,6 @@ public class SportsEvent {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum EventStatus { DRAFT, REGISTRATION_OPEN, REGISTRATION_CLOSED, LIVE, COMPLETED, CANCELLED }
     public enum AuctionEventStatus { DRAFT, ACTIVE, LIVE, COMPLETED, CANCELLED }
     public enum MatchFormat { SINGLES, DOUBLES, MIXED_DOUBLES, TEAM }
     public enum TournamentType { KNOCKOUT, ROUND_ROBIN, LEAGUE, KNOCKOUT_SINGLE, KNOCKOUT_DOUBLE, GROUP_PLAYOFF, CUSTOM }

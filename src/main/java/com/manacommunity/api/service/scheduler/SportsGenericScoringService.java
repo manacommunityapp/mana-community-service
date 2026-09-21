@@ -3,6 +3,7 @@ package com.manacommunity.api.service.scheduler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.dto.scheduler.*;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.SportsAuctionPlayer;
 import com.manacommunity.api.model.SportsAuctionTeam;
@@ -43,6 +44,7 @@ public class SportsGenericScoringService {
 
     @Transactional
     public SportsGenericScoreResponse recordEvent(SportsGenericScoreRequest req, Long userId) {
+        log.info("Recording generic score event matchId={} teamId={} eventType={} userId={}", req.matchId(), req.teamId(), req.eventType(), userId);
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
@@ -87,8 +89,9 @@ public class SportsGenericScoringService {
 
     @Transactional
     public SportsGenericScoreResponse undoLastEvent(Long matchId) {
+        log.info("Undoing last generic score event matchId={}", matchId);
         List<SportsMatchEvent> events = eventRepo.findByMatchIdAndIsUndoneFalseOrderByCreatedAt(matchId);
-        if (events.isEmpty()) throw new IllegalStateException("No events to undo");
+        if (events.isEmpty()) throw new InvalidInputException("No events to undo for this match.");
 
         SportsMatchEvent last = events.get(events.size() - 1);
         last.setIsUndone(true);
@@ -177,6 +180,7 @@ public class SportsGenericScoringService {
 
     @Transactional
     public SportsPeriodScoreResponse recordPeriodResult(Long matchId, Integer periodNumber, Integer scoreA, Integer scoreB) {
+        log.info("Recording period result matchId={} period={} scoreA={} scoreB={}", matchId, periodNumber, scoreA, scoreB);
         SportsTournamentMatch match = matchRepo.findById(matchId)
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
 
@@ -219,6 +223,7 @@ public class SportsGenericScoringService {
 
     @Transactional
     public void completePeriod(Long matchId, Integer periodNumber) {
+        log.info("Completing period matchId={} period={}", matchId, periodNumber);
         SportsTournamentMatch match = matchRepo.findById(matchId)
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
 
@@ -281,6 +286,7 @@ public class SportsGenericScoringService {
 
     @Transactional
     public SportsScoringConfigResponse saveScoringConfig(SportsScoringConfigRequest req) {
+        log.info("Saving scoring config configId={} sportType={}", req.configId(), req.sportType());
         SportsScoringConfig config;
         if (req.configId() != null) {
             config = scoringConfigRepo.findByConfigId(req.configId()).orElse(new SportsScoringConfig());
@@ -519,7 +525,7 @@ public class SportsGenericScoringService {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            log.warn("Failed to parse stats JSON: {}", e.getMessage());
+            log.warn("Failed to parse stats JSON", e);
             return Collections.emptyMap();
         }
     }

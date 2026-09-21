@@ -61,6 +61,22 @@ public class VenueSeeder {
                 badmintonCourts
         );
 
+        getOrCreateVenue(
+                "LE Clubhouse Arena", "COMMUNITY", leCommunity,
+                "Hyderabad", "Clubhouse 2nd Floor", "Miyapur",
+                "500049", 100, "COMMUNITY",
+                "08:00 AM", "10:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com"
+        );
+
+        getOrCreateVenue(
+                "LE Volleyball Court", "COMMUNITY", leCommunity,
+                "Hyderabad", "Near East Gate", "Miyapur",
+                "500049", 50, "COMMUNITY",
+                "06:00 AM", "09:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com"
+        );
+
         log.info("✓ Venues seeded successfully.");
     }
 
@@ -76,6 +92,20 @@ public class VenueSeeder {
                 .filter(v -> v.getName().equals("LE Badminton SportsCourt"))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("LE Badminton SportsCourt venue has not been seeded yet."));
+    }
+
+    public Venue getLeClubhouse() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Clubhouse Arena"))
+                .findFirst()
+                .orElseGet(() -> getOrCreateVenue("LE Clubhouse Arena", "COMMUNITY", communitySeeder.getLeCommunity(), "Hyderabad", "Clubhouse 2nd Floor", "Miyapur"));
+    }
+
+    public Venue getLeVolleyballCourt() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Volleyball Court"))
+                .findFirst()
+                .orElseGet(() -> getOrCreateVenue("LE Volleyball Court", "COMMUNITY", communitySeeder.getLeCommunity(), "Hyderabad", "Near East Gate", "Miyapur"));
     }
 
     private Venue getOrCreateVenue(String name, String venueType, Community community,

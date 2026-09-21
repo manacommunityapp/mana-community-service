@@ -391,7 +391,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         NotificationPriority.HIGH, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist outbid notification: {}", e.getMessage());
+            log.warn("Failed to persist outbid notification", e);
         }
 
 
@@ -463,7 +463,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         NotificationPriority.HIGH, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist player-sold notification: {}", e.getMessage());
+            log.warn("Failed to persist player-sold notification", e);
         }
 
 
@@ -523,11 +523,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             Long sportId = config.getSport().getId();
             if (communityId != null) {
                 totalPlayers = registrationRepo.countActiveRegistrationsForCommunityAndSport(
-                        communityId, 
-                        sportId, 
-                        //com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED,
-                        java.util.Arrays.asList(com.manacommunity.api.model.SportsEvent.EventStatus.COMPLETED, com.manacommunity.api.model.SportsEvent.EventStatus.CANCELLED)
-                );
+                        communityId, sportId);
             } else {
                 totalPlayers = playerRepo.countByConfigId(configId);
             }
@@ -560,11 +556,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         Long sportId = config.getSport().getId();
         if (communityId != null) {
             return registrationRepo.countActiveRegistrationsForCommunityAndSport(
-                    communityId, 
-                    sportId, 
-                    //com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED,
-                    java.util.Arrays.asList(com.manacommunity.api.model.SportsEvent.EventStatus.COMPLETED, com.manacommunity.api.model.SportsEvent.EventStatus.CANCELLED)
-            );
+                    communityId, sportId);
         }
         return 0;
     }
@@ -647,7 +639,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                         priority, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist {} notifications for auction {}: {}", type, config.getId(), e.getMessage());
+            log.warn("Failed to persist {} notifications for auction {}", type, config.getId(), e);
         }
     }
 

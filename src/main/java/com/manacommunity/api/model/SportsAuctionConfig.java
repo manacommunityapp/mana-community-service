@@ -31,11 +31,11 @@ public class SportsAuctionConfig {
     @JoinColumn(name = "event_id")
     private SportsEvent event;
 
-    @Column(nullable = false)
+    @Column(name = "season_name", nullable = false, length = 100)
     private String seasonName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "auction_format", nullable = false, length = 30)
     private AuctionFormat auctionFormat;
 
     @Column(nullable = false)
@@ -67,11 +67,11 @@ public class SportsAuctionConfig {
     private Boolean rtmEnabled;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "unsold_rule", nullable = false, length = 30)
     private UnsoldRule unsoldRule;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private AuctionStatus status;
 
     @Version

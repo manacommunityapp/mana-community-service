@@ -59,7 +59,7 @@ public class SportsTournamentSchedulerService {
 
         // Seed if required
         if (Boolean.TRUE.equals(req.hasSeeding())) {
-            teams = seedingService.seed(teams);
+            teams = seedingService.seed(teams, req.sportId(), req.communityId(), "CURRENT");
         }
 
         // Generate + persist schedule
@@ -85,7 +85,7 @@ public class SportsTournamentSchedulerService {
                 Long venueId = Long.parseLong(venue);
                 match.setVenue(venueRepo.findById(venueId).orElseThrow(() -> new ResourceNotFoundException("Venue", venueId)));
             } catch (NumberFormatException e) {
-                // legacy string venue — ignore
+                log.debug("Non-numeric venue value '{}', treating as legacy string venue", venue);
             }
         }
         return matchRepo.save(match);

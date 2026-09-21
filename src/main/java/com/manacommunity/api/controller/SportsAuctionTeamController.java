@@ -17,6 +17,7 @@ import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auction/teams")
 @RequiredArgsConstructor
@@ -62,6 +64,7 @@ public class SportsAuctionTeamController {
             @Valid @RequestBody SportsAuctionTeamRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
+        log.info("Creating auction team configId={}", req.configId());
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         SportsAuctionTeam created = auctionTeamService.createTeam(req, loggedInUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
@@ -73,6 +76,7 @@ public class SportsAuctionTeamController {
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Confirming captain teamId={} confirm={}", teamId, confirm);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
         return ResponseEntity.ok(toResponse(auctionTeamService.confirmCaptain(teamId, confirm, loggedInUser.getId(), isAdmin)));
@@ -85,6 +89,7 @@ public class SportsAuctionTeamController {
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Nominating captain eventId={} nominate={}", eventId, nominate);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
     }

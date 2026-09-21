@@ -55,6 +55,7 @@ public class SportsEventRequest {
     private java.util.List<ContactDto> contacts;
     private String otherContacts;
     private Boolean auctionEnabled;
+    private Boolean auction;
     private String bannerImage;
     private String tournamentLevel;
     private String description;
@@ -75,6 +76,16 @@ public class SportsEventRequest {
      * When true (default), mixed doubles events enforce complementary genders (1 Male + 1 Female).
      */
     private Boolean mandatoryMixedDoubles;
+
+    /**
+     * When true (default), younger players can opt for higher age categories.
+     */
+    private Boolean allowHigherAgeCategory;
+
+    /**
+     * When true (default / Option B), players can register in multiple different formats (1 Singles + 1 Doubles).
+     */
+    private Boolean allowMultipleCategories;
 
     private Long tournamentId;
 }

@@ -42,9 +42,9 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
     @Override
     @Transactional(readOnly = true)
     public List<SportsAuctionTeam> getNominatedCaptains(Long eventId) {
-        SportsAuctionConfig config = configRepo.findByEventId(eventId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", eventId));
-        return teamRepo.findByConfigIdAndCaptainNominationTrue(config.getId());
+        return configRepo.findByEventId(eventId)
+                .map(config -> teamRepo.findByConfigIdAndCaptainNominationTrue(config.getId()))
+                .orElseGet(List::of);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                     null, ReferenceType.AUCTION_TEAM, savedTeam.getId(),
                     NotificationPriority.NORMAL, null, null);
         } catch (Exception e) {
-            log.warn("Failed to persist team-created notification: {}", e.getMessage());
+            log.warn("Failed to persist team-created notification", e);
         }
 
         return savedTeam;
@@ -131,7 +131,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                         NotificationPriority.NORMAL, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist captain-confirmed notification: {}", e.getMessage());
+            log.warn("Failed to persist captain-confirmed notification", e);
         }
 
         return saved;
@@ -190,7 +190,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
                         NotificationPriority.NORMAL, null, null);
             }
         } catch (Exception e) {
-            log.warn("Failed to persist captain-nomination notification: {}", e.getMessage());
+            log.warn("Failed to persist captain-nomination notification", e);
         }
 
         return saved;

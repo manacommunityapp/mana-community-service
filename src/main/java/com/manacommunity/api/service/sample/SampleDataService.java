@@ -11,6 +11,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -36,16 +39,13 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsTournamentSeeder tournamentSeeder;
     private final SportsAuctionSeeder auctionSeeder;
     private final InventorySeeder inventorySeeder;
-    private final SportsKarateBeltSeeder karateSeeder;
 
     private final DefaultCommunityModuleDataService defaultCommunityModuleDataService;
     // Dedicated per-table sample seeders
     private final RolePermissionDataSeeder rolePermissionDataSeeder;
     private final VenueDataSeeder venueDataSeeder;
     private final SportsCourtDataSeeder courtDataSeeder;
-    private final SportsEventDataSeeder sportsEventDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
-    private final SportsTournamentDataSeeder tournamentDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
 
@@ -129,18 +129,13 @@ public class SampleDataService implements ApplicationRunner {
 
             // Layer 4 — tournaments (depends on sports events)
             tournamentSeeder.seed();
-            tournamentDataSeeder.seed();
 
             // Layer 5 — auction (depends on sports events and users)
             auctionSeeder.seed();
 
             // Layer 6 — dedicated per-table seeders (depend on previous layers)
             courtDataSeeder.seed();
-            sportsEventDataSeeder.seed();
             sportsEventRegistrationDataSeeder.seed();
-
-            // Layer 7 — karate belt levels (depends on community + sports meta)
-            karateSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");
@@ -150,6 +145,104 @@ public class SampleDataService implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Failed to seed database: ", e);
             return "Failed to execute sample data: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Dedicated method to feed "LE 2026 Season Fest" tournament with all 6 sub-events,
+     * base sports metadata, venues, player categories, and auction configurations.
+     *
+     * @param includeSampleRegistrations if true, seeds sample registrations across Badminton, TT, Chess, Carroms, Volleyball
+     */
+    @Transactional
+    public Map<String, Object> feedSportsData(boolean includeSampleRegistrations) {
+        try {
+            log.info("Starting Sports Data Feed (LE 2026 Season Fest)... includeRegistrations={}", includeSampleRegistrations);
+
+            // Layer 1 — users & categories & venues
+            userSeeder.seed();
+            rolePermissionSeeder.seedUserPermissions();
+            playerCategorySeeder.seed();
+            sportsMetaSeeder.defaultSeed();
+            venueSeeder.seed();
+
+            // Layer 2 — community module activation
+            Community le = communitySeeder.getLeCommunity();
+            defaultCommunityModuleDataService.seedModulesForCommunity(
+                    le.getId(),
+                    Set.of(ModuleConstants.MODULE_COMMUNITY_FEED,
+                            ModuleConstants.MODULE_SPORTS,
+                            ModuleConstants.MODULE_EVENTS,
+                            ModuleConstants.MODULE_ADMIN_HUB));
+            communityLeaderSeeder.seed();
+
+            // Layer 3 — sports events
+            sportsEventSeeder.seed();
+
+            // Layer 4 — tournament linking
+            tournamentSeeder.seed();
+
+            // Layer 5 — cricket auction
+            auctionSeeder.seed();
+
+            // Layer 6 — courts
+            courtDataSeeder.seed();
+
+            int extraRegistrations = 0;
+            if (includeSampleRegistrations) {
+                extraRegistrations = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
+            }
+
+            log.info("✓ Sports Data Feed completed successfully! (sampleRegistrations={})", includeSampleRegistrations);
+
+            return Map.of(
+                    "status", "SUCCESS",
+                    "tournament", "LE 2026 Season Fest",
+                    "eventDates", "2026-10-02 to 2026-12-31",
+                    "registrationDates", "2026-09-17 to 2026-09-19",
+                    "totalSubEvents", 24,
+                    "subEventsSummary", List.of(
+                            "Cricket (3 events): Annual 2026 Cricket Cup (20+ Men Auction), Cricket - Under 10 Kids, Cricket - 11-19 Youth",
+                            "Badminton (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Chess (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Carroms (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Table Tennis (5 events): Under 12, 12-19 Boys, 12-19 Girls, 19+ Men, 19+ Women",
+                            "Volleyball (1 event): Volleyball Premier League (15+ Men)"
+                    ),
+                    "sampleRegistrationsIncluded", includeSampleRegistrations,
+                    "additionalSampleRegistrationsCount", extraRegistrations,
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        } catch (Exception e) {
+            log.error("Failed to feed sports data: ", e);
+            return Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to feed sports data: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        }
+    }
+
+    /**
+     * Seeds sample registrations across all sports sub-events.
+     */
+    @Transactional
+    public Map<String, Object> feedSportsRegistrations() {
+        try {
+            int total = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
+            return Map.of(
+                    "status", "SUCCESS",
+                    "message", "Successfully seeded " + total + " sample registrations across sports sub-events.",
+                    "totalRegistrationsSeeded", total,
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        } catch (Exception e) {
+            log.error("Failed to feed sports registrations: ", e);
+            return Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to feed sports registrations: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now().toString()
+            );
         }
     }
 }

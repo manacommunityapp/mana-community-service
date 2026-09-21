@@ -56,18 +56,44 @@ class PermissionCheckServiceTest {
         }
 
         @Test
+        @DisplayName("ADMIN always returns true without hitting DB")
+        void adminBypass() {
+            AppUser admin = TestDataBuilder.adminUser();
+            when(loggedInUserService.resolve(any())).thenReturn(admin);
+
+            boolean result = permissionCheckService.hasAnyPermission(
+                    principal(admin), "VIEW_SPORTS_MAIN");
+
+            assertThat(result).isTrue();
+            verifyNoInteractions(rolePermissionRepository);
+        }
+
+        @Test
+        @DisplayName("COMMUNITY_ADMIN always returns true without hitting DB")
+        void communityAdminBypass() {
+            AppUser commAdmin = TestDataBuilder.appUser(5L, "comm@test.com", "COMMUNITY_ADMIN");
+            when(loggedInUserService.resolve(any())).thenReturn(commAdmin);
+
+            boolean result = permissionCheckService.hasAnyPermission(
+                    principal(commAdmin), "VIEW_SPORTS_MAIN");
+
+            assertThat(result).isTrue();
+            verifyNoInteractions(rolePermissionRepository);
+        }
+
+        @Test
         @DisplayName("user with matching user-specific permission returns true")
         void userSpecificPermission() {
-            AppUser admin = TestDataBuilder.adminUser();
-            Role role = TestDataBuilder.adminRole();
+            AppUser staff = TestDataBuilder.appUser(10L, "staff@test.com", "STAFF");
+            Role role = TestDataBuilder.role(15L, "STAFF", 1L);
             RolePermission rp = TestDataBuilder.rolePermission(role, "VIEW_SPORTS_MAIN");
-            rp.setUser(admin);
+            rp.setUser(staff);
 
-            when(loggedInUserService.resolve(any())).thenReturn(admin);
-            when(rolePermissionRepository.findByUserId(admin.getId())).thenReturn(List.of(rp));
+            when(loggedInUserService.resolve(any())).thenReturn(staff);
+            when(rolePermissionRepository.findByUserId(staff.getId())).thenReturn(List.of(rp));
 
             assertThat(permissionCheckService.hasAnyPermission(
-                    principal(admin), "VIEW_SPORTS_MAIN")).isTrue();
+                    principal(staff), "VIEW_SPORTS_MAIN")).isTrue();
         }
 
         @Test
@@ -96,6 +122,23 @@ class PermissionCheckServiceTest {
             assertThat(permissionCheckService.hasAnyPermission(
                     principal(member), "VIEW_SPORTS_MAIN")).isTrue();
         }
+
+        @Test
+        @DisplayName("comma-separated non-admin roles match permissions correctly")
+        void commaSeparatedRoles() {
+            AppUser user = TestDataBuilder.memberUser();
+            user.setRole("RESIDENT, VOLUNTEER");
+            Role role = TestDataBuilder.role(20L, "VOLUNTEER", 1L);
+            RolePermission rp = TestDataBuilder.rolePermission(role, "VIEW_SPORTS_MAIN");
+
+            when(loggedInUserService.resolve(any())).thenReturn(user);
+            when(rolePermissionRepository.findByUserId(user.getId())).thenReturn(List.of());
+            when(rolePermissionRepository.findByRoleIgnoreCase("RESIDENT")).thenReturn(List.of());
+            when(rolePermissionRepository.findByRoleIgnoreCase("VOLUNTEER")).thenReturn(List.of(rp));
+
+            assertThat(permissionCheckService.hasAnyPermission(
+                    principal(user), "VIEW_SPORTS_MAIN")).isTrue();
+        }
     }
 
     @Nested
@@ -120,16 +163,16 @@ class PermissionCheckServiceTest {
         @Test
         @DisplayName("does not throw when user has any of the required permissions")
         void doesNotThrowWhenGranted() {
-            AppUser admin = TestDataBuilder.adminUser();
-            Role role = TestDataBuilder.adminRole();
+            AppUser staff = TestDataBuilder.appUser(10L, "staff@test.com", "STAFF");
+            Role role = TestDataBuilder.role(15L, "STAFF", 1L);
             RolePermission rp = TestDataBuilder.rolePermission(role, "CREATE_EDIT_SPORTS_MAIN");
 
-            when(loggedInUserService.resolve(any())).thenReturn(admin);
-            when(rolePermissionRepository.findByUserId(admin.getId())).thenReturn(List.of(rp));
+            when(loggedInUserService.resolve(any())).thenReturn(staff);
+            when(rolePermissionRepository.findByUserId(staff.getId())).thenReturn(List.of(rp));
 
             assertThatCode(() ->
                     permissionCheckService.requireAnyPermission(
-                            principal(admin), "CREATE_EDIT_SPORTS_MAIN", "VIEW_SPORTS_MAIN"))
+                            principal(staff), "CREATE_EDIT_SPORTS_MAIN", "VIEW_SPORTS_MAIN"))
                     .doesNotThrowAnyException();
         }
     }

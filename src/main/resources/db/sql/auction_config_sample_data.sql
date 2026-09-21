@@ -1,3 +1,9 @@
+-- ============================================================================
+-- auction_config_sample_data.sql
+-- COMMENTED OUT: Sports Auction sample data is now managed and seeded via Java
+-- (com.manacommunity.api.service.sample.data.SportsAuctionSeeder).
+-- ============================================================================
+/*
 -- Seeding auction_config table with tournament auction configurations
 -- Binds dynamically to Cricket sport, Annual Summer Cricket Cup event, and Super Admin as creator
 DO $$
@@ -17,3 +23,4 @@ BEGIN
         END IF;
     END IF;
 END $$;
+*/

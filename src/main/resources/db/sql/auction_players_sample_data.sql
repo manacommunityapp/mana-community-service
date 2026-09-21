@@ -1,3 +1,9 @@
+-- ============================================================================
+-- auction_players_sample_data.sql
+-- COMMENTED OUT: Sports Auction sample data is now managed and seeded via Java
+-- (com.manacommunity.api.service.sample.data.SportsAuctionSeeder).
+-- ============================================================================
+/*
 -- Seeding auction_player table with players based on confirmed tournament registrations
 DO $$
 DECLARE
@@ -44,3 +50,4 @@ BEGIN
         END IF;
     END IF;
 END $$;
+*/

@@ -20,6 +20,7 @@ public class SportsTournament {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(nullable = false, length = 150)
     private String name;
 
     @Column(name = "max_participants")
@@ -53,7 +54,10 @@ public class SportsTournament {
     private LocalDate registrationDateStart;
     private LocalDate registrationDateEnd;
 
+    @Column(name = "start_time", length = 20)
     private String startTime;
+
+    @Column(name = "due_time", length = 20)
     private String dueTime;
 
     // Stores either a URL or an inline base64 data-URI, so it must not be
@@ -62,8 +66,13 @@ public class SportsTournament {
     @Column(columnDefinition = "TEXT")
     private String bannerImage;
 
+    @Column(name = "contact_name", length = 100)
     private String contactName;
+
+    @Column(name = "contact_number", length = 20)
     private String contactNumber;
+
+    @Column(name = "contact_email", length = 150)
     private String contactEmail;
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -87,7 +96,7 @@ public class SportsTournament {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "registration_status", length = 20)
-    private EventStatus registrationStatus;
+    private SportsEventStatus registrationStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")
@@ -124,8 +133,4 @@ public class SportsTournament {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum EventStatus { DRAFT, REGISTRATION_OPEN, REGISTRATION_CLOSED, LIVE, COMPLETED, CANCELLED }
-    public enum AuctionEventStatus { DRAFT, ACTIVE, LIVE, COMPLETED, CANCELLED }
-    public enum MatchFormat { SINGLES, DOUBLES, MIXED_DOUBLES, TEAM }
-    public enum TournamentType { KNOCKOUT, ROUND_ROBIN, LEAGUE, KNOCKOUT_SINGLE, KNOCKOUT_DOUBLE, GROUP_PLAYOFF, CUSTOM }
 }

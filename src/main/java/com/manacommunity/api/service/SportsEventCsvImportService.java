@@ -12,6 +12,7 @@ import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.repository.SportsEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SportsEventCsvImportService {
@@ -131,12 +133,57 @@ public class SportsEventCsvImportService {
                         skippedReasons.add("Row " + lineNum + ": unknown category '" + categoryName + "'");
                         continue;
                     }
+                    if (event.getCategories() != null && !event.getCategories().isEmpty()) {
+                        Long catId = category.getId();
+                        boolean matchesEvent = event.getCategories().stream().anyMatch(c -> c.getId().equals(catId));
+                        if (!matchesEvent) {
+                            skippedReasons.add("Row " + lineNum + ": category '" + categoryName + "' is not eligible for this event");
+                            continue;
+                        }
+                    }
                 }
 
                 // Parse age
                 Integer age = null;
                 if (!ageStr.isEmpty()) {
-                    try { age = Integer.parseInt(ageStr); } catch (NumberFormatException ignored) {}
+                    try { age = Integer.parseInt(ageStr); } catch (NumberFormatException e) { log.debug("Unparseable age '{}', skipping age validation", ageStr); }
+                }
+
+                // Age validation against Event & Category limits
+                if (age != null) {
+                    int eventMinAge = event.getMinAge() != null ? event.getMinAge() : 0;
+                    int eventMaxAge = event.getMaxAge() != null ? event.getMaxAge() : 100;
+                    if (age < eventMinAge || age > eventMaxAge) {
+                        skippedReasons.add("Row " + lineNum + ": age " + age + " is outside event limits (" + eventMinAge + "–" + eventMaxAge + " yrs)");
+                        continue;
+                    }
+                    if (category != null) {
+                        int catMinAge = category.getMinAge() != null ? category.getMinAge() : 0;
+                        int catMaxAge = category.getMaxAge() != null ? category.getMaxAge() : 100;
+                        boolean allowHigher = event.getAllowHigherAgeCategory() == null || event.getAllowHigherAgeCategory();
+                        boolean isSenior = "SENIORS".equalsIgnoreCase(category.getCategory_type())
+                                || (category.getName() != null && (category.getName().toLowerCase().contains("senior")
+                                || category.getName().toLowerCase().contains("master")
+                                || category.getName().contains("40+")
+                                || category.getName().contains("50+")
+                                || category.getName().contains("60+")));
+
+                        if (allowHigher) {
+                            if (age > catMaxAge) {
+                                skippedReasons.add("Row " + lineNum + ": age " + age + " exceeds category '" + category.getName() + "' max age (" + catMaxAge + " yrs)");
+                                continue;
+                            }
+                            if (isSenior && age < catMinAge) {
+                                skippedReasons.add("Row " + lineNum + ": age " + age + " is below senior category '" + category.getName() + "' min age (" + catMinAge + " yrs)");
+                                continue;
+                            }
+                        } else {
+                            if (age < catMinAge || age > catMaxAge) {
+                                skippedReasons.add("Row " + lineNum + ": age " + age + " is outside category '" + category.getName() + "' limits (" + catMinAge + "–" + catMaxAge + " yrs)");
+                                continue;
+                            }
+                        }
+                    }
                 }
 
                 // Derive matchType from category name

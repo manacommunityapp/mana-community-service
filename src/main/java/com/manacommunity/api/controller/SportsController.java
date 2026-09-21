@@ -12,6 +12,8 @@ import com.manacommunity.api.dto.SportsRegistrationResponse;
 import com.manacommunity.api.dto.SportsMetaRequest;
 import com.manacommunity.api.dto.SportsMetaResponse;
 import com.manacommunity.api.dto.SportsTournamentRequest;
+import com.manacommunity.api.dto.SportsEventRegistrationDetailsResponse;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
@@ -23,6 +25,7 @@ import com.manacommunity.api.service.SportsEventService;
 import com.manacommunity.api.service.SportsTournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -40,6 +43,9 @@ import com.manacommunity.api.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
+import com.manacommunity.api.repository.SportsEventRegistrationRepository;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/sports")
 @RequiredArgsConstructor
@@ -52,6 +58,7 @@ public class SportsController {
     private final SportsTournamentService tournamentService;
     private final PermissionCheckService permissionCheckService;
     private final SportsEventCsvImportService csvImportService;
+    private final SportsEventRegistrationRepository registrationRepo;
 
     @GetMapping("/meta")
     public ResponseEntity<List<SportsMetaResponse>> getAllSports(
@@ -74,6 +81,7 @@ public class SportsController {
             @Valid @RequestBody SportsMetaRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Creating sport name={}", request.name());
         SportsMeta sport = SportsMeta.builder()
                 .name(request.name())
                 .icon(request.icon())
@@ -97,6 +105,7 @@ public class SportsController {
             @Valid @RequestBody SportsMetaRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating sport id={}", id);
         SportsMeta sport = sportMetaRepo.findById(id)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", id));
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
@@ -126,24 +135,22 @@ public class SportsController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
-        return sportMetaRepo.findById(id).map(sport -> {
-            if (principal == null) {
+        log.info("Deleting sport id={}", id);
+        SportsMeta sport = sportMetaRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsMeta", id));
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (sport.getCommunityId() == null) {
+            if (!ctx.superAdmin()) {
                 throw new UnauthorizedActionException("You do not have permission to delete this sport.");
             }
-            ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-            if (sport.getCommunityId() == null) {
-                if (!ctx.superAdmin()) {
-                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
-                }
-            } else if (!ctx.superAdmin()) {
-                if (ctx.communityId() == null || !ctx.communityId().equals(sport.getCommunityId())) {
-                    throw new UnauthorizedActionException("You do not have permission to delete this sport.");
-                }
+        } else if (!ctx.superAdmin()) {
+            if (ctx.communityId() == null || !ctx.communityId().equals(sport.getCommunityId())) {
+                throw new UnauthorizedActionException("You do not have permission to delete this sport.");
             }
-            sport.setActive(false);
-            sportMetaRepo.save(sport);
-            return ResponseEntity.ok().<Void>build();
-        }).orElse(ResponseEntity.notFound().build());
+        }
+        sport.setActive(false);
+        sportMetaRepo.save(sport);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/events")
@@ -151,6 +158,7 @@ public class SportsController {
             @Valid @RequestBody SportsEventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Creating sports event");
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         if (!ctx.superAdmin()) {
             req.setCommunityId(ctx.communityId());
@@ -164,6 +172,7 @@ public class SportsController {
             @PathVariable Long id, @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating event status id={} status={}", id, status);
         return ResponseEntity.ok(toEventResponse(eventService.updateStatus(id, status)));
     }
 
@@ -172,6 +181,7 @@ public class SportsController {
             @PathVariable Long id, @Valid @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating tournament id={}", id);
         // Update the existing tournament in place (never insert a duplicate).
         SportsTournament tournament = tournamentService.updateTournamentRecord(id, req, req.getAllowAdminChat());
         // Respond with the tournament's primary linked event when it has one;
@@ -187,6 +197,7 @@ public class SportsController {
             @PathVariable Long id, @Valid @RequestBody SportsEventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating sports event id={}", id);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         if (!ctx.superAdmin()) {
             req.setCommunityId(ctx.communityId());
@@ -199,6 +210,7 @@ public class SportsController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Deleting tournament/event id={}", id);
         eventService.deleteEvent(id);
         return ResponseEntity.noContent().build();
     }
@@ -216,6 +228,43 @@ public class SportsController {
         return ResponseEntity.ok(toEventResponse(eventService.getEventByUuid(uuid)));
     }
 
+    @GetMapping({"/events/{uuidOrId}/registration-details", "/events/by-uuid/{uuidOrId}/registration-details"})
+    public ResponseEntity<SportsEventRegistrationDetailsResponse> getRegistrationDetails(
+            @PathVariable String uuidOrId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        SportsEvent resolvedEvent = null;
+        try {
+            java.util.UUID uuid = java.util.UUID.fromString(uuidOrId);
+            resolvedEvent = eventService.getEventByUuid(uuid);
+        } catch (IllegalArgumentException e) {
+            Long id = Long.parseLong(uuidOrId);
+            resolvedEvent = eventService.getEventById(id);
+        }
+        final SportsEvent targetEvent = resolvedEvent;
+
+        SportsEventResponse eventResponse = toEventResponse(targetEvent);
+
+        List<SportsEventResponse> siblingCategories = Collections.emptyList();
+        if (targetEvent.getTournament() != null && targetEvent.getSport() != null) {
+            final Long sportId = targetEvent.getSport().getId();
+            try {
+                SportsTournament tournament = tournamentService.getTournamentById(targetEvent.getTournament().getId());
+                if (tournament != null && tournament.getSportsEvents() != null) {
+                    siblingCategories = tournament.getSportsEvents().stream()
+                            .filter(ev -> ev.getSport() != null && sportId.equals(ev.getSport().getId()))
+                            .map(this::toEventResponse)
+                            .toList();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return ResponseEntity.ok(SportsEventRegistrationDetailsResponse.builder()
+                .event(eventResponse)
+                .categories(eventResponse.getCategories())
+                .siblingCategories(siblingCategories)
+                .build());
+    }
+
     @GetMapping({"/events/{eventId}/confirmed-count", "/tournaments/{eventId}/confirmed-count"})
     public ResponseEntity<Long> getConfirmedCount(
             @PathVariable Long eventId,
@@ -230,6 +279,7 @@ public class SportsController {
             @RequestBody List<Long> committeeIds,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating dispute committee eventId={}", id);
         return ResponseEntity.ok(toEventResponse(eventService.updateDisputeCommittee(id, committeeIds)));
     }
 
@@ -340,6 +390,7 @@ public class SportsController {
             @Valid @RequestBody RegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Registering user for event eventId={}", req.getEventId());
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
@@ -349,6 +400,7 @@ public class SportsController {
     public ResponseEntity<Void> withdraw(@PathVariable Long registrationId,
                                          @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Withdrawing registration registrationId={}", registrationId);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         eventService.withdraw(registrationId, ctx.userId());
         return ResponseEntity.noContent().build();
@@ -360,6 +412,7 @@ public class SportsController {
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_EVENT_REGISTRATIONS);
+        log.info("Importing registrations from CSV eventId={}", eventId);
         SportsEventCsvImportService.ImportResult result = csvImportService.importRegistrations(eventId, file);
         return ResponseEntity.ok(result);
     }
@@ -387,6 +440,7 @@ public class SportsController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        log.info("Confirming registration id={}", id);
         return ResponseEntity.ok(toRegistrationResponse(eventService.confirmRegistration(id)));
     }
 
@@ -396,6 +450,7 @@ public class SportsController {
             @RequestParam(required = false) Integer seed,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        log.info("Setting registration seed id={} seed={}", id, seed);
         return ResponseEntity.ok(toRegistrationResponse(eventService.setRegistrationSeed(id, seed)));
     }
 
@@ -405,6 +460,7 @@ public class SportsController {
             @RequestParam(required = false) String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        log.info("Rejecting registration id={}", id);
         return ResponseEntity.ok(toRegistrationResponse(eventService.rejectRegistration(id, reason)));
     }
 
@@ -415,6 +471,7 @@ public class SportsController {
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Nominating captain registrationId={} nominate={}", id, nominate);
         return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, nominate, teamName)));
     }
 
@@ -424,6 +481,7 @@ public class SportsController {
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        log.info("Confirming captain registrationId={} confirm={}", id, confirm);
         return ResponseEntity.ok(toRegistrationResponse(eventService.confirmCaptain(id, confirm)));
     }
 
@@ -434,6 +492,7 @@ public class SportsController {
             @RequestParam(required = false) String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Responding to partner invitation registrationId={} accept={}", id, accept);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         return ResponseEntity.ok(toRegistrationResponse(eventService.respondToPartnerInvitation(id, ctx.userId(), accept, reason)));
     }
@@ -536,6 +595,8 @@ public class SportsController {
                 .active(e.getActive())
                 .adminApprovalRequired(e.getAdminApprovalRequired())
                 .mandatoryMixedDoubles(e.getMandatoryMixedDoubles() != null ? e.getMandatoryMixedDoubles() : true)
+                .allowHigherAgeCategory(e.getAllowHigherAgeCategory() != null ? e.getAllowHigherAgeCategory() : true)
+                .allowMultipleCategories(e.getAllowMultipleCategories() != null ? e.getAllowMultipleCategories() : true)
                 .sport(sportRef)
                 .community(communityRef)
                 .venue(venueRef)
@@ -545,11 +606,18 @@ public class SportsController {
                 .registrationDateStart(e.getRegistrationDateStart() != null ? e.getRegistrationDateStart() : (e.getTournament() != null ? e.getTournament().getRegistrationDateStart() : null))
                 .registrationDateEnd(e.getRegistrationDateEnd() != null ? e.getRegistrationDateEnd() : (e.getTournament() != null ? e.getTournament().getRegistrationDateEnd() : null))
                 .maxParticipants(e.getMaxParticipants() != null ? e.getMaxParticipants() : (e.getTournament() != null ? e.getTournament().getMaxParticipants() : null))
+                .registeredCount(e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0)
                 .startTime(e.getStartTime() != null ? e.getStartTime() : (e.getTournament() != null ? e.getTournament().getStartTime() : null))
                 .dueTime(e.getDueTime() != null ? e.getDueTime() : (e.getTournament() != null ? e.getTournament().getDueTime() : null))
                 .status(e.getStatus() != null ? e.getStatus().name() : null)
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
-                .format(e.getFormat())
+                .format(e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : List.of())
+                .formats(e.getEventFormats() != null
+                        ? e.getEventFormats().stream().map(f -> SportsEventResponse.FormatRef.builder()
+                                .id(f.getId())
+                                .format(f.getFormat() != null ? f.getFormat().name() : null)
+                                .build()).toList()
+                        : List.of())
                 .tournamentType(e.getTournamentType() != null ? e.getTournamentType().name() : null)
                 .categories(categoryRefs)
                 .sponsors(sponsorDtos)
@@ -650,12 +718,22 @@ public class SportsController {
                     .build();
         }
 
+        SportsRegistrationResponse.FormatRef formatRef = null;
+        if (r.getEventFormat() != null) {
+            formatRef = SportsRegistrationResponse.FormatRef.builder()
+                    .id(r.getEventFormat().getId())
+                    .format(r.getEventFormat().getFormat() != null ? r.getEventFormat().getFormat().name() : null)
+                    .build();
+        }
+
         return SportsRegistrationResponse.builder()
                 .id(r.getId())
                 .event(eventRef)
                 .user(userRef)
                 .category(categoryRef)
+                .formatId(r.getEventFormat() != null ? r.getEventFormat().getId() : null)
                 .matchType(r.getMatchType() != null ? r.getMatchType().name() : null)
+                .format(formatRef)
                 .partner(partnerRef)
                 .partnerFamilyMember(partnerFamilyMemberRef)
                 .familyMember(familyMemberRef)

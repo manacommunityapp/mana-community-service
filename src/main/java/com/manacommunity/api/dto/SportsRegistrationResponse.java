@@ -12,7 +12,9 @@ public class SportsRegistrationResponse {
     private EventRef event;
     private UserRef user;
     private CategoryRef category;
+    private Long formatId;
     private String matchType;
+    private FormatRef format;
     private UserRef partner;
     private FamilyMemberRef partnerFamilyMember;
     private FamilyMemberRef familyMember;
@@ -85,5 +87,12 @@ public class SportsRegistrationResponse {
         private String relation;
         private String gender;
         private Integer age;
+    }
+
+    @Data
+    @Builder
+    public static class FormatRef {
+        private Long id;
+        private String format;
     }
 }
