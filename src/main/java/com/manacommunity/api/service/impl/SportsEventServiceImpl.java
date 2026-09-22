@@ -279,14 +279,28 @@ public class SportsEventServiceImpl implements SportsEventService {
         validateAgeEligibility(age, event, category, null);
 
         // 3. Validate against Category Gender restrictions
-        if (category.getGender() != null && !category.getGender().isBlank()) {
-            String catGender = category.getGender().trim().toUpperCase();
-            if (!"ALL".equals(catGender) && !"ANY".equals(catGender) && !"OPEN".equals(catGender) && !"MIXED".equals(catGender)) {
+        String catGender = category.getGender();
+        if (catGender == null || catGender.isBlank()) {
+            String cText = (category.getName() != null ? category.getName() : "").toLowerCase();
+            if (cText.matches(".*\\b(women|woman|female|females|girl|girls|ladies)\\b.*")) {
+                catGender = "FEMALE";
+            } else if (cText.matches(".*\\b(men|man|male|males|boy|boys|gentlemen)\\b.*")) {
+                catGender = "MALE";
+            }
+        }
+        if (catGender != null && !catGender.isBlank()) {
+            String cg = catGender.trim().toUpperCase();
+            if (!"ALL".equals(cg) && !"ANY".equals(cg) && !"OPEN".equals(cg) && !"MIXED".equals(cg)) {
                 String pGender = gender != null ? gender.trim().toUpperCase() : "";
-                if (!pGender.equalsIgnoreCase(catGender) && !pGender.startsWith(catGender) && !catGender.startsWith(pGender)) {
+                boolean maleCat = "MALE".equals(cg) || "MEN".equals(cg) || "BOYS".equals(cg) || "M".equals(cg);
+                boolean femaleCat = "FEMALE".equals(cg) || "WOMEN".equals(cg) || "GIRLS".equals(cg) || "F".equals(cg);
+                boolean malePlayer = "MALE".equals(pGender) || "MEN".equals(pGender) || "BOYS".equals(pGender) || "BOY".equals(pGender) || "M".equals(pGender);
+                boolean femalePlayer = "FEMALE".equals(pGender) || "WOMEN".equals(pGender) || "GIRLS".equals(pGender) || "GIRL".equals(pGender) || "F".equals(pGender);
+
+                if ((maleCat && !malePlayer) || (femaleCat && !femalePlayer)) {
                     throw new InvalidInputException(
-                            "Gender mismatch: Category '" + category.getName() + "' is restricted to " + category.getGender() +
-                            ", but player's gender is " + gender + "."
+                            "Gender mismatch: Category '" + category.getName() + "' is restricted to " + cg +
+                            ", but player's gender is " + (gender != null && !gender.isBlank() ? gender : "unspecified") + "."
                     );
                 }
             }
@@ -492,12 +506,12 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         // Doubles & Mixed Doubles Gender Validation
         if ((matchFormat == SportsEvent.MatchFormat.DOUBLES || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) && partner != null) {
-            String catGender = category.getGender() != null ? category.getGender().trim().toUpperCase() : "ALL";
+            String doublesCatGender = category.getGender() != null ? category.getGender().trim().toUpperCase() : "ALL";
             String primaryGender = gender != null ? gender.trim().toUpperCase() : (user.getGender() != null ? user.getGender().trim().toUpperCase() : "");
 
             if (!primaryGender.isEmpty() && !partnerGender.isEmpty()) {
                 // 1. Male-only Category Doubles (e.g. Men Doubles, Boys Doubles)
-                if ("MALE".equals(catGender)) {
+                if ("MALE".equals(doublesCatGender)) {
                     if (!"MALE".equals(primaryGender) || !"MALE".equals(partnerGender)) {
                         throw new InvalidInputException(
                                 category.getName() + " requires both players to be Male. Selected: " +
@@ -506,7 +520,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                     }
                 }
                 // 2. Female-only Category Doubles (e.g. Women Doubles, Girls Doubles)
-                else if ("FEMALE".equals(catGender)) {
+                else if ("FEMALE".equals(doublesCatGender)) {
                     if (!"FEMALE".equals(primaryGender) || !"FEMALE".equals(partnerGender)) {
                         throw new InvalidInputException(
                                 category.getName() + " requires both players to be Female. Selected: " +
@@ -515,7 +529,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                     }
                 }
                 // 3. Mixed Doubles (1 Male + 1 Female mandatory when configured)
-                else if ("MIXED".equals(catGender) || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) {
+                else if ("MIXED".equals(doublesCatGender) || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) {
                     boolean isMandatoryMixed = event.getMandatoryMixedDoubles() == null || event.getMandatoryMixedDoubles();
                     if (isMandatoryMixed) {
                         boolean isValidMixed = ("MALE".equals(primaryGender) && "FEMALE".equals(partnerGender))
@@ -1449,6 +1463,28 @@ public class SportsEventServiceImpl implements SportsEventService {
         // 2. Category age bounds
         int catMinAge = category.getMinAge() != null ? category.getMinAge() : 0;
         int catMaxAge = category.getMaxAge() != null ? category.getMaxAge() : 100;
+
+        if (category.getMinAge() == null && category.getMaxAge() == null && category.getName() != null) {
+            String text = category.getName().toLowerCase();
+            java.util.regex.Matcher rangeMatcher = java.util.regex.Pattern.compile("(?:between\\s*)?(\\d+)\\s*(?:-|–|to)\\s*(\\d+)").matcher(text);
+            java.util.regex.Matcher underMatcher = java.util.regex.Pattern.compile("(?:under|u-?|below|<|<=)\\s*(\\d+)").matcher(text);
+            java.util.regex.Matcher plusMatcher = java.util.regex.Pattern.compile("(?:above|over|>|>=)\\s*(\\d+)|(\\d+)\\s*(?:\\+|plus|above|and above|and over|over|>|>=)").matcher(text);
+
+            if (rangeMatcher.find()) {
+                catMinAge = Integer.parseInt(rangeMatcher.group(1));
+                catMaxAge = Integer.parseInt(rangeMatcher.group(2));
+            } else if (underMatcher.find()) {
+                catMaxAge = Integer.parseInt(underMatcher.group(1));
+            } else if (plusMatcher.find()) {
+                String g = plusMatcher.group(1) != null ? plusMatcher.group(1) : plusMatcher.group(2);
+                catMinAge = Integer.parseInt(g);
+            } else if (text.matches(".*\\b(kids|children)\\b.*")) {
+                catMaxAge = 16;
+            } else if (text.matches(".*\\b(seniors|veterans)\\b.*")) {
+                catMinAge = 45;
+            }
+        }
+
         boolean allowHigher = event.getAllowHigherAgeCategory() == null || event.getAllowHigherAgeCategory();
 
         boolean isSeniorCategory = "SENIORS".equalsIgnoreCase(category.getCategory_type())
