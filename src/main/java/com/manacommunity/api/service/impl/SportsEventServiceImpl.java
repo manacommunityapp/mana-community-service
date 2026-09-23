@@ -282,9 +282,11 @@ public class SportsEventServiceImpl implements SportsEventService {
         String catGender = category.getGender();
         if (catGender == null || catGender.isBlank()) {
             String cText = (category.getName() != null ? category.getName() : "").toLowerCase();
-            if (cText.matches(".*\\b(women|woman|female|females|girl|girls|ladies)\\b.*")) {
+            // Female check first — must precede male check to avoid "women" matching the male "men" substring
+            // Possessive & plurals: "women's", "womens", "girl's", "girls", "females", etc.
+            if (cText.matches(".*\\b(womens?|woman|females?|girls?|ladies)('s)?\\b.*")) {
                 catGender = "FEMALE";
-            } else if (cText.matches(".*\\b(men|man|male|males|boy|boys|gentlemen)\\b.*")) {
+            } else if (cText.matches(".*(?<![a-z])(mens?|man\\b|males?|boys?|gentlemen)('s)?(?![a-z]).*")) {
                 catGender = "MALE";
             }
         }
@@ -1478,9 +1480,9 @@ public class SportsEventServiceImpl implements SportsEventService {
             } else if (plusMatcher.find()) {
                 String g = plusMatcher.group(1) != null ? plusMatcher.group(1) : plusMatcher.group(2);
                 catMinAge = Integer.parseInt(g);
-            } else if (text.matches(".*\\b(kids|children)\\b.*")) {
+            } else if (text.matches(".*\\b(kids?|childrens?)\\b.*")) {
                 catMaxAge = 16;
-            } else if (text.matches(".*\\b(seniors|veterans)\\b.*")) {
+            } else if (text.matches(".*\\b(seniors?|veterans?)\\b.*")) {
                 catMinAge = 45;
             }
         }

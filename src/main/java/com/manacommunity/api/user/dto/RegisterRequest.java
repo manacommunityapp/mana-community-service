@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
@@ -29,8 +30,8 @@ public class RegisterRequest {
     String inviteCode;
     @NotBlank
     String password;
-    @NotNull
-    @Past
+    @Past(message = "Date of birth must be a past date")
+    @JsonAlias({"dob", "date_of_birth", "birthDate"})
     LocalDate dateOfBirth;
     @NotBlank
     String gender; // MALE / FEMALE / OTHER
