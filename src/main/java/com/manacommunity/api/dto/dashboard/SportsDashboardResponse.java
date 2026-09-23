@@ -71,7 +71,10 @@ public record SportsDashboardResponse(
             LocalDate eventDateStart,
             String startTime,
             Long tournamentId,
-            String tournamentName
+            String tournamentName,
+            Long familyMemberId,
+            String playerName,
+            String relation
     ) {}
 
     /** The current user's registrations — used for button states and captaincy. */
@@ -86,6 +89,9 @@ public record SportsDashboardResponse(
             String status,
             String matchType,
             Boolean captainNomination,
-            Boolean captainConfirmation
+            Boolean captainConfirmation,
+            Long familyMemberId,
+            String playerName,
+            String relation
     ) {}
 }

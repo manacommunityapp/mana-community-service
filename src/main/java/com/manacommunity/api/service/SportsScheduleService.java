@@ -80,6 +80,10 @@ public class SportsScheduleService {
         String sportName = (event != null && event.getSport() != null) ? event.getSport().getName() : null;
         String categoryName = r.getCategory() != null ? r.getCategory().getName() : null;
 
+        String pName = r.getPlayerName() != null ? r.getPlayerName() : (r.getFamilyMember() != null ? r.getFamilyMember().getName() : (r.getUser() != null ? r.getUser().getFullName() : null));
+        String rel = r.getRelation() != null ? r.getRelation() : (r.getFamilyMember() != null ? r.getFamilyMember().getRelation() : "Self");
+        Long famId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
+
         return new RegistrationListItem(
                 r.getId(),
                 r.getStatus() != null ? r.getStatus().name() : null,
@@ -92,7 +96,10 @@ public class SportsScheduleService {
                 r.getRegisteredAt(),
                 r.getCaptainNomination(),
                 r.getCaptainConfirmation(),
-                r.getProposedTeamName()
+                r.getProposedTeamName(),
+                pName,
+                rel,
+                famId
         );
     }
 
