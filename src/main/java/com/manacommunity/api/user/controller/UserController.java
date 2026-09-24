@@ -103,7 +103,7 @@ public class UserController {
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
             @RequestParam(required = false) Long communityId,
-            @RequestParam String query,
+            @RequestParam(required = false) String query,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
@@ -115,8 +115,91 @@ public class UserController {
             return ResponseEntity.ok(java.util.Collections.emptyList());
         }
         final Long finalCommId = targetCommunityId;
-        return ResponseEntity.ok(appUserRepo.findByCommunityIdAndFullNameContainingIgnoreCase(finalCommId, query)
-                .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
+        String cleanQuery = query != null ? query.trim() : "";
+        String blockPart = null;
+        String flatPart = null;
+
+        if (cleanQuery.contains("-")) {
+            String[] parts = cleanQuery.split("-", 2);
+            if (parts.length > 0 && !parts[0].trim().isEmpty()) {
+                blockPart = parts[0].trim();
+            }
+            if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                flatPart = parts[1].trim();
+            }
+        } else if (cleanQuery.contains(" ")) {
+            String[] parts = cleanQuery.split("\\s+", 2);
+            if (parts.length > 0 && !parts[0].trim().isEmpty()) {
+                blockPart = parts[0].trim();
+            }
+            if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                flatPart = parts[1].trim();
+            }
+        } else {
+            // Match alphanumeric patterns like "B806", "BK806", "A101", "BlockB806"
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(?i)(?:block|tower)?([a-zA-Z]+)(\\d+)$").matcher(cleanQuery);
+            if (m.matches()) {
+                blockPart = m.group(1).trim();
+                flatPart = m.group(2).trim();
+            }
+        }
+
+        // Clean any leading "Block" or "Tower" word from blockPart
+        if (blockPart != null) {
+            String stripped = blockPart.replaceAll("(?i)^(block|tower)\\s*", "").trim();
+            if (!stripped.isEmpty()) {
+                blockPart = stripped;
+            }
+        }
+
+        final String finalBlockPart = blockPart;
+        final String finalFlatPart = flatPart;
+
+        org.springframework.data.jpa.domain.Specification<AppUser> spec = (root, q, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            predicates.add(cb.equal(root.get("community").get("id"), finalCommId));
+
+            if (!cleanQuery.isEmpty()) {
+                String pattern = "%" + cleanQuery.toLowerCase() + "%";
+                jakarta.persistence.criteria.Expression<String> blockExpr = cb.coalesce(root.get("block"), "");
+                jakarta.persistence.criteria.Expression<String> flatExpr = cb.coalesce(root.get("flatNo"), "");
+                jakarta.persistence.criteria.Expression<String> blockDashFlat = cb.concat(cb.concat(blockExpr, "-"), flatExpr);
+                jakarta.persistence.criteria.Expression<String> blockSpaceFlat = cb.concat(cb.concat(blockExpr, " "), flatExpr);
+                jakarta.persistence.criteria.Expression<String> blockFlat = cb.concat(blockExpr, flatExpr);
+
+                java.util.List<jakarta.persistence.criteria.Predicate> searchOr = new java.util.ArrayList<>();
+                searchOr.add(cb.like(cb.lower(root.get("fullName")), pattern));
+                searchOr.add(cb.like(cb.lower(cb.coalesce(root.get("email"), "")), pattern));
+                searchOr.add(cb.like(cb.lower(cb.coalesce(root.get("phone"), "")), pattern));
+                searchOr.add(cb.like(cb.lower(flatExpr), pattern));
+                searchOr.add(cb.like(cb.lower(blockExpr), pattern));
+                searchOr.add(cb.like(cb.lower(blockDashFlat), pattern));
+                searchOr.add(cb.like(cb.lower(blockSpaceFlat), pattern));
+                searchOr.add(cb.like(cb.lower(blockFlat), pattern));
+
+                if (finalBlockPart != null && !finalBlockPart.isEmpty()) {
+                    jakarta.persistence.criteria.Predicate blockMatch = cb.or(
+                            cb.equal(cb.lower(blockExpr), finalBlockPart.toLowerCase()),
+                            cb.like(cb.lower(blockExpr), "%" + finalBlockPart.toLowerCase() + "%")
+                    );
+                    if (finalFlatPart != null && !finalFlatPart.isEmpty()) {
+                        jakarta.persistence.criteria.Predicate flatMatch = cb.like(cb.lower(flatExpr), "%" + finalFlatPart.toLowerCase() + "%");
+                        searchOr.add(cb.and(blockMatch, flatMatch));
+                    } else {
+                        searchOr.add(blockMatch);
+                    }
+                }
+
+                predicates.add(cb.or(searchOr.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Sort sort = Sort.by(Sort.Order.asc("block"), Sort.Order.asc("flatNo"), Sort.Order.asc("fullName"));
+        java.util.List<AppUser> users = appUserRepo.findAll(spec, sort);
+        return ResponseEntity.ok(users.stream()
+                .map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
     @GetMapping("/community/{communityId}")
