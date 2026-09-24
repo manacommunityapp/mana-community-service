@@ -9,8 +9,10 @@ import com.manacommunity.api.service.NotificationManagementService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +34,7 @@ public class CommuteServiceImpl implements CommuteService {
 
     @Override
     public Page<CommuteRideResponse> getUpcomingRides(AppUser user, String rideType, int page, int size) {
-        CommuteRideType type = rideType != null ? CommuteRideType.valueOf(rideType) : null;
+        CommuteRideType type = parseRideType(rideType);
         List<CommuteRideStatus> statuses = List.of(CommuteRideStatus.ACTIVE);
         Page<CommuteRide> rides = rideRepository.findUpcomingRides(
                 user.getCommunity().getId(), statuses, LocalDateTime.now(), type,
@@ -51,6 +53,7 @@ public class CommuteServiceImpl implements CommuteService {
     @Override
     public CommuteRideResponse getRide(AppUser user, Long rideId) {
         CommuteRide ride = findRideOrThrow(rideId);
+        validateCommunity(ride, user);
         CommuteRideResponse response = toResponse(ride, user);
         if (ride.getDriver().getId().equals(user.getId())) {
             response.setBookings(ride.getBookings().stream().map(this::toBookingResponse).toList());
@@ -92,6 +95,17 @@ public class CommuteServiceImpl implements CommuteService {
     public CommuteRideResponse updateRide(AppUser user, Long rideId, CreateCommuteRideRequest request) {
         CommuteRide ride = findRideOrThrow(rideId);
         validateOwner(ride, user);
+        validateActiveStatus(ride);
+
+        long bookedSeats = ride.getBookings().stream()
+                .filter(b -> b.getStatus() != CommuteBookingStatus.CANCELLED
+                        && b.getStatus() != CommuteBookingStatus.REJECTED)
+                .mapToInt(CommuteBooking::getSeatsBooked)
+                .sum();
+
+        if (request.getTotalSeats() < bookedSeats) {
+            throw new IllegalStateException("Cannot reduce seats below already booked count (" + bookedSeats + ")");
+        }
 
         ride.setFromLocation(request.getFromLocation());
         ride.setToLocation(request.getToLocation());
@@ -101,6 +115,7 @@ public class CommuteServiceImpl implements CommuteService {
         ride.setToLng(request.getToLng());
         ride.setDepartureTime(request.getDepartureTime());
         ride.setTotalSeats(request.getTotalSeats());
+        ride.setAvailableSeats(request.getTotalSeats() - (int) bookedSeats);
         ride.setPricePerSeat(request.getPricePerSeat());
         ride.setFree(request.isFree());
         ride.setVehicleType(request.getVehicleType());
@@ -111,6 +126,12 @@ public class CommuteServiceImpl implements CommuteService {
         ride.setRecurringTime(request.getRecurringTime());
         ride.setLadiesOnly(request.isLadiesOnly());
 
+        if (ride.getAvailableSeats() == 0) {
+            ride.setStatus(CommuteRideStatus.FULL);
+        } else if (ride.getStatus() == CommuteRideStatus.FULL) {
+            ride.setStatus(CommuteRideStatus.ACTIVE);
+        }
+
         return toResponse(rideRepository.save(ride), user);
     }
 
@@ -119,6 +140,11 @@ public class CommuteServiceImpl implements CommuteService {
     public void cancelRide(AppUser user, Long rideId) {
         CommuteRide ride = findRideOrThrow(rideId);
         validateOwner(ride, user);
+
+        if (ride.getStatus() == CommuteRideStatus.CANCELLED || ride.getStatus() == CommuteRideStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot cancel a " + ride.getStatus().name().toLowerCase() + " ride");
+        }
+
         ride.setStatus(CommuteRideStatus.CANCELLED);
         rideRepository.save(ride);
 
@@ -160,6 +186,7 @@ public class CommuteServiceImpl implements CommuteService {
     @Transactional
     public CommuteBookingResponse bookRide(AppUser user, Long rideId, CreateCommuteBookingRequest request) {
         CommuteRide ride = findRideOrThrow(rideId);
+        validateCommunity(ride, user);
 
         if (ride.getDriver().getId().equals(user.getId())) {
             throw new IllegalStateException("Cannot book your own ride");
@@ -167,8 +194,8 @@ public class CommuteServiceImpl implements CommuteService {
         if (ride.getStatus() != CommuteRideStatus.ACTIVE) {
             throw new IllegalStateException("Ride is not available for booking");
         }
-        if (bookingRepository.existsByRideIdAndPassengerId(rideId, user.getId())) {
-            throw new IllegalStateException("You have already booked this ride");
+        if (ride.getDepartureTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Ride has already departed");
         }
 
         int seats = Math.max(request.getSeatsBooked(), 1);
@@ -187,9 +214,19 @@ public class CommuteServiceImpl implements CommuteService {
         if (ride.getAvailableSeats() == 0) {
             ride.setStatus(CommuteRideStatus.FULL);
         }
-        rideRepository.save(ride);
 
-        CommuteBooking saved = bookingRepository.save(booking);
+        try {
+            rideRepository.save(ride);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new IllegalStateException("Seat availability changed, please try again");
+        }
+
+        CommuteBooking saved;
+        try {
+            saved = bookingRepository.save(booking);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("You have already booked this ride");
+        }
 
         notificationService.createNotification(
                 ride.getDriver().getId(),
@@ -213,6 +250,13 @@ public class CommuteServiceImpl implements CommuteService {
     public void cancelBooking(AppUser user, Long rideId) {
         CommuteBooking booking = bookingRepository.findByRideIdAndPassengerId(rideId, user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (booking.getStatus() == CommuteBookingStatus.CANCELLED) {
+            throw new IllegalStateException("Booking is already cancelled");
+        }
+        if (booking.getStatus() == CommuteBookingStatus.REJECTED) {
+            throw new IllegalStateException("Cannot cancel a rejected booking");
+        }
 
         booking.setStatus(CommuteBookingStatus.CANCELLED);
         bookingRepository.save(booking);
@@ -245,6 +289,8 @@ public class CommuteServiceImpl implements CommuteService {
         CommuteBooking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
         validateOwner(booking.getRide(), user);
+        validatePendingBooking(booking);
+
         booking.setStatus(CommuteBookingStatus.CONFIRMED);
         CommuteBooking saved = bookingRepository.save(booking);
 
@@ -271,6 +317,7 @@ public class CommuteServiceImpl implements CommuteService {
         CommuteBooking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
         validateOwner(booking.getRide(), user);
+        validatePendingBooking(booking);
 
         booking.setStatus(CommuteBookingStatus.REJECTED);
         bookingRepository.save(booking);
@@ -302,8 +349,8 @@ public class CommuteServiceImpl implements CommuteService {
     @Override
     public CommuteStatsResponse getStats(AppUser user) {
         long active = rideRepository.countActiveRides(user.getCommunity().getId(), LocalDateTime.now());
-        long offered = rideRepository.findByDriver(user.getId(), PageRequest.of(0, 1)).getTotalElements();
-        long booked = rideRepository.findByPassenger(user.getId(), PageRequest.of(0, 1)).getTotalElements();
+        long offered = rideRepository.countByDriver(user.getId());
+        long booked = rideRepository.countByPassenger(user.getId());
         return CommuteStatsResponse.builder()
                 .activeRides(active)
                 .myOfferedRides(offered)
@@ -317,6 +364,7 @@ public class CommuteServiceImpl implements CommuteService {
     @Transactional
     public CommuteRatingResponse rateRide(AppUser user, Long rideId, CreateCommuteRatingRequest request) {
         CommuteRide ride = findRideOrThrow(rideId);
+        validateCommunity(ride, user);
 
         if (ride.getStatus() != CommuteRideStatus.COMPLETED) {
             throw new IllegalStateException("Can only rate completed rides");
@@ -336,11 +384,16 @@ public class CommuteServiceImpl implements CommuteService {
 
         AppUser rated;
         if (isDriver) {
-            CommuteBooking firstConfirmed = ride.getBookings().stream()
-                    .filter(b -> b.getStatus() == CommuteBookingStatus.CONFIRMED)
+            Long ratedUserId = request.getRatedUserId();
+            if (ratedUserId == null) {
+                throw new IllegalStateException("Driver must specify which passenger to rate");
+            }
+            rated = ride.getBookings().stream()
+                    .filter(b -> b.getStatus() == CommuteBookingStatus.CONFIRMED
+                            && b.getPassenger().getId().equals(ratedUserId))
+                    .map(CommuteBooking::getPassenger)
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No confirmed passengers to rate"));
-            rated = firstConfirmed.getPassenger();
+                    .orElseThrow(() -> new IllegalStateException("Rated user is not a confirmed passenger on this ride"));
         } else {
             rated = ride.getDriver();
         }
@@ -368,10 +421,14 @@ public class CommuteServiceImpl implements CommuteService {
         AppUser target = appUserRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        if (!target.getCommunity().getId().equals(currentUser.getCommunity().getId())) {
+            throw new IllegalStateException("Cannot view profiles from other communities");
+        }
+
         double avg = ratingRepository.getAverageRating(userId);
         long count = ratingRepository.getRatingCount(userId);
-        long offered = rideRepository.findByDriver(userId, PageRequest.of(0, 1)).getTotalElements();
-        long booked = rideRepository.findByPassenger(userId, PageRequest.of(0, 1)).getTotalElements();
+        long offered = rideRepository.countByDriver(userId);
+        long booked = rideRepository.countByPassenger(userId);
 
         return CommuteUserProfileResponse.builder()
                 .userId(target.getId())
@@ -501,6 +558,33 @@ public class CommuteServiceImpl implements CommuteService {
     private void validateOwner(CommuteRide ride, AppUser user) {
         if (!ride.getDriver().getId().equals(user.getId())) {
             throw new IllegalStateException("Only the ride owner can perform this action");
+        }
+    }
+
+    private void validateCommunity(CommuteRide ride, AppUser user) {
+        if (!ride.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResourceNotFoundException("Ride not found");
+        }
+    }
+
+    private void validateActiveStatus(CommuteRide ride) {
+        if (ride.getStatus() != CommuteRideStatus.ACTIVE && ride.getStatus() != CommuteRideStatus.FULL) {
+            throw new IllegalStateException("Cannot modify a " + ride.getStatus().name().toLowerCase() + " ride");
+        }
+    }
+
+    private void validatePendingBooking(CommuteBooking booking) {
+        if (booking.getStatus() != CommuteBookingStatus.PENDING) {
+            throw new IllegalStateException("Booking is already " + booking.getStatus().name().toLowerCase());
+        }
+    }
+
+    private CommuteRideType parseRideType(String rideType) {
+        if (rideType == null || rideType.isBlank()) return null;
+        try {
+            return CommuteRideType.valueOf(rideType);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid ride type: " + rideType);
         }
     }
 
