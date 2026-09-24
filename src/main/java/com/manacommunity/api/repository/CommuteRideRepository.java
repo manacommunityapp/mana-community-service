@@ -14,7 +14,8 @@ import java.util.List;
 
 public interface CommuteRideRepository extends JpaRepository<CommuteRide, Long> {
 
-    @Query("SELECT r FROM CommuteRide r WHERE r.community.id = :communityId " +
+    @Query("SELECT r FROM CommuteRide r JOIN FETCH r.driver LEFT JOIN FETCH r.bookings " +
+           "WHERE r.community.id = :communityId " +
            "AND r.status IN :statuses " +
            "AND r.departureTime >= :fromTime " +
            "AND (:rideType IS NULL OR r.rideType = :rideType) " +
@@ -26,7 +27,8 @@ public interface CommuteRideRepository extends JpaRepository<CommuteRide, Long> 
             @Param("rideType") CommuteRideType rideType,
             Pageable pageable);
 
-    @Query("SELECT r FROM CommuteRide r WHERE r.community.id = :communityId " +
+    @Query("SELECT r FROM CommuteRide r JOIN FETCH r.driver " +
+           "WHERE r.community.id = :communityId " +
            "AND r.status = 'ACTIVE' " +
            "AND r.rideType = 'OFFER' " +
            "AND r.availableSeats > 0 " +
@@ -39,11 +41,12 @@ public interface CommuteRideRepository extends JpaRepository<CommuteRide, Long> 
             @Param("fromTime") LocalDateTime fromTime,
             Pageable pageable);
 
-    @Query("SELECT r FROM CommuteRide r WHERE r.driver.id = :userId " +
+    @Query("SELECT r FROM CommuteRide r JOIN FETCH r.driver " +
+           "WHERE r.driver.id = :userId " +
            "ORDER BY r.departureTime DESC")
     Page<CommuteRide> findByDriver(@Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT r FROM CommuteRide r JOIN r.bookings b " +
+    @Query("SELECT r FROM CommuteRide r JOIN FETCH r.driver JOIN r.bookings b " +
            "WHERE b.passenger.id = :userId " +
            "ORDER BY r.departureTime DESC")
     Page<CommuteRide> findByPassenger(@Param("userId") Long userId, Pageable pageable);
@@ -52,6 +55,12 @@ public interface CommuteRideRepository extends JpaRepository<CommuteRide, Long> 
            "AND r.status = 'ACTIVE' AND r.departureTime >= :fromTime")
     long countActiveRides(@Param("communityId") Long communityId, @Param("fromTime") LocalDateTime fromTime);
 
-    @Query("SELECT r FROM CommuteRide r WHERE r.status = 'ACTIVE' AND r.departureTime < :cutoff")
-    List<CommuteRide> findExpiredActiveRides(@Param("cutoff") LocalDateTime cutoff);
+    @Query("SELECT COUNT(r) FROM CommuteRide r WHERE r.driver.id = :userId")
+    long countByDriver(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(b.ride) FROM CommuteBooking b WHERE b.passenger.id = :userId")
+    long countByPassenger(@Param("userId") Long userId);
+
+    @Query("SELECT r FROM CommuteRide r WHERE r.status IN ('ACTIVE', 'FULL') AND r.departureTime < :cutoff")
+    Page<CommuteRide> findExpiredRides(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 }
