@@ -19,7 +19,12 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         WHERE r.event.id = :eventId
           AND r.user.id = :userId
           AND r.status IN :statuses
-          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+          AND (
+               r.matchType = :matchType
+               OR (r.matchType IS NULL AND :matchType IS NULL)
+               OR (r.matchType IS NULL AND :matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES)
+               OR (r.matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES AND :matchType IS NULL)
+          )
     """)
     boolean existsByEventIdAndUserIdAndMatchTypeAndStatusIn(
             @org.springframework.data.repository.query.Param("eventId") Long eventId,
@@ -32,7 +37,12 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         WHERE r.event.id = :eventId
           AND r.familyMember.id = :familyMemberId
           AND r.status IN :statuses
-          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+          AND (
+               r.matchType = :matchType
+               OR (r.matchType IS NULL AND :matchType IS NULL)
+               OR (r.matchType IS NULL AND :matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES)
+               OR (r.matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES AND :matchType IS NULL)
+          )
     """)
     boolean existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
             @org.springframework.data.repository.query.Param("eventId") Long eventId,
@@ -45,7 +55,12 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         WHERE r.event.id = :eventId
           AND r.partner.id = :partnerId
           AND r.status IN :statuses
-          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+          AND (
+               r.matchType = :matchType
+               OR (r.matchType IS NULL AND :matchType IS NULL)
+               OR (r.matchType IS NULL AND :matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES)
+               OR (r.matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES AND :matchType IS NULL)
+          )
     """)
     boolean existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
             @org.springframework.data.repository.query.Param("eventId") Long eventId,
@@ -58,7 +73,12 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         WHERE r.event.id = :eventId
           AND r.partnerFamilyMember.id = :partnerFamilyMemberId
           AND r.status IN :statuses
-          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+          AND (
+               r.matchType = :matchType
+               OR (r.matchType IS NULL AND :matchType IS NULL)
+               OR (r.matchType IS NULL AND :matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES)
+               OR (r.matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES AND :matchType IS NULL)
+          )
     """)
     boolean existsByEventIdAndPartnerFamilyMemberIdAndMatchTypeAndStatusIn(
             @org.springframework.data.repository.query.Param("eventId") Long eventId,
@@ -82,7 +102,11 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
           AND LOWER(r.playerName) = LOWER(:playerName)
           AND LOWER(r.email) = LOWER(:email)
           AND LOWER(r.flatNumber) = LOWER(:flatNumber)
-          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+          AND (
+               (:matchType IS NULL AND (r.matchType IS NULL OR r.matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES))
+               OR (r.matchType = :matchType)
+               OR (:matchType = com.manacommunity.api.model.SportsEvent$MatchFormat.SINGLES AND r.matchType IS NULL)
+          )
     """)
     boolean existsDuplicateRegistration(
             @org.springframework.data.repository.query.Param("eventId") Long eventId,
