@@ -20,6 +20,8 @@ public interface MediaRepository extends JpaRepository<MediaObject, Long> {
 
     Optional<MediaObject> findByExternalIdAndDeletedFalse(UUID externalId);
 
+    List<MediaObject> findByExternalIdInAndDeletedFalse(java.util.Collection<UUID> externalIds);
+
     Page<MediaObject> findByModuleAndModuleIdAndDeletedFalseOrderByUploadedAtDesc(
             MediaModule module, String moduleId, Pageable pageable);
 

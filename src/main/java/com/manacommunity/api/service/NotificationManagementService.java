@@ -189,6 +189,14 @@ public class NotificationManagementService {
         ).map(this::toResponse);
     }
 
+    /**
+     * Dedicated lightweight retrieval method for UI feed notifications.
+     * Uses DB constructor projection to select only required columns.
+     */
+    public Page<com.manacommunity.api.dto.NotificationSummaryResponse> getUserNotificationsSummary(Long userId, int page, int size) {
+        return notificationRepo.findSummaryByUserId(userId, PageRequest.of(page, size));
+    }
+
     public NotificationCountResponse getUnreadCount(Long userId) {
         long count = notificationRepo.countByUserIdAndReadFalseAndDismissedFalse(userId);
         return new NotificationCountResponse(count);

@@ -39,6 +39,21 @@ public class EventController {
         return ResponseEntity.ok(eventService.getUpcomingEvents(communityId, type, userId));
     }
 
+    /**
+     * Dedicated endpoint for lightweight dashboard and feed preview cards.
+     * Does not perform expensive sub-queries for event contacts, ticket categories, or attendee breakdowns.
+     */
+    @GetMapping("/dashboard-preview")
+    @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
+    public ResponseEntity<List<EventResponse>> getUpcomingEventsForDashboard(
+            @RequestParam(required = false) String type,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long userId = user != null ? user.getId() : null;
+        return ResponseEntity.ok(eventService.getUpcomingEventsForDashboard(communityId, type, userId));
+    }
+
     @GetMapping("/all")
     @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
     public ResponseEntity<List<EventResponse>> getAllEvents(

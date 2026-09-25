@@ -50,6 +50,6 @@ public class Role {
 
     // The core mapping linked directly by role_id to role_permissions.role_id
     @NotAudited
-    @OneToMany(mappedBy = "roleEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @OneToMany(mappedBy = "roleEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private Set<RolePermission> permissions = new HashSet<>();
 }

@@ -5,9 +5,13 @@ import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.event.AnnouncementCreatedEvent;
 import com.manacommunity.api.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +32,7 @@ public class AdminServiceImpl implements AdminService {
     private final AnnouncementRepository  announcementRepo;
     private final CommunityRepository     communityRepo;
     private final CommunitySettingsRepository settingsRepo;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ── Helpers ───────────────────────────────────────────────────────
 
@@ -301,6 +306,21 @@ public class AdminServiceImpl implements AdminService {
 
         ann = announcementRepo.save(ann);
         log.info("Admin {} created announcement '{}' (priority={})", admin.getId(), ann.getTitle(), priority);
+
+        try {
+            eventPublisher.publishEvent(new AnnouncementCreatedEvent(
+                    this,
+                    ann.getId(),
+                    ann.getTitle(),
+                    ann.getContent(),
+                    priority,
+                    community.getId(),
+                    admin.getId()
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to publish announcement created event", e);
+        }
+
         return AnnouncementResponse.from(ann);
     }
 

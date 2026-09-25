@@ -38,6 +38,41 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/stream")
+    public ResponseEntity<Page<PostResponse>> getFeedStream(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Page<PostResponse> response = feedService.getFeedStream(currentUser, type, Math.max(page, 0), safeSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/group/{groupId}/stream")
+    public ResponseEntity<Page<PostResponse>> getGroupFeedStream(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long groupId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Page<PostResponse> response = feedService.getGroupFeedStream(currentUser, groupId, Math.max(page, 0), safeSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search-stream")
+    public ResponseEntity<Page<PostResponse>> searchFeedStream(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        Page<PostResponse> response = feedService.searchFeedStream(currentUser, q, Math.max(page, 0), Math.min(Math.max(size, 1), 50));
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/summary-counts")
     public ResponseEntity<FeedSummaryCountsResponse> getSidebarSummaryCounts(
             @AuthenticationPrincipal UserPrincipal principal) {

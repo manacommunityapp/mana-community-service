@@ -1,5 +1,6 @@
 package com.manacommunity.api.model;
 
+import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
 

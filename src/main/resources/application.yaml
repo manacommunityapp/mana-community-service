@@ -20,7 +20,7 @@ spring:
     baseline-on-migrate: true
     baseline-version: 1
     baseline-description: "pre-flyway baseline schema"
-    out-of-order: false
+    out-of-order: true
     validate-on-migrate: true
     # Allow startup even if a previous migration (e.g. V127) is in FAILED state;
     # V128 will repair whatever V127 missed.

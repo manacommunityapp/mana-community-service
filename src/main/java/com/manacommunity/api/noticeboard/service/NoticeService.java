@@ -5,9 +5,11 @@ import com.manacommunity.api.noticeboard.dto.NoticeRequest;
 import com.manacommunity.api.noticeboard.dto.NoticeResponse;
 import com.manacommunity.api.noticeboard.entity.Notice;
 import com.manacommunity.api.noticeboard.repository.NoticeRepository;
+import com.manacommunity.api.event.AnnouncementCreatedEvent;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import java.util.List;
 public class NoticeService {
 
     private final NoticeRepository repo;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<NoticeResponse> getActiveNotices(Long communityId, String category) {
@@ -73,7 +76,23 @@ public class NoticeService {
             notice.setExpiresOn(LocalDate.parse(req.getExpiresOn()));
         }
 
-        return toResponse(repo.save(notice));
+        Notice saved = repo.save(notice);
+
+        try {
+            eventPublisher.publishEvent(new AnnouncementCreatedEvent(
+                    this,
+                    saved.getId(),
+                    saved.getTitle(),
+                    saved.getBody(),
+                    saved.getPriority() != null ? saved.getPriority().name() : "NORMAL",
+                    community != null ? community.getId() : null,
+                    author != null ? author.getId() : null
+            ));
+        } catch (Exception e) {
+            // Non-blocking log
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional

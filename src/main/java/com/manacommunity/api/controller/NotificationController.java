@@ -42,6 +42,19 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.getUserNotifications(principal.getId(), Math.max(page, 0), safeSize));
     }
 
+    /**
+     * GET /api/notifications/summary — dedicated lightweight notification feed endpoint for UI widgets.
+     * Only transfers essential UI fields, eliminating internal metadata, channels, and lazy lookups.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<Page<com.manacommunity.api.dto.NotificationSummaryResponse>> getNotificationsSummary(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(notificationService.getUserNotificationsSummary(principal.getId(), Math.max(page, 0), safeSize));
+    }
+
     /** GET /api/notifications/count — unread badge count. */
     @GetMapping("/count")
     public ResponseEntity<NotificationCountResponse> getUnreadCount(

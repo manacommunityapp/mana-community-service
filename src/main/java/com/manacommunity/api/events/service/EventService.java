@@ -126,6 +126,26 @@ public class EventService {
         return events.stream().map(e -> toResponse(e, currentUserId)).toList();
     }
 
+    /**
+     * Dedicated lightweight method for dashboard & landing page previews.
+     * Avoids running sub-queries (contacts, ticket categories, devotee counts) for every event.
+     */
+    @Transactional(readOnly = true)
+    public List<EventResponse> getUpcomingEventsForDashboard(Long communityId, String typeFilter, Long currentUserId) {
+        List<EventCommunity> events;
+        if (typeFilter != null && !typeFilter.isBlank() && !"All".equalsIgnoreCase(typeFilter)) {
+            EventCommunity.EventType type = parseEnum(EventCommunity.EventType.class, typeFilter);
+            if (type != null) {
+                events = eventRepo.findUpcomingByCommunityAndType(communityId, type);
+            } else {
+                events = eventRepo.findUpcomingByCommunity(communityId);
+            }
+        } else {
+            events = eventRepo.findUpcomingByCommunity(communityId);
+        }
+        return events.stream().map(this::toDashboardPreviewResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<EventResponse> getAllEvents(Long communityId, Long currentUserId) {
         return eventRepo.findByCommunityIdOrderByStartDateDesc(communityId)
@@ -1124,44 +1144,50 @@ public class EventService {
     }
 
     private EventResponse toResponse(EventCommunity e, Long currentUserId) {
-        boolean isRegistered = currentUserId != null && (
-                (poojaUserRegRepo != null && e.getId() != null && (
-                        poojaUserRegRepo.existsByUserIdAndEventIdAndStatusNot(currentUserId, e.getId(), "CANCELLED")
-                        || poojaUserRegRepo.existsByUserIdAndEventId(currentUserId, e.getId())
-                ))
-                || (bookingRegRepo != null && (
-                        bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "event-" + e.getId(), "CANCELLED")
-                        || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, String.valueOf(e.getId()), "CANCELLED")
-                        || (e.getId() != null && bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "pooja-" + e.getId(), "CANCELLED"))
-                ))
-        );
+        if (e == null) return null;
 
-        // Generate fresh S3/CloudFront URLs from stored media objects at read time
-        java.util.Optional<MediaObject> imageMOpt = e.getImageMediaExternalId() != null
-                ? mediaRepo.findByExternalIdAndDeletedFalse(e.getImageMediaExternalId())
-                : java.util.Optional.empty();
-        String imageUrl   = imageMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getImageUrl());
-        String imageMediaId = imageMOpt.map(m -> m.getExternalId().toString()).orElse(null);
+        boolean isRegistered = false;
+        if (currentUserId != null && e.getId() != null) {
+            isRegistered = (poojaUserRegRepo != null && (
+                    poojaUserRegRepo.existsByUserIdAndEventIdAndStatusNot(currentUserId, e.getId(), "CANCELLED")
+                    || poojaUserRegRepo.existsByUserIdAndEventId(currentUserId, e.getId())
+            )) || (bookingRegRepo != null && (
+                    bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "event-" + e.getId(), "CANCELLED")
+                    || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, String.valueOf(e.getId()), "CANCELLED")
+                    || bookingRegRepo.existsByUserIdAndActivityIdAndStatusNot(currentUserId, "pooja-" + e.getId(), "CANCELLED")
+            ));
+        }
 
-        java.util.Optional<MediaObject> scannerMOpt = e.getScannerMediaExternalId() != null
-                ? mediaRepo.findByExternalIdAndDeletedFalse(e.getScannerMediaExternalId())
-                : java.util.Optional.empty();
-        String scannerUrl   = scannerMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getScannerUrl());
-        String scannerMediaId = scannerMOpt.map(m -> m.getExternalId().toString()).orElse(null);
+        String imageUrl = e.getImageUrl();
+        String imageMediaId = e.getImageMediaExternalId() != null ? e.getImageMediaExternalId().toString() : null;
+        if ((imageUrl == null || imageUrl.isBlank()) && e.getImageMediaExternalId() != null && mediaRepo != null) {
+            java.util.Optional<MediaObject> imageMOpt = mediaRepo.findByExternalIdAndDeletedFalse(e.getImageMediaExternalId());
+            imageUrl = imageMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getImageUrl());
+        }
 
-        List<TicketTypeDto> parsedTicketTypes = null;
-        List<EventTicketCategory> savedCategories = ticketCategoryRepo.findByEventIdOrderByDisplayOrderAscIdAsc(e.getId());
-        if (savedCategories != null && !savedCategories.isEmpty()) {
-            parsedTicketTypes = savedCategories.stream().map(c -> TicketTypeDto.builder()
-                    .id(c.getTicketCode() != null ? c.getTicketCode() : String.valueOf(c.getId()))
-                    .name(c.getName())
-                    .price(c.getPrice())
-                    .qty(c.getCapacity() != null ? c.getCapacity() : c.getSeats())
-                    .seats(c.getSeats() != null ? c.getSeats() : c.getCapacity())
-                    .capacity(c.getCapacity())
-                    .description(c.getDescription())
-                    .build()).toList();
-        } else if (e.getTicketTypesJson() != null && !e.getTicketTypesJson().isBlank()) {
+        String scannerUrl = e.getScannerUrl();
+        String scannerMediaId = e.getScannerMediaExternalId() != null ? e.getScannerMediaExternalId().toString() : null;
+        if ((scannerUrl == null || scannerUrl.isBlank()) && e.getScannerMediaExternalId() != null && mediaRepo != null) {
+            java.util.Optional<MediaObject> scannerMOpt = mediaRepo.findByExternalIdAndDeletedFalse(e.getScannerMediaExternalId());
+            scannerUrl = scannerMOpt.map(m -> mediaUrlService.generateUrl(m)).orElse(e.getScannerUrl());
+        }
+
+        List<TicketTypeDto> parsedTicketTypes = Collections.emptyList();
+        if (ticketCategoryRepo != null && e.getId() != null) {
+            List<EventTicketCategory> savedCategories = ticketCategoryRepo.findByEventIdOrderByDisplayOrderAscIdAsc(e.getId());
+            if (savedCategories != null && !savedCategories.isEmpty()) {
+                parsedTicketTypes = savedCategories.stream().map(c -> TicketTypeDto.builder()
+                        .id(c.getTicketCode() != null ? c.getTicketCode() : String.valueOf(c.getId()))
+                        .name(c.getName())
+                        .price(c.getPrice())
+                        .qty(c.getCapacity() != null ? c.getCapacity() : c.getSeats())
+                        .seats(c.getSeats() != null ? c.getSeats() : c.getCapacity())
+                        .capacity(c.getCapacity())
+                        .description(c.getDescription())
+                        .build()).toList();
+            }
+        }
+        if (parsedTicketTypes.isEmpty() && e.getTicketTypesJson() != null && !e.getTicketTypesJson().isBlank()) {
             try {
                 parsedTicketTypes = objectMapper.readValue(
                         e.getTicketTypesJson(),
@@ -1175,17 +1201,19 @@ public class EventService {
         List<EventContactDto> parsedContacts = new ArrayList<>();
         if (eventContactRepo != null && e.getId() != null) {
             List<EventContact> savedContacts = eventContactRepo.findByEventIdOrderByDisplayOrderAsc(e.getId());
-            for (EventContact ec : savedContacts) {
-                parsedContacts.add(EventContactDto.builder()
-                        .id(ec.getContactCode() != null ? ec.getContactCode() : String.valueOf(ec.getId()))
-                        .name(ec.getName())
-                        .phone(ec.getPhone())
-                        .email(ec.getEmail())
-                        .role(ec.getRole())
-                        .notes(ec.getNotes())
-                        .isPrimary(Boolean.TRUE.equals(ec.getIsPrimary()))
-                        .displayOrder(ec.getDisplayOrder())
-                        .build());
+            if (savedContacts != null && !savedContacts.isEmpty()) {
+                for (EventContact ec : savedContacts) {
+                    parsedContacts.add(EventContactDto.builder()
+                            .id(ec.getContactCode() != null ? ec.getContactCode() : String.valueOf(ec.getId()))
+                            .name(ec.getName())
+                            .phone(ec.getPhone())
+                            .email(ec.getEmail())
+                            .role(ec.getRole())
+                            .notes(ec.getNotes())
+                            .isPrimary(Boolean.TRUE.equals(ec.getIsPrimary()))
+                            .displayOrder(ec.getDisplayOrder())
+                            .build());
+                }
             }
         }
         if (parsedContacts.isEmpty() && e.getContactsJson() != null && !e.getContactsJson().isBlank()) {
@@ -1195,9 +1223,8 @@ public class EventService {
             } catch (Exception ignored) {}
         }
 
-        // Live dynamic active attendees / registration count (from event_pooja_user_registrations table)
         int liveAttendees = 0;
-        if (poojaUserRegRepo != null && e.getId() != null) {
+        if (e.getId() != null && poojaUserRegRepo != null) {
             long poojaCount = poojaUserRegRepo.countByEventIdAndStatusNot(e.getId(), "CANCELLED");
             if (poojaCount == 0) {
                 poojaCount = poojaUserRegRepo.countByEventId(e.getId());
@@ -1205,20 +1232,10 @@ public class EventService {
             liveAttendees = (int) poojaCount;
         }
 
-        // Fallback to booking registrations if zero in event_pooja_user_registrations
-        if (liveAttendees == 0 && bookingRegRepo != null && e.getId() != null) {
+        if (liveAttendees == 0 && e.getId() != null && bookingRegRepo != null) {
             List<EventBookingRegistration> activeRegs = bookingRegRepo.findByMainEventIdOrderByCreatedAtDesc(e.getId());
             if (activeRegs != null && !activeRegs.isEmpty()) {
                 liveAttendees = (int) activeRegs.stream()
-                        .filter(r -> !"CANCELLED".equalsIgnoreCase(r.getStatus()) && !"REJECTED".equalsIgnoreCase(r.getStatus()))
-                        .mapToLong(r -> r.getDevoteeCount() != null && r.getDevoteeCount() > 0 ? r.getDevoteeCount() : 1L)
-                        .sum();
-            }
-            if (liveAttendees == 0) {
-                List<EventBookingRegistration> legacyRegs = new ArrayList<>();
-                legacyRegs.addAll(bookingRegRepo.findByActivityId("event-" + e.getId()));
-                legacyRegs.addAll(bookingRegRepo.findByActivityId(String.valueOf(e.getId())));
-                liveAttendees = (int) legacyRegs.stream()
                         .filter(r -> !"CANCELLED".equalsIgnoreCase(r.getStatus()) && !"REJECTED".equalsIgnoreCase(r.getStatus()))
                         .mapToLong(r -> r.getDevoteeCount() != null && r.getDevoteeCount() > 0 ? r.getDevoteeCount() : 1L)
                         .sum();
@@ -1232,14 +1249,14 @@ public class EventService {
                 .id(e.getId())
                 .title(e.getTitle())
                 .description(e.getDescription())
-                .type(e.getType().name())
-                .startDate(e.getStartDate().toString())
+                .type(e.getType() != null ? e.getType().name() : EventCommunity.EventType.GENERAL.name())
+                .startDate(e.getStartDate() != null ? e.getStartDate().toString() : null)
                 .endDate(e.getEndDate() != null ? e.getEndDate().toString() : null)
                 .startTime(e.getStartTime() != null ? e.getStartTime().toString() : null)
                 .endTime(e.getEndTime() != null ? e.getEndTime().toString() : null)
-                .locationType(e.getLocationType().name())
+                .locationType(e.getLocationType() != null ? e.getLocationType().name() : EventCommunity.LocationType.IN_PERSON.name())
                 .location(e.getLocation())
-                .priceType(e.getPriceType().name())
+                .priceType(e.getPriceType() != null ? e.getPriceType().name() : EventCommunity.PriceType.FREE.name())
                 .price(e.getPrice())
                 .capacity(dbCapacity)
                 .imageUrl(imageUrl)
@@ -1268,6 +1285,49 @@ public class EventService {
                 .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
                 .attendees(liveAttendees)
                 .isRegistered(isRegistered)
+                .draftStep(e.getDraftStep())
+                .createdAt(formatDt(e.getCreatedAt()))
+                .build();
+    }
+
+    /**
+     * Dedicated projection for dashboard and feed previews.
+     * Extracts only direct fields without triggering secondary table queries.
+     */
+    private EventResponse toDashboardPreviewResponse(EventCommunity e) {
+        if (e == null) return null;
+        Integer dbCapacity = e.getCapacity();
+        Integer maxAttendees = e.getMaxAttendees() != null ? e.getMaxAttendees() : dbCapacity;
+
+        return EventResponse.builder()
+                .id(e.getId())
+                .title(e.getTitle())
+                .description(e.getDescription())
+                .type(e.getType() != null ? e.getType().name() : EventCommunity.EventType.GENERAL.name())
+                .startDate(e.getStartDate() != null ? e.getStartDate().toString() : null)
+                .endDate(e.getEndDate() != null ? e.getEndDate().toString() : null)
+                .startTime(e.getStartTime() != null ? e.getStartTime().toString() : null)
+                .endTime(e.getEndTime() != null ? e.getEndTime().toString() : null)
+                .locationType(e.getLocationType() != null ? e.getLocationType().name() : EventCommunity.LocationType.IN_PERSON.name())
+                .location(e.getLocation())
+                .priceType(e.getPriceType() != null ? e.getPriceType().name() : EventCommunity.PriceType.FREE.name())
+                .price(e.getPrice())
+                .capacity(dbCapacity)
+                .imageUrl(e.getImageUrl())
+                .imageMediaId(e.getImageMediaExternalId() != null ? e.getImageMediaExternalId().toString() : null)
+                .organizerName(e.getOrganizerName())
+                .organizerContact(e.getOrganizerContact())
+                .venue(e.getVenue())
+                .city(e.getCity())
+                .category(e.getCategory())
+                .status(e.getStatus() != null ? e.getStatus().name() : EventCommunity.EventStatus.PUBLISHED.name())
+                .paymentModes(e.getPaymentModes())
+                .maxAttendees(maxAttendees)
+                .createdById(e.getCreatedBy() != null ? e.getCreatedBy().getId() : null)
+                .createdByName(e.getCreatedBy() != null ? e.getCreatedBy().getFullName() : null)
+                .communityId(e.getCommunity() != null ? e.getCommunity().getId() : null)
+                .attendees(0)
+                .isRegistered(false)
                 .draftStep(e.getDraftStep())
                 .createdAt(formatDt(e.getCreatedAt()))
                 .build();

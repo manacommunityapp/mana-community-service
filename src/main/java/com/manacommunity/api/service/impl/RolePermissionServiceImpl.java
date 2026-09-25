@@ -94,11 +94,18 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 || upper.equals("COMMUNITY_ADMINISTRATOR") || upper.equals("COMMUNITY ADMIN");
     }
 
+    private final java.util.concurrent.ConcurrentMap<Long, Map<String, List<String>>> cachedRolePermsByCommunity = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     @Transactional(readOnly = true)
     public Map<String, List<String>> getAllRolePermissions(Long communityId) {
-        // Collect ALL role-permission rows for non-reserved roles
-        List<RolePermission> allRows = rolePermissionRepo.findAll().stream()
+        Long cacheKey = communityId != null ? communityId : -1L;
+        return cachedRolePermsByCommunity.computeIfAbsent(cacheKey, k -> computeRolePermissions(communityId));
+    }
+
+    private Map<String, List<String>> computeRolePermissions(Long communityId) {
+        // Collect ALL role-permission template rows in a single JOIN FETCH query
+        List<RolePermission> allRows = rolePermissionRepo.findAllRoleTemplatesWithEntity().stream()
                 .filter(rp -> rp.getUser() == null)
                 .filter(rp -> {
                     String rName = rp.getRole() != null ? rp.getRole().trim().toUpperCase() : "";
@@ -142,12 +149,13 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                     .distinct()
                     .toList());
         }
-        return result;
+        return java.util.Collections.unmodifiableMap(result);
     }
 
     @Override
     @Transactional
     public void updateRolePermissions(String roleName, Long communityId, List<String> permissions) {
+        cachedRolePermsByCommunity.clear();
         String normalizedRoleName = roleName != null ? roleName.trim().toUpperCase() : "";
 
         // ── 1. Always resolve/create a COMMUNITY-SCOPED role so we never mutate the

@@ -30,7 +30,7 @@ spring:
   flyway:
     enabled: true
     clean-disabled: true
-    out-of-order: false
+    out-of-order: true
 
 server:
   port: 8081

@@ -32,6 +32,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
+    Optional<AppUser> findFirstByIsActiveTrueOrderByIdAsc();
 
 
 
