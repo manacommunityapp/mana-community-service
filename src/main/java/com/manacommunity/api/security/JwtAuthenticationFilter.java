@@ -39,6 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AppUserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final CommunityModuleRepository communityModuleRepository;
+    private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
     private final Environment environment;
     private final TokenBlacklistService tokenBlacklistService;
     private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
@@ -50,6 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
                                    CommunityModuleRepository communityModuleRepository,
+                                   com.manacommunity.api.service.CommunityModuleService communityModuleService,
                                    Environment environment,
                                    TokenBlacklistService tokenBlacklistService,
                                    com.manacommunity.api.service.RolePermissionService rolePermissionService) {
@@ -57,6 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.communityModuleRepository = communityModuleRepository;
+        this.communityModuleService = communityModuleService;
         this.environment = environment;
         this.tokenBlacklistService = tokenBlacklistService;
         this.rolePermissionService = rolePermissionService;
@@ -100,11 +103,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } else if (mockAuthEnabled && token.startsWith("mock-token-")) {
                 authenticate(parseLegacyId(token), request);
             }
-        } else if (mockAuthEnabled && !isDocsPath(request)) {
+        } else if (mockAuthEnabled && !isPublicOrAuthPath(request)) {
             authenticateDefaultUser(request);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicOrAuthPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return isDocsPath(request)
+                || uri.startsWith("/api/auth/")
+                || uri.equals("/api/auth");
     }
 
     private boolean isDocsPath(HttpServletRequest request) {
@@ -143,10 +153,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Set<String> enabledModules = null;
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (!isSuperAdmin && communityId != null) {
-            enabledModules = communityModuleRepository.findEnabledByCommunityId(communityId)
-                    .stream()
-                    .map(cm -> cm.getModuleKey())
-                    .collect(Collectors.toSet());
+            enabledModules = new java.util.HashSet<>(communityModuleService.getEnabledModuleKeys(communityId));
         }
 
         for (String permKey : effectivePerms) {
@@ -187,10 +194,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void authenticateDefaultUser(HttpServletRequest request) {
         AppUser user = cachedDefaultUser;
         if (user == null) {
-            List<AppUser> allUsers = userRepository.findAll();
-            user = allUsers.stream().filter(u -> u.hasRole(ROLE_SUPER_ADMIN)).findFirst()
-                    .orElseGet(() -> allUsers.stream().filter(u -> u.hasRole(ROLE_ADMIN)).findFirst()
-                    .orElseGet(() -> allUsers.stream().findFirst().orElse(null)));
+            user = userRepository.findByEmailIgnoreCase("admin@gmail.com")
+                    .or(() -> userRepository.findByEmailIgnoreCase("superadmin@gmail.com"))
+                    .or(() -> userRepository.findFirstByIsActiveTrueOrderByIdAsc())
+                    .orElse(null);
             cachedDefaultUser = user;
         }
         if (user != null) {

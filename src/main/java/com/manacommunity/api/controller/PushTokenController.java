@@ -1,11 +1,11 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.push.RegisterPushTokenRequest;
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.PushToken;
 import com.manacommunity.api.repository.PushTokenRepository;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

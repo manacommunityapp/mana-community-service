@@ -1,8 +1,8 @@
 package com.manacommunity.api.sports.scorecard;
 
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -152,8 +152,8 @@ class MatchPhotoController {
     @PersistenceContext private final EntityManager em;
     private final LoggedInUserService loggedInUserService;
     private final org.springframework.web.multipart.MultipartResolver multipartResolver;
-    private final org.springframework.beans.factory.annotation.Value("${app.upload.base-url:http://localhost:8082}") String baseUrl;
-    private final org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads}") String uploadDir;
+    @org.springframework.beans.factory.annotation.Value("${app.upload.base-url:http://localhost:8082}") private String baseUrl;
+    @org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads}") private String uploadDir;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getPhotos(@PathVariable Long matchId,
@@ -406,12 +406,14 @@ class PlayerProfileController {
 
     private Map<String, Object> toStatDto(Object s) {
         var c = s.getClass();
-        return Map.of("sport", getF(s,c,"sport"), "matchesPlayed", getF(s,c,"matchesPlayed"),
-            "wins", getF(s,c,"wins"), "losses", getF(s,c,"losses"), "draws", getF(s,c,"draws"),
-            "winRate", safeDiv(getF(s,c,"wins"), getF(s,c,"matchesPlayed")),
-            "tournaments", getF(s,c,"tournaments"), "trophies", getF(s,c,"trophies"),
-            "totalRuns", getF(s,c,"totalRuns"), "totalWickets", getF(s,c,"totalWickets"),
-            "goals", getF(s,c,"goals"));
+        return Map.ofEntries(
+            Map.entry("sport", getF(s,c,"sport")), Map.entry("matchesPlayed", getF(s,c,"matchesPlayed")),
+            Map.entry("wins", getF(s,c,"wins")), Map.entry("losses", getF(s,c,"losses")),
+            Map.entry("draws", getF(s,c,"draws")),
+            Map.entry("winRate", safeDiv(getF(s,c,"wins"), getF(s,c,"matchesPlayed"))),
+            Map.entry("tournaments", getF(s,c,"tournaments")), Map.entry("trophies", getF(s,c,"trophies")),
+            Map.entry("totalRuns", getF(s,c,"totalRuns")), Map.entry("totalWickets", getF(s,c,"totalWickets")),
+            Map.entry("goals", getF(s,c,"goals")));
     }
 
     private Map<String, Object> toBadgeDto(Object b) {

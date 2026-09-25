@@ -12,12 +12,14 @@ import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.AuctionStateException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.event.AuctionBidPlacedEvent;
 import com.manacommunity.api.service.SportsAuctionService;
 import com.manacommunity.api.service.SportsAuctionWebSocketService;
 import com.manacommunity.api.service.NotificationManagementService;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
     private final MeterRegistry meterRegistry;
     private final NotificationManagementService notificationService;
     private final SportsAuctionWebSocketService auctionWs;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<SportsAuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId) {
@@ -394,6 +397,27 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             log.warn("Failed to persist outbid notification", e);
         }
 
+        try {
+            Long previousLeaderId = (previousLeader != null && previousLeader.getOwnerUser() != null)
+                    ? previousLeader.getOwnerUser().getId()
+                    : null;
+            Long communityId = (config.getCommunity() != null)
+                    ? config.getCommunity().getId()
+                    : null;
+
+            eventPublisher.publishEvent(new AuctionBidPlacedEvent(
+                    this,
+                    config.getId(),
+                    player.getPlayerName(),
+                    biddingUserId,
+                    team.getTeamName(),
+                    req.bidAmount(),
+                    previousLeaderId,
+                    communityId
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to publish auction bid placed event", e);
+        }
 
         auctionWs.broadcastBid(config.getId(), SportsAuctionBidResponse.builder()
             .id(saved.getId()).configId(config.getId())

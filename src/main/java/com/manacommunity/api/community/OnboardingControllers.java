@@ -1,8 +1,8 @@
 package com.manacommunity.api.community;
 
-import com.manacommunity.api.model.AppUser;
-import com.manacommunity.api.security.UserPrincipal;
-import com.manacommunity.api.service.LoggedInUserService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,7 +57,7 @@ class CommunityLookupController {
         }
 
         var cls  = community.getClass();
-        Long id  = getField(community, cls, "id");
+        Long id  = (Long) getField(community, cls, "id");
 
         // Count active members
         Long memberCount = em.createQuery(

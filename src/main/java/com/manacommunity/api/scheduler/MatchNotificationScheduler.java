@@ -14,21 +14,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/**
- * Runs every 5 minutes and finds matches starting in 25–35 minutes.
- * Publishes MatchStartingSoonEvent for each match that hasn't been
- * notified yet (startNotificationSentAt IS NULL guard).
- *
- * NOTE: This scheduler requires a `start_notification_sent_at` column
- * on the sports_match table. Add it via V6__sports_match_notification.sql:
- *
- *   ALTER TABLE sports_match ADD COLUMN IF NOT EXISTS
- *       start_notification_sent_at TIMESTAMPTZ;
- *
- * The entity field name is startNotificationSentAt (LocalDateTime).
- * If your Match entity doesn't have this field yet, add it and update
- * the JPQL in this class accordingly.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -39,11 +24,7 @@ public class MatchNotificationScheduler {
 
     private final ApplicationEventPublisher events;
 
-    /**
-     * Every 5 minutes — find matches starting in ~30 minutes that
-     * haven't been notified yet.
-     */
-    @Scheduled(fixedDelay = 5 * 60 * 1000)  // every 5 min
+    @Scheduled(fixedDelay = 5 * 60 * 1000)
     @Transactional
     public void notifyUpcomingMatches() {
         LocalDateTime windowStart = LocalDateTime.now().plusMinutes(25);
@@ -52,12 +33,12 @@ public class MatchNotificationScheduler {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createQuery(
             """
-            SELECT m.id, m.homeTeam.name, m.awayTeam.name, m.sport,
-                   m.venue, m.scheduledAt, m.community.id
-            FROM SportMatch m
+            SELECT m.id, m.teamA.teamName, m.teamB.teamName, m.config.sport.name,
+                   m.venue.name, m.scheduledAt, m.community.id
+            FROM SportsTournamentMatch m
             WHERE m.scheduledAt BETWEEN :windowStart AND :windowEnd
-              AND m.status = 'SCHEDULED'
-              AND m.startNotificationSentAt IS NULL
+              AND m.status = com.manacommunity.api.model.scheduler.MatchStatus.SCHEDULED
+              AND m.reminderSent = false
             """)
             .setParameter("windowStart", windowStart)
             .setParameter("windowEnd",   windowEnd)
@@ -65,23 +46,24 @@ public class MatchNotificationScheduler {
 
         for (Object[] row : rows) {
             Long   matchId     = ((Number) row[0]).longValue();
-            String homeTeam    = (String)  row[1];
-            String awayTeam    = (String)  row[2];
-            String sport       = (String)  row[3];
+            String teamAName   = row[1] != null ? (String) row[1] : "Team A";
+            String teamBName   = row[2] != null ? (String) row[2] : "Team B";
+            String sport       = row[3] != null ? (String) row[3] : "Sports";
             String venue       = row[4] != null ? (String) row[4] : "Community ground";
             LocalDateTime scheduledAt = (LocalDateTime) row[5];
-            Long   communityId = ((Number) row[6]).longValue();
+            Long   communityId = row[6] != null ? ((Number) row[6]).longValue() : null;
 
-            String matchTitle  = homeTeam + " vs " + awayTeam;
+            String matchTitle  = teamAName + " vs " + teamBName;
             String scheduledStr = scheduledAt.format(DateTimeFormatter.ofPattern("h:mm a"));
 
-            // Fetch participant IDs (all players registered for both teams)
             @SuppressWarnings("unchecked")
             List<Long> playerIds = em.createQuery(
                 """
-                SELECT DISTINCT tm.user.id
-                FROM TeamMember tm
-                WHERE tm.team.match.id = :matchId
+                SELECT DISTINCT p.user.id
+                FROM SportsAuctionPlayer p
+                WHERE p.user IS NOT NULL
+                  AND (p.assignedTeam.id IN (SELECT m.teamA.id FROM SportsTournamentMatch m WHERE m.id = :matchId)
+                       OR p.assignedTeam.id IN (SELECT m.teamB.id FROM SportsTournamentMatch m WHERE m.id = :matchId))
                 """)
                 .setParameter("matchId", matchId)
                 .getResultList();
@@ -91,9 +73,8 @@ public class MatchNotificationScheduler {
                 playerIds, communityId
             ));
 
-            // Mark as notified so we don't re-send
             em.createQuery(
-                "UPDATE SportMatch m SET m.startNotificationSentAt = :now WHERE m.id = :id")
+                "UPDATE SportsTournamentMatch m SET m.reminderSent = true, m.reminderSentAt = :now WHERE m.id = :id")
                 .setParameter("now", LocalDateTime.now())
                 .setParameter("id",  matchId)
                 .executeUpdate();

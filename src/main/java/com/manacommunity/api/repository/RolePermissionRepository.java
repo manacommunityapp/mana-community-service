@@ -29,4 +29,7 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM RolePermission rp WHERE rp.roleEntity.id = :roleId AND rp.user IS NULL")
     void deleteByRoleEntityIdAndUserIsNull(@Param("roleId") Long roleId);
+
+    @Query("SELECT rp FROM RolePermission rp LEFT JOIN FETCH rp.roleEntity re WHERE rp.user IS NULL")
+    List<RolePermission> findAllRoleTemplatesWithEntity();
 }

@@ -84,6 +84,302 @@ public class FeedService {
         return toPostResponsePage(posts, currentUser.getId());
     }
 
+    @Transactional(readOnly = true)
+    public Page<PostResponse> getFeedStream(AppUser currentUser, String type, int page, int size) {
+        if (currentUser.getCommunity() == null) {
+            throw new InvalidInputException("User is not associated with any community.");
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostFeedProjection> projections;
+        Long communityId = currentUser.getCommunity().getId();
+
+        if (type == null || type.trim().isEmpty() || "ALL".equalsIgnoreCase(type)) {
+            projections = postRepository.findFeedStreamByCommunityId(communityId, pageable);
+        } else if ("OFFICIAL".equalsIgnoreCase(type)) {
+            projections = postRepository.findFeedStreamByCommunityIdAndOfficialTrue(communityId, pageable);
+        } else if ("BOOKMARKED".equalsIgnoreCase(type)) {
+            projections = postRepository.findFeedStreamBookmarkedByUser(currentUser.getId(), pageable);
+        } else {
+            try {
+                PostType postType = PostType.valueOf(type.toUpperCase());
+                projections = postRepository.findFeedStreamByCommunityIdAndPostType(communityId, postType, pageable);
+            } catch (IllegalArgumentException e) {
+                projections = postRepository.findFeedStreamByCommunityId(communityId, pageable);
+            }
+        }
+        return toStreamPostResponsePage(projections, currentUser.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PostResponse> getGroupFeedStream(AppUser currentUser, Long groupId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostFeedProjection> projections = postRepository.findFeedStreamByGroupId(groupId, pageable);
+        return toStreamPostResponsePage(projections, currentUser.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PostResponse> searchFeedStream(AppUser currentUser, String query, int page, int size) {
+        if (currentUser.getCommunity() == null) {
+            throw new InvalidInputException("User is not associated with any community.");
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostFeedProjection> projections = postRepository.searchFeedStream(currentUser.getCommunity().getId(), query, pageable);
+        return toStreamPostResponsePage(projections, currentUser.getId());
+    }
+
+    private Page<PostResponse> toStreamPostResponsePage(Page<PostFeedProjection> projectionsPage, Long currentUserId) {
+        List<PostFeedProjection> projections = projectionsPage.getContent();
+        if (projections.isEmpty()) {
+            return projectionsPage.map(p -> null);
+        }
+
+        List<Long> postIds = projections.stream().map(PostFeedProjection::getId).toList();
+
+        // 1. Batch Likes for this user
+        Set<Long> likedPostIds = (currentUserId != null)
+                ? postLikeRepository.findLikedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 2. Batch Bookmarks for this user
+        Set<Long> bookmarkedPostIds = (currentUserId != null)
+                ? postBookmarkRepository.findBookmarkedPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 3. Batch Reaction Counts
+        Map<Long, Map<String, Long>> reactionCountsByPostId = new HashMap<>();
+        List<Object[]> rawReactionCounts = postReactionRepository.countReactionsByPostIdInGroupByReactionType(postIds);
+        for (Object[] row : rawReactionCounts) {
+            Long pid = (Long) row[0];
+            ReactionType rt = (ReactionType) row[1];
+            Long count = (Long) row[2];
+            reactionCountsByPostId.computeIfAbsent(pid, k -> new LinkedHashMap<>()).put(rt.name(), count);
+        }
+
+        // 4. Batch User Reactions
+        Map<Long, ReactionType> userReactionsByPostId = new HashMap<>();
+        if (currentUserId != null) {
+            List<Object[]> rawUserReactions = postReactionRepository.findUserReactionsByUserIdAndPostIdIn(currentUserId, postIds);
+            for (Object[] row : rawUserReactions) {
+                Long pid = (Long) row[0];
+                ReactionType rt = (ReactionType) row[1];
+                userReactionsByPostId.put(pid, rt);
+            }
+        }
+
+        // 5. Batch Media Attachments + Batch MediaObject resolution
+        Map<Long, List<PostMedia>> mediaByPostId = new HashMap<>();
+        List<PostMedia> allMedia = postMediaRepository.findByPostIdInOrderBySortOrderAsc(postIds);
+        Set<UUID> mediaObjectExternalIds = new HashSet<>();
+        for (PostMedia pm : allMedia) {
+            mediaByPostId.computeIfAbsent(pm.getPost().getId(), k -> new ArrayList<>()).add(pm);
+            if (pm.getMediaObjectExternalId() != null) {
+                mediaObjectExternalIds.add(pm.getMediaObjectExternalId());
+            }
+        }
+
+        Map<UUID, MediaObject> mediaObjectMap = new HashMap<>();
+        if (!mediaObjectExternalIds.isEmpty()) {
+            List<MediaObject> mediaObjects = mediaRepository.findByExternalIdInAndDeletedFalse(mediaObjectExternalIds);
+            for (MediaObject mo : mediaObjects) {
+                if (mo.getExternalId() != null) {
+                    mediaObjectMap.put(mo.getExternalId(), mo);
+                }
+            }
+        }
+
+        // 6. Batch Community Leaders for Authors
+        List<Long> authorIds = projections.stream()
+                .map(PostFeedProjection::getAuthorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, CommunityLeader> leaderMap = new HashMap<>();
+        if (!authorIds.isEmpty()) {
+            List<CommunityLeader> leaders = communityLeaderRepository.findByUserIdInAndIsActiveTrue(authorIds);
+            for (CommunityLeader cl : leaders) {
+                if (cl.getUser() != null && cl.getUser().getId() != null) {
+                    leaderMap.putIfAbsent(cl.getUser().getId(), cl);
+                }
+            }
+        }
+
+        // 7. Batch Polls
+        List<Long> pollPostIds = projections.stream()
+                .filter(p -> p.getPostType() == PostType.POLL)
+                .map(PostFeedProjection::getId)
+                .toList();
+
+        Map<Long, Map<String, Long>> pollVotesByPostId = new HashMap<>();
+        Map<Long, String> userPollVotesByPostId = new HashMap<>();
+
+        if (!pollPostIds.isEmpty()) {
+            List<Object[]> aggregatedVotes = pollVoteRepository.countVotesByPostIdInGroupByOption(pollPostIds);
+            for (Object[] row : aggregatedVotes) {
+                Long pid = (Long) row[0];
+                String opt = (String) row[1];
+                Long count = (Long) row[2];
+                pollVotesByPostId.computeIfAbsent(pid, k -> new HashMap<>()).put(opt, count);
+            }
+
+            if (currentUserId != null) {
+                List<Object[]> userVotes = pollVoteRepository.findUserVotesByUserIdAndPostIdIn(currentUserId, pollPostIds);
+                for (Object[] row : userVotes) {
+                    Long pid = (Long) row[0];
+                    String opt = (String) row[1];
+                    userPollVotesByPostId.put(pid, opt);
+                }
+            }
+        }
+
+        return projectionsPage.map(post -> {
+            Long pid = post.getId();
+            String authorFullName = post.getAuthorFullName() != null ? post.getAuthorFullName() : "";
+            String initials = getInitials(authorFullName);
+            boolean liked = likedPostIds.contains(pid);
+            boolean bookmarked = bookmarkedPostIds.contains(pid);
+
+            Map<String, Long> reactionCounts = reactionCountsByPostId.getOrDefault(pid, Collections.emptyMap());
+            Optional<ReactionType> userReaction = Optional.ofNullable(userReactionsByPostId.get(pid));
+
+            List<String> optionsList = null;
+            Map<String, Long> pollVotes = null;
+            String userVotedOption = null;
+
+            if (post.getPostType() == PostType.POLL) {
+                if (post.getPollOptions() != null) {
+                    optionsList = Arrays.stream(post.getPollOptions().split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList();
+                }
+
+                pollVotes = new HashMap<>();
+                if (optionsList != null) {
+                    for (String opt : optionsList) {
+                        pollVotes.put(opt, 0L);
+                    }
+                }
+                Map<String, Long> actualVotes = pollVotesByPostId.get(pid);
+                if (actualVotes != null) {
+                    pollVotes.putAll(actualVotes);
+                }
+                userVotedOption = userPollVotesByPostId.get(pid);
+            }
+
+            List<PostMedia> mediaList = mediaByPostId.getOrDefault(pid, Collections.emptyList());
+            List<PostResponse.MediaResponse> mediaResponses = mediaList.stream()
+                    .map(m -> {
+                        String url = m.getMediaUrl();
+                        String thumbUrl = m.getThumbnailUrl();
+                        if (m.getMediaObjectExternalId() != null) {
+                            MediaObject mo = mediaObjectMap.get(m.getMediaObjectExternalId());
+                            if (mo != null) {
+                                url = mediaUrlService.generateUrl(mo);
+                                String freshThumb = mediaUrlService.generateThumbnailUrl(mo);
+                                if (freshThumb != null) thumbUrl = freshThumb;
+                            }
+                        }
+                        String mediaObjectIdStr = m.getMediaObjectExternalId() != null ? m.getMediaObjectExternalId().toString() : null;
+                        return new PostResponse.MediaResponse(m.getId(), url, m.getMediaType(), thumbUrl, m.getAltText(), m.getSortOrder(), mediaObjectIdStr);
+                    })
+                    .toList();
+
+            PostResponse.GroupSummary groupSummary = null;
+            if (post.getGroupId() != null) {
+                groupSummary = new PostResponse.GroupSummary(
+                        post.getGroupId(),
+                        post.getGroupName(),
+                        post.getGroupSlug(),
+                        post.getGroupIconUrl(),
+                        post.getGroupType()
+                );
+            }
+
+            String authorRole = mapRoleForStream(post.getAuthorRole(), post.getAuthorId(), leaderMap);
+
+            return new PostResponse(
+                    post.getId(),
+                    post.getContent(),
+                    post.getTitle(),
+                    post.getImageUrl(),
+                    post.isOfficial(),
+                    post.isPinned(),
+                    post.getLikesCount(),
+                    post.getCommentsCount(),
+                    post.getSharesCount(),
+                    post.getBookmarksCount(),
+                    post.getViewsCount(),
+                    liked,
+                    bookmarked,
+                    userReaction.orElse(null),
+                    reactionCounts,
+                    post.getAuthorId(),
+                    authorFullName,
+                    initials,
+                    authorRole,
+                    post.getAuthorProfilePicUrl(),
+                    post.getCreatedAt(),
+                    post.getPostType(),
+                    post.getVisibility(),
+                    post.getPriority(),
+                    post.getPrice(),
+                    post.getLocation(),
+                    post.getPollQuestion(),
+                    optionsList,
+                    pollVotes,
+                    userVotedOption,
+                    post.getPollEndDate(),
+                    post.isPollAnonymous(),
+                    post.getHashtags(),
+                    post.getMentions(),
+                    post.getLinkUrl(),
+                    post.getLinkTitle(),
+                    post.getLinkDescription(),
+                    post.getLinkImage(),
+                    post.getEventDate(),
+                    post.getEventEndDate(),
+                    post.getEventVenue(),
+                    mediaResponses,
+                    groupSummary,
+                    post.getModerationStatus()
+            );
+        });
+    }
+
+    private String mapRoleForStream(String rawRole, Long userId, Map<Long, CommunityLeader> leaderMap) {
+        if (userId != null && leaderMap != null && leaderMap.containsKey(userId)) {
+            CommunityLeader leader = leaderMap.get(userId);
+            if (leader != null && leader.getDesignation() != null && !leader.getDesignation().isBlank()) {
+                String designation = leader.getDesignation().trim();
+                if (leader.getCommittee() != null && !leader.getCommittee().isBlank()
+                        && !leader.getCommittee().trim().equalsIgnoreCase(designation)) {
+                    return designation + " (" + leader.getCommittee().trim() + ")";
+                }
+                return designation;
+            }
+        }
+
+        if (rawRole != null && !rawRole.isBlank()) {
+            String upper = rawRole.toUpperCase().trim();
+            if (isAdminRole(upper)) return "Admin";
+            if (upper.contains("EVENT_ADMIN") || upper.contains("EVENTS_ADMIN")) return "Event Admin";
+            if (upper.contains("MODERATOR")) return "Moderator";
+            if (upper.contains("PRESIDENT")) return "President";
+            if (upper.contains("SECRETARY")) return "Secretary";
+            if (upper.contains("TREASURER")) return "Treasurer";
+            if (upper.contains("COMMITTEE")) return "Committee Member";
+            if (!upper.equals("USER") && !upper.equals("MEMBER") && !upper.equals("ROLE_USER")) {
+                return Arrays.stream(rawRole.split("[_,\\s]+"))
+                        .filter(s -> !s.isBlank())
+                        .map(s -> s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase())
+                        .reduce((a, b) -> a + " " + b)
+                        .orElse("Verified Member");
+            }
+        }
+
+        return "Verified Member";
+    }
+
     @Transactional
     public PostResponse createPost(AppUser currentUser, PostRequest request) {
         if (currentUser.getCommunity() == null) {

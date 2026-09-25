@@ -308,6 +308,26 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
         }
 
+        // 3b. Validate against Event-level Gender restrictions
+        String eventGender = event.getGender();
+        if (eventGender != null && !eventGender.isBlank()) {
+            String eg = eventGender.trim().toUpperCase();
+            if (!"ALL".equals(eg) && !"ANY".equals(eg) && !"OPEN".equals(eg) && !"MIXED".equals(eg)) {
+                String pGender = gender != null ? gender.trim().toUpperCase() : "";
+                boolean maleEvent = "MALE".equals(eg) || "MEN".equals(eg) || "BOYS".equals(eg) || "M".equals(eg);
+                boolean femaleEvent = "FEMALE".equals(eg) || "WOMEN".equals(eg) || "GIRLS".equals(eg) || "F".equals(eg);
+                boolean malePlayer = "MALE".equals(pGender) || "M".equals(pGender);
+                boolean femalePlayer = "FEMALE".equals(pGender) || "F".equals(pGender);
+
+                if ((maleEvent && !malePlayer) || (femaleEvent && !femalePlayer)) {
+                    throw new InvalidInputException(
+                            "Gender mismatch: Event '" + event.getName() + "' is restricted to " + eg +
+                            ", but player's gender is " + (gender != null && !gender.isBlank() ? gender : "unspecified") + "."
+                    );
+                }
+            }
+        }
+
         // 4. Historical Age Conflict Detection (Layer 2)
         // If registering self (not via family member, and pName matches user) as a junior (< 18),
         // but historical records show prior participation as adult (18+)
@@ -359,6 +379,22 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
             if (selectedFormat == null) {
                 selectedFormat = formatRepo.findByEventIdAndFormat(event.getId(), targetFmt).orElse(null);
+            }
+        }
+
+        // Validate that the requested match format is configured for this event
+        if (matchFormat != null && event.getEventFormats() != null && !event.getEventFormats().isEmpty()) {
+            final SportsEvent.MatchFormat checkFmt = matchFormat;
+            boolean formatAvailable = event.getEventFormats().stream()
+                    .anyMatch(f -> f.getFormat() == checkFmt);
+            if (!formatAvailable && selectedFormat == null) {
+                String available = event.getEventFormats().stream()
+                        .map(f -> f.getFormat().name().replace('_', ' '))
+                        .collect(java.util.stream.Collectors.joining(", "));
+                throw new InvalidInputException(
+                        checkFmt.name().replace('_', ' ') + " is not available for event '" + event.getName()
+                        + "'. Available formats: " + available + "."
+                );
             }
         }
 

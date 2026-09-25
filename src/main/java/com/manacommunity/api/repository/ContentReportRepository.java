@@ -14,4 +14,6 @@ public interface ContentReportRepository extends JpaRepository<ContentReport, Lo
     Page<ContentReport> findByCommunityId(Long communityId, Pageable pageable);
 
     long countByCommunityIdAndStatus(Long communityId, String status);
+
+    boolean existsByTargetTypeAndTargetIdAndReporterId(String targetType, Long targetId, Long reporterId);
 }

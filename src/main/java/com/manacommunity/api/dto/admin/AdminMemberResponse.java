@@ -1,6 +1,6 @@
 package com.manacommunity.api.dto.admin;
 
-import com.manacommunity.api.model.AppUser;
+import com.manacommunity.api.user.model.AppUser;
 import lombok.Builder;
 import lombok.Data;
 
