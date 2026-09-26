@@ -106,7 +106,7 @@ public class NotificationManagementService {
     /**
      * Creates a single in-app notification for one user.
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public Notification createNotification(
             Long userId,
             NotificationType type,
