@@ -2488,6 +2488,73 @@ public class SchemaConstraintPatcher {
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher event_ticket_categories/event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }
+
+            // Fix the registration unique index to include match_type so the same
+            // player can register for both SINGLES and DOUBLES in the same event.
+            // The original index blocks this because it doesn't differentiate formats.
+            // Idempotent: only acts when the existing index lacks match_type.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_event_registration') IS NOT NULL THEN
+                            DROP INDEX IF EXISTS manacommunity.uq_reg_event_player;
+
+                            CREATE UNIQUE INDEX uq_reg_event_player
+                                ON manacommunity.sports_event_registration(
+                                    event_id, LOWER(player_name), LOWER(email),
+                                    LOWER(flat_number), COALESCE(match_type, 'SINGLES'))
+                                WHERE status NOT IN ('WITHDRAWN', 'REJECTED');
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("uq_reg_event_player index patched to include match_type (SINGLES/DOUBLES/MIXED coexist).");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher registration unique index patch failed: {}", e.getMessage(), e);
+            }
+
+            // Sync the notification type check constraint with the NotificationType enum.
+            // New enum values (PARTNER_SELECTED, PARTNER_CONFIRMED, PARTNER_DECLINED,
+            // COMMUTE_* types) were added after V98 created the constraint.
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.notification') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.notification
+                                DROP CONSTRAINT IF EXISTS notification_type_check;
+
+                            ALTER TABLE manacommunity.notification
+                                ADD CONSTRAINT notification_type_check CHECK (type IN (
+                                    'SCHEDULE_PUBLISHED','SCHEDULE_UPDATED','MATCH_REMINDER','MATCH_RESULT_POSTED',
+                                    'REGISTRATION_RECEIVED','REGISTRATION_OPEN','REGISTRATION_CONFIRMED',
+                                    'REGISTRATION_REJECTED','REGISTRATION_WITHDRAWN',
+                                    'PARTNER_SELECTED','PARTNER_CONFIRMED','PARTNER_DECLINED',
+                                    'EVENT_UPDATED','EVENT_CANCELLED','EVENT_STATUS_CHANGED',
+                                    'AUCTION_STARTED','AUCTION_COMPLETED','PLAYER_SOLD','BID_OUTBID',
+                                    'TEAM_ASSIGNED','TEAM_CREATED','CAPTAIN_NOMINATED','CAPTAIN_CONFIRMED',
+                                    'WINNER_NOTIFICATION','TOURNAMENT_COMPLETED','PRIZE_DISTRIBUTION',
+                                    'TOURNAMENT_OPEN','TOURNAMENT_ANNOUNCEMENT',
+                                    'GENERAL',
+                                    'VISITOR_PENDING','VISITOR_CHECK_IN',
+                                    'SIGNUP_SUCCESS','PASSWORD_RESET',
+                                    'COMMUTE_BOOKING_RECEIVED','COMMUTE_BOOKING_CONFIRMED',
+                                    'COMMUTE_BOOKING_REJECTED','COMMUTE_BOOKING_CANCELLED',
+                                    'COMMUTE_RIDE_CANCELLED','COMMUTE_RIDE_REMINDER'
+                                ));
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("notification_type_check constraint synced with NotificationType enum.");
+            } catch (Exception e) {
+                log.error("SchemaConstraintPatcher notification type constraint patch failed: {}", e.getMessage(), e);
+            }
         }
     }
 }
