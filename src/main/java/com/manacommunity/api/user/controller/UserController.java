@@ -23,6 +23,7 @@ import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.privacy.PiiMaskingService;
 import com.manacommunity.api.privacy.UserPrivacySettingsService;
+import com.manacommunity.api.storage.PresignedUrlRefreshService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -54,6 +55,7 @@ public class UserController {
     private final PiiMaskingService piiMaskingService;
     private final UserPrivacySettingsService userPrivacySettingsService;
     private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
+    private final PresignedUrlRefreshService presignedUrlRefreshService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -422,7 +424,7 @@ public class UserController {
                 .role(u.getRole())
                 .roles(getRolesList(u.getRole()))
                 .kycStatus(u.getKycStatus())
-                .profilePicUrl(u.getProfilePicUrl())
+                .profilePicUrl(presignedUrlRefreshService.refreshIfExpired(u.getProfilePicUrl()))
                 .gender(u.getGender())
                 .dateOfBirth(dob)
                 .flatNo(u.getFlatNo())
@@ -448,7 +450,8 @@ public class UserController {
     }
 
     private com.manacommunity.api.user.dto.UserSummaryResponse toUserSummaryResponse(AppUser u) {
-        String avatar = u.getProfilePicUrl();
+        String refreshedPic = presignedUrlRefreshService.refreshIfExpired(u.getProfilePicUrl());
+        String avatar = refreshedPic;
         if (avatar == null || avatar.isBlank()) {
             avatar = "https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media";
         }
@@ -457,7 +460,7 @@ public class UserController {
                 .fullName(u.getFullName())
                 .email(u.getEmail())
                 .phone(u.getPhone())
-                .profilePicUrl(u.getProfilePicUrl())
+                .profilePicUrl(refreshedPic)
                 .avatarUrl(avatar)
                 .gender(u.getGender())
                 .dateOfBirth(u.getDateOfBirth())
