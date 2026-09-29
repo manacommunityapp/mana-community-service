@@ -2,10 +2,12 @@ package com.manacommunity.api.parking.controller;
 
 import com.manacommunity.api.parking.dto.*;
 import com.manacommunity.api.parking.service.ParkingService;
+import com.manacommunity.api.parking.service.ParkingSlotService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,13 +21,50 @@ import static com.manacommunity.api.constants.PermissionConstants.MANAGE_PARKING
 import static com.manacommunity.api.constants.PermissionConstants.VIEW_PARKING;
 
 @RestController
-@RequestMapping("/api/parking")
+@RequestMapping({"/api/parking", "/parking"})
 @RequiredArgsConstructor
+@Tag(name = "Parking", description = "Parking management APIs")
 public class ParkingController {
 
     private final ParkingService parkingService;
+    private final ParkingSlotService parkingSlotService;
     private final LoggedInUserService loggedInUserService;
     private final PermissionCheckService permissionCheckService;
+
+    // ── Spots (main's ParkingService) ───────────────────────────────
+
+    @GetMapping("/spots")
+    public ResponseEntity<List<ParkingSpotDto>> getSpots(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String level) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(parkingService.getSpots(user, type, status, level));
+    }
+
+    @GetMapping("/my-spots")
+    public ResponseEntity<List<ParkingSpotDto>> getMySpots(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(parkingService.getMySpots(user));
+    }
+
+    @PostMapping("/reserve")
+    public ResponseEntity<ParkingSpotDto> reserveSpot(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ReserveSpotRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(parkingService.reserveSpot(user, request));
+    }
+
+    @PostMapping("/visitor-pass")
+    public ResponseEntity<VisitorPassDto> createVisitorPass(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VisitorPassRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(parkingService.createVisitorPass(user, request));
+    }
 
     // ── Slots ────────────────────────────────────────────────────────
 
@@ -34,7 +73,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.getSlots(caller.getCommunity().getId()));
+        return ResponseEntity.ok(parkingSlotService.getSlots(caller.getCommunity().getId()));
     }
 
     @GetMapping("/slots/available")
@@ -42,7 +81,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.getAvailableSlots(caller.getCommunity().getId()));
+        return ResponseEntity.ok(parkingSlotService.getAvailableSlots(caller.getCommunity().getId()));
     }
 
     @PostMapping("/slots")
@@ -51,7 +90,7 @@ public class ParkingController {
             @Valid @RequestBody ParkingSlotRequest request) {
         permissionCheckService.requireAnyPermission(principal, MANAGE_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.status(HttpStatus.CREATED).body(parkingService.createSlot(caller, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(parkingSlotService.createSlot(caller, request));
     }
 
     @PutMapping("/slots/{id}")
@@ -61,7 +100,7 @@ public class ParkingController {
             @Valid @RequestBody ParkingSlotRequest request) {
         permissionCheckService.requireAnyPermission(principal, MANAGE_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.updateSlot(caller, id, request));
+        return ResponseEntity.ok(parkingSlotService.updateSlot(caller, id, request));
     }
 
     @PostMapping("/slots/{id}/assign")
@@ -71,7 +110,7 @@ public class ParkingController {
             @RequestParam Long userId) {
         permissionCheckService.requireAnyPermission(principal, MANAGE_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.assignSlot(id, userId, caller));
+        return ResponseEntity.ok(parkingSlotService.assignSlot(id, userId, caller));
     }
 
     @PostMapping("/slots/{id}/release")
@@ -79,7 +118,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         permissionCheckService.requireAnyPermission(principal, MANAGE_PARKING);
-        return ResponseEntity.ok(parkingService.releaseSlot(id));
+        return ResponseEntity.ok(parkingSlotService.releaseSlot(id));
     }
 
     @DeleteMapping("/slots/{id}")
@@ -87,7 +126,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         permissionCheckService.requireAnyPermission(principal, MANAGE_PARKING);
-        parkingService.deleteSlot(id);
+        parkingSlotService.deleteSlot(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -98,14 +137,14 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_PARKING);
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.getVehicles(caller.getCommunity().getId()));
+        return ResponseEntity.ok(parkingSlotService.getVehicles(caller.getCommunity().getId()));
     }
 
     @GetMapping("/vehicles/mine")
     public ResponseEntity<List<ResidentVehicleResponse>> getMyVehicles(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.getMyVehicles(caller.getId()));
+        return ResponseEntity.ok(parkingSlotService.getMyVehicles(caller.getId()));
     }
 
     @PostMapping("/vehicles")
@@ -113,7 +152,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody ResidentVehicleRequest request) {
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.status(HttpStatus.CREATED).body(parkingService.registerVehicle(caller, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(parkingSlotService.registerVehicle(caller, request));
     }
 
     @PutMapping("/vehicles/{id}")
@@ -122,7 +161,7 @@ public class ParkingController {
             @PathVariable Long id,
             @Valid @RequestBody ResidentVehicleRequest request) {
         AppUser caller = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(parkingService.updateVehicle(caller, id, request));
+        return ResponseEntity.ok(parkingSlotService.updateVehicle(caller, id, request));
     }
 
     @DeleteMapping("/vehicles/{id}")
@@ -130,7 +169,7 @@ public class ParkingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         AppUser caller = loggedInUserService.resolve(principal);
-        parkingService.deleteVehicle(id);
+        parkingSlotService.deleteVehicle(id);
         return ResponseEntity.noContent().build();
     }
 }
