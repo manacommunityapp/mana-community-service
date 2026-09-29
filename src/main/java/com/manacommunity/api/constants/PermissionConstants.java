@@ -90,6 +90,10 @@ public final class PermissionConstants {
     public static final String VIEW_PARKING   = ParkingPermissions.VIEW_PARKING;
     public static final String MANAGE_PARKING = ParkingPermissions.MANAGE_PARKING;
 
+    // ──── RE-EXPORTS: Guard ────────────────────────────────────────
+    public static final String VIEW_GUARDS   = GuardPermissions.VIEW_GUARDS;
+    public static final String MANAGE_GUARDS = GuardPermissions.MANAGE_GUARDS;
+
     // ──── RE-EXPORTS: Amenity Booking ───────────────────────────────
     public static final String VIEW_AMENITIES   = AmenityPermissions.VIEW_AMENITIES;
     public static final String BOOK_AMENITY     = AmenityPermissions.BOOK_AMENITY;
