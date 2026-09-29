@@ -6,10 +6,12 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.ChatService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -69,6 +71,17 @@ public class ChatController {
         AppUser currentUser = loggedInUserService.resolve(principal);
         chatService.markRead(currentUser, id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** POST /api/chat/conversations/{id}/attachments — send a message with file attachments. */
+    @PostMapping(value = "/conversations/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChatMessageResponse> sendWithAttachments(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestPart(value = "content", required = false) String content,
+            @RequestPart(value = "files") List<MultipartFile> files) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(chatService.sendMessageWithAttachments(currentUser, id, content, files));
     }
 
     /** GET /api/chat/contacts — community members the caller can message. */
