@@ -113,6 +113,6 @@ public class VisitorPass {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum PassType { GUEST, DELIVERY, MAID, VENDOR, FAMILY, RECURRING, PRE_APPROVED, WALK_IN, OTHER, CAB, SERVICE }
+    public enum PassType { GUEST, DELIVERY, MAID, VENDOR, FAMILY, RECURRING, PRE_APPROVED, WALK_IN, OTHER }
     public enum PassStatus { PENDING, APPROVED, CHECKED_IN, CHECKED_OUT, REJECTED, EXPIRED }
 }

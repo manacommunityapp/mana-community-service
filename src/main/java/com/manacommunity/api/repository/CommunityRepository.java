@@ -10,7 +10,6 @@ import java.util.Optional;
 @Repository
 public interface CommunityRepository extends JpaRepository<Community, Long> {
     Optional<Community> findByInviteCode(String inviteCode);
-    boolean existsByInviteCode(String inviteCode);
     List<Community> findByTypeIgnoreCase(String type);
 
     // Active (not soft-deleted) only — used for the signup dropdown and admin list.

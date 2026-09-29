@@ -39,11 +39,9 @@ public class MediaProperties {
 
     @Getter @Setter
     public static class LimitProps {
-        private int maxImageSizeMb = 10;
+        private int maxImageSizeMb = 20;
         private int maxVideoSizeMb = 500;
         private int maxDocumentSizeMb = 50;
-        private int maxProfilePhotoSizeMb = 5;
-        private int maxKycDocumentSizeMb = 20;
     }
 
     @Getter @Setter

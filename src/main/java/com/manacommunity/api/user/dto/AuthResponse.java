@@ -1,11 +1,10 @@
 package com.manacommunity.api.user.dto;
 
-@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 public class AuthResponse {
     private String userId;
     private String message;
-    private String token;
-    private String refreshToken;
+    private String token; // short-lived JWT access token
+    private String refreshToken; // long-lived JWT refresh token (exchanged at /api/auth/refresh)
 
     // User details for frontend context
     private String fullName;

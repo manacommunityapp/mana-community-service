@@ -32,109 +32,13 @@ import java.util.*;
 @RequiredArgsConstructor
 public class VisitorPassService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-
     private final VisitorPassRepository repo;
     private final VisitorAuditLogRepository auditLogRepo;
     private final AppUserRepository userRepo;
     private final NotificationManagementService notificationService;
-    private final com.manacommunity.api.repository.CommunityRepository communityRepository;
 
-    @Transactional
-    public void seedDefaultVisitorsIfEmpty(Community community, AppUser resident) {
-        if (community == null && resident != null) {
-            community = resident.getCommunity();
-        }
-        if (community == null) {
-            community = communityRepository.findAll().stream().findFirst().orElse(null);
-        }
-        if (community == null) return;
-
-        long count = repo.countByCommunityId(community.getId());
-        if (count > 0) return;
-
-        log.info("Auto-seeding initial 5 visitor passes for community {}", community.getName());
-        LocalDateTime now = LocalDateTime.now();
-
-        List<VisitorPass> seeds = List.of(
-            VisitorPass.builder()
-                .passCode("MANA-7821")
-                .visitorName("Suresh Verma")
-                .visitorPhone("9876543211")
-                .vehicleNumber("KA-01-MJ-9821")
-                .purpose("Family Weekend Dinner")
-                .passType(VisitorPass.PassType.GUEST)
-                .status(VisitorPass.PassStatus.APPROVED)
-                .expectedAt(now.plusHours(2))
-                .flatNumber(resident != null && resident.getFlatNo() != null ? resident.getFlatNo() : "Tower A - Unit 1204")
-                .resident(resident)
-                .community(community)
-                .build(),
-            VisitorPass.builder()
-                .passCode("MANA-4412")
-                .visitorName("Amazon Courier")
-                .visitorPhone("9876543212")
-                .purpose("Electronics Package")
-                .passType(VisitorPass.PassType.DELIVERY)
-                .status(VisitorPass.PassStatus.CHECKED_IN)
-                .expectedAt(now.minusHours(1))
-                .checkedInAt(now.minusMinutes(30))
-                .flatNumber(resident != null && resident.getFlatNo() != null ? resident.getFlatNo() : "Tower A - Unit 1204")
-                .resident(resident)
-                .community(community)
-                .build(),
-            VisitorPass.builder()
-                .passCode("MANA-9903")
-                .visitorName("Ola Cab (MH-02-EE-3291)")
-                .visitorPhone("9876543213")
-                .vehicleNumber("MH-02-EE-3291")
-                .purpose("Airport Pickup")
-                .passType(VisitorPass.PassType.CAB)
-                .status(VisitorPass.PassStatus.APPROVED)
-                .expectedAt(now.plusHours(4))
-                .flatNumber(resident != null && resident.getFlatNo() != null ? resident.getFlatNo() : "Tower A - Unit 1204")
-                .resident(resident)
-                .community(community)
-                .build(),
-            VisitorPass.builder()
-                .passCode("MANA-1082")
-                .visitorName("Urban Company Plumber")
-                .visitorPhone("9876543214")
-                .purpose("Kitchen Sink Fixture")
-                .passType(VisitorPass.PassType.SERVICE)
-                .status(VisitorPass.PassStatus.CHECKED_OUT)
-                .expectedAt(now.minusDays(1))
-                .checkedInAt(now.minusDays(1).plusHours(1))
-                .checkedOutAt(now.minusDays(1).plusHours(3))
-                .flatNumber(resident != null && resident.getFlatNo() != null ? resident.getFlatNo() : "Tower A - Unit 1204")
-                .resident(resident)
-                .community(community)
-                .build(),
-            VisitorPass.builder()
-                .passCode("MANA-0021")
-                .visitorName("Unverified Sales Rep")
-                .visitorPhone("9876543215")
-                .purpose("Cold Call Promotion")
-                .passType(VisitorPass.PassType.GUEST)
-                .status(VisitorPass.PassStatus.REJECTED)
-                .expectedAt(now.minusDays(2))
-                .flatNumber(resident != null && resident.getFlatNo() != null ? resident.getFlatNo() : "Tower A - Unit 1204")
-                .resident(resident)
-                .community(community)
-                .build()
-        );
-
-        repo.saveAll(seeds);
-    }
-
-    @Transactional
+    @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
-        if (communityId != null) {
-            communityRepository.findById(communityId).ifPresent(comm -> {
-                AppUser anyUser = userRepo.findByCommunityId(communityId).stream().findFirst().orElse(null);
-                seedDefaultVisitorsIfEmpty(comm, anyUser);
-            });
-        }
         return repo.findByCommunityIdOrderByCreatedAtDesc(communityId)
                 .stream().map(this::toResponse).toList();
     }
@@ -146,11 +50,8 @@ public class VisitorPassService {
                 .stream().map(this::toResponse).toList();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<VisitorPassResponse> getMyPasses(Long residentId) {
-        if (residentId != null) {
-            userRepo.findById(residentId).ifPresent(u -> seedDefaultVisitorsIfEmpty(u.getCommunity(), u));
-        }
         return repo.findByResidentIdOrderByCreatedAtDesc(residentId)
                 .stream().map(this::toResponse).toList();
     }
@@ -539,7 +440,7 @@ public class VisitorPassService {
     }
 
     private String generatePassCode() {
-        return "MANA-" + (1000 + RANDOM.nextInt(9000));
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     private String generateEncryptedToken(String code, AppUser user) {

@@ -24,7 +24,6 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
 
     private final CommunityModuleRepository communityModuleRepo;
     private final CommunityRepository communityRepo;
-    private final java.util.concurrent.ConcurrentMap<Long, List<String>> cachedEnabledModuleKeys = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     @Transactional(readOnly = true)
@@ -37,23 +36,17 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Override
     @Transactional
     public List<String> getEnabledModuleKeys(Long communityId) {
-        if (communityId == null) {
-            return java.util.Collections.emptyList();
+        if (!communityModuleRepo.existsByCommunityId(communityId)) {
+            initializeModulesForCommunity(communityId);
         }
-        return cachedEnabledModuleKeys.computeIfAbsent(communityId, id -> {
-            if (!communityModuleRepo.existsByCommunityId(id)) {
-                initializeModulesForCommunity(id);
-            }
-            return communityModuleRepo.findEnabledByCommunityId(id).stream()
-                    .map(CommunityModule::getModuleKey)
-                    .toList();
-        });
+        return communityModuleRepo.findEnabledByCommunityId(communityId).stream()
+                .map(CommunityModule::getModuleKey)
+                .toList();
     }
 
     @Override
     @Transactional
     public CommunityModuleResponse toggleModule(Long communityId, String moduleKey, boolean enabled) {
-        cachedEnabledModuleKeys.remove(communityId);
         Community community = communityRepo.findById(communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Community", communityId));
 
@@ -82,7 +75,6 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Override
     @Transactional
     public List<CommunityModuleResponse> bulkUpdate(CommunityModuleBulkRequest request) {
-        cachedEnabledModuleKeys.remove(request.communityId());
         Community community = communityRepo.findById(request.communityId())
                 .orElseThrow(() -> new ResourceNotFoundException("Community", request.communityId()));
 
@@ -116,7 +108,6 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Override
     @Transactional
     public void initializeModulesForCommunity(Long communityId) {
-        cachedEnabledModuleKeys.remove(communityId);
         if (communityModuleRepo.existsByCommunityId(communityId)) {
             return;
         }
@@ -130,7 +121,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
                         .community(community)
                         .moduleKey(def.key())
                         .moduleLabel(def.label())
-                        .isEnabled(ModuleConstants.MODULE_COMMUNITY_FEED.equals(def.key()) || ModuleConstants.MODULE_ADMIN_HUB.equals(def.key()))
+                        .isEnabled(false)
                         .sortOrder(def.sortOrder())
                         .createdAt(now)
                         .updatedAt(now)

@@ -6,8 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A single message inside a {@link Conversation}.
@@ -41,10 +39,6 @@ public class ChatMessage {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-
-    @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<ChatAttachment> attachments = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

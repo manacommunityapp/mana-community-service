@@ -29,8 +29,6 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     List<VisitorPass> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
 
-    long countByCommunityId(Long communityId);
-
     @Query("SELECT v FROM VisitorPass v WHERE v.community.id = :communityId " +
            "AND v.status IN :statuses ORDER BY v.createdAt DESC")
     List<VisitorPass> findByCommunityAndStatuses(
@@ -42,4 +40,8 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     List<VisitorPass> findRecentByCommunity(
             @Param("communityId") Long communityId,
             @Param("since") LocalDateTime since);
+
+    long countByCommunityIdAndStatus(Long communityId, VisitorPass.PassStatus status);
+
+    long countByCommunityId(Long communityId);
 }

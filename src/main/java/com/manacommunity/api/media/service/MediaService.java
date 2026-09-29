@@ -43,7 +43,6 @@ public class MediaService {
     private final MediaUrlService       urlService;
     private final MediaProperties       props;
     private final MediaValidator        mediaValidator;
-    private final ImageMetadataStripper metadataStripper;
 
     // ── Direct multipart upload ──────────────────────────────────────────────
 
@@ -67,8 +66,8 @@ public class MediaService {
         String extension = mimeDetector.toExtension(mimeType);
         MediaType mediaType = mimeDetector.toMediaType(mimeType);
 
-        // 3. Validate file size per media type + context
-        validateSize(file.getSize(), mediaType, request.getModule(), request.getSubContext());
+        // 3. Validate file size per media type
+        validateSize(file.getSize(), mediaType);
 
         // 4. Deep format & corrupted file validation
         Integer width = null;
@@ -90,31 +89,9 @@ public class MediaService {
 
         String bucket = props.getS3().getBucket();
 
-        // 5b. Strip EXIF/metadata from images before storage
-        java.io.InputStream uploadStream;
-        long uploadSize;
-        try {
-            if (mediaType == MediaType.IMAGE) {
-                try {
-                    ImageMetadataStripper.StrippedImage stripped = metadataStripper.strip(file, mimeType);
-                    uploadStream = stripped.stream();
-                    uploadSize = stripped.size();
-                } catch (Exception ex) {
-                    log.warn("Metadata stripping failed for {}; uploading original", file.getOriginalFilename(), ex);
-                    uploadStream = file.getInputStream();
-                    uploadSize = file.getSize();
-                }
-            } else {
-                uploadStream = file.getInputStream();
-                uploadSize = file.getSize();
-            }
-        } catch (java.io.IOException e) {
-            throw new IllegalArgumentException("Failed to read uploaded file: " + e.getMessage(), e);
-        }
-
         // 6. Stream directly to S3 and verify object persistence in S3 bucket
         try {
-            s3Gateway.putObject(bucket, s3Key, uploadStream, mimeType, uploadSize);
+            s3Gateway.putObject(bucket, s3Key, file.getInputStream(), mimeType, file.getSize());
             if (!s3Gateway.objectExists(bucket, s3Key)) {
                 throw new IllegalStateException("Object " + s3Key + " was not found in S3 bucket " + bucket + " after upload.");
             }
@@ -413,28 +390,15 @@ public class MediaService {
                 .build();
     }
 
-    private void validateSize(long bytes, MediaType type, MediaModule module, String subContext) {
-        long maxBytes = resolveMaxBytes(type, module, subContext);
-        if (bytes > maxBytes) {
-            throw new IllegalArgumentException(
-                    "File size " + (bytes / 1024 / 1024) + " MB exceeds the limit of " + (maxBytes / 1024 / 1024) + " MB for type " + type);
-        }
-    }
-
-    private long resolveMaxBytes(MediaType type, MediaModule module, String subContext) {
-        String ctx = subContext != null ? subContext.toLowerCase() : "";
-
-        if ("profile".equals(ctx) || "avatar".equals(ctx) || "profile-photo".equals(ctx)) {
-            return (long) props.getLimits().getMaxProfilePhotoSizeMb() * 1024 * 1024;
-        }
-        if ("kyc".equals(ctx) || module == MediaModule.DOCUMENT) {
-            return (long) props.getLimits().getMaxKycDocumentSizeMb() * 1024 * 1024;
-        }
-
-        return switch (type) {
+    private void validateSize(long bytes, MediaType type) {
+        long maxBytes = switch (type) {
             case IMAGE, QR_CODE, CERTIFICATE -> (long) props.getLimits().getMaxImageSizeMb() * 1024 * 1024;
             case VIDEO, AUDIO                -> (long) props.getLimits().getMaxVideoSizeMb() * 1024 * 1024;
             case DOCUMENT                    -> (long) props.getLimits().getMaxDocumentSizeMb() * 1024 * 1024;
         };
+        if (bytes > maxBytes) {
+            throw new IllegalArgumentException(
+                    "File size " + (bytes / 1024 / 1024) + " MB exceeds the limit of " + (maxBytes / 1024 / 1024) + " MB for type " + type);
+        }
     }
 }

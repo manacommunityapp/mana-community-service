@@ -39,11 +39,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AppUserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final CommunityModuleRepository communityModuleRepository;
-    private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
     private final Environment environment;
     private final TokenBlacklistService tokenBlacklistService;
     private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
-    private final CookieAuthHelper cookieAuthHelper;
 
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
@@ -52,20 +50,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
                                    CommunityModuleRepository communityModuleRepository,
-                                   com.manacommunity.api.service.CommunityModuleService communityModuleService,
                                    Environment environment,
                                    TokenBlacklistService tokenBlacklistService,
-                                   com.manacommunity.api.service.RolePermissionService rolePermissionService,
-                                   CookieAuthHelper cookieAuthHelper) {
+                                   com.manacommunity.api.service.RolePermissionService rolePermissionService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.communityModuleRepository = communityModuleRepository;
-        this.communityModuleService = communityModuleService;
         this.environment = environment;
         this.tokenBlacklistService = tokenBlacklistService;
         this.rolePermissionService = rolePermissionService;
-        this.cookieAuthHelper = cookieAuthHelper;
     }
 
     @PostConstruct
@@ -91,38 +85,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = null;
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7).trim();
-        } else {
-            token = cookieAuthHelper.extractAccessToken(request);
-        }
+            String token = authHeader.substring(7).trim();
 
-        if (token != null && !token.isBlank()) {
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
                 String jti = jwtTokenProvider.getJti(token);
                 if (!tokenBlacklistService.isBlacklisted(jti)) {
-                    authenticate(jwtTokenProvider.getUserId(token), request, token);
+                    authenticate(jwtTokenProvider.getUserId(token), request);
                 } else {
                     log.debug("Rejected blacklisted token jti={}", jti);
                 }
             } else if (mockAuthEnabled && token.startsWith("mock-token-")) {
                 authenticate(parseLegacyId(token), request);
             }
-        } else if (mockAuthEnabled && !isPublicOrAuthPath(request)) {
+        } else if (mockAuthEnabled && !isDocsPath(request)) {
             authenticateDefaultUser(request);
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private boolean isPublicOrAuthPath(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        return isDocsPath(request)
-                || uri.startsWith("/api/auth/")
-                || uri.equals("/api/auth");
     }
 
     private boolean isDocsPath(HttpServletRequest request) {
@@ -134,22 +116,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(Long userId, HttpServletRequest request) {
-        authenticate(userId, request, null);
-    }
-
-    private void authenticate(Long userId, HttpServletRequest request, String token) {
         if (userId == null) return;
         AppUser user = userRepository.findById(userId).orElse(null);
         if (user == null || Boolean.FALSE.equals(user.getIsActive())) return;
-        if (token != null && user.getTokenInvalidatedBefore() != null) {
-            long iatMs = jwtTokenProvider.getIssuedAtMs(token);
-            long invalidatedMs = user.getTokenInvalidatedBefore()
-                    .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-            if (iatMs < invalidatedMs) {
-                log.debug("Rejected token issued before credential change for userId={}", userId);
-                return;
-            }
-        }
         setAuthentication(user, request);
     }
 
@@ -174,7 +143,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Set<String> enabledModules = null;
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (!isSuperAdmin && communityId != null) {
-            enabledModules = new java.util.HashSet<>(communityModuleService.getEnabledModuleKeys(communityId));
+            enabledModules = communityModuleRepository.findEnabledByCommunityId(communityId)
+                    .stream()
+                    .map(cm -> cm.getModuleKey())
+                    .collect(Collectors.toSet());
         }
 
         for (String permKey : effectivePerms) {
@@ -215,10 +187,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void authenticateDefaultUser(HttpServletRequest request) {
         AppUser user = cachedDefaultUser;
         if (user == null) {
-            user = userRepository.findByEmailIgnoreCase("admin@gmail.com")
-                    .or(() -> userRepository.findByEmailIgnoreCase("superadmin@gmail.com"))
-                    .or(() -> userRepository.findFirstByIsActiveTrueOrderByIdAsc())
-                    .orElse(null);
+            List<AppUser> allUsers = userRepository.findAll();
+            user = allUsers.stream().filter(u -> u.hasRole(ROLE_SUPER_ADMIN)).findFirst()
+                    .orElseGet(() -> allUsers.stream().filter(u -> u.hasRole(ROLE_ADMIN)).findFirst()
+                    .orElseGet(() -> allUsers.stream().findFirst().orElse(null)));
             cachedDefaultUser = user;
         }
         if (user != null) {

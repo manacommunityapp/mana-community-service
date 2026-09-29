@@ -24,10 +24,6 @@ public record SportsTournamentConfigRequest(
     // Match options
     Boolean  thirdPlaceMatch,
     Boolean  hasSeeding,
-    Boolean  differentFlatEnforced,
-    Boolean  differentTowerEnforced,
-    Boolean  ratingBalancingEnabled,
-    Integer  minRestMinutesBetweenMatches,
 
     // Schedule
     @NotNull LocalDate startDate,
@@ -35,7 +31,6 @@ public record SportsTournamentConfigRequest(
     Integer  matchDurationMinutes,
     Integer  breakBetweenMatchesMinutes,
     Long     venueId,
-    List<Long> courtIds,
 
     // Points
     Integer  pointsForWin,

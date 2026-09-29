@@ -55,7 +55,7 @@ public class SportsBracketGenerator {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 1. KNOCKOUT — single elimination bracket with constraints & wave scheduling
+    // 1. KNOCKOUT — single elimination bracket
     // ═══════════════════════════════════════════════════════════════
     private List<SportsTournamentMatch> generateKnockout(
             SportsTournamentConfig config, List<SportsAuctionTeam> teams) {
@@ -68,53 +68,27 @@ public class SportsBracketGenerator {
         List<SportsTournamentMatch> matches = new ArrayList<>();
         int matchDur  = Objects.requireNonNullElse(config.getMatchDurationMinutes(), 90);
         int breakMins = Objects.requireNonNullElse(config.getBreakBetweenMatchesMinutes(), 30);
-        int minRestMins = Objects.requireNonNullElse(config.getMinRestMinutesBetweenMatches(), breakMins);
+        SportsTimeSlotAllocator.Cursor slots = timeSlots.cursor(config.getStartDate(), matchDur, breakMins);
         List<SportsCourt> venueCourts = courts.courtsFor(config);
-        int courtCount = Math.max(1, venueCourts.size());
+        int courtIdx = 0;
 
-        // ── Canonical Seed Order & Balanced Bracket ─────────────────
-        int[] seedOrder = standardSeedOrder(slotCount);
-        List<SportsAuctionTeam> slotTeams = new ArrayList<>();
-        for (int seed : seedOrder) {
-            if (seed <= n) {
-                slotTeams.add(teams.get(seed - 1));
-            } else {
-                slotTeams.add(null); // BYE
-            }
-        }
+        // ── Pad with nulls for byes ─────────────────────────────
+        List<SportsAuctionTeam> slotTeams = new ArrayList<>(teams);
+        for (int i = 0; i < byes; i++) slotTeams.add(null);  // null = bye
 
-        // ── Constraint Solver: Different Flat / Different Tower ────
-        applyRound1Constraints(slotTeams, config);
-
-        LocalDateTime currentRoundStart = config.getStartDate().atTime(9, 0);
-
-        // ── Round 1 ─────────────────────────────────────────────────
+        // ── Round 1 ─────────────────────────────────────────────
         int matchNum = 1;
-        int playedMatchesInR1 = 0;
 
         for (int i = 0; i < slotCount; i += 2) {
             SportsAuctionTeam teamA = slotTeams.get(i);
             SportsAuctionTeam teamB = slotTeams.get(i + 1);
 
-            boolean isBye                = (teamB == null || teamA == null);
-            SportsAuctionTeam realTeam   = (teamA != null) ? teamA : teamB;
-            MatchStatus status           = isBye ? MatchStatus.BYE : MatchStatus.SCHEDULED;
-            SportsAuctionTeam autoWinner = isBye ? realTeam : null;
+            boolean isBye          = (teamB == null);
+            MatchStatus status     = isBye ? MatchStatus.BYE : MatchStatus.SCHEDULED;
+            SportsAuctionTeam autoWinner = isBye ? teamA : null;
 
-            LocalDateTime scheduledAt;
-            SportsCourt assignedCourt;
-
-            if (isBye) {
-                scheduledAt = currentRoundStart;
-                assignedCourt = null;
-            } else {
-                int waveIdx = playedMatchesInR1 / courtCount;
-                int courtIdx = playedMatchesInR1 % courtCount;
-                scheduledAt = currentRoundStart.plusMinutes((long) waveIdx * (matchDur + breakMins));
-                assignedCourt = courts.pick(venueCourts, courtIdx);
-                playedMatchesInR1++;
-            }
-
+            // A bye isn't played, so it does not consume a time slot (the cursor is
+            // not advanced for it) — real matches keep consecutive times.
             matches.add(SportsTournamentMatch.builder()
                 .config(config)
                 .community(config.getCommunity())
@@ -122,33 +96,24 @@ public class SportsBracketGenerator {
                 .roundNumber(1)
                 .matchNumber(matchNum++)
                 .bracketSlot(i / 2)
-                .teamA(teamA != null ? teamA : realTeam)
+                .teamA(teamA)
                 .teamB(teamB)
-                .scheduledAt(scheduledAt)
+                .scheduledAt(isBye ? slots.peek() : slots.next())
                 .durationMinutes(matchDur)
                 .venue(config.getVenue())
-                .court(assignedCourt)
+                .court(courts.pick(venueCourts, courtIdx++))
                 .status(status)
                 .winner(autoWinner)
                 .build());
         }
 
-        // Calculate Round 1 end time with anti-fatigue rest window
-        int r1Waves = (int) Math.ceil((double) Math.max(1, playedMatchesInR1) / courtCount);
-        LocalDateTime round1EndTime = currentRoundStart.plusMinutes((long) r1Waves * (matchDur + breakMins));
-        LocalDateTime nextRoundStart = round1EndTime.plusMinutes(minRestMins);
-
-        // ── Subsequent rounds (Wave-scheduled with Anti-Back-to-Back Rest Protection) ──
+        // ── Subsequent rounds (placeholder — filled by advanceBracket) ──
         int prevRoundSize = slotCount / 2;
         for (int round = 2; round <= rounds; round++) {
             int roundSize = prevRoundSize / 2;
             MatchRound label = roundLabel(rounds, round);
 
             for (int i = 0; i < roundSize; i++) {
-                int waveIdx = i / courtCount;
-                int courtIdx = i % courtCount;
-                LocalDateTime matchTime = nextRoundStart.plusMinutes((long) waveIdx * (matchDur + breakMins));
-
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
                     .community(config.getCommunity())
@@ -156,50 +121,42 @@ public class SportsBracketGenerator {
                     .roundNumber(round)
                     .matchNumber(i + 1)
                     .bracketSlot(i)
-                    .teamA(null)   // TBD — filled when predecessor completes or from BYE
+                    .teamA(null)   // TBD — winner of earlier match
                     .teamB(null)
-                    .scheduledAt(matchTime)
+                    .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
-                    .court(courts.pick(venueCourts, courtIdx))
+                    .court(courts.pick(venueCourts, courtIdx++))
                     .status(MatchStatus.SCHEDULED)
                     .build());
             }
 
             // Third place match (same slot as final, different schedule)
             if (round == rounds && Boolean.TRUE.equals(config.getThirdPlaceMatch())) {
-                int waveIdx = roundSize / courtCount;
-                int courtIdx = roundSize % courtCount;
-                LocalDateTime tpTime = nextRoundStart.plusMinutes((long) waveIdx * (matchDur + breakMins));
-
                 matches.add(SportsTournamentMatch.builder()
                     .config(config)
                     .community(config.getCommunity())
                     .round(MatchRound.THIRD_PLACE)
                     .roundNumber(round)
                     .matchNumber(99)
-                    .scheduledAt(tpTime)
+                    .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
-                    .court(courts.pick(venueCourts, courtIdx))
+                    .court(courts.pick(venueCourts, courtIdx++))
                     .status(MatchStatus.SCHEDULED)
                     .build());
             }
-
-            int wavesInRound = (int) Math.ceil((double) Math.max(1, roundSize) / courtCount);
-            LocalDateTime roundEndTime = nextRoundStart.plusMinutes((long) wavesInRound * (matchDur + breakMins));
-            nextRoundStart = roundEndTime.plusMinutes(minRestMins);
             prevRoundSize = roundSize;
         }
 
-        // ── Wire winnerAdvancesToMatchId links and propagate BYE winners ──
+        // ── Wire winnerAdvancesToMatchId links ──────────────────
         wireKnockoutLinks(matches);
-        log.info("[KNOCKOUT] {} rounds, {} slots, {} byes, {} matches, {} courts, restInterval={}m",
-            rounds, slotCount, byes, matches.size(), courtCount, minRestMins);
+        log.info("[KNOCKOUT] {} rounds, {} slots, {} byes, {} matches",
+            rounds, slotCount, byes, matches.size());
         return matches;
     }
 
-    /** After a result is entered, advance winner/loser, enforce rest interval, and update standings. */
+    /** After a result is entered, advance winner/loser and update standings. Returns the config. */
     @Transactional
     public SportsTournamentConfig applyResult(SportsMatchResultRequest req) {
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
@@ -232,15 +189,6 @@ public class SportsBracketGenerator {
                     .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", match.getWinnerAdvancesToMatchId()));
                 if (next.getTeamA() == null) next.setTeamA(winner);
                 else                          next.setTeamB(winner);
-
-                // Anti-fatigue check: if current match ended late, adjust next match start time
-                int minRest = (match.getConfig() != null && match.getConfig().getMinRestMinutesBetweenMatches() != null)
-                        ? match.getConfig().getMinRestMinutesBetweenMatches() : 30;
-                LocalDateTime earliestStart = match.getCompletedAt().plusMinutes(minRest);
-                if (next.getScheduledAt() != null && next.getScheduledAt().isBefore(earliestStart)) {
-                    next.setScheduledAt(earliestStart);
-                }
-
                 matchRepo.save(next);
             }
 
@@ -801,75 +749,11 @@ public class SportsBracketGenerator {
             if (nextRound == null) return;
             for (int i = 0; i < rMatches.size(); i++) {
                 SportsTournamentMatch current = rMatches.get(i);
-                int nextIndex = i / 2;
-                if (nextIndex < nextRound.size()) {
-                    SportsTournamentMatch next = nextRound.get(nextIndex);
-                    current.setWinnerFeedFromMatchA(
-                        (i % 2 == 0) ? current.getId() : current.getWinnerFeedFromMatchA());
-
-                    // If current round match is a BYE, auto-propagate winner into next round match
-                    if (current.getStatus() == MatchStatus.BYE && current.getWinner() != null) {
-                        if (i % 2 == 0) {
-                            next.setTeamA(current.getWinner());
-                        } else {
-                            next.setTeamB(current.getWinner());
-                        }
-                    }
-                }
+                SportsTournamentMatch next    = nextRound.get(i / 2);
+                current.setWinnerFeedFromMatchA(
+                    (i % 2 == 0) ? current.getId() : current.getWinnerFeedFromMatchA());
+                // Links wired after DB save so IDs are available
             }
         });
-    }
-
-    /**
-     * The canonical single-elimination seed-slot order for a bracket of size (power of two).
-     * e.g. size=2 → [1,2], 4 → [1,4,2,3], 8 → [1,8,4,5,2,7,3,6], 16 → [1,16,8,9,4,13,5,12,2,15,7,10,3,14,6,11]
-     */
-    static int[] standardSeedOrder(int size) {
-        int[] seeds = {1, 2};
-        while (seeds.length < size) {
-            int sum = seeds.length * 2 + 1;
-            int[] next = new int[seeds.length * 2];
-            int idx = 0;
-            for (int s : seeds) {
-                next[idx++] = s;
-                next[idx++] = sum - s;
-            }
-            seeds = next;
-        }
-        return seeds;
-    }
-
-    /**
-     * Constraint Solver: verifies and repairs Round 1 pairings for flat & tower conflicts.
-     * Uses local neighbor pairing swap without disturbing BYE allocations or opposite-half seed balance.
-     */
-    private void applyRound1Constraints(List<SportsAuctionTeam> slotTeams, SportsTournamentConfig config) {
-        boolean checkFlat = Boolean.TRUE.equals(config.getDifferentFlatEnforced());
-        boolean checkTower = Boolean.TRUE.equals(config.getDifferentTowerEnforced());
-        if (!checkFlat && !checkTower) return;
-
-        for (int i = 0; i < slotTeams.size(); i += 2) {
-            SportsAuctionTeam a = slotTeams.get(i);
-            SportsAuctionTeam b = slotTeams.get(i + 1);
-            if (a == null || b == null) continue; // BYE match has no clash
-
-            if (com.manacommunity.api.service.scheduler.seeding.CommunityRules.conflict(a, b, checkFlat, checkTower)) {
-                // Try to find a compatible away team from another match in slotTeams to swap with
-                for (int j = 0; j < slotTeams.size(); j += 2) {
-                    if (j == i) continue;
-                    SportsAuctionTeam c = slotTeams.get(j);
-                    SportsAuctionTeam d = slotTeams.get(j + 1);
-                    if (c == null || d == null) continue; // Don't disrupt BYE placements
-
-                    // Check if swapping b (slot i+1) with d (slot j+1) resolves conflict in both matches
-                    if (!com.manacommunity.api.service.scheduler.seeding.CommunityRules.conflict(a, d, checkFlat, checkTower) &&
-                        !com.manacommunity.api.service.scheduler.seeding.CommunityRules.conflict(c, b, checkFlat, checkTower)) {
-                        slotTeams.set(i + 1, d);
-                        slotTeams.set(j + 1, b);
-                        break;
-                    }
-                }
-            }
-        }
     }
 }

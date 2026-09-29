@@ -1,29 +1,24 @@
 package com.manacommunity.api.service;
 
-import com.manacommunity.api.dto.chat.*;
+import com.manacommunity.api.dto.chat.ChatContactResponse;
+import com.manacommunity.api.dto.chat.ChatMessageResponse;
+import com.manacommunity.api.dto.chat.ConversationResponse;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.ChatAttachment;
 import com.manacommunity.api.model.ChatMessage;
 import com.manacommunity.api.model.Conversation;
 import com.manacommunity.api.model.ConversationParticipant;
 import com.manacommunity.api.user.repository.AppUserRepository;
-import com.manacommunity.api.repository.ChatAttachmentRepository;
 import com.manacommunity.api.repository.ChatMessageRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.repository.ConversationRepository;
-import com.manacommunity.api.storage.FileStorageService;
-import com.manacommunity.api.storage.StoredFileDto;
-import com.manacommunity.api.event.ChatMessageSentEvent;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,18 +34,12 @@ public class ChatService {
 
     private static final LocalDateTime EPOCH = LocalDateTime.of(1970, 1, 1, 0, 0);
 
-    private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
-    private static final int MAX_ATTACHMENTS_PER_MESSAGE = 5;
-
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
     private final ChatMessageRepository messageRepository;
-    private final ChatAttachmentRepository attachmentRepository;
     private final AppUserRepository userRepository;
-    private final FileStorageService fileStorageService;
     private final SimpMessagingTemplate messagingTemplate;
     private final MeterRegistry meterRegistry;
-    private final ApplicationEventPublisher eventPublisher;
 
     // ── Conversations list ────────────────────────────────────────────────
 
@@ -152,109 +141,12 @@ public class ChatService {
             messagingTemplate.convertAndSend("/topic/chat-user/" + p.getUser().getId(), event);
         }
 
-        // 3. Dispatch push notification event for offline/background participants
-        List<Long> recipientIds = participantRepository.findByConversationId(conversation.getId()).stream()
-                .map(p -> p.getUser().getId())
-                .filter(id -> !id.equals(currentUser.getId()))
-                .toList();
-        eventPublisher.publishEvent(new ChatMessageSentEvent(
-                this,
-                message.getId(),
-                conversation.getId(),
-                currentUser.getId(),
-                currentUser.getFullName() != null && !currentUser.getFullName().isBlank()
-                        ? currentUser.getFullName()
-                        : currentUser.getEmail(),
-                message.getContent(),
-                recipientIds
-        ));
-
         return response;
     }
 
     /** Conversation-list update pushed to each participant (replaces a client-side refetch). */
     public record ChatConversationEvent(Long conversationId, String lastMessage,
                                         LocalDateTime lastMessageAt, Long senderId) {}
-
-    // ── Send message with file attachments ─────────────────────────────────
-
-    @Transactional
-    public ChatMessageResponse sendMessageWithAttachments(
-            AppUser currentUser, Long conversationId,
-            String content, List<MultipartFile> files) {
-
-        if (files != null && files.size() > MAX_ATTACHMENTS_PER_MESSAGE) {
-            throw new InvalidInputException("At most " + MAX_ATTACHMENTS_PER_MESSAGE + " attachments per message.");
-        }
-
-        boolean hasContent = content != null && !content.isBlank();
-        boolean hasFiles = files != null && !files.isEmpty();
-        if (!hasContent && !hasFiles) {
-            throw new InvalidInputException("A message must have text or at least one attachment.");
-        }
-
-        ConversationParticipant membership = requireMembership(conversationId, currentUser.getId());
-        Conversation conversation = membership.getConversation();
-
-        String messageType = hasFiles ? (hasContent ? "TEXT" : "FILE") : "TEXT";
-        ChatMessage message = messageRepository.save(ChatMessage.builder()
-                .conversation(conversation)
-                .sender(currentUser)
-                .type(messageType)
-                .content(hasContent ? content.trim() : "[attachment]")
-                .build());
-
-        if (hasFiles) {
-            for (MultipartFile file : files) {
-                if (file.getSize() > MAX_ATTACHMENT_SIZE) {
-                    throw new InvalidInputException(
-                            "File '" + file.getOriginalFilename() + "' exceeds the 10 MB limit.");
-                }
-                String customPath = "chat/" + conversationId;
-                StoredFileDto stored = fileStorageService.store(file, currentUser.getId(), customPath);
-                ChatAttachment attachment = ChatAttachment.builder()
-                        .message(message)
-                        .fileUrl(stored.url())
-                        .fileName(stored.originalName())
-                        .contentType(stored.contentType())
-                        .sizeBytes(stored.sizeBytes())
-                        .build();
-                attachmentRepository.save(attachment);
-                message.getAttachments().add(attachment);
-            }
-        }
-
-        String preview = hasContent ? content.trim() : "📎 " + files.get(0).getOriginalFilename();
-        conversation.setLastMessage(preview.length() > 200 ? preview.substring(0, 200) : preview);
-        conversation.setLastMessageAt(message.getCreatedAt());
-        conversationRepository.save(conversation);
-
-        membership.setLastReadAt(message.getCreatedAt());
-        participantRepository.save(membership);
-
-        ChatMessageResponse response = toMessageResponse(message);
-
-        meterRegistry.counter("chat.messages.sent", "type", conversation.getType()).increment();
-
-        messagingTemplate.convertAndSend("/topic/conversation/" + conversation.getId(), response);
-        ChatConversationEvent event = new ChatConversationEvent(
-                conversation.getId(), preview, message.getCreatedAt(), currentUser.getId());
-        for (ConversationParticipant p : participantRepository.findByConversationId(conversation.getId())) {
-            messagingTemplate.convertAndSend("/topic/chat-user/" + p.getUser().getId(), event);
-        }
-
-        List<Long> recipientIds = participantRepository.findByConversationId(conversation.getId()).stream()
-                .map(p -> p.getUser().getId())
-                .filter(id -> !id.equals(currentUser.getId()))
-                .toList();
-        eventPublisher.publishEvent(new ChatMessageSentEvent(
-                this, message.getId(), conversation.getId(), currentUser.getId(),
-                currentUser.getFullName() != null && !currentUser.getFullName().isBlank()
-                        ? currentUser.getFullName() : currentUser.getEmail(),
-                preview, recipientIds));
-
-        return response;
-    }
 
     @Transactional
     public void markRead(AppUser currentUser, Long conversationId) {
@@ -315,14 +207,6 @@ public class ChatService {
 
     private ChatMessageResponse toMessageResponse(ChatMessage message) {
         AppUser sender = message.getSender();
-        List<ChatAttachmentResponse> attachments = List.of();
-        if (message.getAttachments() != null && !message.getAttachments().isEmpty()) {
-            attachments = message.getAttachments().stream()
-                    .map(a -> new ChatAttachmentResponse(
-                            a.getId(), a.getFileUrl(), a.getFileName(),
-                            a.getContentType(), a.getSizeBytes()))
-                    .toList();
-        }
         return new ChatMessageResponse(
                 message.getId(),
                 message.getConversation().getId(),
@@ -330,8 +214,7 @@ public class ChatService {
                 sender != null ? sender.getFullName() : null,
                 message.getType(),
                 message.getContent(),
-                message.getCreatedAt(),
-                attachments
+                message.getCreatedAt()
         );
     }
 
