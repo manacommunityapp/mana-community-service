@@ -78,6 +78,10 @@ public class SportsMatchPersistenceService {
         config.setSwissRounds(req.swissRounds());
         config.setThirdPlaceMatch(Objects.requireNonNullElse(req.thirdPlaceMatch(), config.getThirdPlaceMatch()));
         config.setHasSeeding(Objects.requireNonNullElse(req.hasSeeding(), config.getHasSeeding()));
+        config.setDifferentFlatEnforced(Objects.requireNonNullElse(req.differentFlatEnforced(), config.getDifferentFlatEnforced()));
+        config.setDifferentTowerEnforced(Objects.requireNonNullElse(req.differentTowerEnforced(), config.getDifferentTowerEnforced()));
+        config.setRatingBalancingEnabled(Objects.requireNonNullElse(req.ratingBalancingEnabled(), config.getRatingBalancingEnabled()));
+        config.setMinRestMinutesBetweenMatches(Objects.requireNonNullElse(req.minRestMinutesBetweenMatches(), config.getMinRestMinutesBetweenMatches()));
         config.setStartDate(req.startDate());
         config.setEndDate(req.endDate());
         config.setMatchDurationMinutes(Objects.requireNonNullElse(req.matchDurationMinutes(), 90));
@@ -104,6 +108,8 @@ public class SportsMatchPersistenceService {
             c.getEvent() != null ? c.getEvent().getName() : null,
             c.getTotalTeams(), c.getNumberOfGroups(), c.getTeamsPerGroup(),
             c.getTeamsAdvancingPerGroup(), c.getThirdPlaceMatch(), c.getHasSeeding(),
+            c.getDifferentFlatEnforced(), c.getDifferentTowerEnforced(),
+            c.getRatingBalancingEnabled(), c.getMinRestMinutesBetweenMatches(),
             c.getSwissRounds(), c.getStartDate(), c.getEndDate(),
             c.getMatchDurationMinutes(), c.getBreakBetweenMatchesMinutes(),
             c.getVenue() != null ? c.getVenue().getId() : null,
@@ -131,6 +137,10 @@ public class SportsMatchPersistenceService {
             .swissRounds(req.swissRounds())
             .thirdPlaceMatch(Objects.requireNonNullElse(req.thirdPlaceMatch(), true))
             .hasSeeding(Objects.requireNonNullElse(req.hasSeeding(), false))
+            .differentFlatEnforced(Objects.requireNonNullElse(req.differentFlatEnforced(), true))
+            .differentTowerEnforced(Objects.requireNonNullElse(req.differentTowerEnforced(), true))
+            .ratingBalancingEnabled(Objects.requireNonNullElse(req.ratingBalancingEnabled(), true))
+            .minRestMinutesBetweenMatches(Objects.requireNonNullElse(req.minRestMinutesBetweenMatches(), 30))
             .startDate(req.startDate())
             .endDate(req.endDate())
             .matchDurationMinutes(Objects.requireNonNullElse(req.matchDurationMinutes(), 90))

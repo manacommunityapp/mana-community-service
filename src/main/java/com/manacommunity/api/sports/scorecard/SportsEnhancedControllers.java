@@ -149,9 +149,11 @@ class ScorecardController {
 @RequestMapping("/api/sports/matches/{matchId}/photos")
 @RequiredArgsConstructor
 class MatchPhotoController {
+    private static final long MAX_PHOTO_SIZE = 10 * 1024 * 1024L; // 10 MB
     @PersistenceContext private final EntityManager em;
     private final LoggedInUserService loggedInUserService;
     private final org.springframework.web.multipart.MultipartResolver multipartResolver;
+    private final com.manacommunity.api.media.service.MimeTypeDetector mimeDetector;
     @org.springframework.beans.factory.annotation.Value("${app.upload.base-url:http://localhost:8082}") private String baseUrl;
     @org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads}") private String uploadDir;
 
@@ -174,8 +176,21 @@ class MatchPhotoController {
             @RequestParam(required = false) String caption,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File must not be empty"));
+        }
+        if (file.getSize() > MAX_PHOTO_SIZE) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File exceeds the 10 MB limit"));
+        }
+        String detectedMime = mimeDetector.detect(file);
+        if (!detectedMime.startsWith("image/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Only image files are allowed"));
+        }
+        String ext = "." + mimeDetector.toExtension(detectedMime);
+
         try {
-            String filename = java.util.UUID.randomUUID() + "_" + file.getOriginalFilename();
+            String filename = java.util.UUID.randomUUID() + ext;
             java.nio.file.Path dir = java.nio.file.Paths.get(uploadDir, "sports", "photos");
             java.nio.file.Files.createDirectories(dir);
             file.transferTo(dir.resolve(filename).toFile());

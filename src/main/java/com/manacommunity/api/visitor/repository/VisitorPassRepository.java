@@ -29,6 +29,8 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     List<VisitorPass> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
 
+    long countByCommunityId(Long communityId);
+
     @Query("SELECT v FROM VisitorPass v WHERE v.community.id = :communityId " +
            "AND v.status IN :statuses ORDER BY v.createdAt DESC")
     List<VisitorPass> findByCommunityAndStatuses(

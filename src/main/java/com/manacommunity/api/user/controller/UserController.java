@@ -56,6 +56,7 @@ public class UserController {
     private final UserPrivacySettingsService userPrivacySettingsService;
     private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
     private final PresignedUrlRefreshService presignedUrlRefreshService;
+    private final com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -400,10 +401,20 @@ public class UserController {
         String govtIdType = u.getGovtIdType();
         String govtIdNumber = u.getGovtIdNumber();
 
+        // Always mask govt ID — never return the full (or encrypted) value via the API
+        if (govtIdNumber != null && !govtIdNumber.isBlank()) {
+            String plain = govtIdNumber;
+            try {
+                if (fieldEncryptionService.isEnabled()) {
+                    plain = fieldEncryptionService.decrypt(govtIdNumber);
+                }
+            } catch (Exception ignored) {
+                // value may be stored as plain text (pre-encryption migration)
+            }
+            govtIdNumber = com.manacommunity.api.security.MaskingUtil.maskAadhaar(plain);
+        }
+
         if (!isSelfOrAdmin) {
-            // Consult the target user's own privacy preferences.
-            // If the target user has opted in to sharing their phone/email with neighbours,
-            // show it unmasked. Otherwise apply PII masking regardless of caller role.
             var privacySettings = userPrivacySettingsService.getSettings(u.getId());
             if (!Boolean.TRUE.equals(privacySettings.getShowPhoneToNeighbours())) {
                 phone = piiMaskingService.maskPhone(phone);
@@ -411,7 +422,7 @@ public class UserController {
             if (!Boolean.TRUE.equals(privacySettings.getShowEmailToNeighbours())) {
                 email = piiMaskingService.maskEmail(email);
             }
-            dob = null;         // DOB is never shared in directory
+            dob = null;
             govtIdType = null;
             govtIdNumber = null;
         }
@@ -610,7 +621,12 @@ public class UserController {
         if (req.getOccupancyStatus() != null) user.setOccupancyStatus(req.getOccupancyStatus());
         if (req.getEmployeeId() != null) user.setEmployeeId(req.getEmployeeId());
         if (req.getGovtIdType() != null) user.setGovtIdType(req.getGovtIdType());
-        if (req.getGovtIdNumber() != null) user.setGovtIdNumber(req.getGovtIdNumber());
+        if (req.getGovtIdNumber() != null) {
+            String encrypted = fieldEncryptionService.isEnabled()
+                    ? fieldEncryptionService.encrypt(req.getGovtIdNumber())
+                    : req.getGovtIdNumber();
+            user.setGovtIdNumber(encrypted);
+        }
 
         AppUser saved = appUserRepo.save(user);
 
