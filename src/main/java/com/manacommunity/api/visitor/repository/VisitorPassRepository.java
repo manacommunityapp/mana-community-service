@@ -40,4 +40,8 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     List<VisitorPass> findRecentByCommunity(
             @Param("communityId") Long communityId,
             @Param("since") LocalDateTime since);
+
+    long countByCommunityIdAndStatus(Long communityId, VisitorPass.PassStatus status);
+
+    long countByCommunityId(Long communityId);
 }
