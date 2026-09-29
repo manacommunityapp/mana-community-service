@@ -120,8 +120,8 @@ public class SecurityConfig { // BUG FIX: was package-private
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
-        config.setExposedHeaders(Arrays.asList("Authorization"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "X-Platform", "X-XSRF-TOKEN"));
+        config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -182,9 +182,11 @@ public class SecurityConfig { // BUG FIX: was package-private
         // BUG FIX: Updated to Spring Security 6 lambda DSL (non-deprecated)
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // CSRF is disabled because this is a stateless, token-authenticated API (no
-            // session cookies are used for auth), so CSRF tokens add no protection. If
-            // cookie-based auth is ever introduced, re-enable CSRF.
+            // Spring's built-in CSRF is disabled; our own CsrfDoubleSubmitFilter handles
+            // CSRF for web clients via the XSRF-TOKEN double-submit cookie pattern.
+            // Mobile clients use stateless Bearer tokens and are not affected.
+            // Defense-in-depth: SameSite=Strict cookies + X-Platform custom header +
+            // double-submit CSRF token.
             .csrf(csrf -> csrf.disable())
             // Stateless: never create or rely on an HTTP session — mitigates session
             // fixation / hijacking and keeps the API horizontally scalable.

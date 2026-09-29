@@ -176,6 +176,10 @@ public class AppUser {
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
 
+    @NotAudited
+    @Column(name = "token_invalidated_before")
+    private LocalDateTime tokenInvalidatedBefore;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

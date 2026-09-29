@@ -49,6 +49,8 @@ app:
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
       refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
       issuer: ${JWT_ISSUER:mana-community}
+    cookie:
+      secure: ${COOKIE_SECURE:true}
 
   # ── File / Invoice Storage (AWS S3 for Lightsail Prod) ──────────────────
   storage:

@@ -13,6 +13,7 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.RolePermissionRepository;
 import com.manacommunity.api.security.AuditLogService;
 import com.manacommunity.api.security.PasswordPolicy;
+import com.manacommunity.api.service.FieldEncryptionService;
 import com.manacommunity.api.service.RoleService;
 import com.manacommunity.api.user.dto.AdminCreateUserRequest;
 import com.manacommunity.api.user.model.AppUser;
@@ -41,6 +42,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final RolePermissionRepository rolePermissionRepo;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLog;
+    private final FieldEncryptionService fieldEncryptionService;
 
     @Override
     @Transactional
@@ -102,7 +104,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .dateOfBirth(req.getDateOfBirth() != null ? req.getDateOfBirth() : java.time.LocalDate.of(2000, 1, 1))
                 .gender(mapGender(req.getGender()))
                 .govtIdType(blankToNull(req.getGovtIdType()))
-                .govtIdNumber(blankToNull(req.getGovtIdNumber()))
+                .govtIdNumber(encryptIfPresent(blankToNull(req.getGovtIdNumber())))
                 .profilePicUrl(blankToNull(req.getProfilePic()))
                 .employeeId(blankToNull(req.getEmployeeId()))
                 .role(combinedRoleStr)
@@ -226,6 +228,11 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     private static String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    private String encryptIfPresent(String value) {
+        if (value == null || value.isBlank()) return value;
+        return fieldEncryptionService.isEnabled() ? fieldEncryptionService.encrypt(value) : value;
     }
 
     private static Boolean orDefault(Boolean value, boolean fallback) {

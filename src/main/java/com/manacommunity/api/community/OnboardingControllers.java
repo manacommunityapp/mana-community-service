@@ -108,6 +108,7 @@ class KycController {
     private final EntityManager em;
 
     private final LoggedInUserService loggedInUserService;
+    private final com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
 
     /**
      * PUT /api/auth/kyc
@@ -144,6 +145,11 @@ class KycController {
             ));
         }
 
+        // Encrypt the ID number before persisting
+        String encryptedIdNumber = fieldEncryptionService.isEnabled()
+                ? fieldEncryptionService.encrypt(idNumber)
+                : idNumber;
+
         // Persist KYC document info using a separate KYC table if it exists,
         // or store directly on AppUser if the fields are there.
         // Using native SQL for maximum compatibility with the existing schema.
@@ -158,7 +164,7 @@ class KycController {
                 "   status='PENDING', submitted_at=NOW()")
                 .setParameter(1, user.getId())
                 .setParameter(2, idType)
-                .setParameter(3, idNumber)
+                .setParameter(3, encryptedIdNumber)
                 .setParameter(4, frontUrl)
                 .setParameter(5, backUrl.isBlank() ? null : backUrl)
                 .executeUpdate();
@@ -172,7 +178,7 @@ class KycController {
             user.setKycStatus("PENDING");
             // Persist govt ID fields if they exist on AppUser
             try { user.getClass().getDeclaredMethod("setGovtIdType", String.class).invoke(user, idType); } catch (Exception ignored) {}
-            try { user.getClass().getDeclaredMethod("setGovtIdNumber", String.class).invoke(user, idNumber); } catch (Exception ignored) {}
+            try { user.getClass().getDeclaredMethod("setGovtIdNumber", String.class).invoke(user, encryptedIdNumber); } catch (Exception ignored) {}
             em.merge(user);
         } catch (Exception e) {
             log.error("[KYC] Failed to update AppUser kycStatus: {}", e.getMessage());

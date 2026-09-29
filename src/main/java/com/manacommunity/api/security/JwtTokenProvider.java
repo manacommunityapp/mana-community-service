@@ -203,6 +203,12 @@ public class JwtTokenProvider {
         return exp != null ? exp.getTime() : 0L;
     }
 
+    /** Returns the issued-at timestamp as epoch-milliseconds. */
+    public long getIssuedAtMs(String token) {
+        Date iat = parse(token).getPayload().getIssuedAt();
+        return iat != null ? iat.getTime() : 0L;
+    }
+
     private Jws<Claims> parse(String token) {
         return Jwts.parser()
                 .requireIssuer(issuer)

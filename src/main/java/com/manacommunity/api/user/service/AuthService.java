@@ -15,11 +15,11 @@ public interface AuthService {
     AuthResponse refreshToken(String refreshToken);
 
     /**
-     * Blacklists the given access token and records a logout audit entry.
-     * The token remains cryptographically valid until expiry but will be rejected
-     * by {@code JwtAuthenticationFilter} once added to the blacklist.
+     * Blacklists the given access and refresh tokens, ends the user's sessions,
+     * and records a logout audit entry. Both tokens remain cryptographically valid
+     * until expiry but will be rejected once added to the blacklist.
      */
-    void logout(Long userId, String email, String accessToken);
+    void logout(Long userId, String email, String accessToken, String refreshToken);
 
     boolean submitKyc(Long userId, KycRequest req);
 

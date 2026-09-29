@@ -9,6 +9,7 @@ import com.manacommunity.api.user.model.UserProfile;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.repository.UserProfileRepository;
 import com.manacommunity.api.user.service.UserProfileService;
+import com.manacommunity.api.storage.PresignedUrlRefreshService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final AppUserRepository appUserRepository;
     private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
     private final com.manacommunity.api.repository.PostRepository postRepository;
+    private final PresignedUrlRefreshService presignedUrlRefreshService;
     private final com.manacommunity.api.marketplace.repository.MarketListingRepository marketListingRepository;
     private final com.manacommunity.api.jobs.repository.JobRepository jobRepository;
 
@@ -380,7 +382,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .communityCode(user.getCommunity() != null ? user.getCommunity().getInviteCode() : "")
                 .joinedAt(joinedAtStr)
                 .bio(profile.getBio())
-                .profilePicUrl(user.getProfilePicUrl())
+                .profilePicUrl(presignedUrlRefreshService.refreshIfExpired(user.getProfilePicUrl()))
                 .coverPicUrl(profile.getCoverPicUrl())
                 .skills(skillsList)
                 .stats(stats)

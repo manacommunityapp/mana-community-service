@@ -190,6 +190,9 @@ app:
       # Long-lived refresh-token lifetime in ms (default 7 days).
       refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
       issuer: ${JWT_ISSUER:mana-community}
+    # ── Cookie settings for web-platform HttpOnly auth ──────────────────
+    cookie:
+      secure: ${COOKIE_SECURE:false}
     # ── API rate limiting (DoS / brute-force protection) ──────────────────
     rate-limit:
       # Per client-IP fixed window of one minute. Generous by default so normal
@@ -199,6 +202,20 @@ app:
       # Only enable when behind a trusted reverse proxy that sets X-Forwarded-For.
       # When false (default), the filter uses the TCP source address directly.
       trust-forwarded-header: ${RATE_LIMIT_TRUST_XFF:false}
+    # ── Auth endpoint rate limiting (brute-force protection) ────────────
+    auth-rate-limit:
+      login:
+        limit: ${AUTH_RL_LOGIN_LIMIT:5}
+        window-minutes: ${AUTH_RL_LOGIN_WINDOW:15}
+      register:
+        limit: ${AUTH_RL_REGISTER_LIMIT:3}
+        window-minutes: ${AUTH_RL_REGISTER_WINDOW:60}
+      forgot-password:
+        limit: ${AUTH_RL_FORGOT_LIMIT:3}
+        window-minutes: ${AUTH_RL_FORGOT_WINDOW:60}
+      otp:
+        limit: ${AUTH_RL_OTP_LIMIT:5}
+        window-minutes: ${AUTH_RL_OTP_WINDOW:15}
 
   # ── File / Invoice Storage ──────────────────────────────────────────────
   # Two implementations: postgres | s3 (default: s3).
@@ -240,9 +257,11 @@ app:
     cloudfront:
       domain: ${MEDIA_CF_DOMAIN:}
     limits:
-      max-image-size-mb: ${MEDIA_MAX_IMAGE_MB:20}
+      max-image-size-mb: ${MEDIA_MAX_IMAGE_MB:10}
       max-video-size-mb: ${MEDIA_MAX_VIDEO_MB:500}
       max-document-size-mb: ${MEDIA_MAX_DOC_MB:50}
+      max-profile-photo-size-mb: ${MEDIA_MAX_PROFILE_MB:5}
+      max-kyc-document-size-mb: ${MEDIA_MAX_KYC_MB:20}
     image:
       thumbnail-width: ${MEDIA_THUMB_WIDTH:400}
       medium-width: ${MEDIA_MEDIUM_WIDTH:1920}

@@ -367,6 +367,13 @@ public class AuthServiceImpl implements AuthService {
                     HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
 
+        String oldJti = jwtTokenProvider.getJti(refreshToken);
+        if (tokenBlacklistService.isBlacklisted(oldJti)) {
+            auditLog.record(AuditLogService.Action.TOKEN_REFRESH_FAILED, (String) null);
+            throw new ManaCommunityException("Session expired. Please log in again.",
+                    HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
+        }
+
         Long userId = jwtTokenProvider.getUserId(refreshToken);
         AppUser user = (userId == null) ? null : userRepository.findById(userId).orElse(null);
         if (user == null || Boolean.FALSE.equals(user.getIsActive())) {
@@ -375,28 +382,43 @@ public class AuthServiceImpl implements AuthService {
                     HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
 
+        if (isTokenIssuedBeforeInvalidation(refreshToken, user)) {
+            auditLog.record(AuditLogService.Action.TOKEN_REFRESH_FAILED, userId, user.getEmail());
+            throw new ManaCommunityException("Your password was recently changed. Please log in again.",
+                    HttpStatus.UNAUTHORIZED, "CREDENTIALS_CHANGED");
+        }
+
+        tokenBlacklistService.blacklist(oldJti, jwtTokenProvider.getExpiryMs(refreshToken));
+
         auditLog.record(AuditLogService.Action.TOKEN_REFRESH, user.getId(), user.getEmail());
-        // Rotation: issue a brand-new access + refresh pair on every refresh.
         return buildAuthResponse(user, "Token refreshed.");
     }
 
     @Override
-    public void logout(Long userId, String email, String accessToken) {
-        // Blacklist the access token so it cannot be reused after logout.
-        // The jti uniquely identifies this specific token; entries auto-expire
-        // when the token's own expiry is reached.
-        if (accessToken != null && !accessToken.isBlank()) {
-            try {
-                String jti = jwtTokenProvider.getJti(accessToken);
-                long expiryMs = jwtTokenProvider.getExpiryMs(accessToken);
-                tokenBlacklistService.blacklist(jti, expiryMs);
-            } catch (Exception ex) {
-                // Do not fail logout if the token is already expired or malformed.
-                log.warn("Could not blacklist token on logout for userId={}: {}", userId, ex.getMessage());
-            }
-        }
+    public void logout(Long userId, String email, String accessToken, String refreshToken) {
+        blacklistToken(accessToken, userId);
+        blacklistToken(refreshToken, userId);
         auditLog.record(AuditLogService.Action.LOGOUT, userId, email);
         sessionService.endSession(userId);
+    }
+
+    private void blacklistToken(String token, Long userId) {
+        if (token == null || token.isBlank()) return;
+        try {
+            String jti = jwtTokenProvider.getJti(token);
+            long expiryMs = jwtTokenProvider.getExpiryMs(token);
+            tokenBlacklistService.blacklist(jti, expiryMs);
+        } catch (Exception ex) {
+            log.warn("Could not blacklist token on logout for userId={}: {}", userId, ex.getMessage());
+        }
+    }
+
+    private boolean isTokenIssuedBeforeInvalidation(String token, AppUser user) {
+        if (user.getTokenInvalidatedBefore() == null) return false;
+        long iatMs = jwtTokenProvider.getIssuedAtMs(token);
+        long invalidatedMs = user.getTokenInvalidatedBefore()
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return iatMs < invalidatedMs;
     }
 
     /** Builds the standard auth payload with a fresh access + refresh token pair. */
@@ -506,7 +528,9 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now());
         userRepository.save(user);
+        sessionService.endSession(user.getId());
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
         auditService.record(
@@ -514,7 +538,7 @@ public class AuthServiceImpl implements AuthService {
                 com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
                 "AppUser", String.valueOf(user.getId()),
                 null,
-                "Password reset via OTP verification");
+                "Password reset via OTP verification — all sessions invalidated");
 
         notificationService.createNotification(
                 user.getId(),
@@ -568,7 +592,9 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now());
         userRepository.save(user);
+        sessionService.endSession(user.getId());
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
         auditService.record(
@@ -576,7 +602,7 @@ public class AuthServiceImpl implements AuthService {
                 com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
                 "AppUser", String.valueOf(user.getId()),
                 null,
-                "Password changed by user");
+                "Password changed by user — all sessions invalidated");
     }
 
     private String maskAadharNumber(String aadhar) {

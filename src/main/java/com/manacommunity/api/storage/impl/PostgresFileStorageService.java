@@ -1,5 +1,6 @@
 package com.manacommunity.api.storage.impl;
 
+import com.manacommunity.api.media.service.MimeTypeDetector;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.storage.entity.StoredFile;
@@ -37,6 +38,7 @@ public class PostgresFileStorageService implements FileStorageService {
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024L; // 20 MB
 
     private final StoredFileRepository repo;
+    private final MimeTypeDetector mimeDetector;
 
     @Override
     @Transactional
@@ -49,13 +51,14 @@ public class PostgresFileStorageService implements FileStorageService {
         }
 
         try {
-            String ext = extractExtension(file.getOriginalFilename());
+            String detectedMime = mimeDetector.detect(file);
+            String ext = "." + mimeDetector.toExtension(detectedMime);
             String uniqueName = UUID.randomUUID() + ext;
 
             StoredFile entity = StoredFile.builder()
                     .filename(uniqueName)
                     .originalName(sanitise(file.getOriginalFilename()))
-                    .contentType(resolveContentType(file))
+                    .contentType(detectedMime)
                     .sizeBytes(file.getSize())
                     .data(file.getBytes())
                     .uploadedBy(uploadedByUserId)
