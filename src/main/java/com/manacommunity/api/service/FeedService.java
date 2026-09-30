@@ -11,6 +11,7 @@ import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -400,8 +401,8 @@ public class FeedService {
         Post.PostBuilder builder = Post.builder()
                 .user(currentUser)
                 .community(currentUser.getCommunity())
-                .content(request.content())
-                .title(request.title())
+                .content(HtmlSanitizer.sanitizePlainText(request.content()))
+                .title(HtmlSanitizer.sanitizePlainText(request.title()))
                 .imageUrl(request.imageUrl())
                 .official(isOfficial)
                 .postType(type)
@@ -497,10 +498,10 @@ public class FeedService {
         }
 
         if (request.content() != null && !request.content().isBlank()) {
-            post.setContent(request.content().trim());
+            post.setContent(HtmlSanitizer.sanitizePlainText(request.content().trim()));
         }
         if (request.title() != null) {
-            post.setTitle(request.title().isBlank() ? null : request.title().trim());
+            post.setTitle(request.title().isBlank() ? null : HtmlSanitizer.sanitizePlainText(request.title().trim()));
         }
         if (request.imageUrl() != null) {
             post.setImageUrl(request.imageUrl().isBlank() ? null : request.imageUrl().trim());
@@ -901,7 +902,7 @@ public class FeedService {
         PostComment.PostCommentBuilder builder = PostComment.builder()
                 .post(post)
                 .user(currentUser)
-                .content(request.content());
+                .content(HtmlSanitizer.sanitizePlainText(request.content()));
 
         if (request.parentId() != null) {
             PostComment parent = postCommentRepository.findById(request.parentId())

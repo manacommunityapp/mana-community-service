@@ -14,6 +14,7 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.ChatMessageRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.repository.ConversationRepository;
+import com.manacommunity.api.util.HtmlSanitizer;
 import com.manacommunity.api.event.ChatMessageSentEvent;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -111,7 +112,7 @@ public class ChatService {
                 .conversation(conversation)
                 .sender(currentUser)
                 .type("TEXT")
-                .content(content.trim())
+                .content(HtmlSanitizer.sanitizePlainText(content.trim()))
                 .build());
 
         conversation.setLastMessage(message.getContent());

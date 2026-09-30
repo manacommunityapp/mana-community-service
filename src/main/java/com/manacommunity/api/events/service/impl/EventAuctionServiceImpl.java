@@ -16,6 +16,7 @@ import com.manacommunity.api.events.service.EventAuctionService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     private final EventAuctionItemRepository itemRepository;
     private final EventAuctionBidRepository bidRepository;
     private final EventCommunityRepository eventRepository;
+    private final AppUserRepository userRepository;
 
     private static final DateTimeFormatter ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -208,6 +210,22 @@ public class EventAuctionServiceImpl implements EventAuctionService {
 
         EventAuctionItem updated = itemRepository.save(item);
         return toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public EventAuctionItemResponse placeBidByUserId(Long itemId, BigDecimal amount, Long userId) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", userId));
+        Community community = user.getCommunity();
+        if (community == null) {
+            throw new IllegalStateException("User is not associated with any community.");
+        }
+
+        EventAuctionBidRequest req = new EventAuctionBidRequest();
+        req.setItemId(itemId);
+        req.setAmount(amount);
+        return placeBid(itemId, req, user, community);
     }
 
     @Override

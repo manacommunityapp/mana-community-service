@@ -33,37 +33,83 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Actor — null for system/anonymous actions. */
+    /** 1. TENANT */
+    @Column(name = "tenant_id", length = 64)
+    private String tenantId;
+
+    /** 2. WHO */
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(nullable = false, length = 60)
+    @Column(name = "username", length = 100)
+    private String username;
+
+    @Column(name = "user_role", length = 50)
+    private String userRole;
+
+    /** 3. WHAT */
+    @Column(nullable = false, length = 80)
     private String action;
 
-    @Column(nullable = false, length = 40)
+    @Column(nullable = false, length = 50)
     private String module;
 
-    @Column(name = "entity_name", length = 60)
-    private String entityName;
+    /** 4. WHEN */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /** 5. WHERE */
+    @Column(name = "service_name", length = 60)
+    private String serviceName;
+
+    @Column(name = "endpoint", length = 150)
+    private String endpoint;
+
+    @Column(name = "location", length = 100)
+    private String location;
+
+    /** 6. RESOURCE */
+    @Column(name = "entity_name", length = 80)
+    private String entityName; // Resource type (e.g. PAYMENT, VOTE, USER, ROLE, VISITOR_PASS, etc.)
 
     @Column(name = "entity_id", length = 64)
-    private String entityId;
+    private String entityId; // Resource ID
 
+    /** 7. OLD VALUE */
     @Column(name = "old_value", columnDefinition = "text")
     private String oldValue;
 
+    /** 8. NEW VALUE */
     @Column(name = "new_value", columnDefinition = "text")
     private String newValue;
 
+    /** 9. IP */
     @Column(name = "ip_address", length = 64)
     private String ipAddress;
 
-    /** Correlation id of the originating request, linking the audit row to the logs. */
+    /** 10. DEVICE */
+    @Column(name = "device_info", length = 120)
+    private String deviceInfo;
+
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
+
+    /** 11. CORRELATION ID */
     @Column(name = "correlation_id", length = 64)
     private String correlationId;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    /** ── TAMPER-RESISTANT CRYPTOGRAPHIC INTEGRITY CHAIN ── */
+    @Column(name = "sequence_number")
+    private Long sequenceNumber;
+
+    @Column(name = "prev_hash", length = 64)
+    private String prevHash;
+
+    @Column(name = "record_hash", length = 64)
+    private String recordHash;
+
+    @Column(name = "signature", length = 128)
+    private String signature;
 
     @PrePersist
     void onCreate() {
