@@ -15,5 +15,6 @@ public enum AuditModule {
     ADMIN,
     SERVICE_PLATFORM,
     RETAIL,
+    TRIP,
     PRIVACY
 }
