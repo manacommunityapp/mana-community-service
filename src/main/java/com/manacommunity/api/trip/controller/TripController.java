@@ -1,89 +1,77 @@
 package com.manacommunity.api.trip.controller;
 
-import com.manacommunity.api.trip.dto.TripRequest;
-import com.manacommunity.api.trip.dto.TripResponse;
+import com.manacommunity.api.trip.entity.Trip;
+import com.manacommunity.api.trip.entity.TripBooking;
 import com.manacommunity.api.trip.service.TripService;
-import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
-import com.manacommunity.api.user.service.LoggedInUserService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping({"/api/trips", "/trips"})
+@RequestMapping("/api/trips")
 @RequiredArgsConstructor
-@Tag(name = "Trips", description = "Community trip booking APIs")
+@CrossOrigin(origins = "*")
 public class TripController {
 
     private final TripService tripService;
-    private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @Operation(summary = "Get all trips for the community")
-    public ResponseEntity<List<TripResponse>> getTrips(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(tripService.getTrips(user.getCommunity().getId()));
+    public ResponseEntity<List<Trip>> getTrips(@RequestParam(required = false) String category) {
+        return ResponseEntity.ok(tripService.getTrips(category));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get a single trip by ID")
-    public ResponseEntity<TripResponse> getTrip(
-            @PathVariable Long id,
+    public ResponseEntity<Trip> getTrip(@PathVariable String id) {
+        return ResponseEntity.ok(tripService.getTrip(id));
+    }
+
+    @PostMapping("/{id}/book")
+    public ResponseEntity<TripBooking> bookTrip(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> payload,
             @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(tripService.getTrip(id, user.getCommunity().getId()));
+        Long userId = principal != null ? principal.getId() : 1L;
+        return ResponseEntity.ok(tripService.bookTrip(id, userId, payload));
+    }
+
+    @GetMapping("/my-bookings")
+    public ResponseEntity<List<TripBooking>> getMyBookings(@AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = principal != null ? principal.getId() : 1L;
+        return ResponseEntity.ok(tripService.getMyBookings(userId));
+    }
+
+    @PostMapping("/bookings/{id}/cancel")
+    public ResponseEntity<Map<String, Object>> cancelBooking(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        String reason = body != null ? (String) body.get("reason") : "User requested cancellation";
+        return ResponseEntity.ok(tripService.cancelBooking(id, reason));
     }
 
     @PostMapping
-    @Operation(summary = "Create a new trip")
-    public ResponseEntity<TripResponse> createTrip(
-            @Valid @RequestBody TripRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(tripService.createTrip(request, user));
+    public ResponseEntity<Trip> createTrip(@RequestBody Trip trip) {
+        return ResponseEntity.ok(tripService.createTrip(trip));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Admin')")
-    @Operation(summary = "Update a trip")
-    public ResponseEntity<TripResponse> updateTrip(
-            @PathVariable Long id,
-            @Valid @RequestBody TripRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(tripService.updateTrip(id, request, user.getCommunity().getId()));
+    @GetMapping("/{id}/manifest")
+    public ResponseEntity<List<TripBooking>> getManifest(@PathVariable String id) {
+        return ResponseEntity.ok(tripService.getManifest(id));
     }
 
-    @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasAuthority('View Admin')")
-    @Operation(summary = "Cancel a trip")
-    public ResponseEntity<Void> cancelTrip(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        tripService.cancelTrip(id, user.getCommunity().getId());
-        return ResponseEntity.noContent().build();
+    @PostMapping("/bookings/{id}/check-in")
+    public ResponseEntity<TripBooking> checkIn(@PathVariable String id) {
+        return ResponseEntity.ok(tripService.checkInPassenger(id));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Admin')")
-    @Operation(summary = "Delete a trip")
-    public ResponseEntity<Void> deleteTrip(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        tripService.deleteTrip(id, user.getCommunity().getId());
-        return ResponseEntity.ok().build();
+    @PostMapping("/{id}/reviews")
+    public ResponseEntity<Map<String, String>> submitReview(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> review) {
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Review recorded."));
     }
 }

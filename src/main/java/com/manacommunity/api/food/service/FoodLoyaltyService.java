@@ -8,6 +8,8 @@ import com.manacommunity.api.food.entity.FoodLoyaltyMember;
 import com.manacommunity.api.food.entity.FoodLoyaltyProgram;
 import com.manacommunity.api.food.entity.FoodLoyaltyTransaction;
 import com.manacommunity.api.food.repository.FoodLoyaltyCouponRepository;
+import com.manacommunity.api.food.repository.FoodLoyaltyCouponUsageRepository;
+import com.manacommunity.api.food.repository.FoodLoyaltyGiftCardRepository;
 import com.manacommunity.api.food.repository.FoodLoyaltyMemberRepository;
 import com.manacommunity.api.food.repository.FoodLoyaltyProgramRepository;
 import com.manacommunity.api.food.repository.FoodLoyaltyTransactionRepository;
@@ -34,6 +36,8 @@ public class FoodLoyaltyService {
     private final FoodLoyaltyMemberRepository memberRepo;
     private final FoodLoyaltyTransactionRepository transactionRepo;
     private final FoodLoyaltyCouponRepository couponRepo;
+    private final FoodLoyaltyCouponUsageRepository couponUsageRepo;
+    private final FoodLoyaltyGiftCardRepository giftCardRepo;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> list(Long communityId) {
@@ -236,7 +240,14 @@ public class FoodLoyaltyService {
         coupon.setUsedCount(coupon.getUsedCount() + 1);
         couponRepo.save(coupon);
 
-        // TODO: Save FoodLoyaltyCouponUsage when repository is available
+        FoodLoyaltyCouponUsage usage = FoodLoyaltyCouponUsage.builder()
+                .coupon(coupon)
+                .user(user)
+                .orderId(orderId)
+                .discountApplied(discountAmount)
+                .usedAt(LocalDateTime.now())
+                .build();
+        couponUsageRepo.save(usage);
 
         Map<String, Object> map = new HashMap<>();
         map.put("couponId", coupon.getId());
@@ -250,23 +261,50 @@ public class FoodLoyaltyService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getGiftCards(Long communityId, Long userId) {
-        // TODO: Implement when FoodLoyaltyGiftCardRepository is available
-        return Collections.emptyList();
+        List<FoodLoyaltyGiftCard> cards = giftCardRepo.findByPurchasedByIdOrGiftedToId(userId, userId);
+        return cards.stream().map(gc -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", gc.getId());
+            map.put("cardNumber", gc.getCardNumber());
+            map.put("balance", gc.getBalance());
+            map.put("originalAmount", gc.getOriginalAmount());
+            map.put("purchasedById", gc.getPurchasedBy() != null ? gc.getPurchasedBy().getId() : null);
+            map.put("giftedToUserId", gc.getGiftedTo() != null ? gc.getGiftedTo().getId() : null);
+            map.put("status", gc.getStatus() != null ? gc.getStatus().name() : null);
+            map.put("validUntil", gc.getValidUntil());
+            map.put("communityId", gc.getCommunity() != null ? gc.getCommunity().getId() : null);
+            map.put("createdAt", gc.getCreatedAt());
+            return map;
+        }).collect(Collectors.toList());
     }
 
     @Transactional
     public Map<String, Object> purchase(Long communityId, BigDecimal amount, Long giftedToUserId, LocalDate validUntil,
                                                  AppUser user) {
         Community community = user.getCommunity();
-        // TODO: Implement when FoodLoyaltyGiftCardRepository is available
+        String cardNumber = "GC-" + System.currentTimeMillis() + "-" + ((int) (Math.random() * 9000) + 1000);
+        FoodLoyaltyGiftCard card = FoodLoyaltyGiftCard.builder()
+                .cardNumber(cardNumber)
+                .originalAmount(amount)
+                .balance(amount)
+                .purchasedBy(user)
+                .status(FoodLoyaltyGiftCard.GiftCardStatus.ACTIVE)
+                .validUntil(validUntil != null ? validUntil : LocalDate.now().plusYears(1))
+                .community(community)
+                .build();
+        FoodLoyaltyGiftCard saved = giftCardRepo.save(card);
+
         Map<String, Object> map = new HashMap<>();
+        map.put("id", saved.getId());
+        map.put("cardNumber", saved.getCardNumber());
         map.put("purchasedById", user.getId());
         map.put("giftedToUserId", giftedToUserId);
         map.put("amount", amount);
-        map.put("validUntil", validUntil);
-        map.put("status", "ACTIVE");
-        map.put("communityId", community.getId());
-        map.put("createdAt", LocalDateTime.now());
+        map.put("balance", saved.getBalance());
+        map.put("validUntil", saved.getValidUntil());
+        map.put("status", saved.getStatus().name());
+        map.put("communityId", community != null ? community.getId() : null);
+        map.put("createdAt", saved.getCreatedAt());
         return map;
     }
 

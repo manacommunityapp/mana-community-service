@@ -103,4 +103,19 @@ public class HomeServiceWorkerEntity {
     @Column(name = "updated_at")
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Transient
+    private String category;
+
+    @Transient
+    private String priceRange;
+
+    @Transient
+    private String speciality;
+
+    @Transient
+    private String badge;
+
+    @Transient
+    private String statusText;
 }

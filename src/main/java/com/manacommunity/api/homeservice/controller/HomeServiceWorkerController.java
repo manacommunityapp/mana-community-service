@@ -19,9 +19,10 @@ public class HomeServiceWorkerController {
     @GetMapping
     public ResponseEntity<List<HomeServiceWorkerEntity>> getWorkers(
             @RequestParam(required = false, defaultValue = "comm-mana-1") String communityId,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) BigDecimal minRating,
             @RequestParam(required = false) HomeServiceVerificationStatus status) {
-        return ResponseEntity.ok(workerService.getWorkers(communityId, minRating, status));
+        return ResponseEntity.ok(workerService.getWorkers(communityId, category, minRating, status));
     }
 
     @GetMapping("/{id}")
