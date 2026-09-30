@@ -1,10 +1,8 @@
 package com.manacommunity.api.storage.impl;
 
-import com.manacommunity.api.media.service.MimeTypeDetector;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
@@ -50,9 +48,6 @@ import java.util.UUID;
 public class S3FileStorageService implements FileStorageService {
 
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024L; // 20 MB
-
-    @Autowired(required = false)
-    private MimeTypeDetector mimeDetector;
 
     @Value("${app.storage.s3.bucket}")
     private String bucket;
@@ -108,15 +103,7 @@ public class S3FileStorageService implements FileStorageService {
         }
 
         try {
-            String contentType;
-            if (mimeDetector != null) {
-                contentType = mimeDetector.detect(file);
-            } else {
-                contentType = resolveContentType(file);
-            }
-            String ext = mimeDetector != null
-                    ? "." + mimeDetector.toExtension(contentType)
-                    : extractExtension(file.getOriginalFilename());
+            String ext = extractExtension(file.getOriginalFilename());
             String key;
             if (customPath != null && !customPath.isBlank()) {
                 String cleanPath = customPath.trim();
@@ -127,6 +114,7 @@ public class S3FileStorageService implements FileStorageService {
             } else {
                 key = "uploads/" + UUID.randomUUID() + ext;
             }
+            String contentType = resolveContentType(file);
 
             PutObjectRequest put = PutObjectRequest.builder()
                     .bucket(bucket)

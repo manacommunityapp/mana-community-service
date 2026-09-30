@@ -49,14 +49,6 @@ public class SportsTournamentConfig {
     // ── Knockout config ───────────────────────────────────────────
     private Boolean thirdPlaceMatch;       // play 3rd place match?
     private Boolean hasSeeding;            // seed teams 1..N before draw
-    @Builder.Default
-    private Boolean differentFlatEnforced = true;
-    @Builder.Default
-    private Boolean differentTowerEnforced = true;
-    @Builder.Default
-    private Boolean ratingBalancingEnabled = true;
-    @Builder.Default
-    private Integer minRestMinutesBetweenMatches = 30;
 
     // ── Swiss config ──────────────────────────────────────────────
     private Integer swissRounds;           // usually ceil(log2(teams))
