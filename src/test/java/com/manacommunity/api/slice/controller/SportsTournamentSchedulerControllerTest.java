@@ -48,6 +48,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
     @MockitoBean LoggedInUserService         loggedInUserService;
     @MockitoBean SportsAuctionConfigRepository     auctionConfigRepo;
     @MockitoBean SportsPlayoffScheduleGenerator    playoffGenerator;
+    @MockitoBean com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
 
     // ── GET /api/tournament/{configId}/matches ────────────────────────
 
