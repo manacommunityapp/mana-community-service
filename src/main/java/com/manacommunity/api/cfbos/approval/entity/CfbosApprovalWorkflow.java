@@ -9,13 +9,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
+@Entity(name = "CfbosApprovalWorkflow")
 @Table(name = "cfbos_approval_workflow")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApprovalWorkflow {
+public class CfbosApprovalWorkflow {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

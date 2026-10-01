@@ -26,7 +26,7 @@ public class ApprovalWorkflowService {
 
     @Transactional
     public ApprovalResponse submitRequest(SubmitApprovalRequest request) {
-        ApprovalWorkflow workflow = workflowRepository.findByEntityTypeAndIsActiveTrue(request.getEntityType())
+        CfbosApprovalWorkflow workflow = workflowRepository.findByEntityTypeAndIsActiveTrue(request.getEntityType())
                 .orElse(null);
 
         if (workflow == null || workflow.getSteps() == null || workflow.getSteps().isEmpty()) {

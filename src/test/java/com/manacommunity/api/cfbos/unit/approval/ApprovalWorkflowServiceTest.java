@@ -68,7 +68,7 @@ class ApprovalWorkflowServiceTest {
     @DisplayName("Submit request with multi-step workflow creates pending request")
     void submitWithWorkflowCreatesPending() {
         ApprovalStep step1 = ApprovalStep.builder().stepOrder(1).approverRole("TREASURER").isAutoApprove(false).build();
-        ApprovalWorkflow wf = ApprovalWorkflow.builder().id(1L).name("Expense WF").steps(List.of(step1)).build();
+        CfbosApprovalWorkflow wf = CfbosApprovalWorkflow.builder().id(1L).name("Expense WF").steps(List.of(step1)).build();
 
         when(workflowRepository.findByEntityTypeAndIsActiveTrue("EXPENSE")).thenReturn(Optional.of(wf));
         when(requestRepository.save(any(ApprovalRequest.class))).thenAnswer(i -> {

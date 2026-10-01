@@ -23,7 +23,7 @@ public class ApprovalStep {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workflow_id", nullable = false)
     @JsonIgnore
-    private ApprovalWorkflow workflow;
+    private CfbosApprovalWorkflow workflow;
 
     @Column(name = "step_order", nullable = false)
     private Integer stepOrder;

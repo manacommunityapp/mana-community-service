@@ -6,10 +6,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 
-@Entity
+@Entity(name = "ServicePricingRule")
 @Table(name = "sp_pricing_rule")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class PricingRule {
+public class ServicePricingRule {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
