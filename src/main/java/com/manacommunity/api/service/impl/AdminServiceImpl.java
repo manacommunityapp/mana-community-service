@@ -223,9 +223,9 @@ public class AdminServiceImpl implements AdminService {
 
         Page<ContentReport> reports;
         if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
-            reports = reportRepo.findByCommunityId(cid, pageable);
+            reports = reportRepo.findByCommunityIdOrderByCreatedAtDesc(cid, pageable);
         } else {
-            reports = reportRepo.findByCommunityIdAndStatus(cid, status.toUpperCase(), pageable);
+            reports = reportRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(cid, status.toUpperCase(), pageable);
         }
 
         return PagedAdminResponse.from(reports, ReportResponse::from);
@@ -254,8 +254,8 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report", "id", String.valueOf(reportId)));
         requireCommunityId(admin); // ensure admin belongs to a community
         report.setStatus("RESOLVED");
-        report.setResolvedBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
+        report.setReviewedBy(admin);
+        report.setReviewedAt(LocalDateTime.now());
         reportRepo.save(report);
     }
 
@@ -266,8 +266,8 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report", "id", String.valueOf(reportId)));
         requireCommunityId(admin);
         report.setStatus("DISMISSED");
-        report.setResolvedBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
+        report.setReviewedBy(admin);
+        report.setReviewedAt(LocalDateTime.now());
         reportRepo.save(report);
     }
 

@@ -11,4 +11,5 @@ public class ChargeCalculationResult {
     private BigDecimal quantity;
     private BigDecimal rate;
     private String calculationDetails;
+    private String breakdown;
 }
