@@ -1,105 +1,112 @@
 package com.manacommunity.api.helpdesk.controller;
 
+import com.manacommunity.api.helpdesk.dto.HelpdeskAnalyticsResponse;
+import com.manacommunity.api.helpdesk.dto.TicketFeedbackRequest;
 import com.manacommunity.api.helpdesk.dto.TicketRequest;
 import com.manacommunity.api.helpdesk.dto.TicketResponse;
 import com.manacommunity.api.helpdesk.service.TicketService;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.user.security.UserPrincipal;
-import com.manacommunity.api.user.service.LoggedInUserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/helpdesk")
+@RequestMapping("/api/v1/helpdesk/tickets")
 @RequiredArgsConstructor
+@Tag(name = "Helpdesk & SLA", description = "Enterprise community helpdesk, SLA tracking, and ticket management APIs")
 public class TicketController {
 
     private final TicketService ticketService;
-    private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('Manage Tickets')")
+    @Operation(summary = "Get all tickets in the community with optional status filter")
     public ResponseEntity<List<TicketResponse>> getCommunityTickets(
-            @RequestParam(required = false) String status,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (communityId == null) return ResponseEntity.ok(List.of());
+            @RequestParam Long communityId,
+            @RequestParam(required = false) String status) {
         return ResponseEntity.ok(ticketService.getCommunityTickets(communityId, status));
     }
 
     @GetMapping("/open")
-    @PreAuthorize("hasAuthority('Manage Tickets')")
-    public ResponseEntity<List<TicketResponse>> getOpenTickets(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        if (communityId == null) return ResponseEntity.ok(List.of());
+    @Operation(summary = "Get active open/in-progress tickets")
+    public ResponseEntity<List<TicketResponse>> getOpenTickets(@RequestParam Long communityId) {
         return ResponseEntity.ok(ticketService.getOpenTickets(communityId));
     }
 
-    @GetMapping("/mine")
-    @PreAuthorize("hasAuthority('View Tickets')")
-    public ResponseEntity<List<TicketResponse>> getMyTickets(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(ticketService.getMyTickets(user.getId()));
+    @GetMapping("/my")
+    @Operation(summary = "Get tickets raised by current user")
+    public ResponseEntity<List<TicketResponse>> getMyTickets(@AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.getMyTickets(currentUser.getId()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Tickets')")
+    @Operation(summary = "Get ticket details by ID")
     public ResponseEntity<TicketResponse> getById(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(ticketService.getById(id, user));
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.getById(id, currentUser));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Create Ticket')")
+    @Operation(summary = "Raise a new helpdesk ticket with SLA calculation")
     public ResponseEntity<TicketResponse> create(
             @Valid @RequestBody TicketRequest req,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ticketService.create(req, user, user.getCommunity()));
+            @AuthenticationPrincipal AppUser currentUser) {
+        return new ResponseEntity<>(ticketService.create(req, currentUser, currentUser.getCommunity()), HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Manage Tickets')")
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Update ticket status (Admin/Staff)")
     public ResponseEntity<TicketResponse> updateStatus(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(ticketService.updateStatus(id, body.get("status"), body.get("remarks"), user));
+            @RequestParam String status,
+            @RequestParam(required = false) String remarks,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.updateStatus(id, status, remarks, currentUser));
     }
 
-    @PutMapping("/{id}/assign")
-    @PreAuthorize("hasAuthority('Manage Tickets')")
+    @PostMapping("/{id}/feedback")
+    @Operation(summary = "Submit resident sign-off confirmation and CSAT satisfaction rating")
+    public ResponseEntity<TicketResponse> submitFeedback(
+            @PathVariable Long id,
+            @Valid @RequestBody TicketFeedbackRequest feedback,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.submitResidentFeedback(id, feedback, currentUser));
+    }
+
+    @PatchMapping("/{id}/assign")
+    @Operation(summary = "Assign ticket to technician or manager")
     public ResponseEntity<TicketResponse> assign(
             @PathVariable Long id,
-            @RequestBody Map<String, Long> body,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(ticketService.assign(id, body.get("assigneeId"), user));
+            @RequestParam Long assigneeId,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.assign(id, assigneeId, currentUser));
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAuthority('View Tickets')")
+    @Operation(summary = "Add comment to a ticket thread")
     public ResponseEntity<TicketResponse> addComment(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(ticketService.addComment(id, body.get("message"), user));
+            @RequestParam String message,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.addComment(id, message, currentUser));
+    }
+
+    @PostMapping("/{id}/escalate-check")
+    @Operation(summary = "Trigger SLA check and auto-escalate if breached")
+    public ResponseEntity<TicketResponse> checkAndEscalate(@PathVariable Long id) {
+        return ResponseEntity.ok(ticketService.checkAndEscalate(id));
+    }
+
+    @GetMapping("/analytics")
+    @Operation(summary = "Get helpdesk SLA and performance analytics for a community")
+    public ResponseEntity<HelpdeskAnalyticsResponse> getAnalytics(@RequestParam Long communityId) {
+        return ResponseEntity.ok(ticketService.getAnalytics(communityId));
     }
 }

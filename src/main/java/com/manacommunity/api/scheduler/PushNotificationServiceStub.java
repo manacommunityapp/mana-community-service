@@ -2,21 +2,25 @@ package com.manacommunity.api.scheduler;
 
 import com.manacommunity.api.user.model.AppUser;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 /**
- * Stub implementation of PushNotificationService.
- * Replace with a real Firebase / OneSignal integration.
+ * Legacy stub — kept for reference only.
+ *
+ * <p>This class intentionally has <strong>no {@code @Service} annotation</strong>.
+ * {@link PushNotificationServiceImpl} (marked {@code @Primary}) is the active
+ * bean registered in the Spring context. Removing {@code @Service} here prevents
+ * a "expected single matching bean but found 2" startup error.
+ *
+ * <p>Safe to delete once the team is confident the Expo push integration is stable.
  */
 @Slf4j
-@Service
 public class PushNotificationServiceStub implements PushNotificationService {
 
     @Override
     public void sendBulk(List<AppUser> recipients, String title, String body) {
-        log.info("[PUSH STUB] Sending '{}' to {} recipients", title, recipients.size());
-        // TODO: integrate with FCM / OneSignal
+        log.info("[PUSH STUB] Sending '{}' to {} recipients (no-op — stub is inactive)", title, recipients.size());
     }
 }
+
