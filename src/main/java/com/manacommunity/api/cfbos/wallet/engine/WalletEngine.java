@@ -66,6 +66,13 @@ public class WalletEngine {
     @Transactional
     public CfbosWalletTransaction debitWallet(Long residentId, BigDecimal amount,
                                               String refType, Long refId, String narration) {
+        return debitWallet(residentId, amount, WalletTransactionType.BILL_PAYMENT, refType, refId, narration);
+    }
+
+    @Transactional
+    public CfbosWalletTransaction debitWallet(Long residentId, BigDecimal amount,
+                                              WalletTransactionType type,
+                                              String refType, Long refId, String narration) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new CfbosException("Debit amount must be positive");
         }
@@ -82,7 +89,7 @@ public class WalletEngine {
 
         CfbosWalletTransaction txn = CfbosWalletTransaction.builder()
                 .wallet(wallet)
-                .transactionType(WalletTransactionType.BILL_PAYMENT)
+                .transactionType(type != null ? type : WalletTransactionType.BILL_PAYMENT)
                 .amount(amount)
                 .balanceAfter(newBalance)
                 .referenceType(refType)
