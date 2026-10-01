@@ -47,6 +47,7 @@ class SportsControllerTest extends BaseWebMvcTest {
     @MockitoBean SportsTournamentService          tournamentService;
     @MockitoBean PermissionCheckService     permissionCheckService;
     @MockitoBean SportsEventCsvImportService csvImportService;
+    @MockitoBean com.manacommunity.api.sports.repository.SportsEventRegistrationRepository registrationRepo;
 
     // ── GET /api/sports/meta ──────────────────────────────────────────
 
