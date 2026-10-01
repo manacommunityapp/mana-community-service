@@ -173,6 +173,72 @@ public class ChatService {
                 .toList();
     }
 
+    // ── Group Chat Management ─────────────────────────────────────────────
+
+    @Transactional
+    public ConversationResponse createGroup(AppUser currentUser, String title, List<Long> participantUserIds) {
+        if (title == null || title.trim().isEmpty()) {
+            throw new InvalidInputException("Group title is required");
+        }
+        Conversation conversation = Conversation.builder()
+                .type("GROUP")
+                .title(title.trim())
+                .community(currentUser.getCommunity())
+                .build();
+        Conversation savedConversation = conversationRepository.save(conversation);
+
+        ConversationParticipant creatorPart = ConversationParticipant.builder()
+                .conversation(savedConversation)
+                .user(currentUser)
+                .lastReadAt(LocalDateTime.now())
+                .build();
+        ConversationParticipant savedCreator = participantRepository.save(creatorPart);
+
+        if (participantUserIds != null) {
+            for (Long uid : participantUserIds) {
+                if (uid.equals(currentUser.getId())) continue;
+                userRepository.findById(uid).ifPresent(u -> {
+                    ConversationParticipant member = ConversationParticipant.builder()
+                            .conversation(savedConversation)
+                            .user(u)
+                            .build();
+                    participantRepository.save(member);
+                });
+            }
+        }
+
+        return toConversationResponse(savedCreator, currentUser.getId());
+    }
+
+    @Transactional
+    public void addGroupMembers(AppUser currentUser, Long conversationId, List<Long> memberIds) {
+        requireMembership(conversationId, currentUser.getId());
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", String.valueOf(conversationId)));
+
+        if (memberIds != null) {
+            for (Long uid : memberIds) {
+                if (participantRepository.findByConversationIdAndUserId(conversationId, uid).isEmpty()) {
+                    userRepository.findById(uid).ifPresent(u -> {
+                        ConversationParticipant member = ConversationParticipant.builder()
+                                .conversation(conversation)
+                                .user(u)
+                                .build();
+                        participantRepository.save(member);
+                    });
+                }
+            }
+        }
+    }
+
+    @Transactional
+    public void removeGroupMember(AppUser currentUser, Long conversationId, Long memberUserId) {
+        requireMembership(conversationId, currentUser.getId());
+        ConversationParticipant participant = participantRepository.findByConversationIdAndUserId(conversationId, memberUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("ConversationParticipant", "userId", String.valueOf(memberUserId)));
+        participantRepository.delete(participant);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private ConversationParticipant requireMembership(Long conversationId, Long userId) {

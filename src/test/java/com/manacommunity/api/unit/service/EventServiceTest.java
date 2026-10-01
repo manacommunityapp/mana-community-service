@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.events.dto.*;
 import com.manacommunity.api.events.entity.*;
@@ -20,7 +26,7 @@ import com.manacommunity.api.support.TestDataBuilder;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.email.EmailService;
-import com.manacommunity.api.repository.SportsAuctionPlayerRepository;
+import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

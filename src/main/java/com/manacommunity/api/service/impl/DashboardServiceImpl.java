@@ -1,10 +1,10 @@
 package com.manacommunity.api.service.impl;
+import com.manacommunity.api.dto.dashboard.AdminDashboardStatsResponse;
+import com.manacommunity.api.dto.dashboard.UserDashboardStatsResponse;
 
 import com.manacommunity.api.booking.entity.enums.BookingStatus;
 import com.manacommunity.api.booking.repository.ResourceBookingRepository;
 import com.manacommunity.api.booking.repository.ResourceRepository;
-import com.manacommunity.api.dto.dashboard.AdminDashboardStatsResponse;
-import com.manacommunity.api.dto.dashboard.UserDashboardStatsResponse;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.helpdesk.entity.Ticket;
 import com.manacommunity.api.helpdesk.repository.TicketRepository;

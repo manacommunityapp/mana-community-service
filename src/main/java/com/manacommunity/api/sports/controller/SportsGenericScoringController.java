@@ -1,0 +1,138 @@
+package com.manacommunity.api.sports.controller;
+import com.manacommunity.api.sports.dto.SportsGenericMatchStateResponse;
+import com.manacommunity.api.sports.dto.SportsGenericScoreRequest;
+import com.manacommunity.api.sports.dto.SportsGenericScoreResponse;
+import com.manacommunity.api.sports.dto.SportsPeriodScoreResponse;
+import com.manacommunity.api.sports.dto.SportsPlayerMatchStatsResponse;
+import com.manacommunity.api.sports.dto.SportsScoringConfigRequest;
+import com.manacommunity.api.sports.dto.SportsScoringConfigResponse;
+
+
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.sports.scheduler.SportsGenericScoringService;
+import jakarta.validation.Valid;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/tournament/match/generic")
+@RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
+public class SportsGenericScoringController {
+
+    private final SportsGenericScoringService scoringService;
+    private final LoggedInUserService loggedInUserService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @PostMapping("/score")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsGenericScoreResponse> recordEvent(
+            @Valid @RequestBody SportsGenericScoreRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Recording generic score event matchId={}", request.matchId());
+        AppUser user = loggedInUserService.resolve(principal);
+        SportsGenericScoreResponse response = scoringService.recordEvent(request, user.getId());
+        broadcastState(request.matchId());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{matchId}/undo")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsGenericScoreResponse> undoLastEvent(@PathVariable Long matchId) {
+        log.info("Undoing last generic score event matchId={}", matchId);
+        SportsGenericScoreResponse response = scoringService.undoLastEvent(matchId);
+        broadcastState(matchId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{matchId}/state")
+    public ResponseEntity<SportsGenericMatchStateResponse> getMatchState(@PathVariable Long matchId) {
+        return ResponseEntity.ok(scoringService.getMatchState(matchId));
+    }
+
+    @PostMapping("/{matchId}/period/{periodNumber}/complete")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> completePeriod(
+            @PathVariable Long matchId,
+            @PathVariable Integer periodNumber) {
+        log.info("Completing period matchId={} periodNumber={}", matchId, periodNumber);
+        scoringService.completePeriod(matchId, periodNumber);
+        broadcastState(matchId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{matchId}/period/{periodNumber}/score")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsPeriodScoreResponse> recordPeriodResult(
+            @PathVariable Long matchId,
+            @PathVariable Integer periodNumber,
+            @RequestBody Map<String, Integer> body) {
+        log.info("Recording period score matchId={} periodNumber={}", matchId, periodNumber);
+        Integer scoreA = body.get("scoreA");
+        Integer scoreB = body.get("scoreB");
+        SportsPeriodScoreResponse response = scoringService.recordPeriodResult(matchId, periodNumber, scoreA, scoreB);
+        broadcastState(matchId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{matchId}/player-stats")
+    public ResponseEntity<List<SportsPlayerMatchStatsResponse>> getPlayerMatchStats(@PathVariable Long matchId) {
+        return ResponseEntity.ok(scoringService.getPlayerMatchStats(matchId));
+    }
+
+    @PostMapping("/scoring-config")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsScoringConfigResponse> saveScoringConfig(@Valid @RequestBody SportsScoringConfigRequest request) {
+        log.info("Saving scoring config");
+        return ResponseEntity.ok(scoringService.saveScoringConfig(request));
+    }
+
+    @GetMapping("/scoring-config/{configId}")
+    public ResponseEntity<SportsScoringConfigResponse> getScoringConfig(@PathVariable Long configId) {
+        SportsScoringConfigResponse response = scoringService.getScoringConfig(configId);
+        if (response == null) {
+            throw new ResourceNotFoundException("ScoringConfig", configId);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/scoring-config/defaults/{sportType}")
+    public ResponseEntity<SportsScoringConfigResponse> getDefaultScoringConfig(@PathVariable String sportType) {
+        return ResponseEntity.ok(scoringService.getDefaultScoringConfig(sportType));
+    }
+
+    @MessageMapping("/generic-match/{matchId}/score")
+    public void handleScore(@DestinationVariable Long matchId, SportsGenericScoreRequest request, Principal principal) {
+        if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        Long userId = Long.parseLong(principal.getName());
+        scoringService.recordEvent(request, userId);
+        broadcastState(matchId);
+    }
+
+    @MessageMapping("/generic-match/{matchId}/undo")
+    public void handleUndo(@DestinationVariable Long matchId, Principal principal) {
+        if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        scoringService.undoLastEvent(matchId);
+        broadcastState(matchId);
+    }
+
+    private void broadcastState(Long matchId) {
+        SportsGenericMatchStateResponse state = scoringService.getMatchState(matchId);
+        messagingTemplate.convertAndSend("/topic/match/" + matchId + "/generic-state", state);
+    }
+}

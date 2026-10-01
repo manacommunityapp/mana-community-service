@@ -1,4 +1,10 @@
 package com.manacommunity.api.trip.unit;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.trip.engine.CommuteMatchingEngine;
 import org.junit.jupiter.api.BeforeEach;

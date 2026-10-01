@@ -53,7 +53,7 @@ public class UserController {
     private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
     private final PiiMaskingService piiMaskingService;
     private final UserPrivacySettingsService userPrivacySettingsService;
-    private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
+    private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -471,10 +471,10 @@ public class UserController {
 
         if (req.getDateOfBirth() != null && !req.getDateOfBirth().equals(user.getDateOfBirth())) {
             if (isSelf && !isAdmin) {
-                java.util.List<com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus> activeStatuses = java.util.List.of(
-                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING,
-                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
-                        com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+                java.util.List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = java.util.List.of(
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
                 );
                 if (sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
                         || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses)) {

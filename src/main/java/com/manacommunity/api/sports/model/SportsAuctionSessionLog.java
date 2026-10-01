@@ -1,0 +1,49 @@
+package com.manacommunity.api.sports.model;
+
+import com.manacommunity.api.user.model.AppUser;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity 
+@Table(name = "sports_auction_session_log")
+@Data 
+@Builder 
+@NoArgsConstructor 
+@AllArgsConstructor
+public class SportsAuctionSessionLog {
+
+    @Id 
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "config_id", nullable = false)
+    private SportsAuctionConfig config;
+
+    @Column(nullable = false, length = 50)
+    private String action;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "player_id")
+    private SportsAuctionPlayer player;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private SportsAuctionTeam team;
+
+    private Long amount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "performed_by_user_id")
+    private AppUser performedBy;
+
+    @Column(length = 2000)
+    private String notes;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime loggedAt;
+
+    @PrePersist void onCreate() { loggedAt = LocalDateTime.now(); }
+}

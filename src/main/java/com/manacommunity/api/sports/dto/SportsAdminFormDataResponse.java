@@ -1,0 +1,40 @@
+package com.manacommunity.api.sports.dto;
+import com.manacommunity.api.sports.model.SportsTournament;
+import com.manacommunity.api.sports.model.Venue;
+
+
+import com.manacommunity.api.response.CommunityResponse;
+
+import java.util.List;
+
+/**
+ * Reference data for the Sports Admin "Create SportsTournament" / "Create Venue" forms.
+ * Consolidates the three dropdown fetches (sports meta, player categories,
+ * communities) into one call, each trimmed to the fields the form binds to.
+ */
+public record SportsAdminFormDataResponse(
+        List<SportOption> sports,
+        List<CategoryOption> categories,
+        List<CommunityResponse> communities
+) {
+
+    public record SportOption(
+            Long id,
+            String name,
+            String icon,
+            String iconUrl,
+            List<String> formats,
+            Long communityId
+    ) {}
+
+    public record CategoryOption(
+            Long id,
+            String name,
+            String type,
+            String categoryType,
+            String description,
+            Integer minAge,
+            Integer maxAge,
+            String gender
+    ) {}
+}

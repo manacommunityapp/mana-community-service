@@ -1,8 +1,8 @@
 package com.manacommunity.api.security;
 
 import com.manacommunity.api.repository.ConversationParticipantRepository;
-import com.manacommunity.api.repository.scheduler.SportsTournamentConfigRepository;
-import com.manacommunity.api.repository.scheduler.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

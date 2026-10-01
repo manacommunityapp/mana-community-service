@@ -78,4 +78,35 @@ public class ChatController {
         AppUser currentUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(chatService.getContacts(currentUser));
     }
+
+    /** POST /api/chat/conversations/group — create a group conversation. */
+    @PostMapping("/conversations/group")
+    public ResponseEntity<ConversationResponse> createGroup(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreateGroupRequest request) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(chatService.createGroup(currentUser, request.title(), request.memberUserIds()));
+    }
+
+    /** POST /api/chat/conversations/{id}/members — add members to group. */
+    @PostMapping("/conversations/{id}/members")
+    public ResponseEntity<Void> addMembers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody GroupMemberRequest request) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        chatService.addGroupMembers(currentUser, id, request.userIds());
+        return ResponseEntity.ok().build();
+    }
+
+    /** DELETE /api/chat/conversations/{id}/members/{userId} — remove member from group. */
+    @DeleteMapping("/conversations/{id}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @PathVariable Long userId) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        chatService.removeGroupMember(currentUser, id, userId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -1,4 +1,5 @@
 package com.manacommunity.api.service;
+import com.manacommunity.api.sports.repository.SportsEventRepository;
 
 import com.manacommunity.api.user.model.AppUser;
 
@@ -1185,8 +1186,8 @@ public class FeedService {
             sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
                     communityId,
                     List.of(
-                            com.manacommunity.api.model.SportsEventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.model.SportsEventStatus.LIVE
+                            com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.sports.model.SportsEventStatus.LIVE
                     )
             );
         } catch (Exception ignored) {

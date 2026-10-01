@@ -1,8 +1,14 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
-import com.manacommunity.api.dto.scheduler.SportsPlayoffGenerateRequest;
-import com.manacommunity.api.dto.scheduler.SportsPlayoffMatchDraftResponse;
-import com.manacommunity.api.service.scheduler.SportsPlayoffScheduleGenerator;
+import com.manacommunity.api.sports.dto.SportsPlayoffGenerateRequest;
+import com.manacommunity.api.sports.dto.SportsPlayoffMatchDraftResponse;
+import com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

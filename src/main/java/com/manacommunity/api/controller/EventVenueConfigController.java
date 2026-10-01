@@ -1,6 +1,6 @@
 package com.manacommunity.api.controller;
 
-import com.manacommunity.api.dto.EventVenueConfigDto;
+import com.manacommunity.api.sports.dto.EventVenueConfigDto;
 import com.manacommunity.api.service.EventVenueConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
