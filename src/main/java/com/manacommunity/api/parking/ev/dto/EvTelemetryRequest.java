@@ -6,8 +6,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record EvTelemetryRequest(
-    @NotBlank String hardwareId,
-    @NotNull BigDecimal meterReadingKwh,
+    @NotBlank String deviceId,
+    @NotNull Double meterReadingKwh,
     BigDecimal powerKw,
     BigDecimal voltage,
     BigDecimal currentAmps,

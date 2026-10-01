@@ -18,31 +18,33 @@ public class EvTelemetryHeartbeat {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long stationId;
+    @Column(name = "charger_id", nullable = false)
+    private Long chargerId;
 
+    @Column(name = "session_id")
     private Long sessionId;
 
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(precision = 8, scale = 2)
+    @Column(name = "power_kw", precision = 8, scale = 2)
     private BigDecimal powerKw;
 
     @Column(precision = 6, scale = 2)
     private BigDecimal voltage;
 
-    @Column(precision = 6, scale = 2)
+    @Column(name = "current_amps", precision = 6, scale = 2)
     private BigDecimal currentAmps;
 
-    @Column(precision = 5, scale = 1)
+    @Column(name = "temperature_celsius", precision = 5, scale = 1)
     private BigDecimal temperatureCelsius;
 
-    @Column(nullable = false, precision = 12, scale = 3)
-    private BigDecimal meterReadingKwh;
+    @Column(name = "meter_reading_kwh")
+    private Double meterReadingKwh;
 
-    @Column(precision = 5, scale = 2)
-    private BigDecimal stateOfChargePercent; // 0-100% battery if supported
+    @Column(name = "state_of_charge_percent", precision = 5, scale = 2)
+    private BigDecimal stateOfChargePercent;
 
+    @Column(name = "error_code", length = 64)
     private String errorCode;
 }

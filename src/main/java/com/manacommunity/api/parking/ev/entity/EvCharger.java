@@ -4,7 +4,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.parking.entity.ParkingSlot;
 import jakarta.persistence.*;
 import lombok.*;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,6 +44,16 @@ public class EvCharger {
     @Builder.Default
     private ChargerStatus status = ChargerStatus.AVAILABLE;
 
+    @Column(name = "current_power_kw", precision = 8, scale = 2)
+    @Builder.Default
+    private BigDecimal currentPowerKw = BigDecimal.ZERO;
+
+    @Column(name = "latest_meter_kwh")
+    private Double latestMeterKwh;
+
+    @Column(name = "last_fault_code", length = 64)
+    private String lastFaultCode;
+
     @Column(name = "last_heartbeat_at")
     private LocalDateTime lastHeartbeatAt;
 
@@ -65,5 +75,5 @@ public class EvCharger {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum ChargerStatus { AVAILABLE, CHARGING, FAULT, OFFLINE }
+    public enum ChargerStatus { AVAILABLE, CHARGING, OCCUPIED_IDLE, FAULT, OFFLINE }
 }

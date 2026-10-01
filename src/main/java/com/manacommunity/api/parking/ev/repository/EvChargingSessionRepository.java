@@ -1,16 +1,20 @@
 package com.manacommunity.api.parking.ev.repository;
 
 import com.manacommunity.api.parking.ev.entity.EvChargingSession;
-import com.manacommunity.api.parking.ev.enums.EvSessionStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface EvChargingSessionRepository extends JpaRepository<EvChargingSession, Long> {
-    List<EvChargingSession> findByResidentIdOrderByStartTimeDesc(Long residentId);
-    Optional<EvChargingSession> findByStationIdAndStatus(Long stationId, EvSessionStatus status);
-    List<EvChargingSession> findByCommunityIdOrderByStartTimeDesc(Long communityId);
+
+    List<EvChargingSession> findByResidentIdOrderByStartedAtDesc(Long residentId);
+
+    Page<EvChargingSession> findByCommunityIdOrderByStartedAtDesc(Long communityId, Pageable pageable);
+
+    Optional<EvChargingSession> findFirstByChargerIdAndStatus(Long chargerId, EvChargingSession.SessionStatus status);
+
+    Optional<EvChargingSession> findFirstByResidentIdAndStatus(Long residentId, EvChargingSession.SessionStatus status);
 }
