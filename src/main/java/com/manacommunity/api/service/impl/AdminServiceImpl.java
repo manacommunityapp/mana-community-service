@@ -254,8 +254,8 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report", "id", String.valueOf(reportId)));
         requireCommunityId(admin); // ensure admin belongs to a community
         report.setStatus("RESOLVED");
-        report.setResolvedBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
+        report.setReviewedBy(admin);
+        report.setReviewedAt(LocalDateTime.now());
         reportRepo.save(report);
     }
 
@@ -266,8 +266,8 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report", "id", String.valueOf(reportId)));
         requireCommunityId(admin);
         report.setStatus("DISMISSED");
-        report.setResolvedBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
+        report.setReviewedBy(admin);
+        report.setReviewedAt(LocalDateTime.now());
         reportRepo.save(report);
     }
 

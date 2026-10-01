@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ContentReportRepository extends JpaRepository<ContentReport, Long> {
     Page<ContentReport> findByCommunityIdAndStatusOrderByCreatedAtDesc(Long communityId, String status, Pageable pageable);
     Page<ContentReport> findByCommunityIdOrderByCreatedAtDesc(Long communityId, Pageable pageable);
+    Page<ContentReport> findByCommunityIdAndStatus(Long communityId, String status, Pageable pageable);
+    Page<ContentReport> findByCommunityId(Long communityId, Pageable pageable);
     boolean existsByContentTypeAndContentIdAndReportedById(String contentType, Long contentId, Long reportedById);
     long countByCommunityIdAndStatus(Long communityId, String status);
 }
