@@ -1,5 +1,7 @@
 package com.manacommunity.api.noticeboard.service;
 
+import com.manacommunity.api.event.AnnouncementCreatedEvent;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.noticeboard.dto.NoticeRequest;
 import com.manacommunity.api.noticeboard.dto.NoticeResponse;
@@ -22,56 +24,79 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NoticeService {
 
     private final NoticeRepository repo;
+    private final NoticeReadReceiptRepository receiptRepo;
     private final ApplicationEventPublisher eventPublisher;
+    private final NoticeEngine noticeEngine;
 
     @Transactional(readOnly = true)
-    public List<NoticeResponse> getActiveNotices(Long communityId, String category) {
+    public List<NoticeResponse> getActiveNotices(Long communityId, String category, AppUser currentUser) {
+        List<Notice> notices;
         if (category != null && !category.isBlank() && !"All".equalsIgnoreCase(category)) {
             Notice.NoticeCategory cat = parseEnum(Notice.NoticeCategory.class, category);
             if (cat != null) {
-                return repo.findActiveByCommunityAndCategory(communityId, cat, LocalDate.now())
-                        .stream().map(this::toResponse).toList();
+                notices = repo.findActiveByCommunityAndCategory(communityId, cat, LocalDate.now());
+            } else {
+                notices = repo.findActiveByCommunity(communityId, LocalDate.now());
             }
+        } else {
+            notices = repo.findActiveByCommunity(communityId, LocalDate.now());
         }
-        return repo.findActiveByCommunity(communityId, LocalDate.now())
-                .stream().map(this::toResponse).toList();
+
+        return notices.stream()
+                .filter(n -> noticeEngine.isUserEligibleForNotice(n, currentUser, null, true))
+                .map(n -> toResponse(n, currentUser))
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<NoticeResponse> getAllNotices(Long communityId) {
+    public List<NoticeResponse> getAllNotices(Long communityId, AppUser currentUser) {
         return repo.findByCommunityIdOrderByCreatedAtDesc(communityId)
-                .stream().map(this::toResponse).toList();
+                .stream().map(n -> toResponse(n, currentUser)).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<NoticeResponse> getMyNotices(Long authorId) {
+    public List<NoticeResponse> getMyNotices(Long authorId, AppUser currentUser) {
         return repo.findByAuthorIdOrderByCreatedAtDesc(authorId)
-                .stream().map(this::toResponse).toList();
+                .stream().map(n -> toResponse(n, currentUser)).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public NoticeResponse getById(Long id, AppUser currentUser) {
         Notice notice = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Notice not found: " + id));
-        // Enforce tenant boundary — prevent cross-community reads
+                .orElseThrow(() -> new ResourceNotFoundException("Notice", id));
         assertSameCommunity(notice.getCommunity(), currentUser);
-        return toResponse(notice);
+
+        // Record read receipt
+        recordReadReceipt(notice, currentUser);
+
+        return toResponse(notice, currentUser);
     }
 
     @Transactional
     public NoticeResponse create(NoticeRequest req, AppUser author, Community community) {
+        Notice.NoticeCategory category = parseEnumOrDefault(Notice.NoticeCategory.class, req.getCategory(), Notice.NoticeCategory.GENERAL);
+        Notice.NoticePriority priority = parseEnumOrDefault(Notice.NoticePriority.class, req.getPriority(), Notice.NoticePriority.NORMAL);
+        Notice.TargetAudience audience = parseEnumOrDefault(Notice.TargetAudience.class, req.getTargetAudience(), Notice.TargetAudience.ALL);
+
         Notice notice = Notice.builder()
                 .title(HtmlSanitizer.sanitizePlainText(req.getTitle()))
                 .body(HtmlSanitizer.sanitizeRichText(req.getBody()))
-                .category(parseEnumOrDefault(Notice.NoticeCategory.class, req.getCategory(), Notice.NoticeCategory.GENERAL))
-                .priority(parseEnumOrDefault(Notice.NoticePriority.class, req.getPriority(), Notice.NoticePriority.NORMAL))
+                .category(category)
+                .priority(priority)
+                .targetAudience(audience)
+                .targetBlock(req.getTargetBlock())
                 .pinned(req.isPinned())
+                .requiresAcknowledgement(req.isRequiresAcknowledgement())
+                .attachments(req.getAttachments())
+                .status(Notice.NoticeStatus.PUBLISHED)
                 .author(author)
                 .community(community)
                 .build();
