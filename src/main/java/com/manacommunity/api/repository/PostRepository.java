@@ -45,11 +45,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     long countByUserIdAndDeletedFalse(Long userId);
 
+    long countByCommunityIdAndDeletedFalse(Long communityId);
+
     long countByCommunityId(Long communityId);
 
-    long countByCommunityIdAndCreatedAtAfter(Long communityId, java.time.LocalDateTime after);
-
-    long countByCommunityIdAndDeletedFalse(Long communityId);
+    long countByCommunityIdAndCreatedAtAfter(Long communityId, java.time.LocalDateTime createdAt);
 
     long countByCommunityIdAndOfficialTrueAndDeletedFalse(Long communityId);
 }
