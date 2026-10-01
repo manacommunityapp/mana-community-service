@@ -2,8 +2,8 @@ package com.manacommunity.api.ai.tool;
 
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
-import com.manacommunity.api.dto.SportsEventRequest;
-import com.manacommunity.api.service.SportsEventService;
+import com.manacommunity.api.sports.dto.SportsEventRequest;
+import com.manacommunity.api.sports.service.SportsEventService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;

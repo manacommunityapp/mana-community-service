@@ -74,7 +74,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 
-import com.manacommunity.api.repository.SportsAuctionPlayerRepository;
+import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 
 @Service
 @RequiredArgsConstructor

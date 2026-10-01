@@ -1,7 +1,7 @@
 package com.manacommunity.api.service;
 
-import com.manacommunity.api.dto.EventVenueConfigDto;
-import com.manacommunity.api.model.EventVenueConfig;
+import com.manacommunity.api.sports.dto.EventVenueConfigDto;
+import com.manacommunity.api.sports.model.EventVenueConfig;
 import com.manacommunity.api.repository.EventVenueConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

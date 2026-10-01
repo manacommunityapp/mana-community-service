@@ -1,16 +1,22 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
-import com.manacommunity.api.controller.SportsController;
-import com.manacommunity.api.model.SportsEvent;
-import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.repository.SportsPlayerCategoryRepository;
-import com.manacommunity.api.repository.SportsMetaRepository;
+import com.manacommunity.api.sports.controller.SportsController;
+import com.manacommunity.api.sports.model.SportsEvent;
+import com.manacommunity.api.sports.model.SportsMeta;
+import com.manacommunity.api.sports.repository.SportsPlayerCategoryRepository;
+import com.manacommunity.api.sports.repository.SportsMetaRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
-import com.manacommunity.api.service.SportsEventCsvImportService;
-import com.manacommunity.api.service.SportsEventService;
-import com.manacommunity.api.service.SportsTournamentService;
+import com.manacommunity.api.sports.service.SportsEventCsvImportService;
+import com.manacommunity.api.sports.service.SportsEventService;
+import com.manacommunity.api.sports.service.SportsTournamentService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.WithMockUserPrincipal;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +47,7 @@ class SportsControllerTest extends BaseWebMvcTest {
     @MockitoBean SportsTournamentService          tournamentService;
     @MockitoBean PermissionCheckService     permissionCheckService;
     @MockitoBean SportsEventCsvImportService csvImportService;
+    @MockitoBean com.manacommunity.api.sports.repository.SportsEventRegistrationRepository registrationRepo;
 
     // ── GET /api/sports/meta ──────────────────────────────────────────
 
