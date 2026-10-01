@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+@Service("cfbosInvoiceService")
 @RequiredArgsConstructor
 public class InvoiceService {
 

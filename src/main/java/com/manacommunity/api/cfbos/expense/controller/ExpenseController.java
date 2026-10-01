@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
+@RestController("cfbosExpenseController")
 @RequestMapping("/api/cfbos/expenses")
 @RequiredArgsConstructor
 public class ExpenseController {

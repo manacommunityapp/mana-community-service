@@ -26,4 +26,28 @@ public class SportsEventFormat {
     @Enumerated(EnumType.STRING)
     @Column(name = "format", nullable = false, length = 30)
     private SportsEvent.MatchFormat format;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public SportsEvent getEvent() {
+        return event;
+    }
+
+    public void setEvent(SportsEvent event) {
+        this.event = event;
+    }
+
+    public SportsEvent.MatchFormat getFormat() {
+        return format;
+    }
+
+    public void setFormat(SportsEvent.MatchFormat format) {
+        this.format = format;
+    }
 }
