@@ -14,11 +14,12 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.ChatMessageRepository;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.repository.ConversationRepository;
+
 import com.manacommunity.api.util.HtmlSanitizer;
 import com.manacommunity.api.event.ChatMessageSentEvent;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +44,6 @@ public class ChatService {
     private final AppUserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final MeterRegistry meterRegistry;
-    private final ApplicationEventPublisher eventPublisher;
 
     // ── Conversations list ────────────────────────────────────────────────
 
@@ -144,23 +144,6 @@ public class ChatService {
         for (ConversationParticipant p : participantRepository.findByConversationId(conversation.getId())) {
             messagingTemplate.convertAndSend("/topic/chat-user/" + p.getUser().getId(), event);
         }
-
-        // 3. Dispatch push notification event for offline/background participants
-        List<Long> recipientIds = participantRepository.findByConversationId(conversation.getId()).stream()
-                .map(p -> p.getUser().getId())
-                .filter(id -> !id.equals(currentUser.getId()))
-                .toList();
-        eventPublisher.publishEvent(new ChatMessageSentEvent(
-                this,
-                message.getId(),
-                conversation.getId(),
-                currentUser.getId(),
-                currentUser.getFullName() != null && !currentUser.getFullName().isBlank()
-                        ? currentUser.getFullName()
-                        : currentUser.getEmail(),
-                message.getContent(),
-                recipientIds
-        ));
 
         return response;
     }

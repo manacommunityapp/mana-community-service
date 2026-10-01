@@ -4,7 +4,6 @@ import com.manacommunity.api.user.model.AppUser;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.SQLRestriction;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -22,7 +21,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@SQLRestriction("is_deleted = false")
 public class CommuteRide {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

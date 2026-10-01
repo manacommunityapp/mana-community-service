@@ -69,11 +69,8 @@ public class SportsDashboardService {
 
     @Transactional(readOnly = true)
     public List<UpcomingEvent> getUpcomingEvents(AppUser user) {
-        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
-        return myRegs.stream()
-                .filter(r -> r.getEvent() != null
-                        && r.getStatus() != SportsEventRegistration.RegistrationStatus.WITHDRAWN
-                        && r.getStatus() != SportsEventRegistration.RegistrationStatus.REJECTED)
+        List<SportsEvent> myEvents = eventService.getMyEvents(user.getId());
+        return myEvents.stream()
                 .map(this::toUpcomingEvent)
                 .toList();
     }
@@ -179,36 +176,23 @@ public class SportsDashboardService {
         );
     }
 
-    private UpcomingEvent toUpcomingEvent(SportsEventRegistration r) {
-        SportsEvent e = r.getEvent();
-        String pName = r.getPlayerName() != null ? r.getPlayerName() : (r.getFamilyMember() != null ? r.getFamilyMember().getName() : (r.getUser() != null ? r.getUser().getFullName() : null));
-        String rel = r.getRelation() != null ? r.getRelation() : (r.getFamilyMember() != null ? r.getFamilyMember().getRelation() : "Self");
-        Long famId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
-        String catName = r.getCategory() != null ? r.getCategory().getName() : firstCategoryName(e);
-
+    private UpcomingEvent toUpcomingEvent(SportsEvent e) {
         return new UpcomingEvent(
-                e != null ? e.getId() : null,
-                e != null ? e.getName() : null,
-                e != null && e.getSport() != null ? e.getSport().getName() : null,
-                e != null && e.getVenue() != null ? e.getVenue().getName() : null,
-                catName,
-                e != null ? registrationStatus(e) : null,
-                e != null ? e.getEventDateStart() : null,
-                e != null ? e.getStartTime() : null,
-                e != null && e.getTournament() != null ? e.getTournament().getId() : null,
-                e != null && e.getTournament() != null ? e.getTournament().getName() : null,
-                famId,
-                pName,
-                rel
+                e.getId(),
+                e.getName(),
+                e.getSport() != null ? e.getSport().getName() : null,
+                e.getVenue() != null ? e.getVenue().getName() : null,
+                firstCategoryName(e),
+                registrationStatus(e),
+                e.getEventDateStart(),
+                e.getStartTime(),
+                e.getTournament() != null ? e.getTournament().getId() : null,
+                e.getTournament() != null ? e.getTournament().getName() : null
         );
     }
 
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
-        String pName = r.getPlayerName() != null ? r.getPlayerName() : (r.getFamilyMember() != null ? r.getFamilyMember().getName() : (r.getUser() != null ? r.getUser().getFullName() : null));
-        String rel = r.getRelation() != null ? r.getRelation() : (r.getFamilyMember() != null ? r.getFamilyMember().getRelation() : "Self");
-        Long famId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
-
         return new MyRegistration(
                 r.getId(),
                 e != null ? e.getId() : null,
@@ -220,10 +204,7 @@ public class SportsDashboardService {
                 r.getStatus() != null ? r.getStatus().name() : null,
                 r.getMatchType() != null ? r.getMatchType().name() : null,
                 r.getCaptainNomination(),
-                r.getCaptainConfirmation(),
-                famId,
-                pName,
-                rel
+                r.getCaptainConfirmation()
         );
     }
 

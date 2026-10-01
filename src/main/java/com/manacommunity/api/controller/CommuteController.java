@@ -151,10 +151,7 @@ public class CommuteController {
     }
 
     @GetMapping("/rides/{id}/ratings")
-    public ResponseEntity<List<CommuteRatingResponse>> getRideRatings(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long id) {
-        loggedInUserService.resolve(principal);
+    public ResponseEntity<List<CommuteRatingResponse>> getRideRatings(@PathVariable Long id) {
         return ResponseEntity.ok(commuteService.getRideRatings(id));
     }
 

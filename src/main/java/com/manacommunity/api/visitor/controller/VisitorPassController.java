@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping({"/api/visitors", "/visitors"})
+@RequestMapping("/api/visitors")
 @RequiredArgsConstructor
 public class VisitorPassController {
 
@@ -66,7 +66,7 @@ public class VisitorPassController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Visitors') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getCommunityPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -76,7 +76,7 @@ public class VisitorPassController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<List<VisitorPassResponse>> getActivePasses(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -87,7 +87,7 @@ public class VisitorPassController {
     }
 
     @GetMapping("/today")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<List<VisitorPassResponse>> getTodaysPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -97,8 +97,8 @@ public class VisitorPassController {
         return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
-    @GetMapping({"/my-visitors", "/mine"})
-    @PreAuthorize("hasAuthority('View Visitors') or isAuthenticated()")
+    @GetMapping("/mine")
+    @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getMyPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -106,7 +106,7 @@ public class VisitorPassController {
     }
 
     @GetMapping("/pending")
-    @PreAuthorize("hasAuthority('View Visitors') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getPendingApprovals(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -114,19 +114,19 @@ public class VisitorPassController {
     }
 
     @GetMapping("/code/{passCode}")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> getByPassCode(@PathVariable String passCode) {
         return ResponseEntity.ok(visitorPassService.getByPassCode(passCode));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Visitors') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<VisitorPassResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(visitorPassService.getById(id));
     }
 
-    @PostMapping({"", "/pre-approve"})
-    @PreAuthorize("hasAuthority('Create Visitor Pass') or isAuthenticated()")
+    @PostMapping
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> create(
             @Valid @RequestBody VisitorPassRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -136,7 +136,7 @@ public class VisitorPassController {
     }
 
     @PostMapping("/walk-in")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> createWalkIn(
             @Valid @RequestBody VisitorPassRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -146,7 +146,7 @@ public class VisitorPassController {
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('Create Visitor Pass') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> approve(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -155,7 +155,7 @@ public class VisitorPassController {
     }
 
     @PutMapping("/{id}/check-in")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> checkIn(
             @PathVariable Long id,
             @RequestParam(value = "gate", required = false) String gate,
@@ -166,13 +166,13 @@ public class VisitorPassController {
     }
 
     @PutMapping("/code/{passCode}/check-in")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> checkInByCode(@PathVariable String passCode) {
         return ResponseEntity.ok(visitorPassService.checkInByCode(passCode));
     }
 
     @PutMapping("/{id}/check-out")
-    @PreAuthorize("hasAuthority('Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> checkOut(
             @PathVariable Long id,
             @RequestParam(value = "gate", required = false) String gate,
@@ -181,7 +181,7 @@ public class VisitorPassController {
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate') or isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

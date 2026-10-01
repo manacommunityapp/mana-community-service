@@ -106,7 +106,7 @@ public class NotificationManagementService {
     /**
      * Creates a single in-app notification for one user.
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @Transactional
     public Notification createNotification(
             Long userId,
             NotificationType type,
@@ -187,14 +187,6 @@ public class NotificationManagementService {
         return notificationRepo.findByUserIdAndDismissedFalseOrderByCreatedAtDesc(
                 userId, PageRequest.of(page, size)
         ).map(this::toResponse);
-    }
-
-    /**
-     * Dedicated lightweight retrieval method for UI feed notifications.
-     * Uses DB constructor projection to select only required columns.
-     */
-    public Page<com.manacommunity.api.dto.NotificationSummaryResponse> getUserNotificationsSummary(Long userId, int page, int size) {
-        return notificationRepo.findSummaryByUserId(userId, PageRequest.of(page, size));
     }
 
     public NotificationCountResponse getUnreadCount(Long userId) {

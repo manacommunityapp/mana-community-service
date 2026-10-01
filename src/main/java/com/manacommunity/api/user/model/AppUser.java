@@ -59,7 +59,7 @@ public class AppUser {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "date_of_birth")
+    @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
     @Column(nullable = false, length = 10)
@@ -175,10 +175,6 @@ public class AppUser {
     @NotAudited
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
-
-    @NotAudited
-    @Column(name = "token_invalidated_before")
-    private LocalDateTime tokenInvalidatedBefore;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

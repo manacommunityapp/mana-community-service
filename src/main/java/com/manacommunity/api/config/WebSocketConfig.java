@@ -1,7 +1,6 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.security.JwtTokenProvider;
-import com.manacommunity.api.security.StompSubscriptionInterceptor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +40,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final Environment environment;
-    private final StompSubscriptionInterceptor subscriptionInterceptor;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private List<String> allowedOrigins;
@@ -49,11 +47,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
 
-    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment,
-                           StompSubscriptionInterceptor subscriptionInterceptor) {
+    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.environment = environment;
-        this.subscriptionInterceptor = subscriptionInterceptor;
     }
 
     @PostConstruct
@@ -81,20 +77,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(
-            new ChannelInterceptor() {
-                @Override
-                public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                    StompHeaderAccessor accessor =
-                            MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                    if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-                        authenticate(accessor);
-                    }
-                    return message;
+        registration.interceptors(new ChannelInterceptor() {
+            @Override
+            public Message<?> preSend(Message<?> message, MessageChannel channel) {
+                StompHeaderAccessor accessor =
+                        MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+                    authenticate(accessor);
                 }
-            },
-            subscriptionInterceptor
-        );
+                return message;
+            }
+        });
     }
 
     /** Resolves a user id from the CONNECT Authorization header and attaches it as the session principal. */

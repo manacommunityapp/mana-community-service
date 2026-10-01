@@ -1,6 +1,5 @@
 package com.manacommunity.api.user.controller;
 
-import com.manacommunity.api.security.CookieAuthHelper;
 import com.manacommunity.api.user.dto.AuthResponse;
 import com.manacommunity.api.user.dto.ChangePasswordRequest;
 import com.manacommunity.api.user.dto.ForgotPasswordRequest;
@@ -13,7 +12,6 @@ import com.manacommunity.api.user.dto.VerifySignupOtpRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -36,9 +34,10 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @Autowired
-    private CookieAuthHelper cookieAuthHelper;
-
+    /**
+     * Sends a 6-digit OTP to the provided email to verify it before signup.
+     * Call this first, then include the received code in the /register request.
+     */
     @PostMapping("/send-signup-otp")
     public ResponseEntity<Map<String, Object>> sendSignupOtp(@Valid @RequestBody SendSignupOtpRequest request) {
         authService.sendSignupOtp(request.getEmail(), request.getPhone());
@@ -48,6 +47,9 @@ public class AuthController {
         ));
     }
 
+    /**
+     * Validates that email and phone do not exist, and verifies the 6-digit code.
+     */
     @PostMapping("/verify-signup-otp")
     public ResponseEntity<Map<String, Object>> verifySignupOtp(@Valid @RequestBody VerifySignupOtpRequest request) {
         authService.verifySignupOtp(request.getEmail(), request.getPhone(), request.getCode());
@@ -59,48 +61,28 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(
-            @Valid @RequestBody RegisterRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) throws Exception {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) throws Exception {
         AuthResponse response = authService.registerUser(request);
-        applyWebCookies(httpRequest, httpResponse, response);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(
-            @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) throws Exception {
-        AuthResponse response = authService.loginUser(request);
-        applyWebCookies(httpRequest, httpResponse, response);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) throws Exception {
+        return ResponseEntity.ok(authService.loginUser(request));
     }
 
+    /**
+     * Exchanges a valid refresh token for a fresh access + refresh token pair.
+     * Call this when the access token has (or is about to) expire.
+     */
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(
-            @RequestBody(required = false) RefreshTokenRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
-        String refreshToken;
-        if (cookieAuthHelper.isWebPlatform(httpRequest)) {
-            refreshToken = cookieAuthHelper.extractRefreshToken(httpRequest);
-            if (refreshToken == null || refreshToken.isBlank()) {
-                throw new com.manacommunity.api.exception.UnauthorizedActionException(
-                        "Refresh token cookie is missing or expired. Please log in again.");
-            }
-        } else {
-            if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
-                throw new com.manacommunity.api.exception.InvalidInputException("refreshToken is required.");
-            }
-            refreshToken = request.getRefreshToken();
-        }
-        AuthResponse response = authService.refreshToken(refreshToken);
-        applyWebCookies(httpRequest, httpResponse, response);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request.getRefreshToken()));
     }
 
+    /**
+     * Sends a 6-digit OTP verification code to the registered email address for password reset.
+     */
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.sendPasswordResetOtp(request.getEmail());
@@ -110,6 +92,9 @@ public class AuthController {
         ));
     }
 
+    /**
+     * Validates the email OTP and updates the user's password.
+     */
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, Object>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
@@ -119,6 +104,9 @@ public class AuthController {
         ));
     }
 
+    /**
+     * Changes the password for the authenticated user.
+     */
     @PostMapping("/change-password")
     public ResponseEntity<Map<String, Object>> changePassword(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -140,36 +128,24 @@ public class AuthController {
         return changePassword(principal, request);
     }
 
+    /**
+     * Logout. Extracts the access token from the Authorization header and records it
+     * in the token blacklist so it cannot be reused within its remaining lifetime.
+     * The client should also discard both access and refresh tokens locally.
+     */
     @PostMapping("/logout")
     public ResponseEntity<String> logout(
             @AuthenticationPrincipal UserPrincipal principal,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
+            HttpServletRequest httpRequest) {
         String accessToken = null;
         String authHeader = httpRequest.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             accessToken = authHeader.substring(7).trim();
         }
-        if (accessToken == null) {
-            accessToken = cookieAuthHelper.extractAccessToken(httpRequest);
-        }
-        String refreshToken = cookieAuthHelper.extractRefreshToken(httpRequest);
         authService.logout(
                 principal != null ? principal.getId() : null,
                 principal != null ? principal.getUsername() : null,
-                accessToken,
-                refreshToken);
-        if (cookieAuthHelper.isWebPlatform(httpRequest)) {
-            cookieAuthHelper.clearAuthCookies(httpResponse);
-        }
+                accessToken);
         return ResponseEntity.ok("Logged out.");
-    }
-
-    private void applyWebCookies(HttpServletRequest httpRequest, HttpServletResponse httpResponse,
-                                 AuthResponse response) {
-        if (!cookieAuthHelper.isWebPlatform(httpRequest)) return;
-        cookieAuthHelper.setAuthCookies(httpResponse, response.getToken(), response.getRefreshToken());
-        response.setToken(null);
-        response.setRefreshToken(null);
     }
 }

@@ -197,17 +197,17 @@ public class EngagementService {
             throw new InvalidInputException("User is not associated with any community.");
         }
 
-        if (contentReportRepository.existsByTargetTypeAndTargetIdAndReporterId(contentType, contentId, user.getId())) {
+        if (contentReportRepository.existsByContentTypeAndContentIdAndReportedById(contentType, contentId, user.getId())) {
             throw new InvalidInputException("You have already reported this content.");
         }
 
         ContentReport report = ContentReport.builder()
                 .community(user.getCommunity())
-                .reporter(user)
-                .targetType(contentType)
-                .targetId(contentId)
+                .reportedBy(user)
+                .contentType(contentType)
+                .contentId(contentId)
                 .reason(reason)
-                .targetContent(description)
+                .description(description)
                 .build();
         contentReportRepository.save(report);
     }
