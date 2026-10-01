@@ -6,8 +6,8 @@ import com.manacommunity.api.serviceplatform.pricing.dto.PriceCalculationRespons
 import com.manacommunity.api.serviceplatform.pricing.engine.PricingEngine;
 import com.manacommunity.api.serviceplatform.pricing.entity.PricingRule;
 import com.manacommunity.api.serviceplatform.pricing.entity.ServiceCoupon;
-import com.manacommunity.api.serviceplatform.pricing.repository.PricingRuleRepository;
 import com.manacommunity.api.serviceplatform.pricing.repository.ServiceCouponRepository;
+import com.manacommunity.api.serviceplatform.pricing.repository.ServicePricingRuleRepository;
 import com.manacommunity.api.serviceplatform.repository.ProviderServiceOfferingRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 class PricingEngineTest {
 
     @Mock
-    private PricingRuleRepository pricingRuleRepository;
+    private ServicePricingRuleRepository pricingRuleRepository;
 
     @Mock
     private ServiceCouponRepository couponRepository;

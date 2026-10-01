@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApprovalWorkflowService {
 
-    private final ApprovalWorkflowRepository workflowRepository;
+    private final CfbosApprovalWorkflowRepository workflowRepository;
     private final ApprovalRequestRepository requestRepository;
     private final ApprovalActionRepository actionRepository;
 

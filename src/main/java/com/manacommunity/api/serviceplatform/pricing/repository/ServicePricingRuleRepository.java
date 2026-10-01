@@ -5,4 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Optional;
 @Repository
-public interface PricingRuleRepository extends JpaRepository<PricingRule, Long> { Optional<PricingRule> findByCategoryIdAndUrgencyAndIsActiveTrue(Long categoryId, ServiceUrgency urgency); Optional<PricingRule> findByUrgencyAndIsActiveTrue(ServiceUrgency urgency); }
+public interface ServicePricingRuleRepository extends JpaRepository<PricingRule, Long> {
+    Optional<PricingRule> findByCategoryIdAndUrgencyAndIsActiveTrue(Long categoryId, ServiceUrgency urgency);
+    Optional<PricingRule> findByUrgencyAndIsActiveTrue(ServiceUrgency urgency);
+}

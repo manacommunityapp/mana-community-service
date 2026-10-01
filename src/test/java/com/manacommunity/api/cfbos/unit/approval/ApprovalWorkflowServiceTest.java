@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ApprovalWorkflowServiceTest {
 
-    @Mock private ApprovalWorkflowRepository workflowRepository;
+    @Mock private CfbosApprovalWorkflowRepository workflowRepository;
     @Mock private ApprovalRequestRepository requestRepository;
     @Mock private ApprovalActionRepository actionRepository;
 

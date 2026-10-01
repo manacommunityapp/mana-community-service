@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface ApprovalWorkflowRepository extends JpaRepository<ApprovalWorkflow, Long> {
+public interface CfbosApprovalWorkflowRepository extends JpaRepository<ApprovalWorkflow, Long> {
     Optional<ApprovalWorkflow> findByEntityTypeAndIsActiveTrue(String entityType);
     Optional<ApprovalWorkflow> findByName(String name);
 }
