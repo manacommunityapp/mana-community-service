@@ -177,9 +177,9 @@ public class ScheduleManagementTools {
         var query = em.createQuery(jpql.toString(), Object[].class)
                 .setParameter("tcId", configId);
         if (round != null) query.setParameter("rd",
-                com.manacommunity.api.model.scheduler.MatchRound.valueOf(round));
+                com.manacommunity.api.sports.model.MatchRound.valueOf(round));
         if (status != null) query.setParameter("st",
-                com.manacommunity.api.model.scheduler.MatchStatus.valueOf(status));
+                com.manacommunity.api.sports.model.MatchStatus.valueOf(status));
         query.setMaxResults(limit != null ? limit : 25);
 
         return query.getResultList().stream()

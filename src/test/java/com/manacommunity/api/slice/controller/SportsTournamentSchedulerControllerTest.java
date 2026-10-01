@@ -1,17 +1,24 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
+import com.manacommunity.api.sports.dto.SportsPlayoffMatchDraftResponse.ParticipantRef;
 
-import com.manacommunity.api.controller.scheduler.SportsTournamentSchedulerController;
-import com.manacommunity.api.dto.scheduler.SportsBulkMatchSaveRequest;
+import com.manacommunity.api.sports.controller.SportsTournamentSchedulerController;
+import com.manacommunity.api.sports.dto.SportsBulkMatchSaveRequest;
 
-import com.manacommunity.api.repository.SportsAuctionConfigRepository;
-import com.manacommunity.api.repository.SportsEventRepository;
-import com.manacommunity.api.repository.scheduler.SportsTournamentConfigRepository;
-import com.manacommunity.api.repository.scheduler.SportsTournamentMatchRepository;
-import com.manacommunity.api.dto.scheduler.SportsPlayoffGenerateRequest;
-import com.manacommunity.api.dto.scheduler.SportsPlayoffMatchDraftResponse;
+import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
+import com.manacommunity.api.sports.repository.SportsEventRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.dto.SportsPlayoffGenerateRequest;
+import com.manacommunity.api.sports.dto.SportsPlayoffMatchDraftResponse;
 import com.manacommunity.api.user.service.LoggedInUserService;
-import com.manacommunity.api.service.scheduler.SportsPlayoffScheduleGenerator;
-import com.manacommunity.api.service.scheduler.SportsTournamentSchedulerService;
+import com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator;
+import com.manacommunity.api.sports.scheduler.SportsTournamentSchedulerService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.TestDataBuilder;
 import com.manacommunity.api.support.WithMockUserPrincipal;
@@ -41,6 +48,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
     @MockitoBean LoggedInUserService         loggedInUserService;
     @MockitoBean SportsAuctionConfigRepository     auctionConfigRepo;
     @MockitoBean SportsPlayoffScheduleGenerator    playoffGenerator;
+    @MockitoBean com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
 
     // ── GET /api/tournament/{configId}/matches ────────────────────────
 

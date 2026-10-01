@@ -13,6 +13,10 @@ public class ResourceNotFoundException extends ManaCommunityException {
         super(resource + " not found with id: " + id, HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND");
     }
 
+    public ResourceNotFoundException(String resource, String id) {
+        super(resource + " not found with id: " + id, HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND");
+    }
+
     public ResourceNotFoundException(String resource, String field, String value) {
         super(resource + " not found with the given " + field + ".", HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND");
     }

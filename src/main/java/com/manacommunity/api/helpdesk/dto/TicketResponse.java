@@ -1,14 +1,14 @@
 package com.manacommunity.api.helpdesk.dto;
 
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TicketResponse {
-
     private Long id;
     private String ticketNumber;
     private String subject;
@@ -22,6 +22,15 @@ public class TicketResponse {
     private Long assignedToId;
     private String assignedToName;
     private Long communityId;
+    private String slaDueAt;
+    private boolean isEscalated;
+    private String escalatedAt;
+    private int escalationLevel;
+    private Integer satisfactionRating;
+    private String feedbackRemarks;
+    private boolean residentSignoff;
+    private String residentSignoffAt;
+    private String attachments;
     private String resolvedAt;
     private String createdAt;
     private String updatedAt;
@@ -29,6 +38,8 @@ public class TicketResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class CommentDto {
         private Long id;
         private String message;

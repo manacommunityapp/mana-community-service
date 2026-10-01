@@ -1,4 +1,5 @@
 package com.manacommunity.api.ai.config;
+import com.manacommunity.api.sports.ai.tool.*;
 
 import com.manacommunity.api.model.Community;
 

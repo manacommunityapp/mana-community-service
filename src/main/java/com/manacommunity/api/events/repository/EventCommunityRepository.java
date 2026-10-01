@@ -58,4 +58,31 @@ public interface EventCommunityRepository extends JpaRepository<EventCommunity, 
             "AND e.status <> com.manacommunity.api.events.entity.EventCommunity.EventStatus.CANCELLED " +
             "AND (e.endDate >= CURRENT_DATE OR (e.endDate IS NULL AND e.startDate >= CURRENT_DATE))")
     long countUpcomingByCommunity(@Param("communityId") Long communityId);
+
+    /**
+     * Finds PUBLISHED / ACTIVE events whose combined startDate+startTime falls
+     * within the given [from, to] window.  Used by {@link com.manacommunity.api.notification.scheduler.EventReminderSmsScheduler}
+     * to drive the 24-hour and 1-hour SMS reminders.
+     *
+     * <p>Events without a startTime are matched on startDate only (treated as midnight).
+     *
+     * <pre>
+     * SELECT e FROM EventCommunity e
+     * WHERE e.status IN (PUBLISHED, ACTIVE)
+     *   AND (CAST(e.startDate AS TIMESTAMP) + COALESCE(e.startTime, '00:00'))
+     *       BETWEEN :from AND :to
+     * </pre>
+     *
+     * JPQL does not support LocalDate+LocalTime arithmetic natively, so we use
+     * a native query for precise instant-level matching.
+     */
+    @Query(value =
+            "SELECT * FROM event_community e " +
+            "WHERE e.status IN ('PUBLISHED', 'ACTIVE') " +
+            "  AND (e.start_date + COALESCE(e.start_time, TIME '00:00:00')) " +
+            "       BETWEEN :from AND :to",
+            nativeQuery = true)
+    List<EventCommunity> findEventsStartingBetween(
+            @Param("from") java.time.LocalDateTime from,
+            @Param("to")   java.time.LocalDateTime to);
 }

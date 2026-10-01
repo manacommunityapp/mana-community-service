@@ -1,8 +1,13 @@
 package com.manacommunity.api.slice.repository;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
-import com.manacommunity.api.model.scheduler.*;
-import com.manacommunity.api.repository.scheduler.SportsTournamentConfigRepository;
-import com.manacommunity.api.repository.scheduler.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
+import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
 import com.manacommunity.api.support.BaseRepositoryTest;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;

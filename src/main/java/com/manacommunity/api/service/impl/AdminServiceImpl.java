@@ -223,9 +223,9 @@ public class AdminServiceImpl implements AdminService {
 
         Page<ContentReport> reports;
         if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
-            reports = reportRepo.findByCommunityId(cid, pageable);
+            reports = reportRepo.findByCommunityIdOrderByCreatedAtDesc(cid, pageable);
         } else {
-            reports = reportRepo.findByCommunityIdAndStatus(cid, status.toUpperCase(), pageable);
+            reports = reportRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(cid, status.toUpperCase(), pageable);
         }
 
         return PagedAdminResponse.from(reports, ReportResponse::from);

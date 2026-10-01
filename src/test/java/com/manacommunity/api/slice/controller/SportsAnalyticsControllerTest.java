@@ -1,10 +1,16 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.dto.SportsAnalyticsResponse.*;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
-import com.manacommunity.api.controller.SportsAnalyticsController;
-import com.manacommunity.api.dto.dashboard.SportsAnalyticsResponse;
-import com.manacommunity.api.dto.dashboard.SportsAnalyticsResponse.*;
+import com.manacommunity.api.sports.controller.SportsAnalyticsController;
+import com.manacommunity.api.sports.dto.SportsAnalyticsResponse;
 import com.manacommunity.api.service.PermissionCheckService;
-import com.manacommunity.api.service.SportsAnalyticsService;
+import com.manacommunity.api.sports.service.SportsAnalyticsService;
 import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.WithMockUserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;

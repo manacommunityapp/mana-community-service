@@ -1,6 +1,6 @@
 package com.manacommunity.api.repository;
 
-import com.manacommunity.api.model.EventVenueConfig;
+import com.manacommunity.api.sports.model.EventVenueConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
