@@ -1,0 +1,78 @@
+# ============================================================
+# Maintenance Service - Facility Maintenance & Work Orders
+# Port: 8084
+# ============================================================
+
+server:
+  port: 8084
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_maintenance
+    username: ${DB_USERNAME:mana_maintenance}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: maintenance
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  maintenance:
+    work-order:
+      auto-assign: true
+      priority-levels:
+        - CRITICAL
+        - HIGH
+        - MEDIUM
+        - LOW
+      sla:
+        critical-hours: 4
+        high-hours: 24
+        medium-hours: 72
+        low-hours: 168
+      max-attachments: 10
+      max-attachment-size-mb: 15
+      auto-close-after-days: 7
+      feedback-required: true
+    categories:
+      - PLUMBING
+      - ELECTRICAL
+      - HVAC
+      - CARPENTRY
+      - PAINTING
+      - PEST_CONTROL
+      - ELEVATOR
+      - FIRE_SAFETY
+      - COMMON_AREA
+      - LANDSCAPING
+      - HOUSEKEEPING
+      - GENERAL
+    preventive:
+      enabled: true
+      schedule-advance-days: 7
+      notification-before-hours: 24
+    vendor:
+      rating-enabled: true
+      min-rating-for-assignment: 3.0
+      auto-escalate-after-hours: 48
+    notification:
+      on-create: true
+      on-assign: true
+      on-status-change: true
+      on-completion: true
+      on-sla-breach: true
+
+logging:
+  level:
+    com.manacommunity.maintenance: INFO

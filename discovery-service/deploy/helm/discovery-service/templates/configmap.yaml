@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "discovery-service.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "discovery-service.labels" . | nindent 4 }}
+data:
+  EUREKA_ZONE: {{ .Values.eureka.zone | quote }}
+  EUREKA_PREFER_IP: {{ .Values.eureka.preferIpAddress | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "discovery-service.fullname" . }}-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "discovery-service.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.eureka.username | quote }}
+  password: {{ .Values.eureka.password | quote }}

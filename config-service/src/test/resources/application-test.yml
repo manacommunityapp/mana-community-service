@@ -1,0 +1,34 @@
+spring:
+  profiles:
+    active: native,test
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config-repo
+    discovery:
+      enabled: false
+  security:
+    user:
+      name: testuser
+      password: testpassword
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+encrypt:
+  key: test-encrypt-key
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: WARN
+    com.manacommunity: INFO

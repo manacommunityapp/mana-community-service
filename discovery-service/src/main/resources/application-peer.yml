@@ -1,0 +1,10 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_PEER_URLS:http://eureka:password@localhost:8762/eureka/}
+  server:
+    enable-self-preservation: true
+    wait-time-in-ms-when-sync-empty: 0
+    number-of-replication-retries: 5

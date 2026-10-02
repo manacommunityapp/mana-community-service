@@ -1,0 +1,76 @@
+server:
+  port: 8761
+  shutdown: graceful
+
+spring:
+  application:
+    name: discovery-service
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  security:
+    user:
+      name: ${EUREKA_USERNAME:eureka}
+      password: ${EUREKA_PASSWORD:password}
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@localhost:${server.port}/eureka/
+  server:
+    enable-self-preservation: true
+    renewal-percent-threshold: 0.85
+    eviction-interval-timer-in-ms: 60000
+    response-cache-update-interval-ms: 30000
+    expected-client-renewal-interval-seconds: 30
+    renewal-threshold-update-interval-ms: 900000
+    max-threads-for-peer-replication: 20
+    max-elements-in-peer-replication-pool: 10000
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    prefer-ip-address: ${EUREKA_PREFER_IP:false}
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    metadata-map:
+      zone: ${EUREKA_ZONE:default}
+      environment: ${SPRING_PROFILES_ACTIVE:default}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,env
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    defaults:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    build:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Netflix Eureka Server for Community Operating System service discovery
+    version: 1.0.0-SNAPSHOT
+  java:
+    version: ${java.version}
+
+logging:
+  level:
+    root: INFO
+    com.manacommunity.discovery: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    org.springframework.cloud.netflix: INFO
+    org.springframework.security: WARN

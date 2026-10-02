@@ -1,0 +1,78 @@
+# ============================================================
+# Marketplace Service - Community Marketplace
+# Port: 8091
+# ============================================================
+
+server:
+  port: 8091
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_marketplace
+    username: ${DB_USERNAME:mana_marketplace}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: marketplace
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  marketplace:
+    listing:
+      max-per-user: 50
+      max-images: 10
+      image-max-size-mb: 5
+      auto-expire-days: 60
+      moderation:
+        enabled: true
+        auto-approve: false
+        prohibited-keywords-check: true
+    categories:
+      - FURNITURE
+      - ELECTRONICS
+      - CLOTHING
+      - BOOKS
+      - SPORTS_EQUIPMENT
+      - HOME_APPLIANCES
+      - VEHICLES
+      - PETS
+      - SERVICES
+      - FREE_ITEMS
+      - RENTAL
+      - LOST_AND_FOUND
+    pricing:
+      currency: INR
+      max-price: 10000000
+      negotiation-enabled: true
+    transaction:
+      escrow-enabled: false
+      community-fee-percentage: 0
+      payment-modes:
+        - CASH
+        - UPI
+        - WALLET
+    search:
+      full-text-enabled: true
+      location-based: true
+      radius-km: 5
+    chat:
+      enabled: true
+      max-message-length: 1000
+    reporting:
+      enabled: true
+      auto-hide-after-reports: 3
+
+logging:
+  level:
+    com.manacommunity.marketplace: INFO

@@ -1,0 +1,75 @@
+# ============================================================
+# Amenity Service - Amenity Booking & Management
+# Port: 8086
+# ============================================================
+
+server:
+  port: 8086
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_amenity
+    username: ${DB_USERNAME:mana_amenity}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: amenity
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  amenity:
+    booking:
+      advance-days: 30
+      min-duration-minutes: 30
+      max-duration-hours: 8
+      cancellation-policy:
+        free-cancellation-hours-before: 24
+        late-cancellation-fee-percentage: 50
+      max-bookings-per-user-per-day: 3
+      max-bookings-per-user-per-week: 10
+      buffer-time-minutes: 15
+      auto-release-no-show-minutes: 15
+      waitlist:
+        enabled: true
+        max-size: 10
+        auto-promote: true
+    categories:
+      - SWIMMING_POOL
+      - GYM
+      - CLUBHOUSE
+      - PARTY_HALL
+      - MEETING_ROOM
+      - TERRACE
+      - YOGA_ROOM
+      - CHILDREN_PLAY_AREA
+      - LIBRARY
+      - MINI_THEATER
+      - GUEST_ROOM
+      - BBQ_AREA
+    operating-hours:
+      default-open: "06:00"
+      default-close: "22:00"
+    pricing:
+      enabled: true
+      currency: INR
+      peak-hour-multiplier: 1.5
+      weekend-multiplier: 1.25
+      member-discount-percentage: 0
+    maintenance:
+      block-booking-during-maintenance: true
+      notify-affected-users: true
+
+logging:
+  level:
+    com.manacommunity.amenity: INFO
