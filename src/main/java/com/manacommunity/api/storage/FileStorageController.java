@@ -13,6 +13,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
@@ -21,6 +23,7 @@ public class FileStorageController {
     private final FileStorageService storageService;
     private final StoredFileRepository storedFileRepo;
     private final LoggedInUserService loggedInUserService;
+    private final PresignedUrlRefreshService refreshService;
 
     /** Upload a file; returns metadata including the URL to persist. */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -82,6 +85,21 @@ public class FileStorageController {
                 .contentType(MediaType.parseMediaType(file.getContentType()))
                 .contentLength(file.getSizeBytes())
                 .body(file.getData());
+    }
+
+    /**
+     * Refresh an expired S3 presigned URL. The frontend calls this when an
+     * image returns 403 due to URL expiry.
+     */
+    @PostMapping("/refresh-url")
+    public ResponseEntity<Map<String, String>> refreshPresignedUrl(@RequestBody Map<String, String> body) {
+        String expiredUrl = body.get("url");
+        if (expiredUrl == null || expiredUrl.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Missing 'url' field"));
+        }
+        String freshUrl = refreshService.forceRefresh(expiredUrl);
+        return ResponseEntity.ok(Map.of("url", freshUrl));
     }
 
     /** Delete a file by id (Postgres only; S3 deletion needs a separate key). */
