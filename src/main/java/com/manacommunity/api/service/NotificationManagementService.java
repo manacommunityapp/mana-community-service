@@ -2,6 +2,7 @@ package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
+import com.manacommunity.api.dto.NotificationSummaryResponse;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -187,6 +188,14 @@ public class NotificationManagementService {
         return notificationRepo.findByUserIdAndDismissedFalseOrderByCreatedAtDesc(
                 userId, PageRequest.of(page, size)
         ).map(this::toResponse);
+    }
+
+    /**
+     * Dedicated lightweight retrieval method for UI feed notifications.
+     * Uses DB constructor projection to select only required columns.
+     */
+    public Page<NotificationSummaryResponse> getUserNotificationsSummary(Long userId, int page, int size) {
+        return notificationRepo.findSummaryByUserId(userId, PageRequest.of(page, size));
     }
 
     public NotificationCountResponse getUnreadCount(Long userId) {
