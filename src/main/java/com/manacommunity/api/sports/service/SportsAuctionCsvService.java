@@ -37,9 +37,9 @@ public class SportsAuctionCsvService {
 
     /**
      * CSV Format Expected:
-     * player_name,category,role,age,base_price,matches,runs,wickets
-     * Ravi Varma,BATSMEN,Right-Hand Bat,26,1000,42,1200,5
-     * Ajay Kumar,BOWLERS,Right-Arm Fast,28,1000,38,200,52
+     * player_name,category,role,age,base_price,matches,runs,wickets,innings,cricheroes_url
+     * Ravi Varma,BATSMEN,Right-Hand Bat,26,1000,42,1200,5,40,https://cricheroes.com/player-profile/123
+     * Ajay Kumar,BOWLERS,Right-Arm Fast,28,1000,38,200,52,,
      */
     @Transactional
     public UploadResult uploadPlayersFromFile(Long configId, MultipartFile file) {
@@ -111,6 +111,10 @@ public class SportsAuctionCsvService {
                     continue;
                 }
 
+                Integer innings = cols.length > 8 ? parseIntSafe(cols[8].trim()) : null;
+                String cricHeroesUrl = cols.length > 9 ? sanitizeField(cols[9]) : null;
+                if (cricHeroesUrl != null && cricHeroesUrl.isEmpty()) cricHeroesUrl = null;
+
                 SportsAuctionPlayer player = SportsAuctionPlayer.builder()
                     .config(config)
                     .community(config.getCommunity() != null ? config.getCommunity() : (config.getEvent() != null ? config.getEvent().getCommunity() : null))
@@ -119,6 +123,8 @@ public class SportsAuctionCsvService {
                     .playerRole(role)
                     .age(age)
                     .basePrice(basePrice)
+                    .innings(innings)
+                    .cricheroesUrl(cricHeroesUrl)
                     .statsJson(buildStats(cols, lineNum, skippedReasons))
                     .queueOrder(queueOrder++)
                     .status(SportsAuctionPlayer.PlayerStatus.QUEUED)

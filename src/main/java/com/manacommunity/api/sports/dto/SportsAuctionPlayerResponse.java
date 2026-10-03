@@ -24,4 +24,9 @@ public class SportsAuctionPlayerResponse {
     private Long soldPrice;
     private Boolean rtmUsed;
     private LocalDateTime soldAt;
+    private Integer innings;
+    private String bestBowling;
+    private String cricHeroesId;
+    private String cricHeroesUrl;
+    private LocalDateTime verifiedAt;
 }

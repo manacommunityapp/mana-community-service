@@ -1,5 +1,7 @@
 package com.manacommunity.api.sports.dto;
 
+import java.time.LocalDateTime;
+
 public record PlayerWithBidResponse(
     Long    playerId,
     String  playerName,
@@ -13,5 +15,10 @@ public record PlayerWithBidResponse(
     Integer nextIncrement,
     String  currentBidTeamName,
     int     queueOrder,
-    String  status
+    String  status,
+    Integer innings,
+    String  bestBowling,
+    String  cricHeroesId,
+    String  cricHeroesUrl,
+    LocalDateTime verifiedAt
 ) {}

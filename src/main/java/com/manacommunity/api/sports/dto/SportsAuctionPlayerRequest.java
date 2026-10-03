@@ -26,9 +26,12 @@ public class SportsAuctionPlayerRequest {
 
     // Optional stats mapping
     private Integer matches;
+    private Integer innings;
     private Integer runs;
     private Integer wickets;
     private Double strikeRate;
     private Double economy;
     private Double avgScore;
+    private String bestBowling;
+    private String cricHeroesUrl;
 }

@@ -41,6 +41,9 @@ public class SportsAuctionPlayerController {
                 .playerRole(req.getPlayerRole())
                 .age(req.getAge())
                 .basePrice(req.getBasePrice())
+                .innings(req.getInnings())
+                .bestBowling(req.getBestBowling())
+                .cricheroesUrl(req.getCricHeroesUrl())
                 .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
                 .build();
         SportsAuctionPlayer saved = auctionPlayerService.savePlayer(player);
@@ -65,6 +68,11 @@ public class SportsAuctionPlayerController {
                 .soldPrice(p.getSoldPrice())
                 .rtmUsed(p.getRtmUsed())
                 .soldAt(p.getSoldAt())
+                .innings(p.getInnings())
+                .bestBowling(p.getBestBowling())
+                .cricHeroesId(p.getCricheroesId())
+                .cricHeroesUrl(p.getCricheroesUrl())
+                .verifiedAt(p.getVerifiedAt())
                 .build();
     }
 }

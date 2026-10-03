@@ -72,5 +72,19 @@ public class SportsAuctionPlayer {
     private LocalDateTime soldAt;
     private LocalDateTime uploadedAt;
 
+    private Integer innings;
+
+    @Column(name = "best_bowling", length = 20)
+    private String bestBowling;
+
+    @Column(name = "cricheroes_id", length = 100)
+    private String cricheroesId;
+
+    @Column(name = "cricheroes_url", length = 500)
+    private String cricheroesUrl;
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+
     public enum PlayerStatus { QUEUED, SELLING, SOLD, PASSED, RETAINED }
 }
