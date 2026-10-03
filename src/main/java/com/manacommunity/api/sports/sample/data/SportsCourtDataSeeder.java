@@ -1,7 +1,7 @@
 package com.manacommunity.api.sports.sample.data;
 
 import com.manacommunity.api.sports.model.SportsCourt;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.repository.SportsCourtRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * SportsCourtDataSeeder — dedicated seeder for the {@code court} table. Adds courts
- * to the {@link VenueDataSeeder} arena (idempotent by court name per venue).
+ * to the {@link SportsVenueDataSeeder} arena (idempotent by court name per venue).
  */
 @Slf4j
 @Service
@@ -20,12 +20,12 @@ import java.util.List;
 public class SportsCourtDataSeeder {
 
     private final SportsCourtRepository courtRepo;
-    private final VenueDataSeeder venueDataSeeder;
+    private final SportsVenueDataSeeder venueDataSeeder;
 
     @Transactional
     public void seed() {
         log.info("Seeding court table sample data...");
-        Venue arena = venueDataSeeder.getOrCreateArena();
+        SportsVenue arena = venueDataSeeder.getOrCreateArena();
 
         List<SportsCourt> courts = List.of(
                 SportsCourt.builder().name("Arena Court A").color("#3b82f6").build(),

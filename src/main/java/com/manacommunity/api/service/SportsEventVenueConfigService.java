@@ -1,8 +1,8 @@
 package com.manacommunity.api.service;
 
-import com.manacommunity.api.sports.dto.EventVenueConfigDto;
-import com.manacommunity.api.sports.model.EventVenueConfig;
-import com.manacommunity.api.repository.EventVenueConfigRepository;
+import com.manacommunity.api.sports.dto.SportsEventVenueConfigDto;
+import com.manacommunity.api.sports.model.SportsEventVenueConfig;
+import com.manacommunity.api.repository.SportsEventVenueConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,13 +13,13 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class EventVenueConfigService {
+public class SportsEventVenueConfigService {
 
-    private final EventVenueConfigRepository repository;
+    private final SportsEventVenueConfigRepository repository;
 
     @Transactional(readOnly = true)
-    public EventVenueConfigDto getVenueConfig(Long eventId, Long communityId) {
-        Optional<EventVenueConfig> configOpt = Optional.empty();
+    public SportsEventVenueConfigDto getVenueConfig(Long eventId, Long communityId) {
+        Optional<SportsEventVenueConfig> configOpt = Optional.empty();
         if (eventId != null) {
             configOpt = repository.findTopByEventIdOrderByUpdatedAtDesc(eventId);
         }
@@ -30,12 +30,12 @@ public class EventVenueConfigService {
             configOpt = repository.findTopByOrderByUpdatedAtDesc();
         }
 
-        return configOpt.map(EventVenueConfigDto::from).orElse(null);
+        return configOpt.map(SportsEventVenueConfigDto::from).orElse(null);
     }
 
     @Transactional
-    public EventVenueConfigDto saveVenueConfig(EventVenueConfigDto dto) {
-        EventVenueConfig config = null;
+    public SportsEventVenueConfigDto saveVenueConfig(SportsEventVenueConfigDto dto) {
+        SportsEventVenueConfig config = null;
 
         if (dto.getId() != null) {
             config = repository.findById(dto.getId()).orElse(null);
@@ -45,7 +45,7 @@ public class EventVenueConfigService {
         }
 
         if (config == null) {
-            config = EventVenueConfig.builder()
+            config = SportsEventVenueConfig.builder()
                     .eventId(dto.getEventId())
                     .communityId(dto.getCommunityId())
                     .venueName(dto.getVenueName() != null ? dto.getVenueName() : "Main Community Grounds")
@@ -59,8 +59,8 @@ public class EventVenueConfigService {
             if (dto.getCommunityId() != null) config.setCommunityId(dto.getCommunityId());
         }
 
-        EventVenueConfig saved = repository.save(config);
+        SportsEventVenueConfig saved = repository.save(config);
         log.info("Event venue configuration saved for id={}", saved.getId());
-        return EventVenueConfigDto.from(saved);
+        return SportsEventVenueConfigDto.from(saved);
     }
 }

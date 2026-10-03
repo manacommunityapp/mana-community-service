@@ -123,7 +123,7 @@ public class SportsEvent {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id")
-    private Venue venue;
+    private SportsVenue venue;
 
     private Integer maxParticipants;
 

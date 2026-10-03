@@ -7,11 +7,11 @@ import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Contact;
 import com.manacommunity.api.sports.model.SportsCourt;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.repository.ContactRepository;
-import com.manacommunity.api.sports.repository.VenueRepository;
-import com.manacommunity.api.sports.service.VenueService;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
+import com.manacommunity.api.sports.service.SportsVenueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +22,9 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class VenueServiceImpl implements VenueService {
+public class SportsVenueServiceImpl implements SportsVenueService {
 
-    private final VenueRepository venueRepo;
+    private final SportsVenueRepository venueRepo;
     private final CommunityRepository communityRepo;
     private final ContactRepository contactRepository;
 
@@ -71,7 +71,7 @@ public class VenueServiceImpl implements VenueService {
     }
 
     @Override
-    public Venue getVenueById(Long id) {
+    public SportsVenue getVenueById(Long id) {
         return venueRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Venue", id));
     }
@@ -85,7 +85,7 @@ public class VenueServiceImpl implements VenueService {
     @Transactional
     public VenueResponse createVenue(Long communityId, VenueRequest request) {
         List<Contact> contacts = resolveContacts(request.getContacts());
-        Venue venue = Venue.builder()
+        SportsVenue venue = SportsVenue.builder()
                 .name(request.getName())
                 .address(request.getAddress())
                 .city(request.getCity())
@@ -116,7 +116,7 @@ public class VenueServiceImpl implements VenueService {
     @Override
     @Transactional
     public VenueResponse updateVenue(Long id, VenueRequest request) {
-        Venue existing = venueRepo.findById(id)
+        SportsVenue existing = venueRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Venue", id));
         List<Contact> contacts = resolveContacts(request.getContacts());
         existing.setName(request.getName());
@@ -152,7 +152,7 @@ public class VenueServiceImpl implements VenueService {
         venueRepo.deleteById(id);
     }
 
-    private void applyCourts(Venue venue, List<VenueRequest.CourtDto> courtDtos) {
+    private void applyCourts(SportsVenue venue, List<VenueRequest.CourtDto> courtDtos) {
         if (courtDtos == null) return;
         for (VenueRequest.CourtDto dto : courtDtos) {
             SportsCourt court = SportsCourt.builder()
@@ -166,7 +166,7 @@ public class VenueServiceImpl implements VenueService {
         }
     }
 
-    private VenueResponse toResponse(Venue venue) {
+    private VenueResponse toResponse(SportsVenue venue) {
         return VenueResponse.builder()
                 .id(venue.getId())
                 .name(venue.getName())

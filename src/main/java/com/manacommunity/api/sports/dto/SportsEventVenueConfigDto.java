@@ -1,6 +1,6 @@
 package com.manacommunity.api.sports.dto;
 
-import com.manacommunity.api.sports.model.EventVenueConfig;
+import com.manacommunity.api.sports.model.SportsEventVenueConfig;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EventVenueConfigDto {
+public class SportsEventVenueConfigDto {
 
     private Long id;
     private Long eventId;
@@ -21,9 +21,9 @@ public class EventVenueConfigDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static EventVenueConfigDto from(EventVenueConfig entity) {
+    public static SportsEventVenueConfigDto from(SportsEventVenueConfig entity) {
         if (entity == null) return null;
-        return EventVenueConfigDto.builder()
+        return SportsEventVenueConfigDto.builder()
                 .id(entity.getId())
                 .eventId(entity.getEventId())
                 .communityId(entity.getCommunityId())

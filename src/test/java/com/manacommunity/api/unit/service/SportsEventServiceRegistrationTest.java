@@ -47,7 +47,7 @@ class SportsEventServiceRegistrationTest {
     @Mock private SportsNotificationSchedulerRepository schedulerRepo;
     @Mock private AppUserRepository userRepo;
     @Mock private CommunityRepository communityRepo;
-    @Mock private VenueRepository venueRepo;
+    @Mock private SportsVenueRepository venueRepo;
     @Mock private SportsAuctionConfigRepository auctionConfigRepo;
     @Mock private SportsAuctionTeamRepository auctionTeamRepo;
     @Mock private SportsAuctionPlayerRepository playerRepo;

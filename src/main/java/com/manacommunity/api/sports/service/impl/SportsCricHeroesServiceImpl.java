@@ -14,6 +14,8 @@ import com.manacommunity.api.sports.repository.SportsCricHeroesProfileRepository
 import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
 import com.manacommunity.api.sports.service.SportsCricHeroesService;
+import com.manacommunity.api.sports.service.SportsCricHeroesRatingEngine;
+import com.manacommunity.api.sports.service.SportsCricHeroesScraperService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,9 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
     private final SportsAuctionTeamRepository teamRepo;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final SportsCricHeroesRatingEngine ratingEngine;
+    private final SportsCricHeroesScraperService scraperService;
+
 
     private static final String CRICHEROES_API_BASE = "https://cricheroes.com/api/v1";
 
@@ -78,7 +83,7 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
                 .mvpPoints(profileData.getMvpPoints())
                 .build();
 
-        SportsPlayerRatingResponse rating = computeRating(profileData);
+        SportsPlayerRatingResponse rating = ratingEngine.computeRating(profileData);
         profile.setRatingOverall(rating.getOverall());
         profile.setRatingTier(rating.getTier());
         profile.setRatingBadges(String.join(",", rating.getBadges()));
@@ -142,7 +147,7 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
         profile.setMvpPoints(freshData.getMvpPoints());
         profile.setSyncedAt(LocalDateTime.now());
 
-        SportsPlayerRatingResponse rating = computeRating(freshData);
+        SportsPlayerRatingResponse rating = ratingEngine.computeRating(freshData);
         profile.setRatingOverall(rating.getOverall());
         profile.setRatingTier(rating.getTier());
         profile.setRatingBadges(String.join(",", rating.getBadges()));
@@ -172,6 +177,7 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
             return SportsPlayerRatingResponse.builder()
                     .overall(profile.getRatingOverall())
                     .tier(profile.getRatingTier())
+                    .stars(tierToStars(profile.getRatingTier()))
                     .badges(badges)
                     .suggestedBasePrice(profile.getSuggestedBasePrice() != null ? profile.getSuggestedBasePrice() : 0)
                     .breakdown(Map.of())
@@ -179,7 +185,7 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
         }
 
         SportsCricHeroesProfileResponse data = toResponse(profile);
-        return computeRating(data);
+        return ratingEngine.computeRating(data);
     }
 
     @Override
@@ -367,92 +373,16 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
                 .build();
     }
 
-    private SportsPlayerRatingResponse computeRating(SportsCricHeroesProfileResponse profile) {
-        var bat = profile.getBatting();
-        var bowl = profile.getBowling();
-        var field = profile.getFielding();
-
-        double battingScore = 0;
-        if (bat != null && bat.getMatches() > 0) {
-            battingScore += Math.min(bat.getAverage() / 10, 3);
-            battingScore += Math.min(bat.getStrikeRate() / 50, 3);
-            battingScore += Math.min((double) bat.getRuns() / 500, 2);
-            battingScore += bat.getFifties() * 0.3 + bat.getHundreds() * 0.8;
-        }
-        battingScore = Math.min(battingScore, 10);
-
-        double bowlingScore = 0;
-        if (bowl != null && bowl.getMatches() > 0) {
-            bowlingScore += bowl.getAverage() > 0 ? Math.min(30 / bowl.getAverage(), 3) : 0;
-            bowlingScore += bowl.getEconomy() > 0 ? Math.min(8 / bowl.getEconomy(), 3) : 0;
-            bowlingScore += Math.min((double) bowl.getWickets() / 30, 2);
-            bowlingScore += bowl.getThreeWickets() * 0.4 + bowl.getFiveWickets() * 1.0;
-        }
-        bowlingScore = Math.min(bowlingScore, 10);
-
-        double fieldingScore = 0;
-        if (field != null) {
-            fieldingScore = Math.min(field.getCatches() * 0.3 + field.getStumpings() * 0.5 + field.getRunOuts() * 0.4, 10);
-        }
-
-        double formScore = 5;
-        if (profile.getRecentForm() != null && !profile.getRecentForm().isEmpty()) {
-            double sum = 0;
-            int count = 0;
-            for (var inn : profile.getRecentForm()) {
-                if (inn.getRuns() != null) { sum += inn.getRuns(); count++; }
-            }
-            if (count > 0) formScore = Math.min(sum / count / 8, 10);
-        }
-
-        int totalMatches = Math.max(
-                bat != null ? bat.getMatches() : 0,
-                bowl != null ? bowl.getMatches() : 0
-        );
-        double experienceScore = Math.min((double) totalMatches / 20, 10);
-
-        String role = profile.getBio() != null ? profile.getBio().getPrimaryRole() : "Batter";
-        double overall;
-        if ("Bowler".equals(role)) {
-            overall = battingScore * 0.1 + bowlingScore * 0.5 + fieldingScore * 0.1 + formScore * 0.2 + experienceScore * 0.1;
-        } else if ("All-Rounder".equals(role)) {
-            overall = battingScore * 0.3 + bowlingScore * 0.3 + fieldingScore * 0.1 + formScore * 0.2 + experienceScore * 0.1;
-        } else if ("Wicket Keeper".equals(role)) {
-            overall = battingScore * 0.35 + bowlingScore * 0.1 + fieldingScore * 0.25 + formScore * 0.2 + experienceScore * 0.1;
-        } else {
-            overall = battingScore * 0.5 + bowlingScore * 0.1 + fieldingScore * 0.1 + formScore * 0.2 + experienceScore * 0.1;
-        }
-        overall = Math.round(overall * 10.0) / 10.0;
-
-        List<String> badges = new ArrayList<>();
-        if (bat != null && bat.getStrikeRate() > 140) badges.add("POWER_HITTER");
-        if (bowl != null && bowl.getAverage() > 0 && bowl.getAverage() < 15) badges.add("STRIKE_BOWLER");
-        if (bat != null && bowl != null && bat.getRuns() > 300 && bowl.getWickets() > 15) badges.add("ALL_ROUNDER");
-        if (bat != null && bat.getAverage() > 35) badges.add("ANCHOR");
-        if (bowl != null && bowl.getEconomy() > 0 && bowl.getEconomy() < 5) badges.add("ECONOMICAL");
-        if (bowl != null && bowl.getThreeWickets() >= 3) badges.add("WICKET_TAKER");
-
-        String tier;
-        int suggestedPrice;
-        if (overall >= 8.5) { tier = "Icon"; suggestedPrice = 20000; }
-        else if (overall >= 7.0) { tier = "Platinum"; suggestedPrice = 15000; }
-        else if (overall >= 5.5) { tier = "Gold"; suggestedPrice = 10000; }
-        else if (overall >= 4.0) { tier = "Silver"; suggestedPrice = 5000; }
-        else { tier = "Bronze"; suggestedPrice = 2000; }
-
-        return SportsPlayerRatingResponse.builder()
-                .overall(overall)
-                .tier(tier)
-                .badges(badges)
-                .suggestedBasePrice(suggestedPrice)
-                .breakdown(Map.of(
-                        "batting", Math.round(battingScore * 10.0) / 10.0,
-                        "bowling", Math.round(bowlingScore * 10.0) / 10.0,
-                        "fielding", Math.round(fieldingScore * 10.0) / 10.0,
-                        "form", Math.round(formScore * 10.0) / 10.0,
-                        "experience", Math.round(experienceScore * 10.0) / 10.0
-                ))
-                .build();
+    /** Maps a stored tier string to its star count for the cached-rating fast path. */
+    private static int tierToStars(String tier) {
+        if (tier == null) return 1;
+        return switch (tier.toUpperCase()) {
+            case "LEGEND"   -> 5;
+            case "ICON"     -> 4;
+            case "PLATINUM" -> 3;
+            case "GOLD"     -> 2;
+            default         -> 1; // SILVER, BRONZE
+        };
     }
 
     private String extractCricHeroesId(String url) {

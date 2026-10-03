@@ -13,7 +13,7 @@ import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsMeta;
 import com.manacommunity.api.sports.model.SportsPlayerCategory;
 import com.manacommunity.api.sports.model.TournamentType;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.repository.SportsAuctionBidRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionConfigCategoryRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
@@ -67,7 +67,7 @@ public class SportsEventSeeder {
 
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
-    private final VenueSeeder venueSeeder;
+    private final SportsVenueSeeder venueSeeder;
     private final UserSeeder userSeeder;
     private final SportsPlayerCategorySeeder playerCategorySeeder;
 
@@ -77,7 +77,7 @@ public class SportsEventSeeder {
         
         SportsMeta cricket = sportsMetaSeeder.getOrCreateSport("Cricket", "🏏");
         Community leCommunity = communitySeeder.getLeCommunity();
-        Venue leBoxCricket = venueSeeder.getLeBoxCricket();
+        SportsVenue leBoxCricket = venueSeeder.getLeBoxCricket();
         AppUser ramesh = userSeeder.getRamesh();
         
         SportsPlayerCategory cricketKids = playerCategorySeeder.getCategoryByName("Cricket Kids (Under-10)");
@@ -170,7 +170,7 @@ public class SportsEventSeeder {
 
         // ── 2. Badminton Events (5 Category Events) ──────────────────────
         SportsMeta badminton = sportsMetaSeeder.getOrCreateSport("Badminton", "🏸");
-        Venue leBadmintonCourt = venueSeeder.getLeBadmintonCourt();
+        SportsVenue leBadmintonCourt = venueSeeder.getLeBadmintonCourt();
 
         SportsPlayerCategory badUnder12 = playerCategorySeeder.getCategoryByName("Badminton (Under-12)");
         SportsPlayerCategory badBoys12_19 = playerCategorySeeder.getCategoryByName("Badminton Boys (12-19)");
@@ -207,7 +207,7 @@ public class SportsEventSeeder {
 
         // ── 3. Chess Events (5 Category Events) ──────────────────────────
         SportsMeta chess = sportsMetaSeeder.getOrCreateSport("Chess", "♟️");
-        Venue clubhouse = venueSeeder.getLeClubhouse();
+        SportsVenue clubhouse = venueSeeder.getLeClubhouse();
 
         SportsPlayerCategory chessUnder12 = playerCategorySeeder.getCategoryByName("Chess (Under-12)");
         SportsPlayerCategory chessBoys12_19 = playerCategorySeeder.getCategoryByName("Chess Boys (12-19)");
@@ -316,7 +316,7 @@ public class SportsEventSeeder {
 
         // ── 6. Volleyball Event (1 Category Event) ───────────────────────
         SportsMeta volleyball = sportsMetaSeeder.getOrCreateSport("Volleyball", "🏐");
-        Venue volleyballCourt = venueSeeder.getLeVolleyballCourt();
+        SportsVenue volleyballCourt = venueSeeder.getLeVolleyballCourt();
 
         SportsPlayerCategory volleyballMen = playerCategorySeeder.getCategoryByName("Volleyball Men (15+)");
 
@@ -395,7 +395,7 @@ public class SportsEventSeeder {
     }
 
     private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus, SportsMeta sport, Community community,
-                                               Venue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
+                                               SportsVenue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
                                                SportsEventStatus status,
                                                List<SportsEvent.MatchFormat> formats,
                                                SportsEvent.TournamentType tournamentType,
@@ -412,7 +412,7 @@ public class SportsEventSeeder {
     }
 
     private SportsEvent getOrCreateSportsEvent(String name, boolean activeStatus, SportsMeta sport, Community community,
-                                               Venue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
+                                               SportsVenue venue, AppUser createdBy, Set<SportsPlayerCategory> categories,
                                                SportsEventStatus status,
                                                List<SportsEvent.MatchFormat> formats,
                                                SportsEvent.TournamentType tournamentType,

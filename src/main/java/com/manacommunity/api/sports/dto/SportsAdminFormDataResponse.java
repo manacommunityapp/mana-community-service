@@ -1,6 +1,6 @@
 package com.manacommunity.api.sports.dto;
 import com.manacommunity.api.sports.model.SportsTournament;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 
 
 import com.manacommunity.api.response.CommunityResponse;

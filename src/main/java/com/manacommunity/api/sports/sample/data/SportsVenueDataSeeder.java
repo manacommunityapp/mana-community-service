@@ -3,25 +3,25 @@ import com.manacommunity.api.service.sample.data.CommunitySeeder;
 
 
 import com.manacommunity.api.model.Community;
-import com.manacommunity.api.sports.model.Venue;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.model.SportsVenue;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * VenueDataSeeder — dedicated seeder for the {@code venue} table. Seeds a
- * distinct venue (idempotent by name) so it coexists with {@link VenueSeeder}.
+ * SportsVenueDataSeeder — dedicated seeder for the {@code venue} table. Seeds a
+ * distinct venue (idempotent by name) so it coexists with {@link SportsVenueSeeder}.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class VenueDataSeeder {
+public class SportsVenueDataSeeder {
 
     public static final String VENUE_NAME = "Community Sports Arena";
 
-    private final VenueRepository venueRepo;
+    private final SportsVenueRepository venueRepo;
     private final CommunitySeeder communitySeeder;
 
     @Transactional
@@ -32,12 +32,12 @@ public class VenueDataSeeder {
     }
 
     /** Find-or-create the arena venue (idempotent by name). */
-    public Venue getOrCreateArena() {
+    public SportsVenue getOrCreateArena() {
         Community community = communitySeeder.getLeCommunity();
         return venueRepo.findAll().stream()
                 .filter(v -> VENUE_NAME.equalsIgnoreCase(v.getName()))
                 .findFirst()
-                .orElseGet(() -> venueRepo.save(Venue.builder()
+                .orElseGet(() -> venueRepo.save(SportsVenue.builder()
                         .name(VENUE_NAME)
                         .venueType("COMMUNITY")
                         .venueCategory("SPORTS_VENUE")

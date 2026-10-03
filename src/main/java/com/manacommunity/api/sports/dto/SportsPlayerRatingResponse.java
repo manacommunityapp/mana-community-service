@@ -11,6 +11,8 @@ import java.util.Map;
 public class SportsPlayerRatingResponse {
     private double overall;
     private String tier;
+    /** Star rating (1–5) derived from tier: LEGEND=5, ICON=4, PLATINUM=3, GOLD=2, SILVER/BRONZE=1 */
+    private int stars;
     private List<String> badges;
     private int suggestedBasePrice;
     private Map<String, Double> breakdown;

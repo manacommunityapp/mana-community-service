@@ -6,11 +6,11 @@ import com.manacommunity.api.constants.permissions.AdminPermissions;
 import com.manacommunity.api.sports.dto.VenueRequest;
 import com.manacommunity.api.sports.dto.VenueResponse;
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
-import com.manacommunity.api.sports.service.VenueService;
+import com.manacommunity.api.sports.service.SportsVenueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +24,9 @@ import java.util.Objects;
 @RestController
 @RequestMapping("/api/venues")
 @RequiredArgsConstructor
-public class VenueController {
+public class SportsVenueController {
 
-    private final VenueService venueService;
+    private final SportsVenueService venueService;
     private final LoggedInUserService loggedInUserService;
     private final PermissionCheckService permissionCheckService;
 
@@ -77,7 +77,7 @@ public class VenueController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
 
-        Venue existing = venueService.getVenueById(id);
+        SportsVenue existing = venueService.getVenueById(id);
         boolean timingChanged = !Objects.equals(existing.getOpeningTime(), request.getOpeningTime())
                 || !Objects.equals(existing.getClosingTime(), request.getClosingTime());
         if (timingChanged) {

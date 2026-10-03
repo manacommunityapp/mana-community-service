@@ -76,7 +76,7 @@ public class EventCreationTools {
         UserContext ctx = AgentSecurityContext.get();
 
         var venues = em.createQuery(
-                "SELECT v.id, v.name, v.address, v.city FROM Venue v " +
+                "SELECT v.id, v.name, v.address, v.city FROM SportsVenue v " +
                 "WHERE v.community.id = :comId AND LOWER(v.name) LIKE LOWER(:nm) " +
                 "ORDER BY v.name", Object[].class)
                 .setParameter("comId", ctx.communityId())
@@ -180,7 +180,7 @@ public class EventCreationTools {
         preview.put("dates", eventDateStart + " to " + eventDateEnd);
         if (venueId != null) {
             var venueRows = em.createQuery(
-                    "SELECT v.name FROM Venue v WHERE v.id = :vid", String.class)
+                    "SELECT v.name FROM SportsVenue v WHERE v.id = :vid", String.class)
                     .setParameter("vid", venueId).getResultList();
             preview.put("venue", venueRows.isEmpty() ? "ID:" + venueId : venueRows.get(0));
         }

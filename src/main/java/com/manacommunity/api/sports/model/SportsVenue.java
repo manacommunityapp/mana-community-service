@@ -10,12 +10,12 @@ import java.util.List;
 import java.util.ArrayList;
 
 @Entity
-@Table(name = "venue")
+@Table(name = "sports_venue")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Venue {
+public class SportsVenue {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,7 +67,7 @@ public class Venue {
 
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
-        name = "venue_contact",
+        name = "sports_venue_contact",
         joinColumns = @JoinColumn(name = "venue_id"),
         inverseJoinColumns = @JoinColumn(name = "contact_id")
     )

@@ -33,5 +33,5 @@ public class SportsCourt {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id", nullable = false)
     @JsonIgnore
-    private Venue venue;
+    private SportsVenue venue;
 }

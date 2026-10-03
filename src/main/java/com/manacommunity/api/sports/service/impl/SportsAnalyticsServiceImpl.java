@@ -7,14 +7,14 @@ import com.manacommunity.api.sports.model.SportsEventRegistration;
 import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsMeta;
 import com.manacommunity.api.sports.model.SportsTournament;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
 import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.sports.repository.SportsEventRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentRepository;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 
 
 import com.manacommunity.api.sports.dto.SportsAnalyticsResponse;
@@ -40,7 +40,7 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
     private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository eventRepo;
     private final SportsEventRegistrationRepository registrationRepo;
-    private final VenueRepository venueRepo;
+    private final SportsVenueRepository venueRepo;
     private final SportsAuctionConfigRepository auctionConfigRepo;
     private final SportsAuctionTeamRepository auctionTeamRepo;
     private final SportsAuctionPlayerRepository auctionPlayerRepo;
@@ -99,7 +99,7 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         long uniqueParticipants = uniqueParticipantKeys.size();
 
         // 4. Fetch Venues
-        List<Venue> venues = targetCommunityId == null
+        List<SportsVenue> venues = targetCommunityId == null
                 ? venueRepo.findAll()
                 : venueRepo.findAll().stream()
                 .filter(v -> v.getCommunity() != null && targetCommunityId.equals(v.getCommunity().getId()))
@@ -253,7 +253,7 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
                 .collect(Collectors.groupingBy(e -> e.getVenue().getId(), Collectors.counting()));
 
         List<VenueUtilizationMetric> venueUtilization = new ArrayList<>();
-        for (Venue v : venues) {
+        for (SportsVenue v : venues) {
             long eCount = eventsByVenue.getOrDefault(v.getId(), 0L);
             long courtCount = v.getCourts() != null ? v.getCourts().size() : 0;
             venueUtilization.add(new VenueUtilizationMetric(v.getId(), v.getName(), eCount, courtCount));

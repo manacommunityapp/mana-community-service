@@ -5,7 +5,7 @@ import com.manacommunity.api.sports.dto.*;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsMeta;
 import com.manacommunity.api.sports.model.TournamentType;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 
 
 import com.manacommunity.api.model.Community;
@@ -71,7 +71,7 @@ public class SportsTournamentConfig {
     private Integer breakBetweenMatchesMinutes;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id")
-    private Venue venue;
+    private SportsVenue venue;
 
     // ── Points system (for round robin / group stage) ─────────────
     private Integer pointsForWin;          // default 2

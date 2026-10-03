@@ -1,9 +1,7 @@
 package com.manacommunity.api.sports.model;
+
 import com.manacommunity.api.model.Community;
-
-
 import com.manacommunity.api.user.model.AppUser;
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +10,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Entity @Table(name = "sports_event_registration")
+@Entity 
+@Table(name = "sports_event_registration")
 @Data
 @Builder
 @NoArgsConstructor
@@ -108,6 +107,15 @@ public class SportsEventRegistration {
     /** Admin-assigned seed for bracket draw (1 = top seed). Overrides global ranking for this event. */
     @Column(name = "seed")
     private Integer seed;
+
+    @Column(name = "cricheroes_url", length = 500)
+    private String cricheroesUrl;
+
+    @Column(name = "cricheroes_id", length = 100)
+    private String cricheroesId;
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
 
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;

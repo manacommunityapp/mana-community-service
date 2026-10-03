@@ -3,7 +3,7 @@ import com.manacommunity.api.sports.model.SportsAuctionTeam;
 import com.manacommunity.api.sports.model.SportsCourt;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsTournament;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.scheduler.SportsGroupTeamStanding;
 import com.manacommunity.api.sports.scheduler.SportsTournamentConfig;
 import com.manacommunity.api.sports.scheduler.SportsTournamentGroup;

@@ -99,7 +99,7 @@ public class SportsEventCsvImportService {
                     continue;
                 }
 
-                // Column order: Player Name, Email, Category, Age, Flat Number, Relation, Primary Role
+                // Column order: Player Name, Email, Category, Age, Flat Number, Relation, Primary Role, CricHeroes URL
                 String playerName = cols[0].trim();
                 String email = cols.length > 1 ? cols[1].trim() : null;
                 String categoryName = cols.length > 2 ? cols[2].trim() : "";
@@ -107,6 +107,8 @@ public class SportsEventCsvImportService {
                 String flatNumber = cols.length > 4 ? cols[4].trim() : null;
                 String relation = cols.length > 5 ? cols[5].trim() : null;
                 String role = cols.length > 6 ? cols[6].trim() : null;
+                String cricHeroesUrl = cols.length > 7 ? cols[7].trim() : null;
+                if (cricHeroesUrl != null && cricHeroesUrl.isBlank()) cricHeroesUrl = null;
 
                 // Duplicate check: name + email + flat number (case-insensitive, blank-safe)
                 String key = dupKey(playerName, email, flatNumber);
@@ -200,6 +202,7 @@ public class SportsEventCsvImportService {
                         .relation(relation)
                         .age(age)
                         .role(role)
+                        .cricheroesUrl(cricHeroesUrl)
                         .status(SportsEventRegistration.RegistrationStatus.REGISTERED)
                         .registeredAt(LocalDateTime.now())
                         .build();
