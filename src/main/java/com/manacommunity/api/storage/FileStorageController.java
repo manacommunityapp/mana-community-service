@@ -72,9 +72,8 @@ public class FileStorageController {
 
     /**
      * Serve a Postgres-stored file by id.
-     * Not called for S3 files — those are served directly from the S3 URL.
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<byte[]> download(@PathVariable Long id) {
         StoredFile file = storedFileRepo.findById(id).orElse(null);
         if (file == null) return ResponseEntity.notFound().build();
@@ -82,9 +81,47 @@ public class FileStorageController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"" + file.getOriginalName() + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, org.springframework.http.CacheControl.maxAge(1, java.util.concurrent.TimeUnit.DAYS).cachePublic().getHeaderValue())
                 .contentType(MediaType.parseMediaType(file.getContentType()))
                 .contentLength(file.getSizeBytes())
                 .body(file.getData());
+    }
+
+    /**
+     * Stream any S3 or persistent file by wildcard path/key (e.g. /api/files/users/14/gallery/original/xxx.jpg).
+     */
+    @GetMapping("/**")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamFile(
+            jakarta.servlet.http.HttpServletRequest request) {
+        String fullPath = (String) request.getAttribute(org.springframework.web.servlet.HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+        if (fullPath == null || !fullPath.startsWith("/api/files/")) {
+            return ResponseEntity.badRequest().build();
+        }
+        String key = fullPath.substring("/api/files/".length()).trim();
+        if (key.isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        FileStreamResource resource = storageService.getStream(key);
+        if (resource == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                resource.getContentType() != null ? resource.getContentType() : "application/octet-stream"));
+        if (resource.getContentLength() != null) {
+            headers.setContentLength(resource.getContentLength());
+        }
+        if (resource.getETag() != null) {
+            headers.setETag(resource.getETag());
+        }
+        if (resource.getFilename() != null) {
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"");
+        }
+        headers.setCacheControl(org.springframework.http.CacheControl.maxAge(1, java.util.concurrent.TimeUnit.DAYS).cachePublic().getHeaderValue());
+
+        return new ResponseEntity<>(resource.getBody(), headers, HttpStatus.OK);
     }
 
     /**

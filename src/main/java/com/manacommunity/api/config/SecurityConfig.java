@@ -249,7 +249,10 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/tournament/**").authenticated()
                 // AI Chat Agent — requires authentication; the controller itself
                 // validates community membership and active status.
-                .requestMatchers("/api/ai/**").authenticated()
+                // Public file and media streaming (allows browsers to load images in <img> tags without Authorization headers)
+                .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
+                .requestMatchers("/api/files/refresh-url").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );
