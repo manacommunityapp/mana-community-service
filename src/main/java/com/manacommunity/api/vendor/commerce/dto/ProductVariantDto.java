@@ -17,7 +17,7 @@ public class ProductVariantDto {
     private BigDecimal vendorCost;
     private BigDecimal defaultCommunityPrice;
     private Boolean isActive;
-    private Integer availableQty;
-    private Integer reservedQty;
-    private Integer committedQty;
+    private Integer availableStock;
+    private Integer reservedStock;
+    private Integer committedStock;
 }

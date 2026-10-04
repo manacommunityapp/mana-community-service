@@ -60,6 +60,49 @@ public class GroupBuyingController {
         return ResponseEntity.ok(groupBuyingService.joinDeal(id, user, request));
     }
 
+    @PostMapping("/deals/{id}/checkout")
+    public ResponseEntity<GroupOrderResponse> checkoutGroupBuy(
+            @PathVariable Long id,
+            @Valid @RequestBody GroupBuyCheckoutRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.checkoutGroupBuy(id, user, request));
+    }
+
+    @PostMapping("/orders/{orderNumber}/authorize-collector")
+    public ResponseEntity<AuthorizedCollectorResponse> authorizeCollector(
+            @PathVariable String orderNumber,
+            @Valid @RequestBody AuthorizeCollectorRequest request) {
+        return ResponseEntity.ok(groupBuyingService.authorizeCollector(orderNumber, request));
+    }
+
+    @PostMapping("/reviews")
+    public ResponseEntity<OrderReviewResponse> submitReview(
+            @Valid @RequestBody OrderReviewRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.submitReview(user, request));
+    }
+
+    @GetMapping("/reviews/deal/{dealId}")
+    public ResponseEntity<List<OrderReviewResponse>> getDealReviews(@PathVariable String dealId) {
+        return ResponseEntity.ok(groupBuyingService.getReviewsForDeal(dealId));
+    }
+
+    @PostMapping("/disputes")
+    public ResponseEntity<OrderDisputeResponse> raiseDispute(
+            @Valid @RequestBody OrderDisputeRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.raiseDispute(user, request));
+    }
+
+    @GetMapping("/disputes")
+    public ResponseEntity<List<OrderDisputeResponse>> getUserDisputes(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.getUserDisputes(user.getId()));
+    }
+
     @PostMapping("/orders/verify-pickup")
     public ResponseEntity<PickupVerificationResponse> verifyPickup(
             @Valid @RequestBody PickupVerificationRequest request) {
@@ -122,6 +165,29 @@ public class GroupBuyingController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(groupBuyingService.acceptVendorOffer(id, offerId, user));
+    }
+
+    @PostMapping("/deals/{id}/checkout")
+    public ResponseEntity<GroupOrderResponse> checkoutDeal(
+            @PathVariable Long id,
+            @Valid @RequestBody JoinDealRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.joinDeal(id, user, request));
+    }
+
+    @GetMapping("/tower-groups")
+    public ResponseEntity<List<BuyingGroupDto>> getTowerGroups(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.getTowerGroups(user.getCommunity().getId(), user));
+    }
+
+    @PostMapping("/ai-query")
+    public ResponseEntity<CommunityAiQueryResponse> queryCommunityAi(
+            @Valid @RequestBody CommunityAiQueryRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.queryCommunityAi(user.getCommunity().getId(), request.getQuery()));
     }
 
 }

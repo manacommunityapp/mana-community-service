@@ -12,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vendor/commerce")
@@ -40,6 +41,14 @@ public class VendorCommerceController {
         return ResponseEntity.ok(commerceService.createProduct(user, request));
     }
 
+    @PostMapping("/variants/{id}/adjust-stock")
+    public ResponseEntity<Void> adjustStock(
+            @PathVariable Long id,
+            @Valid @RequestBody StockAdjustmentRequest request) {
+        commerceService.adjustStock(id, request);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/inventory/reserve")
     public ResponseEntity<InventoryReservationResponse> reserveInventory(
             @Valid @RequestBody InventoryReservationRequest request) {
@@ -50,5 +59,22 @@ public class VendorCommerceController {
     public ResponseEntity<VendorCommerceStatsDto> getStats(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(commerceService.getStats(user.getId()));
+    }
+
+    @GetMapping("/settlements")
+    public ResponseEntity<List<VendorSettlementDto>> getSettlements(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commerceService.getSettlements(user.getId()));
+    }
+
+    @PostMapping("/settlements/{id}/request-payout")
+    public ResponseEntity<Map<String, Object>> requestPayout(@PathVariable String id) {
+        return ResponseEntity.ok(commerceService.requestPayout(id));
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<VendorAnalyticsDto> getAnalytics(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commerceService.getAnalytics(user.getId()));
     }
 }

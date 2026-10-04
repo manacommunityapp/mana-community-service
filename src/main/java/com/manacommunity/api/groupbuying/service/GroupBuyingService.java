@@ -2,9 +2,7 @@ package com.manacommunity.api.groupbuying.service;
 
 import com.manacommunity.api.groupbuying.dto.*;
 import com.manacommunity.api.groupbuying.model.*;
-import com.manacommunity.api.groupbuying.repository.CommunityDemandRepository;
-import com.manacommunity.api.groupbuying.repository.GroupBuyOrderRepository;
-import com.manacommunity.api.groupbuying.repository.GroupDealRepository;
+import com.manacommunity.api.groupbuying.repository.*;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +23,9 @@ public class GroupBuyingService {
     private final GroupDealRepository dealRepository;
     private final GroupBuyOrderRepository orderRepository;
     private final CommunityDemandRepository demandRepository;
+    private final OrderReviewRepository reviewRepository;
+    private final OrderDisputeRepository disputeRepository;
+    private final BuyingGroupRepository buyingGroupRepository;
 
     public List<GroupDealResponse> getDeals(Long communityId) {
         List<GroupDeal> deals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -83,11 +84,9 @@ public class GroupBuyingService {
 
         orderRepository.save(order);
 
-        // Update deal stats
         deal.setCommittedQty(deal.getCommittedQty() + qty);
         deal.setCurrentParticipants(deal.getCurrentParticipants() + 1);
 
-        // Check if unlocked a lower tier
         if (deal.getPriceTiers() != null && !deal.getPriceTiers().isEmpty()) {
             for (GroupDealTier tier : deal.getPriceTiers()) {
                 if (deal.getCommittedQty() >= tier.getMinQty()) {
@@ -98,6 +97,173 @@ public class GroupBuyingService {
         dealRepository.save(deal);
 
         return mapToOrderResponse(order);
+    }
+
+    @Transactional
+    public GroupOrderResponse checkoutGroupBuy(Long dealId, AppUser user, GroupBuyCheckoutRequest request) {
+        GroupDeal deal = dealRepository.findById(dealId)
+                .orElseThrow(() -> new IllegalArgumentException("Deal not found: " + dealId));
+
+        int qty = request.getQuantity();
+        BigDecimal unitPrice = deal.getCurrentTierPrice() != null ? deal.getCurrentTierPrice() : deal.getCurrentPrice();
+        BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(qty));
+        BigDecimal savings = deal.getMrp().subtract(unitPrice).multiply(BigDecimal.valueOf(qty));
+
+        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", System.currentTimeMillis() % 100000);
+        String otp = String.format("%04d", (int) (Math.random() * 9000 + 1000));
+        String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + otp;
+
+        GroupBuyOrder order = GroupBuyOrder.builder()
+                .orderNumber(orderNum)
+                .community(deal.getCommunity())
+                .user(user)
+                .deal(deal)
+                .dealTitle(deal.getTitle())
+                .quantity(qty)
+                .unitPrice(unitPrice)
+                .totalAmount(total)
+                .savingsAmount(savings)
+                .status(OrderStatus.CONFIRMED)
+                .qrToken(qrToken)
+                .pickupPoint(request.getDeliveryAddressOrPickup() != null ? request.getDeliveryAddressOrPickup() : deal.getPickupPoint())
+                .pickupDate(deal.getPickupDate())
+                .paymentMethod(request.getPaymentMethod())
+                .escrowHoldAmount(request.getEscrowHoldAmount() != null ? request.getEscrowHoldAmount() : BigDecimal.ZERO)
+                .deliveryAddress(request.getDeliveryAddressOrPickup())
+                .specialNotes(request.getSpecialNotes())
+                .build();
+
+        orderRepository.save(order);
+
+        deal.setCommittedQty(deal.getCommittedQty() + qty);
+        deal.setCurrentParticipants(deal.getCurrentParticipants() + 1);
+
+        if (deal.getPriceTiers() != null && !deal.getPriceTiers().isEmpty()) {
+            for (GroupDealTier tier : deal.getPriceTiers()) {
+                if (deal.getCommittedQty() >= tier.getMinQty()) {
+                    deal.setCurrentTierPrice(tier.getPrice());
+                }
+            }
+        }
+        dealRepository.save(deal);
+
+        return mapToOrderResponse(order);
+    }
+
+    @Transactional
+    public AuthorizedCollectorResponse authorizeCollector(String orderNumber, AuthorizeCollectorRequest request) {
+        GroupBuyOrder order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+
+        String pin = String.format("%04d", (int) (Math.random() * 9000 + 1000));
+        order.setCollectorPin(pin);
+        order.setCollectorName(request.getName());
+        order.setCollectorRelation(request.getRelationship());
+        orderRepository.save(order);
+
+        return AuthorizedCollectorResponse.builder()
+                .pin(pin)
+                .expiresAt("Expires at 7:00 PM")
+                .build();
+    }
+
+    @Transactional
+    public OrderReviewResponse submitReview(AppUser user, OrderReviewRequest request) {
+        OrderReview review = OrderReview.builder()
+                .orderId(request.getOrderId())
+                .dealId(request.getDealId() != null ? request.getDealId() : "deal-1")
+                .user(user)
+                .residentName(request.getResidentName() != null ? request.getResidentName() : user.getFullName())
+                .productRating(request.getProductRating())
+                .deliveryRating(request.getDeliveryRating())
+                .comment(request.getComment())
+                .build();
+
+        reviewRepository.save(review);
+
+        return OrderReviewResponse.builder()
+                .id(String.valueOf(review.getId()))
+                .orderId(review.getOrderId())
+                .dealId(review.getDealId())
+                .residentName(review.getResidentName())
+                .productRating(review.getProductRating())
+                .deliveryRating(review.getDeliveryRating())
+                .comment(review.getComment())
+                .createdAt(review.getCreatedAt() != null ? review.getCreatedAt().toString() : LocalDateTime.now().toString())
+                .build();
+    }
+
+    public List<OrderReviewResponse> getReviewsForDeal(String dealId) {
+        return reviewRepository.findByDealIdOrderByCreatedAtDesc(dealId).stream()
+                .map(r -> OrderReviewResponse.builder()
+                        .id(String.valueOf(r.getId()))
+                        .orderId(r.getOrderId())
+                        .dealId(r.getDealId())
+                        .residentName(r.getResidentName())
+                        .productRating(r.getProductRating())
+                        .deliveryRating(r.getDeliveryRating())
+                        .comment(r.getComment())
+                        .createdAt(r.getCreatedAt() != null ? r.getCreatedAt().toString() : null)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public OrderDisputeResponse raiseDispute(AppUser user, OrderDisputeRequest request) {
+        String dispNum = "DISP-" + LocalDateTime.now().getYear() + "-" + String.format("%03d", (int) (Math.random() * 900 + 100));
+
+        OrderDispute dispute = OrderDispute.builder()
+                .disputeNumber(dispNum)
+                .orderId(request.getOrderId())
+                .dealId(request.getDealId())
+                .dealTitle(request.getDealTitle())
+                .user(user)
+                .residentName(request.getResidentName() != null ? request.getResidentName() : user.getFullName())
+                .flatNumber(request.getFlat())
+                .reason(request.getReason())
+                .requestedResolution(request.getRequestedResolution())
+                .claimAmount(request.getClaimAmount())
+                .description(request.getDescription())
+                .status("SUBMITTED")
+                .build();
+
+        disputeRepository.save(dispute);
+
+        return OrderDisputeResponse.builder()
+                .id(dispute.getDisputeNumber())
+                .orderId(dispute.getOrderId())
+                .dealId(dispute.getDealId())
+                .dealTitle(dispute.getDealTitle())
+                .residentName(dispute.getResidentName())
+                .flat(dispute.getFlatNumber())
+                .reason(dispute.getReason())
+                .requestedResolution(dispute.getRequestedResolution())
+                .claimAmount(dispute.getClaimAmount())
+                .description(dispute.getDescription())
+                .status(dispute.getStatus())
+                .createdAt(LocalDateTime.now().toString())
+                .build();
+    }
+
+    public List<OrderDisputeResponse> getUserDisputes(Long userId) {
+        return disputeRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(d -> OrderDisputeResponse.builder()
+                        .id(d.getDisputeNumber())
+                        .orderId(d.getOrderId())
+                        .dealId(d.getDealId())
+                        .dealTitle(d.getDealTitle())
+                        .residentName(d.getResidentName())
+                        .flat(d.getFlatNumber())
+                        .reason(d.getReason())
+                        .requestedResolution(d.getRequestedResolution())
+                        .claimAmount(d.getClaimAmount())
+                        .description(d.getDescription())
+                        .status(d.getStatus())
+                        .createdAt(d.getCreatedAt() != null ? d.getCreatedAt().toString() : null)
+                        .resolvedAt(d.getResolvedAt() != null ? d.getResolvedAt().toString() : null)
+                        .vendorResponse(d.getVendorResponse())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -232,7 +398,6 @@ public class GroupBuyingService {
                 .build();
     }
 
-
     @Transactional
     public VendorOfferDto submitVendorOffer(Long demandId, AppUser vendorUser, SubmitVendorOfferRequest request) {
         CommunityDemand demand = demandRepository.findById(demandId)
@@ -288,7 +453,6 @@ public class GroupBuyingService {
         String vendorName = selectedOffer != null ? selectedOffer.getVendorName() : "Sri Traders";
         String vendorId = selectedOffer != null ? selectedOffer.getVendorId() : "v3";
 
-        // Auto-create live GroupDeal
         GroupDeal deal = GroupDeal.builder()
                 .community(demand.getCommunity())
                 .title(demand.getTitle())
@@ -323,6 +487,99 @@ public class GroupBuyingService {
         demandRepository.save(demand);
 
         return mapToDealResponse(deal);
+    }
+
+    public List<BuyingGroupDto> getTowerGroups(Long communityId, AppUser user) {
+        List<BuyingGroup> groups = buyingGroupRepository.findByCommunityIdOrderByNameAsc(communityId);
+        if (groups.isEmpty()) {
+            return List.of(
+                BuyingGroupDto.builder()
+                    .id(1L)
+                    .communityId(communityId)
+                    .name("Tower A Wholesale Club")
+                    .tower("Tower A")
+                    .block("Block 1")
+                    .leaderName("Rajesh Sharma")
+                    .leaderFlat("A-502")
+                    .description("Bulk groceries, oil and atta procurement for Tower A residents.")
+                    .totalSaved(BigDecimal.valueOf(34800))
+                    .memberCount(42)
+                    .activeDealsCount(6)
+                    .isMember(true)
+                    .build(),
+                BuyingGroupDto.builder()
+                    .id(2L)
+                    .communityId(communityId)
+                    .name("Tower B Organic & Fresh")
+                    .tower("Tower B")
+                    .block("Block 2")
+                    .leaderName("Ananya Rao")
+                    .leaderFlat("B-201")
+                    .description("Farm fresh fruits, organic honey and seasonal vegetables.")
+                    .totalSaved(BigDecimal.valueOf(28400))
+                    .memberCount(35)
+                    .activeDealsCount(4)
+                    .isMember(false)
+                    .build()
+            );
+        }
+        return groups.stream().map(g -> BuyingGroupDto.builder()
+                .id(g.getId())
+                .communityId(g.getCommunityId())
+                .name(g.getName())
+                .tower(g.getTower())
+                .block(g.getBlock())
+                .description(g.getDescription())
+                .totalSaved(g.getTotalSaved())
+                .memberCount(g.getMemberCount())
+                .activeDealsCount(g.getActiveDealsCount())
+                .isMember(g.getLeaderId().equals(user.getId()))
+                .build()).collect(Collectors.toList());
+    }
+
+    public CommunityAiQueryResponse queryCommunityAi(Long communityId, String query) {
+        String q = query != null ? query.toLowerCase() : "";
+        List<GroupDeal> matchedDeals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId).stream()
+                .filter(d -> d.getTitle().toLowerCase().contains(q) || d.getCategory().toLowerCase().contains(q))
+                .collect(Collectors.toList());
+
+        List<CommunityDemand> matchedDemands = demandRepository.findByCommunityIdOrderByUpvotesCountDesc(communityId).stream()
+                .filter(d -> d.getTitle().toLowerCase().contains(q) || d.getCategory().toLowerCase().contains(q))
+                .collect(Collectors.toList());
+
+        if (!matchedDeals.isEmpty()) {
+            GroupDeal top = matchedDeals.get(0);
+            return CommunityAiQueryResponse.builder()
+                    .query(query)
+                    .matchedDeals(matchedDeals.stream().map(this::mapToDealResponse).collect(Collectors.toList()))
+                    .matchedDemands(matchedDemands.stream().map(this::mapToDemandResponse).collect(Collectors.toList()))
+                    .suggestedAction("JOIN_DEAL")
+                    .suggestedPrice(top.getCurrentTierPrice() != null ? top.getCurrentTierPrice() : top.getCurrentPrice())
+                    .estimatedCommunitySavings(top.getMrp().subtract(top.getCurrentTierPrice() != null ? top.getCurrentTierPrice() : top.getCurrentPrice()))
+                    .confidenceScore(0.95)
+                    .explanation("Found active wholesale deal matching " + query + ". Community rate starts at Rs." + (top.getCurrentTierPrice() != null ? top.getCurrentTierPrice() : top.getCurrentPrice()) + ".")
+                    .build();
+        } else if (!matchedDemands.isEmpty()) {
+            CommunityDemand top = matchedDemands.get(0);
+            return CommunityAiQueryResponse.builder()
+                    .query(query)
+                    .matchedDeals(Collections.emptyList())
+                    .matchedDemands(matchedDemands.stream().map(this::mapToDemandResponse).collect(Collectors.toList()))
+                    .suggestedAction("UPVOTE_DEMAND")
+                    .confidenceScore(0.88)
+                    .explanation(top.getInterestedResidents() + " neighbours already requested " + top.getTitle() + ". Upvote to attract wholesale vendor bids.")
+                    .build();
+        } else {
+            return CommunityAiQueryResponse.builder()
+                    .query(query)
+                    .matchedDeals(Collections.emptyList())
+                    .matchedDemands(Collections.emptyList())
+                    .suggestedAction("CREATE_DEMAND")
+                    .suggestedPrice(BigDecimal.valueOf(450))
+                    .confidenceScore(0.75)
+                    .explanation("No live deals found for " + query + ". Start a community demand with target MOQ to get competing quotes from verified suppliers.")
+                    .build();
+        }
     }
 
     private GroupDealResponse mapToDealResponse(GroupDeal deal) {

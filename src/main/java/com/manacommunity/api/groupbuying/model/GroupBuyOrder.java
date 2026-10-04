@@ -65,4 +65,25 @@ public class GroupBuyOrder extends BaseAuditEntity {
 
     @Column(name = "pickup_date")
     private LocalDateTime pickupDate;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
+    @Column(name = "escrow_hold_amount", precision = 12, scale = 2)
+    private BigDecimal escrowHoldAmount;
+
+    @Column(name = "delivery_address")
+    private String deliveryAddress;
+
+    @Column(name = "special_notes")
+    private String specialNotes;
+
+    @Column(name = "collector_pin", length = 10)
+    private String collectorPin;
+
+    @Column(name = "collector_name", length = 100)
+    private String collectorName;
+
+    @Column(name = "collector_relation", length = 50)
+    private String collectorRelation;
 }
