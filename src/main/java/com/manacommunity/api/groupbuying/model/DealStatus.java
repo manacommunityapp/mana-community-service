@@ -1,0 +1,22 @@
+package com.manacommunity.api.groupbuying.model;
+
+public enum DealStatus {
+    DRAFT,
+    PENDING_APPROVAL,
+    PUBLISHED,
+    OPEN,
+    TARGET_REACHED,
+    PRICE_LOCKED,
+    PAYMENT_OPEN,
+    PAYMENT_COMPLETED,
+    ORDER_PLACED,
+    PROCESSING,
+    READY_FOR_PICKUP,
+    PICKUP_IN_PROGRESS,
+    COMPLETED,
+    TARGET_NOT_REACHED,
+    EXPIRED,
+    REFUNDING,
+    REFUNDED,
+    CANCELLED
+}

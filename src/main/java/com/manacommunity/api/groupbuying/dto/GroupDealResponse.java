@@ -1,0 +1,61 @@
+package com.manacommunity.api.groupbuying.dto;
+
+import com.manacommunity.api.groupbuying.model.DealStatus;
+import com.manacommunity.api.groupbuying.model.FulfillmentType;
+import com.manacommunity.api.groupbuying.model.PaymentType;
+import com.manacommunity.api.groupbuying.model.PricingModel;
+import com.manacommunity.api.groupbuying.model.PricingType;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class GroupDealResponse {
+    private String id;
+    private String title;
+    private String category;
+    private String subCategory;
+    private String description;
+    private String imageUrl;
+    private String vendor;
+    private String vendorId;
+    private Double vendorRating;
+    private Boolean vendorVerified;
+
+    private PricingModel pricingModel;
+    private PricingType pricingType;
+    private BigDecimal mrp;
+    private BigDecimal standardPrice;
+    private BigDecimal currentPrice;
+    private BigDecimal currentTierPrice;
+    private BigDecimal nextTierPrice;
+    private Integer nextTierUnitsNeeded;
+
+    private List<PriceTierDto> priceTiers;
+    private Integer committedQty;
+    private Integer targetQty;
+    private Integer currentParticipants;
+    private Integer targetParticipants;
+    private Integer inventoryRemaining;
+    private String moqLabel;
+
+    private DealStatus dealStatus;
+    private Integer daysLeft;
+    private String dealEndsAt;
+    private String priceLockedAt;
+
+    private String pickupPoint;
+    private String pickupDate;
+    private List<String> pickupSlots;
+    private FulfillmentType fulfillmentType;
+    private PaymentType paymentType;
+
+    private Boolean isTrending;
+    private Boolean isAlmostUnlocked;
+    private Boolean isFestivalDeal;
+    private Boolean isEndingSoon;
+}
