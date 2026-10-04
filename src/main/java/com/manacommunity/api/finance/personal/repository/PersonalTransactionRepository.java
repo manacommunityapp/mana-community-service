@@ -23,12 +23,12 @@ public interface PersonalTransactionRepository extends JpaRepository<PersonalTra
 
     List<PersonalTransaction> findByUserIdAndIsManaProjectionTrueOrderByTransactionDateDesc(Long userId);
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalTransaction t WHERE t.user.id = :userId AND t.type = 'INCOME' AND t.transactionDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalFinanceTransaction t WHERE t.user.id = :userId AND t.type = 'INCOME' AND t.transactionDate BETWEEN :from AND :to")
     BigDecimal sumIncomeForPeriod(@Param("userId") Long userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalTransaction t WHERE t.user.id = :userId AND t.type = 'EXPENSE' AND t.transactionDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalFinanceTransaction t WHERE t.user.id = :userId AND t.type = 'EXPENSE' AND t.transactionDate BETWEEN :from AND :to")
     BigDecimal sumExpensesForPeriod(@Param("userId") Long userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalTransaction t WHERE t.user.id = :userId AND t.type = 'EXPENSE' AND t.categoryId = :categoryId AND t.transactionDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalFinanceTransaction t WHERE t.user.id = :userId AND t.type = 'EXPENSE' AND t.categoryId = :categoryId AND t.transactionDate BETWEEN :from AND :to")
     BigDecimal sumCategoryExpensesForPeriod(@Param("userId") Long userId, @Param("categoryId") String categoryId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 }

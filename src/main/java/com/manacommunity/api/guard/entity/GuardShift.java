@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-@Entity
+@Entity(name = "GuardModuleShift")
 @Table(name = "guard_shift")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class GuardShift {

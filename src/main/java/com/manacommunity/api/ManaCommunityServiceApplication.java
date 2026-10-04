@@ -12,20 +12,25 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
+
 // Spring AI 1.0.0 targets Boot 3.x and references RestClientAutoConfiguration
 // which was relocated in Boot 4. Exclude all AI auto-configs until Spring AI
 // releases a Boot-4-compatible version.
 @EnableAsync
 @EnableScheduling
-@SpringBootApplication(exclude = {
-    OllamaChatAutoConfiguration.class,
-    OllamaEmbeddingAutoConfiguration.class,
-    ChatClientAutoConfiguration.class,
-    ChatMemoryAutoConfiguration.class,
-    ToolCallingAutoConfiguration.class,
-    ChatObservationAutoConfiguration.class,
-    EmbeddingObservationAutoConfiguration.class,
-})
+@SpringBootApplication(
+    nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class,
+    exclude = {
+        OllamaChatAutoConfiguration.class,
+        OllamaEmbeddingAutoConfiguration.class,
+        ChatClientAutoConfiguration.class,
+        ChatMemoryAutoConfiguration.class,
+        ToolCallingAutoConfiguration.class,
+        ChatObservationAutoConfiguration.class,
+        EmbeddingObservationAutoConfiguration.class,
+    }
+)
 public class ManaCommunityServiceApplication {
 
     @jakarta.annotation.PostConstruct
@@ -34,7 +39,9 @@ public class ManaCommunityServiceApplication {
     }
 
     public static void main(String[] args) {
-        SpringApplication.run(ManaCommunityServiceApplication.class, args);
+        SpringApplication app = new SpringApplication(ManaCommunityServiceApplication.class);
+        app.setBeanNameGenerator(new FullyQualifiedAnnotationBeanNameGenerator());
+        app.run(args);
     }
 
 }

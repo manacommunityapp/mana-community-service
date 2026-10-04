@@ -8,7 +8,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "IotSmartMeter")
 @Table(name = "smart_meters")
 @Getter
 @Setter

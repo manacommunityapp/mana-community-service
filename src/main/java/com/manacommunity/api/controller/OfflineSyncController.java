@@ -19,8 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@RestController
-@RequestMapping("/api/v1/sync")
+// Disabled in favor of com.manacommunity.api.sync.OfflineSyncController
+// @RestController
+// @RequestMapping("/api/v1/sync")
 @RequiredArgsConstructor
 public class OfflineSyncController {
 

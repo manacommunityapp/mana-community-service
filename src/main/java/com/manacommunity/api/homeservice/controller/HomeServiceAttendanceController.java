@@ -18,7 +18,7 @@ import java.util.List;
 public class HomeServiceAttendanceController {
     private final HomeServiceAttendanceAndBillingService attendanceService;
 
-    @PostMapping
+    @PostMapping("/mark")
     public ResponseEntity<HomeServiceAttendanceEntity> markAttendance(@RequestBody HomeServiceAttendanceRequest req) {
         return ResponseEntity.ok(attendanceService.markAttendance(req));
     }

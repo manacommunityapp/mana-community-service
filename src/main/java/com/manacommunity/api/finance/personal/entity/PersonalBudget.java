@@ -6,7 +6,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "PersonalFinanceBudget")
 @Table(name = "personal_finance_budgets")
 @Data
 @Builder
