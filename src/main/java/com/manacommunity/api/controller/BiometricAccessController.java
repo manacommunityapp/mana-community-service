@@ -1,70 +1,100 @@
 package com.manacommunity.api.controller;
 
-import com.manacommunity.api.dto.FaceVerificationRequest;
-import com.manacommunity.api.dto.FaceVerificationResult;
-import com.manacommunity.api.dto.TurnstileOverrideRequest;
-import com.manacommunity.api.model.AccessLogEntry;
-import com.manacommunity.api.model.StaffScheduleRule;
+import com.manacommunity.api.dto.AccessVerifyRequest;
+import com.manacommunity.api.dto.TurnstileRequest;
+import com.manacommunity.api.model.AccessLog;
 import com.manacommunity.api.model.Turnstile;
 import com.manacommunity.api.service.BiometricAccessService;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/access/turnstiles")
+@RequestMapping("/api/v1/access")
+@RequiredArgsConstructor
 public class BiometricAccessController {
 
-    @Autowired
-    private BiometricAccessService accessService;
+    private final BiometricAccessService biometricAccessService;
+    private final LoggedInUserService loggedInUserService;
 
-    @GetMapping
+    // ── Turnstiles ───────────────────────────────────────────────────────
+
+    @GetMapping("/turnstiles")
     public ResponseEntity<List<Turnstile>> getTurnstiles(
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(accessService.getTurnstiles(principal.getCommunityId()));
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.getTurnstiles(communityId));
     }
 
-    @PostMapping("/verify")
-    public ResponseEntity<FaceVerificationResult> verifyFace(
-            @RequestBody FaceVerificationRequest request) {
-        return ResponseEntity.ok(accessService.verifyFace(request));
-    }
-
-    @GetMapping("/access-log")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SECURITY')")
-    public ResponseEntity<List<AccessLogEntry>> getAccessLog(
+    @GetMapping("/turnstiles/{id}")
+    public ResponseEntity<Turnstile> getTurnstile(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(accessService.getAccessLog(principal.getCommunityId(), page, size));
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.getTurnstile(communityId, id));
     }
 
-    @GetMapping("/staff-schedules")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SECURITY')")
-    public ResponseEntity<List<StaffScheduleRule>> getStaffSchedules(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(accessService.getStaffSchedules(principal.getCommunityId()));
-    }
-
-    @PutMapping("/staff-schedules/{staffId}")
+    @PostMapping("/turnstiles")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<StaffScheduleRule> updateStaffSchedule(
-            @PathVariable Long staffId,
-            @RequestBody StaffScheduleRule rule) {
-        return ResponseEntity.ok(accessService.updateStaffSchedule(staffId, rule));
+    public ResponseEntity<Turnstile> createTurnstile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody TurnstileRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.createTurnstile(communityId, request));
     }
 
-    @PostMapping("/{turnstileId}/override")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SECURITY')")
-    public ResponseEntity<Void> overrideTurnstile(
-            @PathVariable Long turnstileId,
-            @RequestBody TurnstileOverrideRequest request) {
-        accessService.overrideTurnstile(turnstileId, request);
-        return ResponseEntity.ok().build();
+    @PutMapping("/turnstiles/{id}/status")
+    public ResponseEntity<Turnstile> updateTurnstileStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam String status) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.updateTurnstileStatus(communityId, id, status));
+    }
+
+    // ── Access Logs ──────────────────────────────────────────────────────
+
+    @GetMapping("/access-logs")
+    public ResponseEntity<List<AccessLog>> getAccessLogs(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long user,
+            @RequestParam(required = false) Long turnstile,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        Long communityId = currentUser.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.getAccessLogs(communityId, user, turnstile, from, to));
+    }
+
+    @PostMapping("/access-logs/verify")
+    public ResponseEntity<AccessLog> verifyAccess(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody AccessVerifyRequest request) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        Long communityId = currentUser.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.verifyAccess(communityId, request));
+    }
+
+    @GetMapping("/access-logs/summary")
+    public ResponseEntity<Map<String, Object>> getAccessSummary(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser currentUser = loggedInUserService.resolve(principal);
+        Long communityId = currentUser.getCommunity().getId();
+        return ResponseEntity.ok(biometricAccessService.getAccessSummary(communityId));
     }
 }

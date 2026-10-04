@@ -51,11 +51,7 @@ class CommunityModuleServiceTest {
             assertThat(cm.getCreatedAt()).isNotNull();
             assertThat(cm.getUpdatedAt()).isNotNull();
 
-            if (cm.getModuleKey().equals("COMMUNITY_FEED") || cm.getModuleKey().equals("ADMIN_HUB")) {
-                assertThat(cm.getIsEnabled()).isTrue();
-            } else {
-                assertThat(cm.getIsEnabled()).isFalse();
-            }
+            assertThat(cm.getIsEnabled()).isFalse();
         }
     }
 

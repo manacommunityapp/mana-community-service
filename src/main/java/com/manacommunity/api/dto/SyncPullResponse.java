@@ -1,27 +1,10 @@
 package com.manacommunity.api.dto;
 
-import lombok.*;
-
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class SyncPullResponse {
-    private List<ChangeLogEntry> changes;
-    private Long newCheckpoint;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ChangeLogEntry {
-        private Long changeLogId;
-        private String entityType;
-        private String action;
-        private Long entityId;
-        private String payloadJson;
-        private Long serverVectorTimestamp;
-    }
-}
+public record SyncPullResponse(
+    LocalDateTime lastSyncTimestamp,
+    Map<String, List<Map<String, Object>>> updates
+) {}

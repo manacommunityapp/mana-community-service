@@ -1,4 +1,5 @@
 package com.manacommunity.api.service.sample;
+import com.manacommunity.api.sports.sample.data.*;
 
 import com.manacommunity.api.constants.ModuleConstants;
 import com.manacommunity.api.model.Community;
@@ -33,7 +34,7 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsMetaSeeder sportsMetaSeeder;
     private final UserSeeder userSeeder;
     private final SportsPlayerCategorySeeder playerCategorySeeder;
-    private final VenueSeeder venueSeeder;
+    private final SportsVenueSeeder venueSeeder;
     private final CommunityLeaderSeeder communityLeaderSeeder;
     private final SportsEventSeeder sportsEventSeeder;
     private final SportsTournamentSeeder tournamentSeeder;
@@ -43,7 +44,7 @@ public class SampleDataService implements ApplicationRunner {
     private final DefaultCommunityModuleDataService defaultCommunityModuleDataService;
     // Dedicated per-table sample seeders
     private final RolePermissionDataSeeder rolePermissionDataSeeder;
-    private final VenueDataSeeder venueDataSeeder;
+    private final SportsVenueDataSeeder venueDataSeeder;
     private final SportsCourtDataSeeder courtDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;

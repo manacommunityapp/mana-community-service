@@ -26,7 +26,7 @@ public class FeedController {
     private final FeedService feedService;
     private final EngagementService engagementService;
 
-    @GetMapping
+    @GetMapping({"", "/stream"})
     public ResponseEntity<Page<PostResponse>> getFeed(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type,
@@ -38,6 +38,14 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id:[0-9]+}")
+    public ResponseEntity<PostResponse> getPostById(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser currentUser = principal != null ? loggedInUserService.resolve(principal) : null;
+        return ResponseEntity.ok(feedService.getPostById(currentUser, id));
+    }
+
     @GetMapping("/summary-counts")
     public ResponseEntity<FeedSummaryCountsResponse> getSidebarSummaryCounts(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -46,7 +54,7 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/group/{groupId}")
+    @GetMapping({"/group/{groupId}", "/group/{groupId}/stream"})
     public ResponseEntity<Page<PostResponse>> getGroupFeed(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long groupId,
@@ -58,7 +66,7 @@ public class FeedController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/search")
+    @GetMapping({"/search", "/search-stream"})
     public ResponseEntity<Page<PostResponse>> searchPosts(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam String q,

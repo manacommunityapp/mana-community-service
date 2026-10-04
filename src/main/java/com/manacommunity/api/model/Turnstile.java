@@ -17,43 +17,41 @@ public class Turnstile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "society_id", nullable = false)
-    private Long societyId;
+    @Column(name = "community_id", nullable = false)
+    private Long communityId;
 
-    @Column(name = "turnstile_code", nullable = false, unique = true, length = 50)
-    private String turnstileCode;
+    @Column(nullable = false, length = 100)
+    private String name;
 
-    @Column(name = "turnstile_name", length = 150)
-    private String turnstileName;
+    @Column(length = 200)
+    private String location;
 
-    @Column(name = "gate_location", length = 200)
-    private String gateLocation;
-
-    @Column(name = "turnstile_type", nullable = false, length = 30)
-    private String turnstileType;
-
-    @Column(name = "ip_address", length = 45)
-    private String ipAddress;
-
-    @Column(name = "relay_pin")
-    private Integer relayPin;
-
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String status;
+    private TurnstileType type;
 
-    @Column(name = "confidence_threshold")
-    private Double confidenceThreshold;
-
-    @Column(name = "unlock_duration_seconds")
-    private Integer unlockDurationSeconds;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private TurnstileStatus status = TurnstileStatus.ONLINE;
 
     @Column(name = "last_heartbeat")
     private LocalDateTime lastHeartbeat;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    public enum TurnstileType {
+        ENTRY, EXIT, BIDIRECTIONAL
+    }
+
+    public enum TurnstileStatus {
+        ONLINE, OFFLINE, MAINTENANCE
+    }
+
     @PrePersist
     protected void onCreate() {
-        if (status == null) status = "ONLINE";
-        if (confidenceThreshold == null) confidenceThreshold = 0.80;
-        if (unlockDurationSeconds == null) unlockDurationSeconds = 3;
+        createdAt = LocalDateTime.now();
+        if (status == null) status = TurnstileStatus.ONLINE;
     }
 }

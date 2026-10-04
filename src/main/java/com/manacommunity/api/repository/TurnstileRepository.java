@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface TurnstileRepository extends JpaRepository<Turnstile, Long> {
 
-    List<Turnstile> findBySocietyId(Long societyId);
+    List<Turnstile> findByCommunityIdOrderByName(Long communityId);
 
-    Optional<Turnstile> findByTurnstileCode(String turnstileCode);
+    Optional<Turnstile> findByIdAndCommunityId(Long id, Long communityId);
 }

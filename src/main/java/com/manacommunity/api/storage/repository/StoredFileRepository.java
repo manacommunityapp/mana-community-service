@@ -14,5 +14,7 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, Long> {
     /** Lightweight existence + metadata check without loading the binary payload. */
     @Query("SELECT new com.manacommunity.api.storage.StoredFileMetaOnly(f.id, f.originalName, f.contentType, f.sizeBytes) FROM StoredFile f WHERE f.id = :id")
     Optional<StoredFileMetaOnly> findMetaById(Long id);
+
+    Optional<StoredFile> findByFilename(String filename);
 }
 

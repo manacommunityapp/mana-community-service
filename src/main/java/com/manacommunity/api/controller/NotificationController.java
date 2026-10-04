@@ -3,10 +3,11 @@ package com.manacommunity.api.controller;
 import com.manacommunity.api.dto.MarkReadRequest;
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
-import com.manacommunity.api.dto.SportsTournamentAnnouncementRequest;
-import com.manacommunity.api.email.SportsTournamentAnnouncementService;
-import com.manacommunity.api.model.SportsTournament;
-import com.manacommunity.api.service.SportsTournamentService;
+import com.manacommunity.api.dto.NotificationSummaryResponse;
+import com.manacommunity.api.sports.dto.SportsTournamentAnnouncementRequest;
+import com.manacommunity.api.sports.email.SportsTournamentAnnouncementService;
+import com.manacommunity.api.sports.model.SportsTournament;
+import com.manacommunity.api.sports.service.SportsTournamentService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.NotificationManagementService;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ import java.util.List;
  * REST endpoints for the user-facing notification inbox.
  */
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping({"/api/notifications", "/api/v1/notifications"})
 @RequiredArgsConstructor
 public class NotificationController {
 
@@ -40,6 +41,19 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size) {
         int safeSize = Math.min(Math.max(size, 1), 100);
         return ResponseEntity.ok(notificationService.getUserNotifications(principal.getId(), Math.max(page, 0), safeSize));
+    }
+
+    /**
+     * GET /api/notifications/summary — dedicated lightweight notification feed endpoint for UI widgets.
+     * Only transfers essential UI fields, eliminating internal metadata, channels, and lazy lookups.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<Page<NotificationSummaryResponse>> getNotificationsSummary(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(notificationService.getUserNotificationsSummary(principal.getId(), Math.max(page, 0), safeSize));
     }
 
     /** GET /api/notifications/count — unread badge count. */

@@ -1,4 +1,5 @@
 package com.manacommunity.api.service;
+import com.manacommunity.api.sports.repository.SportsEventRepository;
 
 import com.manacommunity.api.user.model.AppUser;
 
@@ -83,6 +84,16 @@ public class FeedService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.findByGroupIdAndDeletedFalseOrderByPinnedDescCreatedAtDesc(groupId, pageable);
         return toPostResponsePage(posts, currentUser.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public PostResponse getPostById(AppUser currentUser, Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+        if (post.isDeleted()) {
+            throw new ResourceNotFoundException("Post", postId);
+        }
+        return toPostResponse(post, currentUser != null ? currentUser.getId() : null);
     }
 
     @Transactional
@@ -1185,8 +1196,8 @@ public class FeedService {
             sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
                     communityId,
                     List.of(
-                            com.manacommunity.api.model.SportsEventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.model.SportsEventStatus.LIVE
+                            com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.sports.model.SportsEventStatus.LIVE
                     )
             );
         } catch (Exception ignored) {

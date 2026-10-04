@@ -26,7 +26,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
     private final AppUserRepository appUserRepository;
-    private final com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
+    private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
     private final com.manacommunity.api.repository.PostRepository postRepository;
     private final com.manacommunity.api.marketplace.repository.MarketListingRepository marketListingRepository;
     private final com.manacommunity.api.jobs.repository.JobRepository jobRepository;
@@ -72,10 +72,10 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setPhone(request.getPhone());
         }
         if (request.getDob() != null && !request.getDob().equals(user.getDateOfBirth())) {
-            List<com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
-                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING,
-                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
-                    com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+            List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
             );
             boolean hasActiveRegistrations = sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
                     || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses);
@@ -151,15 +151,15 @@ public class UserProfileServiceImpl implements UserProfileService {
         int realEventsAttended = 0;
         int realSportsPlayed = 0;
         try {
-            List<com.manacommunity.api.model.SportsEventRegistration> regs = 
+            List<com.manacommunity.api.sports.model.SportsEventRegistration> regs = 
                     sportsEventRegistrationRepository.findByUserId(user.getId());
 
             realEventsAttended = (int) regs.stream()
-                    .filter(r -> r.getStatus() != com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN)
+                    .filter(r -> r.getStatus() != com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN)
                     .count();
 
             realSportsPlayed = (int) regs.stream()
-                    .filter(r -> r.getStatus() != com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN &&
+                    .filter(r -> r.getStatus() != com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN &&
                                  r.getEvent() != null && r.getEvent().getSport() != null && r.getEvent().getSport().getId() != null)
                     .map(r -> r.getEvent().getSport().getId())
                     .distinct()
@@ -226,10 +226,10 @@ public class UserProfileServiceImpl implements UserProfileService {
 
         // 3. User's Sports & Event Registrations
         try {
-            List<com.manacommunity.api.model.SportsEventRegistration> regs = 
+            List<com.manacommunity.api.sports.model.SportsEventRegistration> regs = 
                     sportsEventRegistrationRepository.findByUserId(user.getId());
-            for (com.manacommunity.api.model.SportsEventRegistration r : regs) {
-                if (r.getStatus() != com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN) {
+            for (com.manacommunity.api.sports.model.SportsEventRegistration r : regs) {
+                if (r.getStatus() != com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN) {
                     String eventName = r.getEvent() != null && r.getEvent().getName() != null 
                             ? r.getEvent().getName() 
                             : (r.getEvent() != null && r.getEvent().getSport() != null ? r.getEvent().getSport().getName() + " Event" : "Sports Event");

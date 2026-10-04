@@ -8,11 +8,11 @@ import java.util.Optional;
 
 public interface SmartMeterRepository extends JpaRepository<SmartMeter, Long> {
 
-    List<SmartMeter> findByUnitId(Long unitId);
+    List<SmartMeter> findByCommunityIdOrderByFlatNumber(Long communityId);
 
-    List<SmartMeter> findBySocietyId(Long societyId);
+    List<SmartMeter> findByCommunityIdAndFlatNumberOrderByMeterType(Long communityId, String flatNumber);
 
-    List<SmartMeter> findBySocietyIdAndMeterType(Long societyId, String meterType);
+    List<SmartMeter> findByCommunityIdAndMeterTypeOrderByFlatNumber(Long communityId, SmartMeter.MeterType meterType);
 
-    Optional<SmartMeter> findByMeterNumber(String meterNumber);
+    Optional<SmartMeter> findByIdAndCommunityId(Long id, Long communityId);
 }

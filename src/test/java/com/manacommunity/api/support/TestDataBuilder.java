@@ -1,15 +1,20 @@
 package com.manacommunity.api.support;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.model.*;
-import com.manacommunity.api.model.scheduler.*;
 import com.manacommunity.api.user.model.AppUser;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import static com.manacommunity.api.model.scheduler.SportsTournamentConfig.TournamentStatus;
+import com.manacommunity.api.sports.scheduler.SportsTournamentConfig;
 
 /**
  * Factory class for building test entities.
@@ -115,7 +120,7 @@ public final class TestDataBuilder {
                 .tournamentType(TournamentType.KNOCKOUT)
                 .totalTeams(8)
                 .startDate(LocalDate.now().plusDays(7))
-                .status(TournamentStatus.DRAFT)
+                .status(SportsTournamentConfig.TournamentStatus.DRAFT)
                 .build();
     }
 

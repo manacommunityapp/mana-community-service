@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
@@ -47,6 +53,7 @@ class AuthServiceTest {
     @Mock com.manacommunity.api.security.TokenBlacklistService tokenBlacklistService;
     @Mock com.manacommunity.api.service.OtpService otpService;
     @Mock com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Mock com.manacommunity.api.service.NotificationManagementService notificationService;
 
     @InjectMocks AuthServiceImpl authService;
 

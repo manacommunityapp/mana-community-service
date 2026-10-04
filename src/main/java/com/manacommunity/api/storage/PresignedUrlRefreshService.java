@@ -34,11 +34,20 @@ public class PresignedUrlRefreshService {
     /**
      * If the URL is an expired (or near-expiry) S3 pre-signed URL,
      * generate a fresh one from the S3 key. Otherwise return as-is.
-     *
-     * @param url any URL string (may be null, blank, data-URI, non-S3, etc.)
-     * @return a fresh pre-signed URL, or the original unchanged
      */
     public String refreshIfExpired(String url) {
+        return refresh(url, false);
+    }
+
+    /**
+     * Force-generate a fresh presigned URL regardless of expiry.
+     * Used when the frontend reports a 403 (clock skew, revoked, etc.).
+     */
+    public String forceRefresh(String url) {
+        return refresh(url, true);
+    }
+
+    private String refresh(String url, boolean force) {
         if (url == null || url.isBlank()) return url;
         if (!url.contains("X-Amz-Date")) return url;
         if (s3Storage == null) return url;
@@ -49,9 +58,16 @@ public class PresignedUrlRefreshService {
             if (query == null) return url;
 
             String amzDate = extractParam(query, "X-Amz-Date");
-            String amzExpires = extractParam(query, "X-Amz-Expires");
             if (amzDate == null) return url;
 
+            if (force) {
+                String key = extractKey(uri);
+                String fresh = s3Storage.generatePresignedGetUrl(key);
+                log.debug("Force-refreshed pre-signed URL for key={}", key);
+                return fresh;
+            }
+
+            String amzExpires = extractParam(query, "X-Amz-Expires");
             Matcher m = AMZ_DATE.matcher(amzDate);
             if (!m.matches()) return url;
 
@@ -62,10 +78,8 @@ public class PresignedUrlRefreshService {
             long expirySec = amzExpires != null ? Long.parseLong(amzExpires) : 3600;
             Instant expiresAt = signedAt.plusSeconds(expirySec);
 
-            // Refresh if expired or within 5 minutes of expiry
             if (Instant.now().isAfter(expiresAt.minusSeconds(300))) {
-                String key = uri.getPath();
-                if (key.startsWith("/")) key = key.substring(1);
+                String key = extractKey(uri);
                 String fresh = s3Storage.generatePresignedGetUrl(key);
                 log.debug("Refreshed expired pre-signed URL for key={}", key);
                 return fresh;
@@ -74,6 +88,12 @@ public class PresignedUrlRefreshService {
             log.warn("Failed to refresh pre-signed URL, returning original: {}", e.getMessage());
         }
         return url;
+    }
+
+    private static String extractKey(URI uri) {
+        String key = uri.getPath();
+        if (key.startsWith("/")) key = key.substring(1);
+        return key;
     }
 
     private static String extractParam(String query, String name) {

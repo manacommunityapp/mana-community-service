@@ -1,7 +1,7 @@
 package com.manacommunity.api.service;
-
 import com.manacommunity.api.dto.dashboard.AdminDashboardStatsResponse;
 import com.manacommunity.api.dto.dashboard.UserDashboardStatsResponse;
+
 import com.manacommunity.api.user.model.AppUser;
 
 public interface DashboardService {

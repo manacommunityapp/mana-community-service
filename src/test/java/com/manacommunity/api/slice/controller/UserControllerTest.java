@@ -1,4 +1,10 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
@@ -46,7 +52,7 @@ class UserControllerTest extends BaseWebMvcTest {
     @MockitoBean private AuthService authService;
     @MockitoBean private com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
     @MockitoBean private com.manacommunity.api.privacy.UserPrivacySettingsService userPrivacySettingsService;
-    @MockitoBean private com.manacommunity.api.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
+    @MockitoBean private com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     @Nested
     @DisplayName("POST /api/users - Create User (Single & Bulk Row Insertion)")

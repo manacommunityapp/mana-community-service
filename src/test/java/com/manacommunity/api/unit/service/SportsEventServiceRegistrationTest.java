@@ -1,15 +1,21 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
-import com.manacommunity.api.model.SportsEvent;
-import com.manacommunity.api.model.SportsEventStatus;
-import com.manacommunity.api.model.SportsMeta;
-import com.manacommunity.api.model.SportsTournament;
+import com.manacommunity.api.sports.model.SportsEvent;
+import com.manacommunity.api.sports.model.SportsEventStatus;
+import com.manacommunity.api.sports.model.SportsMeta;
+import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.RecaptchaService;
 import com.manacommunity.api.service.OtpService;
-import com.manacommunity.api.service.impl.SportsEventServiceImpl;
+import com.manacommunity.api.sports.service.impl.SportsEventServiceImpl;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import org.junit.jupiter.api.Test;
@@ -41,7 +47,7 @@ class SportsEventServiceRegistrationTest {
     @Mock private SportsNotificationSchedulerRepository schedulerRepo;
     @Mock private AppUserRepository userRepo;
     @Mock private CommunityRepository communityRepo;
-    @Mock private VenueRepository venueRepo;
+    @Mock private SportsVenueRepository venueRepo;
     @Mock private SportsAuctionConfigRepository auctionConfigRepo;
     @Mock private SportsAuctionTeamRepository auctionTeamRepo;
     @Mock private SportsAuctionPlayerRepository playerRepo;
@@ -51,7 +57,7 @@ class SportsEventServiceRegistrationTest {
     @Mock private RecaptchaService recaptchaService;
     @Mock private OtpService otpService;
     @Mock private ContactRepository contactRepository;
-    @Mock private com.manacommunity.api.repository.SportsEventFormatRepository formatRepo;
+    @Mock private com.manacommunity.api.sports.repository.SportsEventFormatRepository formatRepo;
     @Mock private com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     @Mock private com.manacommunity.api.security.AuditService auditService;
 
@@ -86,7 +92,7 @@ class SportsEventServiceRegistrationTest {
         user.setGender("MALE");
         user.setDateOfBirth(LocalDate.of(1995, 1, 1));
 
-        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory cat = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         cat.setId(10L);
         cat.setName("Open Men");
 
@@ -117,22 +123,22 @@ class SportsEventServiceRegistrationTest {
         event.setId(100L);
         event.setName("Badminton Championship");
 
-        com.manacommunity.api.model.SportsEventRegistration reg = com.manacommunity.api.model.SportsEventRegistration.builder()
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
                 .id(500L)
                 .event(event)
                 .user(primaryUser)
                 .partner(partnerUser)
-                .status(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING)
-                .partnerConfirmationStatus(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
                 .build();
 
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, true, null);
+        com.manacommunity.api.sports.model.SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, true, null);
 
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
-                .isEqualTo(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmedAt()).isNotNull();
         org.assertj.core.api.Assertions.assertThat(result.getPartnerDeclineReason()).isNull();
 
@@ -160,24 +166,24 @@ class SportsEventServiceRegistrationTest {
         event.setId(100L);
         event.setName("Badminton Championship");
 
-        com.manacommunity.api.model.SportsEventRegistration reg = com.manacommunity.api.model.SportsEventRegistration.builder()
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
                 .id(500L)
                 .event(event)
                 .user(primaryUser)
                 .partner(partnerUser)
-                .status(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING)
-                .partnerConfirmationStatus(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
                 .build();
 
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, false, "Not available this weekend");
+        com.manacommunity.api.sports.model.SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, false, "Not available this weekend");
 
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
-                .isEqualTo(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
         org.assertj.core.api.Assertions.assertThat(result.getStatus())
-                .isEqualTo(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.REJECTED);
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REJECTED);
         org.assertj.core.api.Assertions.assertThat(result.getRejectReason())
                 .contains("Not available this weekend");
 
@@ -196,11 +202,11 @@ class SportsEventServiceRegistrationTest {
         AppUser partnerUser = new AppUser();
         partnerUser.setId(20L);
 
-        com.manacommunity.api.model.SportsEventRegistration reg = com.manacommunity.api.model.SportsEventRegistration.builder()
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
                 .id(500L)
                 .partner(partnerUser)
-                .status(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING)
-                .partnerConfirmationStatus(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING)
                 .build();
 
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
@@ -215,11 +221,11 @@ class SportsEventServiceRegistrationTest {
         AppUser partnerUser = new AppUser();
         partnerUser.setId(20L);
 
-        com.manacommunity.api.model.SportsEventRegistration reg = com.manacommunity.api.model.SportsEventRegistration.builder()
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
                 .id(500L)
                 .partner(partnerUser)
-                .status(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.PENDING)
-                .partnerConfirmationStatus(com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED)
                 .build();
 
         when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
@@ -231,11 +237,11 @@ class SportsEventServiceRegistrationTest {
 
     @Test
     void getPartnerInvitations_filtersByStatus() {
-        com.manacommunity.api.model.SportsEventRegistration reg = new com.manacommunity.api.model.SportsEventRegistration();
-        when(regRepo.findByPartnerIdAndPartnerConfirmationStatus(20L, com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = new com.manacommunity.api.sports.model.SportsEventRegistration();
+        when(regRepo.findByPartnerIdAndPartnerConfirmationStatus(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
                 .thenReturn(List.of(reg));
 
-        List<com.manacommunity.api.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+        List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
         org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
     }
 
@@ -270,7 +276,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("MALE");
         partner.setDateOfBirth(LocalDate.of(1996, 1, 1));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Mixed Doubles Category");
 
@@ -318,7 +324,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("MALE");
         partner.setDateOfBirth(LocalDate.of(1996, 1, 1));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Mixed Doubles Category");
 
@@ -331,7 +337,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
     }
@@ -362,16 +368,16 @@ class SportsEventServiceRegistrationTest {
         user.setGender("MALE");
         user.setDateOfBirth(LocalDate.now().minusYears(10));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Cricket Youth (8 - 18)");
         category.setMinAge(8);
         category.setMaxAge(18);
 
         // Historical registration with age 33
-        com.manacommunity.api.model.SportsEvent pastEvent = new com.manacommunity.api.model.SportsEvent();
+        com.manacommunity.api.sports.model.SportsEvent pastEvent = new com.manacommunity.api.sports.model.SportsEvent();
         pastEvent.setName("Summer Cricket Cup 2025");
-        com.manacommunity.api.model.SportsEventRegistration pastReg = new com.manacommunity.api.model.SportsEventRegistration();
+        com.manacommunity.api.sports.model.SportsEventRegistration pastReg = new com.manacommunity.api.sports.model.SportsEventRegistration();
         pastReg.setEvent(pastEvent);
         pastReg.setAge(33);
 
@@ -428,7 +434,7 @@ class SportsEventServiceRegistrationTest {
                 .age(10)
                 .build();
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Cricket Youth (8 - 18)");
         category.setMinAge(8);
@@ -443,7 +449,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getPlayerName()).isEqualTo("Aarav Child");
         org.assertj.core.api.Assertions.assertThat(saved.getAge()).isEqualTo(10);
@@ -488,7 +494,7 @@ class SportsEventServiceRegistrationTest {
                 .age(10)
                 .build();
 
-        com.manacommunity.api.model.SportsPlayerCategory cat = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory cat = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         cat.setId(10L);
         cat.setName("Junior Boys");
 
@@ -645,7 +651,7 @@ class SportsEventServiceRegistrationTest {
                 .age(11)
                 .build();
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Badminton Boys Under 12");
         category.setMinAge(4);
@@ -661,7 +667,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getFamilyMember()).isEqualTo(child1);
         org.assertj.core.api.Assertions.assertThat(saved.getPartnerFamilyMember()).isEqualTo(child2);
@@ -704,7 +710,7 @@ class SportsEventServiceRegistrationTest {
         partner.setDateOfBirth(LocalDate.now().minusYears(25));
 
         // Category is strictly Under 12 (4-11)
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Badminton Boys Under 12");
         category.setMinAge(4);
@@ -752,7 +758,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("FEMALE");
         partner.setDateOfBirth(LocalDate.of(1996, 1, 1));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Badminton Men");
         category.setGender("MALE");
@@ -799,7 +805,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("FEMALE");
         partner.setDateOfBirth(LocalDate.of(1996, 1, 1));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Carroms Open Doubles (15+)");
         category.setGender("ALL");
@@ -813,7 +819,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByEventId(1L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
     }
@@ -844,7 +850,7 @@ class SportsEventServiceRegistrationTest {
         // User is 25 years old
         user.setDateOfBirth(LocalDate.now().minusYears(25));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Under 14 Boys");
         category.setMinAge(6);
@@ -875,11 +881,11 @@ class SportsEventServiceRegistrationTest {
         SportsMeta sport = new SportsMeta();
         sport.setName("Badminton");
 
-        com.manacommunity.api.model.SportsPlayerCategory eventCategory = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory eventCategory = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         eventCategory.setId(10L);
         eventCategory.setName("Adults Men (18-40)");
 
-        com.manacommunity.api.model.SportsPlayerCategory otherCategory = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory otherCategory = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         otherCategory.setId(20L);
         otherCategory.setName("Veterans (50+)");
 
@@ -938,7 +944,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("MALE");
         partner.setDateOfBirth(null); // Missing DOB
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Men Doubles (18+)");
         category.setMinAge(18);
@@ -983,7 +989,7 @@ class SportsEventServiceRegistrationTest {
         user.setDateOfBirth(LocalDate.now().minusYears(12));
 
         // Category is U16 (minAge 14, maxAge 16)
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(10L);
         category.setName("Under 16 Boys");
         category.setMinAge(14);
@@ -999,7 +1005,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByUserId(2L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getAge()).isEqualTo(12);
         org.assertj.core.api.Assertions.assertThat(saved.getCategory().getName()).isEqualTo("Under 16 Boys");
@@ -1035,7 +1041,7 @@ class SportsEventServiceRegistrationTest {
         user.setGender("MALE");
         user.setDateOfBirth(LocalDate.now().minusYears(14));
 
-        com.manacommunity.api.model.SportsPlayerCategory category2 = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category2 = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category2.setId(20L);
         category2.setName("Under 16 Boys");
         category2.setMinAge(14);
@@ -1049,14 +1055,14 @@ class SportsEventServiceRegistrationTest {
         event1.setSport(sport);
         event1.setTournament(tournament);
 
-        com.manacommunity.api.model.SportsPlayerCategory category1 = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category1 = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category1.setName("Under 14 Boys");
 
-        com.manacommunity.api.model.SportsEventRegistration existingReg = new com.manacommunity.api.model.SportsEventRegistration();
+        com.manacommunity.api.sports.model.SportsEventRegistration existingReg = new com.manacommunity.api.sports.model.SportsEventRegistration();
         existingReg.setEvent(event1);
         existingReg.setCategory(category1);
         existingReg.setMatchType(SportsEvent.MatchFormat.SINGLES);
-        existingReg.setStatus(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        existingReg.setStatus(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
 
         when(eventRepo.findById(2L)).thenReturn(Optional.of(event2));
         doNothing().when(recaptchaService).verify(null, null);
@@ -1110,7 +1116,7 @@ class SportsEventServiceRegistrationTest {
         partner.setGender("MALE");
         partner.setDateOfBirth(LocalDate.now().minusYears(22));
 
-        com.manacommunity.api.model.SportsPlayerCategory category2 = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category2 = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category2.setId(20L);
         category2.setName("Open Doubles");
         category2.setMinAge(16);
@@ -1124,10 +1130,10 @@ class SportsEventServiceRegistrationTest {
         event1.setSport(sport);
         event1.setTournament(tournament);
 
-        com.manacommunity.api.model.SportsEventRegistration existingReg = new com.manacommunity.api.model.SportsEventRegistration();
+        com.manacommunity.api.sports.model.SportsEventRegistration existingReg = new com.manacommunity.api.sports.model.SportsEventRegistration();
         existingReg.setEvent(event1);
         existingReg.setMatchType(SportsEvent.MatchFormat.SINGLES);
-        existingReg.setStatus(com.manacommunity.api.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        existingReg.setStatus(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
 
         when(eventRepo.findById(2L)).thenReturn(Optional.of(event2));
         doNothing().when(recaptchaService).verify(null, null);
@@ -1140,7 +1146,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByUserId(30L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
         org.assertj.core.api.Assertions.assertThat(saved.getPartner()).isEqualTo(partner);
@@ -1164,7 +1170,7 @@ class SportsEventServiceRegistrationTest {
         sport.setName("Table Tennis");
         event.setSport(sport);
 
-        com.manacommunity.api.model.SportsEventFormat eventFormat = com.manacommunity.api.model.SportsEventFormat.builder()
+        com.manacommunity.api.sports.model.SportsEventFormat eventFormat = com.manacommunity.api.sports.model.SportsEventFormat.builder()
                 .id(101L)
                 .event(event)
                 .format(SportsEvent.MatchFormat.SINGLES)
@@ -1178,7 +1184,7 @@ class SportsEventServiceRegistrationTest {
         user.setEmail("tester@gmail.com");
         user.setDateOfBirth(LocalDate.now().minusYears(25));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(15L);
         category.setName("Men Singles");
         category.setMinAge(18);
@@ -1195,7 +1201,7 @@ class SportsEventServiceRegistrationTest {
         when(regRepo.findByUserId(2L)).thenReturn(List.of());
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.SINGLES);
         org.assertj.core.api.Assertions.assertThat(saved.getEventFormat()).isEqualTo(eventFormat);
@@ -1238,7 +1244,7 @@ class SportsEventServiceRegistrationTest {
         partner.setFlatNo("Block A, Flat 201");
         partner.setDateOfBirth(LocalDate.now().minusYears(29));
 
-        com.manacommunity.api.model.SportsPlayerCategory category = new com.manacommunity.api.model.SportsPlayerCategory();
+        com.manacommunity.api.sports.model.SportsPlayerCategory category = new com.manacommunity.api.sports.model.SportsPlayerCategory();
         category.setId(15L);
         category.setName("Men Open");
         category.setMinAge(18);
@@ -1260,7 +1266,7 @@ class SportsEventServiceRegistrationTest {
                 .thenReturn(false);
         when(regRepo.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-        com.manacommunity.api.model.SportsEventRegistration saved = service.registerUser(req, 2L);
+        com.manacommunity.api.sports.model.SportsEventRegistration saved = service.registerUser(req, 2L);
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
         org.assertj.core.api.Assertions.assertThat(saved.getPartner().getId()).isEqualTo(3L);

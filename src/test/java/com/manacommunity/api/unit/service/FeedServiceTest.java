@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.dto.PostRequest;
 import com.manacommunity.api.dto.PostResponse;
@@ -306,8 +312,8 @@ class FeedServiceTest {
                     .createdAt(LocalDateTime.now())
                     .build();
 
-            when(postBookmarkRepository.findByUserIdOrderByCreatedAtDesc(eq(user.getId()), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of(bookmark)));
+            when(postRepository.findBookmarkedByUser(eq(user.getId()), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(post)));
 
             Page<PostResponse> result = feedService.getBookmarkedPosts(user, 0, 10);
 

@@ -1,53 +1,98 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.dto.MeterReadingRequest;
+import com.manacommunity.api.dto.SmartMeterRequest;
+import com.manacommunity.api.model.MeterReading;
 import com.manacommunity.api.model.SmartMeter;
-import com.manacommunity.api.model.UtilityConsumption;
 import com.manacommunity.api.service.SmartMeterService;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/iot/meters")
+@RequestMapping("/api/v1/iot")
+@RequiredArgsConstructor
 public class SmartMeterController {
 
-    @Autowired
-    private SmartMeterService meterService;
+    private final SmartMeterService smartMeterService;
+    private final LoggedInUserService loggedInUserService;
 
-    @GetMapping("/unit/{unitId}")
-    public ResponseEntity<List<SmartMeter>> getUnitMeters(@PathVariable Long unitId) {
-        return ResponseEntity.ok(meterService.getMetersForUnit(unitId));
-    }
-
-    @GetMapping("/unit/{unitId}/consumption")
-    public ResponseEntity<UtilityConsumption> getConsumptionSummary(
-            @PathVariable Long unitId,
-            @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(meterService.getConsumptionSummary(unitId, month));
-    }
-
-    @GetMapping("/community")
-    public ResponseEntity<List<SmartMeter>> getCommunityMeters(
+    @GetMapping("/meters")
+    public ResponseEntity<List<SmartMeter>> getMeters(
             @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String flat,
             @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(meterService.getCommunityMeters(principal.getCommunityId(), type));
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.getMeters(communityId, flat, type));
     }
 
-    @GetMapping("/{meterId}/history")
-    public ResponseEntity<List<Object>> getMeterHistory(
-            @PathVariable Long meterId,
-            @RequestParam(defaultValue = "30") int days) {
-        return ResponseEntity.ok(meterService.getMeterHistory(meterId, days));
+    @GetMapping("/meters/{id}")
+    public ResponseEntity<SmartMeter> getMeter(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.getMeter(communityId, id));
     }
 
-    @PostMapping("/{meterId}/reading")
-    public ResponseEntity<SmartMeter> submitReading(
-            @PathVariable Long meterId,
-            @RequestBody SmartMeter reading) {
-        return ResponseEntity.ok(meterService.submitReading(meterId, reading));
+    @PostMapping("/meters")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SmartMeter> createMeter(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody SmartMeterRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.createMeter(communityId, request));
+    }
+
+    @GetMapping("/meters/{id}/readings")
+    public ResponseEntity<List<MeterReading>> getReadings(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.getReadings(communityId, id, from, to));
+    }
+
+    @PostMapping("/meters/{id}/readings")
+    public ResponseEntity<MeterReading> addReading(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody MeterReadingRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.addReading(communityId, id, request));
+    }
+
+    @GetMapping("/meters/alerts")
+    public ResponseEntity<List<MeterReading>> getAlerts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.getAlerts(communityId));
+    }
+
+    @GetMapping("/meters/community-usage")
+    public ResponseEntity<Map<String, Object>> getCommunityUsage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Integer month) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(smartMeterService.getCommunityUsage(communityId, type, month, null));
     }
 }

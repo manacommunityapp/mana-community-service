@@ -1,5 +1,6 @@
 package com.manacommunity.api.cfbos.charge.engine;
 
+import com.manacommunity.api.cfbos.charge.dto.ChargeCalculationRequest;
 import com.manacommunity.api.cfbos.charge.dto.ChargeCalculationResult;
 import com.manacommunity.api.cfbos.charge.dto.PropertyContext;
 import com.manacommunity.api.cfbos.charge.entity.TierConfig;
@@ -22,6 +23,13 @@ import java.util.Map;
 public class ChargeCalculationEngine {
 
     private final ExpressionParser parser = new SpelExpressionParser();
+
+    public ChargeCalculationResult calculate(ChargeCalculationRequest request) {
+        if (request == null) {
+            return ChargeCalculationResult.builder().amount(BigDecimal.ZERO).build();
+        }
+        return calculate(request.getCalculationMethod(), request.getFixedAmount(), request.getRatePerUnit(), request.getProperty());
+    }
 
     public ChargeCalculationResult calculate(CalculationMethod method,
                                               BigDecimal fixedAmount,

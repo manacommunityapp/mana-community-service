@@ -113,7 +113,7 @@ public class CommunityQueryTools {
 
         var venues = em.createQuery(
                         "SELECT v.id, v.name, v.address, v.city, v.mapsUrl " +
-                        "FROM Venue v WHERE v.community.id = :comId " +
+                        "FROM SportsVenue v WHERE v.community.id = :comId " +
                         "ORDER BY v.name", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .getResultList();
@@ -191,7 +191,7 @@ public class CommunityQueryTools {
 
         // Total venues
         Long venueCount = em.createQuery(
-                        "SELECT COUNT(v) FROM Venue v WHERE v.community.id = :comId", Long.class)
+                        "SELECT COUNT(v) FROM SportsVenue v WHERE v.community.id = :comId", Long.class)
                 .setParameter("comId", ctx.communityId())
                 .getSingleResult();
         result.put("venues", venueCount);

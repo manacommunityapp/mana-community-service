@@ -1,15 +1,23 @@
 package com.manacommunity.api.helpdesk.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.helpdesk.dto.HelpdeskAnalyticsResponse;
+import com.manacommunity.api.helpdesk.dto.TicketFeedbackRequest;
 import com.manacommunity.api.helpdesk.dto.TicketRequest;
 import com.manacommunity.api.helpdesk.dto.TicketResponse;
+import com.manacommunity.api.helpdesk.engine.HelpdeskSlaEngine;
 import com.manacommunity.api.helpdesk.entity.Ticket;
 import com.manacommunity.api.helpdesk.entity.TicketComment;
+import com.manacommunity.api.helpdesk.entity.TicketSlaRule;
+import com.manacommunity.api.helpdesk.repository.TicketCommentRepository;
 import com.manacommunity.api.helpdesk.repository.TicketRepository;
+import com.manacommunity.api.helpdesk.repository.TicketSlaRuleRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +30,14 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TicketService {
 
     private final TicketRepository repo;
+    private final TicketCommentRepository commentRepo;
+    private final TicketSlaRuleRepository slaRuleRepository;
     private final AppUserRepository userRepo;
+    private final HelpdeskSlaEngine slaEngine;
 
     @Transactional(readOnly = true)
     public List<TicketResponse> getCommunityTickets(Long communityId, String statusFilter) {
@@ -56,14 +68,10 @@ public class TicketService {
     @Transactional(readOnly = true)
     public TicketResponse getById(Long id, AppUser currentUser) {
         Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
 
-        // ① Enforce tenant boundary — prevent cross-community reads
         assertSameCommunity(ticket.getCommunity(), currentUser);
 
-        // ② Ownership check — residents can only view their own tickets;
-        //    admins and managers can view all tickets in their community.
-        //    ADMIN, SUPER_ADMIN, COMMUNITY_ADMIN and SPORTS_ADMIN roles all count as managers.
         String role = currentUser.getRole() != null ? currentUser.getRole().toUpperCase() : "";
         boolean isManager = Set.of("ADMIN", "SUPER_ADMIN", "COMMUNITY_ADMIN", "SPORTS_ADMIN").contains(role);
         if (!isManager && !ticket.getRaisedBy().getId().equals(currentUser.getId())) {
@@ -75,14 +83,31 @@ public class TicketService {
 
     @Transactional
     public TicketResponse create(TicketRequest req, AppUser user, Community community) {
+        Ticket.TicketCategory category = parseEnumOrDefault(Ticket.TicketCategory.class, req.getCategory(), Ticket.TicketCategory.GENERAL);
+        Ticket.TicketPriority priority = parseEnumOrDefault(Ticket.TicketPriority.class, req.getPriority(), Ticket.TicketPriority.MEDIUM);
+
+        TicketSlaRule rule = slaRuleRepository.findByCategoryAndPriorityAndCommunityIdAndActiveTrue(
+                category, priority, community != null ? community.getId() : null)
+                .or(() -> slaRuleRepository.findByCategoryAndPriorityAndCommunityIsNullAndActiveTrue(category, priority))
+                .orElse(null);
+
+        LocalDateTime createdAt = LocalDateTime.now();
+        LocalDateTime slaDueAt = slaEngine.calculateSlaDueDate(createdAt, priority, rule);
+
         Ticket ticket = Ticket.builder()
                 .ticketNumber(generateTicketNumber())
                 .subject(HtmlSanitizer.sanitizePlainText(req.getSubject()))
                 .description(HtmlSanitizer.sanitizeRichText(req.getDescription()))
-                .category(parseEnumOrDefault(Ticket.TicketCategory.class, req.getCategory(), Ticket.TicketCategory.GENERAL))
-                .priority(parseEnumOrDefault(Ticket.TicketPriority.class, req.getPriority(), Ticket.TicketPriority.MEDIUM))
+                .category(category)
+                .priority(priority)
+                .status(Ticket.TicketStatus.OPEN)
                 .raisedBy(user)
                 .community(community)
+                .slaDueAt(slaDueAt)
+                .attachments(req.getAttachments())
+                .escalationLevel(0)
+                .escalated(false)
+                .residentSignoff(false)
                 .build();
 
         return toResponse(repo.save(ticket));
@@ -91,7 +116,7 @@ public class TicketService {
     @Transactional
     public TicketResponse updateStatus(Long id, String status, String remarks, AppUser currentUser) {
         Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
         assertSameCommunity(ticket.getCommunity(), currentUser);
         Ticket.TicketStatus s = Ticket.TicketStatus.valueOf(status);
         ticket.setStatus(s);
@@ -103,12 +128,37 @@ public class TicketService {
     }
 
     @Transactional
+    public TicketResponse submitResidentFeedback(Long ticketId, TicketFeedbackRequest feedback, AppUser currentUser) {
+        Ticket ticket = repo.findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", ticketId));
+        assertSameCommunity(ticket.getCommunity(), currentUser);
+
+        if (!ticket.getRaisedBy().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Only the resident who raised the ticket can submit sign-off feedback.");
+        }
+
+        ticket.setSatisfactionRating(feedback.getSatisfactionRating());
+        ticket.setFeedbackRemarks(feedback.getFeedbackRemarks());
+        ticket.setResidentSignoff(feedback.isSignOffConfirmed());
+        ticket.setResidentSignoffAt(LocalDateTime.now());
+
+        if (feedback.isSignOffConfirmed()) {
+            ticket.setStatus(Ticket.TicketStatus.CLOSED);
+        } else {
+            // Reopen ticket if resident is not satisfied
+            ticket.setStatus(Ticket.TicketStatus.IN_PROGRESS);
+        }
+
+        return toResponse(repo.save(ticket));
+    }
+
+    @Transactional
     public TicketResponse assign(Long id, Long assigneeId, AppUser currentUser) {
         Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
         assertSameCommunity(ticket.getCommunity(), currentUser);
         AppUser assignee = userRepo.findById(assigneeId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + assigneeId));
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", assigneeId));
         ticket.setAssignedTo(assignee);
         if (ticket.getStatus() == Ticket.TicketStatus.OPEN) {
             ticket.setStatus(Ticket.TicketStatus.IN_PROGRESS);
@@ -119,7 +169,7 @@ public class TicketService {
     @Transactional
     public TicketResponse addComment(Long ticketId, String message, AppUser author) {
         Ticket ticket = repo.findById(ticketId)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + ticketId));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", ticketId));
         assertSameCommunity(ticket.getCommunity(), author);
         TicketComment comment = TicketComment.builder()
                 .message(HtmlSanitizer.sanitizeRichText(message))
@@ -130,15 +180,41 @@ public class TicketService {
         return toResponse(repo.save(ticket));
     }
 
+    @Transactional
+    public TicketResponse checkAndEscalate(Long ticketId) {
+        Ticket ticket = repo.findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", ticketId));
+
+        final Ticket.TicketCategory category = ticket.getCategory();
+        final Ticket.TicketPriority priority = ticket.getPriority();
+        final Long communityId = ticket.getCommunity() != null ? ticket.getCommunity().getId() : null;
+
+        TicketSlaRule rule = slaRuleRepository.findByCategoryAndPriorityAndCommunityIdAndActiveTrue(
+                category, priority, communityId)
+                .or(() -> slaRuleRepository.findByCategoryAndPriorityAndCommunityIsNullAndActiveTrue(category, priority))
+                .orElse(null);
+
+        int targetLevel = slaEngine.evaluateEscalationLevel(ticket, LocalDateTime.now(), rule);
+        if (targetLevel > ticket.getEscalationLevel()) {
+            ticket.setEscalated(true);
+            ticket.setEscalationLevel(targetLevel);
+            ticket.setEscalatedAt(LocalDateTime.now());
+            ticket = repo.save(ticket);
+        }
+
+        return toResponse(ticket);
+    }
+
+    @Transactional(readOnly = true)
+    public HelpdeskAnalyticsResponse getAnalytics(Long communityId) {
+        List<Ticket> tickets = repo.findByCommunityIdOrderByCreatedAtDesc(communityId);
+        return slaEngine.calculateAnalytics(tickets);
+    }
+
     private String generateTicketNumber() {
         return "TKT-" + ThreadLocalRandom.current().nextInt(100000, 999999);
     }
 
-    /**
-     * Asserts the ticket's community matches the current user's community.
-     * Throws {@link AccessDeniedException} if the user is not in the same community,
-     * preventing cross-tenant data access (IDOR).
-     */
     private void assertSameCommunity(Community ticketCommunity, AppUser user) {
         Long userCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         Long ticketCommunityId = ticketCommunity != null ? ticketCommunity.getId() : null;
@@ -162,6 +238,15 @@ public class TicketService {
                 .assignedToId(t.getAssignedTo() != null ? t.getAssignedTo().getId() : null)
                 .assignedToName(t.getAssignedTo() != null ? t.getAssignedTo().getFullName() : null)
                 .communityId(t.getCommunity() != null ? t.getCommunity().getId() : null)
+                .slaDueAt(formatDt(t.getSlaDueAt()))
+                .isEscalated(t.isEscalated())
+                .escalatedAt(formatDt(t.getEscalatedAt()))
+                .escalationLevel(t.getEscalationLevel())
+                .satisfactionRating(t.getSatisfactionRating())
+                .feedbackRemarks(t.getFeedbackRemarks())
+                .residentSignoff(t.isResidentSignoff())
+                .residentSignoffAt(formatDt(t.getResidentSignoffAt()))
+                .attachments(t.getAttachments())
                 .resolvedAt(formatDt(t.getResolvedAt()))
                 .createdAt(formatDt(t.getCreatedAt()))
                 .updatedAt(formatDt(t.getUpdatedAt()))

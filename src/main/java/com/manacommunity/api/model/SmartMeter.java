@@ -3,10 +3,13 @@ package com.manacommunity.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "smart_meters")
+@Table(name = "smart_meters",
+        uniqueConstraints = @UniqueConstraint(name = "uk_meter_serial", columnNames = {"meter_serial"}))
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,44 +20,42 @@ public class SmartMeter {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "society_id", nullable = false)
-    private Long societyId;
+    @Column(name = "community_id", nullable = false)
+    private Long communityId;
 
-    @Column(name = "unit_id", nullable = false)
-    private Long unitId;
+    @Column(name = "flat_number", nullable = false, length = 20)
+    private String flatNumber;
 
-    @Column(name = "unit_number", length = 50)
-    private String unitNumber;
-
-    @Column(name = "meter_number", nullable = false, unique = true, length = 50)
-    private String meterNumber;
-
+    @Enumerated(EnumType.STRING)
     @Column(name = "meter_type", nullable = false, length = 20)
-    private String meterType;
+    private MeterType meterType;
 
-    @Column(nullable = false, length = 20)
-    private String status;
+    @Column(name = "meter_serial", nullable = false, length = 50)
+    private String meterSerial;
 
-    @Column(name = "current_reading")
-    private Double currentReading;
+    @Column(length = 100)
+    private String location;
 
-    @Column(name = "unit_of_measure", nullable = false, length = 10)
-    private String unitOfMeasure;
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean active = true;
 
-    @Column(name = "pulse_multiplier")
-    private Double pulseMultiplier;
+    @Column(name = "last_reading", precision = 14, scale = 2)
+    private BigDecimal lastReading;
 
-    @Column(name = "last_reading_at")
-    private LocalDateTime lastReadingAt;
+    @Column(name = "last_reading_date")
+    private LocalDate lastReadingDate;
 
-    @Column(name = "burst_leak_detected")
-    private Boolean burstLeakDetected;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    public enum MeterType {
+        ELECTRICITY, WATER, GAS
+    }
 
     @PrePersist
     protected void onCreate() {
-        if (status == null) status = "ACTIVE";
-        if (currentReading == null) currentReading = 0.0;
-        if (pulseMultiplier == null) pulseMultiplier = 1.0;
-        if (burstLeakDetected == null) burstLeakDetected = false;
+        createdAt = LocalDateTime.now();
+        if (active == null) active = true;
     }
 }

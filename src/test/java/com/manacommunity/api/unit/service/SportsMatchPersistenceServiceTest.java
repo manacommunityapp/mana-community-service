@@ -1,17 +1,21 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
-import com.manacommunity.api.dto.scheduler.SportsBulkMatchSaveRequest;
-import com.manacommunity.api.model.scheduler.*;
-import com.manacommunity.api.repository.SportsAuctionTeamRepository;
+import com.manacommunity.api.sports.dto.SportsBulkMatchSaveRequest;
+import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
-import com.manacommunity.api.repository.SportsCourtRepository;
-import com.manacommunity.api.repository.SportsMetaRepository;
-import com.manacommunity.api.repository.SportsEventRepository;
-import com.manacommunity.api.repository.VenueRepository;
-import com.manacommunity.api.repository.scheduler.*;
-import com.manacommunity.api.service.scheduler.SportsMatchPersistenceService;
-import com.manacommunity.api.service.scheduler.SportsTimeSlotAllocator;
+import com.manacommunity.api.sports.repository.SportsCourtRepository;
+import com.manacommunity.api.sports.repository.SportsMetaRepository;
+import com.manacommunity.api.sports.repository.SportsEventRepository;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
+import com.manacommunity.api.sports.scheduler.SportsMatchPersistenceService;
+import com.manacommunity.api.sports.scheduler.SportsTimeSlotAllocator;
 import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -43,7 +47,7 @@ class SportsMatchPersistenceServiceTest {
     @Mock SportsMetaRepository         sportMetaRepo;
     @Mock CommunityRepository         communityRepo;
     @Mock SportsEventRepository       eventRepo;
-    @Mock VenueRepository             venueRepo;
+    @Mock SportsVenueRepository             venueRepo;
     @Mock SportsCourtRepository             courtRepo;
     @Mock SportsTimeSlotAllocator           timeSlots;
 

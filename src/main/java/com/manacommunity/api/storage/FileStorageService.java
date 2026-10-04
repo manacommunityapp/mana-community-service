@@ -43,6 +43,13 @@ public interface FileStorageService {
      */
     void delete(Long fileId);
 
+    /**
+     * Streams an S3 or local storage object by its key / relative path.
+     */
+    default FileStreamResource getStream(String key) {
+        throw new UnsupportedOperationException("Streaming is not supported by this storage provider");
+    }
+
     /** True when this implementation stores files externally (S3). */
     boolean isS3();
 }

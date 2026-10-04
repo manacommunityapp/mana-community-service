@@ -1,4 +1,7 @@
 package com.manacommunity.api.email;
+import com.manacommunity.api.sports.model.SportsEvent;
+import com.manacommunity.api.sports.model.SportsTournament;
+import com.manacommunity.api.sports.model.SportsEventRegistration;
 
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.service.NotificationManagementService;
