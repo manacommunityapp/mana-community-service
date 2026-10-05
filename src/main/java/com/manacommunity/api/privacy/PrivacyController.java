@@ -45,6 +45,22 @@ public class PrivacyController {
         return ResponseEntity.ok(privacySettingsService.updateSettings(user.getId(), dto));
     }
 
+    // ── Consents ────────────────────────────────────────────────────────────
+
+    @GetMapping("/consents")
+    public ResponseEntity<List<Map<String, Object>>> getMyConsents(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        UserPrivacySettingsDto s = privacySettingsService.getSettings(user.getId());
+        List<Map<String, Object>> consents = List.of(
+                Map.of("type", "DIRECTORY_LISTING",   "granted", Boolean.TRUE.equals(s.getShowFlatInDirectory()),     "description", "Show my flat in community directory"),
+                Map.of("type", "MARKETPLACE_CONTACT", "granted", Boolean.TRUE.equals(s.getAllowMarketplaceContact()), "description", "Allow neighbors to contact me via marketplace"),
+                Map.of("type", "EVENT_TAGGING",       "granted", Boolean.TRUE.equals(s.getAllowEventTagging()),       "description", "Allow event organizers to tag me in photos"),
+                Map.of("type", "PHONE_VISIBILITY",    "granted", Boolean.TRUE.equals(s.getShowPhoneToNeighbours()),   "description", "Show my phone number to neighbors")
+        );
+        return ResponseEntity.ok(consents);
+    }
+
     // ── Data Portability / View My Data ────────────────────────────────────
 
     @GetMapping("/my-data")
