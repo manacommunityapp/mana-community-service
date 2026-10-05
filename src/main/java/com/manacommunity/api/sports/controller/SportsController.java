@@ -353,8 +353,10 @@ public class SportsController {
                 .map(this::toEventResponse).toList());
     }
 
-    @GetMapping({"/events/all", "/tournaments/all"})
+    @GetMapping({"/events/all", "/tournaments/all", "/tournaments"})
     public ResponseEntity<PagedResponse<SportsEventResponse>> getAllTournaments(
+            @RequestParam(required = false) String sport,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
