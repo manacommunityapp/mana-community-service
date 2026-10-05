@@ -4,10 +4,10 @@ import com.manacommunity.api.serviceplatform.entity.ProviderServiceOffering;
 import com.manacommunity.api.serviceplatform.entity.enums.ServiceUrgency;
 import com.manacommunity.api.serviceplatform.pricing.dto.PriceCalculationRequest;
 import com.manacommunity.api.serviceplatform.pricing.dto.PriceCalculationResponse;
-import com.manacommunity.api.serviceplatform.pricing.entity.PricingRule;
 import com.manacommunity.api.serviceplatform.pricing.entity.ServiceCoupon;
-import com.manacommunity.api.serviceplatform.pricing.repository.PricingRuleRepository;
+import com.manacommunity.api.serviceplatform.pricing.entity.ServicePricingRule;
 import com.manacommunity.api.serviceplatform.pricing.repository.ServiceCouponRepository;
+import com.manacommunity.api.serviceplatform.pricing.repository.ServicePricingRuleRepository;
 import com.manacommunity.api.serviceplatform.repository.ProviderServiceOfferingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class PricingEngine {
 
-    private final PricingRuleRepository pricingRuleRepository;
+    private final ServicePricingRuleRepository pricingRuleRepository;
     private final ServiceCouponRepository couponRepository;
     private final ProviderServiceOfferingRepository offeringRepository;
 
@@ -40,7 +40,7 @@ public class PricingEngine {
         BigDecimal multiplier = BigDecimal.ONE;
 
         if (request.getUrgency() != null && request.getUrgency() != ServiceUrgency.NORMAL) {
-            PricingRule rule = null;
+            ServicePricingRule rule = null;
             if (request.getCategoryId() != null) {
                 rule = pricingRuleRepository.findByCategoryIdAndUrgencyAndIsActiveTrue(request.getCategoryId(), request.getUrgency())
                         .orElse(null);

@@ -11,7 +11,7 @@ import com.manacommunity.api.sports.model.ResultType;
 import com.manacommunity.api.sports.model.SportsAuctionPlayer;
 import com.manacommunity.api.sports.model.SportsAuctionTeam;
 import com.manacommunity.api.sports.model.SportsCourt;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
@@ -71,7 +71,7 @@ public class SportsTournamentMatch {
     private Integer durationMinutes;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id")
-    private Venue venue;
+    private SportsVenue venue;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "court_id")

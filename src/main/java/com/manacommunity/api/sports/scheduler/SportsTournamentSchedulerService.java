@@ -8,8 +8,8 @@ import com.manacommunity.api.sports.dto.RoundResponse;
 import com.manacommunity.api.sports.dto.StandingResponse;
 import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.model.SportsTournament;
-import com.manacommunity.api.sports.model.Venue;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.model.SportsVenue;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -50,7 +50,7 @@ public class SportsTournamentSchedulerService {
     private final SportsTournamentGroupRepository   groupRepo;
     private final SportsTournamentMatchRepository   matchRepo;
     private final SportsGroupTeamStandingRepository standingRepo;
-    private final VenueRepository             venueRepo;
+    private final SportsVenueRepository             venueRepo;
 
     // ═══════════════════════════════════════════════════════════════
     // ENTRY POINT — builds config + schedule from request

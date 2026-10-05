@@ -35,6 +35,10 @@ public class SportsRegistrationResponse {
     private LocalDateTime partnerConfirmedAt;
     private String partnerDeclineReason;
 
+    private String cricHeroesUrl;
+    private String cricHeroesId;
+    private LocalDateTime verifiedAt;
+
     private Integer seed;
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;

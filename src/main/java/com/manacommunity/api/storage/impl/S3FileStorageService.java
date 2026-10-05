@@ -1,6 +1,7 @@
 package com.manacommunity.api.storage.impl;
 
 import com.manacommunity.api.storage.FileStorageService;
+import com.manacommunity.api.storage.FileStreamResource;
 import com.manacommunity.api.storage.StoredFileDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -175,6 +176,51 @@ public class S3FileStorageService implements FileStorageService {
         if (key == null || key.isBlank()) return;
         s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
         log.debug("Deleted S3 object key={}", key);
+    }
+
+    @Override
+    public FileStreamResource getStream(String key) {
+        if (key == null || key.isBlank()) return null;
+        try {
+            String cleanKey = key.trim();
+            if (cleanKey.startsWith("/")) cleanKey = cleanKey.substring(1);
+
+            software.amazon.awssdk.core.ResponseInputStream<software.amazon.awssdk.services.s3.model.GetObjectResponse> s3Stream =
+                    s3.getObject(GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(cleanKey)
+                            .build());
+
+            software.amazon.awssdk.services.s3.model.GetObjectResponse response = s3Stream.response();
+
+            org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody body = outputStream -> {
+                try (java.io.InputStream in = s3Stream) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                    outputStream.flush();
+                }
+            };
+
+            String filename = cleanKey.contains("/") ? cleanKey.substring(cleanKey.lastIndexOf("/") + 1) : cleanKey;
+
+            return FileStreamResource.builder()
+                    .body(body)
+                    .contentType(response.contentType() != null ? response.contentType() : "application/octet-stream")
+                    .contentLength(response.contentLength())
+                    .eTag(response.eTag())
+                    .filename(filename)
+                    .build();
+
+        } catch (software.amazon.awssdk.services.s3.model.NoSuchKeyException e) {
+            log.warn("S3 object not found for key: {}", key);
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to stream S3 object for key={}: {}", key, e.getMessage(), e);
+            throw new RuntimeException("Failed to stream S3 file: " + e.getMessage(), e);
+        }
     }
 
     @Override

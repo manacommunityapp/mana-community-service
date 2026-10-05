@@ -25,6 +25,6 @@ public interface ServiceProviderRepository extends JpaRepository<ServiceProvider
                                                                       VerificationStatus status,
                                                                       Pageable pageable);
 
-    @Query("SELECT DISTINCT p FROM ServiceProvider p JOIN p.offerings o WHERE o.category.id = :categoryId AND p.verificationStatus = 'VERIFIED' AND o.active = true")
+    @Query("SELECT DISTINCT p FROM ServiceProvider p JOIN p.offerings o WHERE o.category.id = :categoryId AND p.verificationStatus = 'VERIFIED' AND o.available = true")
     List<ServiceProvider> findVerifiedActiveProvidersByCategory(@Param("categoryId") Long categoryId);
 }

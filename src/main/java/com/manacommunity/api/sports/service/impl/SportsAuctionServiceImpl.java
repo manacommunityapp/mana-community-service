@@ -334,7 +334,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             player.getId(), player.getPlayerName(), player.getCategory(),
             player.getPlayerRole(), player.getAge(), player.getBasePrice(),
             player.getStatsJson(), currentBid, nextBid, nextIncrement,
-            currentBidTeam, player.getQueueOrder(), player.getStatus().name()
+            currentBidTeam, player.getQueueOrder(), player.getStatus().name(),
+            player.getInnings(), player.getBestBowling(),
+            player.getCricheroesId(), player.getCricheroesUrl(), player.getVerifiedAt()
         );
     }
 
@@ -498,7 +500,8 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         auctionWs.broadcastPlayerSold(player.getConfig().getId(),
             new SportsAuctionWebSocketService.PlayerSoldPayload(
                 player.getId(), player.getPlayerName(),
-                team.getId(), team.getTeamName(), soldPrice));
+                team.getId(), team.getTeamName(), soldPrice,
+                player.getCategory(), player.getPlayerRole()));
 
         return savedPlayer;
     }
@@ -643,6 +646,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             .playerRole(req.getPlayerRole())
             .age(req.getAge())
             .basePrice(req.getBasePrice())
+            .innings(req.getInnings())
+            .bestBowling(req.getBestBowling())
+            .cricheroesUrl(req.getCricHeroesUrl())
             .queueOrder(maxOrder + 1)
             .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
             .statsJson(finalStats)
@@ -702,7 +708,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                 selling.getPlayerRole(), selling.getAge(), selling.getBasePrice(),
                 selling.getStatsJson(), currentBid, currentBid + nextIncrement,
                 nextIncrement, currentBidTeam, selling.getQueueOrder(),
-                selling.getStatus().name()
+                selling.getStatus().name(),
+                selling.getInnings(), selling.getBestBowling(),
+                selling.getCricheroesId(), selling.getCricheroesUrl(), selling.getVerifiedAt()
             );
         }
 
@@ -734,7 +742,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             picked.getStatsJson(), (long) picked.getBasePrice(),
             config.calculateNextBid(picked.getBasePrice()),
             config.calculateNextIncrement(picked.getBasePrice()),
-            null, picked.getQueueOrder(), picked.getStatus().name()
+            null, picked.getQueueOrder(), picked.getStatus().name(),
+            picked.getInnings(), picked.getBestBowling(),
+            picked.getCricheroesId(), picked.getCricheroesUrl(), picked.getVerifiedAt()
         );
 
         auctionWs.broadcastPlayerPicked(configId, response);

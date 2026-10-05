@@ -10,12 +10,12 @@ import com.manacommunity.api.sports.model.SportsCourt;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.model.TournamentType;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
 import com.manacommunity.api.sports.repository.SportsCourtRepository;
 import com.manacommunity.api.sports.repository.SportsEventRepository;
 import com.manacommunity.api.sports.repository.SportsMetaRepository;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 
 
 import com.manacommunity.api.model.Community;
@@ -61,7 +61,7 @@ public class SportsMatchPersistenceService {
     private final SportsMetaRepository         sportMetaRepo;
     private final CommunityRepository         communityRepo;
     private final SportsEventRepository       eventRepo;
-    private final VenueRepository             venueRepo;
+    private final SportsVenueRepository             venueRepo;
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
     private final AuditService                      auditService;

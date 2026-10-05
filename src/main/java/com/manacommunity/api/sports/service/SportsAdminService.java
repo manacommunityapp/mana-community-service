@@ -4,7 +4,7 @@ import com.manacommunity.api.sports.dto.SportsAdminFormDataResponse.*;
 import com.manacommunity.api.service.CommunityService;
 
 import com.manacommunity.api.sports.controller.SportsController;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 
 
 import static com.manacommunity.api.constants.PermissionConstants.*;

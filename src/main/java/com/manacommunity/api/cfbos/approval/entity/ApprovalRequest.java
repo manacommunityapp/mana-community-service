@@ -24,7 +24,7 @@ public class ApprovalRequest {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workflow_id")
-    private ApprovalWorkflow workflow;
+    private CfbosApprovalWorkflow workflow;
 
     @Column(name = "entity_type", nullable = false, length = 100)
     private String entityType;

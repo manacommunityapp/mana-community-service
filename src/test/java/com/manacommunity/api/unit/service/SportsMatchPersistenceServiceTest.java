@@ -13,7 +13,7 @@ import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.sports.repository.SportsCourtRepository;
 import com.manacommunity.api.sports.repository.SportsMetaRepository;
 import com.manacommunity.api.sports.repository.SportsEventRepository;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 import com.manacommunity.api.sports.scheduler.SportsMatchPersistenceService;
 import com.manacommunity.api.sports.scheduler.SportsTimeSlotAllocator;
 import com.manacommunity.api.support.TestDataBuilder;
@@ -47,7 +47,7 @@ class SportsMatchPersistenceServiceTest {
     @Mock SportsMetaRepository         sportMetaRepo;
     @Mock CommunityRepository         communityRepo;
     @Mock SportsEventRepository       eventRepo;
-    @Mock VenueRepository             venueRepo;
+    @Mock SportsVenueRepository             venueRepo;
     @Mock SportsCourtRepository             courtRepo;
     @Mock SportsTimeSlotAllocator           timeSlots;
 

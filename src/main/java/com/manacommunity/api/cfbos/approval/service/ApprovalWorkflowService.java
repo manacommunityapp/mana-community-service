@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApprovalWorkflowService {
 
-    private final ApprovalWorkflowRepository workflowRepository;
+    private final CfbosApprovalWorkflowRepository workflowRepository;
     private final ApprovalRequestRepository requestRepository;
     private final ApprovalActionRepository actionRepository;
 
     @Transactional
     public ApprovalResponse submitRequest(SubmitApprovalRequest request) {
-        ApprovalWorkflow workflow = workflowRepository.findByEntityTypeAndIsActiveTrue(request.getEntityType())
+        CfbosApprovalWorkflow workflow = workflowRepository.findByEntityTypeAndIsActiveTrue(request.getEntityType())
                 .orElse(null);
 
         if (workflow == null || workflow.getSteps() == null || workflow.getSteps().isEmpty()) {

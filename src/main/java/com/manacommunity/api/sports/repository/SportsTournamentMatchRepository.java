@@ -2,6 +2,8 @@ package com.manacommunity.api.sports.repository;
 
 import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.scheduler.SportsTournamentMatch;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -46,6 +48,15 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
 
     @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id=:cid AND m.status='SCHEDULED' ORDER BY m.scheduledAt")
     List<SportsTournamentMatch> findUpcoming(@Param("cid") Long configId);
+
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.community.id = :communityId ORDER BY m.scheduledAt DESC")
+    Page<SportsTournamentMatch> findPageByCommunityId(@Param("communityId") Long communityId, Pageable pageable);
+
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.community.id = :communityId AND m.status = :status ORDER BY m.scheduledAt DESC")
+    Page<SportsTournamentMatch> findPageByCommunityIdAndStatus(@Param("communityId") Long communityId, @Param("status") MatchStatus status, Pageable pageable);
+
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.community.id = :communityId AND m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE ORDER BY m.scheduledAt")
+    List<SportsTournamentMatch> findLiveByCommunityId(@Param("communityId") Long communityId);
 
     @Transactional
     @Modifying(clearAutomatically = true)

@@ -1,6 +1,8 @@
 package com.manacommunity.api.parking.controller;
 
 import com.manacommunity.api.parking.dto.*;
+import com.manacommunity.api.parking.entity.ParkingVisitorPass;
+import com.manacommunity.api.parking.repository.ParkingVisitorPassRepository;
 import com.manacommunity.api.parking.service.ParkingService;
 import com.manacommunity.api.parking.service.ParkingSlotService;
 import com.manacommunity.api.service.PermissionCheckService;
@@ -28,6 +30,7 @@ public class ParkingController {
 
     private final ParkingService parkingService;
     private final ParkingSlotService parkingSlotService;
+    private final ParkingVisitorPassRepository visitorPassRepo;
     private final LoggedInUserService loggedInUserService;
     private final PermissionCheckService permissionCheckService;
 
@@ -56,6 +59,29 @@ public class ParkingController {
             @Valid @RequestBody ReserveSpotRequest request) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(parkingService.reserveSpot(user, request));
+    }
+
+    @GetMapping("/visitor-pass")
+    public ResponseEntity<List<VisitorPassDto>> getMyVisitorPasses(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        List<VisitorPassDto> passes = visitorPassRepo.findByUserId(user.getId()).stream()
+                .map(p -> VisitorPassDto.builder()
+                        .id(p.getId())
+                        .passCode(p.getPassCode())
+                        .visitorName(p.getVisitorName())
+                        .visitorPhone(p.getVisitorPhone())
+                        .vehicleNumber(p.getVehicleNumber())
+                        .vehicleType(p.getVehicleType())
+                        .spotId(p.getSpot() != null ? p.getSpot().getId() : null)
+                        .spotNumber(p.getSpot() != null ? p.getSpot().getSpotNumber() : null)
+                        .validFrom(p.getValidFrom())
+                        .validUntil(p.getValidUntil())
+                        .purpose(p.getPurpose())
+                        .status(p.getStatus())
+                        .build())
+                .toList();
+        return ResponseEntity.ok(passes);
     }
 
     @PostMapping("/visitor-pass")

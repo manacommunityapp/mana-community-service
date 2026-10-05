@@ -1,6 +1,7 @@
 package com.manacommunity.api.storage.impl;
 
 import com.manacommunity.api.storage.FileStorageService;
+import com.manacommunity.api.storage.FileStreamResource;
 import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.storage.entity.StoredFile;
 import com.manacommunity.api.storage.repository.StoredFileRepository;
@@ -81,6 +82,32 @@ public class PostgresFileStorageService implements FileStorageService {
     public void delete(Long fileId) {
         if (fileId != null) {
             repo.deleteById(fileId);
+        }
+    }
+
+    @Override
+    public FileStreamResource getStream(String key) {
+        if (key == null || key.isBlank()) return null;
+        try {
+            StoredFile file = null;
+            if (key.matches("^\\d+$")) {
+                file = repo.findById(Long.parseLong(key)).orElse(null);
+            }
+            if (file == null) {
+                file = repo.findByFilename(key).orElse(null);
+            }
+            if (file == null) return null;
+
+            final byte[] data = file.getData();
+            return FileStreamResource.builder()
+                    .body(outputStream -> outputStream.write(data))
+                    .contentType(file.getContentType())
+                    .contentLength(file.getSizeBytes())
+                    .filename(file.getOriginalName())
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to load postgres file for key={}: {}", key, e.getMessage(), e);
+            return null;
         }
     }
 

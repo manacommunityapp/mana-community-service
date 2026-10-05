@@ -1,0 +1,175 @@
+package com.manacommunity.api.sports.sample.data;
+import com.manacommunity.api.service.sample.data.CommunitySeeder;
+
+
+import com.manacommunity.api.model.Community;
+import com.manacommunity.api.sports.model.SportsVenue;
+import com.manacommunity.api.sports.model.SportsCourt;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.ArrayList;
+
+/**
+ * SportsVenueSeeder — Seeds local community sports venues.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SportsVenueSeeder {
+
+    private final SportsVenueRepository venueRepo;
+    private final CommunitySeeder communitySeeder;
+
+    @Transactional
+    public void defaultSeed() {
+        log.info("Seeding community venues...");
+        Community leCommunity = communitySeeder.getLeCommunity();
+
+//        getOrCreateVenue(
+//                "LE Box Cricket", "COMMUNITY", leCommunity,
+//                "Hyderabad", "Coomunity Back Gate", "Miyapur");
+
+        log.info("✓ Venues seeded successfully.");
+    }
+
+    @Transactional
+    public void seed() {
+        log.info("Seeding community venues...");
+        Community leCommunity = communitySeeder.getLeCommunity();
+
+        getOrCreateVenue(
+                "LE Box Cricket", "COMMUNITY", leCommunity,
+                "Hyderabad", "Coomunity Back Gate", "Miyapur",
+                "500049", 2, "COMMUNITY",
+                "10:00 AM", "08:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com");
+
+        List<SportsCourt> badmintonCourts = List.of(
+                SportsCourt.builder().name("SportsCourt 1").color("#3b82f6").build(),
+                SportsCourt.builder().name("SportsCourt 2").color("#f73bb2").build()
+        );
+
+        getOrCreateVenue(
+                "LE Badminton SportsCourt", "APARTMENT", leCommunity,
+                "hyderabad", "beside super market", "miyapur",
+                "500049", 2, "COMMUNITY",
+                "10:00 AM", "08:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com",
+                badmintonCourts
+        );
+
+        getOrCreateVenue(
+                "LE Clubhouse Arena", "COMMUNITY", leCommunity,
+                "Hyderabad", "Clubhouse 2nd Floor", "Miyapur",
+                "500049", 100, "COMMUNITY",
+                "08:00 AM", "10:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com"
+        );
+
+        getOrCreateVenue(
+                "LE Volleyball Court", "COMMUNITY", leCommunity,
+                "Hyderabad", "Near East Gate", "Miyapur",
+                "500049", 50, "COMMUNITY",
+                "06:00 AM", "09:00 PM",
+                "sunil", "8801357225", "kskreddy1989@gmail.com"
+        );
+
+        log.info("✓ Venues seeded successfully.");
+    }
+
+    public SportsVenue getLeBoxCricket() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Box Cricket"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("LE Box Cricket venue has not been seeded yet."));
+    }
+
+    public SportsVenue getLeBadmintonCourt() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Badminton SportsCourt"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("LE Badminton SportsCourt venue has not been seeded yet."));
+    }
+
+    public SportsVenue getLeClubhouse() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Clubhouse Arena"))
+                .findFirst()
+                .orElseGet(() -> getOrCreateVenue("LE Clubhouse Arena", "COMMUNITY", communitySeeder.getLeCommunity(), "Hyderabad", "Clubhouse 2nd Floor", "Miyapur"));
+    }
+
+    public SportsVenue getLeVolleyballCourt() {
+        return venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals("LE Volleyball Court"))
+                .findFirst()
+                .orElseGet(() -> getOrCreateVenue("LE Volleyball Court", "COMMUNITY", communitySeeder.getLeCommunity(), "Hyderabad", "Near East Gate", "Miyapur"));
+    }
+
+    private SportsVenue getOrCreateVenue(String name, String venueType, Community community,
+                                   String city, String address, String area) {
+        return getOrCreateVenue(name, venueType, community, city, address, area,
+                "500049", 500, community != null ? community.getType() : "GENERAL",
+                "08:00 AM", "10:00 PM", null, null, null, null);
+    }
+
+    private SportsVenue getOrCreateVenue(String name, String venueType, Community community,
+                                   String city, String address, String area,
+                                   String pinCode, Integer capacity, String venueCategory,
+                                   String openingTime, String closingTime,
+                                   String contactName, String contactNumber, String contactEmail) {
+        return getOrCreateVenue(name, venueType, community, city, address, area,
+                pinCode, capacity, venueCategory, openingTime, closingTime,
+                contactName, contactNumber, contactEmail, null);
+    }
+
+    private SportsVenue getOrCreateVenue(String name, String venueType, Community community,
+                                   String city, String address, String area,
+                                   String pinCode, Integer capacity, String venueCategory,
+                                   String openingTime, String closingTime,
+                                   String contactName, String contactNumber, String contactEmail,
+                                   List<SportsCourt> courts) {
+        SportsVenue venue = venueRepo.findAll().stream()
+                .filter(v -> v.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> {
+                    SportsVenue newVenue = SportsVenue.builder()
+                            .name(name)
+                            .venueType(venueType)
+                            .address(address)
+                            .area(area)
+                            .venueCategory(venueCategory)
+                            .city(city)
+                            .pinCode(pinCode)
+                            .capacity(capacity)
+                            .community(community)
+                            .openingTime(openingTime)
+                            .closingTime(closingTime)
+                            .contactName(contactName)
+                            .contactNumber(contactNumber)
+                            .contactEmail(contactEmail)
+                            .build();
+                    return venueRepo.save(newVenue);
+                });
+
+        // Ensure courts are populated and saved
+        if (courts != null && !courts.isEmpty()) {
+            boolean hasCourts = venue.getCourts() != null && !venue.getCourts().isEmpty();
+            if (!hasCourts) {
+                if (venue.getCourts() == null) {
+                    venue.setCourts(new ArrayList<>());
+                }
+                for (SportsCourt c : courts) {
+                    c.setVenue(venue);
+                    venue.getCourts().add(c);
+                }
+                venueRepo.save(venue);
+            }
+        }
+        return venue;
+    }
+}

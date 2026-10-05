@@ -62,7 +62,8 @@ public class SportsAuctionWebSocketService {
     }
 
     public record PlayerSoldPayload(Long playerId, String playerName, Long teamId,
-                                     String teamName, Long soldPrice) {}
+                                     String teamName, Long soldPrice,
+                                     String category, String playerRole) {}
 
     public record PlayerPassedPayload(Long playerId, String playerName, String newStatus,
                                        int queueOrder) {}

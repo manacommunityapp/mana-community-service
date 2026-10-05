@@ -413,23 +413,49 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher email-column patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure the venue.contact_title column exists before Hibernate validates.
+            // Ensure the sports_venue.contact_title column exists and orphaned venue references are cleared before Hibernate validates.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
                         DO $$
                         BEGIN
+                          IF to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_venue
+                              ADD COLUMN IF NOT EXISTS contact_title varchar(100);
+                          END IF;
                           IF to_regclass('manacommunity.venue') IS NOT NULL THEN
                             ALTER TABLE manacommunity.venue
                               ADD COLUMN IF NOT EXISTS contact_title varchar(100);
                           END IF;
+
+                          -- Clean up any orphaned venue_id references before Hibernate applies FK constraints
+                          IF to_regclass('manacommunity.sports_event') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_event SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_tournament_match SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_config') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_tournament_config SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_venue_contact') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            DELETE FROM manacommunity.sports_venue_contact
+                            WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_court') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            DELETE FROM manacommunity.sports_court
+                            WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
                         END $$;
                         """);
 
-                log.info("venue.contact_title column ensured.");
+                log.info("sports_venue.contact_title column and FK integrity ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher venue contact_title column patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher sports_venue patch failed: {}", e.getMessage(), e);
             }
 
             // Ensure the app_user brute-force lockout columns exist before Hibernate
@@ -981,9 +1007,9 @@ public class SchemaConstraintPatcher {
                               ('sports_tournament_match','man_of_match_id','sports_auction_player','n'),
                               -- Venue delete: courts belong to the venue (removed with
                               -- it); events/matches survive with a null (TBD) venue.
-                              ('court','venue_id','venue','c'),
-                              ('sports_event','venue_id','venue','n'),
-                              ('sports_tournament_match','venue_id','venue','n'),
+                              ('sports_court','venue_id','sports_venue','c'),
+                              ('sports_event','venue_id','sports_venue','n'),
+                              ('sports_tournament_match','venue_id','sports_venue','n'),
                               -- Player-category delete: unlink from events (join rows)
                               -- and null the category on registrations, which survive.
                               ('sports_event_category','category_id','sports_player_category','c'),
@@ -2211,7 +2237,7 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.event_venue_config (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_event_venue_config (
                             id              BIGSERIAL PRIMARY KEY,
                             event_id        BIGINT,
                             community_id    BIGINT,

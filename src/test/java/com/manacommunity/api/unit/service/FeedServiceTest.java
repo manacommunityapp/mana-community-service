@@ -312,8 +312,8 @@ class FeedServiceTest {
                     .createdAt(LocalDateTime.now())
                     .build();
 
-            when(postBookmarkRepository.findByUserIdOrderByCreatedAtDesc(eq(user.getId()), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of(bookmark)));
+            when(postRepository.findBookmarkedByUser(eq(user.getId()), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(post)));
 
             Page<PostResponse> result = feedService.getBookmarkedPosts(user, 0, 10);
 

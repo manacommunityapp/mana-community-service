@@ -353,8 +353,10 @@ public class SportsController {
                 .map(this::toEventResponse).toList());
     }
 
-    @GetMapping({"/events/all", "/tournaments/all"})
+    @GetMapping({"/events/all", "/tournaments/all", "/tournaments"})
     public ResponseEntity<PagedResponse<SportsEventResponse>> getAllTournaments(
+            @RequestParam(required = false) String sport,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -756,6 +758,9 @@ public class SportsController {
                 .partnerConfirmationStatus(r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null)
                 .partnerConfirmedAt(r.getPartnerConfirmedAt())
                 .partnerDeclineReason(r.getPartnerDeclineReason())
+                .cricHeroesUrl(r.getCricheroesUrl())
+                .cricHeroesId(r.getCricheroesId())
+                .verifiedAt(r.getVerifiedAt())
                 .seed(r.getSeed())
                 .registeredAt(r.getRegisteredAt())
                 .updatedAt(r.getUpdatedAt())

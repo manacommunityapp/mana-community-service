@@ -44,4 +44,22 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     long countByCommunityIdAndStatus(Long communityId, VisitorPass.PassStatus status);
 
     long countByCommunityId(Long communityId);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid AND v.expectedAt >= :start AND v.expectedAt < :end")
+    long countTodayVisitors(@Param("cid") Long communityId,
+                            @Param("start") LocalDateTime start,
+                            @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid " +
+           "AND v.status = com.manacommunity.api.visitor.entity.VisitorPass.PassStatus.CHECKED_IN " +
+           "AND v.vehicleNumber IS NOT NULL AND v.vehicleNumber != ''")
+    long countVehiclesIn(@Param("cid") Long communityId);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid " +
+           "AND v.expectedAt >= :start AND v.expectedAt < :end " +
+           "AND (v.passType = com.manacommunity.api.visitor.entity.VisitorPass.PassType.DELIVERY " +
+           "OR LOWER(v.purpose) LIKE '%delivery%')")
+    long countTodayDeliveries(@Param("cid") Long communityId,
+                              @Param("start") LocalDateTime start,
+                              @Param("end") LocalDateTime end);
 }

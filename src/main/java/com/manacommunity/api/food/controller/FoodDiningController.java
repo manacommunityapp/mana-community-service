@@ -21,7 +21,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/food/dining")
+@RequestMapping({"/api/v1/food/dining", "/food/dining"})
 @RequiredArgsConstructor
 public class FoodDiningController {
 

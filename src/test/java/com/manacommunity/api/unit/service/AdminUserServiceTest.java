@@ -161,7 +161,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(DuplicateResourceException.class)
-                .hasMessageContaining("priya.sharma@example.com");
+                .hasMessageContaining("email already exists");
 
         verify(userRepository, never()).save(any());
     }
@@ -182,7 +182,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(DuplicateResourceException.class)
-                .hasMessageContaining("+91 98765 43210");
+                .hasMessageContaining("phone already exists");
 
         verify(userRepository, never()).save(any());
     }
@@ -201,7 +201,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(InvalidInviteCodeException.class)
-                .hasMessageContaining("UNKNOWN-CODE");
+                .hasMessageContaining("invite code is invalid");
 
         verify(userRepository, never()).save(any());
     }

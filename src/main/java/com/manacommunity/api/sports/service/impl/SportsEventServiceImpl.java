@@ -15,7 +15,7 @@ import com.manacommunity.api.sports.model.SportsNotificationScheduler;
 import com.manacommunity.api.sports.model.SportsPlayerCategory;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.model.TournamentType;
-import com.manacommunity.api.sports.model.Venue;
+import com.manacommunity.api.sports.model.SportsVenue;
 import com.manacommunity.api.sports.repository.SportsAuctionConfigRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
@@ -27,7 +27,7 @@ import com.manacommunity.api.sports.repository.SportsNotificationSchedulerReposi
 import com.manacommunity.api.sports.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.sports.repository.SportsPlayerRankingRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentRepository;
-import com.manacommunity.api.sports.repository.VenueRepository;
+import com.manacommunity.api.sports.repository.SportsVenueRepository;
 
 
 import com.manacommunity.api.model.Community;
@@ -77,7 +77,7 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final SportsNotificationSchedulerRepository schedulerRepo;
     private final AppUserRepository userRepo;
     private final CommunityRepository communityRepo;
-    private final VenueRepository venueRepo;
+    private final SportsVenueRepository venueRepo;
     private final SportsAuctionConfigRepository auctionConfigRepo;
     private final SportsAuctionTeamRepository auctionTeamRepo;
     private final SportsAuctionPlayerRepository playerRepo;
@@ -126,7 +126,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsMeta sport = sportMetaRepo.findById(req.getSportId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sport", req.getSportId()));
 
-        Venue venue = null;
+        SportsVenue venue = null;
         if (req.getVenueId() != null) {
             venue = venueRepo.findById(req.getVenueId())
                     .orElseThrow(() -> new ResourceNotFoundException("Venue", req.getVenueId()));
@@ -588,6 +588,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .flatNumber(flat)
                 .age(age)
                 .role(req.getRole())
+                .cricheroesUrl(req.getCricHeroesUrl())
                 .registeredAt(LocalDateTime.now())
                 .build();
 
@@ -754,6 +755,9 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .playerRole(saved.getRole() != null ? saved.getRole() : "Batsman")
                         .age(saved.getAge() != null ? saved.getAge() : 30)
                         .basePrice(config.getBasePrice() != null ? config.getBasePrice() : 1000)
+                        .cricheroesUrl(saved.getCricheroesUrl())
+                        .cricheroesId(saved.getCricheroesId())
+                        .verifiedAt(saved.getVerifiedAt())
                         .rating(saved.getUser() != null && saved.getEvent() != null && saved.getEvent().getSport() != null && saved.getEvent().getCommunity() != null
                                 ? rankingRepo.findByUserIdAndSportIdAndCommunityId(
                                         saved.getUser().getId(),

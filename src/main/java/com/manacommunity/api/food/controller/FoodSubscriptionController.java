@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/food/subscriptions")
+@RequestMapping({"/api/v1/food/subscriptions", "/food/subscriptions"})
 @RequiredArgsConstructor
 public class FoodSubscriptionController {
 

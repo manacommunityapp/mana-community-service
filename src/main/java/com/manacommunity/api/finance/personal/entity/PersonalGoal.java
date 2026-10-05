@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "PersonalFinanceGoal")
 @Table(name = "personal_finance_goals")
 @Getter
 @Setter

@@ -86,6 +86,16 @@ public class FeedService {
         return toPostResponsePage(posts, currentUser.getId());
     }
 
+    @Transactional(readOnly = true)
+    public PostResponse getPostById(AppUser currentUser, Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+        if (post.isDeleted()) {
+            throw new ResourceNotFoundException("Post", postId);
+        }
+        return toPostResponse(post, currentUser != null ? currentUser.getId() : null);
+    }
+
     @Transactional
     public PostResponse createPost(AppUser currentUser, PostRequest request) {
         if (currentUser.getCommunity() == null) {
