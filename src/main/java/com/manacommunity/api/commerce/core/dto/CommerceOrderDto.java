@@ -24,6 +24,7 @@ public class CommerceOrderDto {
     private Long sellerId;
     private String vendorId;
     private String vendorName;
+    private String sellerName;
     private Long communityId;
     private CommerceOrderStatus status;
     private BigDecimal subtotalAmount;

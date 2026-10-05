@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HandoverVerificationRequest {
-    @NotEmpty
+    private String orderNumber;
+    private String enteredOtp;
     private String tokenOrOtp;
 }

@@ -21,4 +21,5 @@ public class CommerceOrderItemDto {
     private Integer quantity;
     private BigDecimal totalPrice;
     private String imageUrl;
+    private String thumbnailUrl;
 }

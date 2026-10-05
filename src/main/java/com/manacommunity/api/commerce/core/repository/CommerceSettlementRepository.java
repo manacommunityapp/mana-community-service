@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface CommerceSettlementRepository extends JpaRepository<CommerceSettlement, Long> {
     Optional<CommerceSettlement> findBySettlementNumber(String settlementNumber);
     List<CommerceSettlement> findByVendorIdOrderByCycleEndDateDesc(String vendorId);
-    List<CommerceSettlement> findBySellerIdOrderByCycleEndDateDesc(Long sellerId);
+    List<CommerceSettlement> findBySeller_IdOrderByCycleEndDateDesc(Long sellerId);
+    List<CommerceSettlement> findBySeller_Id(Long sellerId);
     List<CommerceSettlement> findByCommunityIdOrderByCycleEndDateDesc(Long communityId);
 }

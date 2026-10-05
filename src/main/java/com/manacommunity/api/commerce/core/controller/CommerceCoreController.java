@@ -1,6 +1,9 @@
 package com.manacommunity.api.commerce.core.controller;
 
 import com.manacommunity.api.commerce.core.dto.*;
+import com.manacommunity.api.commerce.core.model.CommerceChannel;
+import com.manacommunity.api.commerce.core.model.CommerceProduct;
+import com.manacommunity.api.commerce.core.model.CommerceRefund;
 import com.manacommunity.api.commerce.core.service.CommerceCoreService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -12,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/commerce")
@@ -20,6 +24,12 @@ public class CommerceCoreController {
 
     private final CommerceCoreService commerceService;
     private final LoggedInUserService loggedInUserService;
+
+    @GetMapping("/products")
+    public ResponseEntity<List<CommerceProduct>> getProducts(
+            @RequestParam(required = false) CommerceChannel channel) {
+        return ResponseEntity.ok(commerceService.getProducts(channel));
+    }
 
     @PostMapping("/orders/checkout")
     public ResponseEntity<CommerceOrderDto> checkout(
@@ -64,8 +74,20 @@ public class CommerceCoreController {
         return ResponseEntity.ok(commerceService.raiseDispute(user, dto));
     }
 
-    @GetMapping("/settlements/vendor/{vendorId}")
-    public ResponseEntity<List<CommerceSettlementDto>> getVendorSettlements(@PathVariable String vendorId) {
-        return ResponseEntity.ok(commerceService.getVendorSettlements(vendorId));
+    @PostMapping("/orders/{orderNumber}/refund")
+    public ResponseEntity<CommerceRefund> initiateRefund(
+            @PathVariable String orderNumber,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String reason = body.getOrDefault("reason", "Customer requested cancellation");
+        return ResponseEntity.ok(commerceService.processRefund(user, orderNumber, reason));
+    }
+
+    @GetMapping("/settlements/my")
+    public ResponseEntity<List<CommerceSettlementDto>> getMySettlements(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commerceService.getMySettlements(user));
     }
 }

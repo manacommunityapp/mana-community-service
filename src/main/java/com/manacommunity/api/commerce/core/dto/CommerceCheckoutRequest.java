@@ -22,6 +22,7 @@ public class CommerceCheckoutRequest {
     private Long sellerId;
     private String vendorId;
     private String vendorName;
+    private String sellerName;
     @NotEmpty
     private List<CommerceOrderItemDto> items;
     private BigDecimal discountAmount;
@@ -29,6 +30,7 @@ public class CommerceCheckoutRequest {
     private String paymentMethod;
     private String fulfillmentType;
     private String deliveryAddress;
+    private String deliverySlot;
     private String pickupPoint;
     private String pickupSlot;
 }
