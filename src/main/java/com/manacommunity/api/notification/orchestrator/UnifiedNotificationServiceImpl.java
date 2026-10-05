@@ -8,7 +8,8 @@ import com.manacommunity.api.notification.enums.SmsLanguage;
 import com.manacommunity.api.notification.enums.SmsPriority;
 import com.manacommunity.api.notification.orchestrator.NotificationDtos.*;
 import com.manacommunity.api.notification.orchestrator.NotificationEnums.*;
-import com.manacommunity.api.notification.orchestrator.engine.NotificationPreferenceEngine;
+import com.manacommunity.api.notification.orchestrator.engine.*;
+import com.manacommunity.api.notification.orchestrator.event.DomainEvent;
 import com.manacommunity.api.notification.orchestrator.provider.WhatsAppProvider;
 import com.manacommunity.api.notification.service.SmsService;
 import com.manacommunity.api.service.ExpoPushService;
@@ -35,11 +36,85 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
     private final NotificationPreferenceRepository preferenceRepository;
     private final NotificationAuditLogRepository auditLogRepository;
     private final NotificationPreferenceEngine preferenceEngine;
+    private final NotificationRuleEngine ruleEngine;
+    private final NotificationRecipientResolver recipientResolver;
+    private final NotificationPriorityResolver priorityResolver;
+    private final NotificationRetryFallbackEngine retryFallbackEngine;
     private final ExpoPushService pushService;
     private final EmailService emailService;
     private final SmsService smsService;
     private final WhatsAppProvider whatsAppProvider;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Override
+    @Transactional
+    public List<UnifiedNotificationResult> handleDomainEvent(DomainEvent event) {
+        log.info("Processing domain event: {} [id: {}]", event.getEventType(), event.getEventId());
+
+        Optional<NotificationRule> ruleOpt = ruleEngine.findRule(event.getEventType());
+        if (ruleOpt.isEmpty()) {
+            log.warn("No notification rule found for event type: {}", event.getEventType());
+            return Collections.emptyList();
+        }
+
+        NotificationRule rule = ruleOpt.get();
+        List<Long> recipientIds = recipientResolver.resolveRecipients(event, rule);
+        NotificationPriority effectivePriority = priorityResolver.resolvePriority(event, rule);
+
+        String title = ruleEngine.renderTemplate(rule.getTitleTemplate(), event.getPayload());
+        String body = ruleEngine.renderTemplate(rule.getBodyTemplate(), event.getPayload());
+        String actionUrl = ruleEngine.renderTemplate(rule.getActionUrlTemplate(), event.getPayload());
+
+        List<UnifiedNotificationResult> results = new ArrayList<>();
+
+        for (Long recipientId : recipientIds) {
+            UnifiedNotificationRequest req = UnifiedNotificationRequest.builder()
+                    .recipientUserId(recipientId)
+                    .category(rule.getCategory())
+                    .priority(effectivePriority)
+                    .strategy(rule.getDefaultStrategy())
+                    .explicitChannels(rule.getDefaultChannels())
+                    .title(title)
+                    .body(body)
+                    .data(event.getPayload())
+                    .actionUrl(actionUrl)
+                    .build();
+
+            results.add(orchestrate(req));
+        }
+
+        return results;
+    }
+
+    @Override
+    @Transactional
+    public UnifiedNotificationResult retryDelivery(Long auditLogId) {
+        NotificationAuditLog failedLog = auditLogRepository.findById(auditLogId)
+                .orElseThrow(() -> new IllegalArgumentException("Audit log not found: " + auditLogId));
+
+        Optional<NotificationChannel> nextChannel = retryFallbackEngine.determineNextFallbackChannel(failedLog.getChannel());
+        if (nextChannel.isEmpty()) {
+            // Re-attempt same channel
+            UnifiedNotificationRequest req = UnifiedNotificationRequest.builder()
+                    .recipientUserId(failedLog.getUser().getId())
+                    .category(failedLog.getCategory())
+                    .priority(failedLog.getPriority())
+                    .strategy(DeliveryStrategy.FALLBACK_CASCADE)
+                    .explicitChannels(List.of(failedLog.getChannel()))
+                    .title(failedLog.getTitle())
+                    .body(failedLog.getBody())
+                    .build();
+            return orchestrate(req);
+        }
+
+        UnifiedNotificationRequest fallbackReq = retryFallbackEngine.buildFallbackRequest(failedLog, nextChannel.get());
+        return orchestrate(fallbackReq);
+    }
+
+    @Override
+    public List<NotificationRule> getNotificationRules() {
+        return ruleEngine.getAllRules();
+    }
 
     @Override
     @Transactional
@@ -121,7 +196,6 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
             return List.of(NotificationChannel.PUSH, NotificationChannel.WHATSAPP, NotificationChannel.SMS);
         }
 
-        // Default: IN_APP and PUSH
         return List.of(NotificationChannel.IN_APP, NotificationChannel.PUSH);
     }
 

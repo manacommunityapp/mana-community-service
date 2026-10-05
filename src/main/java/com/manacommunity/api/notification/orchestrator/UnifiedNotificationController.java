@@ -1,41 +1,55 @@
 package com.manacommunity.api.notification.orchestrator;
 
 import com.manacommunity.api.notification.orchestrator.NotificationDtos.*;
-import com.manacommunity.api.notification.orchestrator.provider.WhatsAppProvider;
+import com.manacommunity.api.notification.orchestrator.engine.NotificationRule;
+import com.manacommunity.api.notification.orchestrator.event.DomainEvent;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/v1/notifications/orchestrate")
+@RequestMapping("/api/notifications/orchestrator")
 @RequiredArgsConstructor
 public class UnifiedNotificationController {
 
     private final UnifiedNotificationService notificationService;
-    private final WhatsAppProvider whatsAppProvider;
+    private final LoggedInUserService loggedInUserService;
 
-    @PostMapping("/send")
-    public ResponseEntity<UnifiedNotificationResult> sendNotification(
-            @Valid @RequestBody UnifiedNotificationRequest request) {
-        UnifiedNotificationResult result = notificationService.orchestrate(request);
-        return ResponseEntity.ok(result);
+    @PostMapping("/dispatch")
+    public ResponseEntity<UnifiedNotificationResult> dispatch(@Valid @RequestBody UnifiedNotificationRequest request) {
+        return ResponseEntity.ok(notificationService.orchestrate(request));
     }
 
-    @GetMapping("/audit-logs/{userId}")
-    public ResponseEntity<Page<NotificationAuditLog>> getAuditLogs(
-            @PathVariable Long userId,
-            Pageable pageable) {
-        Page<NotificationAuditLog> logs = notificationService.getAuditLogsForUser(userId, pageable);
-        return ResponseEntity.ok(logs);
+    @PostMapping("/events")
+    public ResponseEntity<List<UnifiedNotificationResult>> handleDomainEvent(@Valid @RequestBody DomainEvent event) {
+        return ResponseEntity.ok(notificationService.handleDomainEvent(event));
     }
 
-    @PostMapping("/whatsapp/template")
-    public ResponseEntity<WhatsAppTemplateResponse> sendWhatsAppTemplate(
-            @Valid @RequestBody WhatsAppTemplateRequest request) {
-        WhatsAppTemplateResponse response = whatsAppProvider.sendTemplateMessage(request);
-        return ResponseEntity.ok(response);
+    @PostMapping("/retry/{auditLogId}")
+    public ResponseEntity<UnifiedNotificationResult> retryDelivery(@PathVariable Long auditLogId) {
+        return ResponseEntity.ok(notificationService.retryDelivery(auditLogId));
+    }
+
+    @GetMapping("/rules")
+    public ResponseEntity<List<NotificationRule>> getRules() {
+        return ResponseEntity.ok(notificationService.getNotificationRules());
+    }
+
+    @GetMapping("/logs")
+    public ResponseEntity<Page<NotificationAuditLog>> getMyAuditLogs(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PageableDefault(size = 20) Pageable pageable) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(notificationService.getAuditLogsForUser(user.getId(), pageable));
     }
 }
