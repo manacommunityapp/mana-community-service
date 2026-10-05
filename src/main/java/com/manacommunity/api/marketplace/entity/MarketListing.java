@@ -17,6 +17,8 @@ import java.util.List;
     @Index(name = "idx_mkt_listing_status", columnList = "status"),
     @Index(name = "idx_mkt_listing_cat", columnList = "category")
 })
+@Getter
+@Setter
 @Data
 @Builder
 @NoArgsConstructor
@@ -54,6 +56,18 @@ public class MarketListing extends BaseAuditEntity {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private ListingStatus status = ListingStatus.ACTIVE;
+
+    @Column(name = "available_quantity")
+    @Builder.Default
+    private Integer availableQuantity = 1;
+
+    public Integer getAvailableQuantity() {
+        return availableQuantity != null ? availableQuantity : 1;
+    }
+
+    public void setAvailableQuantity(Integer availableQuantity) {
+        this.availableQuantity = availableQuantity;
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(length = 30)

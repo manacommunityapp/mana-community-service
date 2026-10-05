@@ -193,6 +193,14 @@ public class GlobalExceptionHandler {
                 "An internal error occurred. Please try again later.", request, null);
     }
 
+    @ExceptionHandler(ServiceDegradedException.class)
+    public ResponseEntity<ErrorResponse> handleServiceDegraded(
+            ServiceDegradedException ex, HttpServletRequest request) {
+        log.error("Service degradation in subsystem [{}] with code [{}]: {}",
+                ex.getSubsystem(), ex.getErrorCode(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     /** Catch-all for any other ManaCommunityException subtype. */
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(

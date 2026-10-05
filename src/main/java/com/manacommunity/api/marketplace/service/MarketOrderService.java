@@ -37,6 +37,8 @@ public class MarketOrderService {
     private final MarketListingRepository listingRepository;
     private final AppUserRepository userRepository;
     private final MarketHandoverSecurityService handoverSecurityService;
+    private final MarketInventoryEngine inventoryEngine;
+    private final MarketplaceSettlementService settlementService;
 
     public Page<MarketOrderResponse> getMyPurchases(Long buyerId, Pageable pageable) {
         return orderRepository.findByBuyerId(buyerId, pageable).map(this::toResponse);
@@ -87,6 +89,9 @@ public class MarketOrderService {
             MarketListing listing = listingRepository.findById(itemReq.getListingId())
                     .orElseThrow(() -> new ResourceNotFoundException("Listing not found with id: " + itemReq.getListingId()));
 
+            // Reserve stock per item
+            inventoryEngine.reserveStock(listing.getId(), buyer.getId(), itemReq.getQuantity(), orderNumber);
+
             BigDecimal total = itemReq.getUnitPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             subtotal = subtotal.add(total);
 
@@ -104,6 +109,17 @@ public class MarketOrderService {
         savedOrder.setSubtotalAmount(subtotal);
         savedOrder = orderRepository.save(savedOrder);
 
+        // Commit stock reservations upon order placement
+        inventoryEngine.commitReservation(savedOrder.getOrderNumber());
+
+        // Create settlement escrow entry
+        settlementService.createSettlementEntry(
+                savedOrder.getId(),
+                savedOrder.getOrderNumber(),
+                seller.getId(),
+                savedOrder.getTotalAmount()
+        );
+
         // Generate Security Gate Handover Pass
         MarketHandoverPassDto passDto = handoverSecurityService.generatePassForOrder(savedOrder);
 
@@ -119,6 +135,12 @@ public class MarketOrderService {
 
         MarketOrder.OrderStatus status = MarketOrder.OrderStatus.valueOf(statusStr.toUpperCase());
         order.setStatus(status);
+
+        if (status == MarketOrder.OrderStatus.DELIVERED || status == MarketOrder.OrderStatus.COMPLETED) {
+            settlementService.releaseSettlementToSeller(order.getOrderNumber());
+        } else if (status == MarketOrder.OrderStatus.CANCELLED) {
+            inventoryEngine.releaseReservation(order.getOrderNumber());
+        }
 
         return toResponse(orderRepository.save(order));
     }
@@ -145,9 +167,9 @@ public class MarketOrderService {
                 .id(o.getId())
                 .orderNumber(o.getOrderNumber())
                 .buyerId(o.getBuyer().getId())
-                .buyerName(o.getBuyer().getFullName() != null ? o.getBuyer().getFullName() : o.getBuyer().getUsername())
+                .buyerName(o.getBuyer().getFullName() != null ? o.getBuyer().getFullName() : o.getBuyer().getEmail())
                 .sellerId(o.getSeller().getId())
-                .sellerName(o.getSeller().getFullName() != null ? o.getSeller().getFullName() : o.getSeller().getUsername())
+                .sellerName(o.getSeller().getFullName() != null ? o.getSeller().getFullName() : o.getSeller().getEmail())
                 .communityId(o.getCommunity() != null ? o.getCommunity().getId() : null)
                 .status(o.getStatus())
                 .subtotalAmount(o.getSubtotalAmount())

@@ -23,5 +23,10 @@ public enum AuditModule {
     SERVICE_PLATFORM,
     RETAIL,
     TRIP,
-    PRIVACY
+    PRIVACY,
+    WALLET,
+    PARKING,
+    GROUP_BUYING,
+    PAYMENTS,
+    RESILIENCE
 }
