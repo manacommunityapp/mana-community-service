@@ -47,6 +47,15 @@ public class FoodOrderController {
         return ResponseEntity.ok(orderService.getMyOrders(communityId, user.getId(), pageable));
     }
 
+    @GetMapping("/mine")
+    @PreAuthorize("hasAuthority('View Food Orders')")
+    public ResponseEntity<Page<Map<String, Object>>> getMyOrdersMine(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return getMyOrders(page, size, principal);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('View Food Orders')")
     public ResponseEntity<Map<String, Object>> getOrderById(
@@ -113,6 +122,15 @@ public class FoodOrderController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
         return ResponseEntity.ok(orderService.rateOrder(communityId, id, request, user));
+    }
+
+    @PostMapping("/{id}/review")
+    @PreAuthorize("hasAuthority('Manage Food Orders')")
+    public ResponseEntity<Map<String, Object>> reviewOrder(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return rateOrder(id, request, principal);
     }
 
     @GetMapping("/{id}/tracking")

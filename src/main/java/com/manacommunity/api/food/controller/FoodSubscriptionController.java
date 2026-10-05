@@ -79,7 +79,7 @@ public class FoodSubscriptionController {
                 .body(subscriptionService.subscribe(communityId, request, user));
     }
 
-    @GetMapping("/my")
+    @GetMapping({"/my", "/mine"})
     @PreAuthorize("hasAuthority('View Food Subscriptions')")
     public ResponseEntity<?> getMySubscriptions(
             @AuthenticationPrincipal UserPrincipal principal) {

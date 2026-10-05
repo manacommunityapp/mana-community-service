@@ -39,7 +39,7 @@ public class FoodDiningController {
                 .body(diningReservationService.create(communityId, request, user));
     }
 
-    @GetMapping("/reservations")
+    @GetMapping({"/reservations", "/reservations/mine"})
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Dining', 'Manage Food Dining')")
     public ResponseEntity<?> getMyReservations(
             @RequestParam(defaultValue = "0") int page,
@@ -102,6 +102,14 @@ public class FoodDiningController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(diningReservationService.cancel(communityId, id));
+    }
+
+    @PostMapping("/rsvp")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('Manage Food Dining', 'View Food Dining')")
+    public ResponseEntity<?> rsvp(
+            @Valid @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return create(request, principal);
     }
 
     @PostMapping("/waitlist")

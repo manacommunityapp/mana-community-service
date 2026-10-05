@@ -83,10 +83,10 @@ public class FoodGroceryController {
         return ResponseEntity.ok(groceryService.getCategories(communityId, storeId));
     }
 
-    @GetMapping("/products")
+    @GetMapping({"/products", "/items"})
     @PreAuthorize("hasAuthority('View Food Grocery')")
     public ResponseEntity<?> getProducts(
-            @RequestParam Long storeId,
+            @RequestParam(required = false) Long storeId,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
@@ -141,7 +141,7 @@ public class FoodGroceryController {
                 .body(groceryService.placeOrder(communityId, request, user));
     }
 
-    @GetMapping("/orders")
+    @GetMapping({"/orders", "/orders/mine"})
     @PreAuthorize("hasAuthority('View Food Grocery')")
     public ResponseEntity<?> getMyOrders(
             @RequestParam(defaultValue = "0") int page,
