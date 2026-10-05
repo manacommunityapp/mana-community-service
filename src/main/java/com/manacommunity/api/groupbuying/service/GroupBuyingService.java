@@ -376,7 +376,7 @@ public class GroupBuyingService {
         return mapToDemandResponse(demand);
     }
 
-    public CommunitySavingsResponse getCommunitySavings(Long communityId) {
+        public CommunitySavingsResponse getCommunitySavings(Long communityId) {
         List<GroupBuyOrder> orders = orderRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
         BigDecimal totalSavings = orders.stream()
                 .map(o -> o.getSavingsAmount() != null ? o.getSavingsAmount() : BigDecimal.ZERO)
@@ -393,8 +393,20 @@ public class GroupBuyingService {
                 .activeDeals(38)
                 .avgSavingPerOrder(avgSaving.compareTo(BigDecimal.ZERO) > 0 ? avgSaving : BigDecimal.valueOf(147))
                 .totalKgsBought(2450)
-                .topCategory("Grocery")
-                .totalSavedAllTime(BigDecimal.valueOf(820000))
+                .topCategory("Groceries & Farm Produce")
+                .totalSavedAllTime(BigDecimal.valueOf(1840000))
+                .collectiveDiscountPercent(23.8)
+                .heroMilestoneText("Your community saved ₹18.4 lakh through collective purchasing this year.")
+                .topDealsThisMonth(List.of(
+                        CommunitySavingsResponse.TopDealSavingsDto.builder().dealTitle("Devgad Alphonso Mangoes (1 Dozen)").savings(BigDecimal.valueOf(68400)).participants(84).build(),
+                        CommunitySavingsResponse.TopDealSavingsDto.builder().dealTitle("Premium Aged Basmati Rice (5kg)").savings(BigDecimal.valueOf(45200)).participants(86).build(),
+                        CommunitySavingsResponse.TopDealSavingsDto.builder().dealTitle("A2 Vedic Bilona Cow Ghee (1L)").savings(BigDecimal.valueOf(36800)).participants(52).build()
+                ))
+                .towerLeaderboard(List.of(
+                        CommunitySavingsResponse.TowerSavingsDto.builder().tower("Tower A").orders(412).totalSaved(BigDecimal.valueOf(62450)).build(),
+                        CommunitySavingsResponse.TowerSavingsDto.builder().tower("Tower B").orders(386).totalSaved(BigDecimal.valueOf(58200)).build(),
+                        CommunitySavingsResponse.TowerSavingsDto.builder().tower("Tower C").orders(298).totalSaved(BigDecimal.valueOf(42870)).build()
+                ))
                 .build();
     }
 
