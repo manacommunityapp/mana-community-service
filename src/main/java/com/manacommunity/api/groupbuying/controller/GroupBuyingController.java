@@ -167,15 +167,6 @@ public class GroupBuyingController {
         return ResponseEntity.ok(groupBuyingService.acceptVendorOffer(id, offerId, user));
     }
 
-    @PostMapping("/deals/{id}/checkout")
-    public ResponseEntity<GroupOrderResponse> checkoutDeal(
-            @PathVariable Long id,
-            @Valid @RequestBody JoinDealRequest request,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(groupBuyingService.joinDeal(id, user, request));
-    }
-
     @GetMapping("/tower-groups")
     public ResponseEntity<List<BuyingGroupDto>> getTowerGroups(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
