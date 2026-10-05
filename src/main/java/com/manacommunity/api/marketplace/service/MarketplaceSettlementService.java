@@ -28,8 +28,8 @@ public class MarketplaceSettlementService {
 
     @Transactional
     public MarketplaceSettlementRecord createSettlementEntry(Long orderId, String orderNumber, Long sellerUserId, BigDecimal grossAmount) {
-        BigDecimal platformFee = grossAmount.multiply(DEFAULT_COMMISSION_PERCENTAGE);
-        BigDecimal netPayout = grossAmount.subtract(platformFee);
+        BigDecimal platformFee = grossAmount.multiply(DEFAULT_COMMISSION_PERCENTAGE).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal netPayout = grossAmount.subtract(platformFee).setScale(2, java.math.RoundingMode.HALF_UP);
 
         String ref = "SETTLE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -38,9 +38,9 @@ public class MarketplaceSettlementService {
                 .orderId(orderId)
                 .orderNumber(orderNumber)
                 .sellerId(sellerUserId)
-                .grossAmount(grossAmount)
+                .grossAmount(grossAmount.setScale(2, java.math.RoundingMode.HALF_UP))
                 .platformFee(platformFee)
-                .taxDeduction(BigDecimal.ZERO)
+                .taxDeduction(BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP))
                 .netPayoutAmount(netPayout)
                 .payoutMode(MarketplaceSettlementRecord.PayoutMode.WALLET)
                 .status(MarketplaceSettlementRecord.SettlementStatus.PENDING_CLEARANCE)

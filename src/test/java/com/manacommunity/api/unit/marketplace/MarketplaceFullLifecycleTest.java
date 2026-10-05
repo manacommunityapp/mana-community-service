@@ -168,9 +168,9 @@ class MarketplaceFullLifecycleTest {
                 1001L, "ORD-TEST-999", 10L, BigDecimal.valueOf(1000.00)
         );
 
-        assertThat(settlement.getGrossAmount()).isEqualTo(BigDecimal.valueOf(1000.00));
-        assertThat(settlement.getPlatformFee()).isEqualTo(BigDecimal.valueOf(20.00)); // 2%
-        assertThat(settlement.getNetPayoutAmount()).isEqualTo(BigDecimal.valueOf(980.00));
+        assertThat(settlement.getGrossAmount()).isEqualByComparingTo("1000.00");
+        assertThat(settlement.getPlatformFee()).isEqualByComparingTo("20.00"); // 2%
+        assertThat(settlement.getNetPayoutAmount()).isEqualByComparingTo("980.00");
         assertThat(settlement.getStatus()).isEqualTo(MarketplaceSettlementRecord.SettlementStatus.PENDING_CLEARANCE);
 
         // Release settlement upon delivery
@@ -188,7 +188,7 @@ class MarketplaceFullLifecycleTest {
 
         verify(walletEngine).creditWallet(
                 eq(10L),
-                eq(BigDecimal.valueOf(980.00)),
+                argThat(b -> b != null && b.compareTo(BigDecimal.valueOf(980)) == 0),
                 eq(WalletTransactionType.TOPUP),
                 eq("MARKETPLACE_SETTLEMENT"),
                 eq(1001L),
