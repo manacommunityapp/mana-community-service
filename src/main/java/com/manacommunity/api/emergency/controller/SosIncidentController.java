@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/emergency")
+@RequestMapping({"/api/emergency", "/api/v1/emergency"})
 @RequiredArgsConstructor
 public class SosIncidentController {
 
