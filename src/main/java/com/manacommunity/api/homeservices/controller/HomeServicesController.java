@@ -31,7 +31,7 @@ public class HomeServicesController {
 
     // ── Staff ───────────────────────────────────────────────────────
 
-    @GetMapping("/staff")
+    @GetMapping({"/staff", "/domestic-staff"})
     public ResponseEntity<List<DomesticStaffResponse>> getStaff(
             @RequestParam(required = false) DomesticStaff.StaffRole role,
             @AuthenticationPrincipal UserPrincipal principal) {
