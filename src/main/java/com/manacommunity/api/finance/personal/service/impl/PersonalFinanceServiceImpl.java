@@ -574,22 +574,34 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
     public PersonalReportPeriodDto getReport(AppUser user, String period) {
         LocalDate start;
         LocalDate end;
+        LocalDate prevStart;
+        LocalDate prevEnd;
         LocalDate now = LocalDate.now();
 
         if ("last-month".equalsIgnoreCase(period)) {
             YearMonth prev = YearMonth.now().minusMonths(1);
             start = prev.atDay(1);
             end = prev.atEndOfMonth();
+            YearMonth twoAgo = YearMonth.now().minusMonths(2);
+            prevStart = twoAgo.atDay(1);
+            prevEnd = twoAgo.atEndOfMonth();
         } else if ("quarter".equalsIgnoreCase(period)) {
             start = now.minusMonths(3);
             end = now;
+            prevStart = now.minusMonths(6);
+            prevEnd = now.minusMonths(3);
         } else if ("year".equalsIgnoreCase(period)) {
             start = now.withDayOfYear(1);
             end = now;
+            prevStart = now.minusYears(1).withDayOfYear(1);
+            prevEnd = now.minusYears(1);
         } else {
             YearMonth cur = YearMonth.now();
             start = cur.atDay(1);
             end = cur.atEndOfMonth();
+            YearMonth prev = YearMonth.now().minusMonths(1);
+            prevStart = prev.atDay(1);
+            prevEnd = prev.atEndOfMonth();
         }
 
         BigDecimal income = transactionRepository.sumIncomeForPeriod(user.getId(), start, end);
@@ -598,6 +610,68 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
         if (expense == null) expense = BigDecimal.ZERO;
         BigDecimal savings = income.subtract(expense);
 
+        int savingsRate = income.compareTo(BigDecimal.ZERO) > 0
+                ? savings.multiply(BigDecimal.valueOf(100)).divide(income, 0, RoundingMode.HALF_UP).intValue()
+                : 0;
+
+        BigDecimal prevExpense = transactionRepository.sumExpensesForPeriod(user.getId(), prevStart, prevEnd);
+        if (prevExpense == null) prevExpense = BigDecimal.ZERO;
+
+        Double changePct = null;
+        String insightText = null;
+        if (prevExpense.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal diff = expense.subtract(prevExpense);
+            changePct = diff.multiply(BigDecimal.valueOf(100)).divide(prevExpense, 1, RoundingMode.HALF_UP).doubleValue();
+            if (changePct > 0) {
+                insightText = "Your spending increased " + String.format("%.1f", Math.abs(changePct)) + "% compared with last period.";
+            } else if (changePct < 0) {
+                insightText = "Great job! Your spending decreased " + String.format("%.1f", Math.abs(changePct)) + "% compared with last period.";
+            } else {
+                insightText = "Your spending is consistent with the previous period.";
+            }
+        } else if (expense.compareTo(BigDecimal.ZERO) > 0) {
+            insightText = "You saved " + savingsRate + "% of your income this period.";
+        }
+
+        // Top Expense Categories aggregation
+        List<PersonalTransaction> periodTxns = transactionRepository.findByUserIdAndTransactionDateBetweenOrderByTransactionDateDesc(
+                user.getId(), start, end
+        );
+
+        Map<String, BigDecimal> catExpenses = new HashMap<>();
+        Map<String, String> catIcons = new HashMap<>();
+        Map<String, String> catColors = new HashMap<>();
+
+        for (PersonalTransaction t : periodTxns) {
+            if ("EXPENSE".equalsIgnoreCase(t.getType())) {
+                String cat = t.getCategoryName() != null ? t.getCategoryName() : "General";
+                BigDecimal amt = t.getAmount() != null ? t.getAmount() : BigDecimal.ZERO;
+                catExpenses.put(cat, catExpenses.getOrDefault(cat, BigDecimal.ZERO).add(amt));
+                if (t.getCategoryIcon() != null) catIcons.put(cat, t.getCategoryIcon());
+                if (t.getCategoryColor() != null) catColors.put(cat, t.getCategoryColor());
+            }
+        }
+
+        List<PersonalReportPeriodDto.TopCategoryDto> topCategories = new ArrayList<>();
+        BigDecimal totalExp = expense.compareTo(BigDecimal.ZERO) > 0 ? expense : BigDecimal.ONE;
+
+        catExpenses.entrySet().stream()
+                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
+                .forEach(e -> {
+                    String catName = e.getKey();
+                    BigDecimal amt = e.getValue();
+                    int pct = amt.multiply(BigDecimal.valueOf(100)).divide(totalExp, 0, RoundingMode.HALF_UP).intValue();
+                    topCategories.add(PersonalReportPeriodDto.TopCategoryDto.builder()
+                            .categoryId(catName.toLowerCase().replace(" ", "-"))
+                            .categoryName(catName)
+                            .categoryIcon(catIcons.getOrDefault(catName, "pricetag-outline"))
+                            .categoryColor(catColors.getOrDefault(catName, "#64748B"))
+                            .amount(amt)
+                            .percentage(pct)
+                            .build());
+                });
+
+        // 6-Month Trend Breakdown
         List<PersonalReportPeriodDto.MonthlyBreakdownDto> monthlyBreakdown = new ArrayList<>();
         for (int i = 5; i >= 0; i--) {
             YearMonth ym = YearMonth.now().minusMonths(i);
@@ -619,7 +693,12 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
                 .totalIncome(income)
                 .totalExpenses(expense)
                 .netSavings(savings)
-                .topCategories(Collections.emptyList())
+                .savingsRate(savingsRate)
+                .previousPeriodExpenses(prevExpense)
+                .expenseChangePercentage(changePct)
+                .trendInsightText(insightText)
+                .topCategories(topCategories)
+                .topIncomeSources(Collections.emptyList())
                 .monthlyBreakdown(monthlyBreakdown)
                 .build();
     }
