@@ -94,6 +94,14 @@ public class PersonalFinanceController {
         return ResponseEntity.ok(financeService.getTransactions(user, type, categoryId, accountId, from, to, tag, page, limit));
     }
 
+    @GetMapping({"/api/v1/personal-finance/transactions/{id}", "/personal-finance/transactions/{id}"})
+    public ResponseEntity<PersonalTransactionDto> getTransaction(
+            @PathVariable("id") String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(financeService.getTransaction(id, user));
+    }
+
     @PostMapping({"/api/v1/personal-finance/transactions", "/personal-finance/transactions"})
     public ResponseEntity<PersonalTransactionDto> createTransaction(
             @Valid @RequestBody CreatePersonalTransactionDto dto,

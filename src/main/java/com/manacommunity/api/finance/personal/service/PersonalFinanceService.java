@@ -13,6 +13,7 @@ public interface PersonalFinanceService {
     List<PersonalCategoryDto> getCategories(AppUser user);
     PersonalCategoryDto createCategory(CreatePersonalCategoryDto dto, AppUser user);
     List<PersonalTransactionDto> getTransactions(AppUser user, String type, String categoryId, String accountId, String from, String to, String tag, int page, int limit);
+    PersonalTransactionDto getTransaction(String id, AppUser user);
     CreatePersonalTransactionDto parseNaturalLanguageText(String text, AppUser user);
     PersonalTransactionDto createTransaction(CreatePersonalTransactionDto dto, AppUser user);
     void deleteTransaction(String id, AppUser user);
@@ -26,6 +27,7 @@ public interface PersonalFinanceService {
     void markBillPaid(String id, AppUser user);
     PersonalReportPeriodDto getReport(AppUser user, String period);
     List<PersonalTransactionDto> getManaProjections(AppUser user);
+    PersonalTransactionDto autoProjectTransaction(AppUser user, BigDecimal amount, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor);
 
     // P3 Enhancements
     List<PersonalInstallmentDto> getInstallments(AppUser user);

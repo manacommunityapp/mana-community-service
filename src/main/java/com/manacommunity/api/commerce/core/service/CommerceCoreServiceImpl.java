@@ -3,6 +3,7 @@ package com.manacommunity.api.commerce.core.service;
 import com.manacommunity.api.commerce.core.dto.*;
 import com.manacommunity.api.commerce.core.model.*;
 import com.manacommunity.api.commerce.core.repository.*;
+import com.manacommunity.api.finance.personal.service.PersonalFinanceService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     private final CommerceProductRepository productRepository;
     private final CommerceRefundRepository refundRepository;
     private final CommerceRiskEngine riskEngine;
+    private final PersonalFinanceService personalFinanceService;
 
     @Override
     @Transactional(readOnly = true)

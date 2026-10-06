@@ -192,6 +192,14 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PersonalTransactionDto getTransaction(String id, AppUser user) {
+        PersonalTransaction txn = transactionRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + id));
+        return toTransactionDto(txn);
+    }
+
+    @Override
     @Transactional
     public PersonalTransactionDto createTransaction(CreatePersonalTransactionDto dto, AppUser user) {
         PersonalAccount fromAccount = accountRepository.findByIdAndUserId(dto.getAccountId(), user.getId())
@@ -327,10 +335,88 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
                 .collect(Collectors.toList());
 
         List<PersonalTransaction> recent = transactionRepository.findByUserIdOrderByTransactionDateDescCreatedAtDesc(
-                user.getId(), PageRequest.of(0, 5)
+                user.getId(), PageRequest.of(0, 10)
         );
 
         List<PersonalTransaction> manaProjections = transactionRepository.findByUserIdAndIsManaProjectionTrueOrderByTransactionDateDesc(user.getId());
+
+        // Calculate Community Spending vs Other Personal Spending for current month
+        List<PersonalTransaction> monthTxns = transactionRepository.findByUserIdAndTransactionDateBetweenOrderByTransactionDateDesc(
+                user.getId(), start, end
+        );
+
+        BigDecimal totalCommunitySpending = BigDecimal.ZERO;
+        BigDecimal totalOtherSpending = BigDecimal.ZERO;
+
+        Map<String, BigDecimal> communityMap = new LinkedHashMap<>();
+        Map<String, Integer> communityCount = new HashMap<>();
+        Map<String, BigDecimal> otherMap = new LinkedHashMap<>();
+        Map<String, Integer> otherCount = new HashMap<>();
+
+        for (PersonalTransaction t : monthTxns) {
+            if (!"EXPENSE".equalsIgnoreCase(t.getType())) continue;
+            BigDecimal amt = t.getAmount() != null ? t.getAmount() : BigDecimal.ZERO;
+
+            boolean isCommunity = Boolean.TRUE.equals(t.getIsManaProjection()) 
+                    || (t.getSourceModule() != null && !t.getSourceModule().isBlank())
+                    || (t.getSourceType() != null && !t.getSourceType().isBlank());
+
+            if (isCommunity) {
+                totalCommunitySpending = totalCommunitySpending.add(amt);
+                String moduleKey = t.getSourceModule() != null ? t.getSourceModule() : "COMMUNITY";
+                communityMap.put(moduleKey, communityMap.getOrDefault(moduleKey, BigDecimal.ZERO).add(amt));
+                communityCount.put(moduleKey, communityCount.getOrDefault(moduleKey, 0) + 1);
+            } else {
+                totalOtherSpending = totalOtherSpending.add(amt);
+                String catKey = t.getCategoryName() != null ? t.getCategoryName() : "General";
+                otherMap.put(catKey, otherMap.getOrDefault(catKey, BigDecimal.ZERO).add(amt));
+                otherCount.put(catKey, otherCount.getOrDefault(catKey, 0) + 1);
+            }
+        }
+
+        // Build Community Spending Breakdown list
+        List<PersonalSpendingCategoryDto> commList = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : communityMap.entrySet()) {
+            String key = entry.getKey();
+            BigDecimal amt = entry.getValue();
+            int pct = totalCommunitySpending.compareTo(BigDecimal.ZERO) > 0
+                    ? amt.multiply(BigDecimal.valueOf(100)).divide(totalCommunitySpending, 0, RoundingMode.HALF_UP).intValue()
+                    : 0;
+
+            String label = getCommunityModuleLabel(key);
+            String icon = getCommunityModuleIcon(key);
+            String color = getCommunityModuleColor(key);
+
+            commList.add(PersonalSpendingCategoryDto.builder()
+                    .key(key)
+                    .label(label)
+                    .icon(icon)
+                    .color(color)
+                    .amount(amt)
+                    .percentage(pct)
+                    .transactionCount(communityCount.getOrDefault(key, 1))
+                    .build());
+        }
+
+        // Build Other Spending Breakdown list
+        List<PersonalSpendingCategoryDto> otherList = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : otherMap.entrySet()) {
+            String cat = entry.getKey();
+            BigDecimal amt = entry.getValue();
+            int pct = totalOtherSpending.compareTo(BigDecimal.ZERO) > 0
+                    ? amt.multiply(BigDecimal.valueOf(100)).divide(totalOtherSpending, 0, RoundingMode.HALF_UP).intValue()
+                    : 0;
+
+            otherList.add(PersonalSpendingCategoryDto.builder()
+                    .key(cat.toUpperCase().replace(" ", "_"))
+                    .label(cat)
+                    .icon(getCategoryIcon(cat))
+                    .color(getCategoryColor(cat))
+                    .amount(amt)
+                    .percentage(pct)
+                    .transactionCount(otherCount.getOrDefault(cat, 1))
+                    .build());
+        }
 
         return PersonalDashboardSummaryDto.builder()
                 .totalIncome(income)
@@ -340,6 +426,10 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
                 .totalAssets(assets)
                 .totalLiabilities(liabilities)
                 .netWorth(netWorth)
+                .totalCommunitySpending(totalCommunitySpending)
+                .communitySpendingBreakdown(commList)
+                .totalOtherSpending(totalOtherSpending)
+                .otherSpendingBreakdown(otherList)
                 .month(ym.format(MONTH_FMT))
                 .recentTransactions(recent.stream().map(this::toTransactionDto).collect(Collectors.toList()))
                 .budgetAlerts(alerts)
@@ -983,4 +1073,131 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
                 .isCompleted(Boolean.TRUE.equals(g.getIsCompleted()))
                 .build();
     }
+
+    @Override
+    @Transactional
+    public PersonalTransactionDto autoProjectTransaction(AppUser user, BigDecimal amount, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+
+        // Find or create default personal account
+        PersonalAccount defaultAccount = accountRepository.findByUserIdOrderByCreatedAtAsc(user.getId())
+                .stream().findFirst().orElseGet(() -> {
+                    PersonalAccount newAcc = PersonalAccount.builder()
+                            .id("acc-default-" + UUID.randomUUID().toString().substring(0, 6))
+                            .user(user)
+                            .name("Main Mana Account")
+                            .type("SAVINGS")
+                            .balance(BigDecimal.valueOf(10000))
+                            .currency("₹")
+                            .icon("wallet-outline")
+                            .color("#10B981")
+                            .isActive(true)
+                            .build();
+                    return accountRepository.save(newAcc);
+                });
+
+        String txnId = "proj-" + UUID.randomUUID().toString().substring(0, 8);
+        PersonalTransaction txn = PersonalTransaction.builder()
+                .id(txnId)
+                .user(user)
+                .type("EXPENSE")
+                .amount(amount)
+                .currency("₹")
+                .accountId(defaultAccount.getId())
+                .accountName(defaultAccount.getName())
+                .categoryId("cat-" + (sourceModule != null ? sourceModule.toLowerCase() : "community"))
+                .categoryName(categoryName != null ? categoryName : "Community")
+                .categoryIcon(categoryIcon != null ? categoryIcon : "cube-outline")
+                .categoryColor(categoryColor != null ? categoryColor : "#4F46E5")
+                .description(sourceLabel != null ? sourceLabel : "Community Expense")
+                .transactionDate(LocalDate.now())
+                .isManaProjection(true)
+                .sourceModule(sourceModule)
+                .sourceType(sourceType)
+                .sourceId(sourceId)
+                .sourceLabel(sourceLabel)
+                .build();
+
+        // Update account balance
+        defaultAccount.setBalance(defaultAccount.getBalance().subtract(amount));
+        accountRepository.save(defaultAccount);
+
+        return toTransactionDto(transactionRepository.save(txn));
+    }
+
+    private String getCommunityModuleLabel(String key) {
+        switch (key.toUpperCase()) {
+            case "COMMUNITY_FINANCE":
+            case "MAINTENANCE": return "Maintenance & Society";
+            case "MARKETPLACE": return "Marketplace";
+            case "GROUP_BUYING": return "Group Buying";
+            case "POOJA": return "Pooja & Rituals";
+            case "EVENTS": return "Events & Culture";
+            case "SPORTS": return "Sports & Facilities";
+            case "FOOD": return "Food & Dining";
+            case "TRIPS": return "Trips & Commute";
+            case "ACADEMY": return "Academy & Lessons";
+            default: return key;
+        }
+    }
+
+    private String getCommunityModuleIcon(String key) {
+        switch (key.toUpperCase()) {
+            case "COMMUNITY_FINANCE":
+            case "MAINTENANCE": return "home-outline";
+            case "MARKETPLACE": return "pricetag-outline";
+            case "GROUP_BUYING": return "people-outline";
+            case "POOJA": return "sparkles-outline";
+            case "EVENTS": return "calendar-outline";
+            case "SPORTS": return "football-outline";
+            case "FOOD": return "restaurant-outline";
+            case "TRIPS": return "car-outline";
+            case "ACADEMY": return "school-outline";
+            default: return "cube-outline";
+        }
+    }
+
+    private String getCommunityModuleColor(String key) {
+        switch (key.toUpperCase()) {
+            case "COMMUNITY_FINANCE":
+            case "MAINTENANCE": return "#3B82F6";
+            case "MARKETPLACE": return "#8B5CF6";
+            case "GROUP_BUYING": return "#059669";
+            case "POOJA": return "#D97706";
+            case "EVENTS": return "#EC4899";
+            case "SPORTS": return "#10B981";
+            case "FOOD": return "#F97316";
+            case "TRIPS": return "#06B6D4";
+            case "ACADEMY": return "#6366F1";
+            default: return "#64748B";
+        }
+    }
+
+    private String getCategoryIcon(String cat) {
+        if (cat == null) return "receipt-outline";
+        String l = cat.toLowerCase();
+        if (l.contains("food") || l.contains("dining")) return "fast-food-outline";
+        if (l.contains("groc")) return "cart-outline";
+        if (l.contains("shop")) return "bag-handle-outline";
+        if (l.contains("travel") || l.contains("fuel")) return "car-outline";
+        if (l.contains("health") || l.contains("med")) return "medkit-outline";
+        if (l.contains("util") || l.contains("bill")) return "flash-outline";
+        if (l.contains("ent")) return "film-outline";
+        return "wallet-outline";
+    }
+
+    private String getCategoryColor(String cat) {
+        if (cat == null) return "#64748B";
+        String l = cat.toLowerCase();
+        if (l.contains("food")) return "#F97316";
+        if (l.contains("groc")) return "#10B981";
+        if (l.contains("shop")) return "#8B5CF6";
+        if (l.contains("travel")) return "#06B6D4";
+        if (l.contains("health")) return "#EF4444";
+        if (l.contains("util")) return "#EAB308";
+        return "#3B82F6";
+    }
+
 }
