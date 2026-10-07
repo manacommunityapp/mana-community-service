@@ -102,10 +102,10 @@ class GroupBuyingServiceTest {
         GroupOrderResponse order = groupBuyingService.joinDeal(1L, testUser, request);
 
         assertNotNull(order);
-        assertEquals(2, order.getQty());
-        assertEquals(new BigDecimal("1170.00"), order.getTotal());
-        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
-        assertNotNull(order.getQrCode());
+        assertEquals(2, order.getQuantity());
+        assertEquals(new BigDecimal("1170.00"), order.getTotalAmount());
+        assertEquals(OrderStatus.CONFIRMED.name(), order.getStatus());
+        assertNotNull(order.getQrToken());
         assertEquals(75, testDeal.getCommittedQty());
     }
 
@@ -183,6 +183,6 @@ class GroupBuyingServiceTest {
 
         assertNotNull(response);
         assertTrue(response.isSuccess());
-        assertEquals(OrderStatus.PICKED_UP, response.getOrder().getStatus());
+        assertEquals(OrderStatus.PICKED_UP.name(), response.getOrder().getStatus());
     }
 }

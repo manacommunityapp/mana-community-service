@@ -38,4 +38,16 @@ public class GroupOrderResponse {
     private String collectorName;
     private String collectorRelation;
     private LocalDateTime createdAt;
+
+    public Integer getQty() {
+        return quantity;
+    }
+
+    public BigDecimal getTotal() {
+        return totalAmount;
+    }
+
+    public String getQrCode() {
+        return qrToken;
+    }
 }
