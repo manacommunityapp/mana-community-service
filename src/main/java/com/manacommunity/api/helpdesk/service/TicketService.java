@@ -1,10 +1,13 @@
 package com.manacommunity.api.helpdesk.service;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.helpdesk.dto.HelpdeskAiDtos.*;
 import com.manacommunity.api.helpdesk.dto.HelpdeskAnalyticsResponse;
 import com.manacommunity.api.helpdesk.dto.TicketFeedbackRequest;
 import com.manacommunity.api.helpdesk.dto.TicketRequest;
 import com.manacommunity.api.helpdesk.dto.TicketResponse;
+import com.manacommunity.api.helpdesk.engine.HelpdeskAiClassificationEngine;
+import com.manacommunity.api.helpdesk.engine.HelpdeskAssignmentEngine;
 import com.manacommunity.api.helpdesk.engine.HelpdeskSlaEngine;
 import com.manacommunity.api.helpdesk.entity.Ticket;
 import com.manacommunity.api.helpdesk.entity.TicketComment;
@@ -34,10 +37,12 @@ import java.util.concurrent.ThreadLocalRandom;
 public class TicketService {
 
     private final TicketRepository repo;
-    private final TicketCommentRepository commentRepo;
+    private final TicketCommentRepository commentRepository;
     private final TicketSlaRuleRepository slaRuleRepository;
     private final AppUserRepository userRepo;
     private final HelpdeskSlaEngine slaEngine;
+    private final HelpdeskAiClassificationEngine aiClassificationEngine;
+    private final HelpdeskAssignmentEngine assignmentEngine;
 
     @Transactional(readOnly = true)
     public List<TicketResponse> getCommunityTickets(Long communityId, String statusFilter) {
@@ -83,8 +88,25 @@ public class TicketService {
 
     @Transactional
     public TicketResponse create(TicketRequest req, AppUser user, Community community) {
-        Ticket.TicketCategory category = parseEnumOrDefault(Ticket.TicketCategory.class, req.getCategory(), Ticket.TicketCategory.GENERAL);
-        Ticket.TicketPriority priority = parseEnumOrDefault(Ticket.TicketPriority.class, req.getPriority(), Ticket.TicketPriority.MEDIUM);
+        // AI Triage and Safety Classification
+        AiClassificationResult aiResult = aiClassificationEngine.classifyTicket(req.getSubject(), req.getDescription());
+
+        Ticket.TicketCategory category;
+        if (req.getCategory() != null && !req.getCategory().isBlank()) {
+            category = parseEnumOrDefault(Ticket.TicketCategory.class, req.getCategory(), aiResult.category());
+        } else {
+            category = aiResult.category();
+        }
+
+        // If safety hazard detected, auto-override priority to CRITICAL
+        Ticket.TicketPriority priority;
+        if (aiResult.isSafetyHazard()) {
+            priority = Ticket.TicketPriority.CRITICAL;
+        } else if (req.getPriority() != null && !req.getPriority().isBlank()) {
+            priority = parseEnumOrDefault(Ticket.TicketPriority.class, req.getPriority(), aiResult.suggestedPriority());
+        } else {
+            priority = aiResult.suggestedPriority();
+        }
 
         TicketSlaRule rule = slaRuleRepository.findByCategoryAndPriorityAndCommunityIdAndActiveTrue(
                 category, priority, community != null ? community.getId() : null)
@@ -94,21 +116,90 @@ public class TicketService {
         LocalDateTime createdAt = LocalDateTime.now();
         LocalDateTime slaDueAt = slaEngine.calculateSlaDueDate(createdAt, priority, rule);
 
+        // Automated Technician Assignment if applicable
+        AppUser assignee = null;
+        Ticket.TicketStatus initialStatus = Ticket.TicketStatus.OPEN;
+        if (community != null) {
+            assignee = assignmentEngine.recommendAssignee(category, community.getId()).orElse(null);
+            if (assignee != null) {
+                initialStatus = Ticket.TicketStatus.IN_PROGRESS;
+            }
+        }
+
         Ticket ticket = Ticket.builder()
                 .ticketNumber(generateTicketNumber())
                 .subject(HtmlSanitizer.sanitizePlainText(req.getSubject()))
                 .description(HtmlSanitizer.sanitizeRichText(req.getDescription()))
                 .category(category)
                 .priority(priority)
-                .status(Ticket.TicketStatus.OPEN)
+                .status(initialStatus)
                 .raisedBy(user)
+                .assignedTo(assignee)
                 .community(community)
                 .slaDueAt(slaDueAt)
+                .slaStatus(Ticket.SlaStatus.ON_TRACK)
+                .urgencyScore(aiResult.urgencyScore())
+                .aiClassificationJson(aiResult.toJson())
                 .attachments(req.getAttachments())
                 .escalationLevel(0)
                 .escalated(false)
+                .reopenCount(0)
                 .residentSignoff(false)
                 .build();
+
+        return toResponse(repo.save(ticket));
+    }
+
+    @Transactional(readOnly = true)
+    public AiClassificationResult classifyAi(AiClassificationRequest req) {
+        return aiClassificationEngine.classifyTicket(req.subject(), req.description());
+    }
+
+    @Transactional
+    public TicketResponse resolveTicket(Long id, TicketResolutionRequest req, AppUser currentUser) {
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
+        assertSameCommunity(ticket.getCommunity(), currentUser);
+
+        ticket.setStatus(Ticket.TicketStatus.RESOLVED);
+        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setResolutionNotes(HtmlSanitizer.sanitizeRichText(req.resolutionNotes()));
+        ticket.setResolutionProofUrl(req.resolutionProofUrl());
+        ticket.setResolutionCode(req.resolutionCode());
+        if (req.remarks() != null && !req.remarks().isBlank()) {
+            ticket.setAdminRemarks(HtmlSanitizer.sanitizePlainText(req.remarks()));
+        }
+
+        // Add audit comment
+        TicketComment resolutionComment = TicketComment.builder()
+                .ticket(ticket)
+                .author(currentUser)
+                .message("✅ Ticket resolved: " + (req.resolutionNotes() != null ? req.resolutionNotes() : "Work completed"))
+                .build();
+        commentRepository.save(resolutionComment);
+
+        return toResponse(repo.save(ticket));
+    }
+
+    @Transactional
+    public TicketResponse reopenTicket(Long id, TicketReopenRequest req, AppUser currentUser) {
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
+        assertSameCommunity(ticket.getCommunity(), currentUser);
+
+        ticket.setStatus(Ticket.TicketStatus.IN_PROGRESS);
+        ticket.setReopenCount(ticket.getReopenCount() + 1);
+        ticket.setResidentSignoff(false);
+
+        // Reset resolvedAt
+        ticket.setResolvedAt(null);
+
+        TicketComment comment = TicketComment.builder()
+                .ticket(ticket)
+                .author(currentUser)
+                .message("🔄 Ticket reopened (Reopen #" + ticket.getReopenCount() + "): " + req.reason())
+                .build();
+        commentRepository.save(comment);
 
         return toResponse(repo.save(ticket));
     }
@@ -144,9 +235,24 @@ public class TicketService {
 
         if (feedback.isSignOffConfirmed()) {
             ticket.setStatus(Ticket.TicketStatus.CLOSED);
+            TicketComment signoffComment = TicketComment.builder()
+                    .ticket(ticket)
+                    .author(currentUser)
+                    .message("🎉 Resident verified and signed off. Ticket closed. Rating: " + feedback.getSatisfactionRating() + "/5")
+                    .build();
+            commentRepository.save(signoffComment);
         } else {
             // Reopen ticket if resident is not satisfied
             ticket.setStatus(Ticket.TicketStatus.IN_PROGRESS);
+            ticket.setReopenCount(ticket.getReopenCount() + 1);
+            ticket.setResolvedAt(null);
+            TicketComment rejectionComment = TicketComment.builder()
+                    .ticket(ticket)
+                    .author(currentUser)
+                    .message("⚠️ Resident rejected resolution (Reopen #" + ticket.getReopenCount() + "): " +
+                            (feedback.getFeedbackRemarks() != null ? feedback.getFeedbackRemarks() : "Unsatisfactory resolution"))
+                    .build();
+            commentRepository.save(rejectionComment);
         }
 
         return toResponse(repo.save(ticket));
@@ -199,6 +305,7 @@ public class TicketService {
             ticket.setEscalated(true);
             ticket.setEscalationLevel(targetLevel);
             ticket.setEscalatedAt(LocalDateTime.now());
+            ticket.setLastEscalatedAt(LocalDateTime.now());
             ticket = repo.save(ticket);
         }
 
@@ -239,6 +346,13 @@ public class TicketService {
                 .assignedToName(t.getAssignedTo() != null ? t.getAssignedTo().getFullName() : null)
                 .communityId(t.getCommunity() != null ? t.getCommunity().getId() : null)
                 .slaDueAt(formatDt(t.getSlaDueAt()))
+                .slaStatus(t.getSlaStatus() != null ? t.getSlaStatus().name() : null)
+                .urgencyScore(t.getUrgencyScore())
+                .aiClassificationJson(t.getAiClassificationJson())
+                .resolutionNotes(t.getResolutionNotes())
+                .resolutionProofUrl(t.getResolutionProofUrl())
+                .resolutionCode(t.getResolutionCode())
+                .reopenCount(t.getReopenCount())
                 .isEscalated(t.isEscalated())
                 .escalatedAt(formatDt(t.getEscalatedAt()))
                 .escalationLevel(t.getEscalationLevel())
@@ -254,8 +368,8 @@ public class TicketService {
                         ? t.getComments().stream().map(c -> TicketResponse.CommentDto.builder()
                                 .id(c.getId())
                                 .message(c.getMessage())
-                                .authorId(c.getAuthor().getId())
-                                .authorName(c.getAuthor().getFullName())
+                                .authorId(c.getAuthor() != null ? c.getAuthor().getId() : null)
+                                .authorName(c.getAuthor() != null ? c.getAuthor().getFullName() : "System")
                                 .createdAt(formatDt(c.getCreatedAt()))
                                 .build()).toList()
                         : List.of())

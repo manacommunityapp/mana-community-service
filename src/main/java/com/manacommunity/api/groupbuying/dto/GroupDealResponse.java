@@ -8,6 +8,7 @@ import com.manacommunity.api.groupbuying.model.PricingType;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -22,6 +23,7 @@ public class GroupDealResponse {
     private String description;
     private String imageUrl;
     private String vendor;
+    private String vendorName;
     private String vendorId;
     private Double vendorRating;
     private Boolean vendorVerified;
@@ -45,11 +47,13 @@ public class GroupDealResponse {
 
     private DealStatus dealStatus;
     private Integer daysLeft;
-    private String dealEndsAt;
-    private String priceLockedAt;
+    private Long hoursRemaining;
+    private LocalDateTime dealEndsAt;
+    private LocalDateTime priceLockedAt;
+    private LocalDateTime createdAt;
 
     private String pickupPoint;
-    private String pickupDate;
+    private LocalDateTime pickupDate;
     private List<String> pickupSlots;
     private FulfillmentType fulfillmentType;
     private PaymentType paymentType;

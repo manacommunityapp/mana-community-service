@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SocietyExpense {
+public class SocietyExpense implements com.manacommunity.api.finance.common.FinancialTransaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -117,4 +117,34 @@ public class SocietyExpense {
 
     @PreUpdate
     void onUpdate() { updatedAt = LocalDateTime.now(); }
+
+    @Override
+    public String getTransactionId() {
+        return getVoucherNumber() != null ? getVoucherNumber() : (getId() != null ? String.valueOf(getId()) : null);
+    }
+
+    @Override
+    public String getCurrency() {
+        return "₹";
+    }
+
+    @Override
+    public java.time.LocalDate getTransactionDate() {
+        return getMakerDate() != null ? getMakerDate() : (getCreatedAt() != null ? getCreatedAt().toLocalDate() : java.time.LocalDate.now());
+    }
+
+    @Override
+    public boolean isCommunityTransaction() {
+        return true;
+    }
+
+    @Override
+    public boolean isPersonalTransaction() {
+        return false;
+    }
+
+    @Override
+    public String getSourceModule() {
+        return "COMMUNITY_FINANCE";
+    }
 }

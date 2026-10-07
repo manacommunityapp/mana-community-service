@@ -1161,21 +1161,7 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
         }
 
         // Find or create default personal account
-        PersonalAccount defaultAccount = accountRepository.findByUserIdOrderByCreatedAtAsc(user.getId())
-                .stream().findFirst().orElseGet(() -> {
-                    PersonalAccount newAcc = PersonalAccount.builder()
-                            .id("acc-default-" + UUID.randomUUID().toString().substring(0, 6))
-                            .user(user)
-                            .name("Main Mana Account")
-                            .type("SAVINGS")
-                            .balance(BigDecimal.valueOf(10000))
-                            .currency("₹")
-                            .icon("wallet-outline")
-                            .color("#10B981")
-                            .isActive(true)
-                            .build();
-                    return accountRepository.save(newAcc);
-                });
+        PersonalAccount defaultAccount = getOrCreateDefaultAccount(user);
 
         String txnId = "proj-" + UUID.randomUUID().toString().substring(0, 8);
         PersonalTransaction txn = PersonalTransaction.builder()
@@ -1204,6 +1190,124 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
         accountRepository.save(defaultAccount);
 
         return toTransactionDto(transactionRepository.save(txn));
+    }
+
+    @Override
+    @Transactional
+    public PersonalTransactionDto upsertProjectionBySource(AppUser user, String type, BigDecimal amount, LocalDate date, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            voidProjectionBySource(user, sourceModule, sourceType, sourceId);
+            return null;
+        }
+
+        String txnType = (type != null && "INCOME".equalsIgnoreCase(type)) ? "INCOME" : "EXPENSE";
+        LocalDate txnDate = (date != null) ? date : LocalDate.now();
+
+        Optional<PersonalTransaction> existingOpt = transactionRepository.findFirstByUserIdAndSourceModuleAndSourceTypeAndSourceId(
+                user.getId(), sourceModule, sourceType, sourceId);
+
+        PersonalTransaction txn;
+        if (existingOpt.isPresent()) {
+            txn = existingOpt.get();
+            // Reverse old balance effect
+            accountRepository.findByIdAndUserId(txn.getAccountId(), user.getId()).ifPresent(acc -> {
+                if ("INCOME".equalsIgnoreCase(txn.getType())) {
+                    acc.setBalance(acc.getBalance().subtract(txn.getAmount()));
+                } else {
+                    acc.setBalance(acc.getBalance().add(txn.getAmount()));
+                }
+                accountRepository.save(acc);
+            });
+
+            // Update transaction fields
+            txn.setType(txnType);
+            txn.setAmount(amount);
+            txn.setTransactionDate(txnDate);
+            txn.setDescription(sourceLabel != null ? sourceLabel : "Projected Transaction");
+            txn.setSourceLabel(sourceLabel);
+            if (categoryName != null) txn.setCategoryName(categoryName);
+            if (categoryIcon != null) txn.setCategoryIcon(categoryIcon);
+            if (categoryColor != null) txn.setCategoryColor(categoryColor);
+
+            // Apply new balance effect on account
+            PersonalAccount acc = accountRepository.findByIdAndUserId(txn.getAccountId(), user.getId())
+                    .orElseGet(() -> getOrCreateDefaultAccount(user));
+            txn.setAccountId(acc.getId());
+            txn.setAccountName(acc.getName());
+            if ("INCOME".equalsIgnoreCase(txnType)) {
+                acc.setBalance(acc.getBalance().add(amount));
+            } else {
+                acc.setBalance(acc.getBalance().subtract(amount));
+            }
+            accountRepository.save(acc);
+        } else {
+            PersonalAccount defaultAccount = getOrCreateDefaultAccount(user);
+            String txnId = "proj-" + UUID.randomUUID().toString().substring(0, 8);
+            txn = PersonalTransaction.builder()
+                    .id(txnId)
+                    .user(user)
+                    .type(txnType)
+                    .amount(amount)
+                    .currency("₹")
+                    .accountId(defaultAccount.getId())
+                    .accountName(defaultAccount.getName())
+                    .categoryId("cat-" + (sourceModule != null ? sourceModule.toLowerCase() : "community"))
+                    .categoryName(categoryName != null ? categoryName : "Community")
+                    .categoryIcon(categoryIcon != null ? categoryIcon : "cube-outline")
+                    .categoryColor(categoryColor != null ? categoryColor : "#4F46E5")
+                    .description(sourceLabel != null ? sourceLabel : "Projected Transaction")
+                    .transactionDate(txnDate)
+                    .isManaProjection(true)
+                    .sourceModule(sourceModule)
+                    .sourceType(sourceType)
+                    .sourceId(sourceId)
+                    .sourceLabel(sourceLabel)
+                    .build();
+
+            if ("INCOME".equalsIgnoreCase(txnType)) {
+                defaultAccount.setBalance(defaultAccount.getBalance().add(amount));
+            } else {
+                defaultAccount.setBalance(defaultAccount.getBalance().subtract(amount));
+            }
+            accountRepository.save(defaultAccount);
+        }
+
+        return toTransactionDto(transactionRepository.save(txn));
+    }
+
+    @Override
+    @Transactional
+    public void voidProjectionBySource(AppUser user, String sourceModule, String sourceType, String sourceId) {
+        transactionRepository.findFirstByUserIdAndSourceModuleAndSourceTypeAndSourceId(
+                user.getId(), sourceModule, sourceType, sourceId).ifPresent(txn -> {
+            accountRepository.findByIdAndUserId(txn.getAccountId(), user.getId()).ifPresent(acc -> {
+                if ("INCOME".equalsIgnoreCase(txn.getType())) {
+                    acc.setBalance(acc.getBalance().subtract(txn.getAmount()));
+                } else {
+                    acc.setBalance(acc.getBalance().add(txn.getAmount()));
+                }
+                accountRepository.save(acc);
+            });
+            transactionRepository.delete(txn);
+        });
+    }
+
+    private PersonalAccount getOrCreateDefaultAccount(AppUser user) {
+        return accountRepository.findByUserIdOrderByCreatedAtAsc(user.getId())
+                .stream().findFirst().orElseGet(() -> {
+                    PersonalAccount newAcc = PersonalAccount.builder()
+                            .id("acc-default-" + UUID.randomUUID().toString().substring(0, 6))
+                            .user(user)
+                            .name("Main Mana Account")
+                            .type("SAVINGS")
+                            .balance(BigDecimal.valueOf(10000))
+                            .currency("₹")
+                            .icon("wallet-outline")
+                            .color("#10B981")
+                            .isActive(true)
+                            .build();
+                    return accountRepository.save(newAcc);
+                });
     }
 
     private String getCommunityModuleLabel(String key) {
@@ -1279,4 +1383,151 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
         return "#3B82F6";
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FinancialInsightsSummaryDto getFinancialInsights(AppUser user) {
+        YearMonth currentYm = YearMonth.now();
+        LocalDate start = currentYm.atDay(1);
+        LocalDate end = currentYm.atEndOfMonth();
+
+        BigDecimal income = transactionRepository.sumIncomeForPeriod(user.getId(), start, end);
+        if (income == null) income = BigDecimal.ZERO;
+        BigDecimal expense = transactionRepository.sumExpensesForPeriod(user.getId(), start, end);
+        if (expense == null) expense = BigDecimal.ZERO;
+        BigDecimal savings = income.subtract(expense);
+
+        int savingsRate = income.compareTo(BigDecimal.ZERO) > 0
+                ? savings.multiply(BigDecimal.valueOf(100)).divide(income, 0, RoundingMode.HALF_UP).intValue()
+                : 0;
+
+        List<FinancialInsightDto> insights = new ArrayList<>();
+        BigDecimal projectedMonthlySavings = BigDecimal.ZERO;
+
+        // 1. Savings Rate Health
+        if (savingsRate >= 30) {
+            insights.add(FinancialInsightDto.builder()
+                    .id("ins-save-good")
+                    .type("HEALTH_SCORE")
+                    .title("High Savings Rate (" + savingsRate + "%)")
+                    .description("You are saving more than 30% of your income this month. Excellent financial cushion!")
+                    .severity("SUCCESS")
+                    .potentialSavings(savings)
+                    .category("Savings")
+                    .actionLabel("View Savings Goals")
+                    .actionRoute("/personal-finance/goals")
+                    .build());
+        } else if (savingsRate < 10 && income.compareTo(BigDecimal.ZERO) > 0) {
+            insights.add(FinancialInsightDto.builder()
+                    .id("ins-save-low")
+                    .type("HEALTH_SCORE")
+                    .title("Low Savings Rate (" + savingsRate + "%)")
+                    .description("Your savings rate is below the recommended 20% benchmark for this month.")
+                    .severity("WARNING")
+                    .potentialSavings(BigDecimal.valueOf(3000))
+                    .category("Savings")
+                    .actionLabel("Review Budgets")
+                    .actionRoute("/personal-finance/budgets")
+                    .build());
+        }
+
+        // 2. Budget Pace & Overrun Risks
+        List<PersonalBudget> budgets = budgetRepository.findByUserIdAndMonthOrderByCreatedAtAsc(user.getId(), currentYm.format(MONTH_FMT));
+        int dayOfMonth = LocalDate.now().getDayOfMonth();
+        int daysInMonth = currentYm.lengthOfMonth();
+        int monthPace = (dayOfMonth * 100) / daysInMonth;
+
+        for (PersonalBudget b : budgets) {
+            BigDecimal spent = transactionRepository.sumCategoryExpensesForPeriod(user.getId(), b.getCategoryId(), start, end);
+            if (spent == null) spent = BigDecimal.ZERO;
+            int pct = b.getLimitAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? spent.multiply(BigDecimal.valueOf(100)).divide(b.getLimitAmount(), 0, RoundingMode.HALF_UP).intValue()
+                    : 0;
+
+            String catName = categoryRepository.findById(b.getCategoryId())
+                    .map(PersonalCategory::getName)
+                    .orElse("Category");
+
+            if (pct >= 100) {
+                BigDecimal over = spent.subtract(b.getLimitAmount());
+                insights.add(FinancialInsightDto.builder()
+                        .id("ins-ovr-" + b.getId())
+                        .type("BUDGET_OVERRUN_RISK")
+                        .title(catName + " Budget Exceeded")
+                        .description("You have exceeded your monthly limit by ₹" + over + " (" + pct + "% used).")
+                        .severity("CRITICAL")
+                        .potentialSavings(over)
+                        .category(catName)
+                        .actionLabel("Adjust Budget")
+                        .actionRoute("/personal-finance/budgets")
+                        .build());
+            } else if (pct > monthPace + 25 && pct >= b.getAlertThreshold()) {
+                insights.add(FinancialInsightDto.builder()
+                        .id("ins-pace-" + b.getId())
+                        .type("BUDGET_OVERRUN_RISK")
+                        .title(catName + " Spending Ahead of Pace")
+                        .description("You are at " + pct + "% of budget on day " + dayOfMonth + " of " + daysInMonth + ". Risk of overrun by end of month.")
+                        .severity("WARNING")
+                        .potentialSavings(b.getLimitAmount().multiply(BigDecimal.valueOf(0.15)))
+                        .category(catName)
+                        .actionLabel("Track Category")
+                        .actionRoute("/personal-finance/transactions")
+                        .build());
+            }
+        }
+
+        // 3. Collective Community Buying Savings Potential
+        List<PersonalTransaction> monthTxns = transactionRepository.findByUserIdAndTransactionDateBetweenOrderByTransactionDateDesc(user.getId(), start, end);
+        BigDecimal grocerySpend = BigDecimal.ZERO;
+        for (PersonalTransaction t : monthTxns) {
+            if ("EXPENSE".equalsIgnoreCase(t.getType()) && t.getCategoryName() != null && t.getCategoryName().toLowerCase().contains("grocer")) {
+                grocerySpend = grocerySpend.add(t.getAmount() != null ? t.getAmount() : BigDecimal.ZERO);
+            }
+        }
+
+        if (grocerySpend.compareTo(BigDecimal.valueOf(3000)) >= 0) {
+            BigDecimal potential = grocerySpend.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            projectedMonthlySavings = projectedMonthlySavings.add(potential);
+            insights.add(FinancialInsightDto.builder()
+                    .id("ins-comm-group")
+                    .type("SAVINGS_OPPORTUNITY")
+                    .title("Save ~₹" + potential + " with Community Group Buying")
+                    .description("You spent ₹" + grocerySpend + " on groceries this month. Society Group Buying pool offers up to 20-30% volume discounts on staples.")
+                    .severity("INFO")
+                    .potentialSavings(potential)
+                    .category("Food & Groceries")
+                    .actionLabel("Explore Group Deals")
+                    .actionRoute("/group-buying")
+                    .build());
+        }
+
+        // 4. Calculate Health Score
+        int healthScore = 75;
+        if (savingsRate >= 40) healthScore += 15;
+        else if (savingsRate >= 20) healthScore += 10;
+        else if (savingsRate < 5) healthScore -= 15;
+
+        boolean hasCritical = insights.stream().anyMatch(i -> "CRITICAL".equals(i.getSeverity()));
+        if (hasCritical) healthScore -= 15;
+
+        healthScore = Math.max(20, Math.min(100, healthScore));
+        String grade = healthScore >= 90 ? "A+" : healthScore >= 80 ? "A" : healthScore >= 70 ? "B" : healthScore >= 50 ? "C" : "D";
+
+        String summary = "Your financial health index is " + healthScore + "/100 (" + grade + "). " +
+                (savingsRate >= 20 ? "Solid savings habit maintained this month." : "Focus on trimming over-pace budget categories to boost savings.");
+
+        return FinancialInsightsSummaryDto.builder()
+                .healthScore(healthScore)
+                .healthGrade(grade)
+                .summaryMessage(summary)
+                .monthlyProjectedSavings(projectedMonthlySavings)
+                .insights(insights)
+                .metrics(Map.of(
+                        "savingsRate", savingsRate,
+                        "monthlyIncome", income,
+                        "monthlyExpense", expense,
+                        "netSavings", savings,
+                        "activeBudgetsCount", budgets.size()
+                ))
+                .build();
+    }
 }

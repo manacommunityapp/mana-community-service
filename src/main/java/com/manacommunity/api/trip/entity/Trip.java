@@ -19,6 +19,10 @@ public class Trip {
     @Column(name = "community_id")
     private Long communityId;
 
+    /** User who created the trip. Holds the organizer role for Trip Split (budget, edit/void any expense). */
+    @Column(name = "organizer_user_id")
+    private Long organizerUserId;
+
     @Column(nullable = false, length = 200)
     private String title;
 

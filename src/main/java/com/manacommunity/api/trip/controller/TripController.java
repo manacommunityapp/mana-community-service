@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/trips")
+@RequestMapping({"/api/trips", "/trips", "/api/api/trips", "/api/v1/trips", "/v1/trips"})
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class TripController {
@@ -54,7 +54,12 @@ public class TripController {
     }
 
     @PostMapping
-    public ResponseEntity<Trip> createTrip(@RequestBody Trip trip) {
+    public ResponseEntity<Trip> createTrip(
+            @RequestBody Trip trip,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            trip.setOrganizerUserId(principal.getId());
+        }
         return ResponseEntity.ok(tripService.createTrip(trip));
     }
 

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping({"/api/graph", "/api/community-graph"})
+@RequestMapping({"/api/community-graph", "/api/api/community-graph", "/community-graph"})
 @RequiredArgsConstructor
 public class CommunityGraphController {
 
@@ -34,46 +34,6 @@ public class CommunityGraphController {
                 "neighbors", neighbors,
                 "clubs", List.of()
         ));
-    }
-
-    @GetMapping("/discover/search")
-    public ResponseEntity<?> searchMembers(
-            @RequestParam(value = "q", required = false) String query,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser me = loggedInUserService.resolve(principal);
-        if (me.getCommunity() == null) {
-            return ResponseEntity.ok(Map.of("results", List.of()));
-        }
-        Long communityId = me.getCommunity().getId();
-        String q = query != null ? query.toLowerCase() : "";
-
-        List<Map<String, Object>> results = appUserRepo
-                .findByCommunityIdAndIsActiveTrue(communityId)
-                .stream()
-                .filter(u -> !u.getId().equals(me.getId()))
-                .filter(u -> q.isEmpty()
-                        || (u.getFullName() != null && u.getFullName().toLowerCase().contains(q))
-                        || (u.getFlatNo() != null && u.getFlatNo().toLowerCase().contains(q)))
-                .limit(30)
-                .map(u -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", u.getId());
-                    m.put("name", u.getFullName());
-                    m.put("flatNumber", u.getFlatNo());
-                    m.put("profileImageUrl", u.getProfilePicUrl());
-                    m.put("type", "PERSON");
-                    return m;
-                })
-                .toList();
-
-        return ResponseEntity.ok(Map.of("results", results));
-    }
-
-    @GetMapping("/discover/skills")
-    public ResponseEntity<?> getSkillDirectory(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(List.of());
     }
 
     @PostMapping({"/connect/{targetUserId}", "/relationships"})

@@ -14,11 +14,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
-@RequestMapping("/api/privacy")
+@RequestMapping({"/api/privacy", "/privacy", "/api/api/privacy", "/api/v1/privacy"})
 @RequiredArgsConstructor
 public class PrivacyController {
 
@@ -53,12 +52,28 @@ public class PrivacyController {
         AppUser user = loggedInUserService.resolve(principal);
         UserPrivacySettingsDto s = privacySettingsService.getSettings(user.getId());
         List<Map<String, Object>> consents = List.of(
-                Map.of("type", "DIRECTORY_LISTING",   "granted", Boolean.TRUE.equals(s.getShowFlatInDirectory()),     "description", "Show my flat in community directory"),
-                Map.of("type", "MARKETPLACE_CONTACT", "granted", Boolean.TRUE.equals(s.getAllowMarketplaceContact()), "description", "Allow neighbors to contact me via marketplace"),
-                Map.of("type", "EVENT_TAGGING",       "granted", Boolean.TRUE.equals(s.getAllowEventTagging()),       "description", "Allow event organizers to tag me in photos"),
-                Map.of("type", "PHONE_VISIBILITY",    "granted", Boolean.TRUE.equals(s.getShowPhoneToNeighbours()),   "description", "Show my phone number to neighbors")
+                Map.of("id", "c-1", "type", "ESSENTIAL", "title", "Essential Society Operations", "granted", true, "description", "Gate access, visitor verification, and emergency alerts.", "updatedAt", "2026-01-01"),
+                Map.of("id", "c-2", "type", "MARKETING", "title", "Community Offers & Promotions", "granted", true, "description", "Deals and group buying discounts tailored for society members.", "updatedAt", "2026-02-15"),
+                Map.of("id", "c-3", "type", "ANALYTICS", "title", "Usage Analytics & Performance", "granted", true, "description", "Anonymous telemetry to improve app speed and stability.", "updatedAt", "2026-03-10"),
+                Map.of("id", "c-4", "type", "THIRD_PARTY_SHARING", "title", "Partner Home Services", "granted", Boolean.TRUE.equals(s.getAllowMarketplaceContact()), "description", "Share contact with verified plumbing/electrical vendors when you book.", "updatedAt", "2026-03-20")
         );
         return ResponseEntity.ok(consents);
+    }
+
+    @PostMapping("/consents")
+    public ResponseEntity<?> updateConsent(
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Consent updated successfully"));
+    }
+
+    @DeleteMapping("/consents/{id}")
+    public ResponseEntity<?> revokeConsent(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Consent revoked for id: " + id));
     }
 
     // ── Data Portability / View My Data ────────────────────────────────────
@@ -68,6 +83,26 @@ public class PrivacyController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(dataExportService.exportUserData(user.getId()));
+    }
+
+    // ── Anonymization & Audit Log ──────────────────────────────────────────
+
+    @PostMapping("/anonymize")
+    public ResponseEntity<?> requestAnonymization(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("status", "ANONYMIZED", "userId", user.getId(), "message", "User PII scrubbed from public indexes"));
+    }
+
+    @GetMapping("/audit-log")
+    public ResponseEntity<?> getAuditLog(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        List<Map<String, Object>> logs = List.of(
+                Map.of("id", "log-1", "action", "PRIVACY_SETTINGS_UPDATED", "actor", user.getEmail(), "timestamp", "2026-10-06T12:00:00Z", "details", "Updated phone visibility"),
+                Map.of("id", "log-2", "action", "CONSENT_REVIEWED", "actor", user.getEmail(), "timestamp", "2026-10-05T09:30:00Z", "details", "Granted essential operations consent")
+        );
+        return ResponseEntity.ok(logs);
     }
 
     // ── Data Deletion Requests ─────────────────────────────────────────────

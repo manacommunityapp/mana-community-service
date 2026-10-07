@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PersonalTransaction {
+public class PersonalTransaction implements com.manacommunity.api.finance.common.FinancialTransaction {
 
     @Id
     @Column(length = 64)
@@ -111,5 +111,30 @@ public class PersonalTransaction {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    @Override
+    public String getTransactionId() {
+        return getId();
+    }
+
+    @Override
+    public String getCategory() {
+        return getCategoryName() != null ? getCategoryName() : getCategoryId();
+    }
+
+    @Override
+    public String getPaymentMethod() {
+        return getAccountName() != null ? getAccountName() : "ACCOUNT";
+    }
+
+    @Override
+    public boolean isCommunityTransaction() {
+        return false;
+    }
+
+    @Override
+    public boolean isPersonalTransaction() {
+        return true;
     }
 }

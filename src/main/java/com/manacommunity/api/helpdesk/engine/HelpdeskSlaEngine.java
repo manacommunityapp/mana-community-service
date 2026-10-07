@@ -44,6 +44,38 @@ public class HelpdeskSlaEngine {
         return currentTime.isAfter(ticket.getSlaDueAt());
     }
 
+    public Ticket.SlaStatus evaluateSlaStatus(Ticket ticket, LocalDateTime currentTime) {
+        if (ticket.getSlaDueAt() == null || ticket.getCreatedAt() == null) {
+            return Ticket.SlaStatus.ON_TRACK;
+        }
+        if (ticket.getStatus() == Ticket.TicketStatus.RESOLVED || ticket.getStatus() == Ticket.TicketStatus.CLOSED) {
+            if (ticket.getResolvedAt() != null && ticket.getResolvedAt().isAfter(ticket.getSlaDueAt())) {
+                return Ticket.SlaStatus.BREACHED;
+            }
+            return Ticket.SlaStatus.ON_TRACK;
+        }
+
+        if (currentTime.isAfter(ticket.getSlaDueAt())) {
+            return Ticket.SlaStatus.BREACHED;
+        }
+
+        long totalDurationSeconds = Duration.between(ticket.getCreatedAt(), ticket.getSlaDueAt()).getSeconds();
+        if (totalDurationSeconds <= 0) {
+            return Ticket.SlaStatus.BREACHED;
+        }
+
+        long elapsedSeconds = Duration.between(ticket.getCreatedAt(), currentTime).getSeconds();
+        double ratio = (double) elapsedSeconds / (double) totalDurationSeconds;
+
+        if (ratio >= 1.0) {
+            return Ticket.SlaStatus.BREACHED;
+        } else if (ratio >= 0.75) {
+            return Ticket.SlaStatus.AT_RISK;
+        } else {
+            return Ticket.SlaStatus.ON_TRACK;
+        }
+    }
+
     public int evaluateEscalationLevel(Ticket ticket, LocalDateTime currentTime, TicketSlaRule rule) {
         if (ticket.getStatus() == Ticket.TicketStatus.RESOLVED || ticket.getStatus() == Ticket.TicketStatus.CLOSED || ticket.getStatus() == Ticket.TicketStatus.REJECTED) {
             return 0;

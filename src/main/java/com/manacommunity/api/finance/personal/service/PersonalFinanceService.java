@@ -4,6 +4,7 @@ import com.manacommunity.api.finance.personal.dto.*;
 import com.manacommunity.api.user.model.AppUser;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PersonalFinanceService {
@@ -28,6 +29,8 @@ public interface PersonalFinanceService {
     PersonalReportPeriodDto getReport(AppUser user, String period);
     List<PersonalTransactionDto> getManaProjections(AppUser user);
     PersonalTransactionDto autoProjectTransaction(AppUser user, BigDecimal amount, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor);
+    PersonalTransactionDto upsertProjectionBySource(AppUser user, String type, BigDecimal amount, LocalDate date, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor);
+    void voidProjectionBySource(AppUser user, String sourceModule, String sourceType, String sourceId);
 
     // P3 Enhancements
     List<PersonalInstallmentDto> getInstallments(AppUser user);
@@ -43,4 +46,5 @@ public interface PersonalFinanceService {
     BatchImportResultDto batchImportTransactions(BatchImportTransactionDto dto, AppUser user);
     int processDueRecurring(AppUser user);
     int processAllDueRecurring();
+    FinancialInsightsSummaryDto getFinancialInsights(AppUser user);
 }

@@ -61,6 +61,31 @@ public class TicketController {
         return new ResponseEntity<>(ticketService.create(req, currentUser, currentUser.getCommunity()), HttpStatus.CREATED);
     }
 
+    @PostMapping("/ai-classify")
+    @Operation(summary = "AI real-time triage analysis and category/priority suggestion")
+    public ResponseEntity<com.manacommunity.api.helpdesk.dto.HelpdeskAiDtos.AiClassificationResult> classifyAi(
+            @Valid @RequestBody com.manacommunity.api.helpdesk.dto.HelpdeskAiDtos.AiClassificationRequest req) {
+        return ResponseEntity.ok(ticketService.classifyAi(req));
+    }
+
+    @PostMapping("/{id}/resolve")
+    @Operation(summary = "Resolve ticket with resolution notes, proof URL, and completion code")
+    public ResponseEntity<TicketResponse> resolveTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody com.manacommunity.api.helpdesk.dto.HelpdeskAiDtos.TicketResolutionRequest req,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.resolveTicket(id, req, currentUser));
+    }
+
+    @PostMapping("/{id}/reopen")
+    @Operation(summary = "Reopen ticket with rejection reason and incremented reopen counter")
+    public ResponseEntity<TicketResponse> reopenTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody com.manacommunity.api.helpdesk.dto.HelpdeskAiDtos.TicketReopenRequest req,
+            @AuthenticationPrincipal AppUser currentUser) {
+        return ResponseEntity.ok(ticketService.reopenTicket(id, req, currentUser));
+    }
+
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update ticket status (Admin/Staff)")
     public ResponseEntity<TicketResponse> updateStatus(

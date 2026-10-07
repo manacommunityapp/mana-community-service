@@ -1,27 +1,41 @@
 package com.manacommunity.api.groupbuying.dto;
 
-import com.manacommunity.api.groupbuying.model.OrderStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class GroupOrderResponse {
-    private String id;
-    private String dealId;
-    private String title;
-    private String category;
-    private Integer qty;
+    private Long id;
+    private String orderNumber;
+    private Long dealId;
+    private String dealTitle;
+    private Integer quantity;
     private BigDecimal unitPrice;
-    private BigDecimal total;
-    private BigDecimal savings;
-    private OrderStatus status;
-    private String qrCode;
+    private BigDecimal totalAmount;
+    private BigDecimal savingsAmount;
+    private String status;
+    private String paymentStatus;
+    private String paymentMethod;
+    private String transactionId;
+    private String qrToken;
     private String pickupPoint;
-    private String pickupDate;
-    private String pickupSlot;
-    private String createdAt;
+    private LocalDateTime pickupDate;
+    private String deliveryAddress;
+    private String deliveryOtp;
+    private String deliveryPartnerName;
+    private String deliveryPartnerPhone;
+    private String trackingNumber;
+    private LocalDateTime deliveryTimestamp;
+    private BigDecimal refundAmount;
+    private String refundReason;
+    private BigDecimal tierPriceRefundAmount;
+    private String collectorPin;
+    private String collectorName;
+    private String collectorRelation;
+    private LocalDateTime createdAt;
 }

@@ -306,4 +306,13 @@ public class PersonalFinanceController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(financeService.getManaProjections(user));
     }
+
+    // ─── Financial Insights ─────────────────────────────────────────────────────
+
+    @GetMapping({"/api/v1/personal-finance/insights", "/personal-finance/insights"})
+    public ResponseEntity<FinancialInsightsSummaryDto> getFinancialInsights(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(financeService.getFinancialInsights(user));
+    }
 }

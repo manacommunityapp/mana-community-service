@@ -100,7 +100,36 @@ public class Ticket extends BaseAuditEntity {
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
+    @Column(name = "ai_classification_json", columnDefinition = "TEXT")
+    private String aiClassificationJson;
+
+    @Column(name = "urgency_score", nullable = false)
+    @Builder.Default
+    private int urgencyScore = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sla_status", nullable = false, length = 20)
+    @Builder.Default
+    private SlaStatus slaStatus = SlaStatus.ON_TRACK;
+
+    @Column(name = "resolution_notes", columnDefinition = "TEXT")
+    private String resolutionNotes;
+
+    @Column(name = "resolution_proof_url", length = 1000)
+    private String resolutionProofUrl;
+
+    @Column(name = "resolution_code", length = 10)
+    private String resolutionCode;
+
+    @Column(name = "reopen_count", nullable = false)
+    @Builder.Default
+    private int reopenCount = 0;
+
+    @Column(name = "last_escalated_at")
+    private LocalDateTime lastEscalatedAt;
+
     public enum TicketCategory { GENERAL, PLUMBING, ELECTRICAL, SECURITY, PARKING, NOISE, CLEANLINESS, ELEVATOR, OTHER }
     public enum TicketPriority { LOW, MEDIUM, HIGH, CRITICAL }
     public enum TicketStatus { OPEN, IN_PROGRESS, RESOLVED, CLOSED, REJECTED }
+    public enum SlaStatus { ON_TRACK, AT_RISK, BREACHED }
 }
