@@ -33,7 +33,7 @@ public class FieldEncryptionService {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
-    @Value("${jasypt.encryptor.password:#{null}}")
+    @Value("${jasypt.encryptor.password:}")
     private String masterPassword;
 
     @PostConstruct
