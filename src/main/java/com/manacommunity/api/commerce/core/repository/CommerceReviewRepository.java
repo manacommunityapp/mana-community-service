@@ -12,4 +12,5 @@ public interface CommerceReviewRepository extends JpaRepository<CommerceReview, 
     List<CommerceReview> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(String targetType, String targetId);
     List<CommerceReview> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<CommerceReview> findByChannelOrderByCreatedAtDesc(CommerceChannel channel);
+    boolean existsByOrderIdAndUserId(Long orderId, Long userId);
 }

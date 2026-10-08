@@ -16,6 +16,8 @@ public interface CommerceCoreService {
 
     List<CommerceOrderDto> getMyOrders(AppUser buyer);
 
+    CommerceOrderDto getOrderByNumber(AppUser user, String orderNumber);
+
     CommerceOrderDto getOrderByNumber(String orderNumber);
 
     HandoverVerificationResponse verifyHandover(AppUser verifier, HandoverVerificationRequest request);

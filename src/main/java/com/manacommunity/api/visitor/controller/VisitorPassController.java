@@ -180,9 +180,6 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.checkOut(id, gate, guard));
     }
 
-    @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
-    
     @PutMapping("/{id}/leave-at-gate")
     @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> leaveAtGate(
@@ -192,6 +189,8 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
     }
 
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

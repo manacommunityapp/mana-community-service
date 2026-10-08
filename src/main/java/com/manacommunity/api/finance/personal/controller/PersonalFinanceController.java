@@ -91,7 +91,9 @@ public class PersonalFinanceController {
             @RequestParam(value = "limit", defaultValue = "50") int limit,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(financeService.getTransactions(user, type, categoryId, accountId, from, to, tag, page, limit));
+        int safePage = Math.max(0, page);
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        return ResponseEntity.ok(financeService.getTransactions(user, type, categoryId, accountId, from, to, tag, safePage, safeLimit));
     }
 
     @GetMapping({"/api/v1/personal-finance/transactions/{id}", "/personal-finance/transactions/{id}"})

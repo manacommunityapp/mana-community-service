@@ -23,7 +23,8 @@ public class CommerceCheckoutRequest {
     private String vendorId;
     private String vendorName;
     private String sellerName;
-    @NotEmpty
+    @NotEmpty(message = "Items cannot be empty")
+    @jakarta.validation.Valid
     private List<CommerceOrderItemDto> items;
     private BigDecimal discountAmount;
     private BigDecimal deliveryFee;

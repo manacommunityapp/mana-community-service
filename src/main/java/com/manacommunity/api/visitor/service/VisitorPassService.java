@@ -201,8 +201,6 @@ public class VisitorPassService {
     }
 
     @Transactional
-    
-    @Transactional
     public VisitorPassResponse leaveAtGate(Long id, AppUser resident) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
@@ -217,6 +215,7 @@ public class VisitorPassService {
         return toResponse(saved);
     }
 
+    @Transactional
     public VisitorPassResponse rejectPass(Long id, String performer) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));

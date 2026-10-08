@@ -173,7 +173,9 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
     public List<PersonalTransactionDto> getTransactions(AppUser user, String type, String categoryId, String accountId, String from, String to, String tag, int page, int limit) {
         LocalDate fromDate = (from != null && !from.isBlank()) ? LocalDate.parse(from) : null;
         LocalDate toDate = (to != null && !to.isBlank()) ? LocalDate.parse(to) : null;
-        Pageable pageable = PageRequest.of(page, limit);
+        int safePage = Math.max(0, page);
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        Pageable pageable = PageRequest.of(safePage, safeLimit);
 
         List<PersonalTransaction> txns;
         if (fromDate != null && toDate != null) {
@@ -214,6 +216,9 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
         PersonalCategory category = null;
         if (dto.getCategoryId() != null) {
             category = categoryRepository.findById(dto.getCategoryId()).orElse(null);
+            if (category != null && category.getUser() != null && !category.getUser().getId().equals(user.getId())) {
+                throw new org.springframework.security.access.AccessDeniedException("Unauthorized category access");
+            }
         }
 
         String txnId = "txn-" + UUID.randomUUID().toString().substring(0, 8);
@@ -486,6 +491,13 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
     @Transactional
     public PersonalBudgetDto createBudget(CreatePersonalBudgetDto dto, AppUser user) {
         String m = (dto.getMonth() != null && !dto.getMonth().isBlank()) ? dto.getMonth() : YearMonth.now().format(MONTH_FMT);
+        if (dto.getCategoryId() != null) {
+            categoryRepository.findById(dto.getCategoryId()).ifPresent(cat -> {
+                if (cat.getUser() != null && !cat.getUser().getId().equals(user.getId())) {
+                    throw new org.springframework.security.access.AccessDeniedException("Unauthorized category access");
+                }
+            });
+        }
         String bId = "bgt-" + UUID.randomUUID().toString().substring(0, 8);
 
         PersonalBudget budget = PersonalBudget.builder()
@@ -1300,7 +1312,7 @@ public class PersonalFinanceServiceImpl implements PersonalFinanceService {
                             .user(user)
                             .name("Main Mana Account")
                             .type("SAVINGS")
-                            .balance(BigDecimal.valueOf(10000))
+                            .balance(BigDecimal.ZERO)
                             .currency("₹")
                             .icon("wallet-outline")
                             .color("#10B981")

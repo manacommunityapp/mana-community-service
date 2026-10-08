@@ -46,8 +46,11 @@ public class CommerceCoreController {
     }
 
     @GetMapping("/orders/{orderNumber}")
-    public ResponseEntity<CommerceOrderDto> getOrderByNumber(@PathVariable String orderNumber) {
-        return ResponseEntity.ok(commerceService.getOrderByNumber(orderNumber));
+    public ResponseEntity<CommerceOrderDto> getOrderByNumber(
+            @PathVariable String orderNumber,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commerceService.getOrderByNumber(user, orderNumber));
     }
 
     @PostMapping("/handover/verify")

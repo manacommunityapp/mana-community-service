@@ -5,14 +5,17 @@ import com.manacommunity.api.commerce.core.model.*;
 import com.manacommunity.api.commerce.core.repository.*;
 import com.manacommunity.api.finance.personal.service.PersonalFinanceService;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,6 +33,12 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     private final CommerceRefundRepository refundRepository;
     private final CommerceRiskEngine riskEngine;
     private final PersonalFinanceService personalFinanceService;
+    private final AppUserRepository userRepository;
+
+    private static final Map<String, Integer> failedOtpAttempts = new ConcurrentHashMap<>();
+    private static final Map<String, Long> lockoutTimestamps = new ConcurrentHashMap<>();
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCKOUT_DURATION_MS = 15 * 60 * 1000L;
 
     @Override
     @Transactional(readOnly = true)
@@ -48,41 +57,92 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
             throw new IllegalStateException("Order rejected by Commerce Risk Engine: " + risk.decision());
         }
 
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Checkout must include at least one item.");
+        }
+
         String orderNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String handoverOtp = String.format("%06d", new Random().nextInt(900000) + 100000);
 
         BigDecimal subtotal = BigDecimal.ZERO;
         List<CommerceOrderItem> orderItems = new ArrayList<>();
+        AppUser seller = null;
 
         for (var itemReq : request.getItems()) {
-            BigDecimal price = itemReq.getUnitPrice() != null ? itemReq.getUnitPrice() : BigDecimal.ZERO;
             int qty = itemReq.getQuantity() != null ? itemReq.getQuantity() : 1;
-            BigDecimal itemTotal = price.multiply(BigDecimal.valueOf(qty));
+            if (qty <= 0) {
+                throw new IllegalArgumentException("Quantity must be greater than zero for item: " + itemReq.getSku());
+            }
+
+            CommerceProduct product = null;
+            if (itemReq.getSku() != null && !itemReq.getSku().isBlank()) {
+                product = productRepository.findBySku(itemReq.getSku()).orElse(null);
+            }
+            if (product == null && itemReq.getProductId() != null) {
+                try {
+                    Long pId = Long.parseLong(itemReq.getProductId());
+                    product = productRepository.findById(pId).orElse(null);
+                } catch (NumberFormatException ignored) {}
+            }
+
+            if (product == null) {
+                throw new IllegalArgumentException("Product not found in catalog for SKU: " + itemReq.getSku());
+            }
+
+            if (!product.isActive()) {
+                throw new IllegalStateException("Product is no longer active or available: " + product.getTitle());
+            }
+
+            // Enforce catalog price server-side; ignore client-tampered unitPrice
+            BigDecimal unitPrice = product.getDiscountPrice() != null ? product.getDiscountPrice() : product.getBasePrice();
+            if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Invalid product price configuration for SKU: " + product.getSku());
+            }
+
+            BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
             subtotal = subtotal.add(itemTotal);
 
-            String img = itemReq.getImageUrl() != null ? itemReq.getImageUrl() : itemReq.getThumbnailUrl();
+            String img = product.getThumbnailUrl() != null ? product.getThumbnailUrl()
+                    : (itemReq.getImageUrl() != null ? itemReq.getImageUrl() : itemReq.getThumbnailUrl());
+            String title = product.getTitle() != null ? product.getTitle() : itemReq.getTitle();
 
             orderItems.add(CommerceOrderItem.builder()
-                    .sku(itemReq.getSku())
-                    .title(itemReq.getTitle())
-                    .unitPrice(price)
+                    .sku(product.getSku())
+                    .title(title)
+                    .unitPrice(unitPrice)
                     .quantity(qty)
                     .totalPrice(itemTotal)
                     .imageUrl(img)
                     .build());
+
+            if (seller == null && product.getSellerId() != null) {
+                seller = userRepository.findById(product.getSellerId()).orElse(null);
+            }
         }
 
+        if (seller == null && request.getSellerId() != null) {
+            seller = userRepository.findById(request.getSellerId()).orElse(null);
+        }
+
+        // Server-side calculated discount and delivery fee (never trust client-sent amounts)
         BigDecimal discount = subtotal.multiply(BigDecimal.valueOf(0.05));
         BigDecimal deliveryFee = "DELIVERY".equalsIgnoreCase(request.getFulfillmentType()) ? BigDecimal.valueOf(30) : BigDecimal.ZERO;
         BigDecimal totalAmount = subtotal.subtract(discount).add(deliveryFee);
+        if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalAmount = BigDecimal.ZERO;
+        }
 
         String vendorOrSeller = request.getVendorName() != null ? request.getVendorName() : request.getSellerName();
+        if (vendorOrSeller == null && seller != null) {
+            vendorOrSeller = seller.getFullName();
+        }
         String pickupOrDeliverySlot = request.getPickupSlot() != null ? request.getPickupSlot() : request.getDeliverySlot();
 
         CommerceOrder order = CommerceOrder.builder()
                 .orderNumber(orderNumber)
                 .channel(request.getChannel() != null ? request.getChannel() : CommerceChannel.MARKETPLACE)
                 .buyer(buyer)
+                .seller(seller)
                 .vendorName(vendorOrSeller)
                 .status(CommerceOrderStatus.CONFIRMED)
                 .fulfillmentType(request.getFulfillmentType() != null ? request.getFulfillmentType() : "CLUBHOUSE_PICKUP")
@@ -137,10 +197,34 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
 
     @Override
     @Transactional(readOnly = true)
+    public CommerceOrderDto getOrderByNumber(AppUser user, String orderNumber) {
+        CommerceOrder order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+
+        boolean isBuyer = order.getBuyer() != null && order.getBuyer().getId().equals(user.getId());
+        boolean isSeller = order.getSeller() != null && order.getSeller().getId().equals(user.getId());
+        boolean isAdmin = isAdmin(user);
+
+        if (!isBuyer && !isSeller && !isAdmin) {
+            throw new AccessDeniedException("Access denied to order " + orderNumber);
+        }
+
+        CommerceOrderDto dto = toDto(order);
+        // Only buyer is entitled to see the handover OTP in clear text; sellers must scan QR or enter code at handover
+        if (!isBuyer) {
+            dto.setHandoverOtp(null);
+        }
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CommerceOrderDto getOrderByNumber(String orderNumber) {
         CommerceOrder order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
-        return toDto(order);
+        CommerceOrderDto dto = toDto(order);
+        dto.setHandoverOtp(null); // Never leak OTP anonymously
+        return dto;
     }
 
     @Override
@@ -168,10 +252,43 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                     .build();
         }
 
+        // Authorization check: Buyer cannot self-verify handover
+        if (order.getBuyer() != null && order.getBuyer().getId().equals(verifier.getId())) {
+            throw new IllegalStateException("Buyer cannot verify their own order handover.");
+        }
+
+        boolean isSeller = (order.getSeller() != null && order.getSeller().getId().equals(verifier.getId()))
+                || (order.getVendorName() != null && order.getVendorName().equalsIgnoreCase(verifier.getFullName()));
+        boolean isAdmin = isAdmin(verifier);
+
+        if (!isSeller && !isAdmin) {
+            throw new AccessDeniedException("Only the seller or authorized community staff can verify order handover.");
+        }
+
+        // Brute-force rate limiting check
+        Long lockedUntil = lockoutTimestamps.get(order.getOrderNumber());
+        if (lockedUntil != null) {
+            if (System.currentTimeMillis() < lockedUntil) {
+                long remainingMins = Math.max(1, (lockedUntil - System.currentTimeMillis()) / 60000);
+                return HandoverVerificationResponse.builder()
+                        .verified(false)
+                        .orderNumber(order.getOrderNumber())
+                        .status(order.getStatus().name())
+                        .message("Too many failed OTP attempts. Handover verification is locked for " + remainingMins + " more minute(s).")
+                        .build();
+            } else {
+                lockoutTimestamps.remove(order.getOrderNumber());
+                failedOtpAttempts.remove(order.getOrderNumber());
+            }
+        }
+
         boolean matched = (order.getHandoverOtp() != null && order.getHandoverOtp().equals(enteredPin))
                 || (order.getQrToken() != null && order.getQrToken().equalsIgnoreCase(enteredPin));
 
         if (matched) {
+            failedOtpAttempts.remove(order.getOrderNumber());
+            lockoutTimestamps.remove(order.getOrderNumber());
+
             order.setStatus(CommerceOrderStatus.COMPLETED);
             orderRepository.save(order);
 
@@ -187,19 +304,51 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                     .build();
         }
 
+        int attempts = failedOtpAttempts.getOrDefault(order.getOrderNumber(), 0) + 1;
+        failedOtpAttempts.put(order.getOrderNumber(), attempts);
+
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+            lockoutTimestamps.put(order.getOrderNumber(), System.currentTimeMillis() + LOCKOUT_DURATION_MS);
+            return HandoverVerificationResponse.builder()
+                    .verified(false)
+                    .orderNumber(order.getOrderNumber())
+                    .status(order.getStatus().name())
+                    .message("Too many failed OTP attempts. Handover verification locked for 15 minutes.")
+                    .build();
+        }
+
         return HandoverVerificationResponse.builder()
                 .verified(false)
                 .orderNumber(order.getOrderNumber())
                 .status(order.getStatus().name())
-                .message("Invalid 6-digit OTP verification code.")
+                .message("Invalid 6-digit OTP verification code. " + (MAX_FAILED_ATTEMPTS - attempts) + " attempt(s) remaining.")
                 .build();
     }
 
     @Override
     @Transactional
     public CommerceReviewDto submitReview(AppUser reviewer, CommerceReviewDto reviewDto) {
+        if (reviewDto.getOrderId() == null) {
+            throw new IllegalArgumentException("Order ID is required to submit a review.");
+        }
         CommerceOrder order = orderRepository.findById(reviewDto.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + reviewDto.getOrderId()));
+
+        if (order.getBuyer() == null || !order.getBuyer().getId().equals(reviewer.getId())) {
+            throw new AccessDeniedException("Only the buyer who placed the order can submit a review.");
+        }
+
+        if (order.getStatus() != CommerceOrderStatus.COMPLETED) {
+            throw new IllegalStateException("Reviews can only be submitted for completed orders.");
+        }
+
+        if (reviewRepository.existsByOrderIdAndUserId(order.getId(), reviewer.getId())) {
+            throw new IllegalStateException("You have already reviewed this order.");
+        }
+
+        if (reviewDto.getRating() == null || reviewDto.getRating() < 1 || reviewDto.getRating() > 5) {
+            throw new IllegalArgumentException("Review rating must be between 1 and 5 stars.");
+        }
 
         CommerceReview review = CommerceReview.builder()
                 .order(order)
@@ -208,6 +357,8 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                 .targetType("ORDER")
                 .targetId(String.valueOf(order.getId()))
                 .rating(reviewDto.getRating())
+                .qualityScore(reviewDto.getQualityScore())
+                .onTimeScore(reviewDto.getOnTimeScore())
                 .comment(reviewDto.getComment())
                 .build();
 
@@ -223,8 +374,26 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     @Override
     @Transactional
     public CommerceDisputeDto raiseDispute(AppUser buyer, CommerceDisputeDto disputeDto) {
+        if (disputeDto.getOrderId() == null) {
+            throw new IllegalArgumentException("Order ID is required to raise a dispute.");
+        }
         CommerceOrder order = orderRepository.findById(disputeDto.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + disputeDto.getOrderId()));
+
+        if (order.getBuyer() == null || !order.getBuyer().getId().equals(buyer.getId())) {
+            throw new AccessDeniedException("Only the buyer who placed the order can raise a dispute.");
+        }
+
+        if (order.getStatus() == CommerceOrderStatus.DISPUTED) {
+            throw new IllegalStateException("A dispute is already active for this order.");
+        }
+        if (order.getStatus() == CommerceOrderStatus.REFUNDED || order.getStatus() == CommerceOrderStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot dispute an order that has already been refunded or cancelled.");
+        }
+
+        if (disputeDto.getReason() == null || disputeDto.getReason().isBlank()) {
+            throw new IllegalArgumentException("Dispute reason is required.");
+        }
 
         CommerceDispute dispute = CommerceDispute.builder()
                 .disputeCode("DISP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -256,13 +425,23 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
         CommerceOrder order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
 
+        boolean isBuyer = order.getBuyer() != null && order.getBuyer().getId().equals(user.getId());
+        boolean isAdmin = isAdmin(user);
+        if (!isBuyer && !isAdmin) {
+            throw new AccessDeniedException("You are not authorized to refund order " + orderNumber);
+        }
+
+        if (order.getStatus() == CommerceOrderStatus.REFUNDED || order.getStatus() == CommerceOrderStatus.CANCELLED) {
+            throw new IllegalStateException("Order is already refunded or cancelled.");
+        }
+
         String refundNumber = "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         CommerceRefund refund = CommerceRefund.builder()
                 .refundNumber(refundNumber)
                 .orderId(order.getId())
                 .orderNumber(order.getOrderNumber())
                 .amount(order.getTotalAmount())
-                .reason(reason)
+                .reason(reason != null ? reason : "Order refund requested")
                 .status("PROCESSED")
                 .bankReference("UPI-REF-" + System.currentTimeMillis())
                 .build();
@@ -331,5 +510,17 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                 .items(itemDtos)
                 .createdAt(order.getCreatedAt() != null ? order.getCreatedAt().toString() : Instant.now().toString())
                 .build();
+    }
+
+    private boolean isAdmin(AppUser user) {
+        if (user == null) return false;
+        if (user.getRole() != null && user.getRole().toUpperCase().contains("ADMIN")) {
+            return true;
+        }
+        if (user.getUserRoles() != null) {
+            return user.getUserRoles().stream()
+                    .anyMatch(r -> r.getName() != null && r.getName().toUpperCase().contains("ADMIN"));
+        }
+        return false;
     }
 }
