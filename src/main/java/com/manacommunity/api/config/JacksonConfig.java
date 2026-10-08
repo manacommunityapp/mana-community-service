@@ -13,9 +13,11 @@ public class JacksonConfig {
 
     @Bean
     @Primary
-    public ObjectMapper objectMapper() {
+    public ObjectMapper objectMapper(
+            org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.media.service.MediaUrlService> mediaUrlService) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
+        mapper.registerModule(new com.manacommunity.api.media.config.StoredMediaUrlJacksonModule(mediaUrlService));
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return mapper;

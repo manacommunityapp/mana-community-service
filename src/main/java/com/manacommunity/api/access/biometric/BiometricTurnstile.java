@@ -68,4 +68,31 @@ public class BiometricTurnstile {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getTurnstileIdentifier() { return turnstileIdentifier; }
+    public void setTurnstileIdentifier(String turnstileIdentifier) { this.turnstileIdentifier = turnstileIdentifier; }
+    public String getTurnstileName() { return turnstileName; }
+    public void setTurnstileName(String turnstileName) { this.turnstileName = turnstileName; }
+    public Community getCommunity() { return community; }
+    public void setCommunity(Community community) { this.community = community; }
+    public String getGateLocation() { return gateLocation; }
+    public void setGateLocation(String gateLocation) { this.gateLocation = gateLocation; }
+    public TurnstileDirection getDirection() { return direction; }
+    public void setDirection(TurnstileDirection direction) { this.direction = direction; }
+    public String getIpAddress() { return ipAddress; }
+    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
+    public String getRtspStreamUrl() { return rtspStreamUrl; }
+    public void setRtspStreamUrl(String rtspStreamUrl) { this.rtspStreamUrl = rtspStreamUrl; }
+    public Integer getRelayUnlockMs() { return relayUnlockMs; }
+    public void setRelayUnlockMs(Integer relayUnlockMs) { this.relayUnlockMs = relayUnlockMs; }
+    public TurnstileStatus getStatus() { return status; }
+    public void setStatus(TurnstileStatus status) { this.status = status; }
+    public LocalDateTime getLastHeartbeat() { return lastHeartbeat; }
+    public void setLastHeartbeat(LocalDateTime lastHeartbeat) { this.lastHeartbeat = lastHeartbeat; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

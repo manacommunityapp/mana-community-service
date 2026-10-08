@@ -44,6 +44,9 @@ public class AppUser {
     @EqualsAndHashCode.Include
     private Long id;
 
+    @Column(name = "organization_id")
+    private Long organizationId;
+
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 

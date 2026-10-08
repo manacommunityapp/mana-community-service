@@ -201,6 +201,22 @@ public class VisitorPassService {
     }
 
     @Transactional
+    
+    @Transactional
+    public VisitorPassResponse leaveAtGate(Long id, AppUser resident) {
+        VisitorPass pass = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+
+        pass.setStatus(VisitorPass.PassStatus.LEAVE_AT_GATE);
+        VisitorPass saved = repo.save(pass);
+
+        writeAudit(saved.getId(), saved.getVisitorName(), "LEAVE_AT_GATE",
+                "Resident (" + (resident != null ? resident.getFullName() : "User") + ")",
+                "Resident instructed security to hold parcel at gate desk.");
+
+        return toResponse(saved);
+    }
+
     public VisitorPassResponse rejectPass(Long id, String performer) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));

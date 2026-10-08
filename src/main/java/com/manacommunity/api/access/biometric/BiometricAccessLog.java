@@ -58,4 +58,29 @@ public class BiometricAccessLog {
     @Builder.Default
     @Column(nullable = false)
     private LocalDateTime timestamp = LocalDateTime.now();
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public BiometricTurnstile getTurnstile() { return turnstile; }
+    public void setTurnstile(BiometricTurnstile turnstile) { this.turnstile = turnstile; }
+    public Community getCommunity() { return community; }
+    public void setCommunity(Community community) { this.community = community; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public BiometricPersonType getPersonType() { return personType; }
+    public void setPersonType(BiometricPersonType personType) { this.personType = personType; }
+    public String getPersonName() { return personName; }
+    public void setPersonName(String personName) { this.personName = personName; }
+    public String getUnitNumber() { return unitNumber; }
+    public void setUnitNumber(String unitNumber) { this.unitNumber = unitNumber; }
+    public BigDecimal getConfidenceScore() { return confidenceScore; }
+    public void setConfidenceScore(BigDecimal confidenceScore) { this.confidenceScore = confidenceScore; }
+    public AccessDecision getAccessDecision() { return accessDecision; }
+    public void setAccessDecision(AccessDecision accessDecision) { this.accessDecision = accessDecision; }
+    public String getFailureReason() { return failureReason; }
+    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
+    public String getSnapshotUrl() { return snapshotUrl; }
+    public void setSnapshotUrl(String snapshotUrl) { this.snapshotUrl = snapshotUrl; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
 }

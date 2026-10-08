@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface CommunityRepository extends JpaRepository<Community, Long> {
     Optional<Community> findByInviteCode(String inviteCode);
     List<Community> findByTypeIgnoreCase(String type);
+    List<Community> findByOrganizationId(Long organizationId);
+    List<Community> findByOrganizationIdAndActiveTrueOrderByNameAsc(Long organizationId);
 
     // Active (not soft-deleted) only — used for the signup dropdown and admin list.
     List<Community> findByActiveTrueOrderByNameAsc();

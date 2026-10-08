@@ -27,6 +27,14 @@ public class Community extends BaseAuditEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "organization_id")
+    private Long organizationId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Organization organization;
+
     @Column(nullable = false, length = 100)
     private String name;
 

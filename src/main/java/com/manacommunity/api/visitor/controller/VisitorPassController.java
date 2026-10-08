@@ -97,7 +97,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
-    @GetMapping("/mine")
+    @GetMapping({"/mine", "/my-visitors"})
     @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getMyPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -182,6 +182,16 @@ public class VisitorPassController {
 
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
+    
+    @PutMapping("/{id}/leave-at-gate")
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
+    public ResponseEntity<VisitorPassResponse> leaveAtGate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
+    }
+
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
