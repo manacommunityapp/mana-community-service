@@ -125,7 +125,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping({"", "/pre-approve"})
     @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> create(
             @Valid @RequestBody VisitorPassRequest req,
@@ -189,7 +189,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
     }
 
-    @PutMapping("/{id}/reject")
+    @PutMapping({"/{id}/reject", "/{id}/deny"})
     @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,

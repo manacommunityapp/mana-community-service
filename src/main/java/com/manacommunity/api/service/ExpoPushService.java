@@ -128,4 +128,30 @@ public interface ExpoPushService {
                             String badgeName,
                             String badgeEmoji,
                             String rarity);
+
+    // ── Security / Visitors ───────────────────────────────────────────────
+
+    /** Notify resident when a visitor arrives at the security gate requesting entry. */
+    void notifyVisitorApproval(Long residentId,
+                               String visitorName,
+                               String flatNumber,
+                               String purpose,
+                               Long passId);
+
+    // ── Emergency / SOS ───────────────────────────────────────────────────
+
+    /** Broadcast high-priority emergency / SOS alert to community. */
+    void notifyEmergencyAlert(Long communityId,
+                              String title,
+                              String description,
+                              String location);
+
+    // ── Finance / Maintenance ─────────────────────────────────────────────
+
+    /** Notify resident of maintenance fee or invoice due. */
+    void notifyMaintenanceDue(Long residentId,
+                              String flatNumber,
+                              double amount,
+                              String dueDate,
+                              Long invoiceId);
 }

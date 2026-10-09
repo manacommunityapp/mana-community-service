@@ -23,6 +23,18 @@ public class FoodMenuController {
     private final FoodMenuService menuService;
     private final LoggedInUserService loggedInUserService;
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'View Food Menu')")
+    public ResponseEntity<?> getFullMenu(
+            @PathVariable Long restaurantId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Object categories = menuService.getCategories(communityId, restaurantId);
+        Page<Map<String, Object>> items = menuService.getItems(communityId, restaurantId, null, null, PageRequest.of(0, 100));
+        return ResponseEntity.ok(Map.of("categories", categories, "items", items.getContent()));
+    }
+
     @GetMapping("/categories")
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'View Food Menu')")
     public ResponseEntity<?> getCategories(

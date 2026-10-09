@@ -18,7 +18,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 @RestController("homeServiceBookingController")
-@RequestMapping("/api/v1/home-services/bookings")
+@RequestMapping({"/api/v1/home-services/bookings", "/api/home-services/bookings", "/v1/home-services/bookings"})
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class HomeServiceBookingController {
@@ -61,6 +61,31 @@ public class HomeServiceBookingController {
         }
 
         return ResponseEntity.ok(bookingService.createBooking(req));
+    }
+
+    @PostMapping("/{id}/complete-otp")
+    public ResponseEntity<HomeServiceBookingEntity> completeWithOtp(
+            @PathVariable String id,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String otp = body != null ? body.get("otp") : null;
+        return ResponseEntity.ok(bookingService.completeWithOtp(id, otp));
+    }
+
+    @PostMapping("/{id}/pay")
+    public ResponseEntity<HomeServiceBookingEntity> processPayment(
+            @PathVariable String id,
+            @RequestBody(required = false) java.util.Map<String, Object> body) {
+        BigDecimal amount = null;
+        String paymentMethod = null;
+        if (body != null) {
+            if (body.get("amount") instanceof Number n) {
+                amount = BigDecimal.valueOf(n.doubleValue());
+            }
+            if (body.get("paymentMethod") instanceof String pm) {
+                paymentMethod = pm;
+            }
+        }
+        return ResponseEntity.ok(bookingService.processPayment(id, amount, paymentMethod));
     }
 
     @GetMapping("/mine")

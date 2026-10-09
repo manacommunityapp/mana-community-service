@@ -110,6 +110,17 @@ public class PollService {
     }
 
     @Transactional
+    public PollResponse closePoll(Long id, Long userId) {
+        Poll poll = pollRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Poll not found: " + id));
+        if (!poll.getCreatedBy().getId().equals(userId)) {
+            throw new IllegalStateException("Only the creator can close this poll");
+        }
+        poll.setClosesOn(LocalDate.now().minusDays(1));
+        return toResponse(pollRepo.save(poll), userId);
+    }
+
+    @Transactional
     public void delete(Long id, Long userId) {
         Poll poll = pollRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Poll not found: " + id));

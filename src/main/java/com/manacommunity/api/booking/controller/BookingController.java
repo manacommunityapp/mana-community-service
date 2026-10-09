@@ -269,6 +269,15 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.checkOut(id));
     }
 
+    @PutMapping("/bookings/{id}/no-show")
+    @PreAuthorize("hasAuthority('Manage Resources')")
+    public ResponseEntity<ResourceBookingResponse> noShowBooking(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(bookingService.noShowBooking(id));
+    }
+
     @PutMapping("/bookings/{id}/rate")
     @PreAuthorize("hasAuthority('View Resource Booking')")
     public ResponseEntity<ResourceBookingResponse> rateBooking(

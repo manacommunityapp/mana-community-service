@@ -5,9 +5,11 @@ import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.sports.service.SportsAuctionPlayerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class SportsAuctionPlayerServiceImpl implements SportsAuctionPlayerService {
 
     private final SportsAuctionPlayerRepository auctionPlayerRepository;

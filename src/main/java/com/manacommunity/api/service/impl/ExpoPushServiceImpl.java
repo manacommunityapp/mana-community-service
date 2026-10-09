@@ -355,7 +355,69 @@ public class ExpoPushServiceImpl implements ExpoPushService {
             isSpecial ? "🎉 New " + rarity + " badge!" : "🏅 Badge earned!",
             badgeEmoji + " " + badgeName + " — added to your sports profile",
             Map.of("type", "BADGE_EARNED", "badgeName", badgeName),
-            "default"
+            "sports"
+        );
+    }
+
+    // ── Security / Visitors ───────────────────────────────────────────────
+
+    @Override
+    public void notifyVisitorApproval(Long residentId, String visitorName,
+                                      String flatNumber, String purpose, Long passId) {
+        if (residentId == null) return;
+        String desc = (visitorName != null ? visitorName : "A visitor") +
+                " is at the gate for Flat " + (flatNumber != null ? flatNumber : "") +
+                (purpose != null && !purpose.isBlank() ? " (" + purpose + ")" : "");
+        sendToUser(
+            residentId,
+            "🛡️ Visitor Approval Request",
+            desc,
+            Map.of(
+                "type", "VISITOR_APPROVAL",
+                "passId", passId != null ? passId : 0L,
+                "flatNumber", flatNumber != null ? flatNumber : ""
+            ),
+            "security"
+        );
+    }
+
+    // ── Emergency / SOS ───────────────────────────────────────────────────
+
+    @Override
+    public void notifyEmergencyAlert(Long communityId, String title,
+                                     String description, String location) {
+        if (communityId == null) return;
+        String alertBody = (description != null ? description : "Emergency incident reported") +
+                (location != null && !location.isBlank() ? " • " + location : "");
+        sendToCommunity(
+            communityId,
+            "🚨 EMERGENCY ALERT: " + (title != null ? title : "Urgent Assistance Needed"),
+            alertBody,
+            Map.of(
+                "type", "EMERGENCY_SOS",
+                "title", title != null ? title : "Emergency",
+                "location", location != null ? location : ""
+            ),
+            "emergency"
+        );
+    }
+
+    // ── Finance / Maintenance ─────────────────────────────────────────────
+
+    @Override
+    public void notifyMaintenanceDue(Long residentId, String flatNumber,
+                                     double amount, String dueDate, Long invoiceId) {
+        if (residentId == null) return;
+        sendToUser(
+            residentId,
+            "💳 Maintenance Due: Flat " + (flatNumber != null ? flatNumber : ""),
+            "Payment of ₹" + formatAmount((long) amount) + " is due on " + (dueDate != null ? dueDate : "soon"),
+            Map.of(
+                "type", "FINANCE_DUE",
+                "invoiceId", invoiceId != null ? invoiceId : 0L,
+                "amount", amount
+            ),
+            "finance"
         );
     }
 

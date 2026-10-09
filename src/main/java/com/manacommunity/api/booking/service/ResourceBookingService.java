@@ -353,6 +353,15 @@ public class ResourceBookingService {
         return toResponse(bookingRepo.save(booking));
     }
 
+    @Transactional
+    public ResourceBookingResponse noShowBooking(Long id) {
+        ResourceBooking booking = bookingRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + id));
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason("NO_SHOW");
+        return toResponse(bookingRepo.save(booking));
+    }
+
     // ── Rating ─────────────────────────────────────────────────────
 
     @Transactional

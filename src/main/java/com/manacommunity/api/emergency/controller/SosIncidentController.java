@@ -22,7 +22,7 @@ public class SosIncidentController {
     private final SosIncidentService sosService;
     private final LoggedInUserService loggedInUserService;
 
-    @PostMapping("/sos/trigger")
+    @PostMapping({"/sos", "/sos/trigger"})
     public ResponseEntity<SosIncidentResponse> triggerSos(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody SosTriggerRequest request
@@ -70,7 +70,7 @@ public class SosIncidentController {
         return ResponseEntity.ok(sosService.resolveSos(user, id, request));
     }
 
-    @GetMapping("/sos/active")
+    @GetMapping({"/active", "/sos/active"})
     public ResponseEntity<List<SosIncidentResponse>> getActiveIncidents(
             @AuthenticationPrincipal UserPrincipal principal
     ) {

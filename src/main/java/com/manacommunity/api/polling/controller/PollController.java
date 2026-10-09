@@ -82,6 +82,15 @@ public class PollController {
         return ResponseEntity.ok(pollService.vote(id, body.get("optionIds"), user));
     }
 
+    @PutMapping("/{id}/close")
+    @PreAuthorize("hasAuthority('Create Poll')")
+    public ResponseEntity<PollResponse> close(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(pollService.closePoll(id, user.getId()));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('Create Poll')")
     public ResponseEntity<Void> delete(
