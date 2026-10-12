@@ -61,4 +61,14 @@ public class CommerceDispute extends BaseAuditEntity {
 
     @Column(name = "resolved_at")
     private Instant resolvedAt;
+
+    @Column(length = 64)
+    private String resolution;
+
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolved_by_id")
+    private AppUser resolvedBy;
 }

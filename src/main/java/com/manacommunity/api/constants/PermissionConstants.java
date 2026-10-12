@@ -95,9 +95,19 @@ public final class PermissionConstants {
     public static final String MANAGE_GUARDS = GuardPermissions.MANAGE_GUARDS;
 
     // ──── RE-EXPORTS: Amenity Booking ───────────────────────────────
-    public static final String VIEW_AMENITIES   = AmenityPermissions.VIEW_AMENITIES;
-    public static final String BOOK_AMENITY     = AmenityPermissions.BOOK_AMENITY;
-    public static final String MANAGE_AMENITIES = AmenityPermissions.MANAGE_AMENITIES;
+    public static final String VIEW_AMENITIES          = AmenityPermissions.VIEW_AMENITIES;
+    public static final String BOOK_AMENITY            = AmenityPermissions.BOOK_AMENITY;
+    public static final String MANAGE_AMENITIES        = AmenityPermissions.MANAGE_AMENITIES;
+    public static final String VIEW_RESOURCE_BOOKING   = AmenityPermissions.VIEW_RESOURCE_BOOKING;
+    public static final String MANAGE_RESOURCES        = AmenityPermissions.MANAGE_RESOURCES;
+    public static final String MANAGE_RESOURCE_CATEGORIES = AmenityPermissions.MANAGE_RESOURCE_CATEGORIES;
+    public static final String MANAGE_BOOKING_RULES    = AmenityPermissions.MANAGE_BOOKING_RULES;
+    public static final String MANAGE_PRICING          = AmenityPermissions.MANAGE_PRICING;
+    public static final String MANAGE_MAINTENANCE      = AmenityPermissions.MANAGE_MAINTENANCE;
+    public static final String APPROVE_BOOKINGS        = AmenityPermissions.APPROVE_BOOKINGS;
+    public static final String VIEW_BOOKING_ANALYTICS  = AmenityPermissions.VIEW_BOOKING_ANALYTICS;
+    public static final String MANAGE_COUPONS          = AmenityPermissions.MANAGE_COUPONS;
+    public static final String MANAGE_WORKFLOWS        = AmenityPermissions.MANAGE_WORKFLOWS;
 
     // ──── RE-EXPORTS: Notice Board ──────────────────────────────────
     public static final String VIEW_NOTICES  = NoticeBoardPermissions.VIEW_NOTICES;
@@ -149,6 +159,25 @@ public final class PermissionConstants {
     public static final String MANAGE_VENDOR_PAYMENTS = VendorPermissions.MANAGE_VENDOR_PAYMENTS;
     public static final String RATE_VENDOR            = VendorPermissions.RATE_VENDOR;
     public static final String VIEW_VENDOR_ANALYTICS  = VendorPermissions.VIEW_VENDOR_ANALYTICS;
+
+    // ──── RE-EXPORTS: Commerce ──────────────────────────────────────
+    public static final String VIEW_COMMERCE_VENDORS      = CommercePermissions.VIEW_COMMERCE_VENDORS;
+    public static final String MANAGE_COMMERCE_VENDORS    = CommercePermissions.MANAGE_COMMERCE_VENDORS;
+    public static final String VERIFY_COMMERCE_VENDOR     = CommercePermissions.VERIFY_COMMERCE_VENDOR;
+    public static final String SETUP_COMMERCE_PROFILE     = CommercePermissions.SETUP_COMMERCE_PROFILE;
+    public static final String VIEW_COMMERCE_PRODUCTS     = CommercePermissions.VIEW_COMMERCE_PRODUCTS;
+    public static final String MANAGE_COMMERCE_PRODUCTS   = CommercePermissions.MANAGE_COMMERCE_PRODUCTS;
+    public static final String PUBLISH_COMMERCE_PRODUCT   = CommercePermissions.PUBLISH_COMMERCE_PRODUCT;
+    public static final String VIEW_COMMERCE_ORDERS       = CommercePermissions.VIEW_COMMERCE_ORDERS;
+    public static final String MANAGE_COMMERCE_ORDERS     = CommercePermissions.MANAGE_COMMERCE_ORDERS;
+    public static final String PROCESS_COMMERCE_ORDER     = CommercePermissions.PROCESS_COMMERCE_ORDER;
+    public static final String VIEW_COMMERCE_INVENTORY    = CommercePermissions.VIEW_COMMERCE_INVENTORY;
+    public static final String MANAGE_COMMERCE_INVENTORY  = CommercePermissions.MANAGE_COMMERCE_INVENTORY;
+    public static final String VIEW_COMMERCE_PAYMENTS     = CommercePermissions.VIEW_COMMERCE_PAYMENTS;
+    public static final String MANAGE_COMMERCE_PAYMENTS   = CommercePermissions.MANAGE_COMMERCE_PAYMENTS;
+    public static final String VIEW_COMMERCE_SETTLEMENTS  = CommercePermissions.VIEW_COMMERCE_SETTLEMENTS;
+    public static final String MANAGE_COMMERCE_SETTLEMENTS = CommercePermissions.MANAGE_COMMERCE_SETTLEMENTS;
+    public static final String VIEW_COMMERCE_ANALYTICS    = CommercePermissions.VIEW_COMMERCE_ANALYTICS;
 
     // ──── RE-EXPORTS: Food & Lifestyle OS ───────────────────────────
     public static final String VIEW_FOOD_PROFILE            = FoodPermissions.VIEW_FOOD_PROFILE;
@@ -222,7 +251,8 @@ public final class PermissionConstants {
                     AdminPermissions.ALL,
                     ServicePlatformPermissions.ALL,
                     VendorPermissions.ALL,
-                    FoodPermissions.ALL
+                    FoodPermissions.ALL,
+                    CommercePermissions.ALL
             ).flatMap(List::stream).distinct().toList()
     );
 
@@ -423,7 +453,7 @@ public final class PermissionConstants {
                     SportsPermissions.VIEW_ALL,
                     List.of(MarketplacePermissions.VIEW_MARKETPLACE),
                     List.of(VisitorPermissions.VIEW_VISITORS),
-                    List.of(AmenityPermissions.VIEW_AMENITIES),
+                    List.of(AmenityPermissions.VIEW_AMENITIES, AmenityPermissions.VIEW_RESOURCE_BOOKING),
                     List.of(NoticeBoardPermissions.VIEW_NOTICES),
                     List.of(HelpdeskPermissions.VIEW_TICKETS),
                     List.of(PollingPermissions.VIEW_POLLS,
@@ -536,7 +566,7 @@ public final class PermissionConstants {
                     SportsPermissions.VIEW_ALL,
                     List.of(MarketplacePermissions.VIEW_MARKETPLACE),
                     List.of(VisitorPermissions.VIEW_VISITORS),
-                    List.of(AmenityPermissions.VIEW_AMENITIES),
+                    List.of(AmenityPermissions.VIEW_AMENITIES, AmenityPermissions.VIEW_RESOURCE_BOOKING),
                     List.of(NoticeBoardPermissions.VIEW_NOTICES),
                     List.of(HelpdeskPermissions.VIEW_TICKETS),
                     List.of(PollingPermissions.VIEW_POLLS,

@@ -1,5 +1,6 @@
 package com.manacommunity.api.commerce.core.model;
 
+import com.manacommunity.api.commerce.customer.model.CommerceCustomerProfile;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.common.BaseAuditEntity;
 import com.manacommunity.api.user.model.AppUser;
@@ -7,6 +8,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -108,6 +111,31 @@ public class CommerceOrder extends BaseAuditEntity {
     @Column(name = "is_escrow_locked")
     @Builder.Default
     private Boolean isEscrowLocked = true;
+
+    // ── Phase 4 extensions ────────────────────────────────────────────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_profile_id")
+    private CommerceCustomerProfile customerProfile;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "vendor_notes", columnDefinition = "TEXT")
+    private String vendorNotes;
+
+    @Column(name = "estimated_delivery_date")
+    private LocalDate estimatedDeliveryDate;
+
+    @Column(name = "actual_delivery_at")
+    private LocalDateTime actualDeliveryAt;
+
+    @Column(name = "cancellation_reason", length = 300)
+    private String cancellationReason;
+
+    /** FK to the auto-generated GST invoice in finance_documents. Set on order COMPLETED. */
+    @Column(name = "invoice_document_id")
+    private Long invoiceDocumentId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

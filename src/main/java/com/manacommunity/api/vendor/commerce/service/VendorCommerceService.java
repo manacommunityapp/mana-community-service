@@ -21,6 +21,7 @@ public class VendorCommerceService {
     private final VendorProductVariantRepository variantRepository;
     private final VendorProductInventoryRepository inventoryRepository;
     private final VendorInventoryBatchRepository batchRepository;
+    private final CommerceProductCategoryRepository categoryRepository;
 
     public List<VendorProductDto> getVendorProducts(Long vendorUserId) {
         return productRepository.findByVendorUserIdOrderByCreatedAtDesc(vendorUserId).stream()
@@ -36,17 +37,37 @@ public class VendorCommerceService {
 
     @Transactional
     public VendorProductDto createProduct(AppUser vendorUser, CreateProductRequest request) {
+        CommerceProductCategory commerceCategory = null;
+        if (request.getCommerceCategoryId() != null) {
+            commerceCategory = categoryRepository.findById(request.getCommerceCategoryId()).orElse(null);
+        }
+
+        VendorProduct.ProductType productType = VendorProduct.ProductType.PHYSICAL_PRODUCT;
+        if (request.getProductType() != null) {
+            try {
+                productType = VendorProduct.ProductType.valueOf(request.getProductType());
+            } catch (IllegalArgumentException ignored) {}
+        }
+
         VendorProduct product = VendorProduct.builder()
                 .community(vendorUser.getCommunity())
                 .vendorUser(vendorUser)
                 .name(request.getName())
+                .productType(productType)
                 .category(request.getCategory())
                 .subCategory(request.getSubCategory())
+                .commerceCategory(commerceCategory)
                 .brand(request.getBrand())
                 .description(request.getDescription())
                 .hsnCode(request.getHsnCode())
                 .gstRate(request.getGstRate() != null ? request.getGstRate() : BigDecimal.valueOf(5.00))
                 .imageUrl(request.getImageUrl())
+                .additionalImages(request.getAdditionalImages())
+                .communityOnly(Boolean.TRUE.equals(request.getCommunityOnly()))
+                .weightGrams(request.getWeightGrams())
+                .dimensionsCm(request.getDimensionsCm())
+                .productCode(request.getProductCode())
+                .tags(request.getTags())
                 .status("ACTIVE")
                 .build();
 
@@ -61,6 +82,13 @@ public class VendorCommerceService {
                         .mrp(vr.getMrp() != null ? vr.getMrp() : BigDecimal.ZERO)
                         .vendorCost(vr.getVendorCost() != null ? vr.getVendorCost() : BigDecimal.ZERO)
                         .defaultCommunityPrice(vr.getDefaultCommunityPrice() != null ? vr.getDefaultCommunityPrice() : BigDecimal.ZERO)
+                        .memberPrice(vr.getMemberPrice())
+                        .bulkMinQty(vr.getBulkMinQty() != null ? vr.getBulkMinQty() : 5)
+                        .bulkPrice(vr.getBulkPrice())
+                        .promotionalPrice(vr.getPromotionalPrice())
+                        .promotionalEndDate(vr.getPromotionalEndDate())
+                        .festivalTag(vr.getFestivalTag())
+                        .festivalPrice(vr.getFestivalPrice())
                         .isActive(true)
                         .build();
 
@@ -253,6 +281,13 @@ public class VendorCommerceService {
                         .mrp(v.getMrp())
                         .vendorCost(v.getVendorCost())
                         .defaultCommunityPrice(v.getDefaultCommunityPrice())
+                        .memberPrice(v.getMemberPrice())
+                        .bulkMinQty(v.getBulkMinQty())
+                        .bulkPrice(v.getBulkPrice())
+                        .promotionalPrice(v.getPromotionalPrice())
+                        .promotionalEndDate(v.getPromotionalEndDate())
+                        .festivalTag(v.getFestivalTag())
+                        .festivalPrice(v.getFestivalPrice())
                         .isActive(v.getIsActive())
                         .availableStock(v.getInventory() != null ? v.getInventory().getAvailableQty() : 0)
                         .reservedStock(v.getInventory() != null ? v.getInventory().getReservedQty() : 0)
@@ -267,16 +302,47 @@ public class VendorCommerceService {
         return VendorProductDto.builder()
                 .id(String.valueOf(product.getId()))
                 .name(product.getName())
+                .productType(product.getProductType() != null ? product.getProductType().name() : null)
                 .category(product.getCategory())
                 .subCategory(product.getSubCategory())
+                .commerceCategoryId(product.getCommerceCategory() != null ? product.getCommerceCategory().getId() : null)
+                .commerceCategoryName(product.getCommerceCategory() != null ? product.getCommerceCategory().getName() : null)
                 .brand(product.getBrand())
                 .description(product.getDescription())
                 .hsnCode(product.getHsnCode())
                 .gstRate(product.getGstRate())
                 .status(product.getStatus())
                 .imageUrl(product.getImageUrl())
+                .additionalImages(product.getAdditionalImages())
+                .communityOnly(product.getCommunityOnly())
+                .weightGrams(product.getWeightGrams())
+                .dimensionsCm(product.getDimensionsCm())
+                .productCode(product.getProductCode())
+                .tags(product.getTags())
                 .variants(variantDtos)
                 .totalStock(totalStock)
                 .build();
+    }
+
+    @Transactional
+    public void deactivateProduct(AppUser user, Long productId) {
+        VendorProduct product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + productId));
+        if (!product.getVendorUser().getId().equals(user.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Not your product.");
+        }
+        product.setStatus("INACTIVE");
+        productRepository.save(product);
+    }
+
+    @Transactional
+    public void activateProduct(AppUser user, Long productId) {
+        VendorProduct product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + productId));
+        if (!product.getVendorUser().getId().equals(user.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Not your product.");
+        }
+        product.setStatus("ACTIVE");
+        productRepository.save(product);
     }
 }
