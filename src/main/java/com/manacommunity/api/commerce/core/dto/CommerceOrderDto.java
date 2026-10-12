@@ -43,5 +43,12 @@ public class CommerceOrderDto {
     private String qrToken;
     private Boolean isEscrowLocked;
     private List<CommerceOrderItemDto> items;
+    private String notes;
+    private String vendorNotes;
+    private String estimatedDeliveryDate;
+    private String actualDeliveryAt;
+    private String cancellationReason;
     private String createdAt;
+    private String updatedAt;
+    private Long invoiceDocumentId;
 }

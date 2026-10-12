@@ -46,4 +46,16 @@ public class CommercePayment extends BaseAuditEntity {
 
     @Column(name = "gateway_signature", columnDefinition = "TEXT")
     private String gatewaySignature;
+
+    @Column(name = "razorpay_order_id", length = 80)
+    private String razorpayOrderId;
+
+    @Column(name = "razorpay_payment_id", length = 80)
+    private String razorpayPaymentId;
+
+    @Column(name = "failure_reason", length = 300)
+    private String failureReason;
+
+    @Column(name = "captured_at")
+    private java.time.LocalDateTime capturedAt;
 }
