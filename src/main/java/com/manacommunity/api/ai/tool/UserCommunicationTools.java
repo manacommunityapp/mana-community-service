@@ -5,6 +5,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
 import com.manacommunity.api.ai.service.AiWebSocketPushService;
+import com.manacommunity.api.privacy.ConsentGuard;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.sms.SmsService;
@@ -44,6 +45,15 @@ public class UserCommunicationTools {
     private final SmsService smsService;
     private final AppUserRepository userRepository;
     private final AiWebSocketPushService webSocketPush;
+    private final ConsentGuard consentGuard;
+
+    private static final String PUSH_CONSENT_MSG =
+        "You have not granted consent for push/SMS notifications. "
+        + "Please update your preferences in Privacy Centre → Privacy & Visibility.";
+    private static final Map<String, Object> PUSH_CONSENT_DENIED =
+        Map.of("error", true, "consent_required", true,
+               "message", PUSH_CONSENT_MSG,
+               "action", "Visit Privacy Centre → Privacy & Visibility to grant PUSH_NOTIFICATIONS consent.");
 
     private static final DateTimeFormatter DISPLAY_FMT = DateTimeFormatter.ofPattern("dd MMM, hh:mm a");
 
@@ -57,6 +67,9 @@ public class UserCommunicationTools {
             @ToolParam(description = "Has the user explicitly confirmed?") Boolean confirmed) {
 
         UserContext ctx = AgentSecurityContext.get();
+        // DPDP Act 2023 s.6 — PUSH_NOTIFICATIONS is non-essential; require consent before sending.
+        if (!consentGuard.hasConsent(ctx.userId(), "PUSH_NOTIFICATIONS")) return PUSH_CONSENT_DENIED;
+
         AppUser user = userRepository.findById(ctx.userId()).orElse(null);
 
         if (user == null || user.getPhone() == null || user.getPhone().isBlank()) {
@@ -112,6 +125,8 @@ public class UserCommunicationTools {
             @ToolParam(description = "Has the user explicitly confirmed?") Boolean confirmed) {
 
         UserContext ctx = AgentSecurityContext.get();
+        if (!consentGuard.hasConsent(ctx.userId(), "PUSH_NOTIFICATIONS")) return PUSH_CONSENT_DENIED;
+
         AppUser user = userRepository.findById(ctx.userId()).orElse(null);
 
         if (user == null || user.getPhone() == null || user.getPhone().isBlank()) {
@@ -166,6 +181,8 @@ public class UserCommunicationTools {
             @ToolParam(description = "Has the user explicitly confirmed?") Boolean confirmed) {
 
         UserContext ctx = AgentSecurityContext.get();
+        if (!consentGuard.hasConsent(ctx.userId(), "PUSH_NOTIFICATIONS")) return PUSH_CONSENT_DENIED;
+
         AppUser user = userRepository.findById(ctx.userId()).orElse(null);
 
         if (user == null || user.getPhone() == null || user.getPhone().isBlank()) {
@@ -234,6 +251,7 @@ public class UserCommunicationTools {
             @ToolParam(description = "Match ID") Long matchId) {
 
         UserContext ctx = AgentSecurityContext.get();
+        if (!consentGuard.hasConsent(ctx.userId(), "PUSH_NOTIFICATIONS")) return PUSH_CONSENT_DENIED;
 
         var rows = em.createQuery(
                         "SELECT m.scheduledAt, ta.teamName, tb.teamName, v.name " +
@@ -267,6 +285,7 @@ public class UserCommunicationTools {
             @ToolParam(description = "Notification body") String body) {
 
         UserContext ctx = AgentSecurityContext.get();
+        if (!consentGuard.hasConsent(ctx.userId(), "PUSH_NOTIFICATIONS")) return PUSH_CONSENT_DENIED;
         webSocketPush.pushAiAlert(ctx.userId(), title, body);
 
         return Map.of("success", true, "message", "Push notification sent: " + title);

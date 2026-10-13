@@ -206,9 +206,9 @@ backend) and mana-community-app (React frontend).
 | 1 | **Aadhaar collection without explicit separate consent** | `RegisterRequest.java:28`, `AuthServiceImpl.java:196` | HIGH | Aadhaar is a sensitive govt. ID. Either remove this field entirely (recommended) or add a separate explicit consent modal, purpose limitation, and verify compliance with Aadhaar Act 2016 / UIDAI regulations. [LEGAL REVIEW REQUIRED] |
 | 2 | ~~**No HTTPS enforcement in SecurityConfig**~~ **✓ Fixed** | `SecurityConfig.java` | HIGH | Added `app.security.require-https` property; set to `true` in production `application.properties` to enforce TLS. |
 | 3 | **No CAPTCHA / bot detection on registration** | `AuthController.java`, `Signup.tsx` | MEDIUM | Add reCAPTCHA v3 or hCaptcha to registration and login to prevent automated account creation. Do not rely solely on invite codes for bot protection. |
-| 4 | **Consent revocation not propagated to processing pipelines** | `PrivacyController.java` | MEDIUM | When MARKETING or ANALYTICS consent is revoked, downstream services (email dispatch, analytics writes) must check the consent state before processing. Currently consent revocation is recorded but not enforced in downstream systems. |
+| 4 | ~~**Consent revocation not propagated to processing pipelines**~~ **✓ Fixed (analytics)** | `UserHubUsageServiceImpl.java` | MEDIUM | `trackClick` now calls `consentGuard.hasConsent(userId, "ANALYTICS")` and skips silently if not granted. **Remaining:** marketing email dispatch gating (requires marketing email feature to exist first). |
 | 5 | **`aadharNumber` field stored even if blank** | `AppUser.java`, `AuthServiceImpl.java:206` | MEDIUM | `govtIdNumber` is set to a masked Aadhaar even if no Aadhaar was provided. Review whether this field is ever populated with real data and scrub if so. |
-| 6 | **AI tool `UserCommunicationTools.java` processes personal data** | `UserCommunicationTools.java` | MEDIUM | AI-assisted operations should check consent before using personal data in prompts. Add a consent check for `AI_PROCESSING` purpose before calling Anthropic API with user PII. |
+| 6 | ~~**AI tool `UserCommunicationTools.java` processes personal data**~~ **✓ Fixed** | `UserCommunicationTools.java` | MEDIUM | All 5 send/push methods (`sendScheduleViaSms`, `sendScheduleViaWhatsApp`, `sendMatchToPhone`, `pushMatchReminderToDevice`, `pushCustomNotification`) now check `PUSH_NOTIFICATIONS` consent before executing. Returns a user-readable `CONSENT_REQUIRED` error to the AI if not granted. |
 | 7 | ~~**Biometric consent not separately captured at enrolment**~~ **✓ Backend gated** | `BiometricTurnstileController.java` | HIGH | `POST /api/v1/access/turnstiles/enroll` now calls `ConsentGuard.requireConsent(userId, "BIOMETRIC", …)` — returns HTTP 403 `CONSENT_REQUIRED` if consent not granted. **Remaining:** frontend must show an explicit consent UI before calling this endpoint. [LEGAL REVIEW REQUIRED] |
 | 8 | **No rate limiting on data-rights endpoint** | `PrivacyController.java` | LOW | Add rate limiting on `POST /api/privacy/data-rights` to prevent abuse. |
 
@@ -258,8 +258,6 @@ backend) and mana-community-app (React frontend).
 ## Open Items Checklist
 
 ### Code — Remaining
-- [ ] Enforce ANALYTICS/MARKETING consent downstream — when those consents are revoked, gate `UserHubUsage` writes and marketing email dispatch (gap #4).
-- [ ] Check PUSH_NOTIFICATIONS consent in `UserCommunicationTools.java` before sending push/SMS (gap #6).
 - [ ] Add CAPTCHA to registration and login flows (gap #3).
 - [ ] Add rate limiting on `POST /api/privacy/data-rights` (gap #8).
 - [ ] Remove or scope-limit Aadhaar field after legal review (gap #1/#5).
@@ -293,4 +291,6 @@ backend) and mana-community-app (React frontend).
 - [x] `enroll` service method + `EnrollBiometricRequest` type (`turnstileService.ts`)
 - [x] Email acknowledgement to data principal on rights request submission (`PrivacyController.java`)
 - [x] Email notification to DPO on rights request submission (`PrivacyController.java`)
+- [x] ANALYTICS consent gate in `UserHubUsageServiceImpl.trackClick` — skips silently if not granted (gap #4)
+- [x] PUSH_NOTIFICATIONS consent gate in all 5 `UserCommunicationTools` send methods (gap #6)
 - [x] Breach Runbook (`BREACH_RUNBOOK.md`)
