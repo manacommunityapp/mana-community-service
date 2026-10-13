@@ -204,12 +204,12 @@ backend) and mana-community-app (React frontend).
 | # | Gap | File / Location | Severity | Recommendation |
 |---|---|---|---|---|
 | 1 | **Aadhaar collection without explicit separate consent** | `RegisterRequest.java:28`, `AuthServiceImpl.java:196` | HIGH | Aadhaar is a sensitive govt. ID. Either remove this field entirely (recommended) or add a separate explicit consent modal, purpose limitation, and verify compliance with Aadhaar Act 2016 / UIDAI regulations. [LEGAL REVIEW REQUIRED] |
-| 2 | **No HTTPS enforcement in SecurityConfig** | `SecurityConfig.java` | HIGH | Add `http.requiresChannel(c -> c.anyRequest().requiresSecure())` or enforce HTTPS at the load-balancer/ingress level. |
+| 2 | ~~**No HTTPS enforcement in SecurityConfig**~~ **✓ Fixed** | `SecurityConfig.java` | HIGH | Added `app.security.require-https` property; set to `true` in production `application.properties` to enforce TLS. |
 | 3 | **No CAPTCHA / bot detection on registration** | `AuthController.java`, `Signup.tsx` | MEDIUM | Add reCAPTCHA v3 or hCaptcha to registration and login to prevent automated account creation. Do not rely solely on invite codes for bot protection. |
 | 4 | **Consent revocation not propagated to processing pipelines** | `PrivacyController.java` | MEDIUM | When MARKETING or ANALYTICS consent is revoked, downstream services (email dispatch, analytics writes) must check the consent state before processing. Currently consent revocation is recorded but not enforced in downstream systems. |
 | 5 | **`aadharNumber` field stored even if blank** | `AppUser.java`, `AuthServiceImpl.java:206` | MEDIUM | `govtIdNumber` is set to a masked Aadhaar even if no Aadhaar was provided. Review whether this field is ever populated with real data and scrub if so. |
 | 6 | **AI tool `UserCommunicationTools.java` processes personal data** | `UserCommunicationTools.java` | MEDIUM | AI-assisted operations should check consent before using personal data in prompts. Add a consent check for `AI_PROCESSING` purpose before calling Anthropic API with user PII. |
-| 7 | **Biometric consent not separately captured at enrolment** | `BiometricTurnstileController.java` | HIGH | DPDP Act treats biometric data as sensitive. A dedicated, explicit, opt-in consent modal must be shown before biometric enrolment. The current BIOMETRIC consent purpose is defined but not wired to the enrolment flow. |
+| 7 | ~~**Biometric consent not separately captured at enrolment**~~ **✓ Backend gated** | `BiometricTurnstileController.java` | HIGH | `POST /api/v1/access/turnstiles/enroll` now calls `ConsentGuard.requireConsent(userId, "BIOMETRIC", …)` — returns HTTP 403 `CONSENT_REQUIRED` if consent not granted. **Remaining:** frontend must show an explicit consent UI before calling this endpoint. [LEGAL REVIEW REQUIRED] |
 | 8 | **No rate limiting on data-rights endpoint** | `PrivacyController.java` | LOW | Add rate limiting on `POST /api/privacy/data-rights` to prevent abuse. |
 
 ---
@@ -233,6 +233,9 @@ backend) and mana-community-app (React frontend).
 | Terms of Use link in sidebar footer | `Layout.tsx` | Done |
 | Consent checkboxes in Signup | `Signup.tsx` | Done |
 | Breach Runbook | `BREACH_RUNBOOK.md` | Done (legal review required) |
+| `ConsentGuard` reusable component | `ConsentGuard.java` | Done |
+| HTTPS enforcement (property-controlled) | `SecurityConfig.java` | Done |
+| Biometric consent gate at enrolment | `BiometricTurnstileController.java` | Done |
 | DPDP Progress Log | `DPDP_PROGRESS.md` | This file |
 
 ---
@@ -254,14 +257,39 @@ backend) and mana-community-app (React frontend).
 
 ## Open Items Checklist
 
-- [ ] Replace DPO placeholder details with real information (blocks publication).
+### Code — Remaining
+- [ ] Enforce ANALYTICS/MARKETING consent downstream — when those consents are revoked, gate `UserHubUsage` writes and marketing email dispatch (gap #4).
+- [ ] Check PUSH_NOTIFICATIONS consent in `UserCommunicationTools.java` before sending push/SMS (gap #6).
+- [ ] Add email acknowledgement (within 72 h) to data principal when a `DataRightsRequest` is submitted.
+- [ ] Add email notification to DPO inbox when a new `DataRightsRequest` is submitted.
+- [ ] Add CAPTCHA to registration and login flows (gap #3).
+- [ ] Add rate limiting on `POST /api/privacy/data-rights` (gap #8).
+- [ ] Remove or scope-limit Aadhaar field after legal review (gap #1/#5).
+- [ ] Frontend biometric consent UI — add explicit BIOMETRIC consent checkbox/modal to the biometric enrolment screen (so consent exists before the `/enroll` API is called).
+- [ ] Admin UI for data-rights request processing (beyond API).
+
+### Legal / Ops — Blocked on External Input
+- [ ] Replace DPO placeholder name and address with real details (blocks publication).
 - [ ] Legal review of Privacy Notice, Terms of Use, and Breach Runbook.
-- [ ] Wire biometric enrolment to `BIOMETRIC` consent purpose.
-- [ ] Enforce consent state downstream (marketing, analytics, AI tools).
-- [ ] Add HTTPS enforcement to `SecurityConfig.java`.
-- [ ] Add CAPTCHA to registration and login flows.
-- [ ] Remove or scope-limit Aadhaar field after legal review.
-- [ ] Email acknowledgement for data-rights requests (within 72 hours).
-- [ ] Admin UI for data-rights request processing.
+- [ ] Confirm AWS `ap-south-1` and Anthropic API under DPDP permissible countries.
+- [ ] Confirm 72 h Board notice timeline under final DPDP Rules.
+- [ ] Assess Aadhaar collection risk under Aadhaar Act 2016 / UIDAI regulations.
+- [ ] Confirm Data Protection Board of India portal/address once operational.
 - [ ] Tabletop breach exercise against `BREACH_RUNBOOK.md`.
 - [ ] Test consent banner and verify no non-essential trackers fire before consent.
+
+### Completed ✓
+- [x] `ConsentRecord` entity + repository (immutable audit trail)
+- [x] `DataRightsRequest` entity + repository (s.12–13 rights)
+- [x] Consent persistence in `PrivacyController` (all 6 purposes)
+- [x] Registration consent validation (`AuthServiceImpl`, `RegisterRequest`)
+- [x] DPDP-compliant Privacy Notice (`PrivacyPolicyModal.tsx`)
+- [x] Non-essential tracker consent banner (`ConsentBanner.tsx`)
+- [x] Data-rights request form (`DataRightsForm.tsx`)
+- [x] Terms of Use page with data-protection clause (`TermsPage.tsx`)
+- [x] Privacy Hub — Exercise Rights + Grievance Contact tabs
+- [x] Grievance contact + Terms link in sidebar footer (`Layout.tsx`)
+- [x] `ConsentGuard` reusable component (`ConsentGuard.java`)
+- [x] Property-controlled HTTPS enforcement (`SecurityConfig.java`)
+- [x] Biometric enrolment gated behind `BIOMETRIC` consent (`BiometricTurnstileController.java`)
+- [x] Breach Runbook (`BREACH_RUNBOOK.md`)
