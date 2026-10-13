@@ -7,6 +7,7 @@ import com.manacommunity.api.privacy.dto.UserPrivacySettingsDto;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +15,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping({"/api/privacy", "/privacy", "/api/api/privacy", "/api/v1/privacy"})
@@ -26,6 +29,11 @@ public class PrivacyController {
     private final UserDataExportService dataExportService;
     private final DataRetentionService retentionService;
     private final LoggedInUserService loggedInUserService;
+    private final ConsentRecordRepository consentRepo;
+    private final DataRightsRequestRepository rightsRepo;
+
+    /** Current notice version — bump when privacy notice content changes. */
+    private static final String NOTICE_VERSION = "2026-10-13-v1";
 
     // ── Privacy Settings ───────────────────────────────────────────────────
 
@@ -44,36 +52,90 @@ public class PrivacyController {
         return ResponseEntity.ok(privacySettingsService.updateSettings(user.getId(), dto));
     }
 
-    // ── Consents ────────────────────────────────────────────────────────────
+    // ── Consents (persisted) ────────────────────────────────────────────────
+
+    private static final List<Map<String, Object>> CONSENT_CATALOG = List.of(
+        Map.of("id", "ESSENTIAL",          "type", "ESSENTIAL",          "title", "Essential Society Operations",      "required", true,  "description", "Gate access, visitor verification, and emergency alerts. Required for platform use."),
+        Map.of("id", "PUSH_NOTIFICATIONS", "type", "PUSH_NOTIFICATIONS", "title", "Push & SMS Notifications",          "required", false, "description", "Receive event reminders, payment alerts, and visitor notifications via app push or SMS."),
+        Map.of("id", "MARKETING",          "type", "MARKETING",          "title", "Community Offers & Promotions",     "required", false, "description", "Deals and group-buying discounts tailored for society members."),
+        Map.of("id", "ANALYTICS",          "type", "ANALYTICS",          "title", "Usage Analytics & Performance",     "required", false, "description", "Anonymous in-app telemetry to improve speed and stability. No data leaves our servers."),
+        Map.of("id", "THIRD_PARTY_SHARING","type", "THIRD_PARTY_SHARING","title", "Partner Home Services",             "required", false, "description", "Share your contact with verified plumbing/electrical vendors when you raise a booking."),
+        Map.of("id", "BIOMETRIC",          "type", "BIOMETRIC",          "title", "Biometric Gate Access",             "required", false, "description", "Enrol fingerprint/face for touchless turnstile access. Biometric template is hashed; raw image is not retained.")
+    );
 
     @GetMapping("/consents")
     public ResponseEntity<List<Map<String, Object>>> getMyConsents(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        UserPrivacySettingsDto s = privacySettingsService.getSettings(user.getId());
-        List<Map<String, Object>> consents = List.of(
-                Map.of("id", "c-1", "type", "ESSENTIAL", "title", "Essential Society Operations", "granted", true, "description", "Gate access, visitor verification, and emergency alerts.", "updatedAt", "2026-01-01"),
-                Map.of("id", "c-2", "type", "MARKETING", "title", "Community Offers & Promotions", "granted", true, "description", "Deals and group buying discounts tailored for society members.", "updatedAt", "2026-02-15"),
-                Map.of("id", "c-3", "type", "ANALYTICS", "title", "Usage Analytics & Performance", "granted", true, "description", "Anonymous telemetry to improve app speed and stability.", "updatedAt", "2026-03-10"),
-                Map.of("id", "c-4", "type", "THIRD_PARTY_SHARING", "title", "Partner Home Services", "granted", Boolean.TRUE.equals(s.getAllowMarketplaceContact()), "description", "Share contact with verified plumbing/electrical vendors when you book.", "updatedAt", "2026-03-20")
-        );
-        return ResponseEntity.ok(consents);
+        List<ConsentRecord> latest = consentRepo.findLatestPerPurposeForUser(user.getId());
+        Map<String, Boolean> stateMap = latest.stream()
+                .collect(Collectors.toMap(ConsentRecord::getConsentPurpose, ConsentRecord::getGranted));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> catalog : CONSENT_CATALOG) {
+            String id = (String) catalog.get("id");
+            boolean defaultGranted = "ESSENTIAL".equals(id);
+            boolean granted = stateMap.getOrDefault(id, defaultGranted);
+            Map<String, Object> row = new LinkedHashMap<>(catalog);
+            row.put("granted", granted);
+            row.put("updatedAt", stateMap.containsKey(id)
+                    ? latest.stream().filter(c -> id.equals(c.getConsentPurpose()))
+                            .max(Comparator.comparing(ConsentRecord::getCreatedAt))
+                            .map(c -> c.getCreatedAt().toString()).orElse(null)
+                    : null);
+            result.add(row);
+        }
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/consents")
     public ResponseEntity<?> updateConsent(
-            @RequestBody(required = false) Map<String, Object> body,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Consent updated successfully"));
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String purpose = Objects.toString(body.get("purpose"), "").toUpperCase();
+        boolean granted = Boolean.parseBoolean(Objects.toString(body.get("granted"), "false"));
+
+        if (purpose.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "purpose is required"));
+        }
+        if ("ESSENTIAL".equals(purpose) && !granted) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Essential consent cannot be revoked"));
+        }
+
+        ConsentRecord record = ConsentRecord.builder()
+                .userId(user.getId())
+                .consentPurpose(purpose)
+                .granted(granted)
+                .sourceIp(extractIp(request))
+                .collectionPoint((String) body.getOrDefault("collectionPoint", "SETTINGS"))
+                .noticeVersion(NOTICE_VERSION)
+                .build();
+        consentRepo.save(record);
+
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "purpose", purpose, "granted", granted));
     }
 
-    @DeleteMapping("/consents/{id}")
+    @DeleteMapping("/consents/{purpose}")
     public ResponseEntity<?> revokeConsent(
-            @PathVariable String id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Consent revoked for id: " + id));
+            @PathVariable String purpose,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request) {
+        AppUser user = loggedInUserService.resolve(principal);
+        if ("ESSENTIAL".equalsIgnoreCase(purpose)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Essential consent cannot be revoked"));
+        }
+        ConsentRecord record = ConsentRecord.builder()
+                .userId(user.getId())
+                .consentPurpose(purpose.toUpperCase())
+                .granted(false)
+                .sourceIp(extractIp(request))
+                .collectionPoint("SETTINGS")
+                .noticeVersion(NOTICE_VERSION)
+                .build();
+        consentRepo.save(record);
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Consent revoked for: " + purpose));
     }
 
     // ── Data Portability / View My Data ────────────────────────────────────
@@ -98,11 +160,100 @@ public class PrivacyController {
     public ResponseEntity<?> getAuditLog(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        List<Map<String, Object>> logs = List.of(
-                Map.of("id", "log-1", "action", "PRIVACY_SETTINGS_UPDATED", "actor", user.getEmail(), "timestamp", "2026-10-06T12:00:00Z", "details", "Updated phone visibility"),
-                Map.of("id", "log-2", "action", "CONSENT_REVIEWED", "actor", user.getEmail(), "timestamp", "2026-10-05T09:30:00Z", "details", "Granted essential operations consent")
-        );
+        List<ConsentRecord> records = consentRepo.findByUserId(user.getId());
+        List<Map<String, Object>> logs = records.stream()
+                .map(r -> Map.<String, Object>of(
+                        "id", r.getId(),
+                        "action", r.getGranted() ? "CONSENT_GRANTED" : "CONSENT_REVOKED",
+                        "purpose", r.getConsentPurpose(),
+                        "actor", user.getEmail(),
+                        "timestamp", r.getCreatedAt().toString(),
+                        "collectionPoint", r.getCollectionPoint() != null ? r.getCollectionPoint() : "",
+                        "noticeVersion", r.getNoticeVersion() != null ? r.getNoticeVersion() : ""
+                ))
+                .collect(Collectors.toList());
         return ResponseEntity.ok(logs);
+    }
+
+    // ── Data-Rights Requests (DPDP s.12–13) ──────────────────────────────
+
+    /**
+     * Grievance officer contact — published per DPDP Act s.13.
+     * [LEGAL REVIEW REQUIRED] Update with actual DPO name, address, response timeline.
+     */
+    @GetMapping("/grievance-contact")
+    public ResponseEntity<?> grievanceContact() {
+        return ResponseEntity.ok(Map.of(
+            "grievanceOfficer",    "Data Protection Officer",
+            "organisation",        "Mana Community Pvt. Ltd.",
+            "email",               "dpo@manacommunity.app",
+            "address",             "[LEGAL REVIEW REQUIRED: Insert registered office address]",
+            "responseTimelineDays", 30,
+            "noticeVersion",       NOTICE_VERSION,
+            "legalNote",           "LEGAL REVIEW REQUIRED: Verify DPO details, registered address, and 30-day resolution timeline comply with DPDP Act 2023 s.13 and applicable DPDP Rules."
+        ));
+    }
+
+    @PostMapping("/data-rights")
+    public ResponseEntity<?> submitDataRightsRequest(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String rightType = Objects.toString(body.get("rightType"), "").toUpperCase();
+        String description = body.get("description");
+
+        if (rightType.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "rightType is required"));
+        }
+        List<String> validTypes = List.of("ACCESS", "CORRECTION", "ERASURE", "PORTABILITY", "GRIEVANCE", "NOMINATION");
+        if (!validTypes.contains(rightType)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid rightType. Must be one of: " + validTypes));
+        }
+
+        DataRightsRequest req = DataRightsRequest.builder()
+                .userId(user.getId())
+                .userEmail(user.getEmail())
+                .rightType(rightType)
+                .description(description)
+                .correctionDetails(body.get("correctionDetails"))
+                .build();
+        DataRightsRequest saved = rightsRepo.save(req);
+
+        return ResponseEntity.ok(Map.of(
+                "id", saved.getId(),
+                "status", saved.getStatus(),
+                "rightType", saved.getRightType(),
+                "dueBy", saved.getDueBy().toString(),
+                "message", "Request submitted. We will respond within 30 days per DPDP Act 2023 s.13."
+        ));
+    }
+
+    @GetMapping("/data-rights")
+    public ResponseEntity<?> getMyDataRightsRequests(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(rightsRepo.findByUserIdOrderByCreatedAtDesc(user.getId()));
+    }
+
+    @GetMapping("/admin/data-rights")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<?> getAdminDataRightsRequests() {
+        return ResponseEntity.ok(rightsRepo.findByStatusOrderByCreatedAtAsc("PENDING"));
+    }
+
+    @PostMapping("/admin/data-rights/{id}/process")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<?> processDataRightsRequest(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser admin = loggedInUserService.resolve(principal);
+        DataRightsRequest req = rightsRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Request not found: " + id));
+        req.setStatus(Objects.toString(body.get("status"), "COMPLETED").toUpperCase());
+        req.setAdminNotes(body.get("notes"));
+        req.setProcessedBy(admin.getId());
+        return ResponseEntity.ok(rightsRepo.save(req));
     }
 
     // ── Data Deletion Requests ─────────────────────────────────────────────
@@ -184,5 +335,15 @@ public class PrivacyController {
             @PathVariable Long id,
             @RequestBody DataRetentionPolicyDto dto) {
         return ResponseEntity.ok(retentionService.updatePolicy(id, dto));
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    private String extractIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }
