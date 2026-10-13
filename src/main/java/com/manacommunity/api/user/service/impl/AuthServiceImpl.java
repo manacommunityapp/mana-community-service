@@ -80,6 +80,8 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private com.manacommunity.api.privacy.ConsentRecordRepository consentRecordRepository;
     @Autowired
+    private com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
+    @Autowired
     private com.manacommunity.api.email.EmailService emailService;
     @Autowired
     private com.manacommunity.api.email.EmailTemplateRenderer emailRenderer;
@@ -140,6 +142,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
+
+        // Bot protection — verify CAPTCHA token when app.captcha.enabled=true.
+        captchaVerificationService.verify(request.getCaptchaToken());
 
         // DPDP Act 2023 s.6 — explicit consent to Privacy Notice is mandatory.
         if (request.getConsentToPrivacyNotice() == null || !request.getConsentToPrivacyNotice()) {

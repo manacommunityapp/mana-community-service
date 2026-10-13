@@ -205,12 +205,12 @@ backend) and mana-community-app (React frontend).
 |---|---|---|---|---|
 | 1 | **Aadhaar collection without explicit separate consent** | `RegisterRequest.java:28`, `AuthServiceImpl.java:196` | HIGH | Aadhaar is a sensitive govt. ID. Either remove this field entirely (recommended) or add a separate explicit consent modal, purpose limitation, and verify compliance with Aadhaar Act 2016 / UIDAI regulations. [LEGAL REVIEW REQUIRED] |
 | 2 | ~~**No HTTPS enforcement in SecurityConfig**~~ **✓ Fixed** | `SecurityConfig.java` | HIGH | Added `app.security.require-https` property; set to `true` in production `application.properties` to enforce TLS. |
-| 3 | **No CAPTCHA / bot detection on registration** | `AuthController.java`, `Signup.tsx` | MEDIUM | Add reCAPTCHA v3 or hCaptcha to registration and login to prevent automated account creation. Do not rely solely on invite codes for bot protection. |
+| 3 | ~~**No CAPTCHA / bot detection on registration**~~ **✓ Wired** | `CaptchaVerificationService.java`, `Signup.tsx` | MEDIUM | `CaptchaVerificationService` verifies hCaptcha token server-side (RestTemplate → hcaptcha.com/siteverify). Disabled by default (`app.captcha.enabled=false`). `HCaptchaWidget.tsx` added to `Signup.tsx` (uses hCaptcha test key in dev). **Remaining:** set `app.captcha.enabled=true` + real keys in production; consider adding CAPTCHA to login too. |
 | 4 | ~~**Consent revocation not propagated to processing pipelines**~~ **✓ Fixed (analytics)** | `UserHubUsageServiceImpl.java` | MEDIUM | `trackClick` now calls `consentGuard.hasConsent(userId, "ANALYTICS")` and skips silently if not granted. **Remaining:** marketing email dispatch gating (requires marketing email feature to exist first). |
 | 5 | **`aadharNumber` field stored even if blank** | `AppUser.java`, `AuthServiceImpl.java:206` | MEDIUM | `govtIdNumber` is set to a masked Aadhaar even if no Aadhaar was provided. Review whether this field is ever populated with real data and scrub if so. |
 | 6 | ~~**AI tool `UserCommunicationTools.java` processes personal data**~~ **✓ Fixed** | `UserCommunicationTools.java` | MEDIUM | All 5 send/push methods (`sendScheduleViaSms`, `sendScheduleViaWhatsApp`, `sendMatchToPhone`, `pushMatchReminderToDevice`, `pushCustomNotification`) now check `PUSH_NOTIFICATIONS` consent before executing. Returns a user-readable `CONSENT_REQUIRED` error to the AI if not granted. |
 | 7 | ~~**Biometric consent not separately captured at enrolment**~~ **✓ Backend gated** | `BiometricTurnstileController.java` | HIGH | `POST /api/v1/access/turnstiles/enroll` now calls `ConsentGuard.requireConsent(userId, "BIOMETRIC", …)` — returns HTTP 403 `CONSENT_REQUIRED` if consent not granted. **Remaining:** frontend must show an explicit consent UI before calling this endpoint. [LEGAL REVIEW REQUIRED] |
-| 8 | **No rate limiting on data-rights endpoint** | `PrivacyController.java` | LOW | Add rate limiting on `POST /api/privacy/data-rights` to prevent abuse. |
+| 8 | ~~**No rate limiting on data-rights endpoint**~~ **✓ Fixed** | `DataRightsRateLimiter.java`, `PrivacyController.java` | LOW | `DataRightsRateLimiter` in-memory sliding-window: max 5 requests per 24 h per user (configurable via `app.privacy.rights-request.max-per-day`). Throws HTTP 429 `RATE_LIMIT_EXCEEDED`. |
 
 ---
 
@@ -258,10 +258,10 @@ backend) and mana-community-app (React frontend).
 ## Open Items Checklist
 
 ### Code — Remaining
-- [ ] Add CAPTCHA to registration and login flows (gap #3).
-- [ ] Add rate limiting on `POST /api/privacy/data-rights` (gap #8).
-- [ ] Remove or scope-limit Aadhaar field after legal review (gap #1/#5).
-- [ ] Admin UI for data-rights request processing (beyond API).
+- [ ] Remove or scope-limit Aadhaar field after legal review (gap #1/#5). **Blocked on legal.**
+- [ ] Admin UI for data-rights request processing (beyond API). **Product/design work.**
+- [ ] Run `npm install` in `mana-community-app` after `@hcaptcha/react-hcaptcha` was added to package.json.
+- [ ] Add `VITE_HCAPTCHA_SITE_KEY` to `.env.production` and `app.captcha.secret-key` + `app.captcha.enabled=true` to production `application.properties`.
 
 ### Legal / Ops — Blocked on External Input
 - [ ] Replace DPO placeholder name and address with real details (blocks publication).
@@ -293,4 +293,9 @@ backend) and mana-community-app (React frontend).
 - [x] Email notification to DPO on rights request submission (`PrivacyController.java`)
 - [x] ANALYTICS consent gate in `UserHubUsageServiceImpl.trackClick` — skips silently if not granted (gap #4)
 - [x] PUSH_NOTIFICATIONS consent gate in all 5 `UserCommunicationTools` send methods (gap #6)
+- [x] `DataRightsRateLimiter` — in-memory sliding-window, max 5 per 24 h per user (gap #8)
+- [x] `CaptchaVerificationService` — hCaptcha verify via `RestTemplate`, property-gated (gap #3)
+- [x] `CaptchaToken` field in `RegisterRequest`; CAPTCHA called before registration in `AuthServiceImpl`
+- [x] `HCaptchaWidget.tsx` frontend component; wired into `Signup.tsx`; `@hcaptcha/react-hcaptcha` added to `package.json`
+- [x] Fixed duplicate `aadharNumber` field in `RegisterRequest.java`
 - [x] Breach Runbook (`BREACH_RUNBOOK.md`)

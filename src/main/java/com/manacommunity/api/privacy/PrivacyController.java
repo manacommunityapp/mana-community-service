@@ -35,6 +35,7 @@ public class PrivacyController {
     private final ConsentRecordRepository consentRepo;
     private final DataRightsRequestRepository rightsRepo;
     private final EmailService emailService;
+    private final DataRightsRateLimiter rateLimiter;
 
     /** [LEGAL REVIEW REQUIRED] Replace with monitored DPO mailbox. */
     @Value("${app.privacy.dpo-email:dpo@manacommunity.app}")
@@ -207,6 +208,9 @@ public class PrivacyController {
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        // DPDP — rate-limit to prevent bulk/automated rights requests.
+        rateLimiter.checkAndRecord(user.getId());
+
         String rightType = Objects.toString(body.get("rightType"), "").toUpperCase();
         String description = body.get("description");
 

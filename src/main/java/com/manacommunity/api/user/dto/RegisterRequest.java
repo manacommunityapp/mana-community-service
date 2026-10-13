@@ -24,7 +24,6 @@ public class RegisterRequest {
     @NotBlank
     @Pattern(regexp = "\\d{10}", message = "Phone number must be exactly 10 digits")
     String phone;
-    String aadharNumber;
     @NotBlank
     String inviteCode;
     @NotBlank
@@ -55,6 +54,14 @@ public class RegisterRequest {
 
     /** Optional: version string of the privacy notice shown at sign-up. */
     String consentNoticeVersion;
+
+    /**
+     * CAPTCHA token from hCaptcha / reCAPTCHA widget on the registration form.
+     * Only validated when app.captcha.enabled=true (default false).
+     * [LEGAL REVIEW REQUIRED] Ensure chosen CAPTCHA provider's data-processing
+     * terms are disclosed in the Privacy Notice.
+     */
+    String captchaToken;
 
     /**
      * [LEGAL REVIEW REQUIRED] Aadhaar number is a sensitive government ID under
