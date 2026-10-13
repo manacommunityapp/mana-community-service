@@ -1,5 +1,7 @@
 package com.manacommunity.api.privacy;
 
+import com.manacommunity.api.email.EmailMessage;
+import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.privacy.dto.DataDeletionRequestDto;
 import com.manacommunity.api.privacy.dto.DataRetentionPolicyDto;
 import com.manacommunity.api.privacy.dto.UserDataExportDto;
@@ -10,6 +12,7 @@ import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,6 +34,11 @@ public class PrivacyController {
     private final LoggedInUserService loggedInUserService;
     private final ConsentRecordRepository consentRepo;
     private final DataRightsRequestRepository rightsRepo;
+    private final EmailService emailService;
+
+    /** [LEGAL REVIEW REQUIRED] Replace with monitored DPO mailbox. */
+    @Value("${app.privacy.dpo-email:dpo@manacommunity.app}")
+    private String dpoEmail;
 
     /** Current notice version — bump when privacy notice content changes. */
     private static final String NOTICE_VERSION = "2026-10-13-v1";
@@ -219,6 +227,11 @@ public class PrivacyController {
                 .build();
         DataRightsRequest saved = rightsRepo.save(req);
 
+        // DPDP Act 2023 s.13 — acknowledge the data principal within 72 hours.
+        sendDataRightsAcknowledgement(user, saved);
+        // Notify DPO so they can begin processing within the 30-day window.
+        sendDpoDataRightsNotification(user, saved);
+
         return ResponseEntity.ok(Map.of(
                 "id", saved.getId(),
                 "status", saved.getStatus(),
@@ -345,5 +358,66 @@ public class PrivacyController {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    /**
+     * DPDP Act 2023 s.13 — acknowledge the data principal's rights request.
+     * Must be sent within 72 hours of receipt. [LEGAL REVIEW REQUIRED]
+     */
+    private void sendDataRightsAcknowledgement(AppUser user, DataRightsRequest req) {
+        String subject = "Your data rights request has been received — Ref #" + req.getId();
+        String html = "<div style='font-family:sans-serif;max-width:600px;'>"
+            + "<h2 style='color:#4f46e5;'>Data Rights Request Acknowledged</h2>"
+            + "<p>Dear " + user.getFullName() + ",</p>"
+            + "<p>We have received your <strong>" + req.getRightType() + "</strong> request (Reference #" + req.getId() + ") "
+            + "submitted under the <strong>Digital Personal Data Protection (DPDP) Act 2023</strong>.</p>"
+            + "<table style='width:100%;border-collapse:collapse;margin:16px 0;'>"
+            + "<tr><td style='padding:8px;background:#f8fafc;font-weight:600;width:40%;'>Request Type</td>"
+            + "<td style='padding:8px;'>" + req.getRightType() + "</td></tr>"
+            + "<tr><td style='padding:8px;background:#f8fafc;font-weight:600;'>Reference #</td>"
+            + "<td style='padding:8px;'>" + req.getId() + "</td></tr>"
+            + "<tr><td style='padding:8px;background:#f8fafc;font-weight:600;'>Submitted</td>"
+            + "<td style='padding:8px;'>" + req.getCreatedAt().toLocalDate() + "</td></tr>"
+            + "<tr><td style='padding:8px;background:#f8fafc;font-weight:600;'>Response Due By</td>"
+            + "<td style='padding:8px;'><strong>" + req.getDueBy().toLocalDate() + "</strong></td></tr>"
+            + "</table>"
+            + "<p>We will respond to your request within <strong>30 days</strong> as required under DPDP Act 2023 s.13.</p>"
+            + "<p>If you have any questions, please contact our Grievance Officer at "
+            + "<a href='mailto:" + dpoEmail + "'>" + dpoEmail + "</a>.</p>"
+            + "<p style='color:#64748b;font-size:12px;margin-top:24px;'>"
+            + "This is an automated acknowledgement from Mana Community Privacy Centre. "
+            + "Please do not reply to this email. [LEGAL REVIEW REQUIRED: verify this notice meets DPDP s.13]</p>"
+            + "</div>";
+        emailService.send(new EmailMessage(user.getEmail(), user.getFullName(), subject, html));
+    }
+
+    /**
+     * Notifies the DPO inbox when a new data-rights request is submitted,
+     * so processing can begin within the 30-day window.
+     */
+    private void sendDpoDataRightsNotification(AppUser user, DataRightsRequest req) {
+        String subject = "[ACTION REQUIRED] New DPDP Rights Request #" + req.getId()
+                + " — " + req.getRightType() + " — Due " + req.getDueBy().toLocalDate();
+        String html = "<div style='font-family:sans-serif;max-width:600px;'>"
+            + "<h2 style='color:#dc2626;'>New Data Rights Request — Action Required</h2>"
+            + "<p>A data principal has submitted a rights request that must be processed within <strong>30 days</strong>.</p>"
+            + "<table style='width:100%;border-collapse:collapse;margin:16px 0;'>"
+            + "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;width:40%;'>Reference #</td>"
+            + "<td style='padding:8px;'>" + req.getId() + "</td></tr>"
+            + "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;'>Right Type</td>"
+            + "<td style='padding:8px;'><strong>" + req.getRightType() + "</strong></td></tr>"
+            + "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;'>Data Principal</td>"
+            + "<td style='padding:8px;'>" + user.getFullName() + " &lt;" + user.getEmail() + "&gt;</td></tr>"
+            + "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;'>Submitted</td>"
+            + "<td style='padding:8px;'>" + req.getCreatedAt().toLocalDate() + "</td></tr>"
+            + "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;'>Due By</td>"
+            + "<td style='padding:8px;'><strong style='color:#dc2626;'>" + req.getDueBy().toLocalDate() + "</strong></td></tr>"
+            + (req.getDescription() != null ? "<tr><td style='padding:8px;background:#fef2f2;font-weight:600;'>Details</td>"
+            + "<td style='padding:8px;'>" + req.getDescription() + "</td></tr>" : "")
+            + "</table>"
+            + "<p>Process via the admin panel: <em>Privacy &gt; Data Rights Requests</em> (API: POST /api/privacy/admin/data-rights/" + req.getId() + "/process).</p>"
+            + "<p style='color:#64748b;font-size:12px;'>This notification was generated automatically by Mana Community. [LEGAL REVIEW REQUIRED]</p>"
+            + "</div>";
+        emailService.send(new EmailMessage(dpoEmail, "Grievance Officer", subject, html));
     }
 }

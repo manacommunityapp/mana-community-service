@@ -260,12 +260,9 @@ backend) and mana-community-app (React frontend).
 ### Code — Remaining
 - [ ] Enforce ANALYTICS/MARKETING consent downstream — when those consents are revoked, gate `UserHubUsage` writes and marketing email dispatch (gap #4).
 - [ ] Check PUSH_NOTIFICATIONS consent in `UserCommunicationTools.java` before sending push/SMS (gap #6).
-- [ ] Add email acknowledgement (within 72 h) to data principal when a `DataRightsRequest` is submitted.
-- [ ] Add email notification to DPO inbox when a new `DataRightsRequest` is submitted.
 - [ ] Add CAPTCHA to registration and login flows (gap #3).
 - [ ] Add rate limiting on `POST /api/privacy/data-rights` (gap #8).
 - [ ] Remove or scope-limit Aadhaar field after legal review (gap #1/#5).
-- [ ] Frontend biometric consent UI — add explicit BIOMETRIC consent checkbox/modal to the biometric enrolment screen (so consent exists before the `/enroll` API is called).
 - [ ] Admin UI for data-rights request processing (beyond API).
 
 ### Legal / Ops — Blocked on External Input
@@ -292,4 +289,8 @@ backend) and mana-community-app (React frontend).
 - [x] `ConsentGuard` reusable component (`ConsentGuard.java`)
 - [x] Property-controlled HTTPS enforcement (`SecurityConfig.java`)
 - [x] Biometric enrolment gated behind `BIOMETRIC` consent (`BiometricTurnstileController.java`)
+- [x] Frontend biometric consent UI with explicit DPDP s.6 checkbox (`BiometricEnrollModal.tsx`)
+- [x] `enroll` service method + `EnrollBiometricRequest` type (`turnstileService.ts`)
+- [x] Email acknowledgement to data principal on rights request submission (`PrivacyController.java`)
+- [x] Email notification to DPO on rights request submission (`PrivacyController.java`)
 - [x] Breach Runbook (`BREACH_RUNBOOK.md`)
