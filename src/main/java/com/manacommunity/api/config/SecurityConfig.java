@@ -74,6 +74,14 @@ public class SecurityConfig { // BUG FIX: was package-private
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
+    /**
+     * DPDP Act 2023 / Security gap: enforce HTTPS in non-local environments.
+     * Set app.security.require-https=true in production / staging application.properties.
+     * Default false keeps local dev on HTTP.
+     */
+    @Value("${app.security.require-https:false}")
+    private boolean requireHttps;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -262,9 +270,10 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );
+        if (requireHttps) {
+            http.requiresChannel(channel -> channel.anyRequest().requiresSecure());
+        }
+
         return http.build();
     }
-
-
-
 }

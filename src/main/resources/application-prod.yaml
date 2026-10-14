@@ -87,3 +87,17 @@ app:
       max-image-size-mb: ${MEDIA_MAX_IMAGE_MB:20}
       max-video-size-mb: ${MEDIA_MAX_VIDEO_MB:500}
       max-document-size-mb: ${MEDIA_MAX_DOC_MB:50}
+
+  # ── DPDP Act 2023 compliance ─────────────────────────────────────────────
+  security:
+    require-https: true                       # gap #2 — enforce TLS in prod
+
+  captcha:
+    enabled: true                             # gap #3 — enable hCaptcha in prod
+    secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
+
+  privacy:
+    dpo-email: ${APP_DPO_EMAIL:dpo@manacommunity.app}   # [REQUIRED] real monitored mailbox
+    rights-request:
+      max-per-day: ${APP_RIGHTS_MAX_PER_DAY:5}
+      window-hours: ${APP_RIGHTS_WINDOW_HOURS:24}
