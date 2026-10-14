@@ -28,5 +28,6 @@ public enum AuditModule {
     PARKING,
     GROUP_BUYING,
     PAYMENTS,
+    PAYMENT,
     RESILIENCE
 }

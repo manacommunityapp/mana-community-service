@@ -17,6 +17,14 @@ public interface InventoryStockQuantRepository extends JpaRepository<InventorySt
 
     Optional<InventoryStockQuant> findByProductIdAndLocationIdAndLotId(Long productId, Long locationId, Long lotId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT q FROM InventoryStockQuant q WHERE q.product.id = :productId AND q.location.id = :locationId AND q.lot IS NULL")
+    Optional<InventoryStockQuant> findForUpdateByProductIdAndLocationId(@Param("productId") Long productId, @Param("locationId") Long locationId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT q FROM InventoryStockQuant q WHERE q.product.id = :productId AND q.location.id = :locationId AND q.lot.id = :lotId")
+    Optional<InventoryStockQuant> findForUpdateByProductIdAndLocationIdAndLotId(@Param("productId") Long productId, @Param("locationId") Long locationId, @Param("lotId") Long lotId);
+
     List<InventoryStockQuant> findByProductId(Long productId);
 
     List<InventoryStockQuant> findByLocationId(Long locationId);

@@ -93,4 +93,31 @@ public class InventoryPickingController {
     public ResponseEntity<List<MoveHistoryReportRow>> getMovesHistory() {
         return ResponseEntity.ok(pickingService.getMoveHistoryReport());
     }
+
+    @GetMapping("/reporting/ledger")
+    public ResponseEntity<List<StockLedgerReportRow>> getStockLedger(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(pickingService.getStockLedgerReport(productId, communityId));
+    }
+
+    @GetMapping("/reporting/valuation")
+    public ResponseEntity<List<InventoryValuationReportRow>> getValuationReport() {
+        return ResponseEntity.ok(pickingService.getValuationReport());
+    }
+
+    @GetMapping("/reporting/stock-aging")
+    public ResponseEntity<List<StockAgingReportRow>> getStockAgingReport() {
+        return ResponseEntity.ok(pickingService.getStockAgingReport());
+    }
+
+    @GetMapping("/reporting/fefo-recommendations")
+    public ResponseEntity<List<FefoRecommendationRow>> getFefoRecommendations() {
+        return ResponseEntity.ok(pickingService.getFefoRecommendations());
+    }
+
+    @GetMapping("/reporting/reorder-alerts")
+    public ResponseEntity<List<ReorderAlertRow>> getReorderAlerts() {
+        return ResponseEntity.ok(pickingService.getReorderAlerts());
+    }
 }

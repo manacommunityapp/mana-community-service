@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
  *  Annotate test methods with @WithMockUserPrincipal to set auth explicitly.
  */
 @ActiveProfiles("test")
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 public abstract class BaseWebMvcTest {
 
     @Autowired

@@ -94,6 +94,26 @@ public class SportsAuctionTeamController {
         return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
     }
 
+    @DeleteMapping("/{teamId}/leave")
+    public ResponseEntity<Void> leaveTeam(
+            @PathVariable Long teamId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_PLAYER_POOL);
+        AppUser user = loggedInUserService.resolve(principal);
+        auctionTeamService.leaveTeam(teamId, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{teamId}/dissolve")
+    public ResponseEntity<Void> dissolveTeam(
+            @PathVariable Long teamId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_TEAMS_DASHBOARD);
+        AppUser user = loggedInUserService.resolve(principal);
+        auctionTeamService.dissolveTeam(teamId, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
     private SportsAuctionTeamResponse toResponse(SportsAuctionTeam t) {
         return SportsAuctionTeamResponse.builder()
                 .id(t.getId())
