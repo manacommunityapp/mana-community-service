@@ -11,6 +11,7 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.sports.dto.SportsPlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
+import com.manacommunity.api.dto.TeamRegistrationRequest;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.dto.SportsEventResponse;
@@ -402,6 +403,19 @@ public class SportsController {
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
+    }
+
+    @PostMapping("/register-team")
+    public ResponseEntity<List<SportsRegistrationResponse>> registerTeam(
+            @Valid @RequestBody TeamRegistrationRequest teamReq,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Registering team '{}' for event eventId={} with {} members",
+                teamReq.getTeamName(), teamReq.getEventId(), teamReq.getMemberUserIds().size());
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registrations.stream().map(this::toRegistrationResponse).toList());
     }
 
     @DeleteMapping("/register/{registrationId}")

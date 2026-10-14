@@ -55,6 +55,12 @@ public class VendorCommerceController {
         return ResponseEntity.ok(commerceService.reserveInventory(request));
     }
 
+    @GetMapping("/inventory/batches")
+    public ResponseEntity<List<VendorInventoryBatchDto>> getBatches(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(commerceService.getBatches(user.getId()));
+    }
+
     @GetMapping("/stats")
     public ResponseEntity<VendorCommerceStatsDto> getStats(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);

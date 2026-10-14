@@ -9,5 +9,5 @@ public interface FoodMealPlanItemRepository extends JpaRepository<FoodMealPlanIt
 
     List<FoodMealPlanItem> findByPlanId(Long planId);
 
-    List<FoodMealPlanItem> findByPlanIdAndDayOfWeek(Long planId, String dayOfWeek);
+    List<FoodMealPlanItem> findByPlanIdAndDayOfWeek(Long planId, Integer dayOfWeek);
 }

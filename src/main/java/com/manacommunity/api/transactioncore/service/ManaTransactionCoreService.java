@@ -18,11 +18,14 @@ import com.manacommunity.api.transactioncore.enums.PaymentRail;
 import com.manacommunity.api.transactioncore.enums.RefundDestination;
 import com.manacommunity.api.transactioncore.enums.TransactionIntentStatus;
 import com.manacommunity.api.cfbos.shared.enums.SourceModule;
+import com.manacommunity.api.notification.event.PaymentCapturedEvent;
+import com.manacommunity.api.transactioncore.event.TransactionCapturedEvent;
 import com.manacommunity.api.transactioncore.repository.TransactionEscrowRepository;
 import com.manacommunity.api.transactioncore.repository.TransactionIntentRepository;
 import com.manacommunity.api.transactioncore.repository.TransactionSettlementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +46,7 @@ public class ManaTransactionCoreService {
     private final AccountingEngine accountingEngine;
     private final DocumentSequenceService documentSequenceService;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PaymentIntentResponse createPaymentIntent(PaymentIntentRequest request) {
@@ -79,22 +83,36 @@ public class ManaTransactionCoreService {
             log.warn("Failed to serialize splits or metadata: {}", e.getMessage());
         }
 
+        Long payerId = request.getPayerId() != null ? request.getPayerId() : 0L;
+        String title = request.getTitle() != null && !request.getTitle().isBlank() ? request.getTitle() : "Mana " + request.getDomain() + " Payment";
+        String upiVpa = "mana.society@icici";
+        String encodedTitle = "";
+        try {
+            encodedTitle = java.net.URLEncoder.encode(title, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception ignored) {}
+        String upiIntentUri = String.format(java.util.Locale.US, "upi://pay?pa=%s&pn=Mana%%20Community&am=%.2f&cu=INR&tr=%s&tn=%s",
+                upiVpa, totalAmount, intentId, encodedTitle);
+
         TransactionIntent intent = TransactionIntent.builder()
                 .intentId(intentId)
                 .idempotencyKey(request.getIdempotencyKey())
                 .domain(request.getDomain())
                 .orderReferenceId(request.getOrderReferenceId())
                 .communityId(request.getCommunityId())
-                .payerId(request.getPayerId())
+                .payerId(payerId)
                 .payerName(request.getPayerName())
                 .payerEmail(request.getPayerEmail())
                 .payerPhone(request.getPayerPhone())
+                .payerUnit(request.getPayerUnit())
+                .title(title)
                 .amount(totalAmount)
                 .currency(request.getCurrency() != null ? request.getCurrency() : "INR")
                 .status(TransactionIntentStatus.INITIATED)
                 .paymentRail(request.getPreferredRail() != null ? request.getPreferredRail() : PaymentRail.UPI)
                 .walletDeductionAmount(walletAmount)
                 .gatewayAmount(gatewayAmount)
+                .upiVpa(upiVpa)
+                .upiIntentUri(upiIntentUri)
                 .escrowHeld(request.isHoldInEscrow())
                 .escrowReleaseCondition(request.getEscrowReleaseCondition())
                 .receiptNumber(receiptNumber)
@@ -106,13 +124,22 @@ public class ManaTransactionCoreService {
                 .build();
 
         if (walletAmount.compareTo(BigDecimal.ZERO) > 0 && gatewayAmount.compareTo(BigDecimal.ZERO) == 0) {
-            walletEngine.debitWallet(request.getPayerId(), walletAmount,
+            walletEngine.debitWallet(payerId, walletAmount,
                     WalletTransactionType.BILL_PAYMENT, request.getDomain().name(), 0L,
                     "Payment for " + request.getDomain() + " ref #" + request.getOrderReferenceId());
-            intent.setStatus(request.isHoldInEscrow() ? TransactionIntentStatus.ESCROW_HELD : TransactionIntentStatus.CAPTURED);
+            boolean escrow = request.isHoldInEscrow();
+            intent.setStatus(escrow ? TransactionIntentStatus.ESCROW_HELD : TransactionIntentStatus.CAPTURED);
+            intent.setPaidAt(LocalDateTime.now());
+            if (!escrow) {
+                postCapturedJournalEntry(intent);
+            }
         }
 
         TransactionIntent saved = intentRepository.save(intent);
+
+        if (saved.getStatus() == TransactionIntentStatus.CAPTURED || saved.getStatus() == TransactionIntentStatus.ESCROW_HELD) {
+            publishCaptureEvents(saved);
+        }
 
         if (request.isHoldInEscrow()) {
             String escrowId = "ESC-" + intentId.replace("TXN-", "");
@@ -133,13 +160,32 @@ public class ManaTransactionCoreService {
 
     @Transactional
     public PaymentIntentResponse confirmPayment(String intentId, String gatewayPaymentId, String gatewayOrderId) {
-        TransactionIntent intent = intentRepository.findByIntentId(intentId)
-                .orElseThrow(() -> new ResourceNotFoundException("TransactionIntent not found: " + intentId));
+        return confirmPayment(ConfirmPaymentRequest.builder()
+                .intentId(intentId)
+                .gatewayPaymentId(gatewayPaymentId)
+                .gatewayOrderId(gatewayOrderId)
+                .build());
+    }
 
-        intent.setGatewayPaymentId(gatewayPaymentId);
-        if (gatewayOrderId != null) {
-            intent.setGatewayOrderId(gatewayOrderId);
+    @Transactional
+    public PaymentIntentResponse confirmPayment(ConfirmPaymentRequest req) {
+        TransactionIntent intent = intentRepository.findByIntentId(req.getIntentId())
+                .orElseThrow(() -> new ResourceNotFoundException("TransactionIntent not found: " + req.getIntentId()));
+
+        if (req.getGatewayPaymentId() != null) {
+            intent.setGatewayPaymentId(req.getGatewayPaymentId());
         }
+        if (req.getGatewayOrderId() != null) {
+            intent.setGatewayOrderId(req.getGatewayOrderId());
+        }
+        if (req.getUtr() != null) {
+            intent.setUtr(req.getUtr());
+        }
+        if (req.getRail() != null) {
+            intent.setPaymentRail(req.getRail());
+        }
+
+        intent.setPaidAt(LocalDateTime.now());
 
         if (intent.isEscrowHeld()) {
             intent.setStatus(TransactionIntentStatus.ESCROW_HELD);
@@ -150,6 +196,7 @@ public class ManaTransactionCoreService {
 
         intent.setUpdatedAt(LocalDateTime.now());
         TransactionIntent updated = intentRepository.save(intent);
+        publishCaptureEvents(updated);
         return mapToResponse(updated);
     }
 
@@ -295,6 +342,11 @@ public class ManaTransactionCoreService {
                 .status(intent.getStatus())
                 .paymentRail(intent.getPaymentRail())
                 .gatewayOrderId(intent.getGatewayOrderId())
+                .gatewayKeyId("rzp_test_placeholder")
+                .upiVpa(intent.getUpiVpa())
+                .upiIntentUri(intent.getUpiIntentUri())
+                .upiQrString(intent.getUpiIntentUri())
+                .receiptNumber(intent.getReceiptNumber())
                 .escrowId(escrowId)
                 .escrowHeld(intent.isEscrowHeld())
                 .splits(splits)
@@ -402,6 +454,79 @@ public class ManaTransactionCoreService {
         } catch (Exception e) {
             log.warn("Could not post GL journal entry for refund: {}", e.getMessage());
             return null;
+        }
+    }
+
+    public ManaDigitalReceiptDto getDigitalReceipt(String receiptOrIntentNumber) {
+        TransactionIntent intent = intentRepository.findByReceiptNumber(receiptOrIntentNumber)
+                .or(() -> intentRepository.findByIntentId(receiptOrIntentNumber))
+                .orElseThrow(() -> new ResourceNotFoundException("Receipt not found for identifier: " + receiptOrIntentNumber));
+
+        return ManaDigitalReceiptDto.builder()
+                .receiptNumber(intent.getReceiptNumber())
+                .receiptDate(intent.getPaidAt() != null ? intent.getPaidAt() : intent.getCreatedAt())
+                .transactionNumber(intent.getIntentId())
+                .orderReferenceId(intent.getOrderReferenceId())
+                .domain(intent.getDomain())
+                .status(intent.getStatus())
+                .payerName(intent.getPayerName() != null ? intent.getPayerName() : "Community Member")
+                .payerUnit(intent.getPayerUnit() != null ? intent.getPayerUnit() : "Resident Unit")
+                .payerPhone(intent.getPayerPhone())
+                .paymentRail(intent.getPaymentRail())
+                .amount(intent.getAmount())
+                .taxAmount(BigDecimal.ZERO)
+                .convenienceFee(BigDecimal.ZERO)
+                .totalAmount(intent.getAmount())
+                .utr(intent.getUtr())
+                .gatewayRef(intent.getGatewayPaymentId())
+                .societyName("Mana Residency Owners Association")
+                .societyGstin("29AABCM1234F1Z5")
+                .societyAddress("Sarjapur Main Road, Bengaluru, Karnataka 560035")
+                .notes(intent.getRemarks() != null ? intent.getRemarks() : intent.getTitle())
+                .verifiedStamp(true)
+                .build();
+    }
+
+    public List<PaymentIntentResponse> getMyTransactions(Long payerId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        return intentRepository.findByPayerId(payerId, pageable)
+                .map(this::mapToResponse)
+                .getContent();
+    }
+
+    private void publishCaptureEvents(TransactionIntent intent) {
+        try {
+            eventPublisher.publishEvent(TransactionCapturedEvent.builder()
+                    .intentId(intent.getIntentId())
+                    .orderReferenceId(intent.getOrderReferenceId())
+                    .domain(intent.getDomain())
+                    .payerId(intent.getPayerId())
+                    .payerName(intent.getPayerName())
+                    .payerPhone(intent.getPayerPhone())
+                    .payerUnit(intent.getPayerUnit())
+                    .amount(intent.getAmount())
+                    .paymentRail(intent.getPaymentRail())
+                    .utr(intent.getUtr())
+                    .gatewayPaymentId(intent.getGatewayPaymentId())
+                    .gatewayOrderId(intent.getGatewayOrderId())
+                    .receiptNumber(intent.getReceiptNumber())
+                    .capturedAt(intent.getPaidAt() != null ? intent.getPaidAt() : LocalDateTime.now())
+                    .intent(intent)
+                    .build());
+
+            if (intent.getPayerPhone() != null && !intent.getPayerPhone().isBlank()) {
+                eventPublisher.publishEvent(new PaymentCapturedEvent(
+                        intent.getPayerId(),
+                        intent.getPayerPhone(),
+                        intent.getPayerName() != null ? intent.getPayerName() : "Community Member",
+                        intent.getAmount(),
+                        intent.getOrderReferenceId(),
+                        intent.getGatewayPaymentId() != null ? intent.getGatewayPaymentId() : intent.getIntentId()
+                ));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to publish capture events for intentId={}: {}", intent.getIntentId(), e.getMessage());
         }
     }
 }

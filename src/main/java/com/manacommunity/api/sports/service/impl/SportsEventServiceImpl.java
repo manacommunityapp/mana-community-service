@@ -1,4 +1,5 @@
 package com.manacommunity.api.sports.service.impl;
+import com.manacommunity.api.dto.TeamRegistrationRequest;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -649,6 +650,29 @@ public class SportsEventServiceImpl implements SportsEventService {
         );
 
         return saved;
+    }
+
+    @Override
+    @Transactional
+    public List<SportsEventRegistration> registerTeam(TeamRegistrationRequest teamReq, Long captainUserId) {
+        if (!teamReq.getMemberUserIds().contains(captainUserId)) {
+            teamReq.getMemberUserIds().add(0, captainUserId);
+        }
+        Long captainId = teamReq.getCaptainUserId() != null ? teamReq.getCaptainUserId() : captainUserId;
+        List<SportsEventRegistration> results = new java.util.ArrayList<>();
+        for (Long memberId : teamReq.getMemberUserIds()) {
+            RegistrationRequest req = new RegistrationRequest();
+            req.setEventId(teamReq.getEventId());
+            req.setCategoryId(teamReq.getCategoryId());
+            SportsEventRegistration reg = registerUser(req, memberId);
+            reg.setProposedTeamName(teamReq.getTeamName());
+            if (memberId.equals(captainId)) {
+                reg.setCaptainNomination(true);
+            }
+            regRepo.save(reg);
+            results.add(reg);
+        }
+        return results;
     }
 
     private static List<SportsEvent.MatchFormat> parseMatchFormats(String csv) {
