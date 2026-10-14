@@ -104,6 +104,13 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  razorpay:
+    enabled: ${RAZORPAY_ENABLED:false}
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder}
+    key-secret: ${RAZORPAY_KEY_SECRET:placeholder_secret}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:placeholder_webhook_secret}
+    currency: ${RAZORPAY_CURRENCY:INR}
+
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}

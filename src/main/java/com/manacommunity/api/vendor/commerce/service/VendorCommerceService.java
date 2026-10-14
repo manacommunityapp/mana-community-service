@@ -172,101 +172,112 @@ public class VendorCommerceService {
         int totalInventory = 0;
         int reserved = 0;
         int committed = 0;
+        int outOfStock = 0;
 
         for (VendorProduct p : products) {
             if (p.getVariants() != null) {
                 for (VendorProductVariant v : p.getVariants()) {
                     if (v.getInventory() != null) {
-                        totalInventory += v.getInventory().getAvailableQty();
+                        int avail = v.getInventory().getAvailableQty();
+                        totalInventory += avail;
                         reserved += v.getInventory().getReservedQty();
                         committed += v.getInventory().getCommittedQty();
+                        if (avail <= 0) {
+                            outOfStock++;
+                        }
                     }
                 }
             }
         }
 
         return VendorCommerceStatsDto.builder()
-                .totalProducts(totalProducts > 0 ? totalProducts : 12)
-                .activeProducts(activeProducts > 0 ? activeProducts : 10)
-                .outOfStockProducts(0)
-                .draftProducts(0)
-                .totalInventoryUnits(totalInventory > 0 ? totalInventory : 1450)
-                .reservedUnits(reserved > 0 ? reserved : 120)
-                .committedUnits(committed > 0 ? committed : 350)
+                .totalProducts(totalProducts)
+                .activeProducts(activeProducts)
+                .outOfStockProducts(outOfStock)
+                .draftProducts(totalProducts - activeProducts)
+                .totalInventoryUnits(totalInventory)
+                .reservedUnits(reserved)
+                .committedUnits(committed)
                 .build();
     }
 
+    public List<VendorInventoryBatchDto> getBatches(Long vendorUserId) {
+        List<VendorProduct> products = productRepository.findByVendorUserIdOrderByCreatedAtDesc(vendorUserId);
+        List<VendorInventoryBatchDto> batchDtos = new ArrayList<>();
+
+        for (VendorProduct p : products) {
+            if (p.getVariants() != null) {
+                for (VendorProductVariant v : p.getVariants()) {
+                    List<VendorInventoryBatch> batches = batchRepository.findByVariantId(v.getId());
+                    for (VendorInventoryBatch b : batches) {
+                        batchDtos.add(VendorInventoryBatchDto.builder()
+                                .id(String.valueOf(b.getId()))
+                                .batchNumber(b.getBatchNumber())
+                                .variantId(String.valueOf(v.getId()))
+                                .variantName(v.getVariantName())
+                                .productName(p.getName())
+                                .mfgDate(b.getManufacturingDate() != null ? b.getManufacturingDate().toString() : null)
+                                .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString() : null)
+                                .initialQuantity(b.getReceivedQty())
+                                .remainingQuantity(b.getRemainingQty())
+                                .unitCost(v.getVendorCost())
+                                .status(b.getStatus())
+                                .build());
+                    }
+                }
+            }
+        }
+        return batchDtos;
+    }
+
     public List<VendorSettlementDto> getSettlements(Long vendorUserId) {
-        return List.of(
-                VendorSettlementDto.builder()
-                        .id("SET-2026-081")
-                        .vendorId(String.valueOf(vendorUserId))
-                        .dealId("d1")
-                        .dealTitle("Aashirvaad Atta 10 KG (100 Bags Bulk)")
-                        .grossSales(BigDecimal.valueOf(42705))
-                        .platformFeePct(BigDecimal.valueOf(3.5))
-                        .platformFeeAmount(BigDecimal.valueOf(1494.67))
-                        .taxDeducted(BigDecimal.valueOf(427.05))
-                        .netPayoutAmount(BigDecimal.valueOf(40783.28))
-                        .payoutStatus("ESCROW_HOLD")
-                        .bankAccountLast4("4821")
-                        .bankName("HDFC Bank")
-                        .orderCount(41)
-                        .createdAt(LocalDateTime.now().minusDays(1).toString())
-                        .build(),
-                VendorSettlementDto.builder()
-                        .id("SET-2026-074")
-                        .vendorId(String.valueOf(vendorUserId))
-                        .dealId("d-old-1")
-                        .dealTitle("Fortune Sunflower Oil 5L Bulk Batch")
-                        .grossSales(BigDecimal.valueOf(37642))
-                        .platformFeePct(BigDecimal.valueOf(3.5))
-                        .platformFeeAmount(BigDecimal.valueOf(1317.47))
-                        .taxDeducted(BigDecimal.valueOf(376.42))
-                        .netPayoutAmount(BigDecimal.valueOf(35948.11))
-                        .payoutStatus("PAID")
-                        .bankAccountLast4("4821")
-                        .bankName("HDFC Bank")
-                        .settledAt(LocalDateTime.now().minusDays(5).toString())
-                        .orderCount(58)
-                        .createdAt(LocalDateTime.now().minusDays(7).toString())
-                        .build()
-        );
+        // Return empty list if no settlements recorded rather than hardcoded mock data
+        return Collections.emptyList();
     }
 
     public Map<String, Object> requestPayout(String settlementId) {
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
-        res.put("message", "Payout initiated for settlement " + settlementId + "! Funds will credit within 24 hours.");
+        res.put("message", "Payout initiated for settlement " + settlementId + ".");
         res.put("settlementId", settlementId);
         return res;
     }
 
     public VendorAnalyticsDto getAnalytics(Long vendorUserId) {
+        List<VendorProduct> products = productRepository.findByVendorUserIdOrderByCreatedAtDesc(vendorUserId);
+        BigDecimal totalInventoryValue = BigDecimal.ZERO;
+        List<VendorAnalyticsDto.TopProductItem> topItems = new ArrayList<>();
+
+        for (VendorProduct p : products) {
+            if (p.getVariants() != null) {
+                for (VendorProductVariant v : p.getVariants()) {
+                    if (v.getInventory() != null && v.getVendorCost() != null) {
+                        BigDecimal val = BigDecimal.valueOf(v.getInventory().getAvailableQty()).multiply(v.getVendorCost());
+                        totalInventoryValue = totalInventoryValue.add(val);
+                    }
+                    if (topItems.size() < 5) {
+                        topItems.add(VendorAnalyticsDto.TopProductItem.builder()
+                                .name(p.getName() + " (" + v.getVariantName() + ")")
+                                .unitsSold(v.getInventory() != null ? v.getInventory().getCommittedQty() : 0)
+                                .revenue(v.getDefaultCommunityPrice() != null ? v.getDefaultCommunityPrice().multiply(BigDecimal.valueOf(v.getInventory() != null ? v.getInventory().getCommittedQty() : 0)) : BigDecimal.ZERO)
+                                .marginPct(BigDecimal.valueOf(10.0))
+                                .build());
+                    }
+                }
+            }
+        }
+
         return VendorAnalyticsDto.builder()
-                .totalGrossRevenue(BigDecimal.valueOf(384500))
-                .totalOrdersFulfilled(1248)
-                .averageOrderValue(BigDecimal.valueOf(842))
-                .sellThroughRate(BigDecimal.valueOf(94.6))
-                .repeatBuyerPct(BigDecimal.valueOf(68.4))
-                .onTimeDeliveryRate(BigDecimal.valueOf(97.2))
+                .totalGrossRevenue(totalInventoryValue)
+                .totalOrdersFulfilled(0)
+                .averageOrderValue(BigDecimal.ZERO)
+                .sellThroughRate(BigDecimal.ZERO)
+                .repeatBuyerPct(BigDecimal.ZERO)
+                .onTimeDeliveryRate(BigDecimal.valueOf(100.0))
                 .disputeResolutionRate(BigDecimal.valueOf(100.0))
-                .topProducts(List.of(
-                        VendorAnalyticsDto.TopProductItem.builder().name("Aashirvaad Atta 10 KG").unitsSold(420).revenue(BigDecimal.valueOf(245700)).marginPct(BigDecimal.valueOf(14.5)).build(),
-                        VendorAnalyticsDto.TopProductItem.builder().name("Tata Sampann Toor Dal 5 KG").unitsSold(280).revenue(BigDecimal.valueOf(145600)).marginPct(BigDecimal.valueOf(12.0)).build(),
-                        VendorAnalyticsDto.TopProductItem.builder().name("Fortune Sunflower Oil 5L").unitsSold(190).revenue(BigDecimal.valueOf(123310)).marginPct(BigDecimal.valueOf(9.8)).build()
-                ))
-                .monthlyRevenueChart(List.of(
-                        VendorAnalyticsDto.MonthlyRevenueItem.builder().month("Jun").revenue(BigDecimal.valueOf(180000)).orders(210).build(),
-                        VendorAnalyticsDto.MonthlyRevenueItem.builder().month("Jul").revenue(BigDecimal.valueOf(240000)).orders(285).build(),
-                        VendorAnalyticsDto.MonthlyRevenueItem.builder().month("Aug").revenue(BigDecimal.valueOf(310000)).orders(360).build(),
-                        VendorAnalyticsDto.MonthlyRevenueItem.builder().month("Sep").revenue(BigDecimal.valueOf(384500)).orders(440).build()
-                ))
-                .categoryDistribution(List.of(
-                        VendorAnalyticsDto.CategoryDistributionItem.builder().category("Staples & Grains").count(640).percentage(BigDecimal.valueOf(51)).build(),
-                        VendorAnalyticsDto.CategoryDistributionItem.builder().category("Edible Oils").count(320).percentage(BigDecimal.valueOf(26)).build(),
-                        VendorAnalyticsDto.CategoryDistributionItem.builder().category("Pulses & Dal").count(288).percentage(BigDecimal.valueOf(23)).build()
-                ))
+                .topProducts(topItems)
+                .monthlyRevenueChart(Collections.emptyList())
+                .categoryDistribution(Collections.emptyList())
                 .build();
     }
 

@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_txn_intent_id", columnList = "intent_id", unique = true),
         @Index(name = "idx_txn_idempotency_key", columnList = "idempotency_key", unique = true),
         @Index(name = "idx_txn_order_ref", columnList = "order_reference_id"),
-        @Index(name = "idx_txn_payer", columnList = "payer_id"),
+        @Index(name = "idx_txn_intent_payer", columnList = "payer_id"),
         @Index(name = "idx_txn_domain_status", columnList = "domain,status")
 })
 @Data
@@ -58,6 +58,12 @@ public class TransactionIntent {
     @Column(name = "payer_phone", length = 30)
     private String payerPhone;
 
+    @Column(name = "payer_unit", length = 100)
+    private String payerUnit;
+
+    @Column(name = "title", length = 255)
+    private String title;
+
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal amount;
 
@@ -88,6 +94,18 @@ public class TransactionIntent {
 
     @Column(name = "gateway_payment_id", length = 100)
     private String gatewayPaymentId;
+
+    @Column(name = "utr", length = 64)
+    private String utr;
+
+    @Column(name = "upi_vpa", length = 100)
+    private String upiVpa;
+
+    @Column(name = "upi_intent_uri", length = 500)
+    private String upiIntentUri;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     @Column(name = "escrow_held")
     @Builder.Default

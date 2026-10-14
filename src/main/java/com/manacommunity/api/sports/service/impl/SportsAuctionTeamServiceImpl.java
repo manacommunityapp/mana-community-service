@@ -210,4 +210,47 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
     public List<SportsAuctionTeam> getCaptainRegistration(Long userId) {
         return teamRepo.findByOwnerUserIdOrCaptainUserId(userId, userId);
     }
+
+    @Override
+    @Transactional
+    public void leaveTeam(Long teamId, Long userId) {
+        SportsAuctionTeam team = teamRepo.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("AuctionTeam", teamId));
+        if (team.getOwnerUser() != null && team.getOwnerUser().getId().equals(userId)) {
+            throw new com.manacommunity.api.exception.InvalidInputException("Team owner cannot leave. Use dissolve instead.");
+        }
+        var players = team.getPlayers();
+        if (players != null) {
+            for (var player : players) {
+                if (player.getUser() != null && player.getUser().getId().equals(userId)) {
+                    player.setAssignedTeam(null);
+                    player.setStatus(com.manacommunity.api.sports.model.SportsAuctionPlayer.PlayerStatus.QUEUED);
+                    team.setRemainingBudget(team.getRemainingBudget() + (player.getSoldPrice() != null ? player.getSoldPrice() : 0));
+                    player.setSoldPrice(null);
+                }
+            }
+        }
+        teamRepo.save(team);
+        log.info("User {} left team {}", userId, teamId);
+    }
+
+    @Override
+    @Transactional
+    public void dissolveTeam(Long teamId, Long ownerUserId) {
+        SportsAuctionTeam team = teamRepo.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("AuctionTeam", teamId));
+        if (team.getOwnerUser() == null || !team.getOwnerUser().getId().equals(ownerUserId)) {
+            throw new com.manacommunity.api.exception.InvalidInputException("Only the team owner can dissolve this team.");
+        }
+        var players = team.getPlayers();
+        if (players != null) {
+            for (var player : players) {
+                player.setAssignedTeam(null);
+                player.setStatus(com.manacommunity.api.sports.model.SportsAuctionPlayer.PlayerStatus.QUEUED);
+                player.setSoldPrice(null);
+            }
+        }
+        teamRepo.delete(team);
+        log.info("Team {} dissolved by owner {}", teamId, ownerUserId);
+    }
 }

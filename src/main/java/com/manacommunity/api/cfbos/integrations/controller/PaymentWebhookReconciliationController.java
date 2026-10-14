@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/finance/webhooks")
+@RequestMapping({"/api/finance/webhooks", "/api/payments/webhooks", "/api/v1/payments/webhooks"})
 @RequiredArgsConstructor
 public class PaymentWebhookReconciliationController {
 

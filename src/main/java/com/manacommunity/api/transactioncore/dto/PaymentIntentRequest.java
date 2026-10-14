@@ -32,11 +32,13 @@ public class PaymentIntentRequest {
 
     private Long communityId;
 
-    @NotNull(message = "Payer ID is required")
+    private String title;
+
     private Long payerId;
     private String payerName;
     private String payerEmail;
     private String payerPhone;
+    private String payerUnit;
 
     @NotNull(message = "Total amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be positive")

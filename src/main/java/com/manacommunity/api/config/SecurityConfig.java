@@ -238,6 +238,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
+                // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
+                .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the
                 // STOMP headers), so the HTTP upgrade itself is permitted.
@@ -260,7 +262,11 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Public file and media streaming (allows browsers to load images in <img> tags without Authorization headers)
                 .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
-                .requestMatchers("/api/files/refresh-url").permitAll()
+                // Health Directory & Public Camps / Triage
+                .requestMatchers(HttpMethod.GET, "/api/health/providers/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health/camps/upcoming").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/health/triage").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

@@ -1,6 +1,8 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.groupbuying.dto.*;
+import com.manacommunity.api.transactioncore.adapter.GroupBuyingTransactionAdapter;
+import com.manacommunity.api.transactioncore.dto.PaymentIntentResponse;
 import com.manacommunity.api.groupbuying.model.*;
 import com.manacommunity.api.groupbuying.repository.*;
 import com.manacommunity.api.groupbuying.service.GroupBuyingService;
@@ -36,6 +38,10 @@ class GroupBuyingServiceTest {
     private OrderDisputeRepository disputeRepository;
     @Mock
     private BuyingGroupRepository buyingGroupRepository;
+    @Mock
+    private GroupDealSettlementRepository settlementRepository;
+    @Mock
+    private GroupBuyingTransactionAdapter transactionAdapter;
 
     @InjectMocks
     private GroupBuyingService groupBuyingService;

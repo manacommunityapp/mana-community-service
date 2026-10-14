@@ -27,6 +27,7 @@ import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.security.TokenBlacklistService;
 import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.service.RolePermissionService;
 import com.manacommunity.api.service.OtpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
     @Autowired
     private CommunityModuleService communityModuleService;
+    @Autowired(required = false)
+    private RolePermissionService rolePermissionService;
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
     @Autowired
@@ -428,16 +431,32 @@ public class AuthServiceImpl implements AuthService {
 
     /** Builds the standard auth payload with a fresh access + refresh token pair. */
     private AuthResponse buildAuthResponse(AppUser user, String message) {
+        java.util.List<String> permissions = (rolePermissionService != null)
+                ? rolePermissionService.getEffectivePermissionsForUser(user)
+                : java.util.Collections.emptyList();
+
+        java.util.List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
+                ? java.util.Collections.emptyList()
+                : java.util.Arrays.stream(user.getRole().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .toList();
+
+        String token = jwtTokenProvider.generateToken(user, permissions);
+
         AuthResponse response = new AuthResponse(
                 String.valueOf(user.getId()),
                 message,
-                jwtTokenProvider.generateToken(user),
+                token,
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
                 user.getCommunity() != null ? user.getCommunity().getId() : null,
                 user.getDateOfBirth()
         );
+        response.setRoles(rolesList);
+        response.setPermissions(permissions);
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
         
         java.util.List<String> enabledModules;
