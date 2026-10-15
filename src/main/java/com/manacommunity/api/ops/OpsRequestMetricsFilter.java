@@ -17,7 +17,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class OpsRequestMetricsFilter extends OncePerRequestFilter {
 
-    private final OpsMetricsCollector metricsCollector;
+    private final org.springframework.beans.factory.ObjectProvider<OpsMetricsCollector> metricsCollectorProvider;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -43,15 +43,18 @@ public class OpsRequestMetricsFilter extends OncePerRequestFilter {
             if (correlationId == null) {
                 correlationId = request.getHeader("X-Correlation-Id");
             }
-            metricsCollector.recordRequest(
-                    request.getMethod(),
-                    request.getRequestURI(),
-                    status,
-                    duration,
-                    correlationId,
-                    request.getRemoteAddr(),
-                    errorMessage
-            );
+            OpsMetricsCollector collector = metricsCollectorProvider.getIfAvailable();
+            if (collector != null) {
+                collector.recordRequest(
+                        request.getMethod(),
+                        request.getRequestURI(),
+                        status,
+                        duration,
+                        correlationId,
+                        request.getRemoteAddr(),
+                        errorMessage
+                );
+            }
         }
     }
 }

@@ -677,10 +677,18 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     private static List<SportsEvent.MatchFormat> parseMatchFormats(String csv) {
         if (csv == null || csv.isBlank()) return new java.util.ArrayList<>();
-        return java.util.Arrays.stream(csv.split(","))
+        String cleaned = csv.replace("[", "").replace("]", "").replace("\"", "").replace("'", "");
+        return java.util.Arrays.stream(cleaned.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .map(SportsEvent.MatchFormat::valueOf)
+                .map(s -> {
+                    try {
+                        return SportsEvent.MatchFormat.valueOf(s.toUpperCase().replace(" ", "_"));
+                    } catch (IllegalArgumentException ex) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toList());
     }
 
