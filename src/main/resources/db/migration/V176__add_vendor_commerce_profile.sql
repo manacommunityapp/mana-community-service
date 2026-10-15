@@ -2,7 +2,7 @@
 -- Creates the commerce profile table linked one-to-one with vms_vendors,
 -- and adds an optional vms_vendor_id FK to vendor_product.
 
-CREATE TABLE vms_vendor_commerce_profile (
+CREATE TABLE IF NOT EXISTS vms_vendor_commerce_profile (
     id                       BIGSERIAL PRIMARY KEY,
     vms_vendor_id            BIGINT NOT NULL REFERENCES vms_vendors(id) ON DELETE CASCADE,
     commerce_status          VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
@@ -34,8 +34,8 @@ CREATE TABLE vms_vendor_commerce_profile (
     submitted_at             TIMESTAMP,
 
     -- Audit
-    created_at               TIMESTAMP NOT NULL,
-    updated_at               TIMESTAMP NOT NULL,
+    created_at               TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at               TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by               BIGINT,
     updated_by               BIGINT,
 
@@ -45,9 +45,9 @@ CREATE TABLE vms_vendor_commerce_profile (
     ))
 );
 
-CREATE INDEX idx_vcp_vendor_id     ON vms_vendor_commerce_profile (vms_vendor_id);
-CREATE INDEX idx_vcp_status        ON vms_vendor_commerce_profile (commerce_status);
-CREATE INDEX idx_vcp_community_visible ON vms_vendor_commerce_profile (community_visible)
+CREATE INDEX IF NOT EXISTS idx_vcp_vendor_id     ON vms_vendor_commerce_profile (vms_vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vcp_status        ON vms_vendor_commerce_profile (commerce_status);
+CREATE INDEX IF NOT EXISTS idx_vcp_community_visible ON vms_vendor_commerce_profile (community_visible)
     WHERE community_visible = TRUE;
 
 -- Add optional VmsVendor link to vendor_product (nullable — existing rows have no vendor)

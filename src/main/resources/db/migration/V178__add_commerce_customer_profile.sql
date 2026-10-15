@@ -1,6 +1,6 @@
 -- Phase 3: Commerce Customer Profile & Addresses
 
-CREATE TABLE commerce_customer_profile (
+CREATE TABLE IF NOT EXISTS commerce_customer_profile (
     id                    BIGSERIAL PRIMARY KEY,
     user_id               BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     community_id          BIGINT NOT NULL REFERENCES community(id) ON DELETE CASCADE,
@@ -21,14 +21,14 @@ CREATE TABLE commerce_customer_profile (
     UNIQUE (user_id, community_id)
 );
 
-CREATE INDEX idx_ccp_user        ON commerce_customer_profile(user_id);
-CREATE INDEX idx_ccp_community   ON commerce_customer_profile(community_id);
-CREATE INDEX idx_ccp_status      ON commerce_customer_profile(customer_status)
+CREATE INDEX IF NOT EXISTS idx_ccp_user        ON commerce_customer_profile(user_id);
+CREATE INDEX IF NOT EXISTS idx_ccp_community   ON commerce_customer_profile(community_id);
+CREATE INDEX IF NOT EXISTS idx_ccp_status      ON commerce_customer_profile(customer_status)
     WHERE customer_status != 'ACTIVE';
 
 -- ── Customer delivery addresses ─────────────────────────────────────────────
 
-CREATE TABLE commerce_customer_address (
+CREATE TABLE IF NOT EXISTS commerce_customer_address (
     id           BIGSERIAL PRIMARY KEY,
     customer_id  BIGINT      NOT NULL REFERENCES commerce_customer_profile(id) ON DELETE CASCADE,
     label        VARCHAR(20) NOT NULL DEFAULT 'HOME'
@@ -45,12 +45,17 @@ CREATE TABLE commerce_customer_address (
     created_at    TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cca_customer ON commerce_customer_address(customer_id);
-CREATE INDEX idx_cca_default  ON commerce_customer_address(customer_id, is_default)
+CREATE INDEX IF NOT EXISTS idx_cca_customer ON commerce_customer_address(customer_id);
+CREATE INDEX IF NOT EXISTS idx_cca_default  ON commerce_customer_address(customer_id, is_default)
     WHERE is_default = TRUE;
 
 -- wire up the FK now that address table exists
-ALTER TABLE commerce_customer_profile
-    ADD CONSTRAINT fk_ccp_default_address
-    FOREIGN KEY (default_address_id) REFERENCES commerce_customer_address(id)
-    ON DELETE SET NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ccp_default_address') THEN
+        ALTER TABLE commerce_customer_profile
+            ADD CONSTRAINT fk_ccp_default_address
+            FOREIGN KEY (default_address_id) REFERENCES commerce_customer_address(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
