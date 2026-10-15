@@ -64,5 +64,5 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_txn_intent_id ON transaction_intent(intent_id);
 CREATE INDEX IF NOT EXISTS idx_txn_idempotency_key ON transaction_intent(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_txn_order_ref ON transaction_intent(order_reference_id);
-CREATE INDEX IF NOT EXISTS idx_txn_payer ON transaction_intent(payer_id);
+CREATE INDEX IF NOT EXISTS idx_txn_intent_payer ON transaction_intent(payer_id);
 CREATE INDEX IF NOT EXISTS idx_txn_domain_status ON transaction_intent(domain, status);

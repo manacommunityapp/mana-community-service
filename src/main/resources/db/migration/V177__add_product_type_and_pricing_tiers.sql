@@ -2,7 +2,7 @@
 -- Adds product type, community pricing tiers, and product categories.
 
 -- 1. Commerce product categories (hierarchical)
-CREATE TABLE commerce_product_category (
+CREATE TABLE IF NOT EXISTS commerce_product_category (
     id            BIGSERIAL PRIMARY KEY,
     name          VARCHAR(120) NOT NULL,
     slug          VARCHAR(120) NOT NULL UNIQUE,
@@ -16,9 +16,9 @@ CREATE TABLE commerce_product_category (
     updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cpc_community   ON commerce_product_category (community_id);
-CREATE INDEX idx_cpc_parent      ON commerce_product_category (parent_id) WHERE parent_id IS NOT NULL;
-CREATE INDEX idx_cpc_active      ON commerce_product_category (active) WHERE active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_cpc_community   ON commerce_product_category (community_id);
+CREATE INDEX IF NOT EXISTS idx_cpc_parent      ON commerce_product_category (parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cpc_active      ON commerce_product_category (active) WHERE active = TRUE;
 
 -- 2. Extend vendor_product with type, community flags, physical attributes
 ALTER TABLE vendor_product
@@ -31,10 +31,15 @@ ALTER TABLE vendor_product
     ADD COLUMN IF NOT EXISTS product_code          VARCHAR(60),
     ADD COLUMN IF NOT EXISTS tags                  TEXT;
 
-ALTER TABLE vendor_product
-    ADD CONSTRAINT chk_product_type CHECK (product_type IN (
-        'PHYSICAL_PRODUCT','DIGITAL_PRODUCT','SERVICE','FOOD','BOOKING','SUBSCRIPTION'
-    ));
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_product_type') THEN
+        ALTER TABLE vendor_product
+            ADD CONSTRAINT chk_product_type CHECK (product_type IN (
+                'PHYSICAL_PRODUCT','DIGITAL_PRODUCT','SERVICE','FOOD','BOOKING','SUBSCRIPTION'
+            ));
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_vp_product_type ON vendor_product (product_type);
 CREATE INDEX IF NOT EXISTS idx_vp_community_only ON vendor_product (community_only) WHERE community_only = TRUE;
@@ -52,6 +57,14 @@ ALTER TABLE vendor_product_variant
     ADD COLUMN IF NOT EXISTS festival_price         NUMERIC(19,4);
 
 -- Ensure mrp / vendorCost / defaultCommunityPrice are always positive
-ALTER TABLE vendor_product_variant
-    ADD CONSTRAINT chk_vpv_mrp_positive    CHECK (mrp >= 0),
-    ADD CONSTRAINT chk_vpv_cost_positive   CHECK (vendor_cost >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_vpv_mrp_positive') THEN
+        ALTER TABLE vendor_product_variant
+            ADD CONSTRAINT chk_vpv_mrp_positive    CHECK (mrp >= 0);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_vpv_cost_positive') THEN
+        ALTER TABLE vendor_product_variant
+            ADD CONSTRAINT chk_vpv_cost_positive   CHECK (vendor_cost >= 0);
+    END IF;
+END $$;
