@@ -65,6 +65,12 @@ public class MealLog extends BaseAuditEntity {
     @Column(name = "ai_confidence")
     private BigDecimal aiConfidence;
 
+    @Column(name = "junk_food_score")
+    private BigDecimal junkFoodScore;
+
+    @Column(name = "is_junk_food")
+    private Boolean isJunkFood;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private MealLogStatus status;

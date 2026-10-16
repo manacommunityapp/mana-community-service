@@ -18,4 +18,6 @@ public class AiMealAnalysisResponse {
     private BigDecimal totalFiber;
     private BigDecimal confidence;
     private String suggestions;
+    private BigDecimal junkFoodScore;
+    private Boolean isJunkFood;
 }

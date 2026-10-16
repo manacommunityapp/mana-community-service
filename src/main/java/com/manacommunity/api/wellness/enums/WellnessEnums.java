@@ -49,4 +49,8 @@ public class WellnessEnums {
     public enum ConsentType {
         ACCOUNTABILITY_PARTNER, CHALLENGE_PROGRESS, WELLNESS_REPORTS
     }
+
+    public enum AlertType {
+        CALORIE_OVERAGE, MISSED_DAY, JUNK_FOOD, BUDDY_CHANGES
+    }
 }

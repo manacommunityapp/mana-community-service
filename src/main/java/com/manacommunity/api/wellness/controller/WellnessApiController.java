@@ -131,4 +131,20 @@ public class WellnessApiController {
             @RequestParam(required = false) WellnessProviderType type) {
         return ResponseEntity.ok(wellnessService.getProviders(type));
     }
+
+    // ── Alerts ──
+
+    @GetMapping("/alerts")
+    public ResponseEntity<List<AccountabilityAlertDto>> getAlerts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(wellnessService.getAlerts(principal.getId()));
+    }
+
+    @PutMapping("/alerts/{id}/read")
+    public ResponseEntity<Void> markAlertRead(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        wellnessService.markAlertRead(principal.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
 }

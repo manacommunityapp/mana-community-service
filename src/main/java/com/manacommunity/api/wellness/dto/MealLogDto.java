@@ -27,6 +27,8 @@ public class MealLogDto {
     private BigDecimal totalFat;
     private BigDecimal totalFiber;
     private BigDecimal aiConfidence;
+    private BigDecimal junkFoodScore;
+    private Boolean isJunkFood;
     private MealLogStatus status;
     private String notes;
     private List<MealItemDto> items;

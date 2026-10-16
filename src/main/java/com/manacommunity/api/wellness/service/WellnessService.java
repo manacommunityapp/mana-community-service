@@ -10,13 +10,32 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class WellnessService {
+
+    private static final Map<String, BigDecimal> JUNK_FOOD_SCORES = Map.ofEntries(
+        Map.entry("pizza", new BigDecimal("0.90")), Map.entry("burger", new BigDecimal("0.90")),
+        Map.entry("fries", new BigDecimal("0.85")), Map.entry("french fries", new BigDecimal("0.90")),
+        Map.entry("chips", new BigDecimal("0.80")), Map.entry("donut", new BigDecimal("0.90")),
+        Map.entry("nuggets", new BigDecimal("0.85")), Map.entry("hotdog", new BigDecimal("0.85")),
+        Map.entry("soda", new BigDecimal("0.75")), Map.entry("cola", new BigDecimal("0.75")),
+        Map.entry("candy", new BigDecimal("0.85")), Map.entry("cake", new BigDecimal("0.65")),
+        Map.entry("cookie", new BigDecimal("0.65")), Map.entry("ice cream", new BigDecimal("0.70")),
+        Map.entry("deep fried", new BigDecimal("0.80")),
+        Map.entry("vada pav", new BigDecimal("0.80")), Map.entry("pav bhaji", new BigDecimal("0.75")),
+        Map.entry("samosa", new BigDecimal("0.75")), Map.entry("kachori", new BigDecimal("0.80")),
+        Map.entry("jalebi", new BigDecimal("0.85")), Map.entry("gulab jamun", new BigDecimal("0.85")),
+        Map.entry("namkeen", new BigDecimal("0.70"))
+    );
+    private static final BigDecimal JUNK_THRESHOLD = new BigDecimal("0.60");
 
     private final WellnessProfileRepository profileRepository;
     private final MealLogRepository mealLogRepository;
@@ -26,6 +45,7 @@ public class WellnessService {
     private final ChallengeParticipantRepository participantRepository;
     private final WellnessProviderRepository providerRepository;
     private final AccountabilityPartnerRepository partnerRepository;
+    private final AccountabilityAlertRepository alertRepository;
 
     // ── Profile ──
 
@@ -91,6 +111,10 @@ public class WellnessService {
                 .notes(dto.getNotes())
                 .build();
 
+        BigDecimal junkScore = detectJunkFoodScore(dto.getItems(), dto.getOriginalInput());
+        mealLog.setJunkFoodScore(junkScore);
+        mealLog.setIsJunkFood(junkScore.compareTo(JUNK_THRESHOLD) >= 0);
+
         if (dto.getItems() != null) {
             for (MealItemDto itemDto : dto.getItems()) {
                 MealItem item = MealItem.builder()
@@ -110,7 +134,11 @@ public class WellnessService {
             }
         }
 
-        return toMealLogDto(mealLogRepository.save(mealLog));
+        MealLogDto saved = toMealLogDto(mealLogRepository.save(mealLog));
+        if (Boolean.TRUE.equals(mealLog.getIsJunkFood())) {
+            createJunkFoodAlert(userId, saved);
+        }
+        return saved;
     }
 
     @Transactional
@@ -244,7 +272,8 @@ public class WellnessService {
                 .sourceType(m.getSourceType()).originalInput(m.getOriginalInput()).photoUrl(m.getPhotoUrl())
                 .totalCalories(m.getTotalCalories()).totalProtein(m.getTotalProtein())
                 .totalCarbs(m.getTotalCarbs()).totalFat(m.getTotalFat()).totalFiber(m.getTotalFiber())
-                .aiConfidence(m.getAiConfidence()).status(m.getStatus()).notes(m.getNotes())
+                .aiConfidence(m.getAiConfidence()).junkFoodScore(m.getJunkFoodScore()).isJunkFood(m.getIsJunkFood())
+                .status(m.getStatus()).notes(m.getNotes())
                 .items(m.getItems() != null ? m.getItems().stream().map(this::toMealItemDto).collect(Collectors.toList()) : List.of())
                 .build();
     }
@@ -296,6 +325,64 @@ public class WellnessService {
                 .availableOnline(p.getAvailableOnline()).availableInPerson(p.getAvailableInPerson())
                 .location(p.getLocation()).phone(p.getPhone()).email(p.getEmail()).photoUrl(p.getPhotoUrl())
                 .communityId(p.getCommunityId()).verified(p.getVerified()).active(p.getActive())
+                .build();
+    }
+
+    // ── Junk Food Detection ──
+
+    private BigDecimal detectJunkFoodScore(List<MealItemDto> items, String originalInput) {
+        String searchText = (originalInput != null ? originalInput.toLowerCase() : "") + " " +
+                (items != null ? items.stream().map(i -> i.getFoodName().toLowerCase()).collect(Collectors.joining(" ")) : "");
+        return JUNK_FOOD_SCORES.entrySet().stream()
+                .filter(e -> searchText.contains(e.getKey()))
+                .map(Map.Entry::getValue)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private void createJunkFoodAlert(Long userId, MealLogDto meal) {
+        List<AccountabilityPartner> activePartners = partnerRepository.findByUserIdAndActiveTrue(userId).stream()
+                .filter(p -> p.getConsentStatus() == ConsentStatus.ACCEPTED)
+                .toList();
+        if (activePartners.isEmpty()) return;
+
+        String foodNames = meal.getItems() != null
+                ? meal.getItems().stream().map(MealItemDto::getFoodName).collect(Collectors.joining(", "))
+                : "unknown foods";
+        int scorePercent = meal.getJunkFoodScore() != null
+                ? meal.getJunkFoodScore().multiply(new BigDecimal("100")).intValue() : 0;
+
+        for (AccountabilityPartner partner : activePartners) {
+            alertRepository.save(AccountabilityAlert.builder()
+                    .userId(userId)
+                    .partnerUserId(partner.getPartnerUserId())
+                    .alertType(AlertType.JUNK_FOOD)
+                    .triggeredAt(LocalDateTime.now())
+                    .message(String.format("Junk food detected: %s (score %d%%)", foodNames, scorePercent))
+                    .isRead(false)
+                    .build());
+        }
+    }
+
+    // ── Alerts ──
+
+    public List<AccountabilityAlertDto> getAlerts(Long userId) {
+        return alertRepository.findByUserIdOrderByTriggeredAtDesc(userId)
+                .stream().map(this::toAlertDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void markAlertRead(Long userId, Long alertId) {
+        alertRepository.findById(alertId)
+                .filter(a -> a.getUserId().equals(userId))
+                .ifPresent(a -> { a.setIsRead(true); alertRepository.save(a); });
+    }
+
+    private AccountabilityAlertDto toAlertDto(AccountabilityAlert a) {
+        return AccountabilityAlertDto.builder()
+                .id(a.getId()).alertType(a.getAlertType()).partnerUserId(a.getPartnerUserId())
+                .triggeredAt(a.getTriggeredAt()).message(a.getMessage())
+                .isRead(a.getIsRead()).dataJson(a.getDataJson())
                 .build();
     }
 }
