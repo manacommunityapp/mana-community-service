@@ -2,6 +2,7 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
+import com.manacommunity.api.events.dto.EventRegistrationRequest;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
 import com.manacommunity.api.events.dto.PendingActionItemDto;
@@ -608,7 +609,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventResponse register(Long eventId, AppUser user) {
+    public EventResponse register(Long eventId, AppUser user, EventRegistrationRequest req) {
         EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
 
@@ -671,19 +672,29 @@ public class EventService {
             }
         }
 
+        String participantName = (req != null && req.getName() != null && !req.getName().isBlank())
+                ? req.getName() : user.getFullName();
+        int devoteeCount = (req != null && req.getQuantity() != null && req.getQuantity() > 0)
+                ? req.getQuantity() : 1;
+
         EventBookingRegistration reg = EventBookingRegistration.builder()
                 .regCode("EVT-" + System.currentTimeMillis())
                 .mainEventId(eventId)
                 .activityId("event-" + eventId)
                 .activityTitle(event.getTitle())
                 .category("Event")
-                .participantName(user.getFullName())
+                .participantName(participantName)
                 .user(user)
                 .community(event.getCommunity())
                 .eventDate(event.getStartDate() != null ? event.getStartDate().toString() : null)
                 .eventTime(event.getStartTime() != null ? event.getStartTime().toString() : null)
                 .venue(event.getVenue())
-                .devoteeCount(1)
+                .devoteeCount(devoteeCount)
+                .phone(req != null ? req.getPhone() : null)
+                .email(req != null ? req.getEmail() : null)
+                .ticketType(req != null ? req.getTicketType() : null)
+                .notes(req != null ? req.getNotes() : null)
+                .agreed(req != null && Boolean.TRUE.equals(req.getAgreed()))
                 .bookingFee(event.getPrice() != null ? event.getPrice().doubleValue() : 0.0)
                 .paymentStatus(event.getPriceType() == EventCommunity.PriceType.FREE ? "FREE" : "PENDING")
                 .status("CONFIRMED")
