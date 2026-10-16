@@ -111,6 +111,17 @@ app:
     webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:placeholder_webhook_secret}
     currency: ${RAZORPAY_CURRENCY:INR}
 
+  bbps:
+    # Set enabled=true and supply Setu API keys once BBPS aggregator is provisioned.
+    # Setu BillPay API: https://docs.setu.co/payments/billpay
+    enabled: ${BBPS_ENABLED:false}
+    provider: ${BBPS_PROVIDER:SETU}          # SETU | RAZORPAY_BILLPAY
+    setu:
+      client-id: ${BBPS_SETU_CLIENT_ID:placeholder_setu_client_id}
+      client-secret: ${BBPS_SETU_CLIENT_SECRET:placeholder_setu_client_secret}
+      base-url: ${BBPS_SETU_BASE_URL:https://prod.setu.co/api}
+    upi-vpa: ${BBPS_UPI_VPA:bbps@setu}      # VPA used in UPI intent URLs
+
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}
