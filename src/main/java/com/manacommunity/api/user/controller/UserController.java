@@ -83,15 +83,15 @@ public class UserController {
     }
 
     private java.util.List<String> getEnabledModules(AppUser user) {
+        if (user.getCommunity() != null) {
+            return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+        }
         if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
                     .map(com.manacommunity.api.constants.ModuleConstants.ModuleDef::key)
                     .toList();
         }
-        if (user.getCommunity() == null) {
-            return java.util.Collections.emptyList();
-        }
-        return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+        return java.util.Collections.emptyList();
     }
 
     @GetMapping("/me")

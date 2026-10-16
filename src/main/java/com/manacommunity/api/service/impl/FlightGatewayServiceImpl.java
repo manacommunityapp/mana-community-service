@@ -86,10 +86,10 @@ public class FlightGatewayServiceImpl implements FlightGatewayService {
             return Optional.ofNullable(resp.getBody()).orElse(Collections.emptyMap());
         } catch (HttpClientErrorException e) {
             log.error("Tripjack API error {}: {}", path, e.getResponseBodyAsString());
-            throw new ServiceDegradedException("Flight gateway unavailable. Please try again.");
+            throw new ServiceDegradedException("Flight gateway unavailable. Please try again.", "FLIGHTS", "FLIGHT_GATEWAY_ERROR", e);
         } catch (Exception e) {
             log.error("Tripjack call failed for {}: {}", path, e.getMessage());
-            throw new ServiceDegradedException("Flight gateway unavailable. Please try again.");
+            throw new ServiceDegradedException("Flight gateway unavailable. Please try again.", "FLIGHTS", "FLIGHT_GATEWAY_UNAVAILABLE", e);
         }
     }
 

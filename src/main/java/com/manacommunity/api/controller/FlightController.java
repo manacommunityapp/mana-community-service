@@ -1,8 +1,8 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.*;
-import com.manacommunity.api.security.LoggedInUserService;
-import com.manacommunity.api.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.FlightGatewayService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
