@@ -43,6 +43,13 @@ public class AccountabilityAlert {
     @Builder.Default
     private Boolean isRead = false;
 
-    @Column(updatedAt = true)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }
