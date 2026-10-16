@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,9 @@ public class HealthDomainService {
     private final HealthCampRepository campRepository;
     private final HealthCampRegistrationRepository campRegistrationRepository;
     private final HealthBenefitUsageRepository benefitUsageRepository;
+    private final HealthCareJourneyRepository careJourneyRepository;
+    private final HealthLabHomeCollectionRepository labHomeCollectionRepository;
+    private final HealthMedicineOrderRepository medicineOrderRepository;
 
     public HealthDomainService(
             HealthProviderRepository providerRepository,
@@ -43,7 +47,10 @@ public class HealthDomainService {
             HealthMedicalRecordRepository medicalRecordRepository,
             HealthCampRepository campRepository,
             HealthCampRegistrationRepository campRegistrationRepository,
-            HealthBenefitUsageRepository benefitUsageRepository) {
+            HealthBenefitUsageRepository benefitUsageRepository,
+            HealthCareJourneyRepository careJourneyRepository,
+            HealthLabHomeCollectionRepository labHomeCollectionRepository,
+            HealthMedicineOrderRepository medicineOrderRepository) {
         this.providerRepository = providerRepository;
         this.doctorRepository = doctorRepository;
         this.specialtyRepository = specialtyRepository;
@@ -57,6 +64,9 @@ public class HealthDomainService {
         this.campRepository = campRepository;
         this.campRegistrationRepository = campRegistrationRepository;
         this.benefitUsageRepository = benefitUsageRepository;
+        this.careJourneyRepository = careJourneyRepository;
+        this.labHomeCollectionRepository = labHomeCollectionRepository;
+        this.medicineOrderRepository = medicineOrderRepository;
     }
 
     @Transactional(readOnly = true)
@@ -233,6 +243,117 @@ public class HealthDomainService {
                 .tokenNumber(token)
                 .build();
         return campRegistrationRepository.save(reg);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CareJourneyDto> getMyCareJourneys(Long tenantId, Long residentUserId) {
+        return careJourneyRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToCareJourneyDto).collect(Collectors.toList());
+    }
+
+    public CareJourneyDto advanceCareJourneyStage(Long tenantId, UUID careJourneyUuid, CareJourneyStage newStage) {
+        HealthCareJourney journey = careJourneyRepository.findByCareJourneyUuid(careJourneyUuid)
+                .orElseThrow(() -> new IllegalArgumentException("Care journey not found"));
+        journey.setCurrentStage(newStage);
+        LocalDateTime now = LocalDateTime.now();
+        switch (newStage) {
+            case CONSULTATION_COMPLETED -> journey.setConsultationCompletedAt(now);
+            case PRESCRIPTION_ISSUED -> journey.setPrescriptionIssuedAt(now);
+            case LAB_TEST_ORDERED -> journey.setLabTestOrderedAt(now);
+            case RESULTS_READY -> journey.setResultsReadyAt(now);
+            case FOLLOW_UP_SCHEDULED -> journey.setFollowUpScheduledAt(now);
+            default -> { }
+        }
+        return mapToCareJourneyDto(careJourneyRepository.save(journey));
+    }
+
+    private CareJourneyDto mapToCareJourneyDto(HealthCareJourney j) {
+        List<CareJourneyStage> allStages = Arrays.asList(CareJourneyStage.values());
+        int currentOrdinal = j.getCurrentStage().ordinal();
+        List<CareJourneyStepDto> steps = allStages.stream().map(stage -> {
+            boolean completed = stage.ordinal() <= currentOrdinal;
+            LocalDateTime completedAt = switch (stage) {
+                case APPOINTMENT_BOOKED -> j.getAppointmentBookedAt();
+                case CONSULTATION_COMPLETED -> j.getConsultationCompletedAt();
+                case PRESCRIPTION_ISSUED -> j.getPrescriptionIssuedAt();
+                case LAB_TEST_ORDERED -> j.getLabTestOrderedAt();
+                case RESULTS_READY -> j.getResultsReadyAt();
+                case FOLLOW_UP_SCHEDULED -> j.getFollowUpScheduledAt();
+            };
+            return CareJourneyStepDto.builder()
+                    .stage(stage).label(stage.name().replace("_", " "))
+                    .completed(completed).completedAt(completedAt).build();
+        }).collect(Collectors.toList());
+        return CareJourneyDto.builder()
+                .id(j.getId()).careJourneyUuid(j.getCareJourneyUuid())
+                .patientId(j.getPatientId()).appointmentUuid(j.getAppointmentUuid())
+                .currentStage(j.getCurrentStage()).steps(steps)
+                .startedAt(j.getAppointmentBookedAt()).updatedAt(j.getUpdatedAt()).build();
+    }
+
+    public LabHomeCollectionDto bookLabHomeCollection(Long tenantId, Long residentUserId,
+                                                       LabHomeCollectionBookingRequest req) {
+        HealthLabHomeCollection booking = HealthLabHomeCollection.builder()
+                .tenantId(tenantId).residentUserId(residentUserId)
+                .patientId(req.getPatientId()).packageId(req.getPackageId())
+                .packageName(req.getPackageId()).collectionDate(req.getCollectionDate())
+                .collectionSlot(req.getCollectionSlot()).address(req.getAddress())
+                .specialInstructions(req.getSpecialInstructions())
+                .phlebotomistName("Ravi Kumar (Community Lab)").build();
+        return mapToLabCollectionDto(labHomeCollectionRepository.save(booking));
+    }
+
+    @Transactional(readOnly = true)
+    public List<LabHomeCollectionDto> getMyLabCollections(Long tenantId, Long residentUserId) {
+        return labHomeCollectionRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToLabCollectionDto).collect(Collectors.toList());
+    }
+
+    private LabHomeCollectionDto mapToLabCollectionDto(HealthLabHomeCollection b) {
+        return LabHomeCollectionDto.builder()
+                .id(b.getId()).bookingUuid(b.getBookingUuid()).patientId(b.getPatientId())
+                .packageName(b.getPackageName()).collectionDate(b.getCollectionDate())
+                .collectionSlot(b.getCollectionSlot()).phlebotomistName(b.getPhlebotomistName())
+                .status(b.getStatus()).reportUrl(b.getReportUrl()).bookedAt(b.getCreatedAt()).build();
+    }
+
+    public MedicineOrderDto placeMedicineOrder(Long tenantId, Long residentUserId,
+                                                PlaceMedicineOrderRequest req) {
+        HealthMedicineOrder order = HealthMedicineOrder.builder()
+                .tenantId(tenantId).residentUserId(residentUserId)
+                .patientId(req.getPatientId()).deliverySlot(req.getDeliverySlot())
+                .deliveryAddress(req.getDeliveryAddress()).build();
+        List<HealthMedicineOrderItem> items = req.getItems().stream().map(i ->
+                HealthMedicineOrderItem.builder().order(order)
+                        .medicineId(i.getMedicineId()).medicineName(i.getMedicineName())
+                        .quantity(i.getQuantity()).unitPrice(i.getUnitPrice()).build()
+        ).collect(Collectors.toList());
+        order.setItems(items);
+        order.setTotal(items.stream()
+                .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        return mapToMedicineOrderDto(medicineOrderRepository.save(order));
+    }
+
+    @Transactional(readOnly = true)
+    public List<MedicineOrderDto> getMyMedicineOrders(Long tenantId, Long residentUserId) {
+        return medicineOrderRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToMedicineOrderDto).collect(Collectors.toList());
+    }
+
+    private MedicineOrderDto mapToMedicineOrderDto(HealthMedicineOrder o) {
+        List<MedicineOrderItemDto> items = o.getItems() == null ? List.of() :
+                o.getItems().stream().map(i -> MedicineOrderItemDto.builder()
+                        .medicineId(i.getMedicineId()).medicineName(i.getMedicineName())
+                        .quantity(i.getQuantity()).unitPrice(i.getUnitPrice()).build())
+                        .collect(Collectors.toList());
+        return MedicineOrderDto.builder()
+                .id(o.getId()).orderUuid(o.getOrderUuid()).patientId(o.getPatientId())
+                .items(items).total(o.getTotal()).deliverySlot(o.getDeliverySlot())
+                .status(o.getStatus()).placedAt(o.getCreatedAt()).build();
     }
 
     @Transactional(readOnly = true)

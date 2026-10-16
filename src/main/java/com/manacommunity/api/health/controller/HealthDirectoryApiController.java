@@ -2,6 +2,7 @@ package com.manacommunity.api.health.controller;
 
 import com.manacommunity.api.health.dto.HealthDtos.*;
 import com.manacommunity.api.health.entity.HealthCampRegistration;
+import com.manacommunity.api.health.enums.HealthEnums.CareJourneyStage;
 import com.manacommunity.api.health.enums.HealthEnums.ProviderCategory;
 import com.manacommunity.api.health.service.HealthDomainService;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -10,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/health")
@@ -92,6 +94,57 @@ public class HealthDirectoryApiController {
             @RequestParam(required = false, defaultValue = "1") Long tenantId) {
         Long userId = (principal != null) ? principal.getId() : 1L;
         return ResponseEntity.ok(healthDomainService.getBenefitsSummary(tenantId, userId));
+    }
+
+    @GetMapping("/care-journeys/my")
+    public ResponseEntity<List<CareJourneyDto>> getMyCareJourneys(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyCareJourneys(tenantId, userId));
+    }
+
+    @PutMapping("/care-journeys/{uuid}/stage")
+    public ResponseEntity<CareJourneyDto> advanceCareJourneyStage(
+            @PathVariable UUID uuid,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody Map<String, String> body) {
+        CareJourneyStage stage = CareJourneyStage.valueOf(body.getOrDefault("stage", "APPOINTMENT_BOOKED"));
+        return ResponseEntity.ok(healthDomainService.advanceCareJourneyStage(tenantId, uuid, stage));
+    }
+
+    @PostMapping("/labs/home-collection/book")
+    public ResponseEntity<LabHomeCollectionDto> bookLabHomeCollection(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody LabHomeCollectionBookingRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.bookLabHomeCollection(tenantId, userId, req));
+    }
+
+    @GetMapping("/labs/home-collection/my")
+    public ResponseEntity<List<LabHomeCollectionDto>> getMyLabCollections(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyLabCollections(tenantId, userId));
+    }
+
+    @PostMapping("/pharmacy/orders")
+    public ResponseEntity<MedicineOrderDto> placeMedicineOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody PlaceMedicineOrderRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.placeMedicineOrder(tenantId, userId, req));
+    }
+
+    @GetMapping("/pharmacy/orders/my")
+    public ResponseEntity<List<MedicineOrderDto>> getMyMedicineOrders(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyMedicineOrders(tenantId, userId));
     }
 
     @PostMapping("/triage")
