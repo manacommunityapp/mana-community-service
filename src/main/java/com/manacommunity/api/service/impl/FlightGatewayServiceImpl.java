@@ -3,8 +3,8 @@ package com.manacommunity.api.service.impl;
 import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.ServiceDegradedException;
 import com.manacommunity.api.service.FlightGatewayService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,11 +14,14 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FlightGatewayServiceImpl implements FlightGatewayService {
 
     private final RestTemplate restTemplate;
+
+    public FlightGatewayServiceImpl(@Qualifier("flightRestTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @Value("${app.tripjack.base-url}")
     private String baseUrl;

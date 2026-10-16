@@ -62,6 +62,22 @@ public class Trip {
     @Column(length = 100)
     private String transport;
 
+    // ── Flight-specific fields (populated when transport = FLIGHT or GROUP_FLIGHT) ──
+
+    @Column(name = "flight_origin_iata", length = 3)
+    private String flightOriginIata;
+
+    @Column(name = "flight_dest_iata", length = 3)
+    private String flightDestIata;
+
+    /** Locked group PNR from airline group desk — prevents dynamic fare escalation. */
+    @Column(name = "group_pnr", length = 20)
+    private String groupPnr;
+
+    /** Locked flight fare per seat (GROUP_FLIGHT only). */
+    @Column(name = "fare_per_person", precision = 10, scale = 2)
+    private BigDecimal farePerPerson;
+
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "UPCOMING";
