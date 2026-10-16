@@ -271,6 +271,12 @@ app:
         max-verify-attempts: ${REGISTRATION_OTP_MAX_ATTEMPTS:3}
         verified-window-minutes: ${REGISTRATION_OTP_VERIFIED_WINDOW:30}
 
+  # ── Tripjack B2B Flight Gateway ──────────────────────────────────────────
+  # Sign up at b2b.tripjack.com — sandbox key is free, prod key requires wallet deposit.
+  tripjack:
+    base-url: ${TRIPJACK_BASE_URL:https://apitest.tripjack.com}
+    api-key: ${TRIPJACK_API_KEY:your-sandbox-api-key-here}
+
   # CORS Configuration for React Frontend
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
