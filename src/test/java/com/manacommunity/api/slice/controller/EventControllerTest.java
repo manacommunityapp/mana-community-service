@@ -174,7 +174,7 @@ class EventControllerTest extends BaseWebMvcTest {
         @DisplayName("POST /api/events/{id}/register returns 200 with updated event")
         void register_returns200() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
-            when(eventService.register(eq(100L), any())).thenReturn(sampleResponse);
+            when(eventService.register(eq(100L), any(), any())).thenReturn(sampleResponse);
 
             mockMvc.perform(post("/api/events/100/register"))
                     .andExpect(status().isOk())

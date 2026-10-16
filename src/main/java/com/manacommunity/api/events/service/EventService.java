@@ -609,6 +609,11 @@ public class EventService {
     }
 
     @Transactional
+    public EventResponse register(Long eventId, AppUser user) {
+        return register(eventId, user, null);
+    }
+
+    @Transactional
     public EventResponse register(Long eventId, AppUser user, EventRegistrationRequest req) {
         EventCommunity event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
