@@ -13,18 +13,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class InstaHelpServiceImpl implements InstaHelpService {
 
     private final InstaHelpBookingRepository bookingRepository;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private static final Map<InstaHelpBooking.ServiceType, String> HELPER_MAP = Map.of(
             InstaHelpBooking.ServiceType.CLEANING,    "Lakshmi B.",
@@ -45,10 +46,18 @@ public class InstaHelpServiceImpl implements InstaHelpService {
     @Override
     @Transactional
     public InstaHelpResponse create(Long communityId, Long residentId, InstaHelpRequest request) {
-        InstaHelpBooking.ServiceType serviceType =
-                InstaHelpBooking.ServiceType.valueOf(request.getServiceType().toUpperCase());
-        InstaHelpBooking.Duration duration =
-                InstaHelpBooking.Duration.valueOf(request.getDuration().toUpperCase());
+        InstaHelpBooking.ServiceType serviceType;
+        InstaHelpBooking.Duration duration;
+        try {
+            serviceType = InstaHelpBooking.ServiceType.valueOf(request.getServiceType().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid serviceType: " + request.getServiceType());
+        }
+        try {
+            duration = InstaHelpBooking.Duration.valueOf(request.getDuration().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid duration: " + request.getDuration());
+        }
 
         String bookingRef = generateBookingRef();
 
@@ -61,8 +70,7 @@ public class InstaHelpServiceImpl implements InstaHelpService {
         int helperEta = etas[ordinal % etas.length];
         String helperDistance = distances[ordinal % distances.length];
 
-        int closureOtpInt = Math.abs(bookingRef.hashCode()) % 9000 + 1000;
-        String closureOtp = String.valueOf(closureOtpInt);
+        String closureOtp = String.valueOf(SECURE_RANDOM.nextInt(9000) + 1000);
 
         Community community = new Community();
         community.setId(communityId);
@@ -127,8 +135,9 @@ public class InstaHelpServiceImpl implements InstaHelpService {
     @Transactional
     public InstaHelpResponse cancel(String bookingRef, Long residentId) {
         InstaHelpBooking booking = findAndVerify(bookingRef, residentId);
-        if (booking.getStatus() == InstaHelpBooking.BookingStatus.COMPLETED) {
-            throw new RuntimeException("Cannot cancel a completed booking.");
+        if (booking.getStatus() == InstaHelpBooking.BookingStatus.COMPLETED ||
+                booking.getStatus() == InstaHelpBooking.BookingStatus.CANCELLED) {
+            throw new RuntimeException("Cannot cancel a booking with status: " + booking.getStatus());
         }
         booking.setStatus(InstaHelpBooking.BookingStatus.CANCELLED);
         booking.setCancelledAt(LocalDateTime.now());
@@ -161,10 +170,9 @@ public class InstaHelpServiceImpl implements InstaHelpService {
     private String generateBookingRef() {
         String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE).substring(2);
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        Random rnd = new Random();
         StringBuilder sb = new StringBuilder(4);
         for (int i = 0; i < 4; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
+            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
         }
         return "IH-" + datePart + "-" + sb;
     }
