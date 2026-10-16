@@ -1,5 +1,5 @@
 -- Insta Help on-demand home services booking table
-CREATE TABLE insta_help_booking (
+CREATE TABLE IF NOT EXISTS insta_help_booking (
     id                   BIGSERIAL PRIMARY KEY,
     booking_ref          VARCHAR(20)    NOT NULL UNIQUE,
     community_id         BIGINT         NOT NULL REFERENCES community(id),
@@ -24,7 +24,7 @@ CREATE TABLE insta_help_booking (
     cancelled_at         TIMESTAMP
 );
 
-CREATE INDEX idx_ihb_community   ON insta_help_booking (community_id);
-CREATE INDEX idx_ihb_resident    ON insta_help_booking (resident_id);
-CREATE INDEX idx_ihb_status      ON insta_help_booking (status);
-CREATE INDEX idx_ihb_booking_ref ON insta_help_booking (booking_ref);
+CREATE INDEX IF NOT EXISTS idx_ihb_community   ON insta_help_booking (community_id);
+CREATE INDEX IF NOT EXISTS idx_ihb_resident    ON insta_help_booking (resident_id);
+CREATE INDEX IF NOT EXISTS idx_ihb_status      ON insta_help_booking (status);
+CREATE INDEX IF NOT EXISTS idx_ihb_booking_ref ON insta_help_booking (booking_ref);

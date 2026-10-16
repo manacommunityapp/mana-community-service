@@ -202,7 +202,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Clickjacking: refuse to be framed (X-Frame-Options + CSP frame-ancestors).
                 .frameOptions(frame -> frame.deny())
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"))
                 // Force HTTPS for a year once served over TLS.
                 .httpStrictTransportSecurity(hsts -> hsts
                         .includeSubDomains(true).maxAgeInSeconds(31_536_000))
