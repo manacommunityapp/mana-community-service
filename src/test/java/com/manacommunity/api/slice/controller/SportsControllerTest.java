@@ -37,6 +37,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(SportsController.class)
@@ -195,6 +196,118 @@ class SportsControllerTest extends BaseWebMvcTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.id").value(51))
                     .andExpect(jsonPath("$.name").value("Open Badminton Singles"));
+        }
+    }
+
+    // ── PUT /api/sports/events/{id} ───────────────────────────────────
+
+    @Nested
+    @DisplayName("PUT /api/sports/events/{id}")
+    class UpdateSportsEvent {
+
+        @Test
+        @WithMockUserPrincipal(role = "ADMIN")
+        @DisplayName("successfully updates event when format is array (e.g. [\"SINGLES\"])")
+        void updateEvent_withArrayFormat_returns200() throws Exception {
+            SportsEvent updated = SportsEvent.builder()
+                    .id(2L)
+                    .name("Updated Badminton Singles")
+                    .build();
+
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(CREATE_EDIT_SPORTS_MAIN));
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, true, 100L));
+            when(eventService.updateEvent(eq(2L), any())).thenReturn(updated);
+
+            String requestBody = """
+                {
+                    "name": "Updated Badminton Singles",
+                    "sportId": 1,
+                    "communityId": 100,
+                    "eventDateStart": "2026-10-01",
+                    "eventDateEnd": "2026-10-07",
+                    "format": ["SINGLES"]
+                }
+                """;
+
+            mockMvc.perform(put("/api/sports/events/2")
+                            .with(csrf())
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content(requestBody))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(2))
+                    .andExpect(jsonPath("$.name").value("Updated Badminton Singles"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "ADMIN")
+        @DisplayName("successfully updates event when format is array of multiple formats")
+        void updateEvent_withMultipleFormats_returns200() throws Exception {
+            SportsEvent updated = SportsEvent.builder()
+                    .id(2L)
+                    .name("Updated Badminton Championship")
+                    .build();
+
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(CREATE_EDIT_SPORTS_MAIN));
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, true, 100L));
+            when(eventService.updateEvent(eq(2L), any())).thenReturn(updated);
+
+            String requestBody = """
+                {
+                    "name": "Updated Badminton Championship",
+                    "sportId": 1,
+                    "communityId": 100,
+                    "eventDateStart": "2026-10-01",
+                    "eventDateEnd": "2026-10-07",
+                    "format": ["SINGLES", "DOUBLES"]
+                }
+                """;
+
+            mockMvc.perform(put("/api/sports/events/2")
+                            .with(csrf())
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content(requestBody))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(2))
+                    .andExpect(jsonPath("$.name").value("Updated Badminton Championship"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "ADMIN")
+        @DisplayName("successfully updates event when format is legacy string")
+        void updateEvent_withStringFormat_returns200() throws Exception {
+            SportsEvent updated = SportsEvent.builder()
+                    .id(2L)
+                    .name("Updated Badminton Singles String")
+                    .build();
+
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(CREATE_EDIT_SPORTS_MAIN));
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, true, 100L));
+            when(eventService.updateEvent(eq(2L), any())).thenReturn(updated);
+
+            String requestBody = """
+                {
+                    "name": "Updated Badminton Singles String",
+                    "sportId": 1,
+                    "communityId": 100,
+                    "eventDateStart": "2026-10-01",
+                    "eventDateEnd": "2026-10-07",
+                    "format": "SINGLES"
+                }
+                """;
+
+            mockMvc.perform(put("/api/sports/events/2")
+                            .with(csrf())
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content(requestBody))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(2))
+                    .andExpect(jsonPath("$.name").value("Updated Badminton Singles String"));
         }
     }
 }

@@ -1322,7 +1322,9 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setMaxPlayers(req.getMaxPlayers());
         event.setGender(req.getGender());
         event.setPlayersBorn(req.getPlayersBorn());
-        event.setFormat(parseMatchFormats(req.getFormat()));
+        if (req.getFormat() != null) {
+            event.setFormat(parseMatchFormats(req.getFormat()));
+        }
         event.setTournamentType(req.getTournamentType() != null
                 ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null);
         
