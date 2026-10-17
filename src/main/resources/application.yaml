@@ -122,6 +122,13 @@ app:
       base-url: ${BBPS_SETU_BASE_URL:https://prod.setu.co/api}
     upi-vpa: ${BBPS_UPI_VPA:bbps@setu}      # VPA used in UPI intent URLs
 
+  recharge:
+    # Set enabled=true and supply aggregator keys once a recharge partner is provisioned.
+    # Supported providers: JUSPAY | RAZORPAY_BILLPAY | MOCK (default for dev/stub)
+    enabled: ${RECHARGE_ENABLED:false}
+    provider: ${RECHARGE_PROVIDER:MOCK}          # JUSPAY | RAZORPAY_BILLPAY | MOCK
+    upi-vpa: ${RECHARGE_UPI_VPA:recharge@manapay}  # VPA used in UPI intent URLs
+
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}
