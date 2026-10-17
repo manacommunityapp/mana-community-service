@@ -32,4 +32,19 @@ public class HealthEnums {
     public enum LabCollectionStatus {
         BOOKED, PHLEBOTOMIST_ASSIGNED, SAMPLE_COLLECTED, PROCESSING, REPORT_READY, CANCELLED
     }
+    public enum AmbulanceVehicleType {
+        BASIC, ADVANCED, ICU
+    }
+    public enum AmbulanceStatus {
+        REQUESTED, DISPATCHED, EN_ROUTE, ARRIVED, COMPLETED, CANCELLED
+    }
+    public enum EmergencyCallbackStatus {
+        REQUESTED, AGENT_ASSIGNED, CALLED, RESOLVED, MISSED
+    }
+    public enum IpdAdmissionStatus {
+        REQUESTED, CONFIRMED, ADMITTED, DISCHARGED, CANCELLED
+    }
+    public enum WardType {
+        GENERAL, SEMI_PRIVATE, PRIVATE, ICU
+    }
 }

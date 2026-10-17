@@ -147,6 +147,66 @@ public class HealthDirectoryApiController {
         return ResponseEntity.ok(healthDomainService.getMyMedicineOrders(tenantId, userId));
     }
 
+    @PostMapping("/ambulance/book")
+    public ResponseEntity<AmbulanceBookingDto> bookAmbulance(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody AmbulanceBookingRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.bookAmbulance(tenantId, userId, req));
+    }
+
+    @GetMapping("/ambulance/my")
+    public ResponseEntity<List<AmbulanceBookingDto>> getMyAmbulanceBookings(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyAmbulanceBookings(tenantId, userId));
+    }
+
+    @PostMapping("/emergency/callback")
+    public ResponseEntity<EmergencyCallbackDto> requestEmergencyCallback(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody EmergencyCallbackRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.requestEmergencyCallback(tenantId, userId, req));
+    }
+
+    @GetMapping("/emergency/callbacks/my")
+    public ResponseEntity<List<EmergencyCallbackDto>> getMyCallbacks(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyCallbacks(tenantId, userId));
+    }
+
+    @PostMapping("/ipd/book")
+    public ResponseEntity<IpdAdmissionDto> bookIpdAdmission(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody IpdAdmissionRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.bookIpdAdmission(tenantId, userId, req));
+    }
+
+    @GetMapping("/ipd/my")
+    public ResponseEntity<List<IpdAdmissionDto>> getMyIpdAdmissions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyIpdAdmissions(tenantId, userId));
+    }
+
+    @GetMapping("/departments")
+    public ResponseEntity<List<String>> getDepartments() {
+        return ResponseEntity.ok(List.of(
+                "General Medicine", "Cardiology", "Orthopedics", "Pediatrics",
+                "Gynecology", "Dermatology", "ENT", "Ophthalmology",
+                "Neurology", "Psychiatry", "Dental", "Physiotherapy"
+        ));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();

@@ -35,6 +35,8 @@ public class HealthDtos {
         private List<String> qualifications;
         private String registrationNumber;
         private String medicalCouncil;
+        private List<String> accreditations;
+        private String mapsUrl;
     }
 
     @Data
@@ -206,5 +208,87 @@ public class HealthDtos {
         private List<MedicineOrderItemDto> items;
         private String deliverySlot;
         private String deliveryAddress;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AmbulanceBookingRequest {
+        private UUID patientId;
+        private String patientName;
+        private AmbulanceVehicleType vehicleType;
+        private String pickupAddress;
+        private String destinationAddress;
+        private String emergencyNote;
+        private String contactPhone;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AmbulanceBookingDto {
+        private Long id;
+        private UUID bookingUuid;
+        private UUID patientId;
+        private AmbulanceVehicleType vehicleType;
+        private AmbulanceStatus status;
+        private String pickupAddress;
+        private String destinationAddress;
+        private String driverName;
+        private String driverPhone;
+        private String vehicleNumber;
+        private Integer estimatedMinutes;
+        private LocalDateTime requestedAt;
+        private LocalDateTime dispatchedAt;
+        private LocalDateTime arrivedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class EmergencyCallbackRequest {
+        private String callerName;
+        private String callerPhone;
+        private String emergencyDescription;
+        private String address;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class EmergencyCallbackDto {
+        private Long id;
+        private UUID callbackUuid;
+        private String callerName;
+        private String callerPhone;
+        private String emergencyDescription;
+        private EmergencyCallbackStatus status;
+        private String assignedAgentName;
+        private LocalDateTime requestedAt;
+        private LocalDateTime resolvedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class IpdAdmissionRequest {
+        private UUID patientId;
+        private String patientName;
+        private String hospitalName;
+        private String department;
+        private String admissionReason;
+        private WardType wardPreference;
+        private LocalDate expectedAdmissionDate;
+        private String attendingDoctorName;
+        private String contactPhone;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class IpdAdmissionDto {
+        private Long id;
+        private UUID admissionUuid;
+        private UUID patientId;
+        private String patientName;
+        private String hospitalName;
+        private String department;
+        private String admissionReason;
+        private WardType wardType;
+        private IpdAdmissionStatus status;
+        private LocalDate expectedAdmissionDate;
+        private LocalDate actualAdmissionDate;
+        private LocalDate dischargeDate;
+        private String bedNumber;
+        private String attendingDoctorName;
+        private LocalDateTime requestedAt;
     }
 }

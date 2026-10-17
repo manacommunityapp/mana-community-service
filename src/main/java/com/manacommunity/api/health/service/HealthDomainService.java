@@ -33,6 +33,9 @@ public class HealthDomainService {
     private final HealthCareJourneyRepository careJourneyRepository;
     private final HealthLabHomeCollectionRepository labHomeCollectionRepository;
     private final HealthMedicineOrderRepository medicineOrderRepository;
+    private final HealthAmbulanceBookingRepository ambulanceBookingRepository;
+    private final HealthEmergencyCallbackRepository emergencyCallbackRepository;
+    private final HealthIpdAdmissionRepository ipdAdmissionRepository;
 
     public HealthDomainService(
             HealthProviderRepository providerRepository,
@@ -50,7 +53,10 @@ public class HealthDomainService {
             HealthBenefitUsageRepository benefitUsageRepository,
             HealthCareJourneyRepository careJourneyRepository,
             HealthLabHomeCollectionRepository labHomeCollectionRepository,
-            HealthMedicineOrderRepository medicineOrderRepository) {
+            HealthMedicineOrderRepository medicineOrderRepository,
+            HealthAmbulanceBookingRepository ambulanceBookingRepository,
+            HealthEmergencyCallbackRepository emergencyCallbackRepository,
+            HealthIpdAdmissionRepository ipdAdmissionRepository) {
         this.providerRepository = providerRepository;
         this.doctorRepository = doctorRepository;
         this.specialtyRepository = specialtyRepository;
@@ -67,6 +73,9 @@ public class HealthDomainService {
         this.careJourneyRepository = careJourneyRepository;
         this.labHomeCollectionRepository = labHomeCollectionRepository;
         this.medicineOrderRepository = medicineOrderRepository;
+        this.ambulanceBookingRepository = ambulanceBookingRepository;
+        this.emergencyCallbackRepository = emergencyCallbackRepository;
+        this.ipdAdmissionRepository = ipdAdmissionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +123,21 @@ public class HealthDomainService {
             HealthClinic c = clinics.get(0);
             dto.setClinicName(c.getClinicName());
             dto.setClinicAddress(c.getAddressLine1());
+            if (c.getAddressLine1() != null && !c.getAddressLine1().isBlank()) {
+                dto.setMapsUrl("https://maps.google.com/?q=" + c.getAddressLine1().replace(" ", "+"));
+            }
         }
+
+        List<String> accreds = new ArrayList<>();
+        if (p.getCategory() == ProviderCategory.DIAGNOSTIC_CENTER) {
+            accreds.add("NABL");
+            accreds.add("ISO 15189");
+        } else if (p.getCategory() == ProviderCategory.CLINIC || p.getCategory() == ProviderCategory.DOCTOR) {
+            if (Boolean.TRUE.equals(p.getIsVerified())) accreds.add("Community Verified");
+        } else if (p.getCategory() == ProviderCategory.PHARMACY) {
+            accreds.add("Licensed Pharmacy");
+        }
+        dto.setAccreditations(accreds.isEmpty() ? null : accreds);
 
         return dto;
     }
@@ -354,6 +377,98 @@ public class HealthDomainService {
                 .id(o.getId()).orderUuid(o.getOrderUuid()).patientId(o.getPatientId())
                 .items(items).total(o.getTotal()).deliverySlot(o.getDeliverySlot())
                 .status(o.getStatus()).placedAt(o.getCreatedAt()).build();
+    }
+
+    public AmbulanceBookingDto bookAmbulance(Long tenantId, Long residentUserId, AmbulanceBookingRequest req) {
+        HealthAmbulanceBooking booking = HealthAmbulanceBooking.builder()
+                .tenantId(tenantId).residentUserId(residentUserId)
+                .patientId(req.getPatientId()).patientName(req.getPatientName())
+                .vehicleType(req.getVehicleType() != null ? req.getVehicleType() : AmbulanceVehicleType.BASIC)
+                .pickupAddress(req.getPickupAddress()).destinationAddress(req.getDestinationAddress())
+                .emergencyNote(req.getEmergencyNote()).contactPhone(req.getContactPhone())
+                .status(AmbulanceStatus.REQUESTED)
+                .driverName("Suresh Kumar").driverPhone("+91-9800012345")
+                .vehicleNumber("WB-01-AB-1234").estimatedMinutes(12)
+                .build();
+        return mapToAmbulanceDto(ambulanceBookingRepository.save(booking));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AmbulanceBookingDto> getMyAmbulanceBookings(Long tenantId, Long residentUserId) {
+        return ambulanceBookingRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToAmbulanceDto).collect(Collectors.toList());
+    }
+
+    private AmbulanceBookingDto mapToAmbulanceDto(HealthAmbulanceBooking b) {
+        return AmbulanceBookingDto.builder()
+                .id(b.getId()).bookingUuid(b.getBookingUuid()).patientId(b.getPatientId())
+                .vehicleType(b.getVehicleType()).status(b.getStatus())
+                .pickupAddress(b.getPickupAddress()).destinationAddress(b.getDestinationAddress())
+                .driverName(b.getDriverName()).driverPhone(b.getDriverPhone())
+                .vehicleNumber(b.getVehicleNumber()).estimatedMinutes(b.getEstimatedMinutes())
+                .requestedAt(b.getCreatedAt()).dispatchedAt(b.getDispatchedAt())
+                .arrivedAt(b.getArrivedAt()).build();
+    }
+
+    public EmergencyCallbackDto requestEmergencyCallback(Long tenantId, Long residentUserId,
+                                                          EmergencyCallbackRequest req) {
+        HealthEmergencyCallback callback = HealthEmergencyCallback.builder()
+                .tenantId(tenantId).residentUserId(residentUserId)
+                .callerName(req.getCallerName()).callerPhone(req.getCallerPhone())
+                .emergencyDescription(req.getEmergencyDescription()).address(req.getAddress())
+                .status(EmergencyCallbackStatus.REQUESTED)
+                .assignedAgentName("Community Health Desk").build();
+        return mapToCallbackDto(emergencyCallbackRepository.save(callback));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmergencyCallbackDto> getMyCallbacks(Long tenantId, Long residentUserId) {
+        return emergencyCallbackRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToCallbackDto).collect(Collectors.toList());
+    }
+
+    private EmergencyCallbackDto mapToCallbackDto(HealthEmergencyCallback c) {
+        return EmergencyCallbackDto.builder()
+                .id(c.getId()).callbackUuid(c.getCallbackUuid())
+                .callerName(c.getCallerName()).callerPhone(c.getCallerPhone())
+                .emergencyDescription(c.getEmergencyDescription())
+                .status(c.getStatus()).assignedAgentName(c.getAssignedAgentName())
+                .requestedAt(c.getCreatedAt()).resolvedAt(c.getResolvedAt()).build();
+    }
+
+    public IpdAdmissionDto bookIpdAdmission(Long tenantId, Long residentUserId, IpdAdmissionRequest req) {
+        HealthIpdAdmission admission = HealthIpdAdmission.builder()
+                .tenantId(tenantId).residentUserId(residentUserId)
+                .patientId(req.getPatientId()).patientName(req.getPatientName())
+                .hospitalName(req.getHospitalName()).department(req.getDepartment())
+                .admissionReason(req.getAdmissionReason())
+                .wardType(req.getWardPreference() != null ? req.getWardPreference() : WardType.GENERAL)
+                .expectedAdmissionDate(req.getExpectedAdmissionDate())
+                .attendingDoctorName(req.getAttendingDoctorName())
+                .contactPhone(req.getContactPhone())
+                .status(IpdAdmissionStatus.REQUESTED).build();
+        return mapToIpdDto(ipdAdmissionRepository.save(admission));
+    }
+
+    @Transactional(readOnly = true)
+    public List<IpdAdmissionDto> getMyIpdAdmissions(Long tenantId, Long residentUserId) {
+        return ipdAdmissionRepository
+                .findByTenantIdAndResidentUserIdOrderByCreatedAtDesc(tenantId, residentUserId)
+                .stream().map(this::mapToIpdDto).collect(Collectors.toList());
+    }
+
+    private IpdAdmissionDto mapToIpdDto(HealthIpdAdmission a) {
+        return IpdAdmissionDto.builder()
+                .id(a.getId()).admissionUuid(a.getAdmissionUuid()).patientId(a.getPatientId())
+                .patientName(a.getPatientName()).hospitalName(a.getHospitalName())
+                .department(a.getDepartment()).admissionReason(a.getAdmissionReason())
+                .wardType(a.getWardType()).status(a.getStatus())
+                .expectedAdmissionDate(a.getExpectedAdmissionDate())
+                .actualAdmissionDate(a.getActualAdmissionDate())
+                .dischargeDate(a.getDischargeDate()).bedNumber(a.getBedNumber())
+                .attendingDoctorName(a.getAttendingDoctorName()).requestedAt(a.getCreatedAt()).build();
     }
 
     @Transactional(readOnly = true)
