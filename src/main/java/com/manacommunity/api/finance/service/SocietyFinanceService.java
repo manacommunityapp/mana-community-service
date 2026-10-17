@@ -30,24 +30,39 @@ public class SocietyFinanceService {
 
     @Transactional(readOnly = true)
     public SocietyDashboardSummaryDto getDashboardSummary(Long communityId) {
+        LocalDate today = LocalDate.now();
+        LocalDate monthStart = today.withDayOfMonth(1);
+
         BigDecimal assetBalance = coaRepo.sumBalanceByType(communityId, ChartOfAccount.AccountType.ASSET);
-        BigDecimal reserves = coaRepo.sumReserveFundBalances(communityId);
+        BigDecimal sinkingFund = coaRepo.sumReserveFundBalances(communityId);
+        BigDecimal fixedDeposits = coaRepo.sumFixedDepositBalances(communityId);
+        BigDecimal totalCollected = ledgerRepo.sumMonthlyCollections(communityId, monthStart, today);
+        BigDecimal outstandingReceivables = invoiceRepo.sumOutstandingReceivables();
+        BigDecimal pendingPayables = vendorBillRepo.sumPendingPayables(communityId,
+                List.of(SocietyVendorBill.BillStatus.PAID, SocietyVendorBill.BillStatus.DRAFT));
+
+        BigDecimal totalDemand = totalCollected.add(outstandingReceivables);
+        BigDecimal collectionRate = totalDemand.compareTo(BigDecimal.ZERO) > 0
+                ? totalCollected.multiply(BigDecimal.valueOf(100))
+                        .divide(totalDemand, 1, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(100);
+
         long pendingApprovals = expenseRepo.countByCommunityIdAndStatusIn(communityId,
                 List.of(SocietyExpense.ApprovalStatus.PENDING_CHECKER, SocietyExpense.ApprovalStatus.PENDING_APPROVER));
         long recentTxns = ledgerRepo.findByCommunityIdOrderByEntryDateDesc(communityId).stream()
-                .filter(e -> e.getEntryDate().isAfter(LocalDate.now().minusDays(30)))
+                .filter(e -> e.getEntryDate().isAfter(today.minusDays(30)))
                 .count();
 
         return SocietyDashboardSummaryDto.builder()
                 .operatingBalance(assetBalance)
-                .sinkingFundBalance(BigDecimal.ZERO)
-                .fixedDepositsBalance(BigDecimal.ZERO)
-                .totalReserves(reserves)
-                .totalMonthlyDemand(BigDecimal.ZERO)
-                .totalCollected(BigDecimal.ZERO)
-                .collectionRate(BigDecimal.ZERO)
-                .outstandingReceivables(BigDecimal.ZERO)
-                .pendingPayables(BigDecimal.ZERO)
+                .sinkingFundBalance(sinkingFund)
+                .fixedDepositsBalance(fixedDeposits)
+                .totalReserves(sinkingFund.add(fixedDeposits))
+                .totalMonthlyDemand(totalDemand)
+                .totalCollected(totalCollected)
+                .collectionRate(collectionRate)
+                .outstandingReceivables(outstandingReceivables)
+                .pendingPayables(pendingPayables)
                 .pendingApprovalsCount(pendingApprovals)
                 .recentTransactionsCount(recentTxns)
                 .build();

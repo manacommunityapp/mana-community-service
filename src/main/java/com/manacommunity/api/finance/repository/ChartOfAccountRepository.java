@@ -16,4 +16,9 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     @Query("SELECT COALESCE(SUM(a.balance), 0) FROM ChartOfAccount a WHERE a.communityId = :communityId AND a.isReserveFund = true")
     BigDecimal sumReserveFundBalances(Long communityId);
+
+    @Query("SELECT COALESCE(SUM(a.balance), 0) FROM ChartOfAccount a WHERE a.communityId = :communityId " +
+           "AND a.type = com.manacommunity.api.finance.entity.ChartOfAccount.AccountType.ASSET " +
+           "AND (UPPER(a.name) LIKE '%FIXED DEPOSIT%' OR UPPER(a.name) LIKE '% FD %' OR UPPER(a.name) LIKE '%FD')")
+    BigDecimal sumFixedDepositBalances(Long communityId);
 }
