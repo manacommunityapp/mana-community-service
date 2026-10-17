@@ -4,6 +4,7 @@ import com.manacommunity.api.cfbos.approval.dto.*;
 import com.manacommunity.api.cfbos.approval.service.ApprovalWorkflowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cfbos/approvals")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class ApprovalController {
 
     private final ApprovalWorkflowService workflowService;

@@ -13,9 +13,11 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -134,7 +136,10 @@ public class MaintenanceDuesController {
     @GetMapping("/bills/pending")
     @Transactional
     public ResponseEntity<List<MaintenanceBillDto>> getPendingBills(@AuthenticationPrincipal UserPrincipal principal) {
-        Long userId = principal != null ? principal.getId() : 1L;
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        Long userId = principal.getId();
         ensureActiveBillExists(userId);
 
         List<Invoice> invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(userId);
@@ -148,7 +153,10 @@ public class MaintenanceDuesController {
 
     @GetMapping("/bills/history")
     public ResponseEntity<List<MaintenanceBillDto>> getPaymentHistory(@AuthenticationPrincipal UserPrincipal principal) {
-        Long userId = principal != null ? principal.getId() : 1L;
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        Long userId = principal.getId();
         List<Invoice> invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(userId);
         List<MaintenanceBillDto> paid = invoices.stream()
                 .filter(i -> "PAID".equalsIgnoreCase(i.getStatus()))
@@ -163,14 +171,11 @@ public class MaintenanceDuesController {
             @PathVariable String billId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
+        Invoice invoice = getAuthorizedInvoice(billId, principal);
         double amount = 5550.0;
-        try {
-            Long invId = Long.parseLong(billId.replace("inv-", ""));
-            Optional<Invoice> inv = invoiceRepository.findById(invId);
-            if (inv.isPresent() && inv.get().getTotalAmount() != null) {
-                amount = inv.get().getTotalAmount().doubleValue();
-            }
-        } catch (Exception ignored) {}
+        if (invoice.getTotalAmount() != null) {
+            amount = invoice.getTotalAmount().doubleValue();
+        }
 
         String orderId = "order_mana_" + billId + "_" + System.currentTimeMillis();
         PaymentInitiationResponse resp = PaymentInitiationResponse.builder()
@@ -192,18 +197,10 @@ public class MaintenanceDuesController {
         String receiptNum = "RCP-" + (System.currentTimeMillis() % 1000000L);
         String nowIso = LocalDateTime.now().toString();
 
-        try {
-            Long invId = Long.parseLong(request.getBillId().replace("inv-", ""));
-            Optional<Invoice> inv = invoiceRepository.findById(invId);
-            if (inv.isPresent()) {
-                Invoice invoice = inv.get();
-                invoice.setStatus("PAID");
-                invoice.setPaidAt(LocalDateTime.now());
-                invoiceRepository.save(invoice);
-            }
-        } catch (Exception e) {
-            log.warn("Could not find invoice for billId={}: {}", request.getBillId(), e.getMessage());
-        }
+        Invoice invoice = getAuthorizedInvoice(request.getBillId(), principal);
+        invoice.setStatus("PAID");
+        invoice.setPaidAt(LocalDateTime.now());
+        invoiceRepository.save(invoice);
 
         PaymentVerificationResponse resp = PaymentVerificationResponse.builder()
                 .success(true)
@@ -217,7 +214,10 @@ public class MaintenanceDuesController {
 
     @GetMapping("/wallet/balance")
     public ResponseEntity<WalletBalanceResponse> getWalletBalance(@AuthenticationPrincipal UserPrincipal principal) {
-        Long userId = principal != null ? principal.getId() : 1L;
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        Long userId = principal.getId();
         BigDecimal bal = WALLET_BALANCES.computeIfAbsent(userId, k -> new BigDecimal("2500.00"));
         return ResponseEntity.ok(new WalletBalanceResponse(bal.doubleValue(), "INR"));
     }
@@ -229,7 +229,8 @@ public class MaintenanceDuesController {
             @RequestBody WalletPaymentRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        Long userId = principal != null ? principal.getId() : 1L;
+        Invoice invoice = getAuthorizedInvoice(billId, principal);
+        Long userId = principal.getId();
         BigDecimal currentBal = WALLET_BALANCES.computeIfAbsent(userId, k -> new BigDecimal("2500.00"));
         BigDecimal debit = BigDecimal.valueOf(request.getAmount() != null ? request.getAmount() : 5550.0);
 
@@ -241,16 +242,9 @@ public class MaintenanceDuesController {
 
         String receiptNum = "RCP-WAL-" + (System.currentTimeMillis() % 1000000L);
 
-        try {
-            Long invId = Long.parseLong(billId.replace("inv-", ""));
-            Optional<Invoice> inv = invoiceRepository.findById(invId);
-            if (inv.isPresent()) {
-                Invoice invoice = inv.get();
-                invoice.setStatus("PAID");
-                invoice.setPaidAt(LocalDateTime.now());
-                invoiceRepository.save(invoice);
-            }
-        } catch (Exception ignored) {}
+        invoice.setStatus("PAID");
+        invoice.setPaidAt(LocalDateTime.now());
+        invoiceRepository.save(invoice);
 
         WalletPaymentResponse resp = WalletPaymentResponse.builder()
                 .success(true)
@@ -259,6 +253,32 @@ public class MaintenanceDuesController {
                 .build();
 
         return ResponseEntity.ok(resp);
+    }
+
+    private Invoice getAuthorizedInvoice(String billId, UserPrincipal principal) {
+        if (principal == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        if (billId == null || billId.isBlank()) {
+            throw new IllegalArgumentException("Bill ID must not be empty.");
+        }
+        Long invId;
+        try {
+            invId = Long.parseLong(billId.replace("inv-", "").trim());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid bill format: " + billId);
+        }
+        Invoice invoice = invoiceRepository.findById(invId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", invId));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a ->
+                "ROLE_SUPER_ADMIN".equals(a.getAuthority()) ||
+                "ROLE_ADMIN".equals(a.getAuthority()) ||
+                "ROLE_COMMUNITY_ADMIN".equals(a.getAuthority()) ||
+                "ROLE_FINANCE_MANAGER".equals(a.getAuthority()));
+        if (!isAdmin && (invoice.getResident() == null || !principal.getId().equals(invoice.getResident().getId()))) {
+            throw new AccessDeniedException("You do not have permission to access or pay this invoice.");
+        }
+        return invoice;
     }
 
     private void ensureActiveBillExists(Long userId) {
