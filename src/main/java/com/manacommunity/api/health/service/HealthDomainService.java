@@ -490,4 +490,84 @@ public class HealthDomainService {
                 .cashlessActive(usage.getCashlessActive())
                 .build();
     }
+
+    // ── Auto-Refill Subscriptions ─────────────────────────────────────────────
+
+    public List<PharmacyRefillSubscriptionDto> getMyRefillSubscriptions(Long tenantId, Long userId) {
+        return List.of(
+            PharmacyRefillSubscriptionDto.builder().id(1L).subscriptionUuid(UUID.randomUUID())
+                .medicineName("Metformin 500mg").strip("30 tabs • 1 month supply").pricePerDispatch(105)
+                .frequency(RefillFrequency.MONTHLY).nextDispatchDate(LocalDate.of(2026, 11, 15))
+                .active(true).createdAt(LocalDateTime.now().minusDays(30)).build(),
+            PharmacyRefillSubscriptionDto.builder().id(2L).subscriptionUuid(UUID.randomUUID())
+                .medicineName("Amlodipine 5mg").strip("30 tabs • 1 month supply").pricePerDispatch(144)
+                .frequency(RefillFrequency.MONTHLY).nextDispatchDate(LocalDate.of(2026, 11, 15))
+                .active(true).createdAt(LocalDateTime.now().minusDays(30)).build()
+        );
+    }
+
+    public PharmacyRefillSubscriptionDto createRefillSubscription(Long tenantId, Long userId,
+            CreateRefillSubscriptionRequest req) {
+        return PharmacyRefillSubscriptionDto.builder()
+                .id(System.currentTimeMillis())
+                .subscriptionUuid(UUID.randomUUID())
+                .medicineName(req.getMedicineName())
+                .strip(req.getStrip())
+                .pricePerDispatch(req.getPricePerDispatch())
+                .frequency(req.getFrequency())
+                .nextDispatchDate(LocalDate.now().plusMonths(1))
+                .active(true)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    public PharmacyRefillSubscriptionDto toggleRefillSubscription(Long tenantId, Long userId, Long id) {
+        return PharmacyRefillSubscriptionDto.builder()
+                .id(id).subscriptionUuid(UUID.randomUUID())
+                .medicineName("Subscription #" + id).strip("30 tabs").pricePerDispatch(100)
+                .frequency(RefillFrequency.MONTHLY).nextDispatchDate(LocalDate.now().plusMonths(1))
+                .active(false).createdAt(LocalDateTime.now()).build();
+    }
+
+    // ── Appointment Reminders ─────────────────────────────────────────────────
+
+    public AppointmentReminderDto setAppointmentReminder(Long userId, UUID appointmentUuid,
+            SetAppointmentReminderRequest req) {
+        LocalDateTime scheduledAt = switch (req.getOffset()) {
+            case MIN_15  -> LocalDateTime.now().plusMinutes(15);
+            case MIN_30  -> LocalDateTime.now().plusMinutes(30);
+            case HOUR_1  -> LocalDateTime.now().plusHours(1);
+            case HOUR_2  -> LocalDateTime.now().plusHours(2);
+            case DAY_1   -> LocalDateTime.now().plusDays(1);
+        };
+        return AppointmentReminderDto.builder()
+                .id(System.currentTimeMillis())
+                .appointmentUuid(appointmentUuid)
+                .offset(req.getOffset())
+                .scheduledAt(scheduledAt)
+                .build();
+    }
+
+    public void clearAppointmentReminder(Long userId, UUID appointmentUuid) {
+        // no-op for seed; production would delete the scheduled notification
+    }
+
+    // ── IPD Bed Availability ──────────────────────────────────────────────────
+
+    public BedAvailabilityDto getBedAvailability(String hospital) {
+        Map<WardType, Integer> beds = switch (hospital) {
+            case "Apollo Hospital"            -> Map.of(WardType.GENERAL, 14, WardType.SEMI_PRIVATE, 6,  WardType.PRIVATE, 4, WardType.ICU, 3);
+            case "Fortis Healthcare"          -> Map.of(WardType.GENERAL, 8,  WardType.SEMI_PRIVATE, 4,  WardType.PRIVATE, 2, WardType.ICU, 1);
+            case "Max Super Specialty"        -> Map.of(WardType.GENERAL, 12, WardType.SEMI_PRIVATE, 5,  WardType.PRIVATE, 3, WardType.ICU, 2);
+            case "AIIMS"                      -> Map.of(WardType.GENERAL, 20, WardType.SEMI_PRIVATE, 0,  WardType.PRIVATE, 0, WardType.ICU, 4);
+            case "Manipal Hospital"           -> Map.of(WardType.GENERAL, 10, WardType.SEMI_PRIVATE, 4,  WardType.PRIVATE, 3, WardType.ICU, 2);
+            case "Narayana Health"            -> Map.of(WardType.GENERAL, 16, WardType.SEMI_PRIVATE, 7,  WardType.PRIVATE, 5, WardType.ICU, 3);
+            default                           -> Map.of(WardType.GENERAL, 6,  WardType.SEMI_PRIVATE, 2,  WardType.PRIVATE, 1, WardType.ICU, 0);
+        };
+        return BedAvailabilityDto.builder()
+                .hospitalName(hospital)
+                .wardAvailability(beds)
+                .lastUpdated(LocalDateTime.now())
+                .build();
+    }
 }

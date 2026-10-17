@@ -207,6 +207,62 @@ public class HealthDirectoryApiController {
         ));
     }
 
+    // ── Auto-Refill Subscriptions ─────────────────────────────────────────────
+
+    @GetMapping("/pharmacy/subscriptions/my")
+    public ResponseEntity<List<HealthDtos.PharmacyRefillSubscriptionDto>> getMyRefillSubscriptions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyRefillSubscriptions(tenantId, userId));
+    }
+
+    @PostMapping("/pharmacy/subscriptions")
+    public ResponseEntity<HealthDtos.PharmacyRefillSubscriptionDto> createRefillSubscription(
+            @RequestBody HealthDtos.CreateRefillSubscriptionRequest request,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.createRefillSubscription(tenantId, userId, request));
+    }
+
+    @PatchMapping("/pharmacy/subscriptions/{id}/toggle")
+    public ResponseEntity<HealthDtos.PharmacyRefillSubscriptionDto> toggleRefillSubscription(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.toggleRefillSubscription(tenantId, userId, id));
+    }
+
+    // ── Appointment Reminders ─────────────────────────────────────────────────
+
+    @PostMapping("/appointments/{uuid}/reminder")
+    public ResponseEntity<HealthDtos.AppointmentReminderDto> setAppointmentReminder(
+            @PathVariable UUID uuid,
+            @RequestBody HealthDtos.SetAppointmentReminderRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.setAppointmentReminder(userId, uuid, request));
+    }
+
+    @DeleteMapping("/appointments/{uuid}/reminder")
+    public ResponseEntity<Void> clearAppointmentReminder(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        healthDomainService.clearAppointmentReminder(userId, uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── IPD Bed Availability ──────────────────────────────────────────────────
+
+    @GetMapping("/ipd/bed-availability")
+    public ResponseEntity<HealthDtos.BedAvailabilityDto> getBedAvailability(
+            @RequestParam String hospital) {
+        return ResponseEntity.ok(healthDomainService.getBedAvailability(hospital));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();

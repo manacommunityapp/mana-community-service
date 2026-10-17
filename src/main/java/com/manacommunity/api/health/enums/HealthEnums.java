@@ -47,4 +47,10 @@ public class HealthEnums {
     public enum WardType {
         GENERAL, SEMI_PRIVATE, PRIVATE, ICU
     }
+    public enum RefillFrequency {
+        WEEKLY, MONTHLY, BI_MONTHLY
+    }
+    public enum AppointmentReminderOffset {
+        MIN_15, MIN_30, HOUR_1, HOUR_2, DAY_1
+    }
 }

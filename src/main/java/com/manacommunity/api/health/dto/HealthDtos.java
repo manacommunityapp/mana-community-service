@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class HealthDtos {
@@ -290,5 +291,46 @@ public class HealthDtos {
         private String bedNumber;
         private String attendingDoctorName;
         private LocalDateTime requestedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class PharmacyRefillSubscriptionDto {
+        private Long id;
+        private UUID subscriptionUuid;
+        private String medicineName;
+        private String strip;
+        private Integer pricePerDispatch;
+        private RefillFrequency frequency;
+        private LocalDate nextDispatchDate;
+        private boolean active;
+        private LocalDateTime createdAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CreateRefillSubscriptionRequest {
+        private String medicineName;
+        private String strip;
+        private Integer pricePerDispatch;
+        private RefillFrequency frequency;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AppointmentReminderDto {
+        private Long id;
+        private UUID appointmentUuid;
+        private AppointmentReminderOffset offset;
+        private LocalDateTime scheduledAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SetAppointmentReminderRequest {
+        private AppointmentReminderOffset offset;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class BedAvailabilityDto {
+        private String hospitalName;
+        private Map<WardType, Integer> wardAvailability;
+        private LocalDateTime lastUpdated;
     }
 }
