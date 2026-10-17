@@ -240,6 +240,9 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/auth/**").permitAll()
                 // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
+                // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
+                .requestMatchers("/api/insurance/webhooks/**").permitAll()
+                .requestMatchers("/api/insurance/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the
                 // STOMP headers), so the HTTP upgrade itself is permitted.
