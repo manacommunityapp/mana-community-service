@@ -243,7 +243,8 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (req.getFamilyMemberId() != null) {
             com.manacommunity.api.user.model.FamilyMember member = familyMemberRepository.findByIdAndUserId(req.getFamilyMemberId(), userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
+                    .orElseGet(() -> familyMemberRepository.findById(req.getFamilyMemberId())
+                            .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId())));
             familyMember = member;
             pName = member.getName();
             relation = member.getRelation();
@@ -271,19 +272,48 @@ public class SportsEventServiceImpl implements SportsEventService {
         } else {
             pName = req.getPlayerName() != null && !req.getPlayerName().isBlank() ? req.getPlayerName() : user.getFullName();
 
-            boolean missingDob = user.getDateOfBirth() == null;
-            boolean missingGender = user.getGender() == null || user.getGender().trim().isEmpty();
+            boolean isSelf = normEq(pName, user.getFullName());
 
-            if (missingDob && missingGender) {
-                throw new InvalidInputException("Please update your Gender and Date of Birth in your Profile before registering for sports events.");
-            } else if (missingDob) {
-                throw new InvalidInputException("Please update your Date of Birth in your Profile before registering for sports events.");
-            } else if (missingGender) {
-                throw new InvalidInputException("Please update your Gender in your Profile before registering for sports events.");
+            if (req.getGender() != null && !req.getGender().isBlank()) {
+                gender = req.getGender().trim().toUpperCase();
+            } else {
+                gender = user.getGender();
             }
 
-            gender = user.getGender();
-            age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
+            if (req.getAge() != null && req.getAge() > 0) {
+                age = req.getAge();
+            } else if (req.getDateOfBirth() != null && !req.getDateOfBirth().isBlank()) {
+                try {
+                    LocalDate pDob = LocalDate.parse(req.getDateOfBirth().trim());
+                    age = Period.between(pDob, LocalDate.now()).getYears();
+                } catch (Exception e) {
+                    age = user.getDateOfBirth() != null ? Period.between(user.getDateOfBirth(), LocalDate.now()).getYears() : 0;
+                }
+            } else if (user.getDateOfBirth() != null) {
+                age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
+            } else {
+                age = 0;
+            }
+
+            if (isSelf) {
+                boolean missingDob = user.getDateOfBirth() == null;
+                boolean missingGender = user.getGender() == null || user.getGender().trim().isEmpty();
+
+                if (missingDob && missingGender) {
+                    throw new InvalidInputException("Please update your Gender and Date of Birth in your Profile before registering for sports events.");
+                } else if (missingDob) {
+                    throw new InvalidInputException("Please update your Date of Birth in your Profile before registering for sports events.");
+                } else if (missingGender) {
+                    throw new InvalidInputException("Please update your Gender in your Profile before registering for sports events.");
+                }
+            } else {
+                if (gender == null || gender.trim().isEmpty()) {
+                    throw new InvalidInputException("Please select Gender for player " + pName + " before registering.");
+                }
+                if (age <= 0) {
+                    throw new InvalidInputException("Please provide a valid Date of Birth / Age for player " + pName + " before registering.");
+                }
+            }
         }
 
         List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
