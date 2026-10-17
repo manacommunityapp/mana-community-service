@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /** Append-only consent ledger. The latest event per (user, purpose, partner) wins. */
-@Entity
+@Entity(name = "InsuranceConsentRecord")
 @Table(name = "insurance_consent_record")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConsentRecord {
