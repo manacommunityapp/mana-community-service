@@ -197,7 +197,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(
             ManaCommunityException ex, HttpServletRequest request) {
-        log.error("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        if (ex.getStatus().is5xxServerError()) {
+            log.error("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage(), ex);
+        } else {
+            log.warn("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        }
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 

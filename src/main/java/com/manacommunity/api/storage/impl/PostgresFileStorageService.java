@@ -1,5 +1,6 @@
 package com.manacommunity.api.storage.impl;
 
+import com.manacommunity.api.exception.MediaStorageException;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.storage.entity.StoredFile;
@@ -72,7 +73,7 @@ public class PostgresFileStorageService implements FileStorageService {
                     entity.getSizeBytes()
             );
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read uploaded file bytes", e);
+            throw new MediaStorageException("Failed to read uploaded file bytes", e);
         }
     }
 

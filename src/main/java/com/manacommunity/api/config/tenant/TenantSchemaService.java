@@ -1,7 +1,9 @@
 package com.manacommunity.api.config.tenant;
 
+import com.manacommunity.api.exception.ManaCommunityException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -68,7 +70,8 @@ public class TenantSchemaService {
 
         } catch (SQLException e) {
             log.error("Failed to create tenant schema '{}'", schemaName, e);
-            throw new RuntimeException("Failed to create tenant schema: " + schemaName, e);
+            throw new ManaCommunityException("Failed to create tenant schema: " + schemaName,
+                    HttpStatus.INTERNAL_SERVER_ERROR, "TENANT_SCHEMA_CREATION_FAILED", e);
         }
     }
 

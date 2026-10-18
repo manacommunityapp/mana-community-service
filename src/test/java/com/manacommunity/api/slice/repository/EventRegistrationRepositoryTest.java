@@ -91,5 +91,34 @@ class EventRegistrationRepositoryTest extends BaseRepositoryTest {
             long count = regRepo.countByEventCommunityId(savedCommunity.getId());
             assertThat(count).isEqualTo(1);
         }
+
+        @Test
+        @DisplayName("countByEventId returns registration count for event")
+        void countByEventId() {
+            long count = regRepo.countByEventId(savedEvent.getId());
+            assertThat(count).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("countByEventId returns zero for event with no registrations")
+        void countByEventId_none() {
+            long count = regRepo.countByEventId(999999L);
+            assertThat(count).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("countByUserId returns registration count for user")
+        void countByUserId() {
+            long count = regRepo.countByUserId(savedUser.getId());
+            assertThat(count).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("findByUserIdOrderByRegisteredAtDesc returns user registrations")
+        void findByUserId() {
+            List<EventRegistration> result = regRepo.findByUserIdOrderByRegisteredAtDesc(savedUser.getId());
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUser().getId()).isEqualTo(savedUser.getId());
+        }
     }
 }

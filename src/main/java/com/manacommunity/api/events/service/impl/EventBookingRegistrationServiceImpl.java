@@ -18,6 +18,7 @@ import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.RegistrationClosedException;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
+@Slf4j
 @Service
 public class EventBookingRegistrationServiceImpl implements EventBookingRegistrationService {
 
@@ -187,7 +189,10 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             }
         } catch (EventFullException | RegistrationClosedException ex) {
             throw ex;
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn("Unexpected error during capacity/deadline validation for activityId={}: {}",
+                    actId, ex.getMessage());
+        }
     }
 
     private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {
@@ -305,7 +310,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 } catch (NumberFormatException ignored) {}
             }
         } catch (Exception ex) {
-            // Non-critical slot decrement failure
+            log.warn("Failed to decrement slots for activityId={}: {}", actId, ex.getMessage());
         }
     }
 

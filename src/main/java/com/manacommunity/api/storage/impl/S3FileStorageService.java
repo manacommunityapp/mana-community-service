@@ -1,5 +1,6 @@
 package com.manacommunity.api.storage.impl;
 
+import com.manacommunity.api.exception.MediaStorageException;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
 import lombok.extern.slf4j.Slf4j;
@@ -114,7 +115,7 @@ public class S3FileStorageService implements FileStorageService {
             );
         } catch (Exception e) {
             log.error("Failed to upload to S3: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
+            throw new MediaStorageException("Failed to upload file to S3: " + e.getMessage(), e);
         }
     }
 
