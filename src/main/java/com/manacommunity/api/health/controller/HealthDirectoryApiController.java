@@ -210,7 +210,7 @@ public class HealthDirectoryApiController {
     // ── Auto-Refill Subscriptions ─────────────────────────────────────────────
 
     @GetMapping("/pharmacy/subscriptions/my")
-    public ResponseEntity<List<HealthDtos.PharmacyRefillSubscriptionDto>> getMyRefillSubscriptions(
+    public ResponseEntity<List<PharmacyRefillSubscriptionDto>> getMyRefillSubscriptions(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false, defaultValue = "1") Long tenantId) {
         Long userId = (principal != null) ? principal.getId() : 1L;
@@ -218,8 +218,8 @@ public class HealthDirectoryApiController {
     }
 
     @PostMapping("/pharmacy/subscriptions")
-    public ResponseEntity<HealthDtos.PharmacyRefillSubscriptionDto> createRefillSubscription(
-            @RequestBody HealthDtos.CreateRefillSubscriptionRequest request,
+    public ResponseEntity<PharmacyRefillSubscriptionDto> createRefillSubscription(
+            @RequestBody CreateRefillSubscriptionRequest request,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false, defaultValue = "1") Long tenantId) {
         Long userId = (principal != null) ? principal.getId() : 1L;
@@ -227,7 +227,7 @@ public class HealthDirectoryApiController {
     }
 
     @PatchMapping("/pharmacy/subscriptions/{id}/toggle")
-    public ResponseEntity<HealthDtos.PharmacyRefillSubscriptionDto> toggleRefillSubscription(
+    public ResponseEntity<PharmacyRefillSubscriptionDto> toggleRefillSubscription(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false, defaultValue = "1") Long tenantId) {
@@ -238,9 +238,9 @@ public class HealthDirectoryApiController {
     // ── Appointment Reminders ─────────────────────────────────────────────────
 
     @PostMapping("/appointments/{uuid}/reminder")
-    public ResponseEntity<HealthDtos.AppointmentReminderDto> setAppointmentReminder(
+    public ResponseEntity<AppointmentReminderDto> setAppointmentReminder(
             @PathVariable UUID uuid,
-            @RequestBody HealthDtos.SetAppointmentReminderRequest request,
+            @RequestBody SetAppointmentReminderRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         Long userId = (principal != null) ? principal.getId() : 1L;
         return ResponseEntity.ok(healthDomainService.setAppointmentReminder(userId, uuid, request));
@@ -258,7 +258,7 @@ public class HealthDirectoryApiController {
     // ── IPD Bed Availability ──────────────────────────────────────────────────
 
     @GetMapping("/ipd/bed-availability")
-    public ResponseEntity<HealthDtos.BedAvailabilityDto> getBedAvailability(
+    public ResponseEntity<BedAvailabilityDto> getBedAvailability(
             @RequestParam String hospital) {
         return ResponseEntity.ok(healthDomainService.getBedAvailability(hospital));
     }
