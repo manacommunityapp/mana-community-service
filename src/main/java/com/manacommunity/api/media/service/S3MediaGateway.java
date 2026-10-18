@@ -1,5 +1,6 @@
 package com.manacommunity.api.media.service;
 
+import com.manacommunity.api.exception.MediaStorageException;
 import com.manacommunity.api.media.config.MediaProperties;
 import com.manacommunity.api.media.entity.MediaObject;
 import com.manacommunity.api.media.entity.MediaType;
@@ -52,7 +53,7 @@ public class S3MediaGateway {
         try {
             bytes = stream.readAllBytes();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to read input stream bytes", e);
+            throw new MediaStorageException("Failed to read input stream bytes", e);
         }
 
         try {
