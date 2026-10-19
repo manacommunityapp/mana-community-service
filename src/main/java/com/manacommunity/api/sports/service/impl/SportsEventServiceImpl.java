@@ -194,7 +194,12 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (req.getTournamentId() != null) {
             SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    .orElseGet(() -> {
+                        return eventRepo.findById(req.getTournamentId())
+                                .map(SportsEvent::getTournament)
+                                .filter(java.util.Objects::nonNull)
+                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    });
             event.setTournament(tournament);
             validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
         }
@@ -1329,7 +1334,17 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
         
-        if (event.getTournament() != null) {
+        if (req.getTournamentId() != null && !req.getTournamentId().equals(eventId)) {
+            SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseGet(() -> {
+                        return eventRepo.findById(req.getTournamentId())
+                                .map(SportsEvent::getTournament)
+                                .filter(java.util.Objects::nonNull)
+                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    });
+            event.setTournament(tournament);
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
+        } else if (event.getTournament() != null) {
             validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), event.getTournament());
         }
 

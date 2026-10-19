@@ -179,7 +179,7 @@ public class SportsTournamentController {
                 .registrationStatus(t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null)
                 .sponsors(sponsorDtos)
                 .sportsEvents(t.getSportsEvents() != null
-                        ? t.getSportsEvents().stream().map(this::toEventResponse).toList()
+                        ? t.getSportsEvents().stream().map(e -> toEventResponse(e, t)).toList()
                         : List.of())
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
@@ -187,6 +187,10 @@ public class SportsTournamentController {
     }
 
     private SportsEventResponse toEventResponse(SportsEvent e) {
+        return toEventResponse(e, null);
+    }
+
+    private SportsEventResponse toEventResponse(SportsEvent e, SportsTournament fallbackTourney) {
         SportsEventResponse.SportRef sportRef = null;
         if (e.getSport() != null) {
             sportRef = SportsEventResponse.SportRef.builder()
@@ -248,13 +252,14 @@ public class SportsTournamentController {
                 }).toList()
                 : List.of();
 
+        SportsTournament parentTourney = e.getTournament() != null ? e.getTournament() : fallbackTourney;
         SportsEventResponse.TournamentRef tournamentRef = null;
-        if (e.getTournament() != null) {
+        if (parentTourney != null) {
             tournamentRef = SportsEventResponse.TournamentRef.builder()
-                    .id(e.getTournament().getId())
-                    .name(e.getTournament().getName())
-                    .registrationStatus(e.getTournament().getRegistrationStatus() != null
-                            ? e.getTournament().getRegistrationStatus().name() : null)
+                    .id(parentTourney.getId())
+                    .name(parentTourney.getName())
+                    .registrationStatus(parentTourney.getRegistrationStatus() != null
+                            ? parentTourney.getRegistrationStatus().name() : null)
                     .build();
         }
 
@@ -310,6 +315,7 @@ public class SportsTournamentController {
                 .disputeCommitteeIds(e.getDisputeCommittee() != null
                         ? e.getDisputeCommittee().stream().map(u -> u.getId()).toList()
                         : List.of())
+                .tournament(tournamentRef)
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .build();
