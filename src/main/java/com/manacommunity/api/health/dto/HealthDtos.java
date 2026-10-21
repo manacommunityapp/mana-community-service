@@ -333,4 +333,170 @@ public class HealthDtos {
         private Map<WardType, Integer> wardAvailability;
         private LocalDateTime lastUpdated;
     }
+
+    // ── Surgery Care ──────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SurgeryRequestDto {
+        private Long id;
+        private UUID requestUuid;
+        private UUID patientId;
+        private String procedureName;
+        private String category;
+        private String preferredHospital;
+        private SurgeryStatus status;
+        private String careBuddyName;
+        private String careBuddyPhone;
+        private Integer estimatedCost;
+        private String emiTenure;
+        private LocalDate requestedDate;
+        private LocalDateTime updatedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CreateSurgeryRequestRequest {
+        private UUID patientId;
+        private String procedureName;
+        private String category;
+        private String preferredHospital;
+        private Integer estimatedCost;
+        private String emiTenure;
+    }
+
+    // ── Dental ────────────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DentalFindingDto {
+        private Long id;
+        private UUID patientId;
+        private String dentistName;
+        private LocalDate visitDate;
+        private String finding;
+        private String treatment;
+        private String nextVisitIn;
+        private String documentUrl;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DentalPackageBookingDto {
+        private Long id;
+        private UUID bookingUuid;
+        private UUID patientId;
+        private DentalPackageType packageType;
+        private String dentistName;
+        private LocalDate scheduledDate;
+        private Integer price;
+        private String status;
+    }
+
+    // ── ABHA Health ID ────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AbhaProfileDto {
+        private String abhaNumber;
+        private String name;
+        private LocalDate dateOfBirth;
+        private String gender;
+        private Integer linkedHospitals;
+        private Integer linkedRecords;
+        private boolean verified;
+        private LocalDateTime createdAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AbhaConsentRequestDto {
+        private Long id;
+        private UUID consentUuid;
+        private String requesterName;
+        private String purpose;
+        private AbhaConsentStatus status;
+        private LocalDate requestedDate;
+        private LocalDate expiryDate;
+    }
+
+    // ── Second Opinion ────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SecondOpinionRequestDto {
+        private Long id;
+        private UUID requestUuid;
+        private UUID patientId;
+        private Long specialistDoctorId;
+        private String specialistName;
+        private String cancerType;
+        private String originalDiagnosis;
+        private SecondOpinionStatus status;
+        private String opinionSummary;
+        private LocalDateTime requestedAt;
+        private LocalDateTime completedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CreateSecondOpinionRequest {
+        private UUID patientId;
+        private Long specialistDoctorId;
+        private String cancerType;
+        private String originalDiagnosis;
+        private List<UUID> attachedRecordIds;
+    }
+
+    // ── Digital Prescription ──────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DigitalPrescriptionDto {
+        private Long id;
+        private UUID prescriptionUuid;
+        private String rxId;
+        private UUID appointmentUuid;
+        private Long doctorId;
+        private String doctorName;
+        private String doctorSpecialty;
+        private UUID patientId;
+        private String patientName;
+        private String clinicalNotes;
+        private List<String> medications;
+        private LocalDate issuedDate;
+        private DigitalPrescriptionStatus status;
+        private String pdfUrl;
+        private LocalDateTime generatedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class GeneratePrescriptionRequest {
+        private UUID appointmentUuid;
+        private String clinicalNotes;
+        private List<String> medications;
+    }
+
+    // ── Cancer / Oncology Care Journey ────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class OncologyJourneyDto {
+        private Long id;
+        private UUID journeyUuid;
+        private UUID patientId;
+        private String cancerType;
+        private String currentStage;
+        private List<OncologyJourneyStepDto> steps;
+        private List<ChemoSessionDto> chemoSchedule;
+        private LocalDateTime startedAt;
+        private LocalDateTime updatedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class OncologyJourneyStepDto {
+        private OncologyStage stage;
+        private String label;
+        private boolean completed;
+        private String detail;
+        private LocalDateTime completedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ChemoSessionDto {
+        private Integer cycleNumber;
+        private LocalDate scheduledDate;
+        private String drug;
+        private String status;
+    }
 }

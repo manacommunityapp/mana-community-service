@@ -53,4 +53,22 @@ public class HealthEnums {
     public enum AppointmentReminderOffset {
         MIN_15, MIN_30, HOUR_1, HOUR_2, DAY_1
     }
+    public enum SurgeryStatus {
+        REQUESTED, BUDDY_ASSIGNED, PRE_OP_TESTS, ADMISSION_CONFIRMED, SURGERY_COMPLETED, POST_OP_CARE, DISCHARGED, CANCELLED
+    }
+    public enum DentalPackageType {
+        BASIC_CHECKUP, SCALING_POLISHING, ROOT_CANAL, TEETH_WHITENING, CROWN, BRACES_CONSULT
+    }
+    public enum AbhaConsentStatus {
+        PENDING, APPROVED, REVOKED, EXPIRED
+    }
+    public enum OncologyStage {
+        DIAGNOSIS, STAGING, SECOND_OPINION, TREATMENT_PLAN, TREATMENT, RESPONSE_EVAL, FOLLOWUP, REMISSION
+    }
+    public enum SecondOpinionStatus {
+        REQUESTED, UNDER_REVIEW, COMPLETED, DECLINED
+    }
+    public enum DigitalPrescriptionStatus {
+        GENERATED, SENT_TO_PHARMACY, ARCHIVED
+    }
 }

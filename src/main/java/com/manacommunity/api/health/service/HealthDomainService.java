@@ -570,4 +570,178 @@ public class HealthDomainService {
                 .lastUpdated(LocalDateTime.now())
                 .build();
     }
+
+    // ── Surgery Care ──────────────────────────────────────────────────────────
+
+    public SurgeryRequestDto createSurgeryRequest(Long tenantId, Long userId, CreateSurgeryRequestRequest req) {
+        return SurgeryRequestDto.builder()
+                .id(1L)
+                .requestUuid(UUID.randomUUID())
+                .patientId(req.getPatientId())
+                .procedureName(req.getProcedureName())
+                .category(req.getCategory())
+                .preferredHospital(req.getPreferredHospital())
+                .status(SurgeryStatus.BUDDY_ASSIGNED)
+                .careBuddyName("Priya Sharma")
+                .careBuddyPhone("+91 98765 43210")
+                .estimatedCost(req.getEstimatedCost())
+                .emiTenure(req.getEmiTenure())
+                .requestedDate(LocalDate.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    public List<SurgeryRequestDto> getMySurgeryRequests(Long tenantId, Long userId) {
+        return List.of(
+                SurgeryRequestDto.builder()
+                        .id(1L).requestUuid(UUID.randomUUID())
+                        .procedureName("Knee Replacement (TKR)").category("Orthopedics")
+                        .preferredHospital("Apollo Hospital").status(SurgeryStatus.BUDDY_ASSIGNED)
+                        .careBuddyName("Priya Sharma").careBuddyPhone("+91 98765 43210")
+                        .estimatedCost(200000).requestedDate(LocalDate.now().minusDays(2))
+                        .updatedAt(LocalDateTime.now().minusDays(2)).build()
+        );
+    }
+
+    // ── Dental ────────────────────────────────────────────────────────────────
+
+    public List<DentalFindingDto> getDentalFindings(Long tenantId, UUID patientId) {
+        return List.of(
+                DentalFindingDto.builder().id(1L).patientId(patientId)
+                        .dentistName("Dr. Ramesh Gupta").visitDate(LocalDate.of(2026, 8, 12))
+                        .finding("Mild tartar buildup on lower incisors").treatment("Scaling done")
+                        .nextVisitIn("6 months").build(),
+                DentalFindingDto.builder().id(2L).patientId(patientId)
+                        .dentistName("Dr. Sunita Agarwal").visitDate(LocalDate.of(2026, 3, 3))
+                        .finding("Slight crowding (lower arch)").treatment("Braces consultation advised")
+                        .nextVisitIn("3 months").build()
+        );
+    }
+
+    public DentalPackageBookingDto bookDentalPackage(Long tenantId, Long userId, Map<String, String> body) {
+        return DentalPackageBookingDto.builder()
+                .id(1L).bookingUuid(UUID.randomUUID())
+                .packageType(DentalPackageType.SCALING_POLISHING)
+                .dentistName("Dr. Ramesh Gupta")
+                .scheduledDate(LocalDate.now().plusDays(3))
+                .price(799).status("CONFIRMED").build();
+    }
+
+    // ── ABHA Health ID ────────────────────────────────────────────────────────
+
+    public AbhaProfileDto getAbhaProfile(Long tenantId, Long userId) {
+        return AbhaProfileDto.builder()
+                .abhaNumber("23-4521-6789-0012").name("Raghunath Krishnamurthy")
+                .dateOfBirth(LocalDate.of(1985, 8, 15)).gender("Male")
+                .linkedHospitals(4).linkedRecords(12).verified(true)
+                .createdAt(LocalDateTime.of(2025, 3, 1, 10, 0)).build();
+    }
+
+    public AbhaProfileDto linkAbhaId(Long tenantId, Long userId, String abhaNumber) {
+        return AbhaProfileDto.builder()
+                .abhaNumber(abhaNumber).name("Raghunath Krishnamurthy")
+                .dateOfBirth(LocalDate.of(1985, 8, 15)).gender("Male")
+                .linkedHospitals(0).linkedRecords(0).verified(true)
+                .createdAt(LocalDateTime.now()).build();
+    }
+
+    public List<AbhaConsentRequestDto> getAbhaConsentRequests(Long tenantId, Long userId) {
+        return List.of(
+                AbhaConsentRequestDto.builder().id(1L).consentUuid(UUID.randomUUID())
+                        .requesterName("Apollo Hospital").purpose("View OPD Records")
+                        .status(AbhaConsentStatus.PENDING).requestedDate(LocalDate.now().minusDays(1))
+                        .expiryDate(LocalDate.now().plusMonths(1)).build(),
+                AbhaConsentRequestDto.builder().id(2L).consentUuid(UUID.randomUUID())
+                        .requesterName("Star Lab Diagnostics").purpose("Share Lab Reports")
+                        .status(AbhaConsentStatus.APPROVED).requestedDate(LocalDate.now().minusDays(7))
+                        .expiryDate(LocalDate.now().plusMonths(3)).build()
+        );
+    }
+
+    public AbhaConsentRequestDto updateAbhaConsent(Long userId, UUID consentUuid, boolean approve) {
+        return AbhaConsentRequestDto.builder()
+                .id(1L).consentUuid(consentUuid)
+                .requesterName("Apollo Hospital").purpose("View OPD Records")
+                .status(approve ? AbhaConsentStatus.APPROVED : AbhaConsentStatus.REVOKED)
+                .requestedDate(LocalDate.now()).expiryDate(LocalDate.now().plusMonths(1)).build();
+    }
+
+    // ── Second Opinion ────────────────────────────────────────────────────────
+
+    public SecondOpinionRequestDto requestSecondOpinion(Long tenantId, Long userId, CreateSecondOpinionRequest req) {
+        return SecondOpinionRequestDto.builder()
+                .id(1L).requestUuid(UUID.randomUUID())
+                .patientId(req.getPatientId())
+                .specialistDoctorId(req.getSpecialistDoctorId())
+                .specialistName("Dr. Vikram Desai")
+                .cancerType(req.getCancerType())
+                .originalDiagnosis(req.getOriginalDiagnosis())
+                .status(SecondOpinionStatus.REQUESTED)
+                .requestedAt(LocalDateTime.now()).build();
+    }
+
+    public List<SecondOpinionRequestDto> getMySecondOpinionRequests(Long tenantId, Long userId) {
+        return List.of(
+                SecondOpinionRequestDto.builder()
+                        .id(1L).requestUuid(UUID.randomUUID())
+                        .specialistName("Dr. Vikram Desai").cancerType("Breast Cancer")
+                        .originalDiagnosis("Stage II — localised").status(SecondOpinionStatus.COMPLETED)
+                        .opinionSummary("Staging confirmed. Recommend 4 cycles chemo followed by radiation.")
+                        .requestedAt(LocalDateTime.now().minusDays(4)).completedAt(LocalDateTime.now().minusDays(2)).build()
+        );
+    }
+
+    // ── Digital Prescription ──────────────────────────────────────────────────
+
+    public DigitalPrescriptionDto generateDigitalPrescription(Long tenantId, Long userId, GeneratePrescriptionRequest req) {
+        String rxId = "RX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        return DigitalPrescriptionDto.builder()
+                .id(1L).prescriptionUuid(UUID.randomUUID())
+                .rxId(rxId).appointmentUuid(req.getAppointmentUuid())
+                .doctorName("Dr. Ramesh Mehta").doctorSpecialty("General Physician")
+                .patientName("Raghunath Krishnamurthy")
+                .clinicalNotes(req.getClinicalNotes())
+                .medications(req.getMedications() != null ? req.getMedications() : List.of())
+                .issuedDate(LocalDate.now())
+                .status(DigitalPrescriptionStatus.GENERATED)
+                .generatedAt(LocalDateTime.now()).build();
+    }
+
+    public List<DigitalPrescriptionDto> getMyPrescriptions(Long tenantId, Long userId) {
+        return List.of(
+                DigitalPrescriptionDto.builder()
+                        .id(1L).rxId("RX-A3B9F1").doctorName("Dr. Ramesh Mehta")
+                        .doctorSpecialty("General Physician").patientName("Raghunath Krishnamurthy")
+                        .medications(List.of("Amoxicillin 500mg BD x 5 days", "Paracetamol 650mg SOS"))
+                        .issuedDate(LocalDate.now().minusDays(3)).status(DigitalPrescriptionStatus.GENERATED)
+                        .generatedAt(LocalDateTime.now().minusDays(3)).build()
+        );
+    }
+
+    // ── Oncology Care Journey ─────────────────────────────────────────────────
+
+    public List<OncologyJourneyDto> getMyOncologyJourneys(Long tenantId, Long userId) {
+        return List.of(
+                OncologyJourneyDto.builder()
+                        .id(1L).journeyUuid(UUID.randomUUID())
+                        .cancerType("Breast Cancer").currentStage("TREATMENT")
+                        .steps(List.of(
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.DIAGNOSIS).label("Diagnosis Confirmed").completed(true).detail("Biopsy confirmed").completedAt(LocalDateTime.of(2026, 9, 5, 0, 0)).build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.STAGING).label("Cancer Staging").completed(true).detail("Stage II — localised").completedAt(LocalDateTime.of(2026, 9, 12, 0, 0)).build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.SECOND_OPINION).label("Second Opinion").completed(true).detail("Confirmed by Dr. Vikram Desai").completedAt(LocalDateTime.of(2026, 9, 18, 0, 0)).build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.TREATMENT_PLAN).label("Treatment Plan Ready").completed(true).detail("4 cycles chemo + radiation").completedAt(LocalDateTime.of(2026, 9, 22, 0, 0)).build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.TREATMENT).label("Treatment In Progress").completed(false).detail("Cycle 2 of 4").build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.RESPONSE_EVAL).label("Response Evaluation").completed(false).detail("Mid-treatment CT scan").build(),
+                                OncologyJourneyStepDto.builder().stage(OncologyStage.FOLLOWUP).label("Follow-up & Remission").completed(false).detail("Ongoing surveillance").build()
+                        ))
+                        .chemoSchedule(List.of(
+                                ChemoSessionDto.builder().cycleNumber(1).scheduledDate(LocalDate.of(2026, 10, 6)).drug("Paclitaxel + Carboplatin").status("Completed").build(),
+                                ChemoSessionDto.builder().cycleNumber(2).scheduledDate(LocalDate.of(2026, 10, 27)).drug("Paclitaxel + Carboplatin").status("Upcoming").build(),
+                                ChemoSessionDto.builder().cycleNumber(3).scheduledDate(LocalDate.of(2026, 11, 17)).drug("Paclitaxel + Carboplatin").status("Scheduled").build(),
+                                ChemoSessionDto.builder().cycleNumber(4).scheduledDate(LocalDate.of(2026, 12, 8)).drug("Paclitaxel + Carboplatin").status("Scheduled").build()
+                        ))
+                        .startedAt(LocalDateTime.of(2026, 9, 5, 0, 0))
+                        .updatedAt(LocalDateTime.now()).build()
+        );
+    }
 }

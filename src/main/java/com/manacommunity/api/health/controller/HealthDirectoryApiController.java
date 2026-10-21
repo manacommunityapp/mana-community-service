@@ -263,6 +263,134 @@ public class HealthDirectoryApiController {
         return ResponseEntity.ok(healthDomainService.getBedAvailability(hospital));
     }
 
+    // ── Surgery Care ──────────────────────────────────────────────────────────
+
+    @PostMapping("/surgery/request")
+    public ResponseEntity<SurgeryRequestDto> createSurgeryRequest(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody CreateSurgeryRequestRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.createSurgeryRequest(tenantId, userId, req));
+    }
+
+    @GetMapping("/surgery/my")
+    public ResponseEntity<List<SurgeryRequestDto>> getMySurgeryRequests(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMySurgeryRequests(tenantId, userId));
+    }
+
+    // ── Dental ────────────────────────────────────────────────────────────────
+
+    @GetMapping("/dental/findings/{patientUuid}")
+    public ResponseEntity<List<DentalFindingDto>> getDentalFindings(
+            @PathVariable UUID patientUuid,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        return ResponseEntity.ok(healthDomainService.getDentalFindings(tenantId, patientUuid));
+    }
+
+    @PostMapping("/dental/packages/book")
+    public ResponseEntity<DentalPackageBookingDto> bookDentalPackage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody Map<String, String> body) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.bookDentalPackage(tenantId, userId, body));
+    }
+
+    // ── ABHA Health ID ────────────────────────────────────────────────────────
+
+    @GetMapping("/abha/profile")
+    public ResponseEntity<AbhaProfileDto> getAbhaProfile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getAbhaProfile(tenantId, userId));
+    }
+
+    @PostMapping("/abha/link")
+    public ResponseEntity<AbhaProfileDto> linkAbhaId(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody Map<String, String> body) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.linkAbhaId(tenantId, userId, body.get("abhaNumber")));
+    }
+
+    @GetMapping("/abha/consent-requests")
+    public ResponseEntity<List<AbhaConsentRequestDto>> getAbhaConsentRequests(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getAbhaConsentRequests(tenantId, userId));
+    }
+
+    @PatchMapping("/abha/consent-requests/{uuid}/approve")
+    public ResponseEntity<AbhaConsentRequestDto> approveAbhaConsent(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.updateAbhaConsent(userId, uuid, true));
+    }
+
+    @PatchMapping("/abha/consent-requests/{uuid}/revoke")
+    public ResponseEntity<AbhaConsentRequestDto> revokeAbhaConsent(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.updateAbhaConsent(userId, uuid, false));
+    }
+
+    // ── Second Opinion ────────────────────────────────────────────────────────
+
+    @PostMapping("/second-opinion/request")
+    public ResponseEntity<SecondOpinionRequestDto> requestSecondOpinion(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody CreateSecondOpinionRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.requestSecondOpinion(tenantId, userId, req));
+    }
+
+    @GetMapping("/second-opinion/my")
+    public ResponseEntity<List<SecondOpinionRequestDto>> getMySecondOpinionRequests(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMySecondOpinionRequests(tenantId, userId));
+    }
+
+    // ── Digital Prescription ──────────────────────────────────────────────────
+
+    @PostMapping("/prescriptions/generate")
+    public ResponseEntity<DigitalPrescriptionDto> generateDigitalPrescription(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody GeneratePrescriptionRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.generateDigitalPrescription(tenantId, userId, req));
+    }
+
+    @GetMapping("/prescriptions/my")
+    public ResponseEntity<List<DigitalPrescriptionDto>> getMyPrescriptions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyPrescriptions(tenantId, userId));
+    }
+
+    // ── Oncology Care Journey ─────────────────────────────────────────────────
+
+    @GetMapping("/oncology/journey/my")
+    public ResponseEntity<List<OncologyJourneyDto>> getMyOncologyJourneys(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyOncologyJourneys(tenantId, userId));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();
