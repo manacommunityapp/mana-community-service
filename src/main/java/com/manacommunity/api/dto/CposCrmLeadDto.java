@@ -21,6 +21,8 @@ public class CposCrmLeadDto {
     private Integer daysInStage;
     private Integer daysTotal;
     private Integer aiScore;
+    private LocalDateTime followUpAt;
+    private String followUpNote;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<CposCrmActivityDto> activities;

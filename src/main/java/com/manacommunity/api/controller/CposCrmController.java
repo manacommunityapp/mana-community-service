@@ -10,8 +10,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 import com.manacommunity.api.user.security.UserPrincipal;
 
@@ -71,6 +73,27 @@ public class CposCrmController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(
                 crmService.addActivity(user, id, body.get("type"), body.get("note")));
+    }
+
+    @PutMapping("/leads/{id}/followup")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> setFollowUp(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        LocalDateTime followUpAt = body.get("followUpAt") != null
+                ? LocalDateTime.parse(body.get("followUpAt"))
+                : null;
+        return ResponseEntity.ok(crmService.setFollowUp(user, id, followUpAt, body.get("note")));
+    }
+
+    @GetMapping("/leads/due-followups")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmLeadDto>> getDueFollowUps(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getDueFollowUps(user));
     }
 
     @DeleteMapping("/leads/{id}")
@@ -137,5 +160,61 @@ public class CposCrmController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(crmService.approveCommission(user, id));
+    }
+
+    // ── Portal Inbound Integration ─────────────────────────────────────────
+
+    @GetMapping("/integrations")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmInboundConfigDto> getIntegrationConfig(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getOrCreateInboundConfig(user));
+    }
+
+    @PutMapping("/integrations/agents")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmInboundConfigDto> updateAgentPool(
+            @RequestBody Map<String, List<String>> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.updateInboundConfig(user, body.getOrDefault("agents", List.of())));
+    }
+
+    // ── Call Logging ───────────────────────────────────────────────────────
+
+    @PostMapping("/leads/{id}/calls")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmActivityDto> logCall(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String outcome = (String) body.get("outcome");
+        Integer durationMin = body.get("durationMin") != null
+                ? ((Number) body.get("durationMin")).intValue() : null;
+        String notes = (String) body.get("notes");
+        LocalDateTime followUpAt = body.get("followUpAt") != null
+                ? LocalDateTime.parse((String) body.get("followUpAt")) : null;
+        return ResponseEntity.ok(crmService.logCall(user, id, outcome, durationMin, notes, followUpAt));
+    }
+
+    /**
+     * Public inbound webhook — authenticated by X-Portal-Key header (API key).
+     * Must be added to Spring Security's permitAll list:
+     *   .requestMatchers(HttpMethod.POST, "/api/v1/cpos/crm/leads/inbound").permitAll()
+     */
+    @PostMapping("/leads/inbound")
+    public ResponseEntity<CposCrmLeadDto> inboundLead(
+            @RequestHeader(value = "X-Portal-Key", required = false) String apiKey,
+            @RequestBody CposCrmInboundLeadRequest req) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(crmService.createInboundLead(apiKey, req));
+        } catch (com.manacommunity.api.exception.ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 }

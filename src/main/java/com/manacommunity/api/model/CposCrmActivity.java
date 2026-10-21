@@ -30,6 +30,12 @@ public class CposCrmActivity {
     @Column(name = "created_by", length = 255)
     private String createdBy;
 
+    @Column(name = "call_outcome", length = 20)
+    private String callOutcome; // CONNECTED | MISSED | BUSY — only for CALL activities
+
+    @Column(name = "call_duration_min")
+    private Integer callDurationMin;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

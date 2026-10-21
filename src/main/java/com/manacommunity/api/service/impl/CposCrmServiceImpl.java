@@ -4,6 +4,8 @@ import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,7 @@ public class CposCrmServiceImpl {
     private final CposBrokerRepository brokerRepo;
     private final CposBrokerCommissionRepository commissionRepo;
     private final CommunityRepository communityRepo;
+    private final CposCrmInboundConfigRepository inboundConfigRepo;
 
     // ── Leads ─────────────────────────────────────────────────────────────
 
@@ -257,6 +260,8 @@ public class CposCrmServiceImpl {
                 .daysInStage(l.getDaysInStage())
                 .daysTotal(l.getDaysTotal())
                 .aiScore(computeScore(l))
+                .followUpAt(l.getFollowUpAt())
+                .followUpNote(l.getFollowUpNote())
                 .createdAt(l.getCreatedAt())
                 .updatedAt(l.getUpdatedAt())
                 .build();
@@ -268,8 +273,50 @@ public class CposCrmServiceImpl {
                 .activityType(a.getActivityType())
                 .note(a.getNote())
                 .createdBy(a.getCreatedBy())
+                .callOutcome(a.getCallOutcome())
+                .callDurationMin(a.getCallDurationMin())
                 .createdAt(a.getCreatedAt())
                 .build();
+    }
+
+    @Transactional
+    public CposCrmActivityDto logCall(AppUser user, Long leadId,
+                                      String outcome, Integer durationMin,
+                                      String notes, LocalDateTime followUpAt) {
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+
+        String noteText = buildCallNote(outcome, durationMin, notes);
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(lead)
+                .activityType("CALL")
+                .note(noteText)
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
+                .callOutcome(outcome)
+                .callDurationMin(durationMin)
+                .build();
+        activityRepo.save(activity);
+
+        if (followUpAt != null) {
+            String followUpNote = "MISSED".equals(outcome) ? "Missed call — scheduled callback"
+                    : "Busy — scheduled callback";
+            lead.setFollowUpAt(followUpAt);
+            lead.setFollowUpNote(followUpNote);
+            leadRepo.save(lead);
+        }
+
+        return toActivityDto(activity);
+    }
+
+    private String buildCallNote(String outcome, Integer durationMin, String notes) {
+        StringBuilder sb = new StringBuilder();
+        if ("CONNECTED".equals(outcome)) sb.append("Call connected");
+        else if ("MISSED".equals(outcome)) sb.append("Call missed");
+        else if ("BUSY".equals(outcome)) sb.append("Line busy");
+        else sb.append("Call");
+        if (durationMin != null && durationMin > 0) sb.append(" (").append(durationMin).append(" min)");
+        if (notes != null && !notes.isBlank()) sb.append(": ").append(notes.trim());
+        return sb.toString();
     }
 
     private CposBrokerDto toBrokerDto(CposBroker b) {
@@ -308,6 +355,25 @@ public class CposCrmServiceImpl {
                 .build();
     }
 
+    @Transactional
+    public CposCrmLeadDto setFollowUp(AppUser user, Long id, LocalDateTime followUpAt, String note) {
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(id, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        lead.setFollowUpAt(followUpAt);
+        lead.setFollowUpNote(note);
+        return toLeadDto(leadRepo.save(lead));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CposCrmLeadDto> getDueFollowUps(AppUser user) {
+        LocalDateTime now = LocalDateTime.now();
+        return leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(user.getCommunity().getId())
+                .stream()
+                .filter(l -> l.getFollowUpAt() != null && !l.getFollowUpAt().isAfter(now))
+                .map(this::toLeadDto)
+                .collect(Collectors.toList());
+    }
+
     private int computeScore(CposCrmLead l) {
         int budget = l.getBudgetLakhs() >= 200 ? 25 : l.getBudgetLakhs() >= 100 ? 20 : l.getBudgetLakhs() >= 60 ? 14 : 8;
         int stageIdx = STAGE_ORDER.indexOf(l.getStage());
@@ -321,5 +387,106 @@ public class CposCrmServiceImpl {
     private int computeAvgScore(List<CposCrmLead> leads) {
         return leads.isEmpty() ? 0 :
                 (int) Math.round(leads.stream().mapToInt(this::computeScore).average().orElse(0));
+    }
+
+    // ── Portal Inbound Integration ─────────────────────────────────────────
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Transactional
+    public CposCrmInboundConfigDto getOrCreateInboundConfig(AppUser user) {
+        Long communityId = user.getCommunity().getId();
+        CposCrmInboundConfig cfg = inboundConfigRepo.findByCommunityId(communityId)
+                .orElseGet(() -> {
+                    Community community = communityRepo.findById(communityId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+                    String key = java.util.UUID.randomUUID().toString().replace("-", "");
+                    CposCrmInboundConfig newCfg = CposCrmInboundConfig.builder()
+                            .community(community)
+                            .apiKey(key)
+                            .agentPool("[]")
+                            .build();
+                    return inboundConfigRepo.save(newCfg);
+                });
+        long inboundCount = leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(communityId)
+                .stream().filter(l -> "PORTAL".equals(l.getSource())).count();
+        return toCfgDto(cfg, inboundCount);
+    }
+
+    @Transactional
+    public CposCrmInboundConfigDto updateInboundConfig(AppUser user, List<String> agentPool) {
+        CposCrmInboundConfig cfg = inboundConfigRepo.findByCommunityId(user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Integration config not found"));
+        try {
+            cfg.setAgentPool(MAPPER.writeValueAsString(agentPool));
+            cfg.setUpdatedAt(LocalDateTime.now());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid agent pool", e);
+        }
+        inboundConfigRepo.save(cfg);
+        return toCfgDto(cfg, 0L);
+    }
+
+    @Transactional
+    public CposCrmLeadDto createInboundLead(String apiKey, CposCrmInboundLeadRequest req) {
+        CposCrmInboundConfig cfg = inboundConfigRepo.findByApiKey(apiKey)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid API key"));
+        Community community = cfg.getCommunity();
+
+        List<String> pool = parsePool(cfg.getAgentPool());
+        String assignedTo = pool.isEmpty() ? null : pool.get(cfg.getRrIndex() % pool.size());
+        if (!pool.isEmpty()) {
+            cfg.setRrIndex((cfg.getRrIndex() + 1) % pool.size());
+            inboundConfigRepo.save(cfg);
+        }
+
+        double budgetLakhs = req.getBudgetLakhs() != null ? req.getBudgetLakhs() : 0;
+        CposCrmLead lead = CposCrmLead.builder()
+                .community(community)
+                .leadName(req.getName() != null ? req.getName() : "Unknown")
+                .phone(req.getPhone())
+                .email(req.getEmail())
+                .source("PORTAL")
+                .stage("NEW")
+                .leadType(req.getPropertyType() != null ? req.getPropertyType() : "Residential")
+                .budgetLakhs(budgetLakhs)
+                .budgetDisplay(budgetLakhs > 0 ? String.format("₹%.0f L", budgetLakhs) : null)
+                .assignedTo(assignedTo)
+                .daysInStage(0)
+                .daysTotal(0)
+                .build();
+        CposCrmLead saved = leadRepo.save(lead);
+
+        String portal = req.getPortal() != null ? req.getPortal() : "PORTAL";
+        String note = String.format("Inbound lead from %s%s", portal,
+                req.getPortalLeadId() != null ? " (Ref: " + req.getPortalLeadId() + ")" : "");
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(saved)
+                .activityType("NOTE")
+                .note(note)
+                .createdBy("System")
+                .build();
+        activityRepo.save(activity);
+
+        return toLeadDto(saved);
+    }
+
+    private List<String> parsePool(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return MAPPER.readValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private CposCrmInboundConfigDto toCfgDto(CposCrmInboundConfig cfg, long inboundCount) {
+        return CposCrmInboundConfigDto.builder()
+                .id(cfg.getId())
+                .apiKey(cfg.getApiKey())
+                .agentPool(parsePool(cfg.getAgentPool()))
+                .rrIndex(cfg.getRrIndex())
+                .totalInboundLeads(inboundCount)
+                .build();
     }
 }

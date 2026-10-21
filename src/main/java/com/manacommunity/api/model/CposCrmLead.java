@@ -67,6 +67,12 @@ public class CposCrmLead {
     @Builder.Default
     private LocalDateTime stageChangedAt = LocalDateTime.now();
 
+    @Column(name = "follow_up_at")
+    private LocalDateTime followUpAt;
+
+    @Column(name = "follow_up_note", length = 500)
+    private String followUpNote;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private Boolean deleted = false;

@@ -11,5 +11,7 @@ public class CposCrmActivityDto {
     private String activityType;
     private String note;
     private String createdBy;
+    private String callOutcome;     // CONNECTED | MISSED | BUSY (null for non-call activities)
+    private Integer callDurationMin;
     private LocalDateTime createdAt;
 }

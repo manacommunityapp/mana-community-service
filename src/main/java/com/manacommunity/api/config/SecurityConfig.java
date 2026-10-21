@@ -242,6 +242,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
                 // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
                 .requestMatchers("/api/insurance/webhooks/**").permitAll()
+                // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/cpos/crm/leads/inbound").permitAll()
                 .requestMatchers("/api/insurance/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the
@@ -251,6 +253,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // secure registration form (the registration POST stays authenticated).
                 .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
+                .requestMatchers("/api/sports/external-forms/public/**", "/api/integrations/google/forms/**").permitAll()
                 // Communities: only the public GET endpoints used by the registration form
                 // (list all communities, filter by type, and per-community public info) are open.
                 // Communities: public GET endpoints for listing, filtering, looking up communities and registration
