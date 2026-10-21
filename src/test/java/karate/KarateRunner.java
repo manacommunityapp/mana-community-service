@@ -38,6 +38,12 @@ import org.junit.jupiter.api.Tag;
  * │  sportsAuctionFlow()        │  Auction config + teams + live bidding flow              │
  * │  sportsE2eFlow()            │  Full sports E2E (cricket tournament lifecycle)          │
  * │  sportsDbVerify()           │  Sports DB state assertions (@sports-db-verify)          │
+ * ├─────────────────────────────┼──────────────────────────────────────────────────────────┤
+ * │  karateSetup()              │  Belt list (9 seeded) + create program                   │
+ * │  karateBatch()              │  Create batch + update status                            │
+ * │  karateEnroll()             │  Enroll students + attendance % + low-att alert          │
+ * │  karateGrading()            │  Grading exam + results + belt promotion idempotency     │
+ * │  karateFlow()               │  Full karate lifecycle E2E (@e2e @karate)                │
  * └─────────────────────────────┴──────────────────────────────────────────────────────────┘
  *
  * Run commands (PowerShell — quote the method selector to avoid # truncation):
@@ -52,6 +58,11 @@ import org.junit.jupiter.api.Tag;
  *   Sports tournament        : ./mvnw test "-Dtest=KarateRunner#sportsTournamentFlow"
  *   Sports auction           : ./mvnw test "-Dtest=KarateRunner#sportsAuctionFlow"
  *   Sports DB verify         : ./mvnw test "-Dtest=KarateRunner#sportsDbVerify"
+ *   Karate belt setup        : ./mvnw test "-Dtest=KarateRunner#karateSetup"
+ *   Karate batches           : ./mvnw test "-Dtest=KarateRunner#karateBatch"
+ *   Karate enrollment        : ./mvnw test "-Dtest=KarateRunner#karateEnroll"
+ *   Karate grading           : ./mvnw test "-Dtest=KarateRunner#karateGrading"
+ *   Karate full E2E          : ./mvnw test "-Dtest=KarateRunner#karateFlow"
  *   Full event module        : ./mvnw test "-Dtest=KarateRunner#poojaFlow"
  *   Event list check         : ./mvnw test "-Dtest=KarateRunner#eventListFlow"
  *   Dashboard check          : ./mvnw test "-Dtest=KarateRunner#eventDashboardFlow"
@@ -278,5 +289,58 @@ class KarateRunner {
     Karate sportsDbVerify() {
         return Karate.run("classpath:karate/features/sports/db/verify-sports-db.feature")
                      .tags("@sports-db-verify");
+    }
+
+    // ── Karate Classes sub-module ─────────────────────────────────────────────
+
+    /**
+     * Karate belt & program setup — standalone, admin auth only.
+     * Covers: GET /api/sports/karate/belts (verify 9 seeded belts), POST /programs
+     */
+    @Karate.Test
+    Karate karateSetup() {
+        return Karate.run("classpath:karate/features/sports/karate/karate-setup.feature")
+                     .tags("@karate-setup", "~@ignore");
+    }
+
+    /**
+     * Karate batch & class generation — requires karateSetup context.
+     * Covers: POST /programs/{id}/batches, PUT /batches/{id}/status
+     */
+    @Karate.Test
+    Karate karateBatch() {
+        return Karate.run("classpath:karate/features/sports/karate/karate-batches.feature")
+                     .tags("@karate-batch", "~@ignore");
+    }
+
+    /**
+     * Karate enrollment & attendance — requires karateBatch context.
+     * Covers: POST /batches/{id}/enroll, GET /batches/{id}/attendance (attendance %, low-att alert)
+     */
+    @Karate.Test
+    Karate karateEnroll() {
+        return Karate.run("classpath:karate/features/sports/karate/karate-enrollment.feature")
+                     .tags("@karate-enroll", "~@ignore");
+    }
+
+    /**
+     * Karate grading exam & belt promotion — requires karateEnroll context.
+     * Covers: POST /batches/{id}/exams, POST /exams/{id}/results, belt promotion idempotency
+     */
+    @Karate.Test
+    Karate karateGrading() {
+        return Karate.run("classpath:karate/features/sports/karate/karate-grading.feature")
+                     .tags("@karate-grading", "~@ignore");
+    }
+
+    /**
+     * Karate full lifecycle E2E — orchestrates all karate sub-flows in sequence.
+     * Steps: setup belts → create program → create batch → enroll students →
+     *        mark attendance → create exam → record results → verify belt promotions
+     */
+    @Karate.Test
+    Karate karateFlow() {
+        return Karate.run("classpath:karate/features/sports/karate")
+                     .tags("@e2e", "@karate", "~@ignore");
     }
 }
