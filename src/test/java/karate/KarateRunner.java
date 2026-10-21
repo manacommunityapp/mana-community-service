@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Tag;
  * │  sportsScheduleFlow()       │  Sports schedule stats + open/mine endpoints             │
  * │  sportsRankingsFlow()       │  Player rankings GET + upsert                            │
  * │  sportsEventsFlow()         │  Sports events listing (all, open, mine, admin views)    │
+ * │  sportsRegistrationFlow()   │  Registration: singles, doubles, mixed, validations      │
  * │  sportsTournamentFlow()     │  Tournament CRUD + content + scheduler                   │
  * │  sportsAuctionFlow()        │  Auction config + teams + live bidding flow              │
  * │  sportsE2eFlow()            │  Full sports E2E (cricket tournament lifecycle)          │
@@ -55,6 +56,7 @@ import org.junit.jupiter.api.Tag;
  *   Sports schedule          : ./mvnw test "-Dtest=KarateRunner#sportsScheduleFlow"
  *   Sports rankings          : ./mvnw test "-Dtest=KarateRunner#sportsRankingsFlow"
  *   Sports events list       : ./mvnw test "-Dtest=KarateRunner#sportsEventsFlow"
+ *   Sports registrations     : ./mvnw test "-Dtest=KarateRunner#sportsRegistrationFlow"
  *   Sports tournament        : ./mvnw test "-Dtest=KarateRunner#sportsTournamentFlow"
  *   Sports auction           : ./mvnw test "-Dtest=KarateRunner#sportsAuctionFlow"
  *   Sports DB verify         : ./mvnw test "-Dtest=KarateRunner#sportsDbVerify"
@@ -243,6 +245,18 @@ class KarateRunner {
     Karate sportsEventsFlow() {
         return Karate.run("classpath:karate/features/sports/events/list-sports-events.feature")
                      .tags("~@ignore");
+    }
+
+    /**
+     * Sports registration flow — standalone, requires sports test users.
+     * Covers: SINGLES auto-confirm, DOUBLES partner invite+accept+admin-confirm,
+     *         MIXED_DOUBLES partner rejection, admin-approval-required (PENDING→CONFIRMED),
+     *         register after REGISTRATION_CLOSED, capacity limit, duplicate block.
+     */
+    @Karate.Test
+    Karate sportsRegistrationFlow() {
+        return Karate.run("classpath:karate/features/sports/registrations/sports-registrations.feature")
+                     .tags("@sports-registration", "~@ignore");
     }
 
     /**
