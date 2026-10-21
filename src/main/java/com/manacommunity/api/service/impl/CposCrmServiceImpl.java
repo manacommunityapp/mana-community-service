@@ -33,15 +33,49 @@ public class CposCrmServiceImpl {
     private final CommunityRepository communityRepo;
     private final CposCrmInboundConfigRepository inboundConfigRepo;
 
+    // ── RBAC helpers ──────────────────────────────────────────────────────
+
+    private boolean isCrmAdmin(AppUser user) {
+        return user.hasRole("ADMIN") || user.hasRole("MANAGER");
+    }
+
+    public String getCrmRole(AppUser user) {
+        return isCrmAdmin(user) ? "ADMIN" : "AGENT";
+    }
+
     // ── Leads ─────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<CposCrmLeadDto> getLeads(AppUser user, String stage) {
         Long communityId = user.getCommunity().getId();
-        List<CposCrmLead> leads = stage != null
-                ? leadRepo.findByCommunityAndStage(communityId, stage, PageRequest.of(0, 200)).getContent()
-                : leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(communityId);
+        List<CposCrmLead> leads;
+        if (isCrmAdmin(user)) {
+            leads = stage != null
+                    ? leadRepo.findByCommunityAndStage(communityId, stage, PageRequest.of(0, 200)).getContent()
+                    : leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(communityId);
+        } else {
+            String agentName = user.getFullName() != null ? user.getFullName() : user.getEmail();
+            leads = stage != null
+                    ? leadRepo.findByCommunityAndAssignedToAndStage(communityId, agentName, stage, PageRequest.of(0, 200)).getContent()
+                    : leadRepo.findByCommunityIdAndAssignedToAndDeletedFalseOrderByCreatedAtDesc(communityId, agentName);
+        }
         return leads.stream().map(this::toLeadDto).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getAgents(AppUser user) {
+        return leadRepo.findDistinctAgents(user.getCommunity().getId());
+    }
+
+    @Transactional
+    public CposCrmLeadDto assignLead(AppUser admin, Long leadId, String agentName) {
+        if (!isCrmAdmin(admin)) {
+            throw new com.manacommunity.api.exception.ResourceNotFoundException("Access denied");
+        }
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, admin.getCommunity().getId())
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Lead not found: " + leadId));
+        lead.setAssignedTo(agentName);
+        return toLeadDto(leadRepo.save(lead));
     }
 
     @Transactional(readOnly = true)

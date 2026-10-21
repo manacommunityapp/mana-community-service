@@ -45,4 +45,22 @@ public interface CposCrmLeadRepository extends JpaRepository<CposCrmLead, Long> 
     List<Object[]> avgDaysInStage(@Param("communityId") Long communityId);
 
     long countByCommunityIdAndDeletedFalse(Long communityId);
+
+    List<CposCrmLead> findByCommunityIdAndAssignedToAndDeletedFalseOrderByCreatedAtDesc(
+            Long communityId, String assignedTo);
+
+    @Query("SELECT l FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false AND l.assignedTo = :assignedTo " +
+           "AND (:stage IS NULL OR l.stage = :stage) " +
+           "ORDER BY l.createdAt DESC")
+    Page<CposCrmLead> findByCommunityAndAssignedToAndStage(
+            @Param("communityId") Long communityId,
+            @Param("assignedTo") String assignedTo,
+            @Param("stage") String stage,
+            Pageable pageable);
+
+    @Query("SELECT DISTINCT l.assignedTo FROM CposCrmLead l " +
+           "WHERE l.community.id = :communityId AND l.deleted = false " +
+           "AND l.assignedTo IS NOT NULL ORDER BY l.assignedTo")
+    List<String> findDistinctAgents(@Param("communityId") Long communityId);
 }

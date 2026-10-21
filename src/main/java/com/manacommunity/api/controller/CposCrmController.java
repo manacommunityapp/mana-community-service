@@ -181,6 +181,38 @@ public class CposCrmController {
         return ResponseEntity.ok(crmService.updateInboundConfig(user, body.getOrDefault("agents", List.of())));
     }
 
+    // ── RBAC / Team ────────────────────────────────────────────────────────
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> getCrmMe(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String agentName = user.getFullName() != null ? user.getFullName() : user.getEmail();
+        return ResponseEntity.ok(Map.of(
+                "role", crmService.getCrmRole(user),
+                "agentName", agentName
+        ));
+    }
+
+    @GetMapping("/agents")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<String>> getAgents(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getAgents(user));
+    }
+
+    @PutMapping("/leads/{id}/assign")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> assignLead(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.assignLead(user, id, body.get("agentName")));
+    }
+
     // ── Call Logging ───────────────────────────────────────────────────────
 
     @PostMapping("/leads/{id}/calls")
