@@ -776,6 +776,10 @@ public class SportsController {
                 .cricHeroesId(r.getCricheroesId())
                 .verifiedAt(r.getVerifiedAt())
                 .seed(r.getSeed())
+                .registrationSource(r.getRegistrationSource() != null ? r.getRegistrationSource().name() : null)
+                .phone(r.getPhone())
+                .externalResponseId(r.getExternalResponseId())
+                .isExternalGuest(r.getIsExternalGuest())
                 .registeredAt(r.getRegisteredAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();
