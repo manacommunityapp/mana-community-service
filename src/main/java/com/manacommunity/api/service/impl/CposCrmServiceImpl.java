@@ -6,12 +6,15 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.storage.FileStorageService;
+import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -32,6 +35,8 @@ public class CposCrmServiceImpl {
     private final CposBrokerCommissionRepository commissionRepo;
     private final CommunityRepository communityRepo;
     private final CposCrmInboundConfigRepository inboundConfigRepo;
+    private final CposCrmDocumentRepository documentRepo;
+    private final FileStorageService fileStorageService;
 
     // ── RBAC helpers ──────────────────────────────────────────────────────
 
@@ -76,6 +81,58 @@ public class CposCrmServiceImpl {
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Lead not found: " + leadId));
         lead.setAssignedTo(agentName);
         return toLeadDto(leadRepo.save(lead));
+    }
+
+    // ── Document Vault ────────────────────────────────────────────────────
+
+    @Transactional
+    public CposCrmDocumentDto uploadDocument(AppUser user, Long leadId, MultipartFile file) {
+        Long communityId = user.getCommunity().getId();
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+        String customPath = String.format("crm/%d/%d", communityId, leadId);
+        StoredFileDto stored = fileStorageService.store(file, user.getId(), customPath);
+        String uploader = user.getFullName() != null ? user.getFullName() : user.getEmail();
+        CposCrmDocument doc = CposCrmDocument.builder()
+                .lead(lead)
+                .communityId(communityId)
+                .fileName(stored.originalName())
+                .fileUrl(stored.url())
+                .fileSize(stored.sizeBytes())
+                .mimeType(stored.contentType())
+                .uploadedBy(uploader)
+                .build();
+        return toDocDto(documentRepo.save(doc));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CposCrmDocumentDto> getDocuments(AppUser user, Long leadId) {
+        return documentRepo
+                .findByLeadIdAndCommunityIdOrderByCreatedAtDesc(leadId, user.getCommunity().getId())
+                .stream().map(this::toDocDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteDocument(AppUser user, Long leadId, Long docId) {
+        CposCrmDocument doc = documentRepo.findByIdAndCommunityId(docId, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
+        if (!doc.getLead().getId().equals(leadId)) {
+            throw new ResourceNotFoundException("Document not found: " + docId);
+        }
+        documentRepo.delete(doc);
+    }
+
+    private CposCrmDocumentDto toDocDto(CposCrmDocument d) {
+        return CposCrmDocumentDto.builder()
+                .id(d.getId())
+                .leadId(d.getLead().getId())
+                .fileName(d.getFileName())
+                .fileUrl(d.getFileUrl())
+                .fileSize(d.getFileSize())
+                .mimeType(d.getMimeType())
+                .uploadedBy(d.getUploadedBy())
+                .createdAt(d.getCreatedAt())
+                .build();
     }
 
     @Transactional(readOnly = true)

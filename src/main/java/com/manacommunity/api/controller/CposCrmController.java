@@ -5,10 +5,12 @@ import com.manacommunity.api.service.impl.CposCrmServiceImpl;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -211,6 +213,38 @@ public class CposCrmController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(crmService.assignLead(user, id, body.get("agentName")));
+    }
+
+    // ── Document Vault ─────────────────────────────────────────────────────
+
+    @PostMapping(value = "/leads/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmDocumentDto> uploadDocument(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(crmService.uploadDocument(user, id, file));
+    }
+
+    @GetMapping("/leads/{id}/documents")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmDocumentDto>> getDocuments(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getDocuments(user, id));
+    }
+
+    @DeleteMapping("/leads/{id}/documents/{docId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable Long id,
+            @PathVariable Long docId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        crmService.deleteDocument(user, id, docId);
+        return ResponseEntity.noContent().build();
     }
 
     // ── Call Logging ───────────────────────────────────────────────────────
