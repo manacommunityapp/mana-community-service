@@ -63,4 +63,11 @@ public interface CposCrmLeadRepository extends JpaRepository<CposCrmLead, Long> 
            "WHERE l.community.id = :communityId AND l.deleted = false " +
            "AND l.assignedTo IS NOT NULL ORDER BY l.assignedTo")
     List<String> findDistinctAgents(@Param("communityId") Long communityId);
+
+    @Query("SELECT l FROM CposCrmLead l WHERE l.deleted = false " +
+           "AND l.followUpAt IS NOT NULL " +
+           "AND l.followUpAt BETWEEN :from AND :to")
+    List<CposCrmLead> findDueForNotification(
+            @Param("from") java.time.LocalDateTime from,
+            @Param("to")   java.time.LocalDateTime to);
 }

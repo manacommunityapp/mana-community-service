@@ -154,4 +154,30 @@ public interface ExpoPushService {
                               double amount,
                               String dueDate,
                               Long invoiceId);
+
+    // ── CRM ───────────────────────────────────────────────────────────────
+
+    /** Notify an agent that a lead was assigned to them. */
+    void notifyCrmLeadAssigned(Long agentUserId,
+                               String leadName,
+                               String assignerName,
+                               Long leadId);
+
+    /** Notify an agent that a new inbound portal lead was auto-assigned. */
+    void notifyCrmNewInboundLead(Long agentUserId,
+                                 String leadName,
+                                 String portal,
+                                 Long leadId);
+
+    /** Notify the assigned agent when their lead advances to a new stage. */
+    void notifyCrmStageChanged(Long agentUserId,
+                               String leadName,
+                               String newStage,
+                               Long leadId);
+
+    /** Remind the assigned agent that a follow-up is now due. */
+    void notifyCrmFollowUpDue(Long agentUserId,
+                              String leadName,
+                              String followUpNote,
+                              Long leadId);
 }

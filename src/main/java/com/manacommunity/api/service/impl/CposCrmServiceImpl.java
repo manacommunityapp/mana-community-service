@@ -8,9 +8,11 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.service.ExpoPushService;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +43,8 @@ public class CposCrmServiceImpl {
     private final FileStorageService fileStorageService;
     private final CposCrmEmailTemplateRepository emailTemplateRepo;
     private final EmailService emailService;
+    private final AppUserRepository appUserRepo;
+    private final ExpoPushService expoPushService;
 
     // ── RBAC helpers ──────────────────────────────────────────────────────
 
@@ -84,7 +88,18 @@ public class CposCrmServiceImpl {
         CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, admin.getCommunity().getId())
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Lead not found: " + leadId));
         lead.setAssignedTo(agentName);
-        return toLeadDto(leadRepo.save(lead));
+        CposCrmLeadDto result = toLeadDto(leadRepo.save(lead));
+        String adminName = admin.getFullName() != null ? admin.getFullName() : admin.getEmail();
+        expoPushService.notifyCrmLeadAssigned(
+                findAgentUserId(admin.getCommunity().getId(), agentName).orElse(null),
+                lead.getLeadName(), adminName, lead.getId());
+        return result;
+    }
+
+    private java.util.Optional<Long> findAgentUserId(Long communityId, String agentName) {
+        if (agentName == null || agentName.isBlank()) return java.util.Optional.empty();
+        return appUserRepo.findFirstByCommunityIdAndFullNameIgnoreCase(communityId, agentName)
+                .map(AppUser::getId);
     }
 
     // ── Document Vault ────────────────────────────────────────────────────
@@ -322,6 +337,12 @@ public class CposCrmServiceImpl {
         }
         lead.setStage(stage.toUpperCase());
         lead.setStageChangedAt(LocalDateTime.now());
+
+        if (newIdx > prevIdx && lead.getAssignedTo() != null) {
+            expoPushService.notifyCrmStageChanged(
+                    findAgentUserId(user.getCommunity().getId(), lead.getAssignedTo()).orElse(null),
+                    lead.getLeadName(), stage.toUpperCase(), lead.getId());
+        }
 
         // auto-approve broker commission when stage reaches CLOSED
         if ("CLOSED".equals(stage.toUpperCase())) {
@@ -676,7 +697,8 @@ public class CposCrmServiceImpl {
             inboundConfigRepo.save(cfg);
         }
 
-        double budgetLakhs = req.getBudgetLakhs() != null ? req.getBudgetLakhs() : 0;
+        double budgetLakhsRaw = req.getBudgetLakhs() != null ? req.getBudgetLakhs() : 0;
+        int budgetLakhs = (int) budgetLakhsRaw;
         CposCrmLead lead = CposCrmLead.builder()
                 .community(community)
                 .leadName(req.getName() != null ? req.getName() : "Unknown")
@@ -686,7 +708,7 @@ public class CposCrmServiceImpl {
                 .stage("NEW")
                 .leadType(req.getPropertyType() != null ? req.getPropertyType() : "Residential")
                 .budgetLakhs(budgetLakhs)
-                .budgetDisplay(budgetLakhs > 0 ? String.format("₹%.0f L", budgetLakhs) : null)
+                .budgetDisplay(budgetLakhsRaw > 0 ? String.format("₹%.0f L", budgetLakhsRaw) : null)
                 .assignedTo(assignedTo)
                 .daysInStage(0)
                 .daysTotal(0)
@@ -703,6 +725,12 @@ public class CposCrmServiceImpl {
                 .createdBy("System")
                 .build();
         activityRepo.save(activity);
+
+        if (assignedTo != null) {
+            expoPushService.notifyCrmNewInboundLead(
+                    findAgentUserId(community.getId(), assignedTo).orElse(null),
+                    saved.getLeadName(), portal, saved.getId());
+        }
 
         return toLeadDto(saved);
     }

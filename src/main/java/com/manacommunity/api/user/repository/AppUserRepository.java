@@ -30,6 +30,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
+    java.util.Optional<AppUser> findFirstByCommunityIdAndFullNameIgnoreCase(Long communityId, String fullName);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
 
