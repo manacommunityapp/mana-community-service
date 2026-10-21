@@ -215,6 +215,55 @@ public class CposCrmController {
         return ResponseEntity.ok(crmService.assignLead(user, id, body.get("agentName")));
     }
 
+    // ── Email Templates ────────────────────────────────────────────────────
+
+    @GetMapping("/email-templates")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmEmailTemplateDto>> getEmailTemplates(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getEmailTemplates(user));
+    }
+
+    @PostMapping("/email-templates")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmEmailTemplateDto> createEmailTemplate(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.createEmailTemplate(user, body));
+    }
+
+    @PutMapping("/email-templates/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmEmailTemplateDto> updateEmailTemplate(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.updateEmailTemplate(user, id, body));
+    }
+
+    @DeleteMapping("/email-templates/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteEmailTemplate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        crmService.deleteEmailTemplate(user, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/leads/{id}/send-email")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmActivityDto> sendLeadEmail(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.sendLeadEmail(user, id, body));
+    }
+
     // ── Document Vault ─────────────────────────────────────────────────────
 
     @PostMapping(value = "/leads/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -1,6 +1,8 @@
 package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.dto.*;
+import com.manacommunity.api.email.EmailMessage;
+import com.manacommunity.api.email.EmailService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
@@ -37,6 +39,8 @@ public class CposCrmServiceImpl {
     private final CposCrmInboundConfigRepository inboundConfigRepo;
     private final CposCrmDocumentRepository documentRepo;
     private final FileStorageService fileStorageService;
+    private final CposCrmEmailTemplateRepository emailTemplateRepo;
+    private final EmailService emailService;
 
     // ── RBAC helpers ──────────────────────────────────────────────────────
 
@@ -132,6 +136,103 @@ public class CposCrmServiceImpl {
                 .mimeType(d.getMimeType())
                 .uploadedBy(d.getUploadedBy())
                 .createdAt(d.getCreatedAt())
+                .build();
+    }
+
+    // ── Email Templates ───────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<CposCrmEmailTemplateDto> getEmailTemplates(AppUser user) {
+        return emailTemplateRepo.findByCommunityIdOrderByCreatedAtDesc(user.getCommunity().getId())
+                .stream().map(this::toEmailTemplateDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CposCrmEmailTemplateDto createEmailTemplate(AppUser user, Map<String, String> req) {
+        String author = user.getFullName() != null ? user.getFullName() : user.getEmail();
+        CposCrmEmailTemplate tpl = CposCrmEmailTemplate.builder()
+                .communityId(user.getCommunity().getId())
+                .name(req.getOrDefault("name", "Untitled"))
+                .subject(req.getOrDefault("subject", ""))
+                .body(req.getOrDefault("body", ""))
+                .createdBy(author)
+                .build();
+        return toEmailTemplateDto(emailTemplateRepo.save(tpl));
+    }
+
+    @Transactional
+    public CposCrmEmailTemplateDto updateEmailTemplate(AppUser user, Long templateId, Map<String, String> req) {
+        CposCrmEmailTemplate tpl = emailTemplateRepo.findByIdAndCommunityId(templateId, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+        if (req.containsKey("name")) tpl.setName(req.get("name"));
+        if (req.containsKey("subject")) tpl.setSubject(req.get("subject"));
+        if (req.containsKey("body")) tpl.setBody(req.get("body"));
+        return toEmailTemplateDto(emailTemplateRepo.save(tpl));
+    }
+
+    @Transactional
+    public void deleteEmailTemplate(AppUser user, Long templateId) {
+        CposCrmEmailTemplate tpl = emailTemplateRepo.findByIdAndCommunityId(templateId, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+        emailTemplateRepo.delete(tpl);
+    }
+
+    @Transactional
+    public CposCrmActivityDto sendLeadEmail(AppUser user, Long leadId, Map<String, String> req) {
+        Long communityId = user.getCommunity().getId();
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+
+        String to = req.get("to");
+        if (to == null || to.isBlank()) {
+            to = lead.getEmail();
+        }
+        if (to == null || to.isBlank()) {
+            throw new IllegalArgumentException("Lead has no email address");
+        }
+        String agentName = user.getFullName() != null ? user.getFullName() : user.getEmail();
+        String subject = interpolate(req.getOrDefault("subject", "(no subject)"), lead, agentName);
+        String htmlBody = interpolate(req.getOrDefault("body", ""), lead, agentName);
+
+        emailService.send(EmailMessage.builder()
+                .to(to)
+                .toName(lead.getLeadName())
+                .subject(subject)
+                .htmlBody(wrapHtml(htmlBody, subject))
+                .build());
+
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(lead)
+                .activityType("EMAIL")
+                .note("Email sent: " + subject)
+                .createdBy(agentName)
+                .build();
+        return toActivityDto(activityRepo.save(activity));
+    }
+
+    private String interpolate(String text, CposCrmLead lead, String agentName) {
+        return text
+                .replace("{{leadName}}", lead.getLeadName() != null ? lead.getLeadName() : "")
+                .replace("{{agentName}}", agentName != null ? agentName : "")
+                .replace("{{phone}}", lead.getPhone() != null ? lead.getPhone() : "")
+                .replace("{{email}}", lead.getEmail() != null ? lead.getEmail() : "");
+    }
+
+    private String wrapHtml(String body, String subject) {
+        return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>" + subject +
+               "</title></head><body style=\"font-family:Arial,sans-serif;color:#222;\">" +
+               body + "</body></html>";
+    }
+
+    private CposCrmEmailTemplateDto toEmailTemplateDto(CposCrmEmailTemplate t) {
+        return CposCrmEmailTemplateDto.builder()
+                .id(t.getId())
+                .name(t.getName())
+                .subject(t.getSubject())
+                .body(t.getBody())
+                .createdBy(t.getCreatedBy())
+                .createdAt(t.getCreatedAt())
+                .updatedAt(t.getUpdatedAt())
                 .build();
     }
 
