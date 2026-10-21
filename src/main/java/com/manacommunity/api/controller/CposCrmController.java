@@ -215,6 +215,22 @@ public class CposCrmController {
         return ResponseEntity.ok(crmService.assignLead(user, id, body.get("agentName")));
     }
 
+    // ── Export ────────────────────────────────────────────────────────────
+
+    @GetMapping(value = "/export/leads.csv", produces = "text/csv")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportLeadsCsv(
+            @RequestParam(required = false) String stage,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String csv = crmService.exportLeadsCsv(user, stage);
+        byte[] bytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"crm-leads.csv\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(bytes);
+    }
+
     // ── Email Templates ────────────────────────────────────────────────────
 
     @GetMapping("/email-templates")

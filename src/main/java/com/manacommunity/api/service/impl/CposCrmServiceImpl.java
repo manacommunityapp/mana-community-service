@@ -126,6 +126,50 @@ public class CposCrmServiceImpl {
         documentRepo.delete(doc);
     }
 
+    // ── CSV Export ────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public String exportLeadsCsv(AppUser user, String stage) {
+        Long communityId = user.getCommunity().getId();
+        List<CposCrmLead> leads;
+        if (isCrmAdmin(user)) {
+            leads = stage != null
+                    ? leadRepo.findByCommunityAndStage(communityId, stage, PageRequest.of(0, 5000)).getContent()
+                    : leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(communityId);
+        } else {
+            String agentName = user.getFullName() != null ? user.getFullName() : user.getEmail();
+            leads = stage != null
+                    ? leadRepo.findByCommunityAndAssignedToAndStage(communityId, agentName, stage, PageRequest.of(0, 5000)).getContent()
+                    : leadRepo.findByCommunityIdAndAssignedToAndDeletedFalseOrderByCreatedAtDesc(communityId, agentName);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID,Lead Name,Email,Phone,Source,Stage,Lead Type,Budget (L),Assigned To,AI Score,Days in Pipeline,Follow-up At,Created At\n");
+        for (CposCrmLead l : leads) {
+            sb.append(csvField(String.valueOf(l.getId()))).append(',');
+            sb.append(csvField(l.getLeadName())).append(',');
+            sb.append(csvField(l.getEmail())).append(',');
+            sb.append(csvField(l.getPhone())).append(',');
+            sb.append(csvField(l.getSource())).append(',');
+            sb.append(csvField(l.getStage())).append(',');
+            sb.append(csvField(l.getLeadType())).append(',');
+            sb.append(l.getBudgetLakhs()).append(',');
+            sb.append(csvField(l.getAssignedTo())).append(',');
+            sb.append(computeScore(l)).append(',');
+            sb.append(l.getDaysTotal()).append(',');
+            sb.append(csvField(l.getFollowUpAt() != null ? l.getFollowUpAt().toString() : "")).append(',');
+            sb.append(csvField(l.getCreatedAt() != null ? l.getCreatedAt().toString() : "")).append('\n');
+        }
+        return sb.toString();
+    }
+
+    private static String csvField(String value) {
+        if (value == null || value.isEmpty()) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
     private CposCrmDocumentDto toDocDto(CposCrmDocument d) {
         return CposCrmDocumentDto.builder()
                 .id(d.getId())
