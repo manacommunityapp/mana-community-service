@@ -12,4 +12,5 @@ public interface EmergencyIncidentRepository extends JpaRepository<EmergencyInci
     List<EmergencyIncident> findByUserIdOrderByTriggeredAtDesc(Long userId);
     Optional<EmergencyIncident> findByIncidentUuid(String incidentUuid);
     Optional<EmergencyIncident> findByIdAndUserId(Long id, Long userId);
+    List<EmergencyIncident> findAllByStatusInOrderByTriggeredAtDesc(List<IncidentStatus> statuses);
 }

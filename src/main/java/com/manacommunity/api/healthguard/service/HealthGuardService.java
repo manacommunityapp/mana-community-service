@@ -4,11 +4,15 @@ import com.manacommunity.api.healthguard.dto.*;
 import com.manacommunity.api.healthguard.entity.*;
 import com.manacommunity.api.healthguard.enums.HealthGuardEnums.*;
 import com.manacommunity.api.healthguard.repository.*;
+import com.manacommunity.api.service.ExpoPushService;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,6 +24,8 @@ public class HealthGuardService {
     private final EmergencyNotificationRepository notificationRepository;
     private final CommunityResponderRepository responderRepository;
     private final AmbulanceBookingRepository ambulanceRepository;
+    private final AppUserRepository appUserRepository;
+    private final ExpoPushService expoPushService;
 
     public HealthGuardService(
             HealthProfileRepository profileRepository,
@@ -27,13 +33,17 @@ public class HealthGuardService {
             EmergencyIncidentRepository incidentRepository,
             EmergencyNotificationRepository notificationRepository,
             CommunityResponderRepository responderRepository,
-            AmbulanceBookingRepository ambulanceRepository) {
+            AmbulanceBookingRepository ambulanceRepository,
+            AppUserRepository appUserRepository,
+            ExpoPushService expoPushService) {
         this.profileRepository = profileRepository;
         this.contactRepository = contactRepository;
         this.incidentRepository = incidentRepository;
         this.notificationRepository = notificationRepository;
         this.responderRepository = responderRepository;
         this.ambulanceRepository = ambulanceRepository;
+        this.appUserRepository = appUserRepository;
+        this.expoPushService = expoPushService;
     }
 
     // ── Health Profile ──
@@ -159,6 +169,27 @@ public class HealthGuardService {
         incident.setAlertsSent(alertsSent);
         incident = incidentRepository.save(incident);
 
+        // Push notifications to contacts who are also app users
+        try {
+            String triggererName = appUserRepository.findById(userId)
+                    .map(u -> u.getFirstName() != null ? u.getFirstName() : "A community member")
+                    .orElse("A community member");
+            List<Long> contactUserIds = contacts.stream()
+                    .map(c -> appUserRepository.findByPhone(c.getPhone()))
+                    .filter(Optional::isPresent)
+                    .map(opt -> opt.get().getId())
+                    .collect(Collectors.toList());
+            if (!contactUserIds.isEmpty()) {
+                String pushBody = incident.getDescription() != null
+                        ? incident.getDescription() : "Needs immediate assistance";
+                expoPushService.sendToUsers(contactUserIds,
+                        "🆘 SOS from " + triggererName,
+                        pushBody,
+                        Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
+                        "emergency");
+            }
+        } catch (Exception ignored) { /* push failure must not abort SOS */ }
+
         EmergencyIncidentDto dto = toIncidentDto(incident);
         dto.setNotifications(
                 notificationRepository.findByIncidentIdOrderByCreatedAtAsc(incident.getId())
@@ -221,6 +252,29 @@ public class HealthGuardService {
         incident.setSeverity(next);
         incident.setStatus(IncidentStatus.ESCALATED);
         return toIncidentDto(incidentRepository.save(incident));
+    }
+
+    // ── Admin / Responder view ──
+
+    public List<EmergencyIncidentDto> getActiveIncidentsAdmin() {
+        return incidentRepository.findAllByStatusInOrderByTriggeredAtDesc(
+                List.of(IncidentStatus.ACTIVE, IncidentStatus.ACKNOWLEDGED, IncidentStatus.ESCALATED)
+        ).stream().map(this::toIncidentDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public AmbulanceBookingDto updateAmbulanceStatus(Long bookingId, AmbulanceBookingStatus status) {
+        AmbulanceBooking booking = ambulanceRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        booking.setStatus(status);
+        switch (status) {
+            case CONFIRMED -> booking.setConfirmedAt(LocalDateTime.now());
+            case DISPATCHED -> booking.setDispatchedAt(LocalDateTime.now());
+            case ARRIVED -> booking.setArrivedAt(LocalDateTime.now());
+            case COMPLETED -> { /* completedAt not tracked in entity yet, skip */ }
+            default -> {}
+        }
+        return toAmbulanceDto(ambulanceRepository.save(booking));
     }
 
     // ── Community Responders ──

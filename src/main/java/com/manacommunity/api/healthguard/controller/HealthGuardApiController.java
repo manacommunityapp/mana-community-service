@@ -1,10 +1,12 @@
 package com.manacommunity.api.healthguard.controller;
 
 import com.manacommunity.api.healthguard.dto.*;
+import com.manacommunity.api.healthguard.enums.HealthGuardEnums.AmbulanceBookingStatus;
 import com.manacommunity.api.healthguard.enums.HealthGuardEnums.ResponderAvailability;
 import com.manacommunity.api.healthguard.service.HealthGuardService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -175,5 +177,22 @@ public class HealthGuardApiController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         return ResponseEntity.ok(healthGuardService.cancelAmbulanceBooking(principal.getId(), id));
+    }
+
+    // ── Admin / Responder endpoints ──
+
+    @GetMapping("/admin/incidents")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'MODERATOR')")
+    public ResponseEntity<List<EmergencyIncidentDto>> getActiveIncidentsAdmin() {
+        return ResponseEntity.ok(healthGuardService.getActiveIncidentsAdmin());
+    }
+
+    @PutMapping("/admin/ambulance/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<AmbulanceBookingDto> updateAmbulanceStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        AmbulanceBookingStatus status = AmbulanceBookingStatus.valueOf(body.get("status"));
+        return ResponseEntity.ok(healthGuardService.updateAmbulanceStatus(id, status));
     }
 }
