@@ -27,6 +27,10 @@ public interface CposCrmLeadRepository extends JpaRepository<CposCrmLead, Long> 
            "AND l.deleted = false AND l.id = :id")
     Optional<CposCrmLead> findByIdAndCommunity(@Param("id") Long id, @Param("communityId") Long communityId);
 
+    @Query("SELECT l FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false AND l.id = :id")
+    Optional<CposCrmLead> findByCommunityIdAndId(@Param("communityId") Long communityId, @Param("id") Long id);
+
     @Query("SELECT l.stage, COUNT(l) FROM CposCrmLead l WHERE l.community.id = :communityId " +
            "AND l.deleted = false GROUP BY l.stage")
     List<Object[]> countByStage(@Param("communityId") Long communityId);

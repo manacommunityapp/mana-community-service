@@ -1157,7 +1157,8 @@ public class CposCrmServiceImpl {
                         expoPushService.sendToUser(admin.getId(),
                                 "Approval Required",
                                 lead.getLeadName() + " needs sign-off before NEGOTIATION",
-                                "CRM_APPROVAL_REQUEST");
+                                Map.of("type", "CRM_APPROVAL_REQUEST", "leadId", lead.getId()),
+                                "default");
                     } catch (Exception ignored) {}
                 });
         return toLeadDto(lead);
