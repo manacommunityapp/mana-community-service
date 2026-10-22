@@ -221,7 +221,7 @@ class EventControllerTest extends BaseWebMvcTest {
             when(loggedInUserService.resolve(any())).thenReturn(adminUser);
             doThrow(new ManaCommunityException("Cannot delete event with 3 registration(s)",
                     HttpStatus.CONFLICT, "EVENT_HAS_REGISTRATIONS"))
-                    .when(eventService).delete(eq(100L), any());
+                    .when(eventService).delete(eq(100L), any(AppUser.class));
 
             mockMvc.perform(delete("/api/events/100"))
                     .andExpect(status().isConflict());
@@ -233,7 +233,7 @@ class EventControllerTest extends BaseWebMvcTest {
         void delete_returns403_unauthorized() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
             doThrow(new UnauthorizedActionException("Only the event creator can delete this event"))
-                    .when(eventService).delete(eq(100L), any());
+                    .when(eventService).delete(eq(100L), any(AppUser.class));
 
             mockMvc.perform(delete("/api/events/100"))
                     .andExpect(status().isForbidden());
