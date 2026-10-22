@@ -6,6 +6,7 @@ import com.manacommunity.api.healthguard.enums.HealthGuardEnums.*;
 import com.manacommunity.api.healthguard.repository.*;
 import com.manacommunity.api.service.ExpoPushService;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class HealthGuardService {
 
     private final HealthProfileRepository profileRepository;
@@ -24,6 +26,8 @@ public class HealthGuardService {
     private final EmergencyNotificationRepository notificationRepository;
     private final CommunityResponderRepository responderRepository;
     private final AmbulanceBookingRepository ambulanceRepository;
+    private final WearableDeviceRepository wearableDeviceRepository;
+    private final WearableHealthEventRepository wearableEventRepository;
     private final AppUserRepository appUserRepository;
     private final ExpoPushService expoPushService;
 
@@ -34,6 +38,8 @@ public class HealthGuardService {
             EmergencyNotificationRepository notificationRepository,
             CommunityResponderRepository responderRepository,
             AmbulanceBookingRepository ambulanceRepository,
+            WearableDeviceRepository wearableDeviceRepository,
+            WearableHealthEventRepository wearableEventRepository,
             AppUserRepository appUserRepository,
             ExpoPushService expoPushService) {
         this.profileRepository = profileRepository;
@@ -42,6 +48,8 @@ public class HealthGuardService {
         this.notificationRepository = notificationRepository;
         this.responderRepository = responderRepository;
         this.ambulanceRepository = ambulanceRepository;
+        this.wearableDeviceRepository = wearableDeviceRepository;
+        this.wearableEventRepository = wearableEventRepository;
         this.appUserRepository = appUserRepository;
         this.expoPushService = expoPushService;
     }
@@ -468,5 +476,150 @@ public class HealthGuardService {
             case LEVEL_2_ATTENTION -> IncidentSeverity.LEVEL_3_POSSIBLE_EMERGENCY;
             case LEVEL_3_POSSIBLE_EMERGENCY, LEVEL_4_CONFIRMED -> IncidentSeverity.LEVEL_4_CONFIRMED;
         };
+    }
+
+    // ── Wearable Devices ──
+
+    public List<WearableDeviceDto> getWearableDevices(Long userId) {
+        return wearableDeviceRepository.findByUserIdAndIsActiveTrueOrderByRegisteredAtDesc(userId)
+                .stream().map(this::toWearableDeviceDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public WearableDeviceDto registerWearableDevice(Long userId, WearableDeviceDto dto) {
+        WearableDevice device = wearableDeviceRepository
+                .findByUserIdAndDeviceIdentifier(userId, dto.getDeviceIdentifier())
+                .orElse(WearableDevice.builder()
+                        .userId(userId)
+                        .deviceIdentifier(dto.getDeviceIdentifier())
+                        .build());
+        device.setDeviceType(dto.getDeviceType() != null ? dto.getDeviceType() : WearableType.GENERIC_BLUETOOTH);
+        device.setDeviceName(dto.getDeviceName());
+        device.setFirmwareVersion(dto.getFirmwareVersion());
+        device.setIsActive(true);
+        return toWearableDeviceDto(wearableDeviceRepository.save(device));
+    }
+
+    @Transactional
+    public void removeWearableDevice(Long userId, Long deviceId) {
+        wearableDeviceRepository.findByIdAndUserId(deviceId, userId).ifPresent(d -> {
+            d.setIsActive(false);
+            wearableDeviceRepository.save(d);
+        });
+    }
+
+    // ── Wearable Health Events ──
+
+    public List<WearableHealthEventDto> getRecentWearableEvents(Long userId) {
+        LocalDateTime since = LocalDateTime.now().minusHours(24);
+        return wearableEventRepository.findByUserIdAndEventAtAfterOrderByEventAtDesc(userId, since)
+                .stream().map(this::toWearableEventDto).collect(Collectors.toList());
+    }
+
+    public List<WearableHealthEventDto> getRecentWearableEventsAdmin() {
+        LocalDateTime since = LocalDateTime.now().minusHours(24);
+        return wearableEventRepository.findAllByEventAtAfterOrderByEventAtDesc(since)
+                .stream().map(this::toWearableEventDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public WearableHealthEventDto submitWearableEvent(Long userId, WearableHealthEventDto dto) {
+        // Update device last-sync timestamp
+        if (dto.getDeviceId() != null) {
+            wearableDeviceRepository.findByIdAndUserId(dto.getDeviceId(), userId).ifPresent(d -> {
+                d.setLastSyncAt(LocalDateTime.now());
+                wearableDeviceRepository.save(d);
+            });
+        }
+
+        WearableHealthEvent event = WearableHealthEvent.builder()
+                .userId(userId)
+                .deviceId(dto.getDeviceId())
+                .eventType(dto.getEventType())
+                .heartRateBpm(dto.getHeartRateBpm())
+                .spo2Percent(dto.getSpo2Percent())
+                .latitude(dto.getLatitude())
+                .longitude(dto.getLongitude())
+                .rawData(dto.getRawData())
+                .sosTriggered(false)
+                .eventAt(dto.getEventAt() != null ? dto.getEventAt() : LocalDateTime.now())
+                .build();
+
+        boolean requiresSos = event.getEventType() == WearableEventType.FALL_DETECTED
+                || event.getEventType() == WearableEventType.LOW_SPO2
+                || (event.getEventType() == WearableEventType.HIGH_HEART_RATE
+                        && dto.getHeartRateBpm() != null && dto.getHeartRateBpm() >= 180)
+                || (event.getEventType() == WearableEventType.LOW_HEART_RATE
+                        && dto.getHeartRateBpm() != null && dto.getHeartRateBpm() <= 35);
+
+        if (requiresSos) {
+            TriggerSosRequest sosReq = new TriggerSosRequest();
+            sosReq.setSeverity(IncidentSeverity.LEVEL_4_CONFIRMED);
+            sosReq.setTriggerType(event.getEventType() == WearableEventType.FALL_DETECTED
+                    ? AlertTriggerType.FALL_DETECTION : AlertTriggerType.HEART_RATE_ALERT);
+            sosReq.setLatitude(dto.getLatitude());
+            sosReq.setLongitude(dto.getLongitude());
+            sosReq.setDescription(buildWearableAlertDescription(event));
+            EmergencyIncidentDto incident = triggerSos(userId, sosReq);
+            event.setSosTriggered(true);
+            event.setLinkedIncidentId(incident.getId());
+            log.warn("HealthGuard wearable: auto-SOS for userId={} event={}", userId, event.getEventType());
+        } else {
+            // Non-critical alert — push only to user themselves
+            try {
+                expoPushService.sendToUsers(
+                        List.of(userId),
+                        wearableAlertTitle(event.getEventType()),
+                        buildWearableAlertDescription(event),
+                        Map.of("type", "WEARABLE_ALERT", "eventType", event.getEventType().name()),
+                        "emergency");
+            } catch (Exception ignored) {}
+        }
+
+        return toWearableEventDto(wearableEventRepository.save(event));
+    }
+
+    private String buildWearableAlertDescription(WearableHealthEvent e) {
+        return switch (e.getEventType()) {
+            case FALL_DETECTED -> "Fall detected by your wearable device. Auto-SOS triggered.";
+            case HIGH_HEART_RATE -> "High heart rate detected: " + e.getHeartRateBpm() + " bpm";
+            case LOW_HEART_RATE -> "Low heart rate detected: " + e.getHeartRateBpm() + " bpm";
+            case IRREGULAR_HEART_RATE -> "Irregular heart rate detected";
+            case LOW_SPO2 -> "Low blood oxygen (SpO₂): " + e.getSpo2Percent() + "%";
+            case INACTIVITY_ALERT -> "Extended inactivity detected by your wearable";
+            case LOW_BATTERY -> "Wearable device battery is low";
+            case DEVICE_DISCONNECTED -> "Wearable device disconnected";
+            case MANUAL_CHECK_IN -> "Manual check-in from wearable";
+        };
+    }
+
+    private String wearableAlertTitle(WearableEventType type) {
+        return switch (type) {
+            case HIGH_HEART_RATE, LOW_HEART_RATE, IRREGULAR_HEART_RATE -> "❤️ Heart Rate Alert";
+            case LOW_SPO2 -> "💧 Low Blood Oxygen";
+            case INACTIVITY_ALERT -> "⏰ Inactivity Alert";
+            case LOW_BATTERY -> "🔋 Wearable Battery Low";
+            case DEVICE_DISCONNECTED -> "📵 Wearable Disconnected";
+            default -> "⌚ Wearable Alert";
+        };
+    }
+
+    private WearableDeviceDto toWearableDeviceDto(WearableDevice d) {
+        return WearableDeviceDto.builder()
+                .id(d.getId()).userId(d.getUserId()).deviceType(d.getDeviceType())
+                .deviceIdentifier(d.getDeviceIdentifier()).deviceName(d.getDeviceName())
+                .firmwareVersion(d.getFirmwareVersion()).isActive(d.getIsActive())
+                .lastSyncAt(d.getLastSyncAt()).registeredAt(d.getRegisteredAt())
+                .build();
+    }
+
+    private WearableHealthEventDto toWearableEventDto(WearableHealthEvent e) {
+        return WearableHealthEventDto.builder()
+                .id(e.getId()).userId(e.getUserId()).deviceId(e.getDeviceId())
+                .eventType(e.getEventType()).heartRateBpm(e.getHeartRateBpm())
+                .spo2Percent(e.getSpo2Percent()).latitude(e.getLatitude()).longitude(e.getLongitude())
+                .rawData(e.getRawData()).sosTriggered(e.getSosTriggered())
+                .linkedIncidentId(e.getLinkedIncidentId()).eventAt(e.getEventAt()).createdAt(e.getCreatedAt())
+                .build();
     }
 }

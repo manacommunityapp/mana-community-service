@@ -45,4 +45,20 @@ public class HealthGuardEnums {
     public enum AmbulanceBookingStatus {
         REQUESTED, CONFIRMED, DISPATCHED, ARRIVED, COMPLETED, CANCELLED
     }
+
+    public enum WearableType {
+        APPLE_WATCH, FITBIT, GARMIN, SAMSUNG_GALAXY_WATCH, GENERIC_BLUETOOTH, MANUAL
+    }
+
+    public enum WearableEventType {
+        FALL_DETECTED,
+        HIGH_HEART_RATE,
+        LOW_HEART_RATE,
+        IRREGULAR_HEART_RATE,
+        LOW_SPO2,
+        INACTIVITY_ALERT,
+        LOW_BATTERY,
+        DEVICE_DISCONNECTED,
+        MANUAL_CHECK_IN
+    }
 }

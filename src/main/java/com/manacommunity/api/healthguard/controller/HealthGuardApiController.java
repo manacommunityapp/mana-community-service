@@ -179,6 +179,50 @@ public class HealthGuardApiController {
         return ResponseEntity.ok(healthGuardService.cancelAmbulanceBooking(principal.getId(), id));
     }
 
+    // ── Wearable Devices ──
+
+    @GetMapping("/wearables")
+    public ResponseEntity<List<WearableDeviceDto>> getWearableDevices(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(healthGuardService.getWearableDevices(principal.getId()));
+    }
+
+    @PostMapping("/wearables")
+    public ResponseEntity<WearableDeviceDto> registerWearableDevice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody WearableDeviceDto dto) {
+        return ResponseEntity.ok(healthGuardService.registerWearableDevice(principal.getId(), dto));
+    }
+
+    @DeleteMapping("/wearables/{id}")
+    public ResponseEntity<Void> removeWearableDevice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        healthGuardService.removeWearableDevice(principal.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Wearable Health Events ──
+
+    @GetMapping("/wearables/events")
+    public ResponseEntity<List<WearableHealthEventDto>> getRecentWearableEvents(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(healthGuardService.getRecentWearableEvents(principal.getId()));
+    }
+
+    @PostMapping("/wearables/events")
+    public ResponseEntity<WearableHealthEventDto> submitWearableEvent(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody WearableHealthEventDto dto) {
+        return ResponseEntity.ok(healthGuardService.submitWearableEvent(principal.getId(), dto));
+    }
+
+    // ── Admin Wearable Events ──
+
+    @GetMapping("/admin/wearable-events")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'MODERATOR')")
+    public ResponseEntity<List<WearableHealthEventDto>> getRecentWearableEventsAdmin() {
+        return ResponseEntity.ok(healthGuardService.getRecentWearableEventsAdmin());
+    }
+
     // ── Admin / Responder endpoints ──
 
     @GetMapping("/admin/incidents")
