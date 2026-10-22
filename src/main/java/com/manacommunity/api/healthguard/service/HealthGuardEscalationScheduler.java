@@ -55,7 +55,7 @@ public class HealthGuardEscalationScheduler {
                     .findByUserIdAndNotifyOnSosTrueAndIsActiveTrueOrderByPriorityAsc(incident.getUserId());
 
             String triggererName = appUserRepository.findById(incident.getUserId())
-                    .map(u -> u.getFirstName() != null ? u.getFirstName() : "A community member")
+                    .map(u -> u.getFullName() != null ? u.getFullName() : "A community member")
                     .orElse("A community member");
 
             List<Long> contactUserIds = contacts.stream()

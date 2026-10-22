@@ -180,7 +180,7 @@ public class HealthGuardService {
         // Push notifications to contacts who are also app users
         try {
             String triggererName = appUserRepository.findById(userId)
-                    .map(u -> u.getFirstName() != null ? u.getFirstName() : "A community member")
+                    .map(u -> u.getFullName() != null ? u.getFullName() : "A community member")
                     .orElse("A community member");
             List<Long> contactUserIds = contacts.stream()
                     .map(c -> appUserRepository.findByPhone(c.getPhone()))
@@ -208,7 +208,7 @@ public class HealthGuardService {
                     .collect(Collectors.toList());
             if (!responderUserIds.isEmpty()) {
                 String responderName = appUserRepository.findById(userId)
-                        .map(u -> u.getFirstName() != null ? u.getFirstName() : "A community member")
+                        .map(u -> u.getFullName() != null ? u.getFullName() : "A community member")
                         .orElse("A community member");
                 String pushBody = incident.getDescription() != null
                         ? incident.getDescription() : "Nearby resident needs immediate assistance";
