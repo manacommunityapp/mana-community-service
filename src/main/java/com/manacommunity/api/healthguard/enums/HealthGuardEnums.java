@@ -37,4 +37,12 @@ public class HealthGuardEnums {
     public enum ContactRelationship {
         SPOUSE, PARENT, CHILD, SIBLING, FRIEND, NEIGHBOR, DOCTOR, CAREGIVER, OTHER
     }
+
+    public enum ResponderAvailability {
+        AVAILABLE, BUSY, OFFLINE
+    }
+
+    public enum AmbulanceBookingStatus {
+        REQUESTED, CONFIRMED, DISPATCHED, ARRIVED, COMPLETED, CANCELLED
+    }
 }

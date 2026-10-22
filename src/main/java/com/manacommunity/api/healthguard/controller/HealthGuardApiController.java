@@ -1,6 +1,7 @@
 package com.manacommunity.api.healthguard.controller;
 
 import com.manacommunity.api.healthguard.dto.*;
+import com.manacommunity.api.healthguard.enums.HealthGuardEnums.ResponderAvailability;
 import com.manacommunity.api.healthguard.service.HealthGuardService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -119,5 +120,60 @@ public class HealthGuardApiController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
         return ResponseEntity.ok(healthGuardService.escalateIncident(principal.getId(), id));
+    }
+
+    // ── Community Responders ──
+
+    @GetMapping("/responder/me")
+    public ResponseEntity<CommunityResponderDto> getMyResponderProfile(@AuthenticationPrincipal UserPrincipal principal) {
+        CommunityResponderDto dto = healthGuardService.getMyResponderProfile(principal.getId());
+        return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/responder/register")
+    public ResponseEntity<CommunityResponderDto> registerAsResponder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody CommunityResponderDto dto) {
+        return ResponseEntity.ok(healthGuardService.registerAsResponder(principal.getId(), dto));
+    }
+
+    @PutMapping("/responder/status")
+    public ResponseEntity<CommunityResponderDto> updateResponderStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, String> body) {
+        ResponderAvailability status = ResponderAvailability.valueOf(body.get("status"));
+        return ResponseEntity.ok(healthGuardService.updateResponderStatus(principal.getId(), status));
+    }
+
+    @GetMapping("/responders/count")
+    public ResponseEntity<Map<String, Long>> getAvailableRespondersCount() {
+        return ResponseEntity.ok(Map.of("count", healthGuardService.countAvailableResponders()));
+    }
+
+    // ── Ambulance Booking ──
+
+    @PostMapping("/ambulance")
+    public ResponseEntity<AmbulanceBookingDto> bookAmbulance(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody BookAmbulanceRequest request) {
+        return ResponseEntity.ok(healthGuardService.bookAmbulance(principal.getId(), request));
+    }
+
+    @GetMapping("/ambulance/active")
+    public ResponseEntity<AmbulanceBookingDto> getActiveAmbulanceBooking(@AuthenticationPrincipal UserPrincipal principal) {
+        AmbulanceBookingDto dto = healthGuardService.getActiveAmbulanceBooking(principal.getId());
+        return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/ambulance")
+    public ResponseEntity<List<AmbulanceBookingDto>> getAmbulanceHistory(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(healthGuardService.getAmbulanceHistory(principal.getId()));
+    }
+
+    @PutMapping("/ambulance/{id}/cancel")
+    public ResponseEntity<AmbulanceBookingDto> cancelAmbulanceBooking(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(healthGuardService.cancelAmbulanceBooking(principal.getId(), id));
     }
 }

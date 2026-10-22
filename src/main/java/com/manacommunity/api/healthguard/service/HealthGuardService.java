@@ -18,16 +18,22 @@ public class HealthGuardService {
     private final EmergencyContactRepository contactRepository;
     private final EmergencyIncidentRepository incidentRepository;
     private final EmergencyNotificationRepository notificationRepository;
+    private final CommunityResponderRepository responderRepository;
+    private final AmbulanceBookingRepository ambulanceRepository;
 
     public HealthGuardService(
             HealthProfileRepository profileRepository,
             EmergencyContactRepository contactRepository,
             EmergencyIncidentRepository incidentRepository,
-            EmergencyNotificationRepository notificationRepository) {
+            EmergencyNotificationRepository notificationRepository,
+            CommunityResponderRepository responderRepository,
+            AmbulanceBookingRepository ambulanceRepository) {
         this.profileRepository = profileRepository;
         this.contactRepository = contactRepository;
         this.incidentRepository = incidentRepository;
         this.notificationRepository = notificationRepository;
+        this.responderRepository = responderRepository;
+        this.ambulanceRepository = ambulanceRepository;
     }
 
     // ── Health Profile ──
@@ -217,6 +223,78 @@ public class HealthGuardService {
         return toIncidentDto(incidentRepository.save(incident));
     }
 
+    // ── Community Responders ──
+
+    public CommunityResponderDto getMyResponderProfile(Long userId) {
+        return responderRepository.findByUserId(userId)
+                .map(this::toResponderDto)
+                .orElse(null);
+    }
+
+    @Transactional
+    public CommunityResponderDto registerAsResponder(Long userId, CommunityResponderDto dto) {
+        CommunityResponder responder = responderRepository.findByUserId(userId)
+                .orElse(CommunityResponder.builder().userId(userId).build());
+        if (dto.getSkills() != null) responder.setSkills(dto.getSkills());
+        if (dto.getCertifications() != null) responder.setCertifications(dto.getCertifications());
+        if (dto.getPhoneNumber() != null) responder.setPhoneNumber(dto.getPhoneNumber());
+        responder.setIsActive(true);
+        responder.setAvailabilityStatus(ResponderAvailability.AVAILABLE);
+        return toResponderDto(responderRepository.save(responder));
+    }
+
+    @Transactional
+    public CommunityResponderDto updateResponderStatus(Long userId, ResponderAvailability status) {
+        CommunityResponder responder = responderRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Not registered as responder"));
+        responder.setAvailabilityStatus(status);
+        if (status == ResponderAvailability.OFFLINE) responder.setIsActive(false);
+        else responder.setIsActive(true);
+        responder.setLastPingAt(LocalDateTime.now());
+        return toResponderDto(responderRepository.save(responder));
+    }
+
+    public long countAvailableResponders() {
+        return responderRepository.countByIsActiveTrueAndAvailabilityStatus(ResponderAvailability.AVAILABLE);
+    }
+
+    // ── Ambulance Booking ──
+
+    @Transactional
+    public AmbulanceBookingDto bookAmbulance(Long userId, BookAmbulanceRequest request) {
+        AmbulanceBooking booking = AmbulanceBooking.builder()
+                .userId(userId)
+                .incidentId(request.getIncidentId())
+                .pickupAddress(request.getPickupAddress())
+                .destinationAddress(request.getDestinationAddress())
+                .patientName(request.getPatientName())
+                .patientPhone(request.getPatientPhone())
+                .emergencyDescription(request.getEmergencyDescription())
+                .status(AmbulanceBookingStatus.REQUESTED)
+                .build();
+        return toAmbulanceDto(ambulanceRepository.save(booking));
+    }
+
+    public AmbulanceBookingDto getActiveAmbulanceBooking(Long userId) {
+        return ambulanceRepository.findTopByUserIdAndStatusInOrderByRequestedAtDesc(
+                userId,
+                List.of(AmbulanceBookingStatus.REQUESTED, AmbulanceBookingStatus.CONFIRMED, AmbulanceBookingStatus.DISPATCHED)
+        ).map(this::toAmbulanceDto).orElse(null);
+    }
+
+    public List<AmbulanceBookingDto> getAmbulanceHistory(Long userId) {
+        return ambulanceRepository.findByUserIdOrderByRequestedAtDesc(userId)
+                .stream().map(this::toAmbulanceDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public AmbulanceBookingDto cancelAmbulanceBooking(Long userId, Long bookingId) {
+        AmbulanceBooking booking = ambulanceRepository.findByIdAndUserId(bookingId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        booking.setStatus(AmbulanceBookingStatus.CANCELLED);
+        return toAmbulanceDto(ambulanceRepository.save(booking));
+    }
+
     // ── Mappers ──
 
     private HealthProfileDto toProfileDto(HealthProfile p) {
@@ -267,6 +345,45 @@ public class HealthGuardService {
                 incident.getLocationAddress() != null ? incident.getLocationAddress() : "Location not shared",
                 incident.getTriggeredAt().toString()
         );
+    }
+
+    private CommunityResponderDto toResponderDto(CommunityResponder r) {
+        CommunityResponderDto dto = new CommunityResponderDto();
+        dto.setId(r.getId());
+        dto.setUserId(r.getUserId());
+        dto.setIsActive(r.getIsActive());
+        dto.setAvailabilityStatus(r.getAvailabilityStatus());
+        dto.setSkills(r.getSkills());
+        dto.setCertifications(r.getCertifications());
+        dto.setPhoneNumber(r.getPhoneNumber());
+        dto.setTotalResponseCount(r.getTotalResponseCount());
+        dto.setRegisteredAt(r.getRegisteredAt());
+        dto.setLastPingAt(r.getLastPingAt());
+        return dto;
+    }
+
+    private AmbulanceBookingDto toAmbulanceDto(AmbulanceBooking b) {
+        AmbulanceBookingDto dto = new AmbulanceBookingDto();
+        dto.setId(b.getId());
+        dto.setBookingUuid(b.getBookingUuid());
+        dto.setUserId(b.getUserId());
+        dto.setIncidentId(b.getIncidentId());
+        dto.setStatus(b.getStatus());
+        dto.setPickupAddress(b.getPickupAddress());
+        dto.setDestinationAddress(b.getDestinationAddress());
+        dto.setPatientName(b.getPatientName());
+        dto.setPatientPhone(b.getPatientPhone());
+        dto.setEmergencyDescription(b.getEmergencyDescription());
+        dto.setVehicleNumber(b.getVehicleNumber());
+        dto.setDriverName(b.getDriverName());
+        dto.setDriverPhone(b.getDriverPhone());
+        dto.setEstimatedArrivalMinutes(b.getEstimatedArrivalMinutes());
+        dto.setRequestedAt(b.getRequestedAt());
+        dto.setConfirmedAt(b.getConfirmedAt());
+        dto.setDispatchedAt(b.getDispatchedAt());
+        dto.setArrivedAt(b.getArrivedAt());
+        dto.setNotes(b.getNotes());
+        return dto;
     }
 
     private IncidentSeverity escalate(IncidentSeverity current) {
