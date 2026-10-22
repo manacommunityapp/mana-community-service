@@ -1,14 +1,13 @@
 -- Phase 8: CRM Email Templates per community
 CREATE TABLE cpos_crm_email_template (
-    id          BIGINT NOT NULL AUTO_INCREMENT,
+    id           BIGSERIAL PRIMARY KEY,
     community_id BIGINT NOT NULL,
-    name        VARCHAR(100) NOT NULL,
-    subject     VARCHAR(255) NOT NULL,
-    body        TEXT NOT NULL,
-    created_by  VARCHAR(255) NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
+    name         VARCHAR(100) NOT NULL,
+    subject      VARCHAR(255) NOT NULL,
+    body         TEXT NOT NULL,
+    created_by   VARCHAR(255) NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_crm_email_tpl_community FOREIGN KEY (community_id) REFERENCES community (id)
 );
 CREATE INDEX idx_crm_email_tpl_community ON cpos_crm_email_template (community_id);
