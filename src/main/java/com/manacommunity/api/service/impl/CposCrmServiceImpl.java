@@ -8,6 +8,8 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.notification.provider.SmsProvider;
+import com.manacommunity.api.notification.provider.SmsSendRequest;
 import com.manacommunity.api.service.ExpoPushService;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.StoredFileDto;
@@ -45,6 +47,12 @@ public class CposCrmServiceImpl {
     private final EmailService emailService;
     private final AppUserRepository appUserRepo;
     private final ExpoPushService expoPushService;
+    private final CposCrmTagRepository tagRepo;
+    private final CposCrmSalesTargetRepository salesTargetRepo;
+    private final CposCrmEmailCampaignRepository emailCampaignRepo;
+    private final SmsProvider smsProvider;
+    private final CposCrmDripSequenceRepository dripSequenceRepo;
+    private final CposCrmDripStepRepository dripStepRepo;
 
     // ── RBAC helpers ──────────────────────────────────────────────────────
 
@@ -432,6 +440,39 @@ public class CposCrmServiceImpl {
                     .build();
         }).collect(Collectors.toList());
 
+        // Call outcome breakdown
+        List<CposCrmAnalyticsDto.CallOutcomeDto> callOutcomes = activityRepo.countCallOutcomesByCommunity(communityId)
+                .stream().map(row -> CposCrmAnalyticsDto.CallOutcomeDto.builder()
+                        .outcome((String) row[0])
+                        .count(((Number) row[1]).longValue())
+                        .build())
+                .collect(Collectors.toList());
+
+        // Hourly activity heatmap (0–23)
+        Map<Integer, Long> hourMap = activityRepo.countActivitiesByHour(communityId)
+                .stream().collect(Collectors.toMap(r -> ((Number) r[0]).intValue(), r -> ((Number) r[1]).longValue()));
+        List<CposCrmAnalyticsDto.HourlyActivityDto> hourlyActivity = new ArrayList<>();
+        for (int h = 0; h < 24; h++) {
+            hourlyActivity.add(CposCrmAnalyticsDto.HourlyActivityDto.builder()
+                    .hour(h).count(hourMap.getOrDefault(h, 0L)).build());
+        }
+
+        // Sales forecast: probability-weighted pipeline
+        Map<String, Integer> stageProbability = Map.of(
+                "NEW", 5, "CONTACTED", 15, "QUALIFIED", 35, "SITE_VISIT", 55, "NEGOTIATION", 75, "CLOSED", 100);
+        List<CposCrmAnalyticsDto.StageForecastDto> stageForecast = STAGE_ORDER.stream().map(stage -> {
+            List<CposCrmLead> stageLeads = allLeads.stream()
+                    .filter(l -> stage.equals(l.getStage())).collect(Collectors.toList());
+            int prob = stageProbability.getOrDefault(stage, 0);
+            long weighted = stageLeads.stream()
+                    .mapToLong(l -> Math.round(l.getBudgetLakhs() * prob / 100.0)).sum();
+            return CposCrmAnalyticsDto.StageForecastDto.builder()
+                    .stage(stage).leads(stageLeads.size())
+                    .probabilityPct(prob).weightedRevenueLakhs(weighted).build();
+        }).collect(Collectors.toList());
+        long totalWeighted = stageForecast.stream().mapToLong(CposCrmAnalyticsDto.StageForecastDto::getWeightedRevenueLakhs).sum();
+        long pipelineLeads = allLeads.stream().filter(l -> !"CLOSED".equals(l.getStage())).count();
+
         return CposCrmAnalyticsDto.builder()
                 .totalLeads(total)
                 .overallConversionPct(conversionPct)
@@ -441,6 +482,12 @@ public class CposCrmServiceImpl {
                 .sourceBreakdown(sourceBreakdown)
                 .stageVelocity(stageVelocity)
                 .agentStats(agentStats)
+                .callOutcomes(callOutcomes)
+                .hourlyActivity(hourlyActivity)
+                .forecast(CposCrmAnalyticsDto.ForecastDto.builder()
+                        .weightedRevenueLakhs(totalWeighted)
+                        .totalPipelineLeads(pipelineLeads)
+                        .byStage(stageForecast).build())
                 .build();
     }
 
@@ -503,6 +550,11 @@ public class CposCrmServiceImpl {
     // ── Mappers ───────────────────────────────────────────────────────────
 
     private CposCrmLeadDto toLeadDto(CposCrmLead l) {
+        List<CposCrmLeadDto.TagDto> tagDtos = l.getTags() == null ? List.of() :
+                l.getTags().stream()
+                        .map(t -> CposCrmLeadDto.TagDto.builder()
+                                .id(t.getId()).name(t.getName()).color(t.getColor()).build())
+                        .collect(Collectors.toList());
         return CposCrmLeadDto.builder()
                 .id(l.getId())
                 .leadName(l.getLeadName())
@@ -521,6 +573,10 @@ public class CposCrmServiceImpl {
                 .followUpNote(l.getFollowUpNote())
                 .createdAt(l.getCreatedAt())
                 .updatedAt(l.getUpdatedAt())
+                .tags(tagDtos)
+                .approvalStatus(l.getApprovalStatus())
+                .approvalReason(l.getApprovalReason())
+                .approvalComment(l.getApprovalComment())
                 .build();
     }
 
@@ -752,5 +808,429 @@ public class CposCrmServiceImpl {
                 .rrIndex(cfg.getRrIndex())
                 .totalInboundLeads(inboundCount)
                 .build();
+    }
+
+    // ── Tags ──────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<CposCrmTagDto> getTags(AppUser user) {
+        return tagRepo.findByCommunityId(user.getCommunity().getId())
+                .stream().map(t -> CposCrmTagDto.builder()
+                        .id(t.getId()).name(t.getName()).color(t.getColor()).build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CposCrmTagDto createTag(AppUser user, String name, String color) {
+        Long communityId = user.getCommunity().getId();
+        if (tagRepo.existsByCommunityIdAndNameIgnoreCase(communityId, name)) {
+            throw new IllegalArgumentException("Tag already exists: " + name);
+        }
+        Community community = communityRepo.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+        CposCrmTag tag = CposCrmTag.builder()
+                .community(community)
+                .name(name)
+                .color(color != null ? color : "#4F6AF5")
+                .build();
+        CposCrmTag saved = tagRepo.save(tag);
+        return CposCrmTagDto.builder().id(saved.getId()).name(saved.getName()).color(saved.getColor()).build();
+    }
+
+    @Transactional
+    public void deleteTag(AppUser user, Long tagId) {
+        CposCrmTag tag = tagRepo.findByCommunityIdAndId(user.getCommunity().getId(), tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag not found: " + tagId));
+        tagRepo.delete(tag);
+    }
+
+    @Transactional
+    public CposCrmLeadDto addTagToLead(AppUser user, Long leadId, Long tagId) {
+        Long communityId = user.getCommunity().getId();
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+        CposCrmTag tag = tagRepo.findByCommunityIdAndId(communityId, tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag not found: " + tagId));
+        lead.getTags().add(tag);
+        return toLeadDto(leadRepo.save(lead));
+    }
+
+    @Transactional
+    public CposCrmLeadDto removeTagFromLead(AppUser user, Long leadId, Long tagId) {
+        Long communityId = user.getCommunity().getId();
+        CposCrmLead lead = leadRepo.findByIdAndCommunity(leadId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+        lead.getTags().removeIf(t -> t.getId().equals(tagId));
+        return toLeadDto(leadRepo.save(lead));
+    }
+
+    // ── Lead Deduplication + CSV Import ───────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public boolean isDuplicateLead(Long communityId, String phone, String email) {
+        if (phone != null && !phone.isBlank() &&
+                leadRepo.existsByCommunityIdAndPhoneAndDeletedFalse(communityId, phone)) return true;
+        if (email != null && !email.isBlank() &&
+                leadRepo.existsByCommunityIdAndEmailAndDeletedFalse(communityId, email)) return true;
+        return false;
+    }
+
+    @Transactional
+    public CrmImportResultDto importLeadsCsv(AppUser user, String csvContent) {
+        Long communityId = user.getCommunity().getId();
+        Community community = communityRepo.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+
+        int created = 0, duplicates = 0, errors = 0;
+        List<String> errorMessages = new ArrayList<>();
+
+        String[] lines = csvContent.split("\n");
+        if (lines.length < 2) {
+            return CrmImportResultDto.builder().created(0).duplicates(0).errors(1)
+                    .errorMessages(List.of("CSV has no data rows")).build();
+        }
+
+        // parse header row
+        String[] headers = lines[0].trim().split(",");
+        Map<String, Integer> idx = new HashMap<>();
+        for (int i = 0; i < headers.length; i++) {
+            idx.put(headers[i].trim().toLowerCase().replace(" ", "_").replace("(", "").replace(")", ""), i);
+        }
+
+        for (int row = 1; row < lines.length; row++) {
+            String line = lines[row].trim();
+            if (line.isEmpty()) continue;
+            try {
+                String[] cols = parseCsvRow(line);
+                String leadName = getCol(cols, idx, "lead_name", "name");
+                String phone    = getCol(cols, idx, "phone");
+                String email    = getCol(cols, idx, "email");
+
+                if (leadName == null || leadName.isBlank()) {
+                    errorMessages.add("Row " + row + ": missing lead name");
+                    errors++;
+                    continue;
+                }
+                if (isDuplicateLead(communityId, phone, email)) {
+                    duplicates++;
+                    continue;
+                }
+
+                String source = getCol(cols, idx, "source");
+                String stage  = getCol(cols, idx, "stage");
+                String budget = getCol(cols, idx, "budget_l", "budget");
+                int budgetLakhs = 0;
+                if (budget != null && !budget.isBlank()) {
+                    try { budgetLakhs = (int) Double.parseDouble(budget); } catch (NumberFormatException ignored) {}
+                }
+
+                CposCrmLead lead = CposCrmLead.builder()
+                        .community(community)
+                        .leadName(leadName)
+                        .phone(phone)
+                        .email(email)
+                        .source(source != null ? source.toUpperCase() : "PORTAL")
+                        .stage(stage != null && STAGE_ORDER.contains(stage.toUpperCase()) ? stage.toUpperCase() : "NEW")
+                        .leadType("APARTMENT")
+                        .budgetLakhs(budgetLakhs)
+                        .budgetDisplay(budgetLakhs > 0 ? String.format("₹%d L", budgetLakhs) : null)
+                        .assignedTo(getCol(cols, idx, "assigned_to"))
+                        .build();
+                leadRepo.save(lead);
+                created++;
+            } catch (Exception e) {
+                errorMessages.add("Row " + row + ": " + e.getMessage());
+                errors++;
+            }
+        }
+        return CrmImportResultDto.builder()
+                .created(created).duplicates(duplicates).errors(errors)
+                .errorMessages(errorMessages).build();
+    }
+
+    private String getCol(String[] cols, Map<String, Integer> idx, String... keys) {
+        for (String key : keys) {
+            Integer i = idx.get(key);
+            if (i != null && i < cols.length) {
+                String v = cols[i].trim().replaceAll("^\"|\"$", "");
+                if (!v.isBlank()) return v;
+            }
+        }
+        return null;
+    }
+
+    private String[] parseCsvRow(String line) {
+        List<String> cols = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') { inQuotes = !inQuotes; }
+            else if (c == ',' && !inQuotes) { cols.add(cur.toString()); cur.setLength(0); }
+            else { cur.append(c); }
+        }
+        cols.add(cur.toString());
+        return cols.toArray(new String[0]);
+    }
+
+    // ── Deal Rotting Alerts ───────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<CposCrmLeadDto> getStaleLeads(AppUser user, int staleDays) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(staleDays);
+        return leadRepo.findStaleLeads(user.getCommunity().getId(), cutoff)
+                .stream().map(this::toLeadDto).collect(Collectors.toList());
+    }
+
+    // ── Sales Targets + Leaderboard ───────────────────────────────────────
+
+    @Transactional
+    public CposCrmSalesTargetDto upsertSalesTarget(AppUser user, String agentName,
+                                                    int month, int year,
+                                                    int targetLeadsClosed, int targetRevenueLakhs) {
+        if (!isCrmAdmin(user)) throw new ResourceNotFoundException("Admin only");
+        Long communityId = user.getCommunity().getId();
+        Community community = communityRepo.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+        CposCrmSalesTarget target = salesTargetRepo
+                .findByCommunityIdAndAgentNameAndPeriodMonthAndPeriodYear(communityId, agentName, month, year)
+                .orElseGet(() -> CposCrmSalesTarget.builder()
+                        .community(community).agentName(agentName)
+                        .periodMonth(month).periodYear(year).build());
+        target.setTargetLeadsClosed(targetLeadsClosed);
+        target.setTargetRevenueLakhs(targetRevenueLakhs);
+        CposCrmSalesTarget saved = salesTargetRepo.save(target);
+        return toTargetDto(communityId, saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CposCrmSalesTargetDto> getSalesTargets(AppUser user, int month, int year) {
+        Long communityId = user.getCommunity().getId();
+        return salesTargetRepo.findByCommunityIdAndPeriodMonthAndPeriodYear(communityId, month, year)
+                .stream().map(t -> toTargetDto(communityId, t)).collect(Collectors.toList());
+    }
+
+    private CposCrmSalesTargetDto toTargetDto(Long communityId, CposCrmSalesTarget t) {
+        long actualClosed = leadRepo.countClosedByAgentInMonth(communityId, t.getAgentName(),
+                t.getPeriodMonth(), t.getPeriodYear());
+        Long actualRevRaw = leadRepo.sumRevenueByAgentInMonth(communityId, t.getAgentName(),
+                t.getPeriodMonth(), t.getPeriodYear());
+        long actualRev = actualRevRaw != null ? actualRevRaw : 0L;
+        int closedPct  = t.getTargetLeadsClosed()  > 0 ? (int) Math.min(100, actualClosed * 100L / t.getTargetLeadsClosed())  : 0;
+        int revPct     = t.getTargetRevenueLakhs()  > 0 ? (int) Math.min(100, actualRev    * 100L / t.getTargetRevenueLakhs()) : 0;
+        return CposCrmSalesTargetDto.builder()
+                .id(t.getId()).agentName(t.getAgentName())
+                .periodMonth(t.getPeriodMonth()).periodYear(t.getPeriodYear())
+                .targetLeadsClosed(t.getTargetLeadsClosed()).targetRevenueLakhs(t.getTargetRevenueLakhs())
+                .actualLeadsClosed(actualClosed).actualRevenueLakhs(actualRev)
+                .closedPct(closedPct).revenuePct(revPct).build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CposCrmAnalyticsDto.LeaderboardEntryDto> getLeaderboard(AppUser user, int month, int year) {
+        Long communityId = user.getCommunity().getId();
+        List<Object[]> rows = leadRepo.leaderboardForMonth(communityId, month, year);
+        List<CposCrmAnalyticsDto.LeaderboardEntryDto> result = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            Object[] row = rows.get(i);
+            String agent    = (String) row[0];
+            long closed     = ((Number) row[1]).longValue();
+            long revenue    = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            long total      = leadRepo.countByCommunityIdAndDeletedFalse(communityId);
+            result.add(CposCrmAnalyticsDto.LeaderboardEntryDto.builder()
+                    .rank(i + 1).agent(agent).closedLeads(closed)
+                    .revenueLakhs(revenue).totalLeads(total)
+                    .score((int) Math.min(100, closed * 10 + revenue / 10))
+                    .build());
+        }
+        return result;
+    }
+
+    // ── Bulk Email Campaign ───────────────────────────────────────────────
+
+    @Transactional
+    public CrmEmailCampaignDto sendBulkEmailCampaign(AppUser user, Map<String, Object> body) {
+        if (!isCrmAdmin(user)) throw new ResourceNotFoundException("Admin only");
+        Long communityId = user.getCommunity().getId();
+        Community community = communityRepo.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+
+        String subject  = (String) body.getOrDefault("subject", "");
+        String bodyHtml = (String) body.getOrDefault("bodyHtml", "");
+        String filterStage  = (String) body.get("filterStage");
+        String filterSource = (String) body.get("filterSource");
+
+        List<CposCrmLead> leads = leadRepo.findForEmailCampaign(communityId,
+                filterStage != null && !filterStage.isBlank() ? filterStage : null,
+                filterSource != null && !filterSource.isBlank() ? filterSource : null);
+
+        int sentCount = 0;
+        String senderName = user.getFullName() != null ? user.getFullName() : user.getEmail();
+        for (CposCrmLead lead : leads) {
+            if (lead.getEmail() == null || lead.getEmail().isBlank()) continue;
+            try {
+                String personalised = bodyHtml.replace("{{name}}", lead.getLeadName())
+                        .replace("{{phone}}", lead.getPhone() != null ? lead.getPhone() : "");
+                emailService.send(EmailMessage.builder()
+                        .to(lead.getEmail())
+                        .subject(subject)
+                        .htmlBody(personalised)
+                        .build());
+                sentCount++;
+            } catch (Exception ignored) {}
+        }
+
+        CposCrmEmailCampaign campaign = CposCrmEmailCampaign.builder()
+                .community(community)
+                .subject(subject)
+                .bodyHtml(bodyHtml)
+                .filterStage(filterStage)
+                .filterSource(filterSource)
+                .sentCount(sentCount)
+                .createdBy(senderName)
+                .build();
+        CposCrmEmailCampaign saved = emailCampaignRepo.save(campaign);
+        return CrmEmailCampaignDto.builder()
+                .id(saved.getId()).subject(saved.getSubject()).bodyHtml(saved.getBodyHtml())
+                .filterStage(saved.getFilterStage()).filterSource(saved.getFilterSource())
+                .sentCount(saved.getSentCount()).createdBy(saved.getCreatedBy()).sentAt(saved.getSentAt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CrmEmailCampaignDto> getEmailCampaigns(AppUser user) {
+        return emailCampaignRepo.findByCommunityIdOrderBySentAtDesc(user.getCommunity().getId())
+                .stream().map(c -> CrmEmailCampaignDto.builder()
+                        .id(c.getId()).subject(c.getSubject()).filterStage(c.getFilterStage())
+                        .filterSource(c.getFilterSource()).sentCount(c.getSentCount())
+                        .createdBy(c.getCreatedBy()).sentAt(c.getSentAt()).build())
+                .collect(Collectors.toList());
+    }
+
+    // ── SMS ───────────────────────────────────────────────────────────────
+
+    public void sendLeadSms(AppUser user, Long leadId, String message) {
+        CposCrmLead lead = leadRepo.findByCommunityIdAndId(user.getCommunity().getId(), leadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
+        if (lead.getPhone() == null || lead.getPhone().isBlank())
+            throw new IllegalArgumentException("Lead has no phone number");
+        smsProvider.send(SmsSendRequest.builder()
+                .to(lead.getPhone()).body(message).build());
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(lead).activityType("NOTE")
+                .note("SMS sent: " + message)
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
+                .build();
+        activityRepo.save(activity);
+    }
+
+    // ── Approval Workflows ────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<CposCrmLeadDto> getLeadsAwaitingApproval(AppUser user) {
+        Long communityId = user.getCommunity().getId();
+        return leadRepo.findByCommunityIdAndDeletedFalseOrderByCreatedAtDesc(communityId)
+                .stream()
+                .filter(l -> "PENDING_APPROVAL".equals(l.getApprovalStatus()))
+                .map(this::toLeadDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CposCrmLeadDto requestApproval(AppUser user, Long leadId, String reason) {
+        CposCrmLead lead = leadRepo.findByCommunityIdAndId(user.getCommunity().getId(), leadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
+        lead.setApprovalStatus("PENDING_APPROVAL");
+        lead.setApprovalReason(reason);
+        leadRepo.save(lead);
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(lead).activityType("NOTE")
+                .note("Approval requested: " + reason)
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
+                .build();
+        activityRepo.save(activity);
+        // notify admins
+        appUserRepo.findByCommunityIdAndIsActiveTrue(user.getCommunity().getId()).stream()
+                .filter(u -> u.hasRole("ADMIN") || u.hasRole("MANAGER"))
+                .forEach(admin -> {
+                    try {
+                        expoPushService.sendToUser(admin.getId(),
+                                "Approval Required",
+                                lead.getLeadName() + " needs sign-off before NEGOTIATION",
+                                "CRM_APPROVAL_REQUEST");
+                    } catch (Exception ignored) {}
+                });
+        return toLeadDto(lead);
+    }
+
+    @Transactional
+    public CposCrmLeadDto approveOrRejectLead(AppUser user, Long leadId, boolean approve, String comment) {
+        if (!isCrmAdmin(user)) throw new ResourceNotFoundException("Admin only");
+        CposCrmLead lead = leadRepo.findByCommunityIdAndId(user.getCommunity().getId(), leadId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
+        lead.setApprovalStatus(approve ? "APPROVED" : "REJECTED");
+        lead.setApprovalComment(comment);
+        if (approve) lead.setStage("NEGOTIATION");
+        leadRepo.save(lead);
+        CposCrmActivity activity = CposCrmActivity.builder()
+                .lead(lead).activityType("NOTE")
+                .note((approve ? "✓ Approved" : "✗ Rejected") + (comment != null ? ": " + comment : ""))
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
+                .build();
+        activityRepo.save(activity);
+        return toLeadDto(lead);
+    }
+
+    // ── Email Drip Sequences ──────────────────────────────────────────────
+
+    @Transactional
+    public CposCrmDripSequenceDto createDripSequence(AppUser user, CposCrmDripSequenceDto req) {
+        if (!isCrmAdmin(user)) throw new ResourceNotFoundException("Admin only");
+        Long communityId = user.getCommunity().getId();
+        Community community = communityRepo.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found"));
+        CposCrmDripSequence seq = CposCrmDripSequence.builder()
+                .community(community).name(req.getName())
+                .triggerStage(req.getTriggerStage()).active(true)
+                .build();
+        seq = dripSequenceRepo.save(seq);
+        if (req.getSteps() != null) {
+            CposCrmDripSequence finalSeq = seq;
+            List<CposCrmDripStep> steps = req.getSteps().stream().map(s ->
+                    CposCrmDripStep.builder()
+                            .sequence(finalSeq).delayDays(s.getDelayDays())
+                            .subject(s.getSubject()).bodyHtml(s.getBodyHtml())
+                            .build()
+            ).collect(Collectors.toList());
+            dripStepRepo.saveAll(steps);
+            seq.setSteps(steps);
+        }
+        return toDripDto(seq);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CposCrmDripSequenceDto> getDripSequences(AppUser user) {
+        return dripSequenceRepo.findByCommunityIdOrderByNameAsc(user.getCommunity().getId())
+                .stream().map(this::toDripDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteDripSequence(AppUser user, Long seqId) {
+        if (!isCrmAdmin(user)) throw new ResourceNotFoundException("Admin only");
+        CposCrmDripSequence seq = dripSequenceRepo.findByCommunityIdAndId(user.getCommunity().getId(), seqId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sequence not found"));
+        dripSequenceRepo.delete(seq);
+    }
+
+    private CposCrmDripSequenceDto toDripDto(CposCrmDripSequence seq) {
+        List<CposCrmDripSequenceDto.StepDto> steps = seq.getSteps() == null ? List.of() :
+                seq.getSteps().stream().map(s -> CposCrmDripSequenceDto.StepDto.builder()
+                        .id(s.getId()).delayDays(s.getDelayDays())
+                        .subject(s.getSubject()).bodyHtml(s.getBodyHtml()).build())
+                .collect(Collectors.toList());
+        return CposCrmDripSequenceDto.builder()
+                .id(seq.getId()).name(seq.getName())
+                .triggerStage(seq.getTriggerStage()).active(seq.isActive())
+                .steps(steps).build();
     }
 }

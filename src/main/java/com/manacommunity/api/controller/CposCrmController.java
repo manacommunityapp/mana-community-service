@@ -12,7 +12,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -328,6 +331,229 @@ public class CposCrmController {
         LocalDateTime followUpAt = body.get("followUpAt") != null
                 ? LocalDateTime.parse((String) body.get("followUpAt")) : null;
         return ResponseEntity.ok(crmService.logCall(user, id, outcome, durationMin, notes, followUpAt));
+    }
+
+    // ── Duplicate check ────────────────────────────────────────────────────
+
+    @GetMapping("/leads/check-duplicate")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Boolean>> checkDuplicate(
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String email,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        boolean dup = crmService.isDuplicateLead(user.getCommunity().getId(), phone, email);
+        return ResponseEntity.ok(Map.of("duplicate", dup));
+    }
+
+    // ── CSV Import ─────────────────────────────────────────────────────────
+
+    @PostMapping(value = "/leads/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CrmImportResultDto> importLeads(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal principal) throws IOException {
+        AppUser user = loggedInUserService.resolve(principal);
+        String csv = new String(file.getBytes(), StandardCharsets.UTF_8);
+        return ResponseEntity.ok(crmService.importLeadsCsv(user, csv));
+    }
+
+    // ── Tags ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/tags")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmTagDto>> getTags(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getTags(user));
+    }
+
+    @PostMapping("/tags")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmTagDto> createTag(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(crmService.createTag(user, body.get("name"), body.get("color")));
+    }
+
+    @DeleteMapping("/tags/{tagId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteTag(
+            @PathVariable Long tagId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        crmService.deleteTag(user, tagId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/leads/{id}/tags/{tagId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> addTagToLead(
+            @PathVariable Long id, @PathVariable Long tagId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.addTagToLead(user, id, tagId));
+    }
+
+    @DeleteMapping("/leads/{id}/tags/{tagId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> removeTagFromLead(
+            @PathVariable Long id, @PathVariable Long tagId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.removeTagFromLead(user, id, tagId));
+    }
+
+    // ── Sales Targets ──────────────────────────────────────────────────────
+
+    @GetMapping("/targets")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmSalesTargetDto>> getSalesTargets(
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        YearMonth now = YearMonth.now();
+        return ResponseEntity.ok(crmService.getSalesTargets(user,
+                month != null ? month : now.getMonthValue(),
+                year  != null ? year  : now.getYear()));
+    }
+
+    @PutMapping("/targets")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmSalesTargetDto> upsertSalesTarget(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        YearMonth now = YearMonth.now();
+        return ResponseEntity.ok(crmService.upsertSalesTarget(
+                user,
+                (String) body.get("agentName"),
+                body.get("month") != null ? ((Number) body.get("month")).intValue() : now.getMonthValue(),
+                body.get("year")  != null ? ((Number) body.get("year")).intValue()  : now.getYear(),
+                body.get("targetLeadsClosed")  != null ? ((Number) body.get("targetLeadsClosed")).intValue()  : 0,
+                body.get("targetRevenueLakhs") != null ? ((Number) body.get("targetRevenueLakhs")).intValue() : 0));
+    }
+
+    // ── Leaderboard ────────────────────────────────────────────────────────
+
+    @GetMapping("/leaderboard")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmAnalyticsDto.LeaderboardEntryDto>> getLeaderboard(
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        YearMonth now = YearMonth.now();
+        return ResponseEntity.ok(crmService.getLeaderboard(user,
+                month != null ? month : now.getMonthValue(),
+                year  != null ? year  : now.getYear()));
+    }
+
+    // ── Stale Leads ────────────────────────────────────────────────────────
+
+    @GetMapping("/leads/stale")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmLeadDto>> getStaleLeads(
+            @RequestParam(defaultValue = "7") int staleDays,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getStaleLeads(user, staleDays));
+    }
+
+    // ── Bulk Email Campaigns ───────────────────────────────────────────────
+
+    @GetMapping("/email-campaigns")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CrmEmailCampaignDto>> getEmailCampaigns(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getEmailCampaigns(user));
+    }
+
+    @PostMapping("/email-campaigns")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CrmEmailCampaignDto> sendBulkEmailCampaign(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.sendBulkEmailCampaign(user, body));
+    }
+
+    // ── SMS ────────────────────────────────────────────────────────────────
+
+    @PostMapping("/leads/{id}/sms")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> sendLeadSms(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        crmService.sendLeadSms(user, id, body.getOrDefault("message", ""));
+        return ResponseEntity.ok().build();
+    }
+
+    // ── Approval Workflows ─────────────────────────────────────────────────
+
+    @GetMapping("/leads/pending-approval")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmLeadDto>> getLeadsAwaitingApproval(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getLeadsAwaitingApproval(user));
+    }
+
+    @PostMapping("/leads/{id}/request-approval")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> requestApproval(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.requestApproval(user, id, body.getOrDefault("reason", "")));
+    }
+
+    @PostMapping("/leads/{id}/approve")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmLeadDto> approveOrRejectLead(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        boolean approve = Boolean.TRUE.equals(body.get("approve"));
+        String comment = body.containsKey("comment") ? body.get("comment").toString() : null;
+        return ResponseEntity.ok(crmService.approveOrRejectLead(user, id, approve, comment));
+    }
+
+    // ── Email Drip Sequences ───────────────────────────────────────────────
+
+    @GetMapping("/drip-sequences")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CposCrmDripSequenceDto>> getDripSequences(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.getDripSequences(user));
+    }
+
+    @PostMapping("/drip-sequences")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposCrmDripSequenceDto> createDripSequence(
+            @RequestBody CposCrmDripSequenceDto req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.createDripSequence(user, req));
+    }
+
+    @DeleteMapping("/drip-sequences/{seqId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteDripSequence(
+            @PathVariable Long seqId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        crmService.deleteDripSequence(user, seqId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

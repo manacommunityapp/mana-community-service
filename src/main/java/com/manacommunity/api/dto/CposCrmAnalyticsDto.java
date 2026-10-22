@@ -16,6 +16,52 @@ public class CposCrmAnalyticsDto {
     private Map<String, Long> sourceBreakdown;
     private Map<String, Double> stageVelocity;
     private List<AgentStatDto> agentStats;
+    private List<LeaderboardEntryDto> leaderboard;
+    private List<CallOutcomeDto> callOutcomes;
+    private List<HourlyActivityDto> hourlyActivity;
+    private ForecastDto forecast;
+
+    @Data
+    @Builder
+    public static class CallOutcomeDto {
+        private String outcome;
+        private long count;
+    }
+
+    @Data
+    @Builder
+    public static class HourlyActivityDto {
+        private int hour;
+        private long count;
+    }
+
+    @Data
+    @Builder
+    public static class ForecastDto {
+        private long weightedRevenueLakhs;
+        private long totalPipelineLeads;
+        private List<StageForecastDto> byStage;
+    }
+
+    @Data
+    @Builder
+    public static class StageForecastDto {
+        private String stage;
+        private long leads;
+        private int probabilityPct;
+        private long weightedRevenueLakhs;
+    }
+
+    @Data
+    @Builder
+    public static class LeaderboardEntryDto {
+        private int rank;
+        private String agent;
+        private long closedLeads;
+        private long revenueLakhs;
+        private long totalLeads;
+        private int score;
+    }
 
     @Data
     @Builder

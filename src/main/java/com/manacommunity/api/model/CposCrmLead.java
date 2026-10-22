@@ -85,6 +85,24 @@ public class CposCrmLead {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "cpos_crm_lead_tag",
+        joinColumns = @JoinColumn(name = "lead_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @Builder.Default
+    private java.util.Set<CposCrmTag> tags = new java.util.HashSet<>();
+
+    @Column(name = "approval_status", length = 30)
+    private String approvalStatus;
+
+    @Column(name = "approval_reason", length = 500)
+    private String approvalReason;
+
+    @Column(name = "approval_comment", length = 500)
+    private String approvalComment;
+
     @OneToMany(mappedBy = "lead", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @Builder.Default
     private List<CposCrmActivity> activities = new ArrayList<>();

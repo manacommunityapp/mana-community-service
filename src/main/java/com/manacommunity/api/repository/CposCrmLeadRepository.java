@@ -70,4 +70,52 @@ public interface CposCrmLeadRepository extends JpaRepository<CposCrmLead, Long> 
     List<CposCrmLead> findDueForNotification(
             @Param("from") java.time.LocalDateTime from,
             @Param("to")   java.time.LocalDateTime to);
+
+    boolean existsByCommunityIdAndPhoneAndDeletedFalse(Long communityId, String phone);
+    boolean existsByCommunityIdAndEmailAndDeletedFalse(Long communityId, String email);
+
+    @Query("SELECT l FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false AND l.updatedAt < :cutoff " +
+           "AND l.stage NOT IN ('CLOSED') " +
+           "AND l.assignedTo IS NOT NULL")
+    List<CposCrmLead> findStaleLeads(
+            @Param("communityId") Long communityId,
+            @Param("cutoff") java.time.LocalDateTime cutoff);
+
+    @Query("SELECT l FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false " +
+           "AND (:stage IS NULL OR l.stage = :stage) " +
+           "AND (:source IS NULL OR l.source = :source) " +
+           "AND l.email IS NOT NULL AND l.email != '' " +
+           "ORDER BY l.createdAt DESC")
+    List<CposCrmLead> findForEmailCampaign(
+            @Param("communityId") Long communityId,
+            @Param("stage") String stage,
+            @Param("source") String source);
+
+    @Query("SELECT COUNT(l) FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false AND l.stage = 'CLOSED' " +
+           "AND l.assignedTo = :agentName " +
+           "AND MONTH(l.updatedAt) = :month AND YEAR(l.updatedAt) = :year")
+    long countClosedByAgentInMonth(@Param("communityId") Long communityId,
+                                    @Param("agentName") String agentName,
+                                    @Param("month") int month,
+                                    @Param("year") int year);
+
+    @Query("SELECT SUM(l.budgetLakhs) FROM CposCrmLead l WHERE l.community.id = :communityId " +
+           "AND l.deleted = false AND l.stage = 'CLOSED' " +
+           "AND l.assignedTo = :agentName " +
+           "AND MONTH(l.updatedAt) = :month AND YEAR(l.updatedAt) = :year")
+    Long sumRevenueByAgentInMonth(@Param("communityId") Long communityId,
+                                   @Param("agentName") String agentName,
+                                   @Param("month") int month,
+                                   @Param("year") int year);
+
+    @Query("SELECT l.assignedTo, COUNT(l), SUM(l.budgetLakhs) FROM CposCrmLead l " +
+           "WHERE l.community.id = :communityId AND l.deleted = false AND l.stage = 'CLOSED' " +
+           "AND MONTH(l.updatedAt) = :month AND YEAR(l.updatedAt) = :year " +
+           "GROUP BY l.assignedTo ORDER BY COUNT(l) DESC")
+    List<Object[]> leaderboardForMonth(@Param("communityId") Long communityId,
+                                        @Param("month") int month,
+                                        @Param("year") int year);
 }
