@@ -174,6 +174,29 @@ public class BbpsController {
         BillerDto.builder().id("INDUSIND_CC").name("IndusInd Bank Credit Card").shortName("IndusInd").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build()
     );
 
+    private static final List<BillerDto> EDUCATION_BILLERS = List.of(
+        BillerDto.builder().id("CBSE").name("CBSE – Central Board of Secondary Education").shortName("CBSE").category("EDUCATION").icon("🎓").state("All India").consumerIdLabel("Application / Roll Number").consumerIdHint("e.g. 3012345678").build(),
+        BillerDto.builder().id("DU").name("Delhi University Fee Portal").shortName("DU").category("EDUCATION").icon("🎓").state("Delhi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. DU2024001234").build(),
+        BillerDto.builder().id("BITS").name("BITS Pilani – Fee Payment").shortName("BITS Pilani").category("EDUCATION").icon("🎓").state("Rajasthan").consumerIdLabel("Student ID (BITS ID)").consumerIdHint("e.g. 2024A7PS1234G").build(),
+        BillerDto.builder().id("AMITY").name("Amity University Fee Portal").shortName("Amity").category("EDUCATION").icon("🎓").state("Multi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. A2024123456").build(),
+        BillerDto.builder().id("VTU").name("VTU – Visvesvaraya Technological University").shortName("VTU").category("EDUCATION").icon("🎓").state("Karnataka").consumerIdLabel("USN (University Seat Number)").consumerIdHint("e.g. 1RV21CS001").build(),
+        BillerDto.builder().id("SCHOOL_GENERIC").name("School Fee Payment (Generic)").shortName("School Fee").category("EDUCATION").icon("🎓").state("All India").consumerIdLabel("Admission / Roll Number").consumerIdHint("e.g. 2024-12345").build()
+    );
+
+    private static final List<BillerDto> LPG_BILLERS = List.of(
+        BillerDto.builder().id("HP_GAS").name("HP Gas – Hindustan Petroleum LPG").shortName("HP Gas").category("LPG").icon("🟢").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. HP123456789").build(),
+        BillerDto.builder().id("BHARAT_GAS").name("Bharat Gas – BPCL LPG").shortName("Bharat Gas").category("LPG").icon("🔵").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. BG987654321").build(),
+        BillerDto.builder().id("INDANE_GAS").name("Indane Gas – IOCL LPG").shortName("Indane Gas").category("LPG").icon("🔴").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. IG456789012").build()
+    );
+
+    private static final List<BillerDto> LANDLINE_BILLERS = List.of(
+        BillerDto.builder().id("BSNL_LANDLINE").name("BSNL Landline / PSTN").shortName("BSNL").category("LANDLINE").icon("☎").state("All India").consumerIdLabel("Telephone Number").consumerIdHint("e.g. 01123456789").build(),
+        BillerDto.builder().id("MTNL_DELHI").name("MTNL Delhi – Landline").shortName("MTNL Delhi").category("LANDLINE").icon("☎").state("Delhi").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 01123456789").build(),
+        BillerDto.builder().id("MTNL_MUMBAI").name("MTNL Mumbai – Landline").shortName("MTNL Mumbai").category("LANDLINE").icon("☎").state("Maharashtra").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 02223456789").build(),
+        BillerDto.builder().id("AIRTEL_LANDLINE").name("Airtel Landline / Broadband").shortName("Airtel").category("LANDLINE").icon("☎").state("All India").consumerIdLabel("Airtel Account Number").consumerIdHint("e.g. 123456789012").build(),
+        BillerDto.builder().id("ACT_LANDLINE").name("ACT Fibernet – Voice").shortName("ACT").category("LANDLINE").icon("☎").state("Multi").consumerIdLabel("Subscriber ID").consumerIdHint("e.g. ACT12345678").build()
+    );
+
     private static final Map<String, List<BillerDto>> BILLER_CATALOGUE = Map.ofEntries(
         Map.entry("ELECTRICITY",   ELECTRICITY_BILLERS),
         Map.entry("GAS",           GAS_BILLERS),
@@ -182,7 +205,10 @@ public class BbpsController {
         Map.entry("DTH",           DTH_BILLERS),
         Map.entry("FASTAG",        FASTAG_BILLERS),
         Map.entry("MUNICIPAL_TAX", MUNICIPAL_TAX_BILLERS),
-        Map.entry("CREDIT_CARD",   CREDIT_CARD_BILLERS)
+        Map.entry("CREDIT_CARD",   CREDIT_CARD_BILLERS),
+        Map.entry("EDUCATION",     EDUCATION_BILLERS),
+        Map.entry("LPG",           LPG_BILLERS),
+        Map.entry("LANDLINE",      LANDLINE_BILLERS)
     );
 
     // ── Endpoints ─────────────────────────────────────────────────
@@ -223,6 +249,9 @@ public class BbpsController {
             case "FASTAG"        -> 200.0 + ThreadLocalRandom.current().nextInt(300);
             case "MUNICIPAL_TAX" -> 4500.0 + ThreadLocalRandom.current().nextInt(6000);
             case "CREDIT_CARD"   -> 3200.0 + ThreadLocalRandom.current().nextInt(12000);
+            case "EDUCATION"     -> 15000.0 + ThreadLocalRandom.current().nextInt(25000);
+            case "LPG"           -> 850.0 + ThreadLocalRandom.current().nextInt(200);
+            case "LANDLINE"      -> 320.0 + ThreadLocalRandom.current().nextInt(300);
             default              -> 999.0;
         };
 
