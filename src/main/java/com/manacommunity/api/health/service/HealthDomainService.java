@@ -744,4 +744,168 @@ public class HealthDomainService {
                         .updatedAt(LocalDateTime.now()).build()
         );
     }
+
+    // ── Mental Health ─────────────────────────────────────────────────────────
+
+    public MentalHealthSessionDto bookMentalHealthSession(Long tenantId, Long userId, BookMentalHealthSessionRequest req) {
+        return MentalHealthSessionDto.builder()
+                .id(1L).sessionUuid(UUID.randomUUID()).patientId(req.getPatientId())
+                .therapistId(req.getTherapistId()).therapistName("Dr. Priya Sharma")
+                .therapistSpecialty("Clinical Psychologist")
+                .sessionType(req.getSessionType())
+                .sessionDate(req.getSessionDate()).sessionTime(req.getSessionTime())
+                .durationMinutes(50).fee(BigDecimal.valueOf(1200)).status("CONFIRMED")
+                .bookedAt(LocalDateTime.now()).build();
+    }
+
+    public List<MentalHealthSessionDto> getMyMentalHealthSessions(Long tenantId, Long userId) {
+        return List.of(
+                MentalHealthSessionDto.builder().id(1L).sessionUuid(UUID.randomUUID())
+                        .therapistName("Dr. Priya Sharma").therapistSpecialty("Clinical Psychologist")
+                        .sessionType(MentalHealthSessionType.THERAPY_SESSION)
+                        .sessionDate(LocalDate.of(2026, 10, 18)).durationMinutes(50)
+                        .fee(BigDecimal.valueOf(1200)).status("COMPLETED")
+                        .bookedAt(LocalDateTime.of(2026, 10, 15, 10, 0)).build(),
+                MentalHealthSessionDto.builder().id(2L).sessionUuid(UUID.randomUUID())
+                        .therapistName("Dr. Rajan Menon").therapistSpecialty("Psychiatrist")
+                        .sessionType(MentalHealthSessionType.TELECONSULT_PSYCHIATRY)
+                        .sessionDate(LocalDate.of(2026, 10, 29)).durationMinutes(50)
+                        .fee(BigDecimal.valueOf(1800)).status("CONFIRMED")
+                        .bookedAt(LocalDateTime.now()).build()
+        );
+    }
+
+    public MoodCheckInDto logMood(Long tenantId, Long userId, LogMoodRequest req) {
+        return MoodCheckInDto.builder()
+                .id(1L).patientId(req.getPatientId())
+                .moodScore(req.getMoodScore()).note(req.getNote())
+                .checkInDate(LocalDate.now()).loggedAt(LocalDateTime.now()).build();
+    }
+
+    public List<MoodCheckInDto> getMoodHistory(Long tenantId, Long userId) {
+        return List.of(
+                MoodCheckInDto.builder().id(1L).moodScore(4).note("Feeling better after walk").checkInDate(LocalDate.now().minusDays(2)).loggedAt(LocalDateTime.now().minusDays(2)).build(),
+                MoodCheckInDto.builder().id(2L).moodScore(3).note("Bit tired").checkInDate(LocalDate.now().minusDays(1)).loggedAt(LocalDateTime.now().minusDays(1)).build(),
+                MoodCheckInDto.builder().id(3L).moodScore(4).note("").checkInDate(LocalDate.now()).loggedAt(LocalDateTime.now()).build()
+        );
+    }
+
+    // ── Insurance Claims ──────────────────────────────────────────────────────
+
+    public InsuranceClaimDto intimateClaim(Long tenantId, Long userId, IntimateInsuranceClaimRequest req) {
+        String claimNumber = "CLM-2026-0" + (int)(Math.random() * 900 + 100);
+        return InsuranceClaimDto.builder()
+                .id(1L).claimUuid(UUID.randomUUID()).claimNumber(claimNumber)
+                .hospitalName(req.getHospitalName()).diagnosis(req.getDiagnosis())
+                .admissionDate(req.getAdmissionDate())
+                .claimedAmount(req.getEstimatedAmount())
+                .status(InsuranceClaimStatus.SUBMITTED)
+                .tpaName(req.getTpaName()).policyNumber(req.getPolicyNumber())
+                .submittedAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+    }
+
+    public List<InsuranceClaimDto> getMyClaims(Long tenantId, Long userId) {
+        return List.of(
+                InsuranceClaimDto.builder().id(1L).claimUuid(UUID.randomUUID())
+                        .claimNumber("CLM-2026-00147").hospitalName("Apollo Hospitals")
+                        .diagnosis("Appendicitis - Appendectomy").admissionDate(LocalDate.of(2026, 9, 12))
+                        .claimedAmount(BigDecimal.valueOf(85000)).approvedAmount(BigDecimal.valueOf(82000))
+                        .status(InsuranceClaimStatus.SETTLED).tpaName("Medi Assist")
+                        .submittedAt(LocalDateTime.of(2026, 9, 13, 9, 0))
+                        .updatedAt(LocalDateTime.of(2026, 9, 28, 0, 0)).build(),
+                InsuranceClaimDto.builder().id(2L).claimUuid(UUID.randomUUID())
+                        .claimNumber("CLM-2026-00298").hospitalName("Manipal Hospital")
+                        .diagnosis("Knee Replacement Surgery").admissionDate(LocalDate.of(2026, 10, 1))
+                        .claimedAmount(BigDecimal.valueOf(230000))
+                        .status(InsuranceClaimStatus.UNDER_REVIEW).tpaName("Medi Assist")
+                        .submittedAt(LocalDateTime.of(2026, 10, 2, 10, 0))
+                        .updatedAt(LocalDateTime.of(2026, 10, 15, 0, 0)).build()
+        );
+    }
+
+    public InsuranceClaimDto getClaimByUuid(Long userId, UUID uuid) {
+        return getMyClaims(1L, userId).stream()
+                .filter(c -> c.getClaimUuid().equals(uuid))
+                .findFirst().orElseThrow(() -> new RuntimeException("Claim not found"));
+    }
+
+    // ── OPD Queue ─────────────────────────────────────────────────────────────
+
+    public OpdQueueEntryDto joinOpdQueue(Long tenantId, Long userId, JoinOpdQueueRequest req) {
+        int pos = (int)(Math.random() * 4) + 2;
+        return OpdQueueEntryDto.builder()
+                .id(1L).queueUuid(UUID.randomUUID()).patientId(req.getPatientId())
+                .doctorId(req.getDoctorId()).doctorName("Dr. Priya Nair")
+                .queuePosition(pos).estimatedWaitMinutes(pos * 8)
+                .status(OpdQueueStatus.WAITING).joinedAt(LocalDateTime.now()).build();
+    }
+
+    public OpdQueueEntryDto getMyQueueEntry(Long tenantId, Long userId) {
+        return OpdQueueEntryDto.builder()
+                .id(1L).queueUuid(UUID.randomUUID())
+                .doctorName("Dr. Priya Nair").queuePosition(2)
+                .estimatedWaitMinutes(16).status(OpdQueueStatus.WAITING)
+                .joinedAt(LocalDateTime.now().minusMinutes(8)).build();
+    }
+
+    public void leaveOpdQueue(Long tenantId, Long userId) {
+        // Seed: no-op
+    }
+
+    // ── Hospital Network ──────────────────────────────────────────────────────
+
+    public List<NetworkHospitalDto> getNetworkHospitals(Long tenantId, String city, String specialty) {
+        return List.of(
+                NetworkHospitalDto.builder().id(1L).hospitalUuid(UUID.randomUUID())
+                        .name("Apollo Hospitals").address("Bannerghatta Road, Bengaluru")
+                        .city("Bengaluru").distanceKm(1.2).rating(4.9).totalBeds(280)
+                        .cashless(true).nablAccredited(true).nabhAccredited(true).emergencyAvailable(true)
+                        .specialties(List.of("Cardiology", "Oncology", "Neurology", "Multi-specialty"))
+                        .networkName("Apollo Network").networkType(HospitalNetworkType.CASHLESS_TPA)
+                        .contactPhone("080-26941111").build(),
+                NetworkHospitalDto.builder().id(2L).hospitalUuid(UUID.randomUUID())
+                        .name("Manipal Hospital").address("HAL Airport Road, Bengaluru")
+                        .city("Bengaluru").distanceKm(3.4).rating(4.8).totalBeds(350)
+                        .cashless(true).nablAccredited(true).nabhAccredited(true).emergencyAvailable(true)
+                        .specialties(List.of("Ortho", "Cardiology", "Maternity", "Multi-specialty"))
+                        .networkName("Manipal Network").networkType(HospitalNetworkType.BOTH)
+                        .contactPhone("080-25024444").build(),
+                NetworkHospitalDto.builder().id(3L).hospitalUuid(UUID.randomUUID())
+                        .name("Fortis Hospital").address("Cunningham Road, Bengaluru")
+                        .city("Bengaluru").distanceKm(4.1).rating(4.7).totalBeds(190)
+                        .cashless(true).nablAccredited(true).nabhAccredited(false).emergencyAvailable(true)
+                        .specialties(List.of("Oncology", "Neurology", "Multi-specialty"))
+                        .networkName("Fortis Network").networkType(HospitalNetworkType.CASHLESS_TPA)
+                        .contactPhone("080-66214444").build()
+        );
+    }
+
+    // ── Mana Gold ─────────────────────────────────────────────────────────────
+
+    public GoldMembershipDto subscribeGold(Long tenantId, Long userId, SubscribeGoldRequest req) {
+        BigDecimal price = req.getPlanTier() == GoldPlanTier.ANNUAL ? BigDecimal.valueOf(399) : BigDecimal.valueOf(499);
+        return GoldMembershipDto.builder()
+                .id(1L).membershipUuid(UUID.randomUUID())
+                .planTier(req.getPlanTier()).status(GoldMembershipStatus.ACTIVE)
+                .monthlyPrice(price)
+                .startDate(LocalDate.now())
+                .renewalDate(req.getPlanTier() == GoldPlanTier.ANNUAL ? LocalDate.now().plusYears(1) : LocalDate.now().plusMonths(1))
+                .freeConsultsUsed(0).freeConsultsTotal(req.getPlanTier() == GoldPlanTier.ANNUAL ? -1 : 3)
+                .createdAt(LocalDateTime.now()).build();
+    }
+
+    public GoldMembershipDto getMyGoldMembership(Long tenantId, Long userId) {
+        return GoldMembershipDto.builder()
+                .id(1L).membershipUuid(UUID.randomUUID())
+                .planTier(GoldPlanTier.ANNUAL).status(GoldMembershipStatus.ACTIVE)
+                .monthlyPrice(BigDecimal.valueOf(399))
+                .startDate(LocalDate.of(2026, 10, 22))
+                .renewalDate(LocalDate.of(2027, 10, 22))
+                .freeConsultsUsed(2).freeConsultsTotal(-1)
+                .createdAt(LocalDateTime.of(2026, 10, 22, 0, 0)).build();
+    }
+
+    public void cancelGoldMembership(Long tenantId, Long userId) {
+        // Seed: no-op
+    }
 }

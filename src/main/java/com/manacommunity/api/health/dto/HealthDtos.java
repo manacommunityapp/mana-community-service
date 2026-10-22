@@ -499,4 +499,149 @@ public class HealthDtos {
         private String drug;
         private String status;
     }
+
+    // ── Mental Health ─────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class MentalHealthSessionDto {
+        private Long id;
+        private UUID sessionUuid;
+        private UUID patientId;
+        private Long therapistId;
+        private String therapistName;
+        private String therapistSpecialty;
+        private MentalHealthSessionType sessionType;
+        private LocalDate sessionDate;
+        private LocalTime sessionTime;
+        private Integer durationMinutes;
+        private BigDecimal fee;
+        private String status;
+        private LocalDateTime bookedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class BookMentalHealthSessionRequest {
+        private UUID patientId;
+        private Long therapistId;
+        private MentalHealthSessionType sessionType;
+        private LocalDate sessionDate;
+        private LocalTime sessionTime;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class MoodCheckInDto {
+        private Long id;
+        private UUID patientId;
+        private Integer moodScore;
+        private String note;
+        private LocalDate checkInDate;
+        private LocalDateTime loggedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class LogMoodRequest {
+        private UUID patientId;
+        private Integer moodScore;
+        private String note;
+    }
+
+    // ── Insurance Claims ──────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class InsuranceClaimDto {
+        private Long id;
+        private UUID claimUuid;
+        private String claimNumber;
+        private UUID patientId;
+        private String hospitalName;
+        private String diagnosis;
+        private LocalDate admissionDate;
+        private BigDecimal claimedAmount;
+        private BigDecimal approvedAmount;
+        private InsuranceClaimStatus status;
+        private String tpaName;
+        private String policyNumber;
+        private LocalDateTime submittedAt;
+        private LocalDateTime updatedAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class IntimateInsuranceClaimRequest {
+        private UUID patientId;
+        private String hospitalName;
+        private String diagnosis;
+        private LocalDate admissionDate;
+        private BigDecimal estimatedAmount;
+        private String tpaName;
+        private String policyNumber;
+    }
+
+    // ── OPD Queue ─────────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class OpdQueueEntryDto {
+        private Long id;
+        private UUID queueUuid;
+        private UUID patientId;
+        private Long doctorId;
+        private String doctorName;
+        private Integer queuePosition;
+        private Integer estimatedWaitMinutes;
+        private OpdQueueStatus status;
+        private LocalDateTime joinedAt;
+        private LocalDateTime calledAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class JoinOpdQueueRequest {
+        private UUID patientId;
+        private Long doctorId;
+        private ConsultationMode mode;
+    }
+
+    // ── Hospital Network ──────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class NetworkHospitalDto {
+        private Long id;
+        private UUID hospitalUuid;
+        private String name;
+        private String address;
+        private String city;
+        private Double distanceKm;
+        private Double rating;
+        private Integer totalBeds;
+        private boolean cashless;
+        private boolean nablAccredited;
+        private boolean nabhAccredited;
+        private boolean emergencyAvailable;
+        private List<String> specialties;
+        private String networkName;
+        private HospitalNetworkType networkType;
+        private String contactPhone;
+        private String mapsUrl;
+    }
+
+    // ── Mana Gold ─────────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class GoldMembershipDto {
+        private Long id;
+        private UUID membershipUuid;
+        private UUID patientId;
+        private GoldPlanTier planTier;
+        private GoldMembershipStatus status;
+        private BigDecimal monthlyPrice;
+        private LocalDate startDate;
+        private LocalDate renewalDate;
+        private Integer freeConsultsUsed;
+        private Integer freeConsultsTotal;
+        private LocalDateTime createdAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SubscribeGoldRequest {
+        private UUID patientId;
+        private GoldPlanTier planTier;
+    }
 }

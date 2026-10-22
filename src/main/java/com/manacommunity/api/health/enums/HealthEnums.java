@@ -71,4 +71,22 @@ public class HealthEnums {
     public enum DigitalPrescriptionStatus {
         GENERATED, SENT_TO_PHARMACY, ARCHIVED
     }
+    public enum InsuranceClaimStatus {
+        SUBMITTED, UNDER_REVIEW, DOCS_REQUIRED, APPROVED, REJECTED, SETTLED
+    }
+    public enum MentalHealthSessionType {
+        TELECONSULT_PSYCHIATRY, TELECONSULT_PSYCHOLOGY, THERAPY_SESSION, WELLNESS_PROGRAM, CRISIS_SUPPORT
+    }
+    public enum GoldPlanTier {
+        MONTHLY, ANNUAL
+    }
+    public enum GoldMembershipStatus {
+        ACTIVE, EXPIRED, CANCELLED, PENDING
+    }
+    public enum OpdQueueStatus {
+        WAITING, IN_CONSULTATION, COMPLETED, LEFT_QUEUE
+    }
+    public enum HospitalNetworkType {
+        CASHLESS_TPA, REIMBURSEMENT_ONLY, BOTH
+    }
 }

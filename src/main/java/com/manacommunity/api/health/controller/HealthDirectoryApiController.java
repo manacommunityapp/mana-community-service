@@ -391,6 +391,136 @@ public class HealthDirectoryApiController {
         return ResponseEntity.ok(healthDomainService.getMyOncologyJourneys(tenantId, userId));
     }
 
+    // ── Mental Health ─────────────────────────────────────────────────────────
+
+    @PostMapping("/mental-health/sessions/book")
+    public ResponseEntity<MentalHealthSessionDto> bookMentalHealthSession(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody BookMentalHealthSessionRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.bookMentalHealthSession(tenantId, userId, req));
+    }
+
+    @GetMapping("/mental-health/sessions/my")
+    public ResponseEntity<List<MentalHealthSessionDto>> getMyMentalHealthSessions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyMentalHealthSessions(tenantId, userId));
+    }
+
+    @PostMapping("/mental-health/mood")
+    public ResponseEntity<MoodCheckInDto> logMood(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody LogMoodRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.logMood(tenantId, userId, req));
+    }
+
+    @GetMapping("/mental-health/mood/history")
+    public ResponseEntity<List<MoodCheckInDto>> getMoodHistory(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMoodHistory(tenantId, userId));
+    }
+
+    // ── Insurance Claims ──────────────────────────────────────────────────────
+
+    @PostMapping("/insurance/claims/intimate")
+    public ResponseEntity<InsuranceClaimDto> intimateClaim(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody IntimateInsuranceClaimRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.intimateClaim(tenantId, userId, req));
+    }
+
+    @GetMapping("/insurance/claims/my")
+    public ResponseEntity<List<InsuranceClaimDto>> getMyClaims(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyClaims(tenantId, userId));
+    }
+
+    @GetMapping("/insurance/claims/{uuid}")
+    public ResponseEntity<InsuranceClaimDto> getClaimByUuid(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getClaimByUuid(userId, uuid));
+    }
+
+    // ── OPD Queue ─────────────────────────────────────────────────────────────
+
+    @PostMapping("/queue/join")
+    public ResponseEntity<OpdQueueEntryDto> joinOpdQueue(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody JoinOpdQueueRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.joinOpdQueue(tenantId, userId, req));
+    }
+
+    @GetMapping("/queue/my")
+    public ResponseEntity<OpdQueueEntryDto> getMyQueueEntry(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyQueueEntry(tenantId, userId));
+    }
+
+    @DeleteMapping("/queue/leave")
+    public ResponseEntity<Void> leaveOpdQueue(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        healthDomainService.leaveOpdQueue(tenantId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Hospital Network ──────────────────────────────────────────────────────
+
+    @GetMapping("/hospitals/network")
+    public ResponseEntity<List<NetworkHospitalDto>> getNetworkHospitals(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String specialty) {
+        return ResponseEntity.ok(healthDomainService.getNetworkHospitals(tenantId, city, specialty));
+    }
+
+    // ── Mana Gold ─────────────────────────────────────────────────────────────
+
+    @PostMapping("/gold/subscribe")
+    public ResponseEntity<GoldMembershipDto> subscribeGold(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestBody SubscribeGoldRequest req) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.subscribeGold(tenantId, userId, req));
+    }
+
+    @GetMapping("/gold/my")
+    public ResponseEntity<GoldMembershipDto> getMyGoldMembership(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getMyGoldMembership(tenantId, userId));
+    }
+
+    @DeleteMapping("/gold/cancel")
+    public ResponseEntity<Void> cancelGoldMembership(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        healthDomainService.cancelGoldMembership(tenantId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();
