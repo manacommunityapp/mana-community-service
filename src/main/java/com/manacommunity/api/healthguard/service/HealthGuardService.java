@@ -190,6 +190,28 @@ public class HealthGuardService {
             }
         } catch (Exception ignored) { /* push failure must not abort SOS */ }
 
+        // Push notifications to nearby available community responders
+        try {
+            List<Long> responderUserIds = responderRepository
+                    .findByIsActiveTrueAndAvailabilityStatus(ResponderAvailability.AVAILABLE)
+                    .stream()
+                    .map(r -> r.getUserId())
+                    .filter(rid -> !rid.equals(userId))
+                    .collect(Collectors.toList());
+            if (!responderUserIds.isEmpty()) {
+                String responderName = appUserRepository.findById(userId)
+                        .map(u -> u.getFirstName() != null ? u.getFirstName() : "A community member")
+                        .orElse("A community member");
+                String pushBody = incident.getDescription() != null
+                        ? incident.getDescription() : "Nearby resident needs immediate assistance";
+                expoPushService.sendToUsers(responderUserIds,
+                        "🚨 SOS Alert — " + responderName,
+                        pushBody,
+                        Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
+                        "emergency");
+            }
+        } catch (Exception ignored) { /* push failure must not abort SOS */ }
+
         EmergencyIncidentDto dto = toIncidentDto(incident);
         dto.setNotifications(
                 notificationRepository.findByIncidentIdOrderByCreatedAtAsc(incident.getId())
