@@ -365,6 +365,224 @@ public class ProcurementHubController {
 
     // ── Stats ─────────────────────────────────────────────────────────────
 
+    // ── Phase 2: Supplier Management ──────────────────────────────────────────
+
+    @PostMapping("/suppliers")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<SupplierProfile> createSupplier(@RequestBody SupplierRequest req) {
+        SupplierProfile supplier = SupplierProfile.builder()
+                .businessName(req.businessName())
+                .contactPerson(req.contactPerson())
+                .mobile(req.mobile())
+                .email(req.email())
+                .gstNumber(req.gstNumber())
+                .address(req.address())
+                .city(req.city())
+                .pincode(req.pincode())
+                .categories(req.categories())
+                .serviceArea(req.serviceArea())
+                .description(req.description())
+                .verificationStatus(SupplierVerificationStatus.VERIFIED)
+                .rating(java.math.BigDecimal.ZERO)
+                .reviewCount(0)
+                .fulfillmentRate(java.math.BigDecimal.valueOf(100))
+                .onTimeRate(java.math.BigDecimal.valueOf(100))
+                .totalOrders(0)
+                .active(true)
+                .build();
+        return ResponseEntity.ok(supplierRepo.save(supplier));
+    }
+
+    @PutMapping("/suppliers/{id}/verify")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<SupplierProfile> verifySupplier(@PathVariable Long id) {
+        return supplierRepo.findById(id)
+                .map(s -> {
+                    s.setVerificationStatus(SupplierVerificationStatus.VERIFIED);
+                    return ResponseEntity.ok(supplierRepo.save(s));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/suppliers/{id}/products")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<SupplierProduct> addSupplierProduct(
+            @PathVariable Long id,
+            @RequestBody ProductRequest req) {
+
+        SupplierProfile supplier = supplierRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Supplier not found"));
+
+        ProcurementCategory cat = ProcurementCategory.OTHER;
+        try { cat = ProcurementCategory.valueOf(req.category()); } catch (Exception ignored) {}
+
+        SupplierProduct product = SupplierProduct.builder()
+                .supplier(supplier)
+                .name(req.name())
+                .description(req.description())
+                .category(cat)
+                .unit(req.unit() != null ? req.unit() : "units")
+                .wholesalePrice(req.wholesalePrice())
+                .retailPrice(req.retailPrice())
+                .moq(req.moq() != null ? req.moq() : 1)
+                .gstPercent(req.gstPercent() != null ? req.gstPercent() : java.math.BigDecimal.valueOf(18))
+                .leadTimeDays(req.leadTimeDays() != null ? req.leadTimeDays() : 3)
+                .inStock(true)
+                .active(true)
+                .build();
+        return ResponseEntity.ok(productRepo.save(product));
+    }
+
+    // ── Phase 2: Quote Submission ──────────────────────────────────────────────
+
+    @PostMapping("/rfqs/{rfqId}/quotes")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<SupplierQuoteDto> submitQuote(
+            @PathVariable Long rfqId,
+            @RequestBody QuoteSubmitRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        ProcurementRFQ rfq = rfqRepo.findByIdAndCommunityId(rfqId, communityId(principal))
+                .orElseThrow(() -> new RuntimeException("RFQ not found"));
+
+        SupplierProfile supplier = supplierRepo.findById(req.supplierId())
+                .orElseThrow(() -> new RuntimeException("Supplier not found"));
+
+        java.math.BigDecimal subTotal = req.items().stream()
+                .map(i -> i.pricePerUnit().multiply(java.math.BigDecimal.valueOf(i.quantity())))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        java.math.BigDecimal gstAmount = req.items().stream()
+                .map(i -> {
+                    java.math.BigDecimal lineTotal = i.pricePerUnit().multiply(java.math.BigDecimal.valueOf(i.quantity()));
+                    java.math.BigDecimal gstPct = i.gstPercent() != null ? i.gstPercent() : java.math.BigDecimal.valueOf(18);
+                    return lineTotal.multiply(gstPct).divide(java.math.BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                })
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        java.math.BigDecimal deliveryCharge = req.deliveryCharge() != null ? req.deliveryCharge() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal grandTotal = subTotal.add(gstAmount).add(deliveryCharge);
+
+        SupplierQuote quote = SupplierQuote.builder()
+                .rfq(rfq)
+                .supplier(supplier)
+                .status(QuoteStatus.SUBMITTED)
+                .subTotal(subTotal)
+                .gstAmount(gstAmount)
+                .deliveryCharge(deliveryCharge)
+                .grandTotal(grandTotal)
+                .validUntil(java.time.LocalDate.parse(req.validUntil()))
+                .deliveryDate(java.time.LocalDate.parse(req.deliveryDate()))
+                .paymentTerms(req.paymentTerms())
+                .notes(req.notes())
+                .build();
+
+        for (QuoteItemRequest itemReq : req.items()) {
+            java.math.BigDecimal lineTotal = itemReq.pricePerUnit().multiply(java.math.BigDecimal.valueOf(itemReq.quantity()));
+            SupplierQuoteItem item = SupplierQuoteItem.builder()
+                    .quote(quote)
+                    .rfqItemId(itemReq.rfqItemId())
+                    .productName(itemReq.productName())
+                    .unit(itemReq.unit() != null ? itemReq.unit() : "units")
+                    .quantity(itemReq.quantity())
+                    .pricePerUnit(itemReq.pricePerUnit())
+                    .gstPercent(itemReq.gstPercent() != null ? itemReq.gstPercent() : java.math.BigDecimal.valueOf(18))
+                    .totalPrice(lineTotal)
+                    .leadTimeDays(itemReq.leadTimeDays() != null ? itemReq.leadTimeDays() : 3)
+                    .notes(itemReq.notes())
+                    .build();
+            quote.getItems().add(item);
+        }
+
+        SupplierQuote saved = quoteRepo.save(quote);
+        rfq.setQuotesReceived(rfq.getQuotesReceived() + 1);
+        if (rfq.getStatus() == RFQStatus.OPEN) {
+            rfq.setStatus(RFQStatus.QUOTES_RECEIVED);
+        }
+        rfqRepo.save(rfq);
+
+        return ResponseEntity.ok(toQuoteDto(saved));
+    }
+
+    // ── Phase 2: Analytics ────────────────────────────────────────────────────
+
+    @GetMapping("/analytics")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<ProcurementAnalyticsDto> getAnalytics(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+
+        List<ProcurementPO> allPOs = poRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
+        java.math.BigDecimal totalSpend = poRepo.sumFulfilledSpend(communityId);
+        if (totalSpend == null) totalSpend = java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal pendingPOValue = allPOs.stream()
+                .filter(po -> po.getStatus() == POStatus.SENT || po.getStatus() == POStatus.ACKNOWLEDGED)
+                .map(ProcurementPO::getGrandTotal)
+                .filter(Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        Map<String, long[]> catMap = new java.util.LinkedHashMap<>();
+        for (ProcurementPO po : allPOs) {
+            if (po.getStatus() == POStatus.CANCELLED) continue;
+            String categories = po.getSupplier().getCategories();
+            String cat = "OTHER";
+            if (categories != null && !categories.isBlank()) {
+                cat = categories.split(",")[0].trim();
+            }
+            catMap.computeIfAbsent(cat, k -> new long[]{0L, 0L});
+            catMap.get(cat)[0] += po.getGrandTotal() != null ? po.getGrandTotal().longValue() : 0L;
+            catMap.get(cat)[1]++;
+        }
+        List<CategorySpendDto> categorySpend = catMap.entrySet().stream()
+                .map(e -> new CategorySpendDto(e.getKey(), e.getValue()[0], (int) e.getValue()[1]))
+                .sorted((a, b) -> Long.compare(b.spend(), a.spend()))
+                .toList();
+
+        Map<Long, long[]> supplierMap = new java.util.LinkedHashMap<>();
+        Map<Long, String> supplierNames = new java.util.HashMap<>();
+        for (ProcurementPO po : allPOs) {
+            if (po.getStatus() == POStatus.CANCELLED) continue;
+            Long sid = po.getSupplier().getId();
+            supplierMap.computeIfAbsent(sid, k -> new long[]{0L, 0L});
+            supplierMap.get(sid)[0] += po.getGrandTotal() != null ? po.getGrandTotal().longValue() : 0L;
+            supplierMap.get(sid)[1]++;
+            supplierNames.put(sid, po.getSupplier().getBusinessName());
+        }
+        List<SupplierSpendDto> topSuppliers = supplierMap.entrySet().stream()
+                .map(e -> new SupplierSpendDto(e.getKey(), supplierNames.get(e.getKey()), e.getValue()[0], (int) e.getValue()[1]))
+                .sorted((a, b) -> Long.compare(b.spend(), a.spend()))
+                .limit(5)
+                .toList();
+
+        List<ProcurementRFQ> allRFQs = rfqRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
+        int awardedRFQs = (int) allRFQs.stream()
+                .filter(r -> r.getStatus() == RFQStatus.AWARDED || r.getStatus() == RFQStatus.CLOSED)
+                .count();
+        double avgQuotes = allRFQs.isEmpty() ? 0
+                : allRFQs.stream().mapToInt(ProcurementRFQ::getQuotesReceived).average().orElse(0);
+
+        java.math.BigDecimal totalEstimated = allRFQs.stream()
+                .filter(r -> r.getStatus() == RFQStatus.AWARDED || r.getStatus() == RFQStatus.CLOSED)
+                .map(ProcurementRFQ::getEstimatedValue)
+                .filter(Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        long savings = Math.max(0L, totalEstimated.longValue() - totalSpend.longValue());
+        double savingsRate = totalEstimated.compareTo(java.math.BigDecimal.ZERO) > 0
+                ? Math.round((savings * 1000.0 / totalEstimated.longValue())) / 10.0
+                : 0.0;
+
+        return ResponseEntity.ok(new ProcurementAnalyticsDto(
+                totalSpend.longValue(), savings, savingsRate,
+                categorySpend, topSuppliers,
+                allRFQs.size(), awardedRFQs,
+                Math.round(avgQuotes * 10.0) / 10.0,
+                pendingPOValue.longValue()
+        ));
+    }
+
     @GetMapping("/stats")
     @PreAuthorize("hasAuthority('View Admin')")
     public ResponseEntity<ProcurementStatsDto> getStats(
@@ -464,5 +682,41 @@ public class ProcurementHubController {
             int totalRFQs, int activeRFQs, int totalPOs,
             long totalSpend, long totalSavings,
             int activeSuppliers, double avgQuotesPerRFQ
+    ) {}
+
+    // Phase 2 records
+    public record SupplierRequest(
+            String businessName, String contactPerson, String mobile, String email,
+            String gstNumber, String address, String city, String pincode,
+            String categories, String serviceArea, String description
+    ) {}
+
+    public record ProductRequest(
+            String name, String description, String category, String unit,
+            java.math.BigDecimal wholesalePrice, java.math.BigDecimal retailPrice,
+            Integer moq, java.math.BigDecimal gstPercent, Integer leadTimeDays
+    ) {}
+
+    public record QuoteSubmitRequest(
+            Long supplierId,
+            List<QuoteItemRequest> items,
+            java.math.BigDecimal deliveryCharge,
+            String validUntil, String deliveryDate, String paymentTerms, String notes
+    ) {}
+
+    public record QuoteItemRequest(
+            Long rfqItemId, String productName, String unit, Integer quantity,
+            java.math.BigDecimal pricePerUnit, java.math.BigDecimal gstPercent,
+            Integer leadTimeDays, String notes
+    ) {}
+
+    public record CategorySpendDto(String category, long spend, int poCount) {}
+    public record SupplierSpendDto(Long supplierId, String supplierName, long spend, int poCount) {}
+
+    public record ProcurementAnalyticsDto(
+            long totalSpend, long totalSavings, double savingsRate,
+            List<CategorySpendDto> categorySpend,
+            List<SupplierSpendDto> topSuppliers,
+            int totalRFQs, int awardedRFQs, double avgQuotesPerRFQ, long pendingPOValue
     ) {}
 }
