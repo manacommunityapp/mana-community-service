@@ -2,6 +2,7 @@ package com.manacommunity.api.payments.controller;
 
 import com.manacommunity.api.payments.dto.CashfreeCreateOrderRequest;
 import com.manacommunity.api.payments.dto.CashfreeOrderResponse;
+import com.manacommunity.api.payments.dto.CashfreeRefundRequest;
 import com.manacommunity.api.payments.service.CashfreePaymentService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -155,6 +156,22 @@ public class CashfreePaymentController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(paymentService.getById(id, user.getCommunity().getId()));
+    }
+
+    /**
+     * Initiate a refund for a PAID order.
+     *
+     * <p>Transitions the order to REFUND_PENDING. The final REFUNDED state
+     * arrives via the REFUND_STATUS_WEBHOOK from Cashfree.
+     */
+    @Operation(summary = "Initiate a refund for a Cashfree order")
+    @PostMapping("/orders/{orderId}/refund")
+    public ResponseEntity<CashfreeOrderResponse> initiateRefund(
+            @PathVariable String orderId,
+            @Valid @RequestBody CashfreeRefundRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(paymentService.initiateRefund(orderId, req.getAmount(), req.getReason()));
     }
 
     /**
