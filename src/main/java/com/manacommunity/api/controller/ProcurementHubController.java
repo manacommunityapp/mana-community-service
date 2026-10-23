@@ -186,7 +186,7 @@ public class ProcurementHubController {
                 .description(req.description())
                 .status(RFQStatus.DRAFT)
                 .communityId(communityId)
-                .requestedBy(user.getName() != null ? user.getName() : user.getEmail())
+                .requestedBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
                 .deliveryLocation(req.deliveryLocation())
                 .deliveryDeadline(java.time.LocalDate.parse(req.deliveryDeadline()))
                 .quotationDeadline(java.time.LocalDate.parse(req.quotationDeadline()))
@@ -703,7 +703,7 @@ public class ProcurementHubController {
                 .deliveryDate(req.deliveryDate() != null ? java.time.LocalDate.parse(req.deliveryDate()) : null)
                 .status(BulkBuyCampaignStatus.DRAFT)
                 .communityId(communityId)
-                .createdBy(user.getName() != null ? user.getName() : user.getEmail())
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
                 .build();
 
         return ResponseEntity.ok(toCampaignDto(campaignRepo.save(campaign), userId(principal)));
@@ -759,7 +759,7 @@ public class ProcurementHubController {
         BulkBuyCommitment commitment = BulkBuyCommitment.builder()
                 .campaignId(id)
                 .userId(userId)
-                .userName(user.getName() != null ? user.getName() : user.getEmail())
+                .userName(user.getFullName() != null ? user.getFullName() : user.getEmail())
                 .quantity(req.quantity())
                 .pricePerUnit(price)
                 .totalAmount(totalAmt)
@@ -1115,7 +1115,7 @@ public class ProcurementHubController {
 
         AppUser user = loggedInUserService.resolve(principal);
         Long userId = user.getId();
-        String name = user.getName() != null ? user.getName() : user.getEmail();
+        String name = user.getFullName() != null ? user.getFullName() : user.getEmail();
 
         // Cancel existing active bid if any
         auctionBidRepo.findByRfqIdAndSupplierIdAndStatusNot(rfqId, userId, AuctionBidStatus.WITHDRAWN)
@@ -1296,7 +1296,7 @@ public class ProcurementHubController {
                 .nextDueDate(java.time.LocalDate.parse(req.nextDueDate()))
                 .notes(req.notes())
                 .communityId(communityId)
-                .createdBy(user.getName() != null ? user.getName() : user.getEmail())
+                .createdBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
                 .build();
 
         return ResponseEntity.ok(toCalendarDto(calendarRepo.save(entry)));
@@ -1352,7 +1352,7 @@ public class ProcurementHubController {
 
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = communityId(principal);
-        String requester = user.getName() != null ? user.getName() : user.getEmail();
+        String requester = user.getFullName() != null ? user.getFullName() : user.getEmail();
 
         PurchaseCalendarEntry entry = calendarRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new RuntimeException("Calendar entry not found"));
@@ -1492,7 +1492,7 @@ public class ProcurementHubController {
                 .numericValue(req.numericValue() != null ? java.math.BigDecimal.valueOf(req.numericValue()) : null)
                 .onTimeFlag(onTimeFlag)
                 .notes(req.notes())
-                .recordedBy(user.getName() != null ? user.getName() : user.getEmail())
+                .recordedBy(user.getFullName() != null ? user.getFullName() : user.getEmail())
                 .build();
 
         perfRepo.save(event);
@@ -1762,7 +1762,7 @@ public class ProcurementHubController {
                         rfq.getId(), rfq.getRfqNumber(), rfq.getTitle(),
                         quotes.size(), awardedAmt,
                         rfq.getEstimatedValue() != null ? rfq.getEstimatedValue().longValue() : null,
-                        eventSavings, awarded.getSupplierName(),
+                        eventSavings, (awarded.getSupplier() != null ? awarded.getSupplier().getBusinessName() : "Supplier"),
                         rfq.getCreatedAt().toString()
                 ));
             }

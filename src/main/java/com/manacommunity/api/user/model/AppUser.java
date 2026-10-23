@@ -230,4 +230,9 @@ public class AppUser {
     public String getUsername() {
         return email != null ? email : (fullName != null ? fullName : "User");
     }
+
+    @JsonIgnore
+    public String getName() {
+        return fullName;
+    }
 }

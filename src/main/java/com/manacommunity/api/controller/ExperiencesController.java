@@ -89,7 +89,7 @@ public class ExperiencesController {
     ) {}
 
     record ReviewRequest(
-        String experienceId, String bookingId, double rating, String title, String body
+        String experienceId, String bookingId, String reviewerName, double rating, String title, String body
     ) {}
 
     record InterestMatch(
@@ -260,8 +260,8 @@ public class ExperiencesController {
         return MOCK_EXPERIENCES.stream()
             .filter(e -> e.id().equals(id))
             .findFirst()
-            .map(e -> (Map<String, Object>) Map.of("experience", e))
-            .orElse(Map.of("error", "Not found"));
+            .map(e -> Map.<String, Object>of("experience", e))
+            .orElse(Map.<String, Object>of("error", "Not found"));
     }
 
     // ── Booking ───────────────────────────────────────────────────────────────
@@ -407,12 +407,14 @@ public class ExperiencesController {
 
     @PostMapping("/reviews")
     public Review submitReview(@RequestBody ReviewRequest req) {
-        String initials = req.reviewerName() != null && req.reviewerName().length() >= 2
-            ? req.reviewerName().substring(0, 1) + req.reviewerName().split(" ")[req.reviewerName().split(" ").length - 1].substring(0, 1)
-            : "RR";
+        String reviewerName = req.reviewerName() != null && !req.reviewerName().isBlank() ? req.reviewerName().trim() : "Resident";
+        String[] parts = reviewerName.split("\\s+");
+        String initials = parts.length >= 2
+            ? parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)
+            : (reviewerName.length() >= 2 ? reviewerName.substring(0, 2) : "RR");
         return new Review(
             "rv-" + System.currentTimeMillis(),
-            req.experienceId(), req.reviewerName() != null ? req.reviewerName() : "Resident",
+            req.experienceId(), reviewerName,
             initials.toUpperCase(), req.rating(), req.title(), req.body(),
             LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
             LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
