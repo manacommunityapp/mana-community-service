@@ -4,6 +4,8 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vms_contracts")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor
@@ -40,6 +43,7 @@ public class VmsContract {
     @Builder.Default
     private ContractStatus status = ContractStatus.DRAFT;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private VmsVendor vendor;
@@ -82,6 +86,7 @@ public class VmsContract {
     @Column(name = "signed_at")
     private LocalDateTime signedAt;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;

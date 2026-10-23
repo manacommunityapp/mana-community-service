@@ -22,7 +22,7 @@ public class EventMealController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping("/{eventId}/meals")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
     public ResponseEntity<MealRegistrationResponse> getUserMeals(
             @PathVariable Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -31,7 +31,7 @@ public class EventMealController {
     }
 
     @PostMapping("/{eventId}/meals")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
     public ResponseEntity<MealRegistrationResponse> saveMeals(
             @PathVariable Long eventId,
             @RequestBody MealRegistrationRequest req,
@@ -41,7 +41,7 @@ public class EventMealController {
     }
 
     @GetMapping("/{eventId}/meals/summary")
-    @PreAuthorize("hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
     public ResponseEntity<MealSummaryResponse> getMealSummary(
             @PathVariable Long eventId) {
         return ResponseEntity.ok(mealService.getMealSummary(eventId));

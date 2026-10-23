@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
@@ -45,6 +51,9 @@ class AuthServiceTest {
     @Mock com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
     @Mock com.manacommunity.api.service.CommunityModuleService communityModuleService;
     @Mock com.manacommunity.api.security.TokenBlacklistService tokenBlacklistService;
+    @Mock com.manacommunity.api.service.OtpService otpService;
+    @Mock com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Mock com.manacommunity.api.service.NotificationManagementService notificationService;
 
     @InjectMocks AuthServiceImpl authService;
 
@@ -62,8 +71,9 @@ class AuthServiceTest {
             Role role = TestDataBuilder.memberRole();
 
             when(communityRepository.findByInviteCode("INVITE123")).thenReturn(Optional.of(community));
-            when(userRepository.existsByEmail(req.getEmail())).thenReturn(false);
+            when(userRepository.existsByEmailIgnoreCase(req.getEmail())).thenReturn(false);
             when(userRepository.existsByPhone(req.getPhone())).thenReturn(false);
+            when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
             when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
@@ -79,7 +89,51 @@ class AuthServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getEmail()).isEqualTo(req.getEmail());
             assertThat(response.getToken()).startsWith("mock-token-");
+            assertThat(response.getOccupancyStatus()).isEqualTo("Owner");
             verify(userRepository).save(any(AppUser.class));
+        }
+
+        @Test
+        @DisplayName("tenant userType registration sets Tenant occupancyStatus")
+        void tenantRegistration() {
+            RegisterRequest req = TestDataBuilder.registerRequest();
+            req.setUserType("Tenant");
+            Community community = TestDataBuilder.community(1L, "INVITE123");
+            Role role = TestDataBuilder.memberRole();
+
+            when(communityRepository.findByInviteCode("INVITE123")).thenReturn(Optional.of(community));
+            when(userRepository.existsByEmailIgnoreCase(req.getEmail())).thenReturn(false);
+            when(userRepository.existsByPhone(req.getPhone())).thenReturn(false);
+            when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
+            when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
+            when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
+            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-tenant");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-tenant");
+            when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
+                AppUser u = inv.getArgument(0);
+                u.setId(100L);
+                return u;
+            });
+
+            AuthResponse response = authService.registerUser(req);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getOccupancyStatus()).isEqualTo("Tenant");
+            assertThat(response.getUserType()).isEqualTo("Tenant");
+            verify(userRepository).save(argThat(u -> "Tenant".equals(u.getOccupancyStatus())));
+        }
+
+        @Test
+        @DisplayName("email not verified throws ManaCommunityException")
+        void emailNotVerified() {
+            RegisterRequest req = TestDataBuilder.registerRequest();
+            doThrow(new ManaCommunityException("Please verify your email before registering.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "EMAIL_NOT_VERIFIED"))
+                    .when(otpService).assertEmailVerified(req.getEmail().trim().toLowerCase());
+
+            assertThatThrownBy(() -> authService.registerUser(req))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("verify your email");
         }
 
         @Test
@@ -98,7 +152,7 @@ class AuthServiceTest {
             RegisterRequest req = TestDataBuilder.registerRequest();
             when(communityRepository.findByInviteCode(anyString()))
                     .thenReturn(Optional.of(TestDataBuilder.community()));
-            when(userRepository.existsByEmail(req.getEmail())).thenReturn(true);
+            when(userRepository.existsByEmailIgnoreCase(req.getEmail())).thenReturn(true);
 
             assertThatThrownBy(() -> authService.registerUser(req))
                     .isInstanceOf(DuplicateResourceException.class);
@@ -110,7 +164,7 @@ class AuthServiceTest {
             RegisterRequest req = TestDataBuilder.registerRequest();
             when(communityRepository.findByInviteCode(anyString()))
                     .thenReturn(Optional.of(TestDataBuilder.community()));
-            when(userRepository.existsByEmail(anyString())).thenReturn(false);
+            when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
             when(userRepository.existsByPhone(req.getPhone())).thenReturn(true);
 
             assertThatThrownBy(() -> authService.registerUser(req))
@@ -125,8 +179,9 @@ class AuthServiceTest {
 
             when(communityRepository.findByInviteCode(anyString()))
                     .thenReturn(Optional.of(TestDataBuilder.community()));
-            when(userRepository.existsByEmail(anyString())).thenReturn(false);
+            when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
             when(userRepository.existsByPhone(anyString())).thenReturn(false);
+            when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong()))
                     .thenReturn(Optional.of(TestDataBuilder.memberRole()));
@@ -160,7 +215,7 @@ class AuthServiceTest {
 
             LoginRequest req = TestDataBuilder.loginRequest(user.getEmail(), "password123");
 
-            when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+            when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
             when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
@@ -179,7 +234,7 @@ class AuthServiceTest {
 
             LoginRequest req = TestDataBuilder.loginRequest(user.getEmail(), "wrong");
 
-            when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+            when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
             assertThatThrownBy(() -> authService.loginUser(req))
@@ -190,7 +245,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("unknown email throws ManaCommunityException with 401")
         void unknownEmail() {
-            when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+            when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.loginUser(TestDataBuilder.loginRequest("x@x.com", "p")))
                     .isInstanceOf(ManaCommunityException.class)

@@ -167,6 +167,7 @@ public class MainEmailVerificationController {
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("mailEnabled", props.isEnabled());
+        resp.put("otpOnlyMode", props.isOtpOnlyMode());
         resp.put("from", props.getFrom());
         resp.put("fromName", props.getFromName());
         resp.put("recipientMode", props.getRecipientMode().name());
@@ -178,6 +179,8 @@ public class MainEmailVerificationController {
         String status;
         if (!props.isEnabled()) {
             status = "DISABLED - emails are rendered and logged but never sent";
+        } else if (props.isOtpOnlyMode()) {
+            status = "OTP-ONLY - only forgot-password/OTP emails are sent; all other notifications suppressed";
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.REDIRECT) {
             status = "REDIRECT - all emails go to " + props.getDefaultRecipient();
         } else if (props.getRecipientMode() == EmailProperties.RecipientMode.CC) {
@@ -413,7 +416,7 @@ public class MainEmailVerificationController {
                 v.put("matchDate", "Sat, 20 Jun 2026");
                 v.put("matchTime", "09:40 AM");
                 v.put("venueName", "Community Sports Arena");
-                v.put("courtName", "Court 2");
+                v.put("courtName", "SportsCourt 2");
                 v.put("minutesUntilStart", 30);
             }
             case "WINNER_NOTIFICATION" -> {
@@ -482,7 +485,7 @@ public class MainEmailVerificationController {
                 ));
                 v.put("timeline", List.of(
                         Map.of("date", "15 Jun", "title", "Registrations Close", "description", "Last day to register your team."),
-                        Map.of("date", "20 Jun", "title", "Tournament Begins", "description", "Opening matches start at 9:00 AM."),
+                        Map.of("date", "20 Jun", "title", "SportsTournament Begins", "description", "Opening matches start at 9:00 AM."),
                         Map.of("date", "28 Jun", "title", "Finals & Prize Ceremony", "description", "")
                 ));
                 v.put("announcements", List.of(

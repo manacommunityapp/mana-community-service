@@ -35,7 +35,10 @@ public class EventResponse {
     private String scannerMediaId;
     private String notes;
     private String contactsJson;
+    private java.util.List<EventContactDto> contacts;
     private String paymentInstructions;
+    private java.util.List<TicketTypeDto> ticketTypes;
+    private String ticketTypesJson;
     private Integer maxAttendees;
     private String registrationDeadline;
     private int registrationCount;
@@ -44,5 +47,6 @@ public class EventResponse {
     private Long communityId;
     private int attendees;
     private boolean isRegistered;
+    private Integer draftStep;
     private String createdAt;
 }

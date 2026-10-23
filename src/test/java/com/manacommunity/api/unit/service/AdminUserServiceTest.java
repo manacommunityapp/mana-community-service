@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -155,7 +161,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(DuplicateResourceException.class)
-                .hasMessageContaining("priya.sharma@example.com");
+                .hasMessageContaining("email already exists");
 
         verify(userRepository, never()).save(any());
     }
@@ -176,7 +182,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(DuplicateResourceException.class)
-                .hasMessageContaining("+91 98765 43210");
+                .hasMessageContaining("phone already exists");
 
         verify(userRepository, never()).save(any());
     }
@@ -195,7 +201,7 @@ class AdminUserServiceTest {
 
         assertThatThrownBy(() -> adminUserService.createUser(req))
                 .isInstanceOf(InvalidInviteCodeException.class)
-                .hasMessageContaining("UNKNOWN-CODE");
+                .hasMessageContaining("invite code is invalid");
 
         verify(userRepository, never()).save(any());
     }

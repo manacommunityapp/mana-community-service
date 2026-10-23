@@ -1,15 +1,28 @@
 package com.manacommunity.api.user.controller;
 
 import com.manacommunity.api.model.Role;
-
 import com.manacommunity.api.user.repository.AppUserRepository;
-
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
+import com.manacommunity.api.user.dto.UpdateUserRequest;
 import com.manacommunity.api.user.dto.UserResponse;
 import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.AdminUserService;
+import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.api.user.service.MenuRolePermissionService;
+import com.manacommunity.api.repository.RolePermissionRepository;
+import com.manacommunity.api.service.RoleService;
+import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.exception.DuplicateResourceException;
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.security.PasswordPolicy;
+import com.manacommunity.api.privacy.PiiMaskingService;
+import com.manacommunity.api.privacy.UserPrivacySettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,7 +30,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -25,10 +42,18 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final LoggedInUserService loggedInUserService;
-    private final com.manacommunity.api.repository.RolePermissionRepository rolePermissionRepo;
-    private final com.manacommunity.api.service.RoleService roleService;
-    private final com.manacommunity.api.service.CommunityModuleService communityModuleService;
-    private final com.manacommunity.api.user.service.MenuRolePermissionService menuRolePermissionService;
+    private final RolePermissionRepository rolePermissionRepo;
+    private final RoleService roleService;
+    private final CommunityModuleService communityModuleService;
+    private final MenuRolePermissionService menuRolePermissionService;
+    private final AppUserRepository appUserRepo;
+    private final AdminUserService adminUserService;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
+    private final com.manacommunity.api.service.RolePermissionService rolePermissionService;
+    private final PiiMaskingService piiMaskingService;
+    private final UserPrivacySettingsService userPrivacySettingsService;
+    private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     private java.util.List<String> getRolesList(String roleStr) {
         if (roleStr == null || roleStr.isBlank()) {
@@ -42,38 +67,8 @@ public class UserController {
     }
 
     private java.util.List<String> getPermissionsForUser(AppUser user) {
-        if (user.getId() == null) return java.util.Collections.emptyList();
-
-        // 1. User-specific override rows take priority over role templates.
-        java.util.List<com.manacommunity.api.model.RolePermission> userPerms = rolePermissionRepo.findByUserId(user.getId());
-        if (!userPerms.isEmpty()) {
-            return userPerms.stream()
-                    .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                    .distinct()
-                    .toList();
-        }
-
-        // 2. No overrides — fall back to the union of role template permissions.
-        //    Prefer the structured userRoles set (accurate after V51 migration);
-        //    fall back to splitting the comma-string for older rows.
-        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
-        java.util.Set<com.manacommunity.api.model.Role> rolesSet = user.getUserRoles();
-        if (rolesSet != null && !rolesSet.isEmpty()) {
-            for (com.manacommunity.api.model.Role r : rolesSet) {
-                rolePermissionRepo.findByRoleIgnoreCase(r.getName()).stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        } else {
-            for (String r : getRolesList(user.getRole())) {
-                rolePermissionRepo.findByRoleIgnoreCase(r).stream()
-                        .filter(rp -> rp.getUser() == null)
-                        .map(com.manacommunity.api.model.RolePermission::getPermissionKey)
-                        .forEach(seen::add);
-            }
-        }
-        return java.util.List.copyOf(seen);
+        if (user == null || user.getId() == null) return java.util.Collections.emptyList();
+        return rolePermissionService.getEffectivePermissionsForUser(user);
     }
 
     private java.util.List<com.manacommunity.api.user.dto.MenuRolePermissionResponse> getMenuPermissions(AppUser user) {
@@ -88,46 +83,22 @@ public class UserController {
     }
 
     private java.util.List<String> getEnabledModules(AppUser user) {
+        if (user.getCommunity() != null) {
+            return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+        }
         if (user.hasRole(ROLE_SUPER_ADMIN)) {
             return com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
                     .map(com.manacommunity.api.constants.ModuleConstants.ModuleDef::key)
                     .toList();
         }
-        if (user.getCommunity() == null) {
-            return java.util.Collections.emptyList();
-        }
-        return communityModuleService.getEnabledModuleKeys(user.getCommunity().getId());
+        return java.util.Collections.emptyList();
     }
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getLoggedInUserDetails(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-
-        UserResponse response = UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(getRolesList(user.getRole()))
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
-                .permissions(getPermissionsForUser(user))
-                .enabledModules(getEnabledModules(user))
-                .menuPermissions(getMenuPermissions(user))
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(toUserResponse(user));
     }
-
-    private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
-    private final com.manacommunity.api.user.service.AdminUserService adminUserService;
 
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
@@ -136,6 +107,7 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
         if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
             targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         }
@@ -144,23 +116,34 @@ public class UserController {
         }
         final Long finalCommId = targetCommunityId;
         return ResponseEntity.ok(appUserRepo.findByCommunityIdAndFullNameContainingIgnoreCase(finalCommId, query)
-                .stream().map(u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .communityId(finalCommId)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()).toList());
+                .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
     @GetMapping("/community/{communityId}")
     public ResponseEntity<java.util.List<UserResponse>> getCommunityUsers(
             @PathVariable Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        Long targetCommunityId = communityId;
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
+            targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
+                throw new com.manacommunity.api.exception.UnauthorizedActionException(
+                        "You can only view users from your own community.");
+            }
+        }
+        final Long finalCommId = targetCommunityId;
+        return ResponseEntity.ok(appUserRepo.findByCommunityId(finalCommId)
+                .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
+    }
+
+    @GetMapping("/community/{communityId}/summary")
+    public ResponseEntity<PagedResponse<com.manacommunity.api.user.dto.UserSummaryResponse>> getCommunityUsersSummary(
+            @PathVariable Long communityId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
@@ -172,19 +155,11 @@ public class UserController {
             }
         }
         final Long finalCommId = targetCommunityId;
-        return ResponseEntity.ok(appUserRepo.findByCommunityId(finalCommId)
-                .stream().map(u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .communityId(finalCommId)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()).toList());
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
+        String cleanSearch = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+        Page<AppUser> userPage = appUserRepo.searchCommunityUsersSummary(finalCommId, cleanSearch, pageable);
+        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserSummaryResponse));
     }
 
     @GetMapping
@@ -192,49 +167,115 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
-        int safeSize = Math.min(Math.max(size, 1), 200);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        if (!isSuperAdmin && targetCommunityId == null) {
+            return ResponseEntity.ok(PagedResponse.empty());
+        }
+
+        int safeSize = Math.min(Math.max(size, 1), 500);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize, Sort.by("fullName").ascending());
 
-        Page<AppUser> userPage;
-        if (isSuperAdmin) {
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByKycStatus(kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findAll(pageable);
+        org.springframework.data.jpa.domain.Specification<AppUser> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+
+            if (targetCommunityId != null) {
+                predicates.add(cb.equal(root.get("community").get("id"), targetCommunityId));
+            }
+
+            if (kycStatus != null && !kycStatus.trim().isEmpty() && !"ALL".equalsIgnoreCase(kycStatus.trim())) {
+                predicates.add(cb.equal(cb.upper(root.get("kycStatus")), kycStatus.trim().toUpperCase()));
+            }
+
+            if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status.trim())) {
+                if ("ACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isTrue(root.get("isActive")));
+                } else if ("INACTIVE".equalsIgnoreCase(status.trim())) {
+                    predicates.add(cb.isFalse(root.get("isActive")));
+                }
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                java.util.List<jakarta.persistence.criteria.Predicate> searchPredicates = new java.util.ArrayList<>();
+                searchPredicates.add(cb.like(cb.lower(root.get("fullName")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("email")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("phone")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("role")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("flatNo")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("block")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("tower")), pattern));
+                searchPredicates.add(cb.like(cb.lower(root.get("employeeId")), pattern));
+                predicates.add(cb.or(searchPredicates.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<AppUser> userPage = appUserRepo.findAll(spec, pageable);
+
+        return ResponseEntity.ok(PagedResponse.from(userPage, this::toUserResponse));
+    }
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
+    public ResponseEntity<com.manacommunity.api.user.dto.UserStatsResponse> getUserStats(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
+        Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
+
+        long totalUsers;
+        long activeUsers;
+        long pendingKyc;
+        long approvedKyc;
+        long rejectedKyc;
+        java.util.Map<String, Long> roleBreakdown = new java.util.HashMap<>();
+
+        if (targetCommunityId != null) {
+            totalUsers = appUserRepo.countByCommunityId(targetCommunityId);
+            activeUsers = appUserRepo.countByCommunityIdAndIsActiveTrue(targetCommunityId);
+            pendingKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "PENDING");
+            approvedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "APPROVED")
+                    + appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "VERIFIED");
+            rejectedKyc = appUserRepo.countByCommunityIdAndKycStatus(targetCommunityId, "REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGroupedForCommunity(targetCommunityId);
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
             }
         } else {
-            Long communityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-            if (communityId == null) {
-                return ResponseEntity.ok(PagedResponse.empty());
-            }
-            if (kycStatus != null && !kycStatus.trim().isEmpty()) {
-                userPage = appUserRepo.findByCommunityIdAndKycStatus(communityId, kycStatus.toUpperCase(), pageable);
-            } else {
-                userPage = appUserRepo.findByCommunityId(communityId, pageable);
+            totalUsers = appUserRepo.count();
+            activeUsers = appUserRepo.countByIsActiveTrue();
+            pendingKyc = appUserRepo.countByKycStatus("PENDING");
+            approvedKyc = appUserRepo.countByKycStatus("APPROVED") + appUserRepo.countByKycStatus("VERIFIED");
+            rejectedKyc = appUserRepo.countByKycStatus("REJECTED");
+
+            java.util.List<Object[]> roleRows = appUserRepo.countByRoleGrouped();
+            for (Object[] row : roleRows) {
+                if (row[0] != null) {
+                    roleBreakdown.put(row[0].toString(), ((Number) row[1]).longValue());
+                }
             }
         }
-        return ResponseEntity.ok(PagedResponse.from(userPage, u -> UserResponse.builder()
-                        .id(u.getId())
-                        .fullName(u.getFullName())
-                        .email(u.getEmail())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .roles(getRolesList(u.getRole()))
-                        .kycStatus(u.getKycStatus())
-                        .profilePicUrl(u.getProfilePicUrl())
-                        .gender(u.getGender())
-                        .dateOfBirth(u.getDateOfBirth())
-                        .flatNo(u.getFlatNo())
-                        .block(u.getBlock())
-                        .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
-                        .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
-                        .isActive(u.getIsActive())
-                        .permissions(getPermissionsForUser(u))
-                        .build()));
+
+        return ResponseEntity.ok(com.manacommunity.api.user.dto.UserStatsResponse.builder()
+                .totalUsers(totalUsers)
+                .activeUsers(activeUsers)
+                .pendingKyc(pendingKyc)
+                .approvedKyc(approvedKyc)
+                .rejectedKyc(rejectedKyc)
+                .roleBreakdown(roleBreakdown)
+                .build());
     }
 
     @PostMapping
@@ -250,25 +291,7 @@ public class UserController {
         }
 
         AppUser saved = adminUserService.createUser(req);
-        UserResponse body = UserResponse.builder()
-                .id(saved.getId())
-                .fullName(saved.getFullName())
-                .email(saved.getEmail())
-                .phone(saved.getPhone())
-                .role(saved.getRole())
-                .roles(getRolesList(saved.getRole()))
-                .kycStatus(saved.getKycStatus())
-                .profilePicUrl(saved.getProfilePicUrl())
-                .gender(saved.getGender())
-                .dateOfBirth(saved.getDateOfBirth())
-                .flatNo(saved.getFlatNo())
-                .block(saved.getBlock())
-                .communityId(saved.getCommunity() != null ? saved.getCommunity().getId() : null)
-                .roleId(saved.getRoleEntity() != null ? saved.getRoleEntity().getId() : null)
-                .isActive(saved.getIsActive())
-                .permissions(getPermissionsForUser(saved))
-                .build();
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(body);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(toUserResponse(saved));
     }
 
     @GetMapping("/{id}")
@@ -278,24 +301,234 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("User", id));
-        return ResponseEntity.ok(UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(getRolesList(user.getRole()))
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(user.getRoleEntity() != null ? user.getRoleEntity().getId() : null)
-                .isActive(user.getIsActive())
-                .permissions(getPermissionsForUser(user))
-                .build());
+        return ResponseEntity.ok(toUserResponse(user));
+    }
+
+    private UserResponse toUserResponse(AppUser u) {
+        return toUserResponse(u, true);
+    }
+
+    private UserResponse toUserResponse(AppUser u, boolean isSelfOrAdmin) {
+        String phone = u.getPhone();
+        String email = u.getEmail();
+        java.time.LocalDate dob = u.getDateOfBirth();
+        String govtIdType = u.getGovtIdType();
+        String govtIdNumber = u.getGovtIdNumber();
+
+        if (!isSelfOrAdmin) {
+            // Consult the target user's own privacy preferences.
+            // If the target user has opted in to sharing their phone/email with neighbours,
+            // show it unmasked. Otherwise apply PII masking regardless of caller role.
+            var privacySettings = userPrivacySettingsService.getSettings(u.getId());
+            if (!Boolean.TRUE.equals(privacySettings.getShowPhoneToNeighbours())) {
+                phone = piiMaskingService.maskPhone(phone);
+            }
+            if (!Boolean.TRUE.equals(privacySettings.getShowEmailToNeighbours())) {
+                email = piiMaskingService.maskEmail(email);
+            }
+            dob = null;         // DOB is never shared in directory
+            govtIdType = null;
+            govtIdNumber = null;
+        }
+
+        return UserResponse.builder()
+                .id(u.getId())
+                .fullName(u.getFullName())
+                .email(email)
+                .phone(phone)
+                .role(u.getRole())
+                .roles(getRolesList(u.getRole()))
+                .kycStatus(u.getKycStatus())
+                .profilePicUrl(u.getProfilePicUrl())
+                .gender(u.getGender())
+                .dateOfBirth(dob)
+                .flatNo(u.getFlatNo())
+                .block(u.getBlock())
+                .tower(u.getTower())
+                .employeeId(isSelfOrAdmin ? u.getEmployeeId() : null)
+                .govtIdType(govtIdType)
+                .govtIdNumber(govtIdNumber)
+                .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
+                .roleId(u.getRoleEntity() != null ? u.getRoleEntity().getId() : null)
+                .isActive(u.getIsActive())
+                .occupancyStatus(u.getOccupancyStatus())
+                .residentType(u.getResidentType())
+                .userType(u.getOccupancyStatus() != null ? u.getOccupancyStatus() : "Owner")
+                .permissions(getPermissionsForUser(u))
+                .enabledModules(getEnabledModules(u))
+                .menuPermissions(getMenuPermissions(u))
+                .roleChangedAt(u.getRoleChangedAt())
+                .roleChangedBy(u.getRoleChangedBy())
+                .createdAt(u.getCreatedAt())
+                .updatedAt(u.getUpdatedAt())
+                .build();
+    }
+
+    private com.manacommunity.api.user.dto.UserSummaryResponse toUserSummaryResponse(AppUser u) {
+        String avatar = u.getProfilePicUrl();
+        if (avatar == null || avatar.isBlank()) {
+            avatar = "https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media";
+        }
+        return com.manacommunity.api.user.dto.UserSummaryResponse.builder()
+                .id(u.getId())
+                .fullName(u.getFullName())
+                .email(u.getEmail())
+                .phone(u.getPhone())
+                .profilePicUrl(u.getProfilePicUrl())
+                .avatarUrl(avatar)
+                .gender(u.getGender())
+                .dateOfBirth(u.getDateOfBirth())
+                .flatNo(u.getFlatNo())
+                .block(u.getBlock())
+                .communityId(u.getCommunity() != null ? u.getCommunity().getId() : null)
+                .build();
+    }
+
+
+    /**
+     * Changes the password for the currently authenticated user via /api/users/change-password.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedActionException("Authentication is required to change password.");
+        }
+        authService.changePassword(principal.getId(), request);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Password changed successfully."
+        ));
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePasswordPut(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
+        return changePassword(principal, request);
+    }
+
+    /**
+     * Updates an existing user by ID (used for self profile update fallback or admin user update).
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long id,
+            @RequestBody UpdateUserRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        boolean isSelf = loggedInUser.getId() != null && loggedInUser.getId().equals(id);
+        boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN)
+                || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN)
+                || loggedInUser.hasRole(ROLE_ADMIN);
+
+        if (!isSelf && !isAdmin) {
+            throw new UnauthorizedActionException("You are not authorized to update this user.");
+        }
+
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        // If admin (non-super-admin), verify community scoping
+        if (isAdmin && !loggedInUser.hasRole(ROLE_SUPER_ADMIN) && !isSelf) {
+            Long adminCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
+            Long userCommunityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+            if (adminCommunityId == null || !adminCommunityId.equals(userCommunityId)) {
+                throw new UnauthorizedActionException("You can only manage users within your own community.");
+            }
+        }
+
+        // 1. Update personal details
+        if (req.getFullName() != null && !req.getFullName().isBlank()) {
+            user.setFullName(req.getFullName().trim());
+        } else if (req.getFirstName() != null || req.getLastName() != null) {
+            String first = req.getFirstName() != null ? req.getFirstName().trim() : "";
+            String last = req.getLastName() != null ? req.getLastName().trim() : "";
+            String full = (first + " " + last).trim();
+            if (!full.isEmpty()) {
+                user.setFullName(full);
+            }
+        }
+
+        if (req.getEmail() != null && !req.getEmail().isBlank() && !req.getEmail().equalsIgnoreCase(user.getEmail())) {
+            String newEmail = req.getEmail().trim().toLowerCase();
+            if (appUserRepo.existsByEmail(newEmail)) {
+                throw new DuplicateResourceException("User", "email", newEmail);
+            }
+            user.setEmail(newEmail);
+        }
+
+        if (req.getPhone() != null && !req.getPhone().isBlank() && !req.getPhone().equals(user.getPhone())) {
+            String newPhone = req.getPhone().trim();
+            if (appUserRepo.existsByPhone(newPhone)) {
+                throw new DuplicateResourceException("User", "phone", newPhone);
+            }
+            user.setPhone(newPhone);
+        }
+
+        if (req.getDateOfBirth() != null && !req.getDateOfBirth().equals(user.getDateOfBirth())) {
+            if (isSelf && !isAdmin) {
+                java.util.List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = java.util.List.of(
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                        com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+                );
+                if (sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
+                        || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses)) {
+                    throw new InvalidInputException(
+                            "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
+                            "To register family members or kids, please use the Family Members feature.");
+                }
+            }
+            user.setDateOfBirth(req.getDateOfBirth());
+        }
+        if (req.getGender() != null) user.setGender(req.getGender());
+        if (req.getFlatNo() != null) user.setFlatNo(req.getFlatNo());
+        if (req.getBlock() != null) user.setBlock(req.getBlock());
+        if (req.getProfilePicUrl() != null && !req.getProfilePicUrl().isBlank()) {
+            user.setProfilePicUrl(req.getProfilePicUrl());
+        } else if (req.getProfilePic() != null && !req.getProfilePic().isBlank()) {
+            user.setProfilePicUrl(req.getProfilePic());
+        }
+
+        if (req.getIsActive() != null && isAdmin) {
+            user.setIsActive(req.getIsActive());
+        }
+
+        // 2. Optional password update
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            if (isSelf && !isAdmin) {
+                if (req.getCurrentPassword() == null || req.getCurrentPassword().isBlank()) {
+                    throw new InvalidInputException("Current password is required to change password.");
+                }
+                if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+                    throw new InvalidInputException("Current password does not match.");
+                }
+            }
+            PasswordPolicy.validate(req.getPassword(), Arrays.asList(
+                    user.getEmail(),
+                    user.getFullName(),
+                    user.getPhone(),
+                    user.getCommunity() != null ? user.getCommunity().getName() : null
+            ));
+            user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+        }
+
+        if (req.getTower() != null) user.setTower(req.getTower());
+        if (req.getResidentType() != null) user.setResidentType(req.getResidentType());
+        if (req.getOccupancyStatus() != null) user.setOccupancyStatus(req.getOccupancyStatus());
+        if (req.getEmployeeId() != null) user.setEmployeeId(req.getEmployeeId());
+        if (req.getGovtIdType() != null) user.setGovtIdType(req.getGovtIdType());
+        if (req.getGovtIdNumber() != null) user.setGovtIdNumber(req.getGovtIdNumber());
+
+        AppUser saved = appUserRepo.save(user);
+
+        return ResponseEntity.ok(toUserResponse(saved));
     }
 
     @PutMapping("/{id}/status")
@@ -413,29 +646,7 @@ public class UserController {
             rolePermissionRepo.saveAll(combinedUserPermissions);
         }
 
-        // Re-fetch fresh permissions to return in response
-        java.util.List<String> freshPerms = getPermissionsForUser(user);
-
-        return ResponseEntity.ok(UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .roles(distinctRoles)
-                .kycStatus(user.getKycStatus())
-                .profilePicUrl(user.getProfilePicUrl())
-                .gender(user.getGender())
-                .dateOfBirth(user.getDateOfBirth())
-                .flatNo(user.getFlatNo())
-                .block(user.getBlock())
-                .communityId(user.getCommunity() != null ? user.getCommunity().getId() : null)
-                .roleId(roleEntity.getId())
-                .isActive(user.getIsActive())
-                .permissions(freshPerms)
-                .roleChangedAt(user.getRoleChangedAt())
-                .roleChangedBy(user.getRoleChangedBy())
-                .build());
+        return ResponseEntity.ok(toUserResponse(user));
     }
 
     @PutMapping("/{id}/kyc")

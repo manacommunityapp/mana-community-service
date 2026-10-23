@@ -29,4 +29,10 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
             @Param("category") Ticket.TicketCategory category);
 
     long countByCommunityIdAndStatus(Long communityId, Ticket.TicketStatus status);
+
+    long countByRaisedByIdAndStatusIn(Long userId, List<Ticket.TicketStatus> statuses);
+
+    List<Ticket> findByStatusIn(List<Ticket.TicketStatus> statuses);
+
+    long countByAssignedToIdAndStatusIn(Long assignedToId, List<Ticket.TicketStatus> statuses);
 }

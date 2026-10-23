@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.ai;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
@@ -21,7 +27,7 @@ import static org.mockito.Mockito.*;
  * <p>Usage:</p>
  * <pre>{@code
  * @ExtendWith(MockitoExtension.class)
- * class AuctionQueryToolsTest extends BaseAiToolTest {
+ * class SportsAuctionQueryToolsTest extends BaseAiToolTest {
  *     @InjectMocks AuctionQueryTools tools;
  *
  *     @Test void searchPlayers_deniesWrongCommunity() { ... }
@@ -39,6 +45,7 @@ public abstract class BaseAiToolTest {
 
     @BeforeEach
     void setUpSecurityContext() {
+        org.mockito.MockitoAnnotations.openMocks(this);
         AgentSecurityContext.set(defaultUserContext());
     }
 

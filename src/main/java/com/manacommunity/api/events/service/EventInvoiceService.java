@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventInvoiceRequest;
 import com.manacommunity.api.events.dto.EventInvoiceResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventInvoice;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventInvoiceRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
@@ -24,7 +24,7 @@ import java.util.List;
 public class EventInvoiceService {
 
     private final EventInvoiceRepository invoiceRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
 
     @Transactional(readOnly = true)
     public List<EventInvoiceResponse> getByEvent(Long eventId) {
@@ -40,7 +40,7 @@ public class EventInvoiceService {
 
     @Transactional
     public EventInvoiceResponse create(EventInvoiceRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         BigDecimal amount = req.getAmount() != null ? req.getAmount() : BigDecimal.ZERO;

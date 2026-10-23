@@ -5,8 +5,10 @@ import com.manacommunity.api.food.entity.FoodCloudKitchen;
 import com.manacommunity.api.food.entity.FoodCloudKitchenAnalytics;
 import com.manacommunity.api.food.entity.FoodCloudKitchenBrand;
 import com.manacommunity.api.food.entity.FoodCloudKitchenSlot;
+import com.manacommunity.api.food.repository.FoodCloudKitchenAnalyticsRepository;
 import com.manacommunity.api.food.repository.FoodCloudKitchenBrandRepository;
 import com.manacommunity.api.food.repository.FoodCloudKitchenRepository;
+import com.manacommunity.api.food.repository.FoodCloudKitchenSlotRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class FoodCloudKitchenService {
 
     private final FoodCloudKitchenRepository kitchenRepo;
     private final FoodCloudKitchenBrandRepository brandRepo;
+    private final FoodCloudKitchenSlotRepository slotRepo;
+    private final FoodCloudKitchenAnalyticsRepository analyticsRepo;
 
     @Transactional(readOnly = true)
     public Page<Map<String, Object>> list(Long communityId, Pageable pageable) {
@@ -137,14 +141,43 @@ public class FoodCloudKitchenService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getSlots(Long communityId, Long kitchenId) {
-        // TODO: Implement when FoodCloudKitchenSlotRepository is available
-        return new ArrayList<>();
+        List<FoodCloudKitchenSlot> slots = slotRepo.findByKitchenId(kitchenId);
+        return slots.stream().map(s -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", s.getId());
+            map.put("kitchenId", kitchenId);
+            map.put("brandId", s.getBrand() != null ? s.getBrand().getId() : null);
+            map.put("brandName", s.getBrand() != null ? s.getBrand().getBrandName() : null);
+            map.put("dayOfWeek", s.getDayOfWeek());
+            map.put("startTime", s.getStartTime() != null ? s.getStartTime().toString() : null);
+            map.put("endTime", s.getEndTime() != null ? s.getEndTime().toString() : null);
+            map.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+            map.put("createdAt", s.getCreatedAt());
+            map.put("updatedAt", s.getUpdatedAt());
+            return map;
+        }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAnalytics(Long communityId, Long kitchenId, LocalDate startDate, LocalDate endDate) {
-        // TODO: Implement when FoodCloudKitchenAnalyticsRepository is available
-        return new ArrayList<>();
+        List<FoodCloudKitchenAnalytics> analyticsList;
+        if (startDate != null && endDate != null) {
+            analyticsList = analyticsRepo.findByKitchenIdAndDateBetween(kitchenId, startDate, endDate);
+        } else {
+            analyticsList = analyticsRepo.findByKitchenId(kitchenId);
+        }
+        return analyticsList.stream().map(a -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", a.getId());
+            map.put("kitchenId", kitchenId);
+            map.put("date", a.getDate());
+            map.put("totalOrders", a.getTotalOrders());
+            map.put("revenue", a.getRevenue());
+            map.put("utilizationPct", a.getUtilizationPct());
+            map.put("wastagePct", a.getWastagePct());
+            map.put("createdAt", a.getCreatedAt());
+            return map;
+        }).collect(Collectors.toList());
     }
 
     private Map<String, Object> toResponse(FoodCloudKitchen kitchen) {

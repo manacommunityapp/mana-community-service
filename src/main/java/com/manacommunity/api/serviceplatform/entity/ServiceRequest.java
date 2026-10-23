@@ -1,6 +1,7 @@
 package com.manacommunity.api.serviceplatform.entity;
 
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import com.manacommunity.api.serviceplatform.entity.enums.ServiceRequestStatus;
 import com.manacommunity.api.serviceplatform.entity.enums.ServiceUrgency;
 import com.manacommunity.api.user.model.AppUser;
@@ -11,7 +12,6 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "service_request", indexes = {
@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ServiceRequest {
+public class ServiceRequest extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -103,20 +103,4 @@ public class ServiceRequest {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

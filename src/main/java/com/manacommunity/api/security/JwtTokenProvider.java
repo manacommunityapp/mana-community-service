@@ -13,7 +13,9 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Issues and verifies signed JWT access tokens (HMAC-SHA).
@@ -24,7 +26,10 @@ import java.util.UUID;
  *   <li>{@code iss} — issuer ({@code app.security.jwt.issuer})</li>
  *   <li>{@code sub} — the user's email</li>
  *   <li>{@code uid} — the user's database id</li>
- *   <li>{@code role} — the user's role</li>
+ *   <li>{@code role} — the user's role string (comma-separated if multi-role)</li>
+ *   <li>{@code roles} — structured list of assigned roles</li>
+ *   <li>{@code permissions} — structured list of active permissions</li>
+ *   <li>{@code communityId} — ID of the community/tenant if associated</li>
  *   <li>{@code typ} — token type: {@code access} or {@code refresh}</li>
  *   <li>{@code iat}/{@code exp} — issued-at and expiry</li>
  * </ul>
@@ -78,27 +83,34 @@ public class JwtTokenProvider {
 
     /** Mints a signed, short-lived <b>access</b> token (the API Bearer credential). */
     public String generateToken(AppUser user) {
-        return build(user, TYPE_ACCESS, expirationMs);
+        return generateToken(user, java.util.Collections.emptyList());
+    }
+
+    /** Mints a signed, short-lived <b>access</b> token with explicit permissions. */
+    public String generateToken(AppUser user, List<String> permissions) {
+        return build(user, TYPE_ACCESS, expirationMs, permissions);
     }
 
     /** Mints a signed, long-lived <b>refresh</b> token (exchanged at {@code /api/auth/refresh}). */
     public String generateRefreshToken(AppUser user) {
-        return build(user, TYPE_REFRESH, refreshExpirationMs);
+        return build(user, TYPE_REFRESH, refreshExpirationMs, null);
     }
 
-    private String build(AppUser user, String type, long ttlMs) {
+    private String build(AppUser user, String type, long ttlMs, List<String> permissions) {
         Instant now = Instant.now();
 
         // Build the roles list from the comma-separated role string for structured JWT embedding.
-        java.util.List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
+        List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
                 ? java.util.Collections.emptyList()
                 : java.util.Arrays.stream(user.getRole().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .distinct()
-                        .collect(java.util.stream.Collectors.toList());
+                        .collect(Collectors.toList());
 
-        return Jwts.builder()
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+
+        var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString()) // jti — unique token ID for blacklisting
                 .issuer(issuer)
                 .subject(user.getEmail())
@@ -107,8 +119,17 @@ public class JwtTokenProvider {
                 .claim("roles", rolesList)        // structured list for multi-role consumers
                 .claim(TYPE_CLAIM, type)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(ttlMs)))
-                .signWith(key) // HS256 — algorithm inferred from key size
+                .expiration(Date.from(now.plusMillis(ttlMs)));
+
+        if (communityId != null) {
+            builder.claim("communityId", communityId);
+        }
+
+        if (permissions != null && !permissions.isEmpty()) {
+            builder.claim("permissions", permissions);
+        }
+
+        return builder.signWith(key) // HS256 — algorithm inferred from key size
                 .compact();
     }
 
@@ -153,6 +174,12 @@ public class JwtTokenProvider {
         return uid instanceof Number n ? n.longValue() : null;
     }
 
+    /** The community ID if present in claims, or null. */
+    public Long getCommunityId(String token) {
+        Object cid = parse(token).getPayload().get("communityId");
+        return cid instanceof Number n ? n.longValue() : null;
+    }
+
     public String getEmail(String token) {
         return parse(token).getPayload().getSubject();
     }
@@ -163,16 +190,16 @@ public class JwtTokenProvider {
      * the legacy {@code role} comma-string claim for tokens issued before this change.
      */
     @SuppressWarnings("unchecked")
-    public java.util.List<String> getRoles(String token) {
+    public List<String> getRoles(String token) {
         Claims payload = parse(token).getPayload();
         Object rolesObj = payload.get("roles");
-        if (rolesObj instanceof java.util.List<?> list && !list.isEmpty()) {
+        if (rolesObj instanceof List<?> list && !list.isEmpty()) {
             return list.stream()
                     .filter(o -> o instanceof String)
                     .map(o -> ((String) o).trim().toUpperCase())
                     .filter(s -> !s.isEmpty())
                     .distinct()
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
         }
         // Fallback: split the legacy "role" comma-string claim.
         Object roleObj = payload.get("role");
@@ -181,7 +208,25 @@ public class JwtTokenProvider {
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .distinct()
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    /**
+     * Returns the list of permissions embedded in the token if available.
+     */
+    @SuppressWarnings("unchecked")
+    public List<String> getPermissions(String token) {
+        Claims payload = parse(token).getPayload();
+        Object permsObj = payload.get("permissions");
+        if (permsObj instanceof List<?> list && !list.isEmpty()) {
+            return list.stream()
+                    .filter(o -> o instanceof String)
+                    .map(o -> ((String) o).trim())
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(Collectors.toList());
         }
         return java.util.Collections.emptyList();
     }

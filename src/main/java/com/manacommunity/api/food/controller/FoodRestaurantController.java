@@ -25,7 +25,7 @@ public class FoodRestaurantController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'Manage Food Restaurants', 'View Food Menu', 'View Food Profile')")
     public ResponseEntity<Page<Map<String, Object>>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
@@ -33,69 +33,69 @@ public class FoodRestaurantController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
         return ResponseEntity.ok(restaurantService.list(communityId, status, search, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('View Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'Manage Food Restaurants', 'View Food Menu', 'View Food Profile')")
     public ResponseEntity<Map<String, Object>> getById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(restaurantService.getById(communityId, id));
     }
 
     @GetMapping("/my-restaurant")
-    @PreAuthorize("hasAuthority('View Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'Manage Food Restaurants')")
     public ResponseEntity<Map<String, Object>> getMyRestaurant(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(restaurantService.getMyRestaurant(communityId, user.getId()));
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(restaurantService.getMyRestaurant(communityId, user != null ? user.getId() : null));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('Manage Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Restaurants')")
     public ResponseEntity<Map<String, Object>> create(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(restaurantService.create(communityId, request, user));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Manage Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Restaurants')")
     public ResponseEntity<Map<String, Object>> update(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(restaurantService.update(communityId, id, request));
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Manage Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Restaurants')")
     public ResponseEntity<Map<String, Object>> updateStatus(
             @PathVariable Long id,
             @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(restaurantService.updateStatus(communityId, id, status));
     }
 
     @GetMapping("/featured")
-    @PreAuthorize("hasAuthority('View Food Restaurants')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'Manage Food Restaurants', 'View Food Profile')")
     public ResponseEntity<?> getFeatured(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity().getId();
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(restaurantService.getFeatured(communityId));
     }
 }

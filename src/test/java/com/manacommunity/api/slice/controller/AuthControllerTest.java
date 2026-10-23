@@ -1,4 +1,10 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.user.controller.AuthController;
 import com.manacommunity.api.user.dto.LoginRequest;
@@ -13,7 +19,7 @@ import com.manacommunity.api.support.TestDataBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 @DisplayName("AuthController")
 class AuthControllerTest extends BaseWebMvcTest {
 

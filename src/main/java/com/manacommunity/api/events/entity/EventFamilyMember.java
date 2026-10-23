@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
 public class EventFamilyMember {
 
     @Id
@@ -35,7 +35,7 @@ public class EventFamilyMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "createdBy", "community"})
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 150)
     private String name;
@@ -53,6 +53,16 @@ public class EventFamilyMember {
 
     @Column(length = 100)
     private String gothram;
+
+    public String getGotram() {
+        return gothram;
+    }
+
+    public void setGotram(String gotram) {
+        if (this.gothram == null || this.gothram.isBlank()) {
+            this.gothram = gotram;
+        }
+    }
 
     @Column(length = 100)
     private String nakshatram;

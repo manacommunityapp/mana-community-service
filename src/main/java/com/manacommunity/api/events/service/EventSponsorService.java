@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventSponsorRequest;
 import com.manacommunity.api.events.dto.EventSponsorResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventSponsor;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventSponsorRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
@@ -22,7 +22,7 @@ import java.util.List;
 public class EventSponsorService {
 
     private final EventSponsorRepository sponsorRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
 
     @Transactional(readOnly = true)
     public List<EventSponsorResponse> getByEvent(Long eventId) {
@@ -38,7 +38,7 @@ public class EventSponsorService {
 
     @Transactional
     public EventSponsorResponse create(EventSponsorRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventSponsor sponsor = EventSponsor.builder()

@@ -27,6 +27,13 @@ public class UserProfileController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/stats")
+    public ResponseEntity<UserProfileResponse.UserStats> getProfileStats(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        UserProfileResponse.UserStats response = userProfileService.getProfileStats(user);
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping
     public ResponseEntity<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -34,5 +41,13 @@ public class UserProfileController {
         AppUser user = loggedInUserService.resolve(principal);
         UserProfileResponse response = userProfileService.updateProfile(user, request);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/activities")
+    public ResponseEntity<java.util.List<UserProfileResponse.UserActivityItem>> getProfileActivities(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        java.util.List<UserProfileResponse.UserActivityItem> activities = userProfileService.getUserActivities(user);
+        return ResponseEntity.ok(activities);
     }
 }

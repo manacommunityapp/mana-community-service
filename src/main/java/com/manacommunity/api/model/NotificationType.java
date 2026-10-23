@@ -16,6 +16,9 @@ public enum NotificationType {
     REGISTRATION_CONFIRMED,
     REGISTRATION_REJECTED,
     REGISTRATION_WITHDRAWN,
+    PARTNER_SELECTED,
+    PARTNER_CONFIRMED,
+    PARTNER_DECLINED,
 
     // Event lifecycle
     EVENT_UPDATED,
@@ -34,12 +37,12 @@ public enum NotificationType {
     CAPTAIN_NOMINATED,
     CAPTAIN_CONFIRMED,
 
-    // Tournament results
+    // SportsTournament results
     WINNER_NOTIFICATION,
     TOURNAMENT_COMPLETED,
     PRIZE_DISTRIBUTION,
 
-    // Tournament announcements
+    // SportsTournament announcements
     TOURNAMENT_OPEN,
     TOURNAMENT_ANNOUNCEMENT,
 
@@ -48,5 +51,17 @@ public enum NotificationType {
 
     // Visitor
     VISITOR_PENDING,
-    VISITOR_CHECK_IN
+    VISITOR_CHECK_IN,
+
+    // Account
+    SIGNUP_SUCCESS,
+    PASSWORD_RESET,
+
+    // Commute
+    COMMUTE_BOOKING_RECEIVED,
+    COMMUTE_BOOKING_CONFIRMED,
+    COMMUTE_BOOKING_REJECTED,
+    COMMUTE_BOOKING_CANCELLED,
+    COMMUTE_RIDE_CANCELLED,
+    COMMUTE_RIDE_REMINDER
 }

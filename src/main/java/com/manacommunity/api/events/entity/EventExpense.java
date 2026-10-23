@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_expense", schema = "manacommunity")
+@Table(name = "event_expense", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -27,7 +27,7 @@ public class EventExpense {
 
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 500)
     private String description;

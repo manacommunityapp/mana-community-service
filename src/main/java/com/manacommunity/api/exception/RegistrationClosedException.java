@@ -10,4 +10,9 @@ public class RegistrationClosedException extends ManaCommunityException {
                 + ". Registrations are only accepted when the event is REGISTRATION_OPEN.",
                 HttpStatus.BAD_REQUEST, "REGISTRATION_CLOSED");
     }
+
+    /** Used for booking-window violations where a fully custom message is needed. */
+    public RegistrationClosedException(String message) {
+        super(message, HttpStatus.BAD_REQUEST, "REGISTRATION_CLOSED");
+    }
 }

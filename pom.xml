@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.5</version>
+        <version>3.4.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.manacommunity</groupId>
@@ -41,6 +41,7 @@
         <url/>
     </scm>
     <properties>
+        <lombok.version>1.18.36</lombok.version>
         <java.version>17</java.version>
         <!--
             TEMPORARY (during app development): skip BOTH test compilation and test
@@ -81,6 +82,12 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <!-- Hibernate Envers — field-level audit shadow tables for Tier 1 entities -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-envers</artifactId>
+        </dependency>
+
 
 
         <!-- Twilio Java SDK — SMS / WhatsApp / Voice provider -->
@@ -88,6 +95,12 @@
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio</artifactId>
             <version>9.14.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-io</groupId>
+                    <artifactId>commons-io</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- JavaMail / SMTP support (JavaMailSender) for email notifications -->
@@ -166,7 +179,8 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <optional>true</optional>
+            <version>1.18.36</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Testing -->
@@ -176,26 +190,18 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Boot 4 modularized the test slices out of spring-boot-test-autoconfigure.
-             The "classic" starter re-bundles them (@WebMvcTest, @DataJpaTest,
-             TestEntityManager, TestRestTemplate, @AutoConfigureTestDatabase). -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test-classic</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- TestRestTemplate (relocated to its own module in Boot 4) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-restclient-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <!-- H2 in-memory DB for @DataJpaTest repository slice tests -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Karate — API automation framework (JUnit 5 runner) -->
+        <dependency>
+            <groupId>io.karatelabs</groupId>
+            <artifactId>karate-junit5</artifactId>
+            <version>1.5.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -207,12 +213,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -285,10 +291,50 @@
             <version>2.9.2</version>
         </dependency>
 
+        <!-- Apache Commons IO — modern version required by Apache POI 5.2.x+ -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+
+        <!-- Apache POI — Excel (.xlsx) read/write for bulk upload features. -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
+        <!-- Razorpay Java SDK — used only by the payment module (gated by app.razorpay.enabled). -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.5</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                    <fork>true</fork>
+                    <meminitial>512m</meminitial>
+                    <maxmem>2048m</maxmem>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.36</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -305,6 +351,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <!-- Karate requires a live server; file-level exclude blocks accidental discovery.
+                         Run Karate: ./mvnw test -Dtest=KarateRunner (bypasses the exclude below) -->
+                    <excludes>
+                        <exclude>**/karate/KarateRunner.java</exclude>
+                    </excludes>
                     <includes>
                         <!-- 1. User & Auth related tests -->
                         <include>**/unit/service/AuthServiceTest.java</include>
@@ -321,6 +372,9 @@
                         <include>**/unit/service/EventServiceTest.java</include>
                         <include>**/unit/service/EventDonationServiceTest.java</include>
                         <include>**/unit/service/EventVolunteerServiceTest.java</include>
+                        <include>**/unit/service/PoojaSevaServiceImplTest.java</include>
+                        <include>**/unit/service/EventBookingRegistrationServiceImplTest.java</include>
+                        <include>**/unit/service/PoojaRegistrationStatusTest.java</include>
                         <include>**/slice/controller/EventControllerTest.java</include>
                         <include>**/slice/controller/EventDonationControllerTest.java</include>
                         <include>**/slice/controller/EventVolunteerControllerTest.java</include>

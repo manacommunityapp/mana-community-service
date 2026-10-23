@@ -41,7 +41,7 @@ public class AdminAuditTools {
             @ToolParam(required = false, description = "Action filter: CREATE, UPDATE, DELETE, LOGIN, APPROVE, REJECT, etc.")
             String action,
             @ToolParam(required = false, description = "User name filter (partial match)") String userName,
-            @ToolParam(required = false, description = "Entity name filter (e.g. AuctionConfig, TournamentMatch)")
+            @ToolParam(required = false, description = "Entity name filter (e.g. SportsAuctionConfig, SportsTournamentMatch)")
             String entityName,
             @ToolParam(required = false, description = "Max results (default 20)") Integer limit) {
 

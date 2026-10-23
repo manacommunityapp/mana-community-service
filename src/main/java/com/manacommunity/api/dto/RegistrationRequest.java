@@ -3,19 +3,14 @@ package com.manacommunity.api.dto;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- * BUG FIX: RegistrationRequest was a plain class with package-private fields.
- * SportsEventServiceImpl calls req.eventId(); req.categoryId(); etc.
- * Converted to a Java record.
- */
 @Data
 public class RegistrationRequest {
     @NotNull
     Long eventId;
     @NotNull
     Long categoryId;
-    @NotNull
     String matchType;
+    Long formatId;
     String playerName;
     String email;
     String relation;
@@ -23,6 +18,11 @@ public class RegistrationRequest {
     Integer age;
     String role;
     Long partnerUserId;
+    Long partnerFamilyMemberId;
+    Long familyMemberId;
+    String gender;
+    String dateOfBirth;
+    String cricHeroesUrl;
 
     /**
      * Google reCAPTCHA token from the public registration form. Only verified

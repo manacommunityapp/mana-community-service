@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventExpenseRequest;
 import com.manacommunity.api.events.dto.EventExpenseResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventExpense;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventExpenseRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
@@ -23,7 +23,7 @@ import java.util.List;
 public class EventExpenseService {
 
     private final EventExpenseRepository expenseRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
 
     @Transactional(readOnly = true)
     public List<EventExpenseResponse> getByEvent(Long eventId) {
@@ -39,7 +39,7 @@ public class EventExpenseService {
 
     @Transactional
     public EventExpenseResponse create(EventExpenseRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventExpense expense = EventExpense.builder()

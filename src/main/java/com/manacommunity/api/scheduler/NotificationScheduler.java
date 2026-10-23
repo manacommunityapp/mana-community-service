@@ -1,10 +1,10 @@
 package com.manacommunity.api.scheduler;
 
 import com.manacommunity.api.user.model.AppUser;
-import com.manacommunity.api.model.SportsEventRegistration;
-import com.manacommunity.api.model.SportsNotificationScheduler;
-import com.manacommunity.api.repository.SportsEventRegistrationRepository;
-import com.manacommunity.api.repository.SportsNotificationSchedulerRepository;
+import com.manacommunity.api.sports.model.SportsEventRegistration;
+import com.manacommunity.api.sports.model.SportsNotificationScheduler;
+import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
+import com.manacommunity.api.sports.repository.SportsNotificationSchedulerRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

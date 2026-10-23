@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.CompetitionCategory;
+import com.manacommunity.api.events.entity.EventCompetitionCategory;
 import com.manacommunity.api.events.repository.CompetitionCategoryRepository;
 import com.manacommunity.api.events.service.CompetitionCategoryService;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -28,12 +28,12 @@ public class CompetitionCategoryServiceImpl implements CompetitionCategoryServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<CompetitionCategory> getAllCompetitionCategories(Long communityId) {
-        List<CompetitionCategory> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
+    public List<EventCompetitionCategory> getAllCompetitionCategories(Long communityId) {
+        List<EventCompetitionCategory> list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
         if (list.isEmpty()) {
             for (String defaultName : DEFAULT_CATEGORIES) {
                 if (!repository.existsByNameIgnoreCase(defaultName)) {
-                    repository.save(new CompetitionCategory(null, defaultName, "Default competition category"));
+                    repository.save(new EventCompetitionCategory(null, defaultName, "Default competition category"));
                 }
             }
             list = repository.findByCommunityIdOrCommunityIdIsNullOrderByNameAsc(communityId);
@@ -42,12 +42,12 @@ public class CompetitionCategoryServiceImpl implements CompetitionCategoryServic
     }
 
     @Override
-    public CompetitionCategory createCompetitionCategory(Long communityId, String name, String description) {
+    public EventCompetitionCategory createCompetitionCategory(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
-            throw new InvalidInputException("Competition category name cannot be empty");
+            throw new InvalidInputException("EventCompetition category name cannot be empty");
         }
         String cleanName = name.trim();
         return repository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
-                .orElseGet(() -> repository.save(new CompetitionCategory(communityId, cleanName, description)));
+                .orElseGet(() -> repository.save(new EventCompetitionCategory(communityId, cleanName, description)));
     }
 }

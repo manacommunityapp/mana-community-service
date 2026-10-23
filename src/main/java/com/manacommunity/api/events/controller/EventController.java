@@ -2,6 +2,7 @@ package com.manacommunity.api.events.controller;
 
 import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
+import com.manacommunity.api.events.dto.EventRegistrationRequest;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
 import com.manacommunity.api.events.dto.PendingActionItemDto;
@@ -77,22 +78,22 @@ public class EventController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard')")
     public ResponseEntity<EventResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.update(id, req, user.getId()));
+        return ResponseEntity.ok(eventService.update(id, req, user != null ? user.getId() : null));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('Create Event', 'Delete Event Schedule', 'Manage Event Dashboard')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAnyAuthority('Create Event', 'Delete Event Schedule', 'Manage Event Dashboard', 'Delete Event')")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        eventService.delete(id, user.getId());
+        eventService.delete(id, user);
         return ResponseEntity.noContent().build();
     }
 
@@ -158,9 +159,10 @@ public class EventController {
     @PreAuthorize("hasAnyAuthority('Register Event', 'View Events')")
     public ResponseEntity<EventResponse> register(
             @PathVariable Long id,
+            @RequestBody(required = false) EventRegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.register(id, user));
+        return ResponseEntity.ok(eventService.register(id, user, req));
     }
 
     @DeleteMapping("/{id}/register")

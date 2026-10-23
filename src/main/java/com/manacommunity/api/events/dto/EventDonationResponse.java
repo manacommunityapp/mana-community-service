@@ -13,6 +13,7 @@ public class EventDonationResponse {
     private String donorName;
     private String donorEmail;
     private String donorPhone;
+    private String flatNumber;
     private Double amount;
     private String paymentMethod;
     private String transactionRef;

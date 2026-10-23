@@ -11,7 +11,7 @@ spring:
   application:
     name: mana-community-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:3.109.145.130}:${DB_PORT:5432}/manacommunity
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/manacommunity
     username: ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)
     password: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
     driver-class-name: org.postgresql.Driver
@@ -87,3 +87,17 @@ app:
       max-image-size-mb: ${MEDIA_MAX_IMAGE_MB:20}
       max-video-size-mb: ${MEDIA_MAX_VIDEO_MB:500}
       max-document-size-mb: ${MEDIA_MAX_DOC_MB:50}
+
+  # ── DPDP Act 2023 compliance ─────────────────────────────────────────────
+  security:
+    require-https: true                       # gap #2 — enforce TLS in prod
+
+  captcha:
+    enabled: true                             # gap #3 — enable hCaptcha in prod
+    secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
+
+  privacy:
+    dpo-email: ${APP_DPO_EMAIL:dpo@manacommunity.app}   # [REQUIRED] real monitored mailbox
+    rights-request:
+      max-per-day: ${APP_RIGHTS_MAX_PER_DAY:5}
+      window-hours: ${APP_RIGHTS_WINDOW_HOURS:24}

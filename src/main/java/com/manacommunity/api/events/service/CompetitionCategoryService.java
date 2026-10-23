@@ -1,11 +1,11 @@
 package com.manacommunity.api.events.service;
 
-import com.manacommunity.api.events.entity.CompetitionCategory;
+import com.manacommunity.api.events.entity.EventCompetitionCategory;
 import java.util.List;
 
 public interface CompetitionCategoryService {
 
-    List<CompetitionCategory> getAllCompetitionCategories(Long communityId);
+    List<EventCompetitionCategory> getAllCompetitionCategories(Long communityId);
 
-    CompetitionCategory createCompetitionCategory(Long communityId, String name, String description);
+    EventCompetitionCategory createCompetitionCategory(Long communityId, String name, String description);
 }

@@ -3,7 +3,14 @@ package com.manacommunity.api.security;
 /** Application module an {@link AuditAction} belongs to. Stored as a string. */
 public enum AuditModule {
     USER_MANAGEMENT,
+    IDENTITY,
     COMMUNITY,
+    FINANCE,
+    BILLING,
+    GOVERNANCE,
+    SAFETY_SECURITY,
+    EMERGENCY,
+    TRIPS,
     SPORTS,
     TOURNAMENT,
     AUCTION,
@@ -14,5 +21,13 @@ public enum AuditModule {
     EVENTS,
     ADMIN,
     SERVICE_PLATFORM,
-    GROUP_BUYING
+    RETAIL,
+    TRIP,
+    PRIVACY,
+    WALLET,
+    PARKING,
+    GROUP_BUYING,
+    PAYMENTS,
+    PAYMENT,
+    RESILIENCE
 }

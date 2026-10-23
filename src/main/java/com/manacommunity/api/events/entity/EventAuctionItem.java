@@ -29,7 +29,7 @@ public class EventAuctionItem {
     @JoinColumn(name = "event_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 200)
     private String name;

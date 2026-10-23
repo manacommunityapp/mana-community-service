@@ -1,6 +1,6 @@
 package com.manacommunity.api.events.service.impl;
 
-import com.manacommunity.api.events.entity.PoojaType;
+import com.manacommunity.api.events.entity.EventPoojaType;
 import com.manacommunity.api.events.repository.PoojaTypeRepository;
 import com.manacommunity.api.events.service.PoojaTypeService;
 import com.manacommunity.api.exception.InvalidInputException;
@@ -36,15 +36,15 @@ public class PoojaTypeServiceImpl implements PoojaTypeService {
     }
 
     @Override
-    public List<PoojaType> getAllPoojaTypes(Long communityId) {
+    public List<EventPoojaType> getAllPoojaTypes(Long communityId) {
         try {
-            List<PoojaType> list = poojaTypeRepository.findByCommunityOrGlobal(communityId);
+            List<EventPoojaType> list = poojaTypeRepository.findByCommunityOrGlobal(communityId);
             if (list == null || list.isEmpty()) {
                 // Seed defaults if empty
                 for (String defaultName : DEFAULT_TYPES) {
                     try {
                         if (!poojaTypeRepository.existsByNameIgnoreCase(defaultName)) {
-                            poojaTypeRepository.save(new PoojaType(null, defaultName, "Default ritual type"));
+                            poojaTypeRepository.save(new EventPoojaType(null, defaultName, "Default ritual type"));
                         }
                     } catch (Exception e) {
                         log.debug("Notice while seeding default pooja type {}: {}", defaultName, e.getMessage());
@@ -60,10 +60,10 @@ public class PoojaTypeServiceImpl implements PoojaTypeService {
         }
 
         // Resilient fallback to default pooja types
-        List<PoojaType> fallbackList = new ArrayList<>();
+        List<EventPoojaType> fallbackList = new ArrayList<>();
         long id = 1L;
         for (String name : DEFAULT_TYPES) {
-            PoojaType pt = new PoojaType(communityId, name, "Default temple ritual");
+            EventPoojaType pt = new EventPoojaType(communityId, name, "Default temple ritual");
             pt.setId(id++);
             fallbackList.add(pt);
         }
@@ -71,17 +71,17 @@ public class PoojaTypeServiceImpl implements PoojaTypeService {
     }
 
     @Override
-    public PoojaType createPoojaType(Long communityId, String name, String description) {
+    public EventPoojaType createPoojaType(Long communityId, String name, String description) {
         if (name == null || name.trim().isEmpty()) {
             throw new InvalidInputException("Pooja type name cannot be empty");
         }
         String cleanName = name.trim();
         try {
             return poojaTypeRepository.findByNameIgnoreCaseAndCommunityId(cleanName, communityId)
-                    .orElseGet(() -> poojaTypeRepository.save(new PoojaType(communityId, cleanName, description)));
+                    .orElseGet(() -> poojaTypeRepository.save(new EventPoojaType(communityId, cleanName, description)));
         } catch (Exception e) {
             log.warn("Failed to persist pooja type to database: {}", e.getMessage());
-            PoojaType pt = new PoojaType(communityId, cleanName, description);
+            EventPoojaType pt = new EventPoojaType(communityId, cleanName, description);
             pt.setId(System.currentTimeMillis());
             return pt;
         }

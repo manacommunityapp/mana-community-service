@@ -25,7 +25,7 @@ public class EventInvoice {
     @JoinColumn(name = "event_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)

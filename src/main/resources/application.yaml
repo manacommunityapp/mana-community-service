@@ -22,7 +22,15 @@ spring:
     baseline-description: "pre-flyway baseline schema"
     out-of-order: false
     validate-on-migrate: true
-    clean-disabled: true
+  # ── Timezone & Localization (Indian Standard Time) ─────────────────────
+  jackson:
+    time-zone: Asia/Kolkata
+    locale: en_IN
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Kolkata
 
 
   # ── SMTP transport (used by JavaMailSender) ───────────────────────────
@@ -93,6 +101,40 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  razorpay:
+    enabled: ${RAZORPAY_ENABLED:false}
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder}
+    key-secret: ${RAZORPAY_KEY_SECRET:placeholder_secret}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:placeholder_webhook_secret}
+    currency: ${RAZORPAY_CURRENCY:INR}
+
+  cashfree:
+    enabled: ${CASHFREE_ENABLED:false}
+    app-id: ${CASHFREE_APP_ID:TEST_APP_ID_PLACEHOLDER}
+    secret-key: ${CASHFREE_SECRET_KEY:TEST_SECRET_PLACEHOLDER}
+    webhook-secret: ${CASHFREE_WEBHOOK_SECRET:TEST_WEBHOOK_SECRET_PLACEHOLDER}
+    base-url: ${CASHFREE_BASE_URL:https://sandbox.cashfree.com/pg}
+    api-version: ${CASHFREE_API_VERSION:2022-09-01}
+    currency: ${CASHFREE_CURRENCY:INR}
+
+  bbps:
+    # Set enabled=true and supply Setu API keys once BBPS aggregator is provisioned.
+    # Setu BillPay API: https://docs.setu.co/payments/billpay
+    enabled: ${BBPS_ENABLED:false}
+    provider: ${BBPS_PROVIDER:SETU}          # SETU | RAZORPAY_BILLPAY
+    setu:
+      client-id: ${BBPS_SETU_CLIENT_ID:placeholder_setu_client_id}
+      client-secret: ${BBPS_SETU_CLIENT_SECRET:placeholder_setu_client_secret}
+      base-url: ${BBPS_SETU_BASE_URL:https://prod.setu.co/api}
+    upi-vpa: ${BBPS_UPI_VPA:bbps@setu}      # VPA used in UPI intent URLs
+
+  recharge:
+    # Set enabled=true and supply aggregator keys once a recharge partner is provisioned.
+    # Supported providers: JUSPAY | RAZORPAY_BILLPAY | MOCK (default for dev/stub)
+    enabled: ${RECHARGE_ENABLED:false}
+    provider: ${RECHARGE_PROVIDER:MOCK}          # JUSPAY | RAZORPAY_BILLPAY | MOCK
+    upi-vpa: ${RECHARGE_UPI_VPA:recharge@manapay}  # VPA used in UPI intent URLs
+
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}
@@ -109,6 +151,10 @@ app:
     recipient-mode: ${APP_MAIL_RECIPIENT_MODE:NONE}
     # Default recipient address used when recipient-mode is REDIRECT or CC.
     default-recipient: ${APP_MAIL_DEFAULT_RECIPIENT:}
+    # When true, ONLY forgot-password / OTP verification emails are sent.
+    # All other notification emails (registration, tournament, match, etc.)
+    # are rendered and logged but never dispatched. Set to false to re-enable all.
+    otp-only-mode: ${APP_MAIL_OTP_ONLY_MODE:true}
     # ── Brevo (Sendinblue) Cloud Delivery & Activity Tracking API ───────────
     brevo:
       enabled: ${BREVO_ENABLED:true}
@@ -195,6 +241,8 @@ app:
       region: ${S3_REGION:eu-north-1}
       access-key: ${S3_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
       secret-key: ${S3_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+      # Presigned GET URL expiry for the file storage service (replaces permanent public URLs)
+      presigned-get-expiry-minutes: ${S3_PRESIGNED_GET_EXPIRY:60}
 
   # ── Centralized Media Management Service (S3-backed) ─────────────────────
   media:
@@ -246,6 +294,12 @@ app:
         max-sends-per-hour: ${REGISTRATION_OTP_MAX_SENDS:3}
         max-verify-attempts: ${REGISTRATION_OTP_MAX_ATTEMPTS:3}
         verified-window-minutes: ${REGISTRATION_OTP_VERIFIED_WINDOW:30}
+
+  # ── Tripjack B2B Flight Gateway ──────────────────────────────────────────
+  # Sign up at b2b.tripjack.com — sandbox key is free, prod key requires wallet deposit.
+  tripjack:
+    base-url: ${TRIPJACK_BASE_URL:https://apitest.tripjack.com}
+    api-key: ${TRIPJACK_API_KEY:your-sandbox-api-key-here}
 
   # CORS Configuration for React Frontend
   cors:

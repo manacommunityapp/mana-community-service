@@ -1,3 +1,9 @@
+-- ============================================================================
+-- sports_event_registrations_sample_data.sql
+-- COMMENTED OUT: Sports Event Registrations sample data is now managed and seeded via Java
+-- (com.manacommunity.api.service.sample.data.SportsEventSeeder & SportsEventRegistrationDataSeeder).
+-- ============================================================================
+/*
 -- Seeding sports_event_registration table with tournament registrations
 -- Mapped under the 'Annual Summer Cricket Cup' and 'Men''s Above 19' category
 DO $$
@@ -37,7 +43,7 @@ DECLARE
     user_ajay INT;
 BEGIN
     SELECT id INTO event_id_val FROM sports_event WHERE name = 'Annual Summer Cricket Cup';
-    SELECT id INTO cat_mens_id FROM player_category WHERE name = 'Men''s Above 19';
+    SELECT id INTO cat_mens_id FROM sports_player_category WHERE name = 'Cricket Men (Above 18)';
     
     SELECT id INTO user_sandeep FROM app_user WHERE email = 'sandeep@gmail.com';
     SELECT id INTO user_sunil FROM app_user WHERE email = 'sunil@gmail.com';
@@ -221,3 +227,4 @@ BEGIN
         END IF;
     END IF;
 END $$;
+*/

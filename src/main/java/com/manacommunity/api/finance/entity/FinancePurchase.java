@@ -2,6 +2,8 @@ package com.manacommunity.api.finance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,6 +14,7 @@ import java.util.List;
 /** Stock purchase / vendor bill (Expense → Stock Purchases menu). Standalone table. */
 @Entity
 @Table(name = "finance_purchase")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor
@@ -61,6 +64,7 @@ public class FinancePurchase {
     @Column(name = "other_charges", precision = 14, scale = 2) private BigDecimal otherCharges;
     @Column(name = "grand_total", precision = 14, scale = 2) private BigDecimal grandTotal;
 
+    @NotAudited
     @ElementCollection
     @CollectionTable(name = "finance_purchase_line", joinColumns = @JoinColumn(name = "purchase_id"))
     @Builder.Default

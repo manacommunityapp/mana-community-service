@@ -63,7 +63,7 @@ public class AnalyticsTools {
         var matches = em.createQuery(
                 "SELECT m.id, m.round, m.scheduledAt, m.scoreTeamA, m.scoreTeamB, " +
                 "m.teamA.id, m.teamB.id, tc.tournamentName " +
-                "FROM TournamentMatch m JOIN m.config tc " +
+                "FROM SportsTournamentMatch m JOIN m.config tc " +
                 "WHERE m.status = 'COMPLETED' " +
                 "AND tc.community.id = :comId " +
                 "AND ((m.teamA.id = :tA AND m.teamB.id = :tB) " +
@@ -134,7 +134,7 @@ public class AnalyticsTools {
 
         var matches = em.createQuery(
                 "SELECT m.teamA.id, m.scoreTeamA, m.scoreTeamB, m.scheduledAt " +
-                "FROM TournamentMatch m JOIN m.config tc " +
+                "FROM SportsTournamentMatch m JOIN m.config tc " +
                 "WHERE m.status = 'COMPLETED' AND tc.community.id = :comId " +
                 "AND (m.teamA.id = :tid OR m.teamB.id = :tid) " +
                 "ORDER BY m.scheduledAt DESC", Object[].class)
@@ -175,12 +175,12 @@ public class AnalyticsTools {
             + "busiest, idle slots, matches by day of week, and peak hours. Read-only.")
     public Object getVenueUtilization(
             @ToolParam(required = false, description = "Venue ID (omit for all venues)") Long venueId,
-            @ToolParam(required = false, description = "Tournament config ID filter") Long configId) {
+            @ToolParam(required = false, description = "SportsTournament config ID filter") Long configId) {
 
         UserContext ctx = AgentSecurityContext.get();
 
         StringBuilder where = new StringBuilder(
-                "FROM TournamentMatch m LEFT JOIN m.venue v LEFT JOIN m.court c " +
+                "FROM SportsTournamentMatch m LEFT JOIN m.venue v LEFT JOIN m.court c " +
                 "JOIN m.config tc WHERE tc.community.id = :comId " +
                 "AND m.scheduledAt IS NOT NULL");
 
@@ -295,7 +295,7 @@ public class AnalyticsTools {
         var auctions = em.createQuery(
                 "SELECT ap.playerName, ap.category, ap.playerRole, ap.basePrice, " +
                 "ap.soldPrice, ap.status, t.teamName, ac.seasonName " +
-                "FROM AuctionPlayer ap LEFT JOIN ap.assignedTeam t JOIN ap.config ac " +
+                "FROM SportsAuctionPlayer ap LEFT JOIN ap.assignedTeam t JOIN ap.config ac " +
                 "WHERE ap.user.id = :uid AND ac.createdBy.community.id = :comId " +
                 "ORDER BY ac.id DESC", Object[].class)
                 .setParameter("uid", userId)
@@ -312,10 +312,10 @@ public class AnalyticsTools {
 
         // Match stats
         Long matchesPlayed = em.createQuery(
-                "SELECT COUNT(m) FROM TournamentMatch m JOIN m.config tc " +
+                "SELECT COUNT(m) FROM SportsTournamentMatch m JOIN m.config tc " +
                 "WHERE m.status = 'COMPLETED' AND tc.community.id = :comId " +
-                "AND (m.teamA.id IN (SELECT ap.assignedTeam.id FROM AuctionPlayer ap WHERE ap.user.id = :uid) " +
-                "OR m.teamB.id IN (SELECT ap2.assignedTeam.id FROM AuctionPlayer ap2 WHERE ap2.user.id = :uid))",
+                "AND (m.teamA.id IN (SELECT ap.assignedTeam.id FROM SportsAuctionPlayer ap WHERE ap.user.id = :uid) " +
+                "OR m.teamB.id IN (SELECT ap2.assignedTeam.id FROM SportsAuctionPlayer ap2 WHERE ap2.user.id = :uid))",
                 Long.class)
                 .setParameter("uid", userId)
                 .setParameter("comId", ctx.communityId())
@@ -341,24 +341,24 @@ public class AnalyticsTools {
             + "matches on the same court, same team in two matches at the same time, "
             + "or insufficient break between matches. Read-only.")
     public Object detectScheduleConflicts(
-            @ToolParam(description = "Tournament config ID") Long configId) {
+            @ToolParam(description = "SportsTournament config ID") Long configId) {
 
         UserContext ctx = AgentSecurityContext.get();
 
         // Verify community
         Long count = em.createQuery(
-                "SELECT COUNT(tc) FROM TournamentConfig tc " +
+                "SELECT COUNT(tc) FROM SportsTournamentConfig tc " +
                 "WHERE tc.id = :tcId AND tc.community.id = :comId", Long.class)
                 .setParameter("tcId", configId)
                 .setParameter("comId", ctx.communityId())
                 .getSingleResult();
-        if (count == 0) return Map.of("error", "Tournament config not found in your community");
+        if (count == 0) return Map.of("error", "SportsTournament config not found in your community");
 
         // Get all scheduled matches
         var matches = em.createQuery(
                 "SELECT m.id, m.scheduledAt, m.durationMinutes, " +
                 "m.court.id, c.name, m.teamA.id, ta.teamName, m.teamB.id, tb.teamName " +
-                "FROM TournamentMatch m " +
+                "FROM SportsTournamentMatch m " +
                 "LEFT JOIN m.court c LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                 "WHERE m.config.id = :tcId AND m.scheduledAt IS NOT NULL " +
                 "ORDER BY m.scheduledAt", Object[].class)
@@ -385,7 +385,7 @@ public class AnalyticsTools {
                 boolean overlaps = start1.isBefore(end2) && start2.isBefore(end1);
                 if (!overlaps) continue;
 
-                // Court conflict
+                // SportsCourt conflict
                 if (m1[3] != null && m1[3].equals(m2[3])) {
                     courtConflicts.add(Map.of(
                             "type", "COURT_DOUBLE_BOOKED",
@@ -431,7 +431,7 @@ public class AnalyticsTools {
 
     private Long resolveTeamId(UserContext ctx, String name) {
         var rows = em.createQuery(
-                "SELECT t.id FROM AuctionTeam t JOIN t.config c " +
+                "SELECT t.id FROM SportsAuctionTeam t JOIN t.config c " +
                 "WHERE c.createdBy.community.id = :comId " +
                 "AND LOWER(t.teamName) LIKE LOWER(:nm)", Long.class)
                 .setParameter("comId", ctx.communityId())
@@ -442,7 +442,7 @@ public class AnalyticsTools {
     }
 
     private String getTeamName(Long teamId) {
-        var rows = em.createQuery("SELECT t.teamName FROM AuctionTeam t WHERE t.id = :tid", String.class)
+        var rows = em.createQuery("SELECT t.teamName FROM SportsAuctionTeam t WHERE t.id = :tid", String.class)
                 .setParameter("tid", teamId).getResultList();
         return rows.isEmpty() ? "Unknown" : rows.get(0);
     }

@@ -1,14 +1,19 @@
 package com.manacommunity.api.events.entity;
 
+import com.manacommunity.api.events.enums.RegistrationSource;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "event_booking_registrations")
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,6 +29,14 @@ public class EventBookingRegistration {
 
     @Column(name = "activity_id", length = 100)
     private String activityId;
+
+    /**
+     * ID of the parent community / top-level event this registration belongs to.
+     * Stored so that {@code GET /api/events/registrations/my} can return it
+     * for frontend deduplication (same-pooja, different-day blocking).
+     */
+    @Column(name = "main_event_id")
+    private Long mainEventId;
 
     @Column(name = "activity_title", nullable = false, length = 255)
     private String activityTitle;
@@ -91,6 +104,59 @@ public class EventBookingRegistration {
     @Column(name = "qr_code_url", length = 500)
     private String qrCodeUrl;
 
+    // ── Admin / audit fields ──────────────────────────────────────────────────
+
+    /** How this booking was created: SELF (normal user), ADMIN (on behalf), IMPORT (bulk). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_source", length = 20, nullable = false)
+    @Builder.Default
+    private RegistrationSource registrationSource = RegistrationSource.SELF;
+
+    /** ID of the admin who created this booking when registrationSource = ADMIN. Null for SELF bookings. */
+    @Column(name = "registered_by")
+    private Long registeredBy;
+
+    /** True when the admin bypassed capacity or duplicate-registration checks (adminOverride=true). */
+    @Column(name = "override_used", nullable = false)
+    @Builder.Default
+    private Boolean overrideUsed = false;
+
+    /** Free-text reason the admin gave for overriding normal booking rules. */
+    @Column(name = "override_reason", columnDefinition = "TEXT")
+    private String overrideReason;
+
+    /** Reservation ID obtained from the /reserve endpoint before booking. Not persisted here — carried transiently. */
+    @Transient
+    private Long reservationId;
+
+    /** Schedule ID of the specific slot being booked. Not persisted here — derived from the reservation. */
+    @Transient
+    private Long scheduleId;
+
+    /** Activity type sent by frontend (e.g. "LUNCH_DINNER"). Not persisted — used for routing only. */
+    @Transient
+    private String activityType;
+
+    /** LunchDinner / meal slot id sent by frontend. Not persisted — used for routing meal registrations. */
+    @Transient
+    private Long lunchDinnerId;
+
+    @Column(name = "phone", length = 50)
+    private String phone;
+
+    @Column(name = "email", length = 255)
+    private String email;
+
+    @Column(name = "ticket_type", length = 30)
+    private String ticketType;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "agreed")
+    @Builder.Default
+    private Boolean agreed = false;
+
     @Column(name = "checked_in")
     @Builder.Default
     private Boolean checkedIn = false;
@@ -98,16 +164,38 @@ public class EventBookingRegistration {
     @Column(name = "checked_in_at")
     private LocalDateTime checkedInAt;
 
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /** ID of the user who created this registration (auto-set by Spring Data auditing). */
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    /** ID of the user who last modified this registration (auto-set by Spring Data auditing). */
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (overrideUsed == null) {
+            overrideUsed = false;
+        }
+        if (registrationSource == null) {
+            registrationSource = RegistrationSource.SELF;
         }
         updatedAt = LocalDateTime.now();
     }

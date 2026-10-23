@@ -1,4 +1,10 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.controller.FeedController;
 import com.manacommunity.api.dto.PostRequest;
@@ -15,7 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -29,7 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(FeedController.class)
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 @DisplayName("FeedController")
 class FeedControllerTest extends BaseWebMvcTest {
 
@@ -108,6 +114,33 @@ class FeedControllerTest extends BaseWebMvcTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].id").value(100L))
                     .andExpect(jsonPath("$.content[0].content").value("Community announcement #updates"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "MEMBER")
+        @DisplayName("returns 200 with paginated posts on /api/posts/stream")
+        void getFeedStream_returns200() throws Exception {
+            Page<PostResponse> page = new PageImpl<>(List.of(postResponse));
+            when(loggedInUserService.resolve(any())).thenReturn(memberUser);
+            when(feedService.getFeed(any(), any(), anyInt(), anyInt())).thenReturn(page);
+
+            mockMvc.perform(get("/api/posts/stream"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].id").value(100L))
+                    .andExpect(jsonPath("$.content[0].content").value("Community announcement #updates"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "MEMBER")
+        @DisplayName("returns 200 for single post by ID")
+        void getPostById_returns200() throws Exception {
+            when(loggedInUserService.resolve(any())).thenReturn(memberUser);
+            when(feedService.getPostById(any(), eq(100L))).thenReturn(postResponse);
+
+            mockMvc.perform(get("/api/posts/100"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(100L))
+                    .andExpect(jsonPath("$.content").value("Community announcement #updates"));
         }
     }
 

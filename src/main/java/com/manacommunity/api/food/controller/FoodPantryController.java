@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/food/pantry")
+@RequestMapping({"/api/v1/food/pantry", "/food/pantry"})
 @RequiredArgsConstructor
 public class FoodPantryController {
 

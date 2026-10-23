@@ -8,7 +8,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_sponsor", schema = "manacommunity")
+@Table(name = "event_sponsor", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,7 +23,7 @@ public class EventSponsor {
     @JoinColumn(name = "event_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 200)
     private String name;

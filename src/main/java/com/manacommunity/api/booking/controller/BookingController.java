@@ -38,7 +38,7 @@ public class BookingController {
     // ── Resource Categories ──────────────────────────────────────
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<ResourceCategoryResponse>> getCategories(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -48,7 +48,7 @@ public class BookingController {
     }
 
     @GetMapping("/categories/{id}")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<ResourceCategoryResponse> getCategory(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +89,7 @@ public class BookingController {
     // ── Resources ────────────────────────────────────────────────
 
     @GetMapping("/resources")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<ResourceResponse>> getResources(
             @RequestParam(required = false) Long categoryId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -100,7 +100,7 @@ public class BookingController {
     }
 
     @GetMapping("/resources/{id}")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<ResourceResponse> getResource(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -141,7 +141,7 @@ public class BookingController {
     // ── Slots & Availability ─────────────────────────────────────
 
     @GetMapping("/resources/{resourceId}/slots")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<SlotResponse>> getSlots(
             @PathVariable Long resourceId,
             @RequestParam String date,
@@ -151,7 +151,7 @@ public class BookingController {
     }
 
     @GetMapping("/resources/{resourceId}/bookings")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<ResourceBookingResponse>> getBookingsByResource(
             @PathVariable Long resourceId,
             @RequestParam String date,
@@ -163,7 +163,7 @@ public class BookingController {
     // ── Bookings ─────────────────────────────────────────────────
 
     @PostMapping("/bookings")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities', 'Book Amenity')")
     public ResponseEntity<ResourceBookingResponse> createBooking(
             @Valid @RequestBody ResourceBookingRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -173,7 +173,7 @@ public class BookingController {
     }
 
     @GetMapping("/bookings/mine")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<ResourceBookingResponse>> getMyBookings(
             @RequestParam(required = false) String status,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -269,8 +269,17 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.checkOut(id));
     }
 
+    @PutMapping("/bookings/{id}/no-show")
+    @PreAuthorize("hasAuthority('Manage Resources')")
+    public ResponseEntity<ResourceBookingResponse> noShowBooking(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(bookingService.noShowBooking(id));
+    }
+
     @PutMapping("/bookings/{id}/rate")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<ResourceBookingResponse> rateBooking(
             @PathVariable Long id,
             @RequestBody Map<String, Object> body,
@@ -284,7 +293,7 @@ public class BookingController {
     // ── Waitlist ─────────────────────────────────────────────────
 
     @PostMapping("/waitlist")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities', 'Book Amenity')")
     public ResponseEntity<WaitlistResponse> joinWaitlist(
             @Valid @RequestBody WaitlistRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -294,7 +303,7 @@ public class BookingController {
     }
 
     @GetMapping("/waitlist/mine")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<List<WaitlistResponse>> getMyWaitlist(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -302,7 +311,7 @@ public class BookingController {
     }
 
     @DeleteMapping("/waitlist/{id}")
-    @PreAuthorize("hasAuthority('View Resource Booking')")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'View Amenities')")
     public ResponseEntity<Void> cancelWaitlist(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

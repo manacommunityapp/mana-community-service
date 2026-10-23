@@ -23,7 +23,7 @@ public class EventProgram {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(name = "day_label", length = 100)
     private String dayLabel;

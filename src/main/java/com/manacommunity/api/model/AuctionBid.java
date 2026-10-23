@@ -1,48 +1,66 @@
 package com.manacommunity.api.model;
 
-import com.manacommunity.api.user.model.AppUser;
-
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity 
-@Table(name = "auction_bid")
-@Data 
-@Builder 
-@NoArgsConstructor 
+@Entity
+@Table(name = "auction_bids")
+@Data
+@Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class AuctionBid {
-    @Id 
+
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "config_id")
-    private AuctionConfig config;
+    @Column(name = "rfq_id", nullable = false)
+    private Long rfqId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id")
-    private AuctionPlayer player;
+    @Column(name = "supplier_id")
+    private Long supplierId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id")
-    private AuctionTeam team;
+    @Column(name = "supplier_name", nullable = false, length = 200)
+    private String supplierName;
 
-    @Column(nullable = false)
-    private Long bidAmount;
+    @Column(name = "bid_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal bidAmount;
 
-    @Column(nullable = false)
-    private Integer incrementUsed;
+    @Column(name = "delivery_days")
+    private Integer deliveryDays;
 
-    private Boolean isRtm;
+    @Column(length = 500)
+    private String notes;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bid_by_user_id")
-    private AppUser bidByUser;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private AuctionBidStatus status = AuctionBidStatus.ACTIVE;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime bidAt;
+    @Column(name = "rank_position")
+    private Integer rankPosition;
 
-    @PrePersist void onCreate() { bidAt = LocalDateTime.now(); }
+    @Column(name = "community_id", nullable = false)
+    private Long communityId;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

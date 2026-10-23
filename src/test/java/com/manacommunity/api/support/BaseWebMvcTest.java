@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
  *  Annotate test methods with @WithMockUserPrincipal to set auth explicitly.
  */
 @ActiveProfiles("test")
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 public abstract class BaseWebMvcTest {
 
     @Autowired
@@ -44,6 +44,15 @@ public abstract class BaseWebMvcTest {
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     protected com.manacommunity.api.security.TokenBlacklistService tokenBlacklistService;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.service.RolePermissionService rolePermissionService;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.security.CookieAuthHelper cookieAuthHelper;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.ops.OpsMetricsCollector opsMetricsCollector;
 
     protected String toJson(Object obj) throws Exception {
         return objectMapper.writeValueAsString(obj);

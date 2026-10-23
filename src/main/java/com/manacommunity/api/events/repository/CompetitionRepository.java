@@ -1,15 +1,15 @@
 package com.manacommunity.api.events.repository;
 
-import com.manacommunity.api.events.entity.Competition;
+import com.manacommunity.api.events.entity.EventCompetition;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface CompetitionRepository extends JpaRepository<Competition, Long> {
+public interface CompetitionRepository extends JpaRepository<EventCompetition, Long> {
 
-    List<Competition> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
+    List<EventCompetition> findByCommunityIdOrderByDateAscStartTimeAsc(Long communityId);
 
-    List<Competition> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
+    List<EventCompetition> findByMainEventIdOrderByDateAscStartTimeAsc(Long mainEventId);
 }

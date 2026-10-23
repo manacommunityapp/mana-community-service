@@ -44,7 +44,9 @@ public class SupplierController {
             @PathVariable Long id,
             @RequestBody SupplierDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(supplierService.updateSupplier(id, dto));
+        // IDOR fix: pass caller's communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(supplierService.updateSupplier(id, dto, user.getCommunity().getId()));
     }
 
     @DeleteMapping("/{id}")
@@ -52,7 +54,9 @@ public class SupplierController {
     public ResponseEntity<Void> deleteSupplier(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        supplierService.deleteSupplier(id);
+        // IDOR fix: pass caller's communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        supplierService.deleteSupplier(id, user.getCommunity().getId());
         return ResponseEntity.ok().build();
     }
 }

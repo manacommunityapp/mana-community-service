@@ -1,0 +1,22 @@
+# ──────────────────────────────────────────────────────────────────
+# Push Notification Configuration
+# Merge these into your main application.yaml (or application-prod.yaml)
+# ──────────────────────────────────────────────────────────────────
+
+app:
+  push:
+    # Master switch — set to false in dev/test to disable all Expo API calls
+    enabled: true
+
+    # Weekly cleanup of deactivated tokens (cron: every Sunday at 03:00)
+    cleanup-cron: "0 0 3 * * SUN"
+
+# ── Logging ────────────────────────────────────────────────────────
+# Route the NOTIFICATION module logger to notification.log
+# (Your logback-spring.xml already has this appender configured;
+#  this yaml entry just confirms the logger name.)
+logging:
+  level:
+    com.manacommunity.api.service.impl.ExpoPushServiceImpl: INFO
+    com.manacommunity.api.listener.MobilePushEventListener: INFO
+    NOTIFICATION: INFO

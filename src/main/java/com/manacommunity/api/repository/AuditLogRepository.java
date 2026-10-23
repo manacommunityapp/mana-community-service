@@ -29,4 +29,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     long countByActionAndCreatedAtAfter(String action, LocalDateTime since);
 
     long countByModuleAndCreatedAtAfter(String module, LocalDateTime since);
+
+    java.util.Optional<AuditLog> findTopByTenantIdOrderBySequenceNumberDesc(String tenantId);
+
+    java.util.List<AuditLog> findByTenantIdAndSequenceNumberBetweenOrderBySequenceNumberAsc(String tenantId, Long fromSeq, Long toSeq);
+
+    java.util.List<AuditLog> findByTenantIdOrderBySequenceNumberAsc(String tenantId);
+
+    java.util.List<AuditLog> findByCorrelationIdOrderByCreatedAtDesc(String correlationId);
+
+    java.util.List<AuditLog> findByEntityNameAndEntityIdOrderByCreatedAtDesc(String entityName, String entityId);
 }

@@ -1,5 +1,8 @@
 HELP.md
 target/
+
+### Local Karate dashboard (not for VCS) ###
+karate-dashboard/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -46,3 +49,4 @@ src/main/resources/application-local.properties
 **/application-local.yaml
 **/application-local.properties
 
+/.mvn/jvm.config

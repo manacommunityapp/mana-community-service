@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventTaskRequest;
 import com.manacommunity.api.events.dto.EventTaskResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventTask;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventTaskRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
@@ -24,7 +24,7 @@ import java.util.List;
 public class EventTaskService {
 
     private final EventTaskRepository taskRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final AppUserRepository userRepo;
 
     @Transactional(readOnly = true)
@@ -52,7 +52,7 @@ public class EventTaskService {
 
     @Transactional
     public EventTaskResponse create(EventTaskRequest req, AppUser user, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
         EventTask task = EventTask.builder()

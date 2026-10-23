@@ -3,6 +3,7 @@ package com.manacommunity.api.serviceplatform.entity;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Invoice;
 import com.manacommunity.api.serviceplatform.entity.enums.WorkOrderStatus;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -21,7 +22,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkOrder {
+public class WorkOrder extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -101,20 +102,4 @@ public class WorkOrder {
     @EqualsAndHashCode.Exclude
     private Invoice invoice;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

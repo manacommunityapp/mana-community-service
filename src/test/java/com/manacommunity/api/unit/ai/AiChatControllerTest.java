@@ -1,4 +1,10 @@
 package com.manacommunity.api.unit.ai;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.ai.controller.AiChatController;
 import com.manacommunity.api.ai.dto.AiChatRequest;
@@ -11,7 +17,7 @@ import com.manacommunity.api.support.BaseWebMvcTest;
 import com.manacommunity.api.support.WithMockUserPrincipal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 

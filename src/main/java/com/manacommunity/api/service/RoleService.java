@@ -7,6 +7,7 @@ public interface RoleService {
     
     /** Returns a list of all created roles from the database. */
     List<Role> getAllRoles();
+    List<Role> getAllRoles(Long communityId);
     
     /** Creates a new custom role in the database. */
     Role createRole(String name);

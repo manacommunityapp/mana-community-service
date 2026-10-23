@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_task", schema = "manacommunity")
+@Table(name = "event_task", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,7 +24,7 @@ public class EventTask {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(nullable = false, length = 300)
     private String title;

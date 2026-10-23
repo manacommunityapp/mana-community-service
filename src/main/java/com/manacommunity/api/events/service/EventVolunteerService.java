@@ -2,9 +2,9 @@ package com.manacommunity.api.events.service;
 
 import com.manacommunity.api.events.dto.EventVolunteerRequest;
 import com.manacommunity.api.events.dto.EventVolunteerResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventVolunteer;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -24,7 +24,7 @@ import java.util.List;
 public class EventVolunteerService {
 
     private final EventVolunteerRepository volunteerRepo;
-    private final CommunityEventRepository eventRepo;
+    private final EventCommunityRepository eventRepo;
     private final AppUserRepository userRepo;
 
     @Transactional(readOnly = true)
@@ -49,7 +49,7 @@ public class EventVolunteerService {
 
     @Transactional
     public EventVolunteerResponse create(EventVolunteerRequest req, Community community) {
-        CommunityEvent event = eventRepo.findById(req.getEventId())
+        EventCommunity event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
         if (volunteerRepo.existsByEventIdAndUserId(req.getEventId(), req.getUserId())) {
             throw new AlreadyRegisteredException(event.getTitle());

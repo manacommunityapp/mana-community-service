@@ -18,6 +18,18 @@ public class AdminDashboardStatsResponse {
     private long verifiedUsersCount;
     private long totalRolesCount;
     private long totalCommunitiesCount;
+
+    private long activeVisitorsCount;
+    private long openTicketsCount;
+    private long inProgressTicketsCount;
+    private long activeVendorsCount;
+    private long pendingWorkOrdersCount;
+    private long pendingExpensesCount;
+    private long totalBookingResourcesCount;
+    private long pendingContentReportsCount;
+    private long activeEventsCount;
+    private long activeNoticesCount;
+
     private List<RecentActivityItem> recentActivities;
 
     @Data
@@ -27,6 +39,7 @@ public class AdminDashboardStatsResponse {
     public static class RecentActivityItem {
         private String title;
         private String timestamp;
-        private String type; // e.g. "USER_REGISTERED", "KYC_SUBMITTED", "ROLE_UPDATED"
+        private String type;
+        private String module;
     }
 }

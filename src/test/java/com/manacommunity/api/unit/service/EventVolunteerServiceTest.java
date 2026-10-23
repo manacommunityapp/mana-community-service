@@ -1,10 +1,16 @@
 package com.manacommunity.api.unit.service;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.events.dto.EventVolunteerRequest;
 import com.manacommunity.api.events.dto.EventVolunteerResponse;
-import com.manacommunity.api.events.entity.CommunityEvent;
+import com.manacommunity.api.events.entity.EventCommunity;
 import com.manacommunity.api.events.entity.EventVolunteer;
-import com.manacommunity.api.events.repository.CommunityEventRepository;
+import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventVolunteerRepository;
 import com.manacommunity.api.events.service.EventVolunteerService;
 import com.manacommunity.api.exception.AlreadyRegisteredException;
@@ -35,7 +41,7 @@ import static org.mockito.Mockito.*;
 class EventVolunteerServiceTest {
 
     @Mock EventVolunteerRepository volunteerRepo;
-    @Mock CommunityEventRepository eventRepo;
+    @Mock EventCommunityRepository eventRepo;
     @Mock AppUserRepository userRepo;
 
     @InjectMocks EventVolunteerService volunteerService;
@@ -43,7 +49,7 @@ class EventVolunteerServiceTest {
     private Community community;
     private AppUser adminUser;
     private AppUser volunteerUser;
-    private CommunityEvent event;
+    private EventCommunity event;
     private EventVolunteer volunteer;
 
     @BeforeEach

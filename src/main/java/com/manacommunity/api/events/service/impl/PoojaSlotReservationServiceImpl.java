@@ -1,0 +1,270 @@
+package com.manacommunity.api.events.service.impl;
+
+import com.manacommunity.api.events.dto.PoojaReserveRequest;
+import com.manacommunity.api.events.dto.PoojaReserveResponse;
+import com.manacommunity.api.events.entity.EventPoojaSeva;
+import com.manacommunity.api.events.entity.EventPoojaSchedule;
+import com.manacommunity.api.events.entity.EventPoojaSlotReservation;
+import com.manacommunity.api.events.enums.PoojaScheduleStatus;
+import com.manacommunity.api.events.enums.ReservationStatus;
+import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.events.repository.EventPoojaScheduleRepository;
+import com.manacommunity.api.events.repository.EventPoojaSlotReservationRepository;
+import com.manacommunity.api.events.service.PoojaSlotReservationService;
+import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.RegistrationClosedException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
+import com.manacommunity.api.user.model.AppUser;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+@Service
+public class PoojaSlotReservationServiceImpl implements PoojaSlotReservationService {
+
+    private final EventPoojaScheduleRepository scheduleRepo;
+    private final EventPoojaSlotReservationRepository reservationRepo;
+    private final AuditService auditService;
+    private final EventBookingRegistrationRepository eventBookingRegistrationRepository;
+
+    @Value("${pooja.reservation.ttl-minutes:5}")
+    private int reservationTtlMinutes;
+
+    public PoojaSlotReservationServiceImpl(EventPoojaScheduleRepository scheduleRepo,
+                                           EventPoojaSlotReservationRepository reservationRepo,
+                                           AuditService auditService,
+                                           EventBookingRegistrationRepository eventBookingRegistrationRepository) {
+        this.scheduleRepo = scheduleRepo;
+        this.reservationRepo = reservationRepo;
+        this.auditService = auditService;
+        this.eventBookingRegistrationRepository = eventBookingRegistrationRepository;
+    }
+
+    /**
+     * Core booking-engine transaction:
+     * 1. SELECT … FOR UPDATE on the schedule row (no other thread can modify it)
+     * 2. Expire stale reservations within the same TX
+     * 3. Calculate live availability
+     * 4. Reject if full
+     * 5. Create + persist the reservation
+     * 6. Increment token sequence
+     */
+    @Override
+    @Transactional
+    public PoojaReserveResponse reserve(Long scheduleId, PoojaReserveRequest req, AppUser user) {
+
+        // ── Idempotency: return existing reservation for the same key + same schedule (M-2) ──
+        if (req.getIdempotencyKey() != null && !req.getIdempotencyKey().isBlank()) {
+            Optional<EventPoojaSlotReservation> existing =
+                    reservationRepo.findByIdempotencyKeyAndScheduleId(req.getIdempotencyKey(), scheduleId);
+            if (existing.isPresent()) {
+                EventPoojaSlotReservation r = existing.get();
+                return PoojaReserveResponse.builder()
+                        .reservationId(r.getId())
+                        .scheduleId(scheduleId)
+                        .idempotencyKey(r.getIdempotencyKey())
+                        .reservedFamilyCount(r.getReservedFamilyCount())
+                        .reservedDevoteeCount(r.getReservedDevoteeCount())
+                        .expiresAt(r.getExpiresAt())
+                        .status(r.getStatus().name())
+                        .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
+                        .build();
+            }
+        }
+
+        // ── #15: Return existing active pre-hold or reject if already confirmed ──
+        if (user != null) {
+            Optional<EventPoojaSlotReservation> activeForUser =
+                    reservationRepo.findActiveByScheduleAndUser(scheduleId, user.getId());
+            if (activeForUser.isPresent()) {
+                EventPoojaSlotReservation r = activeForUser.get();
+                if (r.getStatus() == ReservationStatus.RESERVED) {
+                    // Return the existing hold — idempotent re-reserve
+                    return PoojaReserveResponse.builder()
+                            .reservationId(r.getId())
+                            .scheduleId(scheduleId)
+                            .idempotencyKey(r.getIdempotencyKey())
+                            .reservedFamilyCount(r.getReservedFamilyCount())
+                            .reservedDevoteeCount(r.getReservedDevoteeCount())
+                            .expiresAt(r.getExpiresAt())
+                            .status(r.getStatus().name())
+                            .tokenNumber(r.getTokenNumber() != null ? r.getTokenNumber() : 0)
+                            .build();
+                }
+                if (r.getStatus() == ReservationStatus.CONFIRMED) {
+                    // User already completed registration for this exact slot — reject immediately
+                    throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                            "this pooja slot",
+                            "You have already registered for this slot. Only one booking per slot is allowed.");
+                }
+            }
+        }
+
+        // ── 1. Acquire pessimistic write lock ──
+        EventPoojaSchedule schedule = scheduleRepo.findByIdForUpdate(scheduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSchedule", scheduleId));
+
+        // G-2: Reject if the slot's date+time is already in the past
+        java.time.LocalDate slotDate = schedule.getScheduleDate();
+        java.time.LocalTime slotTime = schedule.getStartTime();
+        java.time.LocalDate today    = java.time.LocalDate.now();
+        boolean slotInPast = slotDate.isBefore(today) ||
+                (slotDate.isEqual(today) && slotTime != null && slotTime.isBefore(java.time.LocalTime.now()));
+        if (slotInPast) {
+            throw new RegistrationClosedException(
+                    "This Pooja slot (" + slotDate + " " + (slotTime != null ? slotTime : "") +
+                    ") is in the past and can no longer accept bookings.");
+        }
+
+        // Enforce mandatory main event registration if pooja belongs to a main event
+        if (user != null && schedule.getPoojaSeva() != null && schedule.getPoojaSeva().getMainEventId() != null && schedule.getPoojaSeva().getMainEventId() > 0) {
+            Long mainEventId = schedule.getPoojaSeva().getMainEventId();
+            boolean isMainRegistered = isRegisteredForMainEvent(mainEventId, user.getId());
+            if (!isMainRegistered) {
+                throw new IllegalArgumentException("Registration for the main event is required before reserving this Pooja Seva slot. Please register for the main event first.");
+            }
+        }
+
+        if (schedule.getStatus() == PoojaScheduleStatus.BLOCKED ||
+            schedule.getStatus() == PoojaScheduleStatus.CLOSED) {
+            throw new RegistrationClosedException(
+                    schedule.getPoojaSeva().getName(), schedule.getStatus().name());
+        }
+
+        // ── 1a. Enforce EventPoojaSeva booking-engine constraints (#5) ──
+        LocalDateTime now = LocalDateTime.now();
+        EventPoojaSeva seva = schedule.getPoojaSeva();
+
+        // One active slot per logged-in user per seva (any date, any slot).
+        // Runs after releaseReservation() in the reschedule path so the old CANCELLED row never blocks.
+        if (user != null && reservationRepo.existsActiveBySevaAndUser(seva.getId(), user.getId())) {
+            throw new com.manacommunity.api.exception.AlreadyRegisteredException(
+                    seva.getName(),
+                    "You already have an active booking for this pooja seva. Only one slot per seva is allowed.");
+        }
+
+        if (seva.getBookingOpen() != null && now.isBefore(seva.getBookingOpen())) {
+            throw new RegistrationClosedException(
+                    "Bookings for '" + seva.getName() + "' are not open yet. " +
+                    "They open on " + seva.getBookingOpen().toLocalDate() + ".");
+        }
+        if (seva.getBookingClose() != null && now.isAfter(seva.getBookingClose())) {
+            throw new RegistrationClosedException(
+                    "Bookings for '" + seva.getName() + "' are closed. " +
+                    "The booking window ended on " + seva.getBookingClose().toLocalDate() + ".");
+        }
+
+        // ── 2. Expire stale reservations (inside the lock) ──
+        reservationRepo.expireStaleForSchedule(scheduleId, now);
+
+        // ── 3. Calculate live availability ──
+        int confirmedFamilies = reservationRepo.sumConfirmedFamilies(scheduleId);
+        int reservedFamilies  = reservationRepo.sumActiveReservedFamilies(scheduleId, now);
+        int availFamilies     = schedule.getFamilyCapacity() - confirmedFamilies - reservedFamilies;
+
+        int confirmedDevotees = reservationRepo.sumConfirmedDevotees(scheduleId);
+        int reservedDevotees  = reservationRepo.sumActiveReservedDevotees(scheduleId, now);
+        int availDevotees     = schedule.getDevoteeCapacity() - confirmedDevotees - reservedDevotees;
+
+        // ── 4. Capacity check ──
+        int requestedFamilies = Math.max(1, req.getFamilyCount());
+        int requestedDevotees = Math.max(1, req.getDevoteeCount());
+
+        // Enforce per-booking devotee limit set by admin (#5)
+        if (seva.getMaxDevoteesPerBooking() != null && requestedDevotees > seva.getMaxDevoteesPerBooking()) {
+            throw new EventFullException(
+                    "This seva allows a maximum of " + seva.getMaxDevoteesPerBooking() +
+                    " devotee(s) per booking. Please reduce your devotee count.");
+        }
+
+        if (availFamilies < requestedFamilies) {
+            throw new EventFullException(
+                    "This slot is full — no family spots available for '"
+                    + schedule.getPoojaSeva().getName() + "'. Please choose another slot.");
+        }
+        if (availDevotees < requestedDevotees) {
+            throw new EventFullException(
+                    "This slot is full — no devotee spots available for '"
+                    + schedule.getPoojaSeva().getName() + "'. Please choose another slot.");
+        }
+
+        // ── 5. Assign token number (before incrementing) ──
+        int tokenNumber = schedule.getNextTokenSeq();
+
+        // ── 6. Create reservation ──
+        LocalDateTime expiresAt = now.plusMinutes(reservationTtlMinutes);
+
+        EventPoojaSlotReservation reservation = EventPoojaSlotReservation.builder()
+                .schedule(schedule)
+                .user(user)
+                .communityId(schedule.getCommunityId())
+                .reservedFamilyCount(requestedFamilies)
+                .reservedDevoteeCount(requestedDevotees)
+                .status(ReservationStatus.RESERVED)
+                .expiresAt(expiresAt)
+                .idempotencyKey(req.getIdempotencyKey())
+                .tokenNumber(tokenNumber)
+                .build();
+
+        EventPoojaSlotReservation saved = reservationRepo.save(reservation);
+
+        // ── 7. Increment token sequence on the schedule ──
+        schedule.setNextTokenSeq(tokenNumber + 1);
+        scheduleRepo.save(schedule);
+
+        auditService.record(AuditAction.POOJA_SLOT_RESERVED, AuditModule.EVENTS,
+                "EventPoojaSlotReservation", saved.getId().toString(),
+                null, "schedule=" + scheduleId + " families=" + requestedFamilies + " devotees=" + requestedDevotees);
+
+        return PoojaReserveResponse.builder()
+                .reservationId(saved.getId())
+                .scheduleId(scheduleId)
+                .idempotencyKey(saved.getIdempotencyKey())
+                .reservedFamilyCount(requestedFamilies)
+                .reservedDevoteeCount(requestedDevotees)
+                .expiresAt(expiresAt)
+                .status(ReservationStatus.RESERVED.name())
+                .tokenNumber(tokenNumber)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void confirmReservation(Long reservationId, Long registrationId) {
+        EventPoojaSlotReservation r = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("EventPoojaSlotReservation", reservationId));
+        r.setStatus(ReservationStatus.CONFIRMED);
+        r.setRegistrationId(registrationId);
+        reservationRepo.save(r);
+    }
+
+    @Override
+    @Transactional
+    public void releaseReservation(Long reservationId) {
+        reservationRepo.findById(reservationId).ifPresent(r -> {
+            r.setStatus(ReservationStatus.CANCELLED);
+            reservationRepo.save(r);
+            auditService.record(AuditAction.POOJA_SLOT_RESERVATION_CANCELLED, AuditModule.EVENTS,
+                    "EventPoojaSlotReservation", reservationId.toString());
+        });
+    }
+
+    private boolean isRegisteredForMainEvent(Long mainEventId, Long userId) {
+        if (mainEventId == null || mainEventId <= 0 || userId == null) {
+            return true;
+        }
+        if (eventBookingRegistrationRepository != null) {
+            return eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, "event-" + mainEventId, "CANCELLED")
+                    || eventBookingRegistrationRepository
+                    .existsByUserIdAndActivityIdAndStatusNot(userId, String.valueOf(mainEventId), "CANCELLED");
+        }
+        return false;
+    }
+}

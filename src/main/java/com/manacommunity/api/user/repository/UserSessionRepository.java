@@ -12,6 +12,12 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
 
     List<UserSession> findByUserIdAndStatus(Long userId, String status);
 
+    List<UserSession> findByUserIdAndStatusOrderByLoginAtDesc(Long userId, String status);
+
+    List<UserSession> findByUserIdOrderByLoginAtDesc(Long userId, Pageable pageable);
+
+    java.util.Optional<UserSession> findByIdAndUserId(Long id, Long userId);
+
     Page<UserSession> findAllByOrderByLoginAtDesc(Pageable pageable);
 
     long countByStatus(String status);

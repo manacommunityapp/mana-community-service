@@ -11,6 +11,8 @@ public interface EventProgramRepository extends JpaRepository<EventProgram, Long
     @Modifying
     void deleteByEventId(Long eventId);
 
+    List<EventProgram> findByEventId(Long eventId);
+
     List<EventProgram> findByEventIdOrderBySortOrderAscStartTimeAsc(Long eventId);
 
     List<EventProgram> findByEventIdAndDayLabelOrderBySortOrderAscStartTimeAsc(Long eventId, String dayLabel);

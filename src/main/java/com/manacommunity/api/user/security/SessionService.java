@@ -75,6 +75,53 @@ public class SessionService {
         }
     }
 
+    /** Returns active sessions for a user, most recent first. */
+    public List<UserSession> getActiveSessionsForUser(Long userId) {
+        return sessionRepository.findByUserIdAndStatusOrderByLoginAtDesc(userId, UserSession.ACTIVE);
+    }
+
+    /** Revoke a single session owned by this user. */
+    public boolean revokeSession(Long userId, Long sessionId) {
+        try {
+            java.util.Optional<UserSession> opt = sessionRepository.findByIdAndUserId(sessionId, userId);
+            if (opt.isPresent()) {
+                UserSession s = opt.get();
+                s.setStatus(UserSession.LOGGED_OUT);
+                s.setLogoutAt(LocalDateTime.now());
+                sessionRepository.save(s);
+                auditLog.record(AuditLogService.Action.LOGOUT, userId, "Revoked session ID=" + sessionId);
+                return true;
+            }
+        } catch (Exception ex) {
+            SECURITY.error("Failed to revoke session id={} for userId={}: {}", sessionId, userId, ex.getMessage());
+        }
+        return false;
+    }
+
+    /** Revoke all other active sessions for a user, keeping only keepSessionId if specified. */
+    public int revokeOtherSessions(Long userId, Long keepSessionId) {
+        try {
+            List<UserSession> active = sessionRepository.findByUserIdAndStatusOrderByLoginAtDesc(userId, UserSession.ACTIVE);
+            LocalDateTime now = LocalDateTime.now();
+            java.util.List<UserSession> toRevoke = new java.util.ArrayList<>();
+            for (UserSession s : active) {
+                if (keepSessionId == null || !s.getId().equals(keepSessionId)) {
+                    s.setStatus(UserSession.LOGGED_OUT);
+                    s.setLogoutAt(now);
+                    toRevoke.add(s);
+                }
+            }
+            if (!toRevoke.isEmpty()) {
+                sessionRepository.saveAll(toRevoke);
+                auditLog.record(AuditLogService.Action.LOGOUT, userId, "Revoked " + toRevoke.size() + " other active sessions");
+            }
+            return toRevoke.size();
+        } catch (Exception ex) {
+            SECURITY.error("Failed to revoke other sessions for userId={}: {}", userId, ex.getMessage());
+            return 0;
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private HttpServletRequest currentRequest() {

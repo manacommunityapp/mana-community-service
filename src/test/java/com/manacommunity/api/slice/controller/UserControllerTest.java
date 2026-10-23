@@ -1,4 +1,10 @@
 package com.manacommunity.api.slice.controller;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Role;
@@ -12,11 +18,14 @@ import com.manacommunity.api.repository.RolePermissionRepository;
 import com.manacommunity.api.service.RoleService;
 import com.manacommunity.api.service.CommunityModuleService;
 import com.manacommunity.api.user.service.MenuRolePermissionService;
+import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.user.service.AuthService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -35,11 +44,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class UserControllerTest extends BaseWebMvcTest {
 
     @MockitoBean private LoggedInUserService loggedInUserService;
-    @MockitoBean private RolePermissionRepository rolePermissionRepo;
     @MockitoBean private RoleService roleService;
     @MockitoBean private CommunityModuleService communityModuleService;
     @MockitoBean private MenuRolePermissionService menuRolePermissionService;
     @MockitoBean private AdminUserService adminUserService;
+    @MockitoBean private PasswordEncoder passwordEncoder;
+    @MockitoBean private AuthService authService;
+    @MockitoBean private com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
+    @MockitoBean private com.manacommunity.api.privacy.UserPrivacySettingsService userPrivacySettingsService;
+    @MockitoBean private com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     @Nested
     @DisplayName("POST /api/users - Create User (Single & Bulk Row Insertion)")
@@ -85,12 +98,12 @@ class UserControllerTest extends BaseWebMvcTest {
 
             when(loggedInUserService.resolve(any())).thenReturn(adminPrincipalUser);
             when(adminUserService.createUser(any())).thenReturn(mockSaved);
-            when(rolePermissionRepo.findByUserId(any())).thenReturn(Collections.emptyList());
+            when(rolePermissionRepository.findByUserId(any())).thenReturn(Collections.emptyList());
 
             mockMvc.perform(post("/api/users")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(req)))
-                    .andExpect(status().isOk())
+                    .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.id").value(101))
                     .andExpect(jsonPath("$.fullName").value("Priya Sharma"))
                     .andExpect(jsonPath("$.email").value("priya.sharma@example.com"))

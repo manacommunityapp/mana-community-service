@@ -1,11 +1,14 @@
 package com.manacommunity.api.user.controller;
 
 import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
 import com.manacommunity.api.user.dto.ForgotPasswordRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RefreshTokenRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.user.dto.ResetPasswordRequest;
+import com.manacommunity.api.user.dto.SendSignupOtpRequest;
+import com.manacommunity.api.user.dto.VerifySignupOtpRequest;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +33,32 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    /**
+     * Sends a 6-digit OTP to the provided email to verify it before signup.
+     * Call this first, then include the received code in the /register request.
+     */
+    @PostMapping("/send-signup-otp")
+    public ResponseEntity<Map<String, Object>> sendSignupOtp(@Valid @RequestBody SendSignupOtpRequest request) {
+        authService.sendSignupOtp(request.getEmail(), request.getPhone());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Verification code has been sent to your email address."
+        ));
+    }
+
+    /**
+     * Validates that email and phone do not exist, and verifies the 6-digit code.
+     */
+    @PostMapping("/verify-signup-otp")
+    public ResponseEntity<Map<String, Object>> verifySignupOtp(@Valid @RequestBody VerifySignupOtpRequest request) {
+        authService.verifySignupOtp(request.getEmail(), request.getPhone(), request.getCode());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "verified", true,
+                "message", "Email and phone verified successfully."
+        ));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) throws Exception {
@@ -73,6 +102,30 @@ public class AuthController {
                 "success", true,
                 "message", "Password has been successfully updated. You can now log in with your new password."
         ));
+    }
+
+    /**
+     * Changes the password for the authenticated user.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null || principal.getId() == null) {
+            throw new com.manacommunity.api.exception.UnauthorizedActionException("Authentication is required to change password.");
+        }
+        authService.changePassword(principal.getId(), request);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Password changed successfully."
+        ));
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePasswordPut(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return changePassword(principal, request);
     }
 
     /**

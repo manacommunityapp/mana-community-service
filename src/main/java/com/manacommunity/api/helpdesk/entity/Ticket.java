@@ -2,6 +2,7 @@ package com.manacommunity.api.helpdesk.entity;
 
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -11,11 +12,12 @@ import java.util.List;
 
 @Entity
 @Table(name = "helpdesk_ticket")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Ticket {
+public class Ticket extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,6 +62,36 @@ public class Ticket {
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
 
+    @Column(name = "sla_due_at")
+    private LocalDateTime slaDueAt;
+
+    @Column(name = "is_escalated", nullable = false)
+    @Builder.Default
+    private boolean escalated = false;
+
+    @Column(name = "escalated_at")
+    private LocalDateTime escalatedAt;
+
+    @Column(name = "escalation_level", nullable = false)
+    @Builder.Default
+    private int escalationLevel = 0;
+
+    @Column(name = "satisfaction_rating")
+    private Integer satisfactionRating; // 1 to 5
+
+    @Column(name = "feedback_remarks", length = 1000)
+    private String feedbackRemarks;
+
+    @Column(name = "resident_signoff", nullable = false)
+    @Builder.Default
+    private boolean residentSignoff = false;
+
+    @Column(name = "resident_signoff_at")
+    private LocalDateTime residentSignoffAt;
+
+    @Column(name = "attachments", length = 2000)
+    private String attachments; // Comma-separated or JSON array of URLs
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt ASC")
     @Builder.Default
@@ -68,24 +100,36 @@ public class Ticket {
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "ai_classification_json", columnDefinition = "TEXT")
+    private String aiClassificationJson;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    @Column(name = "urgency_score", nullable = false)
+    @Builder.Default
+    private int urgencyScore = 0;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sla_status", nullable = false, length = 20)
+    @Builder.Default
+    private SlaStatus slaStatus = SlaStatus.ON_TRACK;
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "resolution_notes", columnDefinition = "TEXT")
+    private String resolutionNotes;
+
+    @Column(name = "resolution_proof_url", length = 1000)
+    private String resolutionProofUrl;
+
+    @Column(name = "resolution_code", length = 10)
+    private String resolutionCode;
+
+    @Column(name = "reopen_count", nullable = false)
+    @Builder.Default
+    private int reopenCount = 0;
+
+    @Column(name = "last_escalated_at")
+    private LocalDateTime lastEscalatedAt;
 
     public enum TicketCategory { GENERAL, PLUMBING, ELECTRICAL, SECURITY, PARKING, NOISE, CLEANLINESS, ELEVATOR, OTHER }
     public enum TicketPriority { LOW, MEDIUM, HIGH, CRITICAL }
     public enum TicketStatus { OPEN, IN_PROGRESS, RESOLVED, CLOSED, REJECTED }
+    public enum SlaStatus { ON_TRACK, AT_RISK, BREACHED }
 }

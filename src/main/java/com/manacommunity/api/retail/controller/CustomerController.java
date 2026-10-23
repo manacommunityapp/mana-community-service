@@ -44,7 +44,9 @@ public class CustomerController {
             @PathVariable Long id,
             @RequestBody CustomerDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(customerService.updateCustomer(id, dto));
+        // IDOR fix: pass caller's communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(customerService.updateCustomer(id, dto, user.getCommunity().getId()));
     }
 
     @DeleteMapping("/{id}")
@@ -52,7 +54,9 @@ public class CustomerController {
     public ResponseEntity<Void> deleteCustomer(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        customerService.deleteCustomer(id);
+        // IDOR fix: pass caller's communityId so service validates ownership
+        AppUser user = loggedInUserService.resolve(principal);
+        customerService.deleteCustomer(id, user.getCommunity().getId());
         return ResponseEntity.ok().build();
     }
 }

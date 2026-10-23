@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/food/subscriptions")
+@RequestMapping({"/api/v1/food/subscriptions", "/food/subscriptions"})
 @RequiredArgsConstructor
 public class FoodSubscriptionController {
 
@@ -79,7 +79,7 @@ public class FoodSubscriptionController {
                 .body(subscriptionService.subscribe(communityId, request, user));
     }
 
-    @GetMapping("/my")
+    @GetMapping({"/my", "/mine"})
     @PreAuthorize("hasAuthority('View Food Subscriptions')")
     public ResponseEntity<?> getMySubscriptions(
             @AuthenticationPrincipal UserPrincipal principal) {

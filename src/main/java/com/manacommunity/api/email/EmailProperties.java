@@ -21,6 +21,14 @@ public class EmailProperties {
     /** Master switch. When false, emails are rendered + logged but never dispatched. */
     private boolean enabled = false;
 
+    /**
+     * When true, only OTP / auth emails (template type {@code EMAIL_OTP}) are delivered.
+     * All other notification emails (registration, tournament, match, schedule, etc.)
+     * are rendered and logged but never dispatched.
+     * Bind via {@code APP_MAIL_OTP_ONLY_MODE=true}.
+     */
+    private boolean otpOnlyMode = false;
+
     /** Envelope "from" address. */
     private String from = "noreply@manacommunityhub.com";
 

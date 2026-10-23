@@ -1,13 +1,13 @@
 package com.manacommunity.api.cfbos.accounting.entity;
 
+import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cfbos_cost_center")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class CostCenter {
+public class CostCenter extends BaseAuditEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false, unique = true, length = 20)
@@ -19,10 +19,4 @@ public class CostCenter {
     private CostCenter parent;
     @Column(name = "is_active", nullable = false) @Builder.Default
     private Boolean isActive = true;
-    private Long createdBy;
-    private LocalDateTime createdAt;
-    private Long updatedBy;
-    private LocalDateTime updatedAt;
-    @PrePersist protected void onCreate() { createdAt = LocalDateTime.now(); updatedAt = LocalDateTime.now(); }
-    @PreUpdate protected void onUpdate() { updatedAt = LocalDateTime.now(); }
 }

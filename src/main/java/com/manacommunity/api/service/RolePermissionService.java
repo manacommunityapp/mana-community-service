@@ -1,6 +1,7 @@
 package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.RoleDetailsResponse;
+import com.manacommunity.api.user.model.AppUser;
 
 import java.util.List;
 import java.util.Map;
@@ -30,4 +31,7 @@ public interface RolePermissionService {
 
     /** Returns the user-specific permission keys for a given user. */
     List<String> getUserPermissions(Long userId);
+
+    /** Returns the effective permission keys for a user, properly scoped to their community. */
+    List<String> getEffectivePermissionsForUser(AppUser user);
 }

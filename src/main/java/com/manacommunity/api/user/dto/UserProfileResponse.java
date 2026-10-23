@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.manacommunity.api.model.Community;
 
 import lombok.AllArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserProfileResponse {
     private Long userId;
     private String fullName;
@@ -25,6 +27,9 @@ public class UserProfileResponse {
     private String block;
     private String role;
     private String kycStatus;
+    private String occupancyStatus;
+    private String residentType;
+    private String userType;
     
     // Community details
     private String communityName;
@@ -52,5 +57,19 @@ public class UserProfileResponse {
         private int itemsSold;
         private int jobsPosted;
         private int sportsPlayed;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserActivityItem {
+        private Long id;
+        private String type;
+        private String text;
+        private String time;
+        private String timestamp;
+        private String iconType;
+        private String color;
     }
 }

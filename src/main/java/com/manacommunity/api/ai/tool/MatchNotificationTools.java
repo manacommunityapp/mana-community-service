@@ -76,7 +76,7 @@ public class MatchNotificationTools {
                         "m.scoreTeamA, m.scoreTeamB, " +
                         "v.name, v.address, c.name, " +
                         "tc.tournamentName, s.name " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc LEFT JOIN tc.sport s " +
@@ -84,8 +84,8 @@ public class MatchNotificationTools {
                         "WHERE com.id = :comId AND " + statusFilter + " " +
                         "AND (ta.ownerUser.id = :uid OR tb.ownerUser.id = :uid " +
                         "OR ta.captainUser.id = :uid OR tb.captainUser.id = :uid " +
-                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM AuctionPlayer ap WHERE ap.user.id = :uid) " +
-                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM AuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
+                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM SportsAuctionPlayer ap WHERE ap.user.id = :uid) " +
+                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM SportsAuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
                         "ORDER BY m.scheduledAt ASC", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .setParameter("uid", ctx.userId())
@@ -155,7 +155,7 @@ public class MatchNotificationTools {
         html.append("<p>Here are your upcoming matches:</p>");
         html.append("<table border='1' cellpadding='8' cellspacing='0' style='border-collapse:collapse;'>");
         html.append("<tr style='background:#2563eb;color:white;'>");
-        html.append("<th>Match</th><th>Teams</th><th>Date & Time</th><th>Venue</th><th>Court</th><th>Status</th>");
+        html.append("<th>Match</th><th>Teams</th><th>Date & Time</th><th>Venue</th><th>SportsCourt</th><th>Status</th>");
         html.append("</tr>");
 
         for (MatchData md : matches) {
@@ -195,7 +195,7 @@ public class MatchNotificationTools {
     public Object generateCalendarEvents(
             @ToolParam(required = false, description = "Specific match ID (omit for all upcoming matches)")
             Long matchId,
-            @ToolParam(required = false, description = "Tournament config ID filter (omit for all)")
+            @ToolParam(required = false, description = "SportsTournament config ID filter (omit for all)")
             Long tournamentConfigId) {
 
         UserContext ctx = AgentSecurityContext.get();
@@ -222,7 +222,7 @@ public class MatchNotificationTools {
             Map<String, Object> event = new LinkedHashMap<>();
             String title = md.teamA + " vs " + md.teamB + " — " + md.round;
             String location = md.venue + (md.court.isEmpty() ? "" : ", " + md.court);
-            String description = "Tournament: " + md.tournament + "\n"
+            String description = "SportsTournament: " + md.tournament + "\n"
                     + "Sport: " + md.sport + "\n"
                     + "Round: " + md.round + "\n"
                     + "Match #" + md.matchNumber;
@@ -280,7 +280,7 @@ public class MatchNotificationTools {
         var rows = em.createQuery(
                         "SELECT m.id, m.round, m.scheduledAt, " +
                         "ta.teamName, tb.teamName, v.name, c.name, tc.tournamentName " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc " +
@@ -358,13 +358,13 @@ public class MatchNotificationTools {
         html.append("<h2>Match Details</h2>");
         html.append("<p>Hi ").append(user.getFullName()).append(",</p>");
         html.append("<table cellpadding='6' style='font-size:14px;'>");
-        html.append("<tr><td><strong>Tournament:</strong></td><td>").append(md.tournament).append("</td></tr>");
+        html.append("<tr><td><strong>SportsTournament:</strong></td><td>").append(md.tournament).append("</td></tr>");
         html.append("<tr><td><strong>Round:</strong></td><td>").append(md.round).append("</td></tr>");
         html.append("<tr><td><strong>Match:</strong></td><td>").append(md.teamA).append(" vs ").append(md.teamB).append("</td></tr>");
         html.append("<tr><td><strong>Date & Time:</strong></td><td>").append(
                 md.scheduledAt != null ? md.scheduledAt.format(DISPLAY_FMT) : "TBA").append("</td></tr>");
         html.append("<tr><td><strong>Venue:</strong></td><td>").append(md.venue).append("</td></tr>");
-        html.append("<tr><td><strong>Court:</strong></td><td>").append(md.court).append("</td></tr>");
+        html.append("<tr><td><strong>SportsCourt:</strong></td><td>").append(md.court).append("</td></tr>");
         html.append("</table>");
         html.append("<br><p><strong>📅 Add to your calendar:</strong> Open your Calendar app and create an event with the details above.</p>");
         html.append("<p style='color:#666;font-size:12px;'>— Mana Community AI Assistant</p>");
@@ -391,7 +391,7 @@ public class MatchNotificationTools {
                         "SELECT m.id, tc.id, m.round, m.matchNumber, m.scheduledAt, m.durationMinutes, " +
                         "m.status, ta.teamName, tb.teamName, " +
                         "v.name, v.address, c.name, tc.tournamentName, s.name " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc LEFT JOIN tc.sport s " +
@@ -399,8 +399,8 @@ public class MatchNotificationTools {
                         "AND m.status IN ('SCHEDULED', 'PUBLISHED') " +
                         "AND (ta.ownerUser.id = :uid OR tb.ownerUser.id = :uid " +
                         "OR ta.captainUser.id = :uid OR tb.captainUser.id = :uid " +
-                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM AuctionPlayer ap WHERE ap.user.id = :uid) " +
-                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM AuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
+                        "OR ta.id IN (SELECT ap.assignedTeam.id FROM SportsAuctionPlayer ap WHERE ap.user.id = :uid) " +
+                        "OR tb.id IN (SELECT ap2.assignedTeam.id FROM SportsAuctionPlayer ap2 WHERE ap2.user.id = :uid)) " +
                         "ORDER BY m.scheduledAt ASC", Object[].class)
                 .setParameter("comId", ctx.communityId())
                 .setParameter("uid", ctx.userId())
@@ -415,7 +415,7 @@ public class MatchNotificationTools {
                         "SELECT m.id, tc.id, m.round, m.matchNumber, m.scheduledAt, m.durationMinutes, " +
                         "m.status, ta.teamName, tb.teamName, " +
                         "v.name, v.address, c.name, tc.tournamentName, s.name " +
-                        "FROM TournamentMatch m " +
+                        "FROM SportsTournamentMatch m " +
                         "LEFT JOIN m.teamA ta LEFT JOIN m.teamB tb " +
                         "LEFT JOIN m.venue v LEFT JOIN m.court c " +
                         "JOIN m.config tc LEFT JOIN tc.sport s " +
@@ -439,7 +439,7 @@ public class MatchNotificationTools {
                 r[9] != null ? (String) r[9] : "TBA",
                 r[10] != null ? (String) r[10] : "",
                 r[11] != null ? (String) r[11] : "",
-                r[12] != null ? (String) r[12] : "Tournament",
+                r[12] != null ? (String) r[12] : "SportsTournament",
                 r[13] != null ? (String) r[13] : "");
     }
 

@@ -4,6 +4,8 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vms_invoices")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,18 +27,22 @@ public class VmsInvoice {
     @Column(name = "invoice_number", nullable = false, length = 30)
     private String invoiceNumber;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private VmsVendor vendor;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id")
     private VmsBooking booking;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "work_order_id")
     private VmsWorkOrder workOrder;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "po_id")
     private VmsPurchaseOrder purchaseOrder;
@@ -82,6 +89,7 @@ public class VmsInvoice {
     @Column(length = 1000)
     private String notes;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;

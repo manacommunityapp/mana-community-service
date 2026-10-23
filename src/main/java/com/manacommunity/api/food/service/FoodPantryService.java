@@ -7,6 +7,7 @@ import com.manacommunity.api.food.entity.FoodPantryShoppingList;
 import com.manacommunity.api.food.entity.FoodPantryShoppingListItem;
 import com.manacommunity.api.food.repository.FoodPantryAlertRepository;
 import com.manacommunity.api.food.repository.FoodPantryItemRepository;
+import com.manacommunity.api.food.repository.FoodPantryShoppingListItemRepository;
 import com.manacommunity.api.food.repository.FoodPantryShoppingListRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
@@ -30,6 +31,7 @@ public class FoodPantryService {
     private final FoodPantryItemRepository pantryItemRepo;
     private final FoodPantryAlertRepository pantryAlertRepo;
     private final FoodPantryShoppingListRepository shoppingListRepo;
+    private final FoodPantryShoppingListItemRepository shoppingListItemRepo;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getItems(Long communityId, Long userId) {
@@ -182,28 +184,59 @@ public class FoodPantryService {
 
     @Transactional
     public Map<String, Object> addItem(Long communityId, Long listId, Map<String, Object> request) {
-        // TODO: Implement when FoodPantryShoppingListItemRepository is available
         FoodPantryShoppingList list = shoppingListRepo.findById(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("ShoppingList", listId));
 
+        BigDecimal quantity = null;
+        if (request.get("quantity") != null) {
+            quantity = new BigDecimal(request.get("quantity").toString());
+        }
+        BigDecimal estimatedPrice = null;
+        if (request.get("estimatedPrice") != null) {
+            estimatedPrice = new BigDecimal(request.get("estimatedPrice").toString());
+        }
+
+        FoodPantryShoppingListItem item = FoodPantryShoppingListItem.builder()
+                .list(list)
+                .itemName((String) request.get("itemName"))
+                .category((String) request.get("category"))
+                .quantity(quantity)
+                .unit((String) request.get("unit"))
+                .estimatedPrice(estimatedPrice)
+                .isPurchased(false)
+                .build();
+        FoodPantryShoppingListItem saved = shoppingListItemRepo.save(item);
+
         Map<String, Object> map = new HashMap<>();
+        map.put("id", saved.getId());
         map.put("listId", listId);
-        map.put("itemName", request.get("itemName"));
-        map.put("category", request.get("category"));
-        map.put("quantity", request.get("quantity"));
-        map.put("unit", request.get("unit"));
-        map.put("estimatedPrice", request.get("estimatedPrice"));
-        map.put("isPurchased", false);
+        map.put("itemName", saved.getItemName());
+        map.put("category", saved.getCategory());
+        map.put("quantity", saved.getQuantity());
+        map.put("unit", saved.getUnit());
+        map.put("estimatedPrice", saved.getEstimatedPrice());
+        map.put("isPurchased", saved.getIsPurchased());
+        map.put("createdAt", saved.getCreatedAt());
         return map;
     }
 
     @Transactional
     public Map<String, Object> markPurchased(Long communityId, Long listItemId, BigDecimal purchasedPrice) {
-        // TODO: Implement when FoodPantryShoppingListItemRepository is available
+        FoodPantryShoppingListItem item = shoppingListItemRepo.findById(listItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("ShoppingListItem", listItemId));
+        item.setIsPurchased(true);
+        if (purchasedPrice != null) {
+            item.setPurchasedPrice(purchasedPrice);
+        }
+        FoodPantryShoppingListItem saved = shoppingListItemRepo.save(item);
+
         Map<String, Object> map = new HashMap<>();
-        map.put("id", listItemId);
-        map.put("isPurchased", true);
-        map.put("purchasedPrice", purchasedPrice);
+        map.put("id", saved.getId());
+        map.put("listId", saved.getList().getId());
+        map.put("itemName", saved.getItemName());
+        map.put("isPurchased", saved.getIsPurchased());
+        map.put("purchasedPrice", saved.getPurchasedPrice());
+        map.put("updatedAt", saved.getUpdatedAt());
         return map;
     }
 

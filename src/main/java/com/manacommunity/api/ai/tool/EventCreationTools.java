@@ -2,8 +2,8 @@ package com.manacommunity.api.ai.tool;
 
 import com.manacommunity.api.ai.config.AgentSecurityContext;
 import com.manacommunity.api.ai.config.AgentSecurityContext.UserContext;
-import com.manacommunity.api.dto.SportsEventRequest;
-import com.manacommunity.api.service.SportsEventService;
+import com.manacommunity.api.sports.dto.SportsEventRequest;
+import com.manacommunity.api.sports.service.SportsEventService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -76,7 +76,7 @@ public class EventCreationTools {
         UserContext ctx = AgentSecurityContext.get();
 
         var venues = em.createQuery(
-                "SELECT v.id, v.name, v.address, v.city FROM Venue v " +
+                "SELECT v.id, v.name, v.address, v.city FROM SportsVenue v " +
                 "WHERE v.community.id = :comId AND LOWER(v.name) LIKE LOWER(:nm) " +
                 "ORDER BY v.name", Object[].class)
                 .setParameter("comId", ctx.communityId())
@@ -86,7 +86,7 @@ public class EventCreationTools {
         List<Map<String, Object>> results = new ArrayList<>();
         for (Object[] v : venues) {
             Long courtCount = em.createQuery(
-                    "SELECT COUNT(c) FROM Court c WHERE c.venue.id = :vid", Long.class)
+                    "SELECT COUNT(c) FROM SportsCourt c WHERE c.venue.id = :vid", Long.class)
                     .setParameter("vid", v[0]).getSingleResult();
 
             Map<String, Object> m = new LinkedHashMap<>();
@@ -110,7 +110,7 @@ public class EventCreationTools {
 
         return em.createQuery(
                 "SELECT c.id, c.name, c.category_type, c.minAge, c.maxAge, c.gender " +
-                "FROM PlayerCategory c " +
+                "FROM SportsPlayerCategory c " +
                 "WHERE (c.type = 'DEFAULT' OR c.community.id = :comId) " +
                 "AND (LOWER(c.name) LIKE LOWER(:q) OR LOWER(c.category_type) LIKE LOWER(:q))",
                 Object[].class)
@@ -145,7 +145,7 @@ public class EventCreationTools {
             @ToolParam(required = false, description = "Max participants/teams") Integer maxParticipants,
             @ToolParam(required = false, description = "Format: SINGLES, DOUBLES, MIXED_DOUBLES, TEAM")
             String format,
-            @ToolParam(required = false, description = "Tournament type: KNOCKOUT, ROUND_ROBIN, GROUP_PLAYOFF, SWISS")
+            @ToolParam(required = false, description = "SportsTournament type: KNOCKOUT, ROUND_ROBIN, GROUP_PLAYOFF, SWISS")
             String tournamentType,
             @ToolParam(required = false, description = "Category IDs (from resolveCategoriesByName)")
             List<Long> categoryIds,
@@ -180,7 +180,7 @@ public class EventCreationTools {
         preview.put("dates", eventDateStart + " to " + eventDateEnd);
         if (venueId != null) {
             var venueRows = em.createQuery(
-                    "SELECT v.name FROM Venue v WHERE v.id = :vid", String.class)
+                    "SELECT v.name FROM SportsVenue v WHERE v.id = :vid", String.class)
                     .setParameter("vid", venueId).getResultList();
             preview.put("venue", venueRows.isEmpty() ? "ID:" + venueId : venueRows.get(0));
         }

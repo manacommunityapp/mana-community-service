@@ -1,0 +1,16 @@
+package com.manacommunity.api.notification.orchestrator.event;
+
+public enum DomainEventType {
+    SECURITY_ALERT,
+    VISITOR_ARRIVED,
+    BILL_GENERATED,
+    PAYMENT_OVERDUE,
+    HELPDESK_TICKET_ASSIGNED,
+    COMMUNITY_ANNOUNCEMENT,
+    GROUP_BUY_UNLOCKED,
+    PARKING_VIOLATION,
+    AMENITY_CONFIRMED,
+    EMERGENCY_BROADCAST,
+    DISPUTE_RAISED,
+    COMMUTE_MATCH_FOUND
+}

@@ -13,6 +13,8 @@ public class GstCalculationResult {
     private BigDecimal cgstAmount;
     private BigDecimal sgstRate;
     private BigDecimal sgstAmount;
+    private BigDecimal igstRate;
+    private BigDecimal igstAmount;
     private BigDecimal totalTax;
     private BigDecimal totalAmount;
 }

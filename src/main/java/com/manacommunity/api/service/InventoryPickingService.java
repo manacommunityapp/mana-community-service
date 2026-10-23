@@ -7,12 +7,14 @@ import com.manacommunity.api.repository.*;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
+import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +31,7 @@ public class InventoryPickingService {
     private final InventoryLocationRepository locationRepo;
     private final InventoryStockQuantRepository quantRepo;
     private final InventorySequenceRepository seqRepo;
+    private final StockLedgerEntryRepository ledgerRepo;
     private final AuditService auditService;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -166,8 +169,19 @@ public class InventoryPickingService {
 
             // ── Double-entry stock move ──────────────────────────────────
             if (done.compareTo(BigDecimal.ZERO) > 0) {
-                adjustQuant(line.getProduct(), line.getLocation(), done.negate());     // subtract from source
-                adjustQuant(line.getProduct(), line.getLocationDest(), done);           // add to destination
+                StockLedgerEntry.MovementType movType = StockLedgerEntry.MovementType.INTERNAL_TRANSFER;
+                if (picking.getPickingType() != null) {
+                    if (picking.getPickingType().getCode() == InventoryPickingType.PickingTypeCode.INCOMING) {
+                        movType = StockLedgerEntry.MovementType.RECEIPT;
+                    } else if (picking.getPickingType().getCode() == InventoryPickingType.PickingTypeCode.OUTGOING) {
+                        movType = StockLedgerEntry.MovementType.DELIVERY;
+                    }
+                }
+
+                adjustQuant(line.getProduct(), line.getLocation(), line.getLot(), done.negate(),
+                        movType, "PICKING", picking.getName(), picking.getCreatedByUser());     // subtract from source
+                adjustQuant(line.getProduct(), line.getLocationDest(), line.getLot(), done,
+                        movType, "PICKING", picking.getName(), picking.getCreatedByUser());      // add to destination
             }
 
             // ── Shortfall → backorder ────────────────────────────────────
@@ -209,8 +223,8 @@ public class InventoryPickingService {
                 InventoryLocation.LocationUsage.SCRAP).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("No SCRAP location configured."));
 
-        adjustQuant(product, srcLoc, quantity.negate());
-        adjustQuant(product, scrapLoc, quantity);
+        adjustQuant(product, srcLoc, null, quantity.negate(), StockLedgerEntry.MovementType.SCRAP, "SCRAP", "Reason: " + reason, null);
+        adjustQuant(product, scrapLoc, null, quantity, StockLedgerEntry.MovementType.SCRAP, "SCRAP", "Reason: " + reason, null);
 
         log.info("Scrapped {} of product {} from {} — reason: {}", quantity, product.getName(), srcLoc.getCompleteName(), reason);
         auditService.record(AuditAction.CONFIG_UPDATED, AuditModule.ADMIN,
@@ -256,25 +270,231 @@ public class InventoryPickingService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<StockLedgerReportRow> getStockLedgerReport(Long productId, Long communityId) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 100);
+        return ledgerRepo.searchLedger(communityId, productId, pageable).getContent().stream().map(e ->
+            new StockLedgerReportRow(
+                    e.getId(),
+                    e.getProduct().getId(),
+                    e.getProduct().getName(),
+                    e.getProduct().getDefaultCode(),
+                    e.getLocation().getId(),
+                    e.getLocation().getCompleteName(),
+                    e.getLot() != null ? e.getLot().getName() : null,
+                    e.getMovementType() != null ? e.getMovementType().name() : null,
+                    e.getReferenceType(),
+                    e.getReferenceId(),
+                    e.getQuantityChange(),
+                    e.getResultingBalance(),
+                    e.getUnitCost(),
+                    e.getTotalValue(),
+                    e.getCreatedAt()
+            )
+        ).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<InventoryValuationReportRow> getValuationReport() {
+        return quantRepo.findAllNonZero().stream().map(q -> {
+            BigDecimal qty = q.getQuantity();
+            BigDecimal unitCost = q.getProduct().getStandardPrice() != null ? q.getProduct().getStandardPrice() : BigDecimal.ZERO;
+            BigDecimal totalVal = qty.multiply(unitCost);
+            String category = q.getProduct().getCategory() != null ? q.getProduct().getCategory().getName() : "Uncategorized";
+            Long whId = q.getLocation().getWarehouse() != null ? q.getLocation().getWarehouse().getId() : null;
+            String whName = q.getLocation().getWarehouse() != null ? q.getLocation().getWarehouse().getName() : "Main Warehouse";
+            return new InventoryValuationReportRow(
+                    q.getProduct().getId(),
+                    q.getProduct().getName(),
+                    q.getProduct().getDefaultCode(),
+                    category,
+                    whId,
+                    whName,
+                    q.getLocation().getId(),
+                    q.getLocation().getCompleteName(),
+                    qty,
+                    unitCost,
+                    totalVal
+            );
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StockAgingReportRow> getStockAgingReport() {
+        LocalDateTime now = LocalDateTime.now();
+        return quantRepo.findAllNonZero().stream().map(q -> {
+            BigDecimal qty = q.getQuantity();
+            BigDecimal unitCost = q.getProduct().getStandardPrice() != null ? q.getProduct().getStandardPrice() : BigDecimal.ZERO;
+            BigDecimal totalVal = qty.multiply(unitCost);
+            LocalDateTime movementDate = q.getUpdatedAt() != null ? q.getUpdatedAt() : LocalDateTime.now();
+            long ageDays = java.time.Duration.between(movementDate, now).toDays();
+            String bucket;
+            if (ageDays <= 30) {
+                bucket = "0-30 days";
+            } else if (ageDays <= 60) {
+                bucket = "31-60 days";
+            } else if (ageDays <= 90) {
+                bucket = "61-90 days";
+            } else {
+                bucket = "90+ days";
+            }
+            return new StockAgingReportRow(
+                    q.getProduct().getId(),
+                    q.getProduct().getName(),
+                    q.getProduct().getDefaultCode(),
+                    q.getLocation().getCompleteName(),
+                    qty,
+                    ageDays,
+                    bucket,
+                    unitCost,
+                    totalVal,
+                    movementDate
+            );
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FefoRecommendationRow> getFefoRecommendations() {
+        LocalDate today = LocalDate.now();
+        return quantRepo.findAllNonZero().stream()
+                .filter(q -> q.getLot() != null && q.getLot().getExpirationDate() != null)
+                .sorted((q1, q2) -> q1.getLot().getExpirationDate().compareTo(q2.getLot().getExpirationDate()))
+                .map(q -> {
+                    LocalDate exp = q.getLot().getExpirationDate();
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, exp);
+                    String urgency;
+                    if (days <= 7) {
+                        urgency = "CRITICAL";
+                    } else if (days <= 30) {
+                        urgency = "HIGH";
+                    } else {
+                        urgency = "NORMAL";
+                    }
+                    BigDecimal avail = q.getQuantity().subtract(q.getReservedQty() != null ? q.getReservedQty() : BigDecimal.ZERO);
+                    return new FefoRecommendationRow(
+                            q.getLot().getId(),
+                            q.getLot().getName(),
+                            q.getProduct().getId(),
+                            q.getProduct().getName(),
+                            q.getProduct().getDefaultCode(),
+                            q.getLocation().getCompleteName(),
+                            avail,
+                            exp,
+                            days,
+                            urgency
+                    );
+                }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReorderAlertRow> getReorderAlerts() {
+        List<InventoryProduct> products = productRepo.findAll();
+        List<ReorderAlertRow> alerts = new ArrayList<>();
+        BigDecimal defaultSafetyStock = BigDecimal.valueOf(10);
+        BigDecimal defaultReorderQty = BigDecimal.valueOf(50);
+
+        for (InventoryProduct prod : products) {
+            BigDecimal onHand = quantRepo.findByProductId(prod.getId()).stream()
+                    .map(InventoryStockQuant::getQuantity)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (onHand.compareTo(defaultSafetyStock) <= 0) {
+                BigDecimal deficit = defaultSafetyStock.subtract(onHand);
+                alerts.add(new ReorderAlertRow(
+                        prod.getId(),
+                        prod.getName(),
+                        prod.getDefaultCode(),
+                        onHand,
+                        defaultSafetyStock,
+                        defaultReorderQty,
+                        deficit
+                ));
+            }
+        }
+        return alerts;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // INTERNALS
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * The core double-entry operation: adjust a stock quant row.
-     * Creates the quant if it doesn't exist; updates atomically if it does.
+     * The core double-entry operation: adjust a stock quant row with pessimistic row locking,
+     * non-negative internal location guards, and immutable stock ledger recording.
      */
-    private void adjustQuant(InventoryProduct product, InventoryLocation location, BigDecimal delta) {
-        InventoryStockQuant quant = quantRepo.findByProductIdAndLocationId(product.getId(), location.getId())
-                .orElseGet(() -> InventoryStockQuant.builder()
-                        .product(product)
-                        .location(location)
-                        .quantity(BigDecimal.ZERO)
-                        .reservedQty(BigDecimal.ZERO)
-                        .build());
+    private void adjustQuant(
+            InventoryProduct product,
+            InventoryLocation location,
+            InventoryLot lot,
+            BigDecimal delta,
+            StockLedgerEntry.MovementType movementType,
+            String refType,
+            String refId,
+            AppUser user
+    ) {
+        InventoryStockQuant quant;
+        if (lot != null && lot.getId() != null) {
+            quant = quantRepo.findForUpdateByProductIdAndLocationIdAndLotId(product.getId(), location.getId(), lot.getId())
+                    .orElseGet(() -> InventoryStockQuant.builder()
+                            .product(product)
+                            .location(location)
+                            .lot(lot)
+                            .quantity(BigDecimal.ZERO)
+                            .reservedQty(BigDecimal.ZERO)
+                            .build());
+        } else {
+            quant = quantRepo.findForUpdateByProductIdAndLocationId(product.getId(), location.getId())
+                    .orElseGet(() -> InventoryStockQuant.builder()
+                            .product(product)
+                            .location(location)
+                            .quantity(BigDecimal.ZERO)
+                            .reservedQty(BigDecimal.ZERO)
+                            .build());
+        }
 
-        quant.setQuantity(quant.getQuantity().add(delta));
+        BigDecimal currentQty = quant.getQuantity() != null ? quant.getQuantity() : BigDecimal.ZERO;
+        BigDecimal newQty = currentQty.add(delta);
+
+        // Strict guard against negative physical stock for internal warehouse locations
+        if (location.getUsage() == InventoryLocation.LocationUsage.INTERNAL) {
+            if (newQty.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException("Insufficient stock for product '" + product.getName()
+                        + "' at location '" + location.getCompleteName()
+                        + "'. Current on-hand: " + currentQty + ", requested deduction: " + delta.abs());
+            }
+            BigDecimal reserved = quant.getReservedQty() != null ? quant.getReservedQty() : BigDecimal.ZERO;
+            if (newQty.compareTo(reserved) < 0) {
+                throw new IllegalStateException("Stock deduction for product '" + product.getName()
+                        + "' at location '" + location.getCompleteName()
+                        + "' would violate reserved quantity: " + reserved);
+            }
+        }
+
+        quant.setQuantity(newQty);
         quantRepo.save(quant);
+
+        // Record immutable transaction entry in Authoritative Stock Ledger
+        BigDecimal unitCost = product.getStandardPrice() != null ? product.getStandardPrice() : BigDecimal.ZERO;
+        BigDecimal totalVal = delta.abs().multiply(unitCost);
+
+        StockLedgerEntry entry = StockLedgerEntry.builder()
+                .community(location.getWarehouse() != null ? location.getWarehouse().getCommunity() : null)
+                .product(product)
+                .location(location)
+                .lot(lot)
+                .movementType(movementType != null ? movementType : StockLedgerEntry.MovementType.INTERNAL_TRANSFER)
+                .referenceType(refType)
+                .referenceId(refId)
+                .quantityChange(delta)
+                .resultingBalance(newQty)
+                .unitCost(unitCost)
+                .totalValue(totalVal)
+                .createdByUser(user)
+                .build();
+        ledgerRepo.save(entry);
+    }
+
+    private void adjustQuant(InventoryProduct product, InventoryLocation location, BigDecimal delta) {
+        adjustQuant(product, location, null, delta, StockLedgerEntry.MovementType.INTERNAL_TRANSFER, "MANUAL", null, null);
     }
 
     /**

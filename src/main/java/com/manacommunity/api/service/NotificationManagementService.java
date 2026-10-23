@@ -2,6 +2,7 @@ package com.manacommunity.api.service;
 
 import com.manacommunity.api.dto.NotificationCountResponse;
 import com.manacommunity.api.dto.NotificationResponse;
+import com.manacommunity.api.dto.NotificationSummaryResponse;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -20,7 +21,7 @@ import java.util.*;
 /**
  * General-purpose notification service that manages the user-facing
  * notification inbox (table: notification). Separate from the existing
- * SchedulerNotificationService which handles push dispatch.
+ * SportsSchedulerNotificationService which handles push dispatch.
  */
 @Slf4j
 @Service
@@ -187,6 +188,14 @@ public class NotificationManagementService {
         return notificationRepo.findByUserIdAndDismissedFalseOrderByCreatedAtDesc(
                 userId, PageRequest.of(page, size)
         ).map(this::toResponse);
+    }
+
+    /**
+     * Dedicated lightweight retrieval method for UI feed notifications.
+     * Uses DB constructor projection to select only required columns.
+     */
+    public Page<NotificationSummaryResponse> getUserNotificationsSummary(Long userId, int page, int size) {
+        return notificationRepo.findSummaryByUserId(userId, PageRequest.of(page, size));
     }
 
     public NotificationCountResponse getUnreadCount(Long userId) {

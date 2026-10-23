@@ -27,6 +27,7 @@ import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.security.TokenBlacklistService;
 import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.service.RolePermissionService;
 import com.manacommunity.api.service.OtpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -69,44 +70,140 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
     @Autowired
     private CommunityModuleService communityModuleService;
+    @Autowired(required = false)
+    private RolePermissionService rolePermissionService;
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
     @Autowired
     private OtpService otpService;
+    @Autowired
+    private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
+    @Autowired
+    private com.manacommunity.api.service.NotificationManagementService notificationService;
+    @Autowired
+    private com.manacommunity.api.privacy.ConsentRecordRepository consentRecordRepository;
+    @Autowired
+    private com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
+    @Autowired
+    private com.manacommunity.api.email.EmailService emailService;
+    @Autowired
+    private com.manacommunity.api.email.EmailTemplateRenderer emailRenderer;
+    @Autowired
+    private com.manacommunity.api.email.EmailSupport emailSupport;
+
+    @Override
+    public void sendSignupOtp(String rawEmail, String phone) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (phone != null && !phone.trim().isEmpty() && userRepository.existsByPhone(phone.trim())) {
+            throw new DuplicateResourceException("User", "phone", phone.trim());
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(email, "User");
+        if (!otpResp.success()) {
+            throw new ManaCommunityException(
+                    otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
+                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void verifySignupOtp(String rawEmail, String rawPhone, String code) {
+        if (rawEmail == null || rawEmail.trim().isEmpty()) {
+            throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
+        }
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new DuplicateResourceException("User", "email", email);
+        }
+
+        if (rawPhone != null && !rawPhone.trim().isEmpty() && userRepository.existsByPhone(rawPhone.trim())) {
+            throw new DuplicateResourceException("User", "phone", rawPhone.trim());
+        }
+
+        if (code == null || code.trim().isEmpty()) {
+            throw new ManaCommunityException("Verification code is required", HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
+
+        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.verify(email, code.trim());
+        if (!otpResp.verified() && !otpResp.success()) {
+            throw new ManaCommunityException(
+                    otpResp.message() != null ? otpResp.message() : "Incorrect or expired verification code.",
+                    HttpStatus.BAD_REQUEST, "INVALID_OTP");
+        }
+    }
 
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
+
+        // Bot protection — verify CAPTCHA token when app.captcha.enabled=true.
+        captchaVerificationService.verify(request.getCaptchaToken());
+
+        // DPDP Act 2023 s.6 — explicit consent to Privacy Notice is mandatory.
+        if (request.getConsentToPrivacyNotice() == null || !request.getConsentToPrivacyNotice()) {
+            throw new ManaCommunityException(
+                "You must accept the Privacy Notice before registering.",
+                HttpStatus.BAD_REQUEST, "CONSENT_REQUIRED");
+        }
+
+        // 0. Assert the registrant's email was verified via OTP before reaching this step.
+        //    The frontend calls POST /api/otp/verify at step 3, which consumes the code and
+        //    marks it verified. assertEmailVerified checks that flag rather than re-consuming.
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+        otpService.assertEmailVerified(email);
 
         // 1. Verify Community Invite Code
         Community community = communityRepository.findByInviteCode(request.getInviteCode())
                 .orElseThrow(() -> new InvalidInviteCodeException(request.getInviteCode()));
 
         // 2. Duplicate email / phone check (both are UNIQUE in DB)
-        if (userRepository.existsByEmail(request.getEmail()))
-            throw new DuplicateResourceException("User", "email", request.getEmail());
+        if (userRepository.existsByEmailIgnoreCase(email))
+            throw new DuplicateResourceException("User", "email", email);
 
         if (userRepository.existsByPhone(request.getPhone()))
             throw new DuplicateResourceException("User", "phone", request.getPhone());
 
-        // 2c. Check if block & flat number combination is already registered in this community
-        if (community != null && request.getBlock() != null && !request.getBlock().trim().isEmpty()
-                && request.getFlatNo() != null && !request.getFlatNo().trim().isEmpty()) {
-            boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
-                    community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        // 2c. Validate block name and flat number against community block config FIRST.
+        //     This ensures the submitted block/flat actually exists in this community's
+        //     layout before we check if it is already taken (non-APARTMENT communities
+        //     with no block config skip this step automatically).
+        try {
+            blockConfigService.validateBlockAndFlat(
+                    community.getId(),
+                    request.getBlock(),
+                    request.getFlatNo()
             );
-            if (unitExists) {
-                throw new ManaCommunityException(
-                        "Unit Block " + request.getBlock().trim().toUpperCase() + " Flat " + request.getFlatNo().trim() + " is already registered in this community.",
-                        HttpStatus.CONFLICT, "DUPLICATE_UNIT");
-            }
+        } catch (IllegalArgumentException ex) {
+            throw new ManaCommunityException(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+        }
+
+        // 2d. Now that the flat is confirmed valid, check it is not already taken
+        //     (one registration per flat per community).
+        boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
+        );
+        if (unitExists) {
+            throw new ManaCommunityException(
+                    "Block " + request.getBlock().trim().toUpperCase() + " Flat " +
+                    request.getFlatNo().trim() + " is already registered in this community.",
+                    HttpStatus.CONFLICT, "DUPLICATE_UNIT");
         }
 
         // 2b. Enforce password strength before hashing — also reject passwords
         // derived from the user's own data (email, name, phone, community).
         // Arrays.asList permits nulls; the evaluator skips null/blank tokens.
         PasswordPolicy.validate(request.getPassword(), java.util.Arrays.asList(
-                request.getEmail(),
+                email,
                 request.getFullName(),
                 request.getPhone(),
                 community.getName()
@@ -118,7 +215,7 @@ public class AuthServiceImpl implements AuthService {
         // 4. Build and save AppUser
         AppUser user = new AppUser();
         user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setPhone(request.getPhone());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setDateOfBirth(request.getDateOfBirth());
@@ -151,7 +248,29 @@ public class AuthServiceImpl implements AuthService {
         user.setFlatNo(request.getFlatNo());
         user.setBlock(request.getBlock());
 
+        String rawOccupancy = request.getUserType() != null && !request.getUserType().isBlank()
+                ? request.getUserType().trim()
+                : (request.getOccupancyStatus() != null && !request.getOccupancyStatus().isBlank()
+                        ? request.getOccupancyStatus().trim() : "Owner");
+        String normalizedOccupancy = "Tenant".equalsIgnoreCase(rawOccupancy) ? "Tenant" : "Owner";
+        user.setOccupancyStatus(normalizedOccupancy);
+        user.setResidentType(request.getResidentType() != null && !request.getResidentType().isBlank()
+                ? request.getResidentType().trim() : "Resident");
+
         AppUser saved = userRepository.save(user);
+
+        // DPDP Act 2023 s.6 — persist the explicit consent record at registration.
+        com.manacommunity.api.privacy.ConsentRecord essentialConsent =
+            com.manacommunity.api.privacy.ConsentRecord.builder()
+                .userId(saved.getId())
+                .consentPurpose("ESSENTIAL")
+                .granted(true)
+                .collectionPoint("REGISTRATION")
+                .noticeVersion(request.getConsentNoticeVersion() != null
+                        ? request.getConsentNoticeVersion() : "2026-10-13-v1")
+                .build();
+        consentRecordRepository.save(essentialConsent);
+
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
         auditService.record(
                 com.manacommunity.api.security.AuditAction.USER_CREATED,
@@ -159,6 +278,39 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(saved.getId()),
                 null,
                 "role=MEMBER, community=" + (community != null ? community.getId() : "none"));
+
+        notificationService.createNotification(
+                saved.getId(),
+                com.manacommunity.api.model.NotificationType.SIGNUP_SUCCESS,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Welcome to " + community.getName() + "!",
+                "Your registration is complete. Welcome aboard, " + saved.getFullName() + "!",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.NORMAL,
+                null,
+                community.getId()
+        );
+
+        // Send welcome email — failure is swallowed so it never breaks registration
+        try {
+            java.util.Map<String, Object> vars = emailSupport.baseVars(saved.getFullName());
+            vars.put("communityName", community.getName());
+            vars.put("block", saved.getBlock());
+            vars.put("flatNo", saved.getFlatNo());
+            vars.put("actionUrl", emailSupport.props().getBaseUrl());
+            String html = emailRenderer.render(com.manacommunity.api.email.EmailTemplate.WELCOME, vars);
+            emailService.send(new com.manacommunity.api.email.EmailMessage(
+                    saved.getEmail(),
+                    saved.getFullName(),
+                    "Welcome to " + community.getName() + "! 🎉",
+                    html
+            ));
+        } catch (Exception ex) {
+            log.warn("Welcome email failed for user {} — registration still succeeded: {}", saved.getId(), ex.getMessage());
+        }
+
         return buildAuthResponse(saved, "Registration & KYC successful!");
     }
 
@@ -177,7 +329,7 @@ public class AuthServiceImpl implements AuthService {
                         HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
             });
         } else {
-            user = userRepository.findByEmail(identifier).orElseThrow(() -> {
+            user = userRepository.findByEmailIgnoreCase(identifier).orElseThrow(() -> {
                 auditLog.record(AuditLogService.Action.LOGIN_FAILED, identifier);
                 return new ManaCommunityException(
                         "Email address not found. Please check and try again.",
@@ -279,16 +431,32 @@ public class AuthServiceImpl implements AuthService {
 
     /** Builds the standard auth payload with a fresh access + refresh token pair. */
     private AuthResponse buildAuthResponse(AppUser user, String message) {
+        java.util.List<String> permissions = (rolePermissionService != null)
+                ? rolePermissionService.getEffectivePermissionsForUser(user)
+                : java.util.Collections.emptyList();
+
+        java.util.List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
+                ? java.util.Collections.emptyList()
+                : java.util.Arrays.stream(user.getRole().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .toList();
+
+        String token = jwtTokenProvider.generateToken(user, permissions);
+
         AuthResponse response = new AuthResponse(
                 String.valueOf(user.getId()),
                 message,
-                jwtTokenProvider.generateToken(user),
+                token,
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
                 user.getCommunity() != null ? user.getCommunity().getId() : null,
                 user.getDateOfBirth()
         );
+        response.setRoles(rolesList);
+        response.setPermissions(permissions);
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
         
         java.util.List<String> enabledModules;
@@ -302,6 +470,9 @@ public class AuthServiceImpl implements AuthService {
                     : java.util.Collections.emptyList();
         }
         response.setEnabledModules(enabledModules);
+        response.setOccupancyStatus(user.getOccupancyStatus());
+        response.setUserType(user.getOccupancyStatus() != null ? user.getOccupancyStatus() : "Owner");
+        response.setResidentType(user.getResidentType());
         
         return response;
     }
@@ -329,7 +500,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = rawEmail.trim().toLowerCase();
-        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
                 new ManaCommunityException("No account found with email address: " + email,
                         HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
@@ -352,7 +523,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = req.getEmail().trim().toLowerCase();
-        AppUser user = userRepository.findByEmail(email).orElseThrow(() ->
+        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
                 new ManaCommunityException("No account found with email address: " + email,
                         HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
@@ -390,6 +561,68 @@ public class AuthServiceImpl implements AuthService {
                 "AppUser", String.valueOf(user.getId()),
                 null,
                 "Password reset via OTP verification");
+
+        notificationService.createNotification(
+                user.getId(),
+                com.manacommunity.api.model.NotificationType.PASSWORD_RESET,
+                com.manacommunity.api.model.NotificationCategory.GENERAL,
+                "Password Reset Successful",
+                "Your password has been reset successfully. If you did not request this change, please contact support immediately.",
+                null,
+                null,
+                null,
+                com.manacommunity.api.model.NotificationPriority.HIGH,
+                null,
+                user.getCommunity() != null ? user.getCommunity().getId() : null
+        );
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long userId, com.manacommunity.api.user.dto.ChangePasswordRequest req) {
+        if (userId == null) {
+            throw new ManaCommunityException("User ID is required", HttpStatus.BAD_REQUEST, "INVALID_USER_ID");
+        }
+        AppUser user = userRepository.findById(userId).orElseThrow(() ->
+                new ResourceNotFoundException("User", userId));
+
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new ManaCommunityException("This account has been deactivated. Please contact support.",
+                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
+        }
+
+        if (req.getCurrentPassword() == null || req.getCurrentPassword().isBlank()) {
+            throw new InvalidInputException("Current password is required.");
+        }
+
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+            throw new InvalidInputException("Current password does not match.");
+        }
+
+        if (req.getConfirmPassword() != null && !req.getConfirmPassword().isBlank()
+                && !req.getConfirmPassword().equals(req.getNewPassword())) {
+            throw new InvalidInputException("New password and confirm password do not match.");
+        }
+
+        PasswordPolicy.validate(req.getNewPassword(), java.util.Arrays.asList(
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getCommunity() != null ? user.getCommunity().getName() : null
+        ));
+
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+
+        auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
+        auditService.record(
+                com.manacommunity.api.security.AuditAction.USER_UPDATED,
+                com.manacommunity.api.security.AuditModule.USER_MANAGEMENT,
+                "AppUser", String.valueOf(user.getId()),
+                null,
+                "Password changed by user");
     }
 
     private String maskAadharNumber(String aadhar) {

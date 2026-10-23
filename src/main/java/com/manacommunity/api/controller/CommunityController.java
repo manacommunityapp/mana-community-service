@@ -1,10 +1,13 @@
 package com.manacommunity.api.controller;
 
+import com.manacommunity.api.dto.BlockConfigRequest;
+import com.manacommunity.api.dto.BlockConfigResponse;
 import com.manacommunity.api.model.Community;
 
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.response.CommunityResponse;
 import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.service.CommunityBlockConfigService;
 import com.manacommunity.api.service.CommunityService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,9 @@ public class CommunityController {
 
     @Autowired
     private CommunityService communityService;
+
+    @Autowired
+    private CommunityBlockConfigService blockConfigService;
 
     @Autowired
     private LoggedInUserService loggedInUserService;
@@ -102,6 +108,39 @@ public class CommunityController {
             @RequestBody java.util.Map<String, java.util.List<String>> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(communityService.updateEnabledModules(id, body.get("modules")));
+    }
+
+    /**
+     * GET /api/communities/{id}/blocks
+     * Returns the block → floor → flat hierarchy for the given community.
+     * Used by the signup / profile forms to populate cascading dropdowns.
+     * Public — no authentication required.
+     *
+     * Example response:
+     * [
+     *   { "blockName": "A", "totalFloors": 10, "flatsPerFloor": 11, "totalFlats": 110,
+     *     "floors": [ { "floor": 1, "flats": ["101","102",...,"111"] }, ... ] },
+     *   ...
+     * ]
+     */
+    @GetMapping("/{id}/blocks")
+    public ResponseEntity<List<BlockConfigResponse>> getBlockConfigs(@PathVariable Long id) {
+        return ResponseEntity.ok(blockConfigService.getBlockConfigs(id));
+    }
+
+    /**
+     * POST /api/communities/{id}/blocks
+     * Admin: create or update a block configuration entry.
+     * Restricted to ADMIN and SUPER_ADMIN.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PostMapping("/{id}/blocks")
+    public ResponseEntity<BlockConfigResponse> saveBlockConfig(
+            @PathVariable Long id,
+            @Valid @RequestBody BlockConfigRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        assertCommunityOwnership(id, principal);
+        return ResponseEntity.ok(blockConfigService.saveBlockConfig(id, request));
     }
 
     // SUPER_ADMIN may act on any community; ADMIN is restricted to their own.

@@ -36,9 +36,47 @@ public class TaxEngine {
                 .cgstAmount(cgstAmount)
                 .sgstRate(sgstRate)
                 .sgstAmount(sgstAmount)
+                .igstRate(BigDecimal.ZERO)
+                .igstAmount(BigDecimal.ZERO)
                 .totalTax(totalTax)
                 .totalAmount(taxableAmount.add(totalTax))
                 .build();
+    }
+
+    public GstCalculationResult calculateGst(BigDecimal taxableAmount,
+                                              String hsnSacCode,
+                                              boolean isInterstate) {
+        BigDecimal defaultRate = new BigDecimal("18.00");
+        if (isInterstate) {
+            BigDecimal igstRate = defaultRate;
+            BigDecimal igstAmount = taxableAmount.multiply(igstRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            return GstCalculationResult.builder()
+                    .taxableAmount(taxableAmount)
+                    .cgstRate(BigDecimal.ZERO)
+                    .cgstAmount(BigDecimal.ZERO)
+                    .sgstRate(BigDecimal.ZERO)
+                    .sgstAmount(BigDecimal.ZERO)
+                    .igstRate(igstRate)
+                    .igstAmount(igstAmount)
+                    .totalTax(igstAmount)
+                    .totalAmount(taxableAmount.add(igstAmount))
+                    .build();
+        } else {
+            BigDecimal halfRate = defaultRate.divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP);
+            BigDecimal halfAmount = taxableAmount.multiply(halfRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            BigDecimal totalTax = halfAmount.add(halfAmount);
+            return GstCalculationResult.builder()
+                    .taxableAmount(taxableAmount)
+                    .cgstRate(halfRate)
+                    .cgstAmount(halfAmount)
+                    .sgstRate(halfRate)
+                    .sgstAmount(halfAmount)
+                    .igstRate(BigDecimal.ZERO)
+                    .igstAmount(BigDecimal.ZERO)
+                    .totalTax(totalTax)
+                    .totalAmount(taxableAmount.add(totalTax))
+                    .build();
+        }
     }
 
     public TdsCalculationResult calculateTds(BigDecimal grossAmount,

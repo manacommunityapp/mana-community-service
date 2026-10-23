@@ -9,7 +9,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "community_event_volunteer", schema = "manacommunity")
+@Table(name = "event_volunteer", schema = "manacommunity")
 @Data
 @Builder
 @NoArgsConstructor
@@ -25,14 +25,14 @@ public class EventVolunteer {
 
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
     @jakarta.persistence.Transient
-    private CommunityEvent communityEvent;
+    private EventCommunity communityEvent;
 
     @Column(name = "user_id", nullable = false, insertable = false, updatable = false)
     private Long userId;

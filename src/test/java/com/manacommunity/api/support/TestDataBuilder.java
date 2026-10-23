@@ -1,15 +1,20 @@
 package com.manacommunity.api.support;
+import com.manacommunity.api.sports.model.*;
+import com.manacommunity.api.sports.repository.*;
+import com.manacommunity.api.sports.dto.*;
+import com.manacommunity.api.sports.service.*;
+import com.manacommunity.api.sports.scheduler.*;
+import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
 import com.manacommunity.api.model.*;
-import com.manacommunity.api.model.scheduler.*;
 import com.manacommunity.api.user.model.AppUser;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import static com.manacommunity.api.model.scheduler.TournamentConfig.TournamentStatus;
+import com.manacommunity.api.sports.scheduler.SportsTournamentConfig;
 
 /**
  * Factory class for building test entities.
@@ -93,8 +98,9 @@ public final class TestDataBuilder {
         req.setInviteCode("INVITE123");
         req.setDateOfBirth(LocalDate.of(1995, 6, 15));
         req.setGender("MALE");
-        req.setFlatNo("A-101");
         req.setBlock("A");
+        req.setFlatNo("101");  // Floor 1, Flat 1 of Block A
+        req.setUserType("Owner");
         return req;
     }
 
@@ -105,23 +111,23 @@ public final class TestDataBuilder {
         return req;
     }
 
-    // ── TournamentConfig ──────────────────────────────────────────────
+    // ── SportsTournamentConfig ──────────────────────────────────────────────
 
-    public static TournamentConfig tournamentConfig(Long id) {
-        return TournamentConfig.builder()
+    public static SportsTournamentConfig tournamentConfig(Long id) {
+        return SportsTournamentConfig.builder()
                 .id(id)
                 .tournamentName("Test Cup")
                 .tournamentType(TournamentType.KNOCKOUT)
                 .totalTeams(8)
                 .startDate(LocalDate.now().plusDays(7))
-                .status(TournamentStatus.DRAFT)
+                .status(SportsTournamentConfig.TournamentStatus.DRAFT)
                 .build();
     }
 
-    // ── TournamentMatch ───────────────────────────────────────────────
+    // ── SportsTournamentMatch ───────────────────────────────────────────────
 
-    public static TournamentMatch match(TournamentConfig config, int number) {
-        return TournamentMatch.builder()
+    public static SportsTournamentMatch match(SportsTournamentConfig config, int number) {
+        return SportsTournamentMatch.builder()
                 .config(config)
                 .round(MatchRound.FINAL)
                 .matchNumber(number)
@@ -131,21 +137,20 @@ public final class TestDataBuilder {
                 .build();
     }
 
-    // ── CommunityEvent ───────────────────────────────────────────────
+    // ── EventCommunity ───────────────────────────────────────────────
 
-    public static com.manacommunity.api.events.entity.CommunityEvent communityEvent(Long id, Community community, AppUser user) {
-        return com.manacommunity.api.events.entity.CommunityEvent.builder()
+    public static com.manacommunity.api.events.entity.EventCommunity communityEvent(Long id, Community community, AppUser user) {
+        return com.manacommunity.api.events.entity.EventCommunity.builder()
                 .id(id)
                 .title("Annual Sports Meet")
                 .description("Community annual sports day")
-                .type(com.manacommunity.api.events.entity.CommunityEvent.EventType.SPORTS)
-                .status(com.manacommunity.api.events.entity.CommunityEvent.EventStatus.PUBLISHED)
+                .type(com.manacommunity.api.events.entity.EventCommunity.EventType.SPORTS)
+                .status(com.manacommunity.api.events.entity.EventCommunity.EventStatus.PUBLISHED)
                 .startDate(LocalDate.now().plusDays(10))
                 .capacity(100)
-                .priceType(com.manacommunity.api.events.entity.CommunityEvent.PriceType.FREE)
+                .priceType(com.manacommunity.api.events.entity.EventCommunity.PriceType.FREE)
                 .community(community != null ? community : community())
                 .createdBy(user != null ? user : adminUser())
-                .registrations(new java.util.ArrayList<>())
                 .build();
     }
 
@@ -160,16 +165,5 @@ public final class TestDataBuilder {
         req.setLocationType("IN_PERSON");
         req.setLocation("Clubhouse");
         return req;
-    }
-
-    public static com.manacommunity.api.events.entity.EventRegistration eventRegistration(
-            Long id, com.manacommunity.api.events.entity.CommunityEvent event, AppUser user) {
-        return com.manacommunity.api.events.entity.EventRegistration.builder()
-                .id(id)
-                .event(event)
-                .user(user)
-                .status(com.manacommunity.api.events.entity.EventRegistration.RegistrationStatus.CONFIRMED)
-                .registeredAt(LocalDateTime.now())
-                .build();
     }
 }

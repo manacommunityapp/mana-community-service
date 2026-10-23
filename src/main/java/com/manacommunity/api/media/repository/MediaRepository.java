@@ -37,20 +37,20 @@ public interface MediaRepository extends JpaRepository<MediaObject, Long> {
             MediaModule module, String moduleId, MediaStatus status);
 
     @Modifying
-    @Query("""
-            UPDATE MediaObject m
-            SET m.thumbnailKey = :thumbKey, m.processingStatus = 'THUMBNAIL_GENERATED', m.updatedAt = CURRENT_TIMESTAMP
-            WHERE m.id = :id
-            """)
+    @Query(value = """
+            UPDATE manacommunity.media_objects
+            SET thumbnail_key = :thumbKey, processing_status = 'THUMBNAIL_GENERATED', updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+            """, nativeQuery = true)
     void updateThumbnailKey(@Param("id") Long id, @Param("thumbKey") String thumbKey);
 
     @Modifying
-    @Query("""
-            UPDATE MediaObject m
-            SET m.compressedKey = :compKey, m.mediumKey = :medKey,
-                m.processingStatus = 'COMPLETE', m.updatedAt = CURRENT_TIMESTAMP
-            WHERE m.id = :id
-            """)
+    @Query(value = """
+            UPDATE manacommunity.media_objects
+            SET compressed_key = :compKey, medium_key = :medKey,
+                processing_status = 'COMPLETE', updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+            """, nativeQuery = true)
     void updateProcessingKeys(@Param("id") Long id,
                               @Param("compKey") String compKey,
                               @Param("medKey") String medKey);

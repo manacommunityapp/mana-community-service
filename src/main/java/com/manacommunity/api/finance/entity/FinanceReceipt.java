@@ -2,6 +2,7 @@ package com.manacommunity.api.finance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "finance_receipts")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor

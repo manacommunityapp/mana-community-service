@@ -1,6 +1,7 @@
 package com.manacommunity.api.user.service;
 
 import com.manacommunity.api.user.dto.AuthResponse;
+import com.manacommunity.api.user.dto.ChangePasswordRequest;
 import com.manacommunity.api.user.dto.KycRequest;
 import com.manacommunity.api.user.dto.LoginRequest;
 import com.manacommunity.api.user.dto.RegisterRequest;
@@ -22,9 +23,18 @@ public interface AuthService {
 
     boolean submitKyc(Long userId, KycRequest req);
 
+    /** Sends a 6-digit OTP verification code to the supplied email address to verify it before signup. */
+    void sendSignupOtp(String email, String phone);
+
+    /** Verifies the signup OTP code while checking that email and phone do not already exist. */
+    void verifySignupOtp(String email, String phone, String code);
+
     /** Sends a 6-digit OTP verification code to the user''s registered email address for password reset. */
     void sendPasswordResetOtp(String email);
 
     /** Verifies OTP, checks password strength against policy, and updates the user''s password. */
     void resetPassword(ResetPasswordRequest req);
+
+    /** Verifies current password, validates new password strength, and updates the user's password. */
+    void changePassword(Long userId, ChangePasswordRequest req);
 }

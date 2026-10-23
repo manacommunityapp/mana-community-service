@@ -35,7 +35,7 @@ public class EventAuctionBid {
     @JoinColumn(name = "event_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private CommunityEvent event;
+    private EventCommunity event;
 
     @Column(name = "bidder_user_id")
     private Long bidderUserId;

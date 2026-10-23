@@ -13,7 +13,7 @@ import java.util.Optional;
 
 /**
  * BUG FIX: Renamed from UserRepository to AppUserRepository to match
- * the AppUser entity (used in SportsEventServiceImpl, AuctionServiceImpl,
+ * the AppUser entity (used in SportsEventServiceImpl, SportsAuctionServiceImpl,
  * NotificationScheduler). The old UserRepository worked against the
  * legacy User entity (String PK / "users" table) which conflicts with
  * the schema's app_user table (Long PK).
@@ -22,20 +22,47 @@ import java.util.Optional;
  * Added findByPhone for duplicate-phone check during registration.
  */
 @Repository
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<AppUser> {
     Optional<AppUser> findByEmail(String email);
+    Optional<AppUser> findByEmailIgnoreCase(String email);
     Optional<AppUser> findByPhone(String phone);
     boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
+    java.util.Optional<AppUser> findFirstByCommunityIdAndFullNameIgnoreCase(Long communityId, String fullName);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM AppUser u
+            WHERE u.community.id = :communityId
+              AND (:search IS NULL OR :search = '' OR
+                   LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.phone) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.flatNo) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                   LOWER(u.block) LIKE LOWER(CONCAT('%', :search, '%')))
+            """)
+    Page<AppUser> searchCommunityUsersSummary(
+            @Param("communityId") Long communityId,
+            @Param("search")      String search,
+            Pageable pageable);
+
     java.util.List<AppUser> findByCommunityIdAndIsActiveTrue(Long communityId);
     Page<AppUser> findByKycStatus(String kycStatus, Pageable pageable);
     Page<AppUser> findByCommunityIdAndKycStatus(Long communityId, String kycStatus, Pageable pageable);
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+    long countByIsActiveTrue();
+    long countByCommunityIdAndIsActiveTrue(Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u WHERE u.community.id = :communityId GROUP BY u.role")
+    List<Object[]> countByRoleGroupedForCommunity(@Param("communityId") Long communityId);
+
+    @Query("SELECT u.role, COUNT(u.id) FROM AppUser u GROUP BY u.role")
+    List<Object[]> countByRoleGrouped();
     boolean existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(Long communityId, String block, String flatNo);
 
     /**

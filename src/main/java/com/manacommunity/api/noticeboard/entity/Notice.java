@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notice")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -36,9 +37,32 @@ public class Notice {
     @Builder.Default
     private NoticePriority priority = NoticePriority.NORMAL;
 
-    @Column(name = "pinned")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_audience", nullable = false, length = 20)
+    @Builder.Default
+    private TargetAudience targetAudience = TargetAudience.ALL;
+
+    @Column(name = "target_block", length = 50)
+    private String targetBlock; // Specific Tower/Block if applicable
+
+    @Column(name = "pinned", nullable = false)
     @Builder.Default
     private boolean pinned = false;
+
+    @Column(name = "requires_acknowledgement", nullable = false)
+    @Builder.Default
+    private boolean requiresAcknowledgement = false;
+
+    @Column(name = "attachments", length = 2000)
+    private String attachments; // PDF / circular URLs
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private NoticeStatus status = NoticeStatus.PUBLISHED;
+
+    @Column(name = "scheduled_publish_at")
+    private LocalDateTime scheduledPublishAt;
 
     @Column(name = "expires_on")
     private LocalDate expiresOn;
@@ -70,4 +94,6 @@ public class Notice {
 
     public enum NoticeCategory { GENERAL, MAINTENANCE, SAFETY, EVENT, MEETING, RULE_CHANGE }
     public enum NoticePriority { LOW, NORMAL, HIGH, URGENT }
+    public enum TargetAudience { ALL, OWNERS_ONLY, TENANTS_ONLY, BLOCK_SPECIFIC, COMMITTEE_ONLY }
+    public enum NoticeStatus { DRAFT, SCHEDULED, PUBLISHED, EXPIRED, ARCHIVED }
 }

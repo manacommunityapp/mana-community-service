@@ -193,6 +193,31 @@ public class GlobalExceptionHandler {
                 "An internal error occurred. Please try again later.", request, null);
     }
 
+    @ExceptionHandler(ServiceDegradedException.class)
+    public ResponseEntity<ErrorResponse> handleServiceDegraded(
+            ServiceDegradedException ex, HttpServletRequest request) {
+        log.error("Service degradation in subsystem [{}] with code [{}]: {}",
+                ex.getSubsystem(), ex.getErrorCode(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(com.manacommunity.api.payments.exception.PaymentGatewayException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGateway(
+            com.manacommunity.api.payments.exception.PaymentGatewayException ex,
+            HttpServletRequest request) {
+        log.error("Payment gateway error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(),
+                "Payment gateway error. Please try again.", request, null);
+    }
+
+    @ExceptionHandler(com.manacommunity.api.payments.exception.PaymentVerificationException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentVerification(
+            com.manacommunity.api.payments.exception.PaymentVerificationException ex,
+            HttpServletRequest request) {
+        log.warn("Payment verification failed at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     /** Catch-all for any other ManaCommunityException subtype. */
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(
@@ -322,8 +347,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnreadable(
             HttpMessageNotReadableException ex, HttpServletRequest request) {
         log.warn("Unreadable request body at {}: {}", request.getRequestURI(), ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
-                "Request body is missing or malformed.", request, null);
+        String msg = (ex.getMostSpecificCause() != null && ex.getMostSpecificCause().getMessage() != null)
+                ? ex.getMostSpecificCause().getMessage()
+                : "Request body is missing or malformed.";
+        return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", msg, request, null);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -398,9 +425,16 @@ public class GlobalExceptionHandler {
 
         String constraintName = extractConstraintName(ex);
         log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName, ex);
-        return build(HttpStatus.CONFLICT, "DATA_CONFLICT",
-                "The operation conflicts with existing data — a referenced record is missing, "
-                        + "or a unique value is already in use.", request, null);
+
+        String friendlyMessage = "The operation conflicts with existing data — a referenced record is missing, "
+                + "or a unique value is already in use.";
+        if (constraintName.contains("uq_reg_event_player")) {
+            friendlyMessage = "This player is already registered for this event. "
+                    + "If registering for a different format (e.g. Doubles), please try again — "
+                    + "this may require a database update.";
+        }
+
+        return build(HttpStatus.CONFLICT, "DATA_CONFLICT", friendlyMessage, request, null);
     }
 
     private static String extractConstraintName(DataIntegrityViolationException ex) {

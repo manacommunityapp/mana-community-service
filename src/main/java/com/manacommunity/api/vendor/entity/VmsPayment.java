@@ -4,6 +4,8 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vms_payments")
+@Audited
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,6 +27,7 @@ public class VmsPayment {
     @Column(name = "payment_number", nullable = false, length = 30)
     private String paymentNumber;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private VmsVendor vendor;
@@ -32,6 +36,7 @@ public class VmsPayment {
     @JoinColumn(name = "invoice_id")
     private VmsInvoice invoice;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id")
     private VmsBooking booking;
@@ -77,6 +82,7 @@ public class VmsPayment {
     @Builder.Default
     private BigDecimal netAmount = BigDecimal.ZERO;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;

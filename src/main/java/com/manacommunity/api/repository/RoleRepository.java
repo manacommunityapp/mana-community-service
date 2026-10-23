@@ -15,4 +15,8 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     Optional<Role> findByNameIgnoreCaseAndCommunityIdIsNull(String name);
     boolean existsByNameIgnoreCaseAndCommunityId(String name, Long communityId);
     boolean existsByNameIgnoreCaseAndCommunityIdIsNull(String name);
+
+    java.util.List<Role> findByCommunityId(Long communityId);
+    java.util.List<Role> findByCommunityIdIsNull();
+    java.util.List<Role> findByCommunityIdOrCommunityIdIsNull(Long communityId);
 }

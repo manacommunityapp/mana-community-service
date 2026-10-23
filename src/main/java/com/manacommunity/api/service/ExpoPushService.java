@@ -1,0 +1,183 @@
+package com.manacommunity.api.service;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Expo Push Notification service — the authoritative way to send mobile push
+ * notifications from anywhere in the backend.
+ *
+ * All methods are fire-and-forget from the caller's perspective:
+ * they run on the caller's thread but catch all delivery exceptions internally
+ * so a push failure never breaks the primary business operation.
+ *
+ * Typed helpers (notifyXxx) are preferred over sendToUser/sendToUsers because
+ * they enforce the correct channelId, priority, and data shape that the
+ * mobile app's tap-navigation hook expects.
+ */
+public interface ExpoPushService {
+
+    // ── Low-level ─────────────────────────────────────────────────────────
+
+    /**
+     * Send a push notification to all active devices registered for a user.
+     *
+     * @param userId    target user's DB id
+     * @param title     notification title (shown in system tray)
+     * @param body      notification body text
+     * @param data      key-value pairs delivered to the app (must include "type")
+     * @param channelId Android channel: "chat" | "events" | "default"
+     */
+    void sendToUser(Long userId,
+                    String title,
+                    String body,
+                    Map<String, Object> data,
+                    String channelId);
+
+    /**
+     * Send a push notification to multiple users in a single batched Expo API call.
+     * Token de-duplication is performed automatically.
+     */
+    void sendToUsers(List<Long> userIds,
+                     String title,
+                     String body,
+                     Map<String, Object> data,
+                     String channelId);
+
+    /**
+     * Broadcast to all active device tokens registered for members of a community.
+     * Used for announcements and new events. Limited to 500 users per call internally.
+     */
+    void sendToCommunity(Long communityId,
+                         String title,
+                         String body,
+                         Map<String, Object> data,
+                         String channelId);
+
+    // ── Typed helpers ─────────────────────────────────────────────────────
+
+    /** New chat message — notifies all conversation participants except the sender. */
+    void notifyNewMessage(Long recipientId,
+                          String senderName,
+                          String messagePreview,
+                          Long conversationId);
+
+    /** Someone outbid the previous leader. */
+    void notifyOutbid(Long outbidUserId,
+                      String newBidderName,
+                      long newAmount,
+                      String itemTitle,
+                      Long auctionId);
+
+    /** Auction closed — notify the winner. */
+    void notifyAuctionWon(Long winnerId,
+                          String itemTitle,
+                          long finalAmount,
+                          Long auctionId);
+
+    /** Auction closed — notify the seller. */
+    void notifyAuctionSold(Long sellerId,
+                           String itemTitle,
+                           long finalAmount,
+                           String winnerName,
+                           Long auctionId);
+
+    /** New community event created — broadcast to all community members. */
+    void notifyNewCommunityEvent(Long communityId,
+                                 String eventTitle,
+                                 String venue,
+                                 Long eventId);
+
+    /** Community-wide announcement — broadcast to all members. */
+    void notifyAnnouncement(Long communityId,
+                            String title,
+                            String body,
+                            String priority,
+                            Long announcementId);
+
+    /** New post / poll / announcement in the feed (targeted). */
+    void notifyNewPost(List<Long> recipientIds,
+                       String authorName,
+                       String contentPreview,
+                       String postType,
+                       Long postId);
+
+    // ── Sports ────────────────────────────────────────────────────────────
+
+    /** Notify registered players that a match starts in ~30 minutes. */
+    void notifyMatchStartingSoon(List<Long> playerIds,
+                                 String matchTitle,
+                                 String sport,
+                                 String venue,
+                                 String scheduledTime,
+                                 Long matchId);
+
+    /** Prompt players to rate their teammates after a match ends. */
+    void notifyRateYourPlayers(List<Long> participantIds,
+                                String matchTitle,
+                                Long matchId);
+
+    /** Broadcast match result to the community. */
+    void notifyMatchCompleted(Long communityId,
+                              String matchTitle,
+                              String result,
+                              Long matchId);
+
+    /** Congratulate a player on a new achievement badge. */
+    void notifyBadgeEarned(Long userId,
+                            String badgeName,
+                            String badgeEmoji,
+                            String rarity);
+
+    // ── Security / Visitors ───────────────────────────────────────────────
+
+    /** Notify resident when a visitor arrives at the security gate requesting entry. */
+    void notifyVisitorApproval(Long residentId,
+                               String visitorName,
+                               String flatNumber,
+                               String purpose,
+                               Long passId);
+
+    // ── Emergency / SOS ───────────────────────────────────────────────────
+
+    /** Broadcast high-priority emergency / SOS alert to community. */
+    void notifyEmergencyAlert(Long communityId,
+                              String title,
+                              String description,
+                              String location);
+
+    // ── Finance / Maintenance ─────────────────────────────────────────────
+
+    /** Notify resident of maintenance fee or invoice due. */
+    void notifyMaintenanceDue(Long residentId,
+                              String flatNumber,
+                              double amount,
+                              String dueDate,
+                              Long invoiceId);
+
+    // ── CRM ───────────────────────────────────────────────────────────────
+
+    /** Notify an agent that a lead was assigned to them. */
+    void notifyCrmLeadAssigned(Long agentUserId,
+                               String leadName,
+                               String assignerName,
+                               Long leadId);
+
+    /** Notify an agent that a new inbound portal lead was auto-assigned. */
+    void notifyCrmNewInboundLead(Long agentUserId,
+                                 String leadName,
+                                 String portal,
+                                 Long leadId);
+
+    /** Notify the assigned agent when their lead advances to a new stage. */
+    void notifyCrmStageChanged(Long agentUserId,
+                               String leadName,
+                               String newStage,
+                               Long leadId);
+
+    /** Remind the assigned agent that a follow-up is now due. */
+    void notifyCrmFollowUpDue(Long agentUserId,
+                              String leadName,
+                              String followUpNote,
+                              Long leadId);
+}

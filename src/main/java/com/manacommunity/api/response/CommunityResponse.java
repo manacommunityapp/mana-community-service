@@ -1,5 +1,7 @@
 package com.manacommunity.api.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.manacommunity.api.dto.BlockConfigResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +15,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CommunityResponse {
     private Long id;
     private String name;
@@ -24,4 +27,6 @@ public class CommunityResponse {
     private String inviteCode;
     private Boolean active;
     private List<String> enabledModules;
+    /** Block → floor → flat hierarchy. Populated only for APARTMENT communities. */
+    private List<BlockConfigResponse> blockConfigs;
 }

@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * BUG FIX: AuthController and AuctionController used
+ * BUG FIX: AuthController and SportsAuctionController used
  * `com.sun.security.auth.UserPrincipal` — an internal JDK class that:
  *   (a) is not part of the public API,
  *   (b) does not have a getId() method returning Long,

@@ -13,7 +13,8 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     Optional<VisitorPass> findByPassCode(String passCode);
 
-    Optional<VisitorPass> findByOtp(String otp);
+    /** Looks up a pass by the SHA-256 hash of its OTP. Never pass the plain OTP here. */
+    Optional<VisitorPass> findByOtpHash(String otpHash);
 
     Optional<VisitorPass> findFirstByVisitorPhoneAndStatusInOrderByCreatedAtDesc(
             String phone, List<VisitorPass.PassStatus> statuses);
@@ -39,4 +40,26 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     List<VisitorPass> findRecentByCommunity(
             @Param("communityId") Long communityId,
             @Param("since") LocalDateTime since);
+
+    long countByCommunityIdAndStatus(Long communityId, VisitorPass.PassStatus status);
+
+    long countByCommunityId(Long communityId);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid AND v.expectedAt >= :start AND v.expectedAt < :end")
+    long countTodayVisitors(@Param("cid") Long communityId,
+                            @Param("start") LocalDateTime start,
+                            @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid " +
+           "AND v.status = com.manacommunity.api.visitor.entity.VisitorPass.PassStatus.CHECKED_IN " +
+           "AND v.vehicleNumber IS NOT NULL AND v.vehicleNumber != ''")
+    long countVehiclesIn(@Param("cid") Long communityId);
+
+    @Query("SELECT COUNT(v) FROM VisitorPass v WHERE v.community.id = :cid " +
+           "AND v.expectedAt >= :start AND v.expectedAt < :end " +
+           "AND (v.passType = com.manacommunity.api.visitor.entity.VisitorPass.PassType.DELIVERY " +
+           "OR LOWER(v.purpose) LIKE '%delivery%')")
+    long countTodayDeliveries(@Param("cid") Long communityId,
+                              @Param("start") LocalDateTime start,
+                              @Param("end") LocalDateTime end);
 }

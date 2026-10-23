@@ -1,5 +1,7 @@
 package com.manacommunity.api.user.dto;
 
+import java.util.List;
+
 public class AuthResponse {
     private String userId;
     private String message;
@@ -10,9 +12,14 @@ public class AuthResponse {
     private String fullName;
     private String email;
     private String role;
+    private List<String> roles;
+    private List<String> permissions;
     private Long communityId;
     private java.time.LocalDate dateOfBirth;
     private java.util.List<String> enabledModules;
+    private String occupancyStatus;
+    private String userType;
+    private String residentType;
 
     public AuthResponse(String userId, String message, String token) {
         this.userId = userId;
@@ -67,6 +74,12 @@ public class AuthResponse {
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 
+    public List<String> getRoles() { return roles; }
+    public void setRoles(List<String> roles) { this.roles = roles; }
+
+    public List<String> getPermissions() { return permissions; }
+    public void setPermissions(List<String> permissions) { this.permissions = permissions; }
+
     public Long getCommunityId() { return communityId; }
     public void setCommunityId(Long communityId) { this.communityId = communityId; }
 
@@ -75,4 +88,13 @@ public class AuthResponse {
 
     public java.util.List<String> getEnabledModules() { return enabledModules; }
     public void setEnabledModules(java.util.List<String> enabledModules) { this.enabledModules = enabledModules; }
+
+    public String getOccupancyStatus() { return occupancyStatus; }
+    public void setOccupancyStatus(String occupancyStatus) { this.occupancyStatus = occupancyStatus; }
+
+    public String getUserType() { return userType; }
+    public void setUserType(String userType) { this.userType = userType; }
+
+    public String getResidentType() { return residentType; }
+    public void setResidentType(String residentType) { this.residentType = residentType; }
 }

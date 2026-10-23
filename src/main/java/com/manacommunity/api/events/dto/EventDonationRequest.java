@@ -15,6 +15,7 @@ public class EventDonationRequest {
 
     private String donorEmail;
     private String donorPhone;
+    private String flatNumber;
 
     @NotNull
     private Double amount;

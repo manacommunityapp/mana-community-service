@@ -74,13 +74,14 @@ public class SchemaConstraintPatcher {
                 // Drop both possible names — original migration used chk_tournament_type,
                 // Hibernate ddl-auto:update generates tournament_config_tournament_type_check.
                 stmt.execute("""
-                        ALTER TABLE manacommunity.tournament_config
+                        ALTER TABLE manacommunity.sports_tournament_config
                             DROP CONSTRAINT IF EXISTS chk_tournament_type,
-                            DROP CONSTRAINT IF EXISTS tournament_config_tournament_type_check
+                            DROP CONSTRAINT IF EXISTS tournament_config_tournament_type_check,
+                            DROP CONSTRAINT IF EXISTS sports_tournament_config_tournament_type_check
                         """);
 
                 stmt.execute("""
-                        ALTER TABLE manacommunity.tournament_config
+                        ALTER TABLE manacommunity.sports_tournament_config
                             ADD CONSTRAINT chk_tournament_type CHECK (tournament_type IN (
                                 'KNOCKOUT','GROUP_KNOCKOUT','ROUND_ROBIN',
                                 'DOUBLE_ELIMINATION','SWISS','SUPER_LEAGUE',
@@ -89,24 +90,25 @@ public class SchemaConstraintPatcher {
                             ))
                         """);
 
-                log.info("tournament_config tournament_type constraint patched with extended values.");
+                log.info("sports_tournament_config tournament_type constraint patched with extended values.");
 
                 // Drop and recreate tournament_match status constraint to include DRAFT and BYE
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.tournament_match') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.tournament_match
-                                DROP CONSTRAINT IF EXISTS tournament_match_status_check;
-                                
-                            ALTER TABLE manacommunity.tournament_match
-                                ADD CONSTRAINT tournament_match_status_check CHECK (status IN (
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_tournament_match
+                                DROP CONSTRAINT IF EXISTS tournament_match_status_check,
+                                DROP CONSTRAINT IF EXISTS sports_tournament_match_status_check;
+
+                            ALTER TABLE manacommunity.sports_tournament_match
+                                ADD CONSTRAINT sports_tournament_match_status_check CHECK (status IN (
                                     'DRAFT','PUBLISHED','SCHEDULED','LIVE','COMPLETED','POSTPONED','CANCELLED','BYE','AUTO_ADVANCED'
                                 ));
                           END IF;
                         END $$;
                         """);
-                log.info("tournament_match status constraint patched to support DRAFT.");
+                log.info("sports_tournament_match status constraint patched to support DRAFT.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }
@@ -124,7 +126,7 @@ public class SchemaConstraintPatcher {
                           col_attnum  smallint;
                         BEGIN
                           -- Skip on fresh databases where the table isn't created yet.
-                          IF to_regclass('manacommunity.tournament_match') IS NULL THEN
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NULL THEN
                             RETURN;
                           END IF;
 
@@ -134,7 +136,7 @@ public class SchemaConstraintPatcher {
                             JOIN pg_class rel ON rel.oid = con.conrelid
                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                             WHERE nsp.nspname = 'manacommunity'
-                              AND rel.relname = 'tournament_match'
+                              AND rel.relname = 'sports_tournament_match'
                               AND con.conname = 'fk_tournament_match_config'
                               AND con.contype = 'f'
                               AND con.confdeltype = 'c'
@@ -147,7 +149,7 @@ public class SchemaConstraintPatcher {
                           JOIN pg_class rel ON rel.oid = a.attrelid
                           JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                           WHERE nsp.nspname = 'manacommunity'
-                            AND rel.relname = 'tournament_match'
+                            AND rel.relname = 'sports_tournament_match'
                             AND a.attname = 'config_id';
 
                           -- Drop any existing FK defined on config_id (e.g. a non-cascading one).
@@ -157,17 +159,17 @@ public class SchemaConstraintPatcher {
                             JOIN pg_class rel ON rel.oid = con.conrelid
                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                             WHERE nsp.nspname = 'manacommunity'
-                              AND rel.relname = 'tournament_match'
+                              AND rel.relname = 'sports_tournament_match'
                               AND con.contype = 'f'
                               AND con.conkey = ARRAY[col_attnum]
                           LOOP
-                            EXECUTE format('ALTER TABLE manacommunity.tournament_match DROP CONSTRAINT %I', existing_fk);
+                            EXECUTE format('ALTER TABLE manacommunity.sports_tournament_match DROP CONSTRAINT %I', existing_fk);
                           END LOOP;
 
-                          ALTER TABLE manacommunity.tournament_match
+                          ALTER TABLE manacommunity.sports_tournament_match
                             ADD CONSTRAINT fk_tournament_match_config
                             FOREIGN KEY (config_id)
-                            REFERENCES manacommunity.tournament_config(id)
+                            REFERENCES manacommunity.sports_tournament_config(id)
                             ON DELETE CASCADE;
                         END $$;
                         """);
@@ -192,21 +194,21 @@ public class SchemaConstraintPatcher {
                         BEGIN
                           FOR fk IN
                             SELECT * FROM (VALUES
-                              ('tournament_config','sport_id'),
-                              ('tournament_config','community_id'),
-                              ('tournament_config','event_id'),
-                              ('tournament_config','venue_id'),
-                              ('tournament_config','created_by'),
-                              ('tournament_match','config_id'),
-                              ('tournament_match','group_id'),
-                              ('tournament_match','team_a_id'),
-                              ('tournament_match','team_b_id'),
-                              ('tournament_match','venue_id'),
-                              ('tournament_match','court_id'),
-                              ('tournament_match','winner_team_id'),
-                              ('tournament_group','config_id'),
-                              ('group_team_standing','group_id'),
-                              ('group_team_standing','team_id'),
+                              ('sports_tournament_config','sport_id'),
+                              ('sports_tournament_config','community_id'),
+                              ('sports_tournament_config','event_id'),
+                              ('sports_tournament_config','venue_id'),
+                              ('sports_tournament_config','created_by'),
+                              ('sports_tournament_match','config_id'),
+                              ('sports_tournament_match','group_id'),
+                              ('sports_tournament_match','team_a_id'),
+                              ('sports_tournament_match','team_b_id'),
+                              ('sports_tournament_match','venue_id'),
+                              ('sports_tournament_match','court_id'),
+                              ('sports_tournament_match','winner_team_id'),
+                              ('sports_tournament_group','config_id'),
+                              ('sports_group_team_standing','group_id'),
+                              ('sports_group_team_standing','team_id'),
                               ('sports_event','sport_id'),
                               ('sports_event','community_id'),
                               ('sports_event','venue_id'),
@@ -225,24 +227,24 @@ public class SchemaConstraintPatcher {
                               ('app_user','role_id'),
                               ('app_user','community_id'),
                               ('roles','community_id'),
-                              ('court','venue_id'),
+                              ('sports_court','venue_id'),
                               ('event_sponsor','event_id'),
                               ('sports_event_sponsor','event_id'),
                               ('sports_event_sponsor','tournament_id'),
-                              ('auction_team','config_id'),
-                              ('auction_team','owner_user_id'),
-                              ('auction_team','captain_user_id'),
-                              ('auction_player','config_id'),
-                              ('auction_player','user_id'),
-                              ('auction_player','assigned_team_id'),
-                              ('auction_bid','config_id'),
-                              ('auction_bid','player_id'),
-                              ('auction_bid','team_id'),
-                              ('auction_bid','bid_by_user_id'),
-                              ('auction_session_log','config_id'),
-                              ('auction_session_log','player_id'),
-                              ('auction_session_log','team_id'),
-                              ('auction_session_log','performed_by_user_id')
+                              ('sports_auction_team','config_id'),
+                              ('sports_auction_team','owner_user_id'),
+                              ('sports_auction_team','captain_user_id'),
+                              ('sports_auction_player','config_id'),
+                              ('sports_auction_player','user_id'),
+                              ('sports_auction_player','assigned_team_id'),
+                              ('sports_auction_bid','config_id'),
+                              ('sports_auction_bid','player_id'),
+                              ('sports_auction_bid','team_id'),
+                              ('sports_auction_bid','bid_by_user_id'),
+                              ('sports_auction_session_log','config_id'),
+                              ('sports_auction_session_log','player_id'),
+                              ('sports_auction_session_log','team_id'),
+                              ('sports_auction_session_log','performed_by_user_id')
                             ) AS t(tbl, col)
                           LOOP
                             IF EXISTS (
@@ -411,23 +413,49 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher email-column patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure the venue.contact_title column exists before Hibernate validates.
+            // Ensure the sports_venue.contact_title column exists and orphaned venue references are cleared before Hibernate validates.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
                         DO $$
                         BEGIN
+                          IF to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_venue
+                              ADD COLUMN IF NOT EXISTS contact_title varchar(100);
+                          END IF;
                           IF to_regclass('manacommunity.venue') IS NOT NULL THEN
                             ALTER TABLE manacommunity.venue
                               ADD COLUMN IF NOT EXISTS contact_title varchar(100);
                           END IF;
+
+                          -- Clean up any orphaned venue_id references before Hibernate applies FK constraints
+                          IF to_regclass('manacommunity.sports_event') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_event SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_tournament_match SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_config') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            UPDATE manacommunity.sports_tournament_config SET venue_id = NULL
+                            WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_venue_contact') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            DELETE FROM manacommunity.sports_venue_contact
+                            WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
+                          IF to_regclass('manacommunity.sports_court') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                            DELETE FROM manacommunity.sports_court
+                            WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          END IF;
                         END $$;
                         """);
 
-                log.info("venue.contact_title column ensured.");
+                log.info("sports_venue.contact_title column and FK integrity ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher venue contact_title column patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher sports_venue patch failed: {}", e.getMessage(), e);
             }
 
             // Ensure the app_user brute-force lockout columns exist before Hibernate
@@ -496,7 +524,7 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_config (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_config (
                             id                          BIGSERIAL PRIMARY KEY,
                             tournament_name             VARCHAR(150) NOT NULL,
                             sport_id                    BIGINT REFERENCES manacommunity.sport_meta(id),
@@ -526,9 +554,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_group (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_group (
                             id          BIGSERIAL PRIMARY KEY,
-                            config_id   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id) ON DELETE CASCADE,
+                            config_id   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_config(id) ON DELETE CASCADE,
                             group_name  VARCHAR(20) NOT NULL,
                             group_order INT NOT NULL,
                             CONSTRAINT uq_group_config UNIQUE (config_id, group_name)
@@ -536,10 +564,10 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.group_team_standing (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_group_team_standing (
                             id              BIGSERIAL PRIMARY KEY,
-                            group_id        BIGINT NOT NULL REFERENCES manacommunity.tournament_group(id) ON DELETE CASCADE,
-                            team_id         BIGINT NOT NULL REFERENCES manacommunity.auction_team(id),
+                            group_id        BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_group(id) ON DELETE CASCADE,
+                            team_id         BIGINT NOT NULL REFERENCES manacommunity.sports_auction_team(id),
                             seed_rank       INT,
                             played          INT DEFAULT 0,
                             won             INT DEFAULT 0,
@@ -558,20 +586,20 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_match (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_match (
                             id                          BIGSERIAL PRIMARY KEY,
-                            config_id                   BIGINT NOT NULL REFERENCES manacommunity.tournament_config(id),
-                            group_id                    BIGINT REFERENCES manacommunity.tournament_group(id),
+                            config_id                   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament_config(id),
+                            group_id                    BIGINT REFERENCES manacommunity.sports_tournament_group(id),
                             round                       VARCHAR(30),
                             round_number                INT,
                             match_number                INT,
                             bracket_slot                INT,
-                            team_a_id                   BIGINT REFERENCES manacommunity.auction_team(id),
-                            team_b_id                   BIGINT REFERENCES manacommunity.auction_team(id),
-                            winner_feed_from_match_a    BIGINT REFERENCES manacommunity.tournament_match(id),
-                            winner_feed_from_match_b    BIGINT REFERENCES manacommunity.tournament_match(id),
-                            winner_advances_to_match_id BIGINT REFERENCES manacommunity.tournament_match(id),
-                            loser_sent_to_match_id      BIGINT REFERENCES manacommunity.tournament_match(id),
+                            team_a_id                   BIGINT REFERENCES manacommunity.sports_auction_team(id),
+                            team_b_id                   BIGINT REFERENCES manacommunity.sports_auction_team(id),
+                            winner_feed_from_match_a    BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            winner_feed_from_match_b    BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            winner_advances_to_match_id BIGINT REFERENCES manacommunity.sports_tournament_match(id),
+                            loser_sent_to_match_id      BIGINT REFERENCES manacommunity.sports_tournament_match(id),
                             scheduled_at                TIMESTAMP NOT NULL,
                             duration_minutes            INT DEFAULT 90,
                             venue_name                  VARCHAR(200),
@@ -579,7 +607,7 @@ public class SchemaConstraintPatcher {
                             status                      VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
                             score_team_a                VARCHAR(50),
                             score_team_b                VARCHAR(50),
-                            winner_team_id              BIGINT REFERENCES manacommunity.auction_team(id),
+                            winner_team_id              BIGINT REFERENCES manacommunity.sports_auction_team(id),
                             started_at                  TIMESTAMP,
                             completed_at                TIMESTAMP,
                             match_notes                 TEXT,
@@ -595,7 +623,7 @@ public class SchemaConstraintPatcher {
                         CREATE TABLE IF NOT EXISTS manacommunity.sports_notification_scheduler (
                             id            BIGSERIAL PRIMARY KEY,
                             event_id      BIGINT NOT NULL REFERENCES manacommunity.sports_event(id),
-                            tournament_id BIGINT REFERENCES manacommunity.tournament(id),
+                            tournament_id BIGINT REFERENCES manacommunity.sports_tournament(id),
                             trigger_key   VARCHAR(50),
                             label         VARCHAR(100) NOT NULL,
                             offset_minutes INT NOT NULL,
@@ -613,14 +641,14 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_config_status ON manacommunity.tournament_match (config_id, status)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_scheduled_at ON manacommunity.tournament_match (scheduled_at)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_round ON manacommunity.tournament_match (config_id, round_number)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_group ON manacommunity.tournament_match (group_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.group_team_standing (group_id, points DESC, net_run_rate DESC)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_config_status ON manacommunity.sports_tournament_match (config_id, status)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_scheduled_at ON manacommunity.sports_tournament_match (scheduled_at)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_round ON manacommunity.sports_tournament_match (config_id, round_number)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tm_group ON manacommunity.sports_tournament_match (group_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_standing_group ON manacommunity.sports_group_team_standing (group_id, points DESC, net_run_rate DESC)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_event_notify ON manacommunity.sports_notification_scheduler (event_id, notify_at)");
 
-                log.info("Tournament scheduler tables ensured before Hibernate validation.");
+                log.info("SportsTournament scheduler tables ensured before Hibernate validation.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher tournament scheduler table patch failed: {}", e.getMessage(), e);
             }
@@ -790,7 +818,7 @@ public class SchemaConstraintPatcher {
                         BEGIN
                           FOR rec IN
                             SELECT * FROM (VALUES
-                              ('tournament','banner_image'),
+                              ('sports_tournament','banner_image'),
                               ('sports_event','banner_image')
                             ) AS t(tbl, col)
                           LOOP
@@ -874,7 +902,7 @@ public class SchemaConstraintPatcher {
                           ALTER TABLE manacommunity.sports_event
                             ADD CONSTRAINT fk_sports_event_tournament
                             FOREIGN KEY (tournament_id)
-                            REFERENCES manacommunity.tournament(id)
+                            REFERENCES manacommunity.sports_tournament(id)
                             ON DELETE SET NULL;
                         END $$;
                         """);
@@ -953,40 +981,40 @@ public class SchemaConstraintPatcher {
                             SELECT * FROM (VALUES
                               -- (child_table, fk_column, parent_table, action)
                               ('sports_event_registration','event_id','sports_event','c'),
-                              ('tournament_config','event_id','sports_event','c'),
-                              ('auction_config','event_id','sports_event','c'),
+                              ('sports_tournament_config','event_id','sports_event','c'),
+                              ('sports_auction_config','event_id','sports_event','c'),
                               ('sports_event_sponsor','event_id','sports_event','c'),
                               ('sports_notification_scheduler','event_id','sports_event','c'),
-                              ('tournament_group','config_id','tournament_config','c'),
-                              ('tournament_match','config_id','tournament_config','c'),
-                              ('group_team_standing','group_id','tournament_group','c'),
-                              ('auction_team','config_id','auction_config','c'),
-                              ('auction_player','config_id','auction_config','c'),
-                              ('auction_bid','config_id','auction_config','c'),
-                              ('auction_session_log','config_id','auction_config','c'),
-                              ('auction_dispute_committee','config_id','auction_config','c'),
-                              ('auction_bid','team_id','auction_team','c'),
-                              ('auction_bid','player_id','auction_player','c'),
-                              ('auction_session_log','team_id','auction_team','c'),
-                              ('auction_session_log','player_id','auction_player','c'),
-                              ('group_team_standing','team_id','auction_team','c'),
-                              ('auction_player','assigned_team_id','auction_team','n'),
-                              ('tournament_match','group_id','tournament_group','n'),
-                              ('tournament_match','team_a_id','auction_team','n'),
-                              ('tournament_match','team_b_id','auction_team','n'),
-                              ('tournament_match','winner_team_id','auction_team','n'),
-                              ('tournament_match','toss_winner_team_id','auction_team','n'),
-                              ('tournament_match','man_of_match_id','auction_player','n'),
+                              ('sports_tournament_group','config_id','sports_tournament_config','c'),
+                              ('sports_tournament_match','config_id','sports_tournament_config','c'),
+                              ('sports_group_team_standing','group_id','sports_tournament_group','c'),
+                              ('sports_auction_team','config_id','sports_auction_config','c'),
+                              ('sports_auction_player','config_id','sports_auction_config','c'),
+                              ('sports_auction_bid','config_id','sports_auction_config','c'),
+                              ('sports_auction_session_log','config_id','sports_auction_config','c'),
+                              ('sports_auction_dispute_committee','config_id','sports_auction_config','c'),
+                              ('sports_auction_bid','team_id','sports_auction_team','c'),
+                              ('sports_auction_bid','player_id','sports_auction_player','c'),
+                              ('sports_auction_session_log','team_id','sports_auction_team','c'),
+                              ('sports_auction_session_log','player_id','sports_auction_player','c'),
+                              ('sports_group_team_standing','team_id','sports_auction_team','c'),
+                              ('sports_auction_player','assigned_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','group_id','sports_tournament_group','n'),
+                              ('sports_tournament_match','team_a_id','sports_auction_team','n'),
+                              ('sports_tournament_match','team_b_id','sports_auction_team','n'),
+                              ('sports_tournament_match','winner_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','toss_winner_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','man_of_match_id','sports_auction_player','n'),
                               -- Venue delete: courts belong to the venue (removed with
                               -- it); events/matches survive with a null (TBD) venue.
-                              ('court','venue_id','venue','c'),
-                              ('sports_event','venue_id','venue','n'),
-                              ('tournament_match','venue_id','venue','n'),
+                              ('sports_court','venue_id','sports_venue','c'),
+                              ('sports_event','venue_id','sports_venue','n'),
+                              ('sports_tournament_match','venue_id','sports_venue','n'),
                               -- Player-category delete: unlink from events (join rows)
                               -- and null the category on registrations, which survive.
-                              ('event_category','category_id','player_category','c'),
-                              ('event_category','event_id','sports_event','c'),
-                              ('sports_event_registration','category_id','player_category','n')
+                              ('sports_event_category','category_id','sports_player_category','c'),
+                              ('sports_event_category','event_id','sports_event','c'),
+                              ('sports_event_registration','category_id','sports_player_category','n')
                             ) AS t(child, col, parent, act)
                           LOOP
                             CONTINUE WHEN to_regclass('manacommunity.' || rec.child) IS NULL;
@@ -1044,7 +1072,7 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher event-delete-subtree FK patch failed: {}", e.getMessage(), e);
             }
 
-            // Tournament announcement content tables (announcements, gallery,
+            // SportsTournament announcement content tables (announcements, gallery,
             // timeline) that back the announcement email. Prod runs
             // ddl-auto=validate, which won't create new entity tables. Idempotent;
             // FKs cascade so a tournament's content is removed with it.
@@ -1052,9 +1080,9 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_announcement (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_announcement (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             title         VARCHAR(150),
                             content       VARCHAR(2000) NOT NULL,
                             icon          VARCHAR(20),
@@ -1062,12 +1090,12 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_announcement_tid ON manacommunity.tournament_announcement (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_announcement_tid ON manacommunity.sports_tournament_announcement (tournament_id)");
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_gallery_image (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_gallery_image (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             title         VARCHAR(100),
                             image_url     TEXT,
                             bg_color      VARCHAR(20),
@@ -1076,12 +1104,12 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_gallery_tid ON manacommunity.tournament_gallery_image (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_gallery_tid ON manacommunity.sports_tournament_gallery_image (tournament_id)");
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.tournament_timeline_entry (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_timeline_entry (
                             id            BIGSERIAL PRIMARY KEY,
-                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.tournament(id) ON DELETE CASCADE,
+                            tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
                             entry_date    DATE,
                             date_label    VARCHAR(60),
                             title         VARCHAR(150) NOT NULL,
@@ -1090,9 +1118,9 @@ public class SchemaConstraintPatcher {
                             created_at    TIMESTAMP NOT NULL DEFAULT now()
                         )
                         """);
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.tournament_timeline_entry (tournament_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tournament_timeline_tid ON manacommunity.sports_tournament_timeline_entry (tournament_id)");
 
-                log.info("Tournament content tables ensured (announcement, gallery, timeline).");
+                log.info("SportsTournament content tables ensured (announcement, gallery, timeline).");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher tournament content tables patch failed: {}", e.getMessage(), e);
             }
@@ -1812,14 +1840,14 @@ public class SchemaConstraintPatcher {
                 log.error("SchemaConstraintPatcher VMS patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure community_event has category, venue, city, max_attendees, etc. columns before Hibernate validates.
+            // Ensure event_community has category, venue, city, max_attendees, etc. columns before Hibernate validates.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event
+                          IF to_regclass('manacommunity.event_community') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_community
                               ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PUBLISHED',
                               ADD COLUMN IF NOT EXISTS type VARCHAR(30) DEFAULT 'GENERAL',
                               ADD COLUMN IF NOT EXISTS description VARCHAR(3000),
@@ -1840,12 +1868,12 @@ public class SchemaConstraintPatcher {
                           END IF;
                         END $$;
                         """);
-                log.info("community_event table columns ensured.");
+                log.info("event_community table columns ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community_event columns patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_community columns patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure community-event sub-resource tables exist before Hibernate validates.
+            // Ensure event sub-resource tables exist before Hibernate validates.
             // These back the EventTask, EventVolunteer, and EventSponsor entities
             // (endpoints: /api/events/tasks, /api/events/volunteers, /api/events/sponsors).
             // Idempotent — safe to re-run on every boot.
@@ -1853,9 +1881,9 @@ public class SchemaConstraintPatcher {
                  Statement stmt = conn.createStatement()) {
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_task (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_task (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             title           VARCHAR(300) NOT NULL,
                             description     VARCHAR(1000),
                             phase           VARCHAR(80),
@@ -1869,9 +1897,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_volunteer (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_volunteer (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL,
                             user_name       VARCHAR(200),
                             role            VARCHAR(100),
@@ -1885,9 +1913,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_sponsor (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_sponsor (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             name            VARCHAR(200) NOT NULL,
                             tier            VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
                             amount_pledged  DOUBLE PRECISION,
@@ -1902,9 +1930,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_expense (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_expense (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             description     VARCHAR(500) NOT NULL,
                             category        VARCHAR(100),
                             amount          DOUBLE PRECISION NOT NULL,
@@ -1918,17 +1946,17 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_task_event ON manacommunity.community_event_task (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_volunteer_event ON manacommunity.community_event_volunteer (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_sponsor_event ON manacommunity.community_event_sponsor (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_community_event_expense_event ON manacommunity.community_event_expense (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_task_event ON manacommunity.event_task (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_volunteer_event ON manacommunity.event_volunteer (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_sponsor_event ON manacommunity.event_sponsor (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_expense_event ON manacommunity.event_expense (event_id)");
 
-                log.info("community_event sub-resource tables (community_event_task, community_event_volunteer, community_event_sponsor, community_event_expense) ensured.");
+                log.info("event sub-resource tables (event_task, event_volunteer, event_sponsor, event_expense) ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community-event sub-resource patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event sub-resource patch failed: {}", e.getMessage(), e);
             }
 
-            // Ensure new enum columns and FK columns added to community_event_* tables
+            // Ensure new enum columns and FK columns added to event_* tables
             // by the recent entity refactor. Idempotent — safe to re-run on every boot.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
@@ -1936,10 +1964,10 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_volunteer') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_volunteer
+                          IF to_regclass('manacommunity.event_volunteer') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_volunteer
                               ADD COLUMN IF NOT EXISTS volunteer_status VARCHAR(20) DEFAULT 'ASSIGNED';
-                            ALTER TABLE manacommunity.community_event_volunteer
+                            ALTER TABLE manacommunity.event_volunteer
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
                           END IF;
                         END $$;
@@ -1948,16 +1976,16 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_sponsor') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_sponsor
+                          IF to_regclass('manacommunity.event_sponsor') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS sponsor_tier VARCHAR(30) DEFAULT 'SILVER';
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS sponsor_status VARCHAR(20) DEFAULT 'PENDING';
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_sponsor
+                            ALTER TABLE manacommunity.event_sponsor
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
@@ -1966,14 +1994,14 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_expense') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_expense
+                          IF to_regclass('manacommunity.event_expense') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS expense_status VARCHAR(20) DEFAULT 'PENDING';
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_expense
+                            ALTER TABLE manacommunity.event_expense
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
@@ -1982,25 +2010,25 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         DO $$
                         BEGIN
-                          IF to_regclass('manacommunity.community_event_task') IS NOT NULL THEN
-                            ALTER TABLE manacommunity.community_event_task
+                          IF to_regclass('manacommunity.event_task') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS community_id BIGINT;
-                            ALTER TABLE manacommunity.community_event_task
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS created_by BIGINT;
-                            ALTER TABLE manacommunity.community_event_task
+                            ALTER TABLE manacommunity.event_task
                               ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
                           END IF;
                         END $$;
                         """);
 
-                log.info("community_event sub-resource extra columns ensured.");
+                log.info("event sub-resource extra columns ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher community-event extra columns patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event extra columns patch failed: {}", e.getMessage(), e);
             }
 
             // Ensure the event_program table (EventProgram entity, no schema attribute so
-            // defaults to manacommunity search_path) and community_event_activity_registration
-            // (ActivityRegistration entity) exist before Hibernate validates.
+            // defaults to manacommunity search_path) and event_activity_registrations
+            // (EventActivityRegistration entity) exist before Hibernate validates.
             // Idempotent — safe to re-run on every boot.
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
@@ -2008,7 +2036,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_program (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             day_label       VARCHAR(100),
                             day_date        DATE,
                             title           VARCHAR(200) NOT NULL,
@@ -2027,7 +2055,7 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_activity_registration (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_activity_registrations (
                             id              BIGSERIAL PRIMARY KEY,
                             program_id      BIGINT NOT NULL REFERENCES manacommunity.event_program(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
@@ -2039,9 +2067,9 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.community_event_meal_registration (
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_meal_registrations (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
                             meal_date       DATE NOT NULL,
                             meal_type       VARCHAR(10) NOT NULL,
@@ -2056,7 +2084,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_donation (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             donor_name      VARCHAR(200) NOT NULL,
                             donor_email     VARCHAR(200),
                             donor_phone     VARCHAR(50),
@@ -2074,7 +2102,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_gallery_item (
                             id                  BIGSERIAL PRIMARY KEY,
-                            event_id            BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id            BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             url                 VARCHAR(500) NOT NULL,
                             media_external_id   UUID,
                             thumbnail_url       VARCHAR(500),
@@ -2111,7 +2139,7 @@ public class SchemaConstraintPatcher {
                           ELSE
                             CREATE TABLE IF NOT EXISTS manacommunity.event_registration (
                                 id              BIGSERIAL PRIMARY KEY,
-                                event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                                event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                                 user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
                                 status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
                                 registered_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2124,7 +2152,7 @@ public class SchemaConstraintPatcher {
                 stmt.execute("""
                         CREATE TABLE IF NOT EXISTS manacommunity.event_invoice (
                             id              BIGSERIAL PRIMARY KEY,
-                            event_id        BIGINT NOT NULL REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id),
                             created_by      BIGINT REFERENCES manacommunity.app_user(id),
                             invoice_number  VARCHAR(100),
@@ -2209,7 +2237,7 @@ public class SchemaConstraintPatcher {
                         """);
 
                 stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS manacommunity.event_venue_config (
+                        CREATE TABLE IF NOT EXISTS manacommunity.sports_event_venue_config (
                             id              BIGSERIAL PRIMARY KEY,
                             event_id        BIGINT,
                             community_id    BIGINT,
@@ -2244,7 +2272,7 @@ public class SchemaConstraintPatcher {
                         CREATE TABLE IF NOT EXISTS manacommunity.event_auction_item (
                             id              BIGSERIAL PRIMARY KEY,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
-                            event_id        BIGINT REFERENCES manacommunity.community_event(id) ON DELETE CASCADE,
+                            event_id        BIGINT REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
                             name            VARCHAR(200) NOT NULL,
                             description     TEXT,
                             category        VARCHAR(100),
@@ -2268,7 +2296,7 @@ public class SchemaConstraintPatcher {
                             id              BIGSERIAL PRIMARY KEY,
                             item_id         BIGINT NOT NULL REFERENCES manacommunity.event_auction_item(id) ON DELETE CASCADE,
                             community_id    BIGINT NOT NULL REFERENCES manacommunity.community(id) ON DELETE CASCADE,
-                            event_id        BIGINT REFERENCES manacommunity.community_event(id),
+                            event_id        BIGINT REFERENCES manacommunity.event_community(id),
                             bidder_user_id  BIGINT,
                             bidder_name     VARCHAR(200) NOT NULL,
                             amount          DECIMAL(12,2) NOT NULL,
@@ -2355,11 +2383,104 @@ public class SchemaConstraintPatcher {
                         )
                         """);
 
+                stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS manacommunity.event_ticket_categories (
+                            id              BIGSERIAL PRIMARY KEY,
+                            event_id        BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
+                            community_id    BIGINT,
+                            ticket_code     VARCHAR(100),
+                            name            VARCHAR(150) NOT NULL,
+                            price           DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                            capacity        INT,
+                            seats           INT,
+                            description     VARCHAR(1000),
+                            display_order   INT NOT NULL DEFAULT 0,
+                            is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at      TIMESTAMP,
+                            created_by      BIGINT,
+                            updated_by      BIGINT
+                        )
+                        """);
+
+                stmt.execute("""
+                        DO $$
+                        DECLARE
+                          r RECORD;
+                        BEGIN
+                          -- 1. Drop any foreign key constraints in manacommunity referencing old community_event
+                          FOR r IN (
+                            SELECT tc.table_name, tc.constraint_name
+                            FROM information_schema.table_constraints tc
+                            JOIN information_schema.constraint_column_usage ccu
+                              ON tc.constraint_name = ccu.constraint_name
+                             AND tc.table_schema = ccu.table_schema
+                            WHERE tc.table_schema = 'manacommunity'
+                              AND tc.constraint_type = 'FOREIGN KEY'
+                              AND ccu.table_name = 'community_event'
+                          ) LOOP
+                            EXECUTE 'ALTER TABLE manacommunity.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name);
+                          END LOOP;
+
+                          -- 2. Drop specific legacy Hibernate FK constraint on event_ticket_categories
+                          IF to_regclass('manacommunity.event_ticket_categories') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_ticket_categories DROP CONSTRAINT IF EXISTS fkjic5qmm9nnf1u0swr7yl2r2ig;
+
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS capacity INT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS seats INT;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS ticket_code VARCHAR(100);
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
+                            ALTER TABLE manacommunity.event_ticket_categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
+                            -- Ensure valid FK constraint pointing to event_community
+                            IF NOT EXISTS (
+                              SELECT 1
+                              FROM information_schema.table_constraints tc
+                              JOIN information_schema.constraint_column_usage ccu
+                                ON tc.constraint_name = ccu.constraint_name
+                               AND tc.table_schema = ccu.table_schema
+                              WHERE tc.table_schema = 'manacommunity'
+                                AND tc.table_name = 'event_ticket_categories'
+                                AND tc.constraint_type = 'FOREIGN KEY'
+                                AND ccu.table_name = 'event_community'
+                            ) THEN
+                              ALTER TABLE manacommunity.event_ticket_categories
+                                ADD CONSTRAINT fk_event_ticket_categories_event
+                                FOREIGN KEY (event_id) REFERENCES manacommunity.event_community(id) ON DELETE CASCADE;
+                            END IF;
+                          END IF;
+
+                          IF to_regclass('manacommunity.event_competitions') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_competitions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                          IF to_regclass('manacommunity.event_cultural_events') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_cultural_events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                          IF to_regclass('manacommunity.event_lunch_dinners') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS created_by BIGINT;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                            ALTER TABLE manacommunity.event_lunch_dinners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                          END IF;
+                        END $$;
+                        """);
+
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_ticket_cat_event ON manacommunity.event_ticket_categories (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_program_event ON manacommunity.event_program (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.community_event_activity_registration (program_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.community_event_activity_registration (user_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_event ON manacommunity.community_event_meal_registration (event_id)");
-                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_user ON manacommunity.community_event_meal_registration (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_program ON manacommunity.event_activity_registrations (program_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_reg_user ON manacommunity.event_activity_registrations (user_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_event ON manacommunity.event_meal_registrations (event_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_meal_reg_user ON manacommunity.event_meal_registrations (user_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_donation_event ON manacommunity.event_donation (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_gallery_event ON manacommunity.event_gallery_item (event_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_registration_event ON manacommunity.event_registration (event_id)");
@@ -2371,9 +2492,27 @@ public class SchemaConstraintPatcher {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_module ON manacommunity.media_objects (module, module_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_media_community ON manacommunity.media_objects (community_id)");
 
-                log.info("event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log tables ensured.");
+                // Clean up legacy sports_schedule_generation_log indexes and ensure standard idx_ssgl_* indexes
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_schedule_generation_log') IS NOT NULL THEN
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_created;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_config;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_event;
+                            DROP INDEX IF EXISTS manacommunity.idx_sgl_community;
+                            
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_created ON manacommunity.sports_schedule_generation_log (created_at);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_config ON manacommunity.sports_schedule_generation_log (config_id);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_event ON manacommunity.sports_schedule_generation_log (event_id);
+                            CREATE INDEX IF NOT EXISTS idx_ssgl_community ON manacommunity.sports_schedule_generation_log (community_id);
+                          END IF;
+                        END $$;
+                        """);
+
+                log.info("event_ticket_categories, event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log, sports_schedule_generation_log tables ensured.");
             } catch (Exception e) {
-                log.error("SchemaConstraintPatcher event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
+                log.error("SchemaConstraintPatcher event_ticket_categories/event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }
         }
     }

@@ -1,4 +1,5 @@
 package com.manacommunity.api.service;
+import com.manacommunity.api.sports.repository.SportsEventRepository;
 
 import com.manacommunity.api.user.model.AppUser;
 
@@ -11,6 +12,7 @@ import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.media.service.MediaUrlService;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -42,8 +44,8 @@ public class FeedService {
     private final GroupMembershipRepository groupMembershipRepository;
     private final UserEngagementScoreRepository userEngagementScoreRepository;
     private final SportsEventRepository sportsEventRepository;
-    private final com.manacommunity.api.events.repository.CommunityEventRepository communityEventRepository;
-    private final com.manacommunity.api.events.repository.EventRegistrationRepository eventRegistrationRepository;
+    private final com.manacommunity.api.events.repository.EventCommunityRepository communityEventRepository;
+    private final com.manacommunity.api.events.repository.EventBookingRegistrationRepository eventBookingRegistrationRepository;
     private final MediaRepository mediaRepository;
     private final MediaUrlService mediaUrlService;
     private final PostCommentLikeRepository postCommentLikeRepository;
@@ -84,6 +86,16 @@ public class FeedService {
         return toPostResponsePage(posts, currentUser.getId());
     }
 
+    @Transactional(readOnly = true)
+    public PostResponse getPostById(AppUser currentUser, Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+        if (post.isDeleted()) {
+            throw new ResourceNotFoundException("Post", postId);
+        }
+        return toPostResponse(post, currentUser != null ? currentUser.getId() : null);
+    }
+
     @Transactional
     public PostResponse createPost(AppUser currentUser, PostRequest request) {
         if (currentUser.getCommunity() == null) {
@@ -104,8 +116,8 @@ public class FeedService {
         Post.PostBuilder builder = Post.builder()
                 .user(currentUser)
                 .community(currentUser.getCommunity())
-                .content(request.content())
-                .title(request.title())
+                .content(HtmlSanitizer.sanitizePlainText(request.content()))
+                .title(HtmlSanitizer.sanitizePlainText(request.title()))
                 .imageUrl(request.imageUrl())
                 .official(isOfficial)
                 .postType(type)
@@ -201,10 +213,10 @@ public class FeedService {
         }
 
         if (request.content() != null && !request.content().isBlank()) {
-            post.setContent(request.content().trim());
+            post.setContent(HtmlSanitizer.sanitizePlainText(request.content().trim()));
         }
         if (request.title() != null) {
-            post.setTitle(request.title().isBlank() ? null : request.title().trim());
+            post.setTitle(request.title().isBlank() ? null : HtmlSanitizer.sanitizePlainText(request.title().trim()));
         }
         if (request.imageUrl() != null) {
             post.setImageUrl(request.imageUrl().isBlank() ? null : request.imageUrl().trim());
@@ -605,7 +617,7 @@ public class FeedService {
         PostComment.PostCommentBuilder builder = PostComment.builder()
                 .post(post)
                 .user(currentUser)
-                .content(request.content());
+                .content(HtmlSanitizer.sanitizePlainText(request.content()));
 
         if (request.parentId() != null) {
             PostComment parent = postCommentRepository.findById(request.parentId())
@@ -1184,8 +1196,8 @@ public class FeedService {
             sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
                     communityId,
                     List.of(
-                            com.manacommunity.api.model.Tournament.EventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.model.Tournament.EventStatus.LIVE
+                            com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN,
+                            com.manacommunity.api.sports.model.SportsEventStatus.LIVE
                     )
             );
         } catch (Exception ignored) {
@@ -1193,7 +1205,7 @@ public class FeedService {
         }
 
         long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
-        long myPasses = eventRegistrationRepository.countByUserId(userId);
+        long myPasses = eventBookingRegistrationRepository.countByUserId(userId);
         long trending = trendingTopicRepository.countByCommunityId(communityId);
         long myGroups = groupMembershipRepository.countByUserIdAndStatus(userId, "ACTIVE");
         long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);

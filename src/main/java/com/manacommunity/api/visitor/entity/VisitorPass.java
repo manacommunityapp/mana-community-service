@@ -56,8 +56,14 @@ public class VisitorPass {
     @Column(name = "flat_number", length = 30)
     private String flatNumber;
 
-    @Column(name = "otp", length = 6)
-    private String otp;
+    /** SHA-256 hash of the OTP. The plain OTP is only returned once at creation time. */
+    @Column(name = "otp_hash", length = 64)
+    private String otpHash;
+
+    /** Number of failed OTP verification attempts. Lockout enforced at service layer. */
+    @Column(name = "otp_attempts", nullable = false)
+    @Builder.Default
+    private Integer otpAttempts = 0;
 
     @Column(name = "otp_expires_at")
     private LocalDateTime otpExpiresAt;
@@ -107,6 +113,6 @@ public class VisitorPass {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum PassType { GUEST, DELIVERY, MAID, VENDOR, FAMILY, RECURRING, PRE_APPROVED, WALK_IN, OTHER }
-    public enum PassStatus { PENDING, APPROVED, CHECKED_IN, CHECKED_OUT, REJECTED, EXPIRED }
+    public enum PassType { GUEST, DELIVERY, MAID, VENDOR, FAMILY, RECURRING, PRE_APPROVED, WALK_IN, OTHER, CAB, SERVICE, STAFF, COURIER, CONTRACTOR, EVENT_GUEST }
+    public enum PassStatus { PENDING, APPROVED, EXPECTED, CHECKED_IN, CHECKED_OUT, REJECTED, EXPIRED, LEAVE_AT_GATE, DENIED, CANCELLED }
 }
