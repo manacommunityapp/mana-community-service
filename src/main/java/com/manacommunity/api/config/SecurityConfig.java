@@ -245,6 +245,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/cpos/crm/leads/inbound").permitAll()
                 .requestMatchers("/api/insurance/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
+                .requestMatchers("/api/payments/cashfree/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the
                 // STOMP headers), so the HTTP upgrade itself is permitted.

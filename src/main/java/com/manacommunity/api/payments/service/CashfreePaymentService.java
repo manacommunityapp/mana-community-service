@@ -10,6 +10,7 @@ import com.manacommunity.api.notification.orchestrator.UnifiedNotificationServic
 import com.manacommunity.api.payments.config.CashfreeProperties;
 import com.manacommunity.api.payments.dto.CashfreeCreateOrderRequest;
 import com.manacommunity.api.payments.dto.CashfreeOrderResponse;
+import com.manacommunity.api.payments.dto.CashfreeAdminSummaryResponse;
 import com.manacommunity.api.payments.dto.CashfreeRefundRequest;
 import com.manacommunity.api.payments.entity.CashfreeOrder;
 import com.manacommunity.api.payments.exception.PaymentGatewayException;
@@ -513,6 +514,65 @@ public class CashfreePaymentService {
             String referenceType, Long referenceId, Long communityId, Pageable pageable) {
         return orderRepository.findByReferenceTypeAndReferenceId(referenceType, referenceId, pageable)
                 .map(o -> toResponse(o, false));
+    }
+
+    // ─── Admin Report ─────────────────────────────────────────────────────────
+
+    /**
+     * Paginated admin report with optional filters by status, referenceType, and date range.
+     *
+     * @param communityId target community
+     * @param status      optional status filter (PAID, FAILED, etc.)
+     * @param refType     optional referenceType filter (SPORTS_REGISTRATION, etc.)
+     * @param from        optional window start (inclusive)
+     * @param to          optional window end (inclusive)
+     */
+    @Transactional(readOnly = true)
+    public Page<CashfreeOrderResponse> getAdminReport(
+            Long communityId, String status, String refType,
+            LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        return orderRepository.findForAdminReport(communityId, status, refType, from, to, pageable)
+                .map(o -> toResponse(o, false));
+    }
+
+    /**
+     * Aggregate payment statistics for the admin dashboard.
+     */
+    @Transactional(readOnly = true)
+    public CashfreeAdminSummaryResponse getAdminSummary(
+            Long communityId, LocalDateTime from, LocalDateTime to) {
+
+        BigDecimal totalCollected = orderRepository.sumPaidAmount(communityId, from, to);
+        BigDecimal totalRefunded  = orderRepository.sumRefundedAmount(communityId, from, to);
+
+        Map<String, Long>       countByStatus  = new HashMap<>();
+        Map<String, BigDecimal> amountByStatus = new HashMap<>();
+        for (Object[] row : orderRepository.countAndSumByStatus(communityId, from, to)) {
+            String status     = String.valueOf(row[0]);
+            Long   count      = ((Number) row[1]).longValue();
+            BigDecimal amount = (BigDecimal) row[2];
+            countByStatus.put(status, count);
+            amountByStatus.put(status, amount);
+        }
+
+        Map<String, Long>       countByRef   = new HashMap<>();
+        Map<String, BigDecimal> revenueByRef = new HashMap<>();
+        for (Object[] row : orderRepository.paidCountAndSumByReferenceType(communityId, from, to)) {
+            String refType    = row[0] != null ? String.valueOf(row[0]) : "UNKNOWN";
+            Long   count      = ((Number) row[1]).longValue();
+            BigDecimal amount = (BigDecimal) row[2];
+            countByRef.put(refType, count);
+            revenueByRef.put(refType, amount);
+        }
+
+        return CashfreeAdminSummaryResponse.builder()
+                .totalCollected(totalCollected)
+                .totalRefunded(totalRefunded)
+                .countByStatus(countByStatus)
+                .amountByStatus(amountByStatus)
+                .countByReferenceType(countByRef)
+                .revenueByReferenceType(revenueByRef)
+                .build();
     }
 
     // ─── Webhook Signature Verification ──────────────────────────────────────
