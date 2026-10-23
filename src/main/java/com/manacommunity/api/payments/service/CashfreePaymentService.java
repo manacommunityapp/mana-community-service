@@ -146,8 +146,10 @@ public class CashfreePaymentService {
                 throw new PaymentGatewayException("Empty response from Cashfree.");
             }
 
-            String cfOrderId        = String.valueOf(responseBody.getOrDefault("cf_order_id", ""));
-            String paymentSessionId = String.valueOf(responseBody.getOrDefault("payment_session_id", ""));
+            Object cfOrderIdRaw        = responseBody.get("cf_order_id");
+            Object paymentSessionIdRaw = responseBody.get("payment_session_id");
+            String cfOrderId        = cfOrderIdRaw        != null ? String.valueOf(cfOrderIdRaw)        : "";
+            String paymentSessionId = paymentSessionIdRaw != null ? String.valueOf(paymentSessionIdRaw) : "";
 
             saved.setCfOrderId(cfOrderId);
             saved.setPaymentSessionId(paymentSessionId);
@@ -624,7 +626,8 @@ public class CashfreePaymentService {
                 Object data = body.get("data");
                 if (data instanceof java.util.List<?> list && !list.isEmpty()) {
                     Map<?, ?> first = (Map<?, ?>) list.get(0);
-                    return String.valueOf(first.getOrDefault("payment_status", "PENDING"));
+                    Object val = first.get("payment_status");
+                    return val != null ? String.valueOf(val) : "PENDING";
                 }
             }
         } catch (Exception e) {
@@ -642,7 +645,8 @@ public class CashfreePaymentService {
                 Object data = body.get("data");
                 if (data instanceof java.util.List<?> list && !list.isEmpty()) {
                     Map<?, ?> first = (Map<?, ?>) list.get(0);
-                    return String.valueOf(first.getOrDefault("cf_payment_id", ""));
+                    Object val = first.get("cf_payment_id");
+                    return val != null ? String.valueOf(val) : "";
                 }
             }
         } catch (Exception ignored) {}
@@ -658,7 +662,8 @@ public class CashfreePaymentService {
                 Object data = body.get("data");
                 if (data instanceof java.util.List<?> list && !list.isEmpty()) {
                     Map<?, ?> first = (Map<?, ?>) list.get(0);
-                    return String.valueOf(first.getOrDefault("payment_group", ""));
+                    Object val = first.get("payment_group");
+                    return val != null ? String.valueOf(val) : "";
                 }
             }
         } catch (Exception ignored) {}
