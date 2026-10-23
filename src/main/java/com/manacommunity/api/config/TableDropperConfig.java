@@ -63,7 +63,7 @@ public class TableDropperConfig {
                     }
                 }
             } catch (Exception e) {
-                log.error("Failed to register TableDropper bean dependencies: " + e.getMessage(), e);
+                log.error("Failed to register TableDropper bean dependencies: {}", e.getMessage(), e);
             }
         }
     }
@@ -117,7 +117,7 @@ public class TableDropperConfig {
                 log.info("Startup TableDropper finished. All requested tables processed.");
 
             } catch (Exception e) {
-                log.error("Startup TableDropper encountered an error: " + e.getMessage(), e);
+                log.error("Startup TableDropper encountered an error: {}", e.getMessage(), e);
             }
         }
     }

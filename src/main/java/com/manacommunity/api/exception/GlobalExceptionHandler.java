@@ -407,7 +407,7 @@ public class GlobalExceptionHandler {
         }
 
         String constraintName = extractConstraintName(ex);
-        log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName);
+        log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName, ex);
 
         String friendlyMessage = "The operation conflicts with existing data — a referenced record is missing, "
                 + "or a unique value is already in use.";

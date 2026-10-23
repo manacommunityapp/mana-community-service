@@ -162,7 +162,7 @@ public class SmsServiceImpl implements SmsService {
             message.setStatus(SmsStatus.FAILED);
             long delaySec = computeBackoffSeconds(message.getRetryCount());
             message.setNextRetryAt(LocalDateTime.now().plusSeconds(delaySec));
-            log.info("SMS messageId={} failed (attempt {}), retry at {}", message.getId(),
+            log.warn("SMS messageId={} failed (attempt {}), retry at {}", message.getId(),
                     message.getRetryCount(), message.getNextRetryAt());
         }
     }
