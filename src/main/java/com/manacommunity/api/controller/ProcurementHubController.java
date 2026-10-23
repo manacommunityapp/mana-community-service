@@ -1,10 +1,12 @@
 package com.manacommunity.api.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,7 +30,11 @@ public class ProcurementHubController {
     private final AuctionBidRepository auctionBidRepo;
     private final PurchaseCalendarEntryRepository calendarRepo;
     private final SupplierPerformanceEventRepository perfRepo;
+    private final ObjectMapper objectMapper;
     private final LoggedInUserService loggedInUserService;
+
+    @Value("${anthropic.api.key:}")
+    private String anthropicApiKey;
 
     public ProcurementHubController(
             SupplierProfileRepository supplierRepo,
@@ -41,6 +47,7 @@ public class ProcurementHubController {
             AuctionBidRepository auctionBidRepo,
             PurchaseCalendarEntryRepository calendarRepo,
             SupplierPerformanceEventRepository perfRepo,
+            ObjectMapper objectMapper,
             LoggedInUserService loggedInUserService) {
         this.supplierRepo = supplierRepo;
         this.productRepo = productRepo;
@@ -52,6 +59,7 @@ public class ProcurementHubController {
         this.auctionBidRepo = auctionBidRepo;
         this.calendarRepo = calendarRepo;
         this.perfRepo = perfRepo;
+        this.objectMapper = objectMapper;
         this.loggedInUserService = loggedInUserService;
     }
 
@@ -1580,6 +1588,227 @@ public class ProcurementHubController {
             int totalDeliveries, int onTimeDeliveries,
             double onTimeRate, double fulfillmentRate, double avgQualityScore,
             double reliabilityScore, String tier
+    ) {}
+
+    // ── Mana Buddy AI ─────────────────────────────────────────────────────────
+
+    private static final String BUDDY_SYSTEM_PROMPT = """
+            You are Mana Buddy, a procurement assistant for Indian housing societies.
+            Parse the user's plain-language request into a structured JSON object.
+            Return ONLY raw JSON, no markdown, no explanation.
+            JSON schema:
+            {
+              "title": "string — concise RFQ title",
+              "items": [{
+                "productName": "string",
+                "category": "one of CLEANING_SUPPLIES|ELECTRICAL|PLUMBING|OFFICE_SUPPLIES|GARDENING|SECURITY_EQUIPMENT|FURNITURE|IT_EQUIPMENT|FOOD_BEVERAGE|MAINTENANCE|PACKAGING|OTHER",
+                "unit": "string",
+                "quantity": number,
+                "targetPricePerUnit": number|null,
+                "specifications": "string|null"
+              }],
+              "deliveryLocation": "string — infer from context or use 'Society Premises'",
+              "deliveryDeadline": "YYYY-MM-DD — infer or default to 30 days from today",
+              "quotationDeadline": "YYYY-MM-DD — default to 14 days from today",
+              "estimatedValue": number|null,
+              "notes": "string|null"
+            }
+            Today's date: %s
+            """;
+
+    @PostMapping("/mana-buddy/parse-rfq")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<?> parseBuddyRFQ(
+            @RequestBody ParseBuddyRequest req) {
+
+        if (anthropicApiKey == null || anthropicApiKey.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service not configured"));
+        }
+
+        try {
+            String systemPrompt = String.format(BUDDY_SYSTEM_PROMPT, java.time.LocalDate.now());
+
+            String requestBody = objectMapper.writeValueAsString(Map.of(
+                    "model", "claude-haiku-5-5",
+                    "max_tokens", 1024,
+                    "system", systemPrompt,
+                    "messages", List.of(Map.of("role", "user", "content", req.text()))
+            ));
+
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest httpReq = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.anthropic.com/v1/messages"))
+                    .header("x-api-key", anthropicApiKey)
+                    .header("anthropic-version", "2023-06-01")
+                    .header("content-type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            java.net.http.HttpResponse<String> httpResp =
+                    client.send(httpReq, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> apiResp = objectMapper.readValue(httpResp.body(), Map.class);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> content = (List<Map<String, Object>>) apiResp.get("content");
+            String jsonText = (String) content.get(0).get("text");
+
+            Map<?, ?> parsed = objectMapper.readValue(jsonText.trim(), Map.class);
+            return ResponseEntity.ok(parsed);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "AI parsing failed: " + e.getMessage()));
+        }
+    }
+
+    // ── Smart Reorder Suggestions ─────────────────────────────────────────────
+
+    @GetMapping("/reorder-suggestions")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<ReorderSuggestionDto>> getReorderSuggestions(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        List<ReorderSuggestionDto> suggestions = calendarRepo
+                .findByCommunityIdAndIsActiveTrueOrderByNextDueDateAsc(communityId)
+                .stream()
+                .map(e -> {
+                    long diff = java.time.temporal.ChronoUnit.DAYS.between(today, e.getNextDueDate());
+                    String urgency = diff < 0 ? "OVERDUE"
+                            : diff <= 7  ? "URGENT"
+                            : diff <= 21 ? "DUE_SOON"
+                            : "UPCOMING";
+                    long daysSinceLastOrder = e.getLastRfqDate() != null
+                            ? java.time.temporal.ChronoUnit.DAYS.between(e.getLastRfqDate(), today)
+                            : -1L;
+                    return new ReorderSuggestionDto(
+                            e.getId(), e.getTitle(), e.getCategory().name(),
+                            e.getUnit(), e.getQuantity(), e.getEstimatedBudget(),
+                            e.getNextDueDate().toString(),
+                            e.getLastRfqDate() != null ? e.getLastRfqDate().toString() : null,
+                            daysSinceLastOrder,
+                            e.getFrequency().name(), urgency
+                    );
+                })
+                .sorted(Comparator.comparingInt(s -> switch (s.urgency()) {
+                    case "OVERDUE"  -> 0;
+                    case "URGENT"   -> 1;
+                    case "DUE_SOON" -> 2;
+                    default         -> 3;
+                }))
+                .toList();
+
+        return ResponseEntity.ok(suggestions);
+    }
+
+    // ── Community Savings Dashboard ────────────────────────────────────────────
+
+    @GetMapping("/savings-dashboard")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<SavingsDashboardDto> getSavingsDashboard(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+
+        List<ProcurementRFQ> awardedRFQs = rfqRepo
+                .findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, RFQStatus.AWARDED);
+
+        long totalSavings = 0;
+        long totalSpend   = 0;
+        int  competitiveCount = 0;
+        Map<String, Long> categoryMap = new LinkedHashMap<>();
+        List<SavingsEventDto> events  = new ArrayList<>();
+
+        for (ProcurementRFQ rfq : awardedRFQs) {
+            List<SupplierQuote> quotes = quoteRepo.findByRfqIdOrderByGrandTotalAsc(rfq.getId());
+            if (quotes.isEmpty()) continue;
+
+            SupplierQuote awarded = quotes.stream()
+                    .filter(q -> q.getStatus() == QuoteStatus.AWARDED)
+                    .findFirst().orElse(null);
+            if (awarded == null) continue;
+
+            long awardedAmt = awarded.getGrandTotal().longValue();
+            totalSpend += awardedAmt;
+
+            // Competitive savings vs next-best non-awarded quote
+            long compSavings = quotes.stream()
+                    .filter(q -> q.getStatus() != QuoteStatus.AWARDED)
+                    .mapToLong(q -> q.getGrandTotal().subtract(awarded.getGrandTotal())
+                            .max(BigDecimal.ZERO).longValue())
+                    .min().orElse(0L);
+            if (compSavings > 0) competitiveCount++;
+
+            // Budget savings vs estimated value
+            long budgetSavings = rfq.getEstimatedValue() != null
+                    ? rfq.getEstimatedValue().subtract(awarded.getGrandTotal())
+                            .max(BigDecimal.ZERO).longValue()
+                    : 0L;
+
+            long eventSavings = Math.max(compSavings, budgetSavings);
+            totalSavings += eventSavings;
+
+            // Category attribution from first item
+            if (!rfq.getItems().isEmpty()) {
+                String cat = rfq.getItems().get(0).getCategory().name();
+                categoryMap.merge(cat, eventSavings, Long::sum);
+            }
+
+            if (eventSavings > 0 || quotes.size() > 1) {
+                events.add(new SavingsEventDto(
+                        rfq.getId(), rfq.getRfqNumber(), rfq.getTitle(),
+                        quotes.size(), awardedAmt,
+                        rfq.getEstimatedValue() != null ? rfq.getEstimatedValue().longValue() : null,
+                        eventSavings, awarded.getSupplierName(),
+                        rfq.getCreatedAt().toString()
+                ));
+            }
+        }
+
+        events.sort(Comparator.comparingLong(SavingsEventDto::savings).reversed());
+
+        double savingsRate = (totalSpend + totalSavings) > 0
+                ? Math.round((double) totalSavings / (totalSpend + totalSavings) * 1000.0) / 10.0
+                : 0.0;
+
+        List<CategorySavingsDto> catList = categoryMap.entrySet().stream()
+                .map(e -> new CategorySavingsDto(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparingLong(CategorySavingsDto::savings).reversed())
+                .toList();
+
+        return ResponseEntity.ok(new SavingsDashboardDto(
+                totalSavings, totalSpend, savingsRate,
+                awardedRFQs.size(), competitiveCount,
+                catList, events.stream().limit(10).toList()
+        ));
+    }
+
+    // Phase 9: Mana Buddy + Reorder + Savings records
+    public record ParseBuddyRequest(String text) {}
+
+    public record ReorderSuggestionDto(
+            Long calendarEntryId, String title, String category,
+            String unit, Integer quantity, java.math.BigDecimal estimatedBudget,
+            String nextDueDate, String lastRfqDate, long daysSinceLastOrder,
+            String frequency, String urgency
+    ) {}
+
+    public record SavingsEventDto(
+            Long rfqId, String rfqNumber, String title,
+            int quoteCount, long awardedAmount, Long estimatedValue,
+            long savings, String winningSupplier, String createdAt
+    ) {}
+
+    public record CategorySavingsDto(String category, long savings) {}
+
+    public record SavingsDashboardDto(
+            long totalSavings, long totalSpend, double savingsRate,
+            int awardedRFQs, int competitiveBids,
+            List<CategorySavingsDto> categorySavings,
+            List<SavingsEventDto> topSavingsEvents
     ) {}
 
     // Phase 7: Purchase Calendar records
