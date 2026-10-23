@@ -23,6 +23,8 @@ public class ProcurementHubController {
     private final ProcurementRFQRepository rfqRepo;
     private final SupplierQuoteRepository quoteRepo;
     private final ProcurementPORepository poRepo;
+    private final BulkBuyCampaignRepository campaignRepo;
+    private final BulkBuyCommitmentRepository commitmentRepo;
     private final LoggedInUserService loggedInUserService;
 
     public ProcurementHubController(
@@ -31,12 +33,16 @@ public class ProcurementHubController {
             ProcurementRFQRepository rfqRepo,
             SupplierQuoteRepository quoteRepo,
             ProcurementPORepository poRepo,
+            BulkBuyCampaignRepository campaignRepo,
+            BulkBuyCommitmentRepository commitmentRepo,
             LoggedInUserService loggedInUserService) {
         this.supplierRepo = supplierRepo;
         this.productRepo = productRepo;
         this.rfqRepo = rfqRepo;
         this.quoteRepo = quoteRepo;
         this.poRepo = poRepo;
+        this.campaignRepo = campaignRepo;
+        this.commitmentRepo = commitmentRepo;
         this.loggedInUserService = loggedInUserService;
     }
 
@@ -611,11 +617,271 @@ public class ProcurementHubController {
         return ResponseEntity.ok(dto);
     }
 
+    // ── BulkBuy Campaigns ─────────────────────────────────────────────────
+
+    @GetMapping("/bulk-buy/campaigns")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<BulkBuyCampaignDto>> getCampaigns(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        Long userId = userId(principal);
+
+        List<BulkBuyCampaign> campaigns;
+        if (status != null) {
+            try {
+                BulkBuyCampaignStatus s = BulkBuyCampaignStatus.valueOf(status);
+                campaigns = campaignRepo.findByCommunityIdAndStatusOrderByDeadlineDateAsc(communityId, s);
+            } catch (IllegalArgumentException e) {
+                campaigns = campaignRepo.findByCommunityIdOrderByDeadlineDateAsc(communityId);
+            }
+        } else {
+            campaigns = campaignRepo.findByCommunityIdOrderByDeadlineDateAsc(communityId);
+        }
+
+        List<BulkBuyCampaignDto> dtos = campaigns.stream()
+                .map(c -> toCampaignDto(c, userId))
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/bulk-buy/campaigns/{id}")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<BulkBuyCampaignDto> getCampaign(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        Long userId = userId(principal);
+
+        return campaignRepo.findByIdAndCommunityId(id, communityId)
+                .map(c -> ResponseEntity.ok(toCampaignDto(c, userId)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/bulk-buy/campaigns")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<BulkBuyCampaignDto> createCampaign(
+            @RequestBody BulkBuyCampaignRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = communityId(principal);
+
+        ProcurementCategory cat = ProcurementCategory.OTHER;
+        try { cat = ProcurementCategory.valueOf(req.category()); } catch (Exception ignored) {}
+
+        BulkBuyCampaign campaign = BulkBuyCampaign.builder()
+                .title(req.title())
+                .description(req.description())
+                .productName(req.productName())
+                .category(cat)
+                .unit(req.unit() != null ? req.unit() : "units")
+                .minOrderQuantity(req.minOrderQuantity() != null ? req.minOrderQuantity() : 100)
+                .targetQuantity(req.targetQuantity())
+                .priceTiers(serializeTiers(req.priceTiers()))
+                .retailPrice(req.retailPrice())
+                .deadlineDate(java.time.LocalDate.parse(req.deadlineDate()))
+                .deliveryDate(req.deliveryDate() != null ? java.time.LocalDate.parse(req.deliveryDate()) : null)
+                .status(BulkBuyCampaignStatus.DRAFT)
+                .communityId(communityId)
+                .createdBy(user.getName() != null ? user.getName() : user.getEmail())
+                .build();
+
+        return ResponseEntity.ok(toCampaignDto(campaignRepo.save(campaign), userId(principal)));
+    }
+
+    @PostMapping("/bulk-buy/campaigns/{id}/activate")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<BulkBuyCampaignDto> activateCampaign(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        return campaignRepo.findByIdAndCommunityId(id, communityId(principal))
+                .map(c -> {
+                    c.setStatus(BulkBuyCampaignStatus.ACTIVE);
+                    return ResponseEntity.ok(toCampaignDto(campaignRepo.save(c), userId(principal)));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/bulk-buy/campaigns/{id}/commit")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<BulkBuyCommitmentDto> commitToCampaign(
+            @PathVariable Long id,
+            @RequestBody CommitRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        Long userId = user.getId();
+
+        BulkBuyCampaign campaign = campaignRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        if (campaign.getStatus() != BulkBuyCampaignStatus.ACTIVE) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Cancel any existing active commitment
+        commitmentRepo.findByCampaignIdAndUserIdAndStatusNot(id, userId, CommitmentStatus.CANCELLED)
+                .ifPresent(existing -> {
+                    campaign.setCurrentQuantity(Math.max(0, campaign.getCurrentQuantity() - existing.getQuantity()));
+                    campaign.setCommitmentCount(Math.max(0, campaign.getCommitmentCount() - 1));
+                    existing.setStatus(CommitmentStatus.CANCELLED);
+                    commitmentRepo.save(existing);
+                });
+
+        int newTotal = campaign.getCurrentQuantity() + req.quantity();
+        java.math.BigDecimal price = effectivePrice(campaign.getPriceTiers(), newTotal);
+        java.math.BigDecimal totalAmt = price != null
+                ? price.multiply(java.math.BigDecimal.valueOf(req.quantity()))
+                : java.math.BigDecimal.ZERO;
+
+        BulkBuyCommitment commitment = BulkBuyCommitment.builder()
+                .campaignId(id)
+                .userId(userId)
+                .userName(user.getName() != null ? user.getName() : user.getEmail())
+                .quantity(req.quantity())
+                .pricePerUnit(price)
+                .totalAmount(totalAmt)
+                .status(CommitmentStatus.PENDING)
+                .build();
+
+        commitmentRepo.save(commitment);
+
+        campaign.setCurrentQuantity(newTotal);
+        campaign.setCommitmentCount(campaign.getCommitmentCount() + 1);
+        if (newTotal >= campaign.getMinOrderQuantity()) {
+            campaign.setStatus(BulkBuyCampaignStatus.COMMITTED);
+        }
+        campaignRepo.save(campaign);
+
+        return ResponseEntity.ok(toCommitmentDto(commitment));
+    }
+
+    @DeleteMapping("/bulk-buy/campaigns/{id}/commit")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<Void> cancelCommitment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+
+        BulkBuyCampaign campaign = campaignRepo.findByIdAndCommunityId(id, communityId)
+                .orElse(null);
+        if (campaign == null) return ResponseEntity.notFound().build();
+
+        commitmentRepo.findByCampaignIdAndUserIdAndStatusNot(id, user.getId(), CommitmentStatus.CANCELLED)
+                .ifPresent(c -> {
+                    campaign.setCurrentQuantity(Math.max(0, campaign.getCurrentQuantity() - c.getQuantity()));
+                    campaign.setCommitmentCount(Math.max(0, campaign.getCommitmentCount() - 1));
+                    if (campaign.getStatus() == BulkBuyCampaignStatus.COMMITTED
+                            && campaign.getCurrentQuantity() < campaign.getMinOrderQuantity()) {
+                        campaign.setStatus(BulkBuyCampaignStatus.ACTIVE);
+                    }
+                    c.setStatus(CommitmentStatus.CANCELLED);
+                    commitmentRepo.save(c);
+                    campaignRepo.save(campaign);
+                });
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/bulk-buy/campaigns/{id}/commitments")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<BulkBuyCommitmentDto>> getCampaignCommitments(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        campaignRepo.findByIdAndCommunityId(id, communityId(principal))
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        List<BulkBuyCommitmentDto> dtos = commitmentRepo.findByCampaignIdOrderByCreatedAtDesc(id)
+                .stream().map(this::toCommitmentDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private Long communityId(UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return user.getCommunity() != null ? user.getCommunity().getId() : null;
+    }
+
+    private Long userId(UserPrincipal principal) {
+        return loggedInUserService.resolve(principal).getId();
+    }
+
+    private String serializeTiers(List<PriceTierRequest> tiers) {
+        if (tiers == null || tiers.isEmpty()) return "";
+        return tiers.stream()
+                .filter(t -> t.minQuantity() != null && t.pricePerUnit() != null)
+                .map(t -> t.minQuantity() + ":" + t.pricePerUnit().toPlainString())
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private List<PriceTierDto> parseTiers(String tiersStr) {
+        if (tiersStr == null || tiersStr.isBlank()) return List.of();
+        return Arrays.stream(tiersStr.split(","))
+                .filter(s -> s.contains(":"))
+                .map(s -> {
+                    String[] p = s.split(":");
+                    return new PriceTierDto(Integer.parseInt(p[0].trim()), new java.math.BigDecimal(p[1].trim()));
+                })
+                .toList();
+    }
+
+    private java.math.BigDecimal effectivePrice(String tiersStr, int currentQuantity) {
+        List<PriceTierDto> tiers = parseTiers(tiersStr);
+        if (tiers.isEmpty()) return null;
+        return tiers.stream()
+                .filter(t -> currentQuantity >= t.minQuantity())
+                .max(java.util.Comparator.comparingInt(PriceTierDto::minQuantity))
+                .map(PriceTierDto::pricePerUnit)
+                .orElse(tiers.get(0).pricePerUnit());
+    }
+
+    private BulkBuyCampaignDto toCampaignDto(BulkBuyCampaign c, Long userId) {
+        List<PriceTierDto> tiers = parseTiers(c.getPriceTiers());
+        java.math.BigDecimal currentPrice = effectivePrice(c.getPriceTiers(), c.getCurrentQuantity());
+
+        Integer myQty = null;
+        Long myCommitmentId = null;
+        if (userId != null) {
+            var myCommitment = commitmentRepo.findByCampaignIdAndUserIdAndStatusNot(
+                    c.getId(), userId, CommitmentStatus.CANCELLED);
+            if (myCommitment.isPresent()) {
+                myQty = myCommitment.get().getQuantity();
+                myCommitmentId = myCommitment.get().getId();
+            }
+        }
+
+        return new BulkBuyCampaignDto(
+                c.getId(), c.getTitle(), c.getDescription(),
+                c.getProductName(), c.getCategory().name(), c.getUnit(),
+                c.getMinOrderQuantity(), c.getTargetQuantity(), c.getCurrentQuantity(),
+                tiers, currentPrice, c.getRetailPrice(),
+                c.getSupplierId(), c.getSupplierName(),
+                c.getDeadlineDate().toString(),
+                c.getDeliveryDate() != null ? c.getDeliveryDate().toString() : null,
+                c.getStatus().name(), c.getCommitmentCount(),
+                c.getCommunityId(), c.getCreatedBy(),
+                myQty, myCommitmentId,
+                c.getCreatedAt().toString()
+        );
+    }
+
+    private BulkBuyCommitmentDto toCommitmentDto(BulkBuyCommitment c) {
+        return new BulkBuyCommitmentDto(
+                c.getId(), c.getCampaignId(),
+                c.getUserId(), c.getUserName(),
+                c.getQuantity(),
+                c.getPricePerUnit(), c.getTotalAmount(),
+                c.getStatus().name(), c.getCreatedAt().toString()
+        );
     }
 
     private SupplierQuoteDto toQuoteDto(SupplierQuote q) {
@@ -718,5 +984,42 @@ public class ProcurementHubController {
             List<CategorySpendDto> categorySpend,
             List<SupplierSpendDto> topSuppliers,
             int totalRFQs, int awardedRFQs, double avgQuotesPerRFQ, long pendingPOValue
+    ) {}
+
+    // Phase 4: BulkBuy records
+    public record PriceTierRequest(Integer minQuantity, java.math.BigDecimal pricePerUnit) {}
+    public record PriceTierDto(Integer minQuantity, java.math.BigDecimal pricePerUnit) {}
+
+    public record BulkBuyCampaignRequest(
+            String title, String description,
+            String productName, String category, String unit,
+            Integer minOrderQuantity, Integer targetQuantity,
+            List<PriceTierRequest> priceTiers,
+            java.math.BigDecimal retailPrice,
+            String deadlineDate, String deliveryDate
+    ) {}
+
+    public record BulkBuyCampaignDto(
+            Long id, String title, String description,
+            String productName, String category, String unit,
+            Integer minOrderQuantity, Integer targetQuantity, Integer currentQuantity,
+            List<PriceTierDto> priceTiers,
+            java.math.BigDecimal currentEffectivePrice, java.math.BigDecimal retailPrice,
+            Long supplierId, String supplierName,
+            String deadlineDate, String deliveryDate,
+            String status, Integer commitmentCount,
+            Long communityId, String createdBy,
+            Integer myCommitmentQuantity, Long myCommitmentId,
+            String createdAt
+    ) {}
+
+    public record CommitRequest(Integer quantity) {}
+
+    public record BulkBuyCommitmentDto(
+            Long id, Long campaignId,
+            Long userId, String userName,
+            Integer quantity,
+            java.math.BigDecimal pricePerUnit, java.math.BigDecimal totalAmount,
+            String status, String createdAt
     ) {}
 }
