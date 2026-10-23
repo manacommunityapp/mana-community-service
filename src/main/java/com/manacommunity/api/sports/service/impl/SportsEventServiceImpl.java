@@ -1338,6 +1338,13 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public void deleteEvent(Long eventId) {
+        long activeRegs = regRepo.countActiveByEventId(eventId);
+        if (activeRegs > 0) {
+            throw new InvalidInputException(
+                    "Cannot delete sports event id=" + eventId + " because " + activeRegs
+                    + " active registration(s) exist. Please close registration instead.");
+        }
+
         tournamentRepo.deleteByEventId(eventId);
         eventRepo.deleteById(eventId);
 
