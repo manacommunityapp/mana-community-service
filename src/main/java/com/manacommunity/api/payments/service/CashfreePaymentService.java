@@ -2,9 +2,16 @@ package com.manacommunity.api.payments.service;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.notification.orchestrator.NotificationDtos.UnifiedNotificationRequest;
+import com.manacommunity.api.notification.orchestrator.NotificationEnums.DeliveryStrategy;
+import com.manacommunity.api.notification.orchestrator.NotificationEnums.NotificationCategory;
+import com.manacommunity.api.notification.orchestrator.NotificationEnums.NotificationPriority;
+import com.manacommunity.api.notification.orchestrator.UnifiedNotificationService;
 import com.manacommunity.api.payments.config.CashfreeProperties;
 import com.manacommunity.api.payments.dto.CashfreeCreateOrderRequest;
 import com.manacommunity.api.payments.dto.CashfreeOrderResponse;
+import com.manacommunity.api.payments.dto.CashfreeAdminSummaryResponse;
+import com.manacommunity.api.payments.dto.CashfreeRefundRequest;
 import com.manacommunity.api.payments.entity.CashfreeOrder;
 import com.manacommunity.api.payments.exception.PaymentGatewayException;
 import com.manacommunity.api.payments.exception.PaymentVerificationException;
@@ -12,13 +19,17 @@ import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
+import com.manacommunity.api.sports.model.SportsEventRegistration;
+import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
@@ -29,6 +40,7 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -59,11 +71,14 @@ import java.util.Map;
 @ConditionalOnProperty(name = "app.cashfree.enabled", havingValue = "true")
 public class CashfreePaymentService {
 
-    private final CashfreeOrderRepository orderRepository;
-    private final CashfreeProperties      properties;
+    private final CashfreeOrderRepository          orderRepository;
+    private final CashfreeProperties               properties;
     @Qualifier("cashfreeRestTemplate")
-    private final RestTemplate            restTemplate;
-    private final AuditService            auditService;
+    private final RestTemplate                     restTemplate;
+    private final AuditService                     auditService;
+    private final SportsEventRegistrationRepository regRepository;
+
+    @Lazy @Autowired private UnifiedNotificationService notificationService;
 
     // ─── Order Creation ──────────────────────────────────────────────────────
 
@@ -291,6 +306,12 @@ public class CashfreePaymentService {
                 auditService.record(AuditAction.PAYMENT_WEBHOOK_PROCESSED, AuditModule.PAYMENT,
                         "CashfreeOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook PAYMENT_SUCCESS: order {} PAID via cfPaymentId={}", manaOrderId, cfPaymentId);
+
+                // Wire to business workflows based on referenceType.
+                dispatchBusinessConfirmation(order);
+
+                // Notify the payer.
+                dispatchPaymentNotification(order, true);
             }
         }, () -> log.warn("Webhook PAYMENT_SUCCESS: no local order for manaOrderId={}", manaOrderId));
     }
@@ -314,6 +335,7 @@ public class CashfreePaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
                 log.info("Webhook PAYMENT_FAILED: order {} FAILED: {}", manaOrderId, errorDesc);
+                dispatchPaymentNotification(order, false);
             }
         });
     }
@@ -345,6 +367,128 @@ public class CashfreePaymentService {
         }
     }
 
+    // ─── Refund ──────────────────────────────────────────────────────────────
+
+    /**
+     * Initiates a refund for a PAID Cashfree order.
+     *
+     * <p>Calls {@code POST /orders/{id}/refunds} on the Cashfree API.
+     * The final REFUNDED state is confirmed via the REFUND_STATUS_WEBHOOK;
+     * this method transitions the local record to REFUND_PENDING.
+     */
+    @Transactional
+    public CashfreeOrderResponse initiateRefund(String manaOrderId, BigDecimal refundAmount, String reason) {
+        CashfreeOrder order = orderRepository.findByManaOrderId(manaOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment order", "manaOrderId", manaOrderId));
+
+        if (!"PAID".equals(order.getStatus())) {
+            throw new PaymentGatewayException("Only PAID orders can be refunded. Current status: " + order.getStatus());
+        }
+
+        BigDecimal maxRefund = order.getAmount();
+        if (refundAmount == null || refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            refundAmount = maxRefund;
+        } else if (refundAmount.compareTo(maxRefund) > 0) {
+            throw new PaymentGatewayException("Refund amount ₹" + refundAmount + " exceeds paid amount ₹" + maxRefund);
+        }
+
+        String cfRefundId = "REFUND-" + manaOrderId + "-" + System.currentTimeMillis();
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("refund_amount", refundAmount);
+        body.put("refund_id", cfRefundId);
+        if (reason != null && !reason.isBlank()) {
+            body.put("refund_note", reason);
+        }
+
+        try {
+            restTemplate.exchange(
+                    properties.getBaseUrl() + "/orders/" + manaOrderId + "/refunds",
+                    HttpMethod.POST,
+                    new HttpEntity<>(body, buildHeaders()),
+                    Map.class
+            );
+
+            order.setStatus("REFUND_PENDING");
+            orderRepository.save(order);
+            auditService.record(AuditAction.PAYMENT_REFUND_INITIATED, AuditModule.PAYMENT,
+                    "CashfreeOrder", String.valueOf(order.getId()));
+            log.info("Refund initiated: manaOrderId={} cfRefundId={} amount=₹{}", manaOrderId, cfRefundId, refundAmount);
+
+            return toResponse(order, false);
+
+        } catch (RestClientException e) {
+            log.error("Failed to initiate refund for order {}: {}", manaOrderId, e.getMessage(), e);
+            throw new PaymentGatewayException("Refund request failed. Please try again or contact support.", e);
+        }
+    }
+
+    // ─── Business Workflow Dispatch ───────────────────────────────────────────
+
+    /**
+     * Routes a verified PAYMENT_SUCCESS to the relevant business module.
+     * Currently handles SPORTS_REGISTRATION; extend with new cases as needed.
+     */
+    private void dispatchBusinessConfirmation(CashfreeOrder order) {
+        if (order.getReferenceType() == null) return;
+        switch (order.getReferenceType()) {
+            case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
+            default -> log.debug("No business confirmation handler for referenceType={}", order.getReferenceType());
+        }
+    }
+
+    private void confirmSportsRegistration(CashfreeOrder order) {
+        if (order.getUser() == null || order.getReferenceId() == null) {
+            log.warn("Cannot confirm sports registration: missing user or referenceId on order {}", order.getManaOrderId());
+            return;
+        }
+        Long eventId = order.getReferenceId();
+        Long userId  = order.getUser().getId();
+
+        regRepository.findFirstByEventIdAndUserIdAndStatus(
+                eventId, userId, SportsEventRegistration.RegistrationStatus.PENDING)
+            .ifPresentOrElse(reg -> {
+                reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+                reg.setReviewedAt(LocalDateTime.now());
+                regRepository.save(reg);
+                log.info("Sports registration {} CONFIRMED after payment {}", reg.getId(), order.getManaOrderId());
+            }, () -> log.warn("No PENDING sports registration found for eventId={} userId={} after payment {}",
+                    eventId, userId, order.getManaOrderId()));
+    }
+
+    // ─── Notification Dispatch ────────────────────────────────────────────────
+
+    private void dispatchPaymentNotification(CashfreeOrder order, boolean success) {
+        if (order.getUser() == null) return;
+        try {
+            String title = success ? "Payment Successful" : "Payment Failed";
+            String body  = success
+                    ? String.format("Your payment of ₹%.2f was successful. Order ID: %s",
+                          order.getAmount().doubleValue(), order.getManaOrderId())
+                    : String.format("Your payment of ₹%.2f could not be completed. %s",
+                          order.getAmount().doubleValue(),
+                          order.getFailureReason() != null ? order.getFailureReason() : "Please try again.");
+
+            notificationService.orchestrate(
+                    UnifiedNotificationRequest.builder()
+                            .recipientUserId(order.getUser().getId())
+                            .category(NotificationCategory.FINANCIAL_BILLING)
+                            .priority(NotificationPriority.HIGH)
+                            .strategy(DeliveryStrategy.PREFERENCE_BASED)
+                            .title(title)
+                            .body(body)
+                            .data(Map.of(
+                                    "type",        "PAYMENT_" + (success ? "SUCCESS" : "FAILED"),
+                                    "manaOrderId", order.getManaOrderId(),
+                                    "amount",      order.getAmount().toPlainString()
+                            ))
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("Payment notification dispatch failed for order {}: {}", order.getManaOrderId(), e.getMessage());
+        }
+    }
+
     // ─── Queries ─────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -372,6 +516,65 @@ public class CashfreePaymentService {
             String referenceType, Long referenceId, Long communityId, Pageable pageable) {
         return orderRepository.findByReferenceTypeAndReferenceId(referenceType, referenceId, pageable)
                 .map(o -> toResponse(o, false));
+    }
+
+    // ─── Admin Report ─────────────────────────────────────────────────────────
+
+    /**
+     * Paginated admin report with optional filters by status, referenceType, and date range.
+     *
+     * @param communityId target community
+     * @param status      optional status filter (PAID, FAILED, etc.)
+     * @param refType     optional referenceType filter (SPORTS_REGISTRATION, etc.)
+     * @param from        optional window start (inclusive)
+     * @param to          optional window end (inclusive)
+     */
+    @Transactional(readOnly = true)
+    public Page<CashfreeOrderResponse> getAdminReport(
+            Long communityId, String status, String refType,
+            LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        return orderRepository.findForAdminReport(communityId, status, refType, from, to, pageable)
+                .map(o -> toResponse(o, false));
+    }
+
+    /**
+     * Aggregate payment statistics for the admin dashboard.
+     */
+    @Transactional(readOnly = true)
+    public CashfreeAdminSummaryResponse getAdminSummary(
+            Long communityId, LocalDateTime from, LocalDateTime to) {
+
+        BigDecimal totalCollected = orderRepository.sumPaidAmount(communityId, from, to);
+        BigDecimal totalRefunded  = orderRepository.sumRefundedAmount(communityId, from, to);
+
+        Map<String, Long>       countByStatus  = new HashMap<>();
+        Map<String, BigDecimal> amountByStatus = new HashMap<>();
+        for (Object[] row : orderRepository.countAndSumByStatus(communityId, from, to)) {
+            String status     = String.valueOf(row[0]);
+            Long   count      = ((Number) row[1]).longValue();
+            BigDecimal amount = (BigDecimal) row[2];
+            countByStatus.put(status, count);
+            amountByStatus.put(status, amount);
+        }
+
+        Map<String, Long>       countByRef   = new HashMap<>();
+        Map<String, BigDecimal> revenueByRef = new HashMap<>();
+        for (Object[] row : orderRepository.paidCountAndSumByReferenceType(communityId, from, to)) {
+            String refType    = row[0] != null ? String.valueOf(row[0]) : "UNKNOWN";
+            Long   count      = ((Number) row[1]).longValue();
+            BigDecimal amount = (BigDecimal) row[2];
+            countByRef.put(refType, count);
+            revenueByRef.put(refType, amount);
+        }
+
+        return CashfreeAdminSummaryResponse.builder()
+                .totalCollected(totalCollected)
+                .totalRefunded(totalRefunded)
+                .countByStatus(countByStatus)
+                .amountByStatus(amountByStatus)
+                .countByReferenceType(countByRef)
+                .revenueByReferenceType(revenueByRef)
+                .build();
     }
 
     // ─── Webhook Signature Verification ──────────────────────────────────────
