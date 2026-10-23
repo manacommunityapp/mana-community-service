@@ -27,6 +27,7 @@ public class ProcurementHubController {
     private final BulkBuyCommitmentRepository commitmentRepo;
     private final AuctionBidRepository auctionBidRepo;
     private final PurchaseCalendarEntryRepository calendarRepo;
+    private final SupplierPerformanceEventRepository perfRepo;
     private final LoggedInUserService loggedInUserService;
 
     public ProcurementHubController(
@@ -39,6 +40,7 @@ public class ProcurementHubController {
             BulkBuyCommitmentRepository commitmentRepo,
             AuctionBidRepository auctionBidRepo,
             PurchaseCalendarEntryRepository calendarRepo,
+            SupplierPerformanceEventRepository perfRepo,
             LoggedInUserService loggedInUserService) {
         this.supplierRepo = supplierRepo;
         this.productRepo = productRepo;
@@ -49,6 +51,7 @@ public class ProcurementHubController {
         this.commitmentRepo = commitmentRepo;
         this.auctionBidRepo = auctionBidRepo;
         this.calendarRepo = calendarRepo;
+        this.perfRepo = perfRepo;
         this.loggedInUserService = loggedInUserService;
     }
 
@@ -1437,6 +1440,146 @@ public class ProcurementHubController {
             java.math.BigDecimal estimatedValue,
             Integer bidCount, java.math.BigDecimal lowestBid, AuctionBidDto myBid,
             String createdAt
+    ) {}
+
+    // ── Supplier Reliability ──────────────────────────────────────────────
+
+    @GetMapping("/suppliers/{id}/performance")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<PerformanceEventDto>> getSupplierPerformance(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        List<PerformanceEventDto> dtos = perfRepo
+                .findBySupplierIdAndCommunityIdOrderByCreatedAtDesc(id, communityId)
+                .stream().map(this::toPerformanceDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping("/suppliers/{id}/performance")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<ReliabilityScoreDto> recordPerformanceEvent(
+            @PathVariable Long id,
+            @RequestBody RecordPerformanceRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = communityId(principal);
+
+        PerformanceEventType type = PerformanceEventType.valueOf(req.eventType());
+
+        Boolean onTimeFlag = switch (type) {
+            case DELIVERY_ON_TIME -> true;
+            case DELIVERY_LATE, DELIVERY_PARTIAL, DELIVERY_FAILED -> false;
+            default -> null;
+        };
+
+        SupplierPerformanceEvent event = SupplierPerformanceEvent.builder()
+                .supplierId(id)
+                .poId(req.poId())
+                .rfqId(req.rfqId())
+                .communityId(communityId)
+                .eventType(type)
+                .numericValue(req.numericValue() != null ? java.math.BigDecimal.valueOf(req.numericValue()) : null)
+                .onTimeFlag(onTimeFlag)
+                .notes(req.notes())
+                .recordedBy(user.getName() != null ? user.getName() : user.getEmail())
+                .build();
+
+        perfRepo.save(event);
+        return ResponseEntity.ok(computeReliabilityScore(id, communityId));
+    }
+
+    @GetMapping("/suppliers/{id}/reliability")
+    public ResponseEntity<ReliabilityScoreDto> getReliabilityScore(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = principal != null ? communityId(principal) : 0L;
+        return ResponseEntity.ok(computeReliabilityScore(id, communityId));
+    }
+
+    @GetMapping("/suppliers/reliability-leaderboard")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<ReliabilityScoreDto>> getReliabilityLeaderboard(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        List<ReliabilityScoreDto> scores = supplierRepo.findByActiveTrue().stream()
+                .map(s -> computeReliabilityScore(s.getId(), communityId))
+                .filter(s -> s.totalDeliveries() > 0)
+                .sorted(Comparator.comparingDouble(ReliabilityScoreDto::reliabilityScore).reversed())
+                .toList();
+        return ResponseEntity.ok(scores);
+    }
+
+    private ReliabilityScoreDto computeReliabilityScore(Long supplierId, Long communityId) {
+        SupplierProfile supplier = supplierRepo.findById(supplierId).orElse(null);
+        String supplierName = supplier != null ? supplier.getBusinessName() : "Unknown";
+
+        List<SupplierPerformanceEvent> events =
+                perfRepo.findBySupplierIdAndCommunityIdOrderByCreatedAtDesc(supplierId, communityId);
+
+        long onTime    = events.stream().filter(e -> e.getEventType() == PerformanceEventType.DELIVERY_ON_TIME).count();
+        long late      = events.stream().filter(e -> e.getEventType() == PerformanceEventType.DELIVERY_LATE).count();
+        long partial   = events.stream().filter(e -> e.getEventType() == PerformanceEventType.DELIVERY_PARTIAL).count();
+        long failed    = events.stream().filter(e -> e.getEventType() == PerformanceEventType.DELIVERY_FAILED).count();
+        long totalDel  = onTime + late + partial + failed;
+
+        double onTimeRate      = totalDel == 0 ? 0 : (double) onTime / totalDel;
+        double fulfillmentRate = totalDel == 0 ? 0 : (double) (onTime + late) / totalDel;
+
+        OptionalDouble avgQualityOpt = events.stream()
+                .filter(e -> e.getEventType() == PerformanceEventType.QUALITY_RATING && e.getNumericValue() != null)
+                .mapToDouble(e -> e.getNumericValue().doubleValue())
+                .average();
+        double avgQuality = avgQualityOpt.isPresent() ? avgQualityOpt.getAsDouble() : 0;
+
+        double score = totalDel == 0 ? 0
+                : (onTimeRate * 50 + fulfillmentRate * 30 + (avgQuality / 5.0) * 20);
+        double rounded = Math.round(score * 10.0) / 10.0;
+
+        String tier = rounded >= 85 ? "EXCELLENT" : rounded >= 70 ? "GOOD" : rounded >= 50 ? "AVERAGE" : "POOR";
+
+        return new ReliabilityScoreDto(
+                supplierId, supplierName,
+                (int) totalDel, (int) onTime,
+                Math.round(onTimeRate * 1000) / 10.0,
+                Math.round(fulfillmentRate * 1000) / 10.0,
+                Math.round(avgQuality * 10.0) / 10.0,
+                rounded, tier
+        );
+    }
+
+    private PerformanceEventDto toPerformanceDto(SupplierPerformanceEvent e) {
+        return new PerformanceEventDto(
+                e.getId(), e.getSupplierId(), e.getPoId(), e.getRfqId(),
+                e.getCommunityId(), e.getEventType().name(),
+                e.getNumericValue() != null ? e.getNumericValue().doubleValue() : null,
+                e.getOnTimeFlag(), e.getNotes(), e.getRecordedBy(),
+                e.getCreatedAt().toString()
+        );
+    }
+
+    // Phase 8: Reliability records
+    public record RecordPerformanceRequest(
+            Long poId, Long rfqId, String eventType,
+            Double numericValue, String notes
+    ) {}
+
+    public record PerformanceEventDto(
+            Long id, Long supplierId, Long poId, Long rfqId,
+            Long communityId, String eventType,
+            Double numericValue, Boolean onTimeFlag, String notes,
+            String recordedBy, String createdAt
+    ) {}
+
+    public record ReliabilityScoreDto(
+            Long supplierId, String supplierName,
+            int totalDeliveries, int onTimeDeliveries,
+            double onTimeRate, double fulfillmentRate, double avgQualityScore,
+            double reliabilityScore, String tier
     ) {}
 
     // Phase 7: Purchase Calendar records
