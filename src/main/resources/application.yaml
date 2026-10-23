@@ -108,6 +108,15 @@ app:
     webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:placeholder_webhook_secret}
     currency: ${RAZORPAY_CURRENCY:INR}
 
+  cashfree:
+    enabled: ${CASHFREE_ENABLED:false}
+    app-id: ${CASHFREE_APP_ID:TEST_APP_ID_PLACEHOLDER}
+    secret-key: ${CASHFREE_SECRET_KEY:TEST_SECRET_PLACEHOLDER}
+    webhook-secret: ${CASHFREE_WEBHOOK_SECRET:TEST_WEBHOOK_SECRET_PLACEHOLDER}
+    base-url: ${CASHFREE_BASE_URL:https://sandbox.cashfree.com/pg}
+    api-version: ${CASHFREE_API_VERSION:2022-09-01}
+    currency: ${CASHFREE_CURRENCY:INR}
+
   bbps:
     # Set enabled=true and supply Setu API keys once BBPS aggregator is provisioned.
     # Setu BillPay API: https://docs.setu.co/payments/billpay
