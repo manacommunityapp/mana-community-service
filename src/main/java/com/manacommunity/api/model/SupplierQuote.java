@@ -79,4 +79,9 @@ public class SupplierQuote {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    @Transient
+    public String getSupplierName() {
+        return supplier != null ? supplier.getBusinessName() : null;
+    }
 }
