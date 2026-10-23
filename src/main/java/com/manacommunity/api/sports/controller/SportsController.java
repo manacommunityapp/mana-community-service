@@ -212,13 +212,23 @@ public class SportsController {
         return ResponseEntity.ok(toEventResponse(eventService.updateEvent(id, req)));
     }
 
-    @DeleteMapping({"/events/{id}", "/tournaments/{id}"})
-    public ResponseEntity<Void> deleteTournament(
+    @DeleteMapping("/events/{id}")
+    public ResponseEntity<Void> deleteSportsEvent(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
-        log.info("Deleting tournament/event id={}", id);
+        log.info("Deleting sports event id={}", id);
         eventService.deleteEvent(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/tournaments/{id}")
+    public ResponseEntity<Void> deleteSportsTournament(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Deleting tournament id={}", id);
+        tournamentService.deleteTournament(id);
         return ResponseEntity.noContent().build();
     }
 
