@@ -510,7 +510,6 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     }
                 }
             }
-        }
     }
 
     private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {
@@ -664,7 +663,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                 } catch (NumberFormatException ignored) {}
             }
         } catch (Exception ex) {
-            // Non-critical slot increment failure
+            log.warn("Failed to decrement slots for activityId={}: {}", actId, ex.getMessage());
         }
     }
 
