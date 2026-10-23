@@ -1345,7 +1345,6 @@ public class SportsEventServiceImpl implements SportsEventService {
                     + " active registration(s) exist. Please close registration instead.");
         }
 
-        tournamentRepo.deleteByEventId(eventId);
         eventRepo.deleteById(eventId);
 
         auditService.record(
