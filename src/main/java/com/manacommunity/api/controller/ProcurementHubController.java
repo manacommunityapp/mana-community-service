@@ -26,6 +26,7 @@ public class ProcurementHubController {
     private final BulkBuyCampaignRepository campaignRepo;
     private final BulkBuyCommitmentRepository commitmentRepo;
     private final AuctionBidRepository auctionBidRepo;
+    private final PurchaseCalendarEntryRepository calendarRepo;
     private final LoggedInUserService loggedInUserService;
 
     public ProcurementHubController(
@@ -37,6 +38,7 @@ public class ProcurementHubController {
             BulkBuyCampaignRepository campaignRepo,
             BulkBuyCommitmentRepository commitmentRepo,
             AuctionBidRepository auctionBidRepo,
+            PurchaseCalendarEntryRepository calendarRepo,
             LoggedInUserService loggedInUserService) {
         this.supplierRepo = supplierRepo;
         this.productRepo = productRepo;
@@ -46,6 +48,7 @@ public class ProcurementHubController {
         this.campaignRepo = campaignRepo;
         this.commitmentRepo = commitmentRepo;
         this.auctionBidRepo = auctionBidRepo;
+        this.calendarRepo = calendarRepo;
         this.loggedInUserService = loggedInUserService;
     }
 
@@ -1228,6 +1231,188 @@ public class ProcurementHubController {
         );
     }
 
+    // ── Purchase Calendar ─────────────────────────────────────────────────
+
+    @GetMapping("/calendar")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<CalendarEntryDto>> getCalendarEntries(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        List<CalendarEntryDto> dtos = calendarRepo
+                .findByCommunityIdAndIsActiveTrueOrderByNextDueDateAsc(communityId)
+                .stream().map(this::toCalendarDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/calendar/upcoming")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<CalendarEntryDto>> getUpcomingCalendarEntries(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        java.time.LocalDate cutoff = java.time.LocalDate.now().plusDays(30);
+        List<CalendarEntryDto> dtos = calendarRepo
+                .findByCommunityIdAndIsActiveTrueAndNextDueDateBefore(communityId, cutoff)
+                .stream().map(this::toCalendarDto).toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping("/calendar")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<CalendarEntryDto> createCalendarEntry(
+            @RequestBody CalendarEntryRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = communityId(principal);
+
+        ProcurementCategory cat = ProcurementCategory.OTHER;
+        try { cat = ProcurementCategory.valueOf(req.category()); } catch (Exception ignored) {}
+
+        CalendarFrequency freq = CalendarFrequency.MONTHLY;
+        try { freq = CalendarFrequency.valueOf(req.frequency()); } catch (Exception ignored) {}
+
+        PurchaseCalendarEntry entry = PurchaseCalendarEntry.builder()
+                .title(req.title())
+                .description(req.description())
+                .category(cat)
+                .frequency(freq)
+                .unit(req.unit() != null ? req.unit() : "units")
+                .quantity(req.quantity() != null ? req.quantity() : 1)
+                .estimatedBudget(req.estimatedBudget())
+                .deliveryLocation(req.deliveryLocation())
+                .nextDueDate(java.time.LocalDate.parse(req.nextDueDate()))
+                .notes(req.notes())
+                .communityId(communityId)
+                .createdBy(user.getName() != null ? user.getName() : user.getEmail())
+                .build();
+
+        return ResponseEntity.ok(toCalendarDto(calendarRepo.save(entry)));
+    }
+
+    @PutMapping("/calendar/{id}")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<CalendarEntryDto> updateCalendarEntry(
+            @PathVariable Long id,
+            @RequestBody CalendarEntryRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        return calendarRepo.findByIdAndCommunityId(id, communityId(principal))
+                .map(entry -> {
+                    if (req.title() != null) entry.setTitle(req.title());
+                    if (req.description() != null) entry.setDescription(req.description());
+                    if (req.category() != null) {
+                        try { entry.setCategory(ProcurementCategory.valueOf(req.category())); } catch (Exception ignored) {}
+                    }
+                    if (req.frequency() != null) {
+                        try { entry.setFrequency(CalendarFrequency.valueOf(req.frequency())); } catch (Exception ignored) {}
+                    }
+                    if (req.unit() != null) entry.setUnit(req.unit());
+                    if (req.quantity() != null) entry.setQuantity(req.quantity());
+                    if (req.estimatedBudget() != null) entry.setEstimatedBudget(req.estimatedBudget());
+                    if (req.deliveryLocation() != null) entry.setDeliveryLocation(req.deliveryLocation());
+                    if (req.nextDueDate() != null) entry.setNextDueDate(java.time.LocalDate.parse(req.nextDueDate()));
+                    if (req.notes() != null) entry.setNotes(req.notes());
+                    return ResponseEntity.ok(toCalendarDto(calendarRepo.save(entry)));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/calendar/{id}")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<Void> deleteCalendarEntry(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        calendarRepo.findByIdAndCommunityId(id, communityId(principal))
+                .ifPresent(e -> {
+                    e.setIsActive(false);
+                    calendarRepo.save(e);
+                });
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/calendar/{id}/create-rfq")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<ProcurementRFQ> createRFQFromCalendar(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = communityId(principal);
+        String requester = user.getName() != null ? user.getName() : user.getEmail();
+
+        PurchaseCalendarEntry entry = calendarRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new RuntimeException("Calendar entry not found"));
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        String rfqNum = "CAL-" + communityId + "-" + (System.currentTimeMillis() % 100000);
+
+        ProcurementRFQ rfq = ProcurementRFQ.builder()
+                .rfqNumber(rfqNum)
+                .title(entry.getTitle())
+                .description(entry.getDescription())
+                .status(RFQStatus.OPEN)
+                .communityId(communityId)
+                .requestedBy(requester)
+                .deliveryLocation(entry.getDeliveryLocation() != null ? entry.getDeliveryLocation() : "Society Main Gate")
+                .quotationDeadline(today.plusDays(14))
+                .deliveryDeadline(today.plusDays(30))
+                .estimatedValue(entry.getEstimatedBudget())
+                .notes("Auto-created from Purchase Calendar: " + entry.getTitle())
+                .build();
+
+        ProcurementRFQ saved = rfqRepo.save(rfq);
+
+        RFQItem item = RFQItem.builder()
+                .rfq(saved)
+                .productName(entry.getTitle())
+                .description(entry.getDescription())
+                .category(entry.getCategory())
+                .unit(entry.getUnit())
+                .quantity(entry.getQuantity())
+                .targetPricePerUnit(entry.getEstimatedBudget() != null && entry.getQuantity() > 0
+                        ? entry.getEstimatedBudget().divide(java.math.BigDecimal.valueOf(entry.getQuantity()), 2, java.math.RoundingMode.HALF_UP)
+                        : null)
+                .build();
+        saved.getItems().add(item);
+        saved = rfqRepo.save(saved);
+
+        // Advance next due date
+        entry.setLastRfqDate(today);
+        entry.setLastRfqId(saved.getId());
+        entry.setNextDueDate(advanceDueDate(entry.getNextDueDate(), entry.getFrequency()));
+        calendarRepo.save(entry);
+
+        return ResponseEntity.ok(saved);
+    }
+
+    private java.time.LocalDate advanceDueDate(java.time.LocalDate current, CalendarFrequency freq) {
+        java.time.LocalDate base = current.isBefore(java.time.LocalDate.now()) ? java.time.LocalDate.now() : current;
+        return switch (freq) {
+            case WEEKLY    -> base.plusWeeks(1);
+            case MONTHLY   -> base.plusMonths(1);
+            case QUARTERLY -> base.plusMonths(3);
+            case BIANNUAL  -> base.plusMonths(6);
+            case ANNUAL    -> base.plusYears(1);
+        };
+    }
+
+    private CalendarEntryDto toCalendarDto(PurchaseCalendarEntry e) {
+        return new CalendarEntryDto(
+                e.getId(), e.getTitle(), e.getDescription(),
+                e.getCategory().name(), e.getFrequency().name(),
+                e.getUnit(), e.getQuantity(), e.getEstimatedBudget(),
+                e.getDeliveryLocation(),
+                e.getNextDueDate().toString(),
+                e.getLastRfqDate() != null ? e.getLastRfqDate().toString() : null,
+                e.getLastRfqId(),
+                e.getIsActive(), e.getCommunityId(), e.getNotes(),
+                e.getCreatedBy(), e.getCreatedAt().toString()
+        );
+    }
+
     // Phase 5: Reverse Auction records
     public record EnableAuctionRequest(String auctionDeadline, java.math.BigDecimal reservePrice) {}
 
@@ -1252,5 +1437,24 @@ public class ProcurementHubController {
             java.math.BigDecimal estimatedValue,
             Integer bidCount, java.math.BigDecimal lowestBid, AuctionBidDto myBid,
             String createdAt
+    ) {}
+
+    // Phase 7: Purchase Calendar records
+    public record CalendarEntryRequest(
+            String title, String description,
+            String category, String frequency,
+            String unit, Integer quantity,
+            java.math.BigDecimal estimatedBudget, String deliveryLocation,
+            String nextDueDate, String notes
+    ) {}
+
+    public record CalendarEntryDto(
+            Long id, String title, String description,
+            String category, String frequency,
+            String unit, Integer quantity,
+            java.math.BigDecimal estimatedBudget, String deliveryLocation,
+            String nextDueDate, String lastRfqDate, Long lastRfqId,
+            Boolean isActive, Long communityId, String notes,
+            String createdBy, String createdAt
     ) {}
 }
