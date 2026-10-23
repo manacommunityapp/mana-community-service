@@ -1,9 +1,9 @@
--- Group Buying & Deals module
+-- Group Buying & Deals module (our service layer tables)
 
-CREATE TABLE group_deal (
+CREATE TABLE IF NOT EXISTS manacommunity.group_deal (
     id               BIGSERIAL PRIMARY KEY,
-    community_id     BIGINT        NOT NULL REFERENCES community(id),
-    created_by_id    BIGINT        NOT NULL REFERENCES app_user(id),
+    community_id     BIGINT        NOT NULL REFERENCES manacommunity.community(id),
+    created_by_id    BIGINT        NOT NULL REFERENCES manacommunity.app_user(id),
     title            VARCHAR(200)  NOT NULL,
     description      TEXT,
     category         VARCHAR(80)   NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE group_deal (
     image_url        TEXT,
     mrp              NUMERIC(12,2),
     vendor_name      VARCHAR(150),
-    vendor_id        BIGINT        REFERENCES app_user(id),
+    vendor_id        BIGINT        REFERENCES manacommunity.app_user(id),
     vendor_rating    NUMERIC(3,1),
     vendor_verified  BOOLEAN       NOT NULL DEFAULT FALSE,
     target_participants  INT       NOT NULL DEFAULT 10,
@@ -27,9 +27,9 @@ CREATE TABLE group_deal (
     updated_at       TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE group_deal_tier (
+CREATE TABLE IF NOT EXISTS manacommunity.group_deal_tier (
     id          BIGSERIAL PRIMARY KEY,
-    deal_id     BIGINT        NOT NULL REFERENCES group_deal(id) ON DELETE CASCADE,
+    deal_id     BIGINT        NOT NULL REFERENCES manacommunity.group_deal(id) ON DELETE CASCADE,
     min_qty     INT           NOT NULL,
     max_qty     INT,
     price_per_unit NUMERIC(12,2) NOT NULL,
@@ -37,11 +37,11 @@ CREATE TABLE group_deal_tier (
     sort_order  INT           NOT NULL DEFAULT 0
 );
 
-CREATE TABLE group_order (
+CREATE TABLE IF NOT EXISTS manacommunity.group_order (
     id               BIGSERIAL PRIMARY KEY,
-    deal_id          BIGINT        NOT NULL REFERENCES group_deal(id),
-    user_id          BIGINT        NOT NULL REFERENCES app_user(id),
-    community_id     BIGINT        NOT NULL REFERENCES community(id),
+    deal_id          BIGINT        NOT NULL REFERENCES manacommunity.group_deal(id),
+    user_id          BIGINT        NOT NULL REFERENCES manacommunity.app_user(id),
+    community_id     BIGINT        NOT NULL REFERENCES manacommunity.community(id),
     order_number     VARCHAR(40)   NOT NULL UNIQUE,
     quantity         INT           NOT NULL DEFAULT 1,
     price_per_unit   NUMERIC(12,2) NOT NULL,
@@ -57,10 +57,10 @@ CREATE TABLE group_order (
     updated_at       TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE group_demand_item (
+CREATE TABLE IF NOT EXISTS manacommunity.group_demand_item (
     id              BIGSERIAL PRIMARY KEY,
-    community_id    BIGINT       NOT NULL REFERENCES community(id),
-    requested_by_id BIGINT       NOT NULL REFERENCES app_user(id),
+    community_id    BIGINT       NOT NULL REFERENCES manacommunity.community(id),
+    requested_by_id BIGINT       NOT NULL REFERENCES manacommunity.app_user(id),
     title           VARCHAR(200) NOT NULL,
     description     TEXT,
     category        VARCHAR(80)  NOT NULL,
@@ -71,15 +71,15 @@ CREATE TABLE group_demand_item (
     updated_at      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE group_demand_upvote (
-    demand_id BIGINT NOT NULL REFERENCES group_demand_item(id) ON DELETE CASCADE,
-    user_id   BIGINT NOT NULL REFERENCES app_user(id),
+CREATE TABLE IF NOT EXISTS manacommunity.group_demand_upvote (
+    demand_id BIGINT NOT NULL REFERENCES manacommunity.group_demand_item(id) ON DELETE CASCADE,
+    user_id   BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
     PRIMARY KEY (demand_id, user_id)
 );
 
 -- Indexes
-CREATE INDEX idx_group_deal_community ON group_deal(community_id);
-CREATE INDEX idx_group_deal_status    ON group_deal(status);
-CREATE INDEX idx_group_order_user     ON group_order(user_id);
-CREATE INDEX idx_group_order_deal     ON group_order(deal_id);
-CREATE INDEX idx_group_demand_community ON group_demand_item(community_id);
+CREATE INDEX IF NOT EXISTS idx_group_deal_community    ON manacommunity.group_deal(community_id);
+CREATE INDEX IF NOT EXISTS idx_group_deal_status       ON manacommunity.group_deal(status);
+CREATE INDEX IF NOT EXISTS idx_group_order_user        ON manacommunity.group_order(user_id);
+CREATE INDEX IF NOT EXISTS idx_group_order_deal        ON manacommunity.group_order(deal_id);
+CREATE INDEX IF NOT EXISTS idx_group_demand_community  ON manacommunity.group_demand_item(community_id);
