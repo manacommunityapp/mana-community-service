@@ -127,6 +127,37 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsMeta sport = sportMetaRepo.findById(req.getSportId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sport", req.getSportId()));
 
+        SportsTournament tournament = null;
+        if (req.getTournamentId() != null) {
+            tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseGet(() -> {
+                        return eventRepo.findById(req.getTournamentId())
+                                .map(SportsEvent::getTournament)
+                                .filter(java.util.Objects::nonNull)
+                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    });
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
+        }
+        Long tournamentId = (tournament != null) ? tournament.getId() : null;
+
+        // Idempotency deduplication check: if an identical event was created in the last 20 seconds, return it
+        if (req.getCommunityId() != null && req.getName() != null) {
+            LocalDateTime recentThreshold = LocalDateTime.now().minusSeconds(20);
+            List<SportsEvent> recentDuplicates = eventRepo.findRecentDuplicates(
+                    req.getCommunityId(),
+                    sport.getId(),
+                    req.getName(),
+                    tournamentId,
+                    recentThreshold
+            );
+            if (!recentDuplicates.isEmpty()) {
+                SportsEvent existing = recentDuplicates.get(0);
+                log.warn("Duplicate sports event creation prevented: returning existing event id={} for name='{}'",
+                        existing.getId(), existing.getName());
+                return existing;
+            }
+        }
+
         SportsVenue venue = null;
         if (req.getVenueId() != null) {
             venue = venueRepo.findById(req.getVenueId())
@@ -192,16 +223,8 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setSponsors(sponsorsList);
         }
 
-        if (req.getTournamentId() != null) {
-            SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
-                    .orElseGet(() -> {
-                        return eventRepo.findById(req.getTournamentId())
-                                .map(SportsEvent::getTournament)
-                                .filter(java.util.Objects::nonNull)
-                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
-                    });
+        if (tournament != null) {
             event.setTournament(tournament);
-            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
         }
 
         SportsEvent saved = eventRepo.save(event);
