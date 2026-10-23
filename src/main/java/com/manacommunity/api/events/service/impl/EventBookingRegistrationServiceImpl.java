@@ -510,6 +510,7 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
                     }
                 }
             }
+        }
     }
 
     private int computeDevoteeCount(Integer currentCount, String attendingDevotees, String membersJson) {
