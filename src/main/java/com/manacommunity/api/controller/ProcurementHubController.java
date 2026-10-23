@@ -25,6 +25,7 @@ public class ProcurementHubController {
     private final ProcurementPORepository poRepo;
     private final BulkBuyCampaignRepository campaignRepo;
     private final BulkBuyCommitmentRepository commitmentRepo;
+    private final AuctionBidRepository auctionBidRepo;
     private final LoggedInUserService loggedInUserService;
 
     public ProcurementHubController(
@@ -35,6 +36,7 @@ public class ProcurementHubController {
             ProcurementPORepository poRepo,
             BulkBuyCampaignRepository campaignRepo,
             BulkBuyCommitmentRepository commitmentRepo,
+            AuctionBidRepository auctionBidRepo,
             LoggedInUserService loggedInUserService) {
         this.supplierRepo = supplierRepo;
         this.productRepo = productRepo;
@@ -43,6 +45,7 @@ public class ProcurementHubController {
         this.poRepo = poRepo;
         this.campaignRepo = campaignRepo;
         this.commitmentRepo = commitmentRepo;
+        this.auctionBidRepo = auctionBidRepo;
         this.loggedInUserService = loggedInUserService;
     }
 
@@ -1021,5 +1024,233 @@ public class ProcurementHubController {
             Integer quantity,
             java.math.BigDecimal pricePerUnit, java.math.BigDecimal totalAmount,
             String status, String createdAt
+    ) {}
+
+    // ── Reverse Auction endpoints ─────────────────────────────────────────
+
+    @GetMapping("/auctions")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<AuctionRFQDto>> getOpenAuctions(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        Long userId = userId(principal);
+
+        List<ProcurementRFQ> rfqs = rfqRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
+                .stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsReverseAuction()) && r.getStatus() == RFQStatus.OPEN)
+                .toList();
+
+        List<AuctionRFQDto> dtos = rfqs.stream()
+                .map(r -> toAuctionRFQDto(r, userId, communityId))
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping("/rfqs/{id}/enable-auction")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<AuctionRFQDto> enableAuctionMode(
+            @PathVariable Long id,
+            @RequestBody EnableAuctionRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        ProcurementRFQ rfq = rfqRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new RuntimeException("RFQ not found"));
+
+        rfq.setIsReverseAuction(true);
+        rfq.setAuctionDeadline(java.time.LocalDateTime.parse(req.auctionDeadline()));
+        if (req.reservePrice() != null) rfq.setReservePrice(req.reservePrice());
+        if (rfq.getStatus() == RFQStatus.DRAFT) rfq.setStatus(RFQStatus.OPEN);
+
+        ProcurementRFQ saved = rfqRepo.save(rfq);
+        return ResponseEntity.ok(toAuctionRFQDto(saved, userId(principal), communityId));
+    }
+
+    @GetMapping("/auctions/{rfqId}/bids")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<List<AuctionBidDto>> getAuctionBids(
+            @PathVariable Long rfqId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        rfqRepo.findByIdAndCommunityId(rfqId, communityId)
+                .orElseThrow(() -> new RuntimeException("Auction not found"));
+
+        List<AuctionBid> bids = auctionBidRepo.findByRfqIdAndStatusOrderByBidAmountAsc(rfqId, AuctionBidStatus.ACTIVE);
+        Long userId = userId(principal);
+        List<AuctionBidDto> dtos = new ArrayList<>();
+        for (int i = 0; i < bids.size(); i++) {
+            AuctionBid b = bids.get(i);
+            dtos.add(toBidDto(b, i + 1, b.getSupplierId() != null && b.getSupplierId().equals(userId)));
+        }
+        return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping("/auctions/{rfqId}/bids")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<AuctionBidDto> placeAuctionBid(
+            @PathVariable Long rfqId,
+            @RequestBody PlaceAuctionBidRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        rfqRepo.findByIdAndCommunityId(rfqId, communityId)
+                .filter(r -> Boolean.TRUE.equals(r.getIsReverseAuction()) && r.getStatus() == RFQStatus.OPEN)
+                .orElseThrow(() -> new RuntimeException("Auction not found or not open"));
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long userId = user.getId();
+        String name = user.getName() != null ? user.getName() : user.getEmail();
+
+        // Cancel existing active bid if any
+        auctionBidRepo.findByRfqIdAndSupplierIdAndStatusNot(rfqId, userId, AuctionBidStatus.WITHDRAWN)
+                .ifPresent(existing -> {
+                    existing.setStatus(AuctionBidStatus.WITHDRAWN);
+                    auctionBidRepo.save(existing);
+                });
+
+        AuctionBid bid = AuctionBid.builder()
+                .rfqId(rfqId)
+                .supplierId(userId)
+                .supplierName(name)
+                .bidAmount(req.bidAmount())
+                .deliveryDays(req.deliveryDays())
+                .notes(req.notes())
+                .status(AuctionBidStatus.ACTIVE)
+                .communityId(communityId)
+                .build();
+
+        AuctionBid saved = auctionBidRepo.save(bid);
+
+        // Compute rank
+        List<AuctionBid> all = auctionBidRepo.findByRfqIdAndStatusOrderByBidAmountAsc(rfqId, AuctionBidStatus.ACTIVE);
+        int rank = 1;
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).getId().equals(saved.getId())) { rank = i + 1; break; }
+        }
+        return ResponseEntity.ok(toBidDto(saved, rank, true));
+    }
+
+    @DeleteMapping("/auctions/{rfqId}/bids")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<Void> withdrawAuctionBid(
+            @PathVariable Long rfqId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        rfqRepo.findByIdAndCommunityId(rfqId, communityId)
+                .orElseThrow(() -> new RuntimeException("Auction not found"));
+
+        auctionBidRepo.findByRfqIdAndSupplierIdAndStatusNot(rfqId, userId(principal), AuctionBidStatus.WITHDRAWN)
+                .ifPresent(b -> {
+                    b.setStatus(AuctionBidStatus.WITHDRAWN);
+                    auctionBidRepo.save(b);
+                });
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/auctions/{rfqId}/bids/{bidId}/award")
+    @PreAuthorize("hasAuthority('View Admin')")
+    public ResponseEntity<AuctionBidDto> awardAuctionBid(
+            @PathVariable Long rfqId,
+            @PathVariable Long bidId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long communityId = communityId(principal);
+        ProcurementRFQ rfq = rfqRepo.findByIdAndCommunityId(rfqId, communityId)
+                .orElseThrow(() -> new RuntimeException("Auction not found"));
+
+        AuctionBid bid = auctionBidRepo.findById(bidId)
+                .filter(b -> b.getRfqId().equals(rfqId) && b.getStatus() == AuctionBidStatus.ACTIVE)
+                .orElseThrow(() -> new RuntimeException("Bid not found"));
+
+        // Withdraw all other bids
+        auctionBidRepo.findByRfqIdAndStatusOrderByBidAmountAsc(rfqId, AuctionBidStatus.ACTIVE)
+                .forEach(b -> {
+                    if (!b.getId().equals(bidId)) {
+                        b.setStatus(AuctionBidStatus.WITHDRAWN);
+                        auctionBidRepo.save(b);
+                    }
+                });
+
+        bid.setStatus(AuctionBidStatus.AWARDED);
+        auctionBidRepo.save(bid);
+
+        rfq.setStatus(RFQStatus.AWARDED);
+        rfqRepo.save(rfq);
+
+        return ResponseEntity.ok(toBidDto(bid, 1, false));
+    }
+
+    private AuctionRFQDto toAuctionRFQDto(ProcurementRFQ r, Long userId, Long communityId) {
+        List<AuctionBid> activeBids = auctionBidRepo.findByRfqIdAndStatusOrderByBidAmountAsc(r.getId(), AuctionBidStatus.ACTIVE);
+        int bidCount = activeBids.size();
+        java.math.BigDecimal lowestBid = activeBids.isEmpty() ? null : activeBids.get(0).getBidAmount();
+
+        AuctionBidDto myBid = null;
+        if (userId != null) {
+            for (int i = 0; i < activeBids.size(); i++) {
+                AuctionBid b = activeBids.get(i);
+                if (b.getSupplierId() != null && b.getSupplierId().equals(userId)) {
+                    myBid = toBidDto(b, i + 1, true);
+                    break;
+                }
+            }
+        }
+
+        String firstItem = r.getItems().isEmpty() ? r.getTitle()
+                : r.getItems().get(0).getProductName();
+
+        return new AuctionRFQDto(
+                r.getId(), r.getRfqNumber(), r.getTitle(), r.getDescription(),
+                r.getStatus().name(), communityId, r.getRequestedBy(),
+                firstItem,
+                r.getDeliveryLocation(),
+                r.getDeliveryDeadline().toString(),
+                r.getQuotationDeadline().toString(),
+                r.getAuctionDeadline() != null ? r.getAuctionDeadline().toString() : null,
+                r.getReservePrice(),
+                r.getEstimatedValue(),
+                bidCount, lowestBid, myBid,
+                r.getCreatedAt().toString()
+        );
+    }
+
+    private AuctionBidDto toBidDto(AuctionBid b, int rank, boolean isMyBid) {
+        return new AuctionBidDto(
+                b.getId(), b.getRfqId(),
+                b.getSupplierId(), b.getSupplierName(),
+                b.getBidAmount(), b.getDeliveryDays(), b.getNotes(),
+                b.getStatus().name(), rank, isMyBid,
+                b.getCreatedAt().toString(), b.getUpdatedAt().toString()
+        );
+    }
+
+    // Phase 5: Reverse Auction records
+    public record EnableAuctionRequest(String auctionDeadline, java.math.BigDecimal reservePrice) {}
+
+    public record PlaceAuctionBidRequest(
+            java.math.BigDecimal bidAmount, Integer deliveryDays, String notes
+    ) {}
+
+    public record AuctionBidDto(
+            Long id, Long rfqId,
+            Long supplierId, String supplierName,
+            java.math.BigDecimal bidAmount, Integer deliveryDays, String notes,
+            String status, Integer rank, Boolean isMyBid,
+            String createdAt, String updatedAt
+    ) {}
+
+    public record AuctionRFQDto(
+            Long id, String rfqNumber, String title, String description,
+            String status, Long communityId, String requestedBy,
+            String primaryItem,
+            String deliveryLocation, String deliveryDeadline, String quotationDeadline,
+            String auctionDeadline, java.math.BigDecimal reservePrice,
+            java.math.BigDecimal estimatedValue,
+            Integer bidCount, java.math.BigDecimal lowestBid, AuctionBidDto myBid,
+            String createdAt
     ) {}
 }

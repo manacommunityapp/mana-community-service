@@ -63,6 +63,16 @@ public class ProcurementRFQ {
     @Column(name = "invited_supplier_ids", length = 500)
     private String invitedSupplierIds;
 
+    @Column(name = "is_reverse_auction")
+    @Builder.Default
+    private Boolean isReverseAuction = false;
+
+    @Column(name = "auction_deadline")
+    private LocalDateTime auctionDeadline;
+
+    @Column(name = "reserve_price", precision = 14, scale = 2)
+    private BigDecimal reservePrice;
+
     @Column(name = "quotes_received")
     @Builder.Default
     private Integer quotesReceived = 0;
