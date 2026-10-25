@@ -38,7 +38,8 @@ public interface SportsEventService {
     SportsEvent saveEvent(SportsEvent event);
     void deleteEvent(Long eventId);
     SportsEvent updateEvent(Long eventId, SportsEventRequest req);
-    void withdraw(Long registrationId, Long userId);
+    void withdraw(Long registrationId, Long userId, boolean admin, String reason);
+    default void withdraw(Long registrationId, Long userId) { withdraw(registrationId, userId, false, null); }
     List<SportsEventRegistration> getEventRegistrations(Long eventId);
     List<SportsEventRegistration> getUserRegistrations(Long userId);
     SportsEventRegistration confirmRegistration(Long registrationId);

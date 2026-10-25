@@ -430,11 +430,14 @@ public class SportsController {
 
     @DeleteMapping("/register/{registrationId}")
     public ResponseEntity<Void> withdraw(@PathVariable Long registrationId,
+                                         @RequestParam(required = false) String reason,
                                          @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         log.info("Withdrawing registration registrationId={}", registrationId);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        eventService.withdraw(registrationId, ctx.userId());
+        boolean admin = ctx.superAdmin()
+                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        eventService.withdraw(registrationId, ctx.userId(), admin, reason);
         return ResponseEntity.noContent().build();
     }
 
