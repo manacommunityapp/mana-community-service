@@ -46,7 +46,11 @@ public record SportsDashboardResponse(
             boolean teamSport,
             // The current user's registration for this event (if any) — drives the button state.
             Long myRegistrationId,
-            String myRegistrationStatus
+            String myRegistrationStatus,
+            // Eligibility fields — used by the frontend to filter/badge categories.
+            String gender,
+            Integer minAge,
+            Integer maxAge
     ) {}
 
     /** A tournament with its child events grouped for "Open for Registration". */

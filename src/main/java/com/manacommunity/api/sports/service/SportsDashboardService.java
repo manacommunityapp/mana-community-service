@@ -157,6 +157,13 @@ public class SportsDashboardService {
 
     private EventCard toEventCard(SportsEvent e, SportsEventRegistration myReg) {
         int regCount = e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0;
+        SportsPlayerCategory firstCat = (e.getCategories() != null && !e.getCategories().isEmpty())
+                ? e.getCategories().stream().filter(Objects::nonNull).findFirst().orElse(null)
+                : null;
+        Integer minAge = e.getMinAge() != null ? e.getMinAge() : (firstCat != null ? firstCat.getMinAge() : null);
+        Integer maxAge = e.getMaxAge() != null ? e.getMaxAge() : (firstCat != null ? firstCat.getMaxAge() : null);
+        String gender = (e.getGender() != null && !e.getGender().isBlank()) ? e.getGender()
+                : (firstCat != null ? firstCat.getGender() : null);
         return new EventCard(
                 e.getId(),
                 e.getUuid(),
@@ -172,7 +179,10 @@ public class SportsDashboardService {
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 isTeamSport(e),
                 myReg != null ? myReg.getId() : null,
-                myReg != null && myReg.getStatus() != null ? myReg.getStatus().name() : null
+                myReg != null && myReg.getStatus() != null ? myReg.getStatus().name() : null,
+                gender,
+                minAge,
+                maxAge
         );
     }
 
