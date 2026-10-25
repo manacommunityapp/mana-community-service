@@ -2,7 +2,7 @@ package com.manacommunity.api.health.enums;
 
 public class HealthEnums {
     public enum ProviderCategory {
-        DOCTOR, CLINIC, DENTIST, DIAGNOSTIC_CENTER, PHARMACY, PHYSIOTHERAPIST, HOME_CARE
+        DOCTOR, CLINIC, DENTIST, DIAGNOSTIC_CENTER, PHARMACY, PHYSIOTHERAPIST, HOME_CARE, FITNESS_TRAINER
     }
     public enum ConsultationMode {
         IN_PERSON, VIDEO, PHONE, HOME_VISIT

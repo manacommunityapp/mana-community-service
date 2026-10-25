@@ -1,5 +1,11 @@
 package com.manacommunity.api.vendor.commerce.service;
 
+import com.manacommunity.api.food.entity.FoodGroceryCategory;
+import com.manacommunity.api.food.entity.FoodGroceryProduct;
+import com.manacommunity.api.food.entity.FoodGroceryStore;
+import com.manacommunity.api.food.repository.FoodGroceryCategoryRepository;
+import com.manacommunity.api.food.repository.FoodGroceryProductRepository;
+import com.manacommunity.api.food.repository.FoodGroceryStoreRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.vendor.commerce.dto.*;
 import com.manacommunity.api.vendor.commerce.model.*;
@@ -22,6 +28,9 @@ public class VendorCommerceService {
     private final VendorProductInventoryRepository inventoryRepository;
     private final VendorInventoryBatchRepository batchRepository;
     private final CommerceProductCategoryRepository categoryRepository;
+    private final FoodGroceryStoreRepository groceryStoreRepository;
+    private final FoodGroceryCategoryRepository groceryCategoryRepository;
+    private final FoodGroceryProductRepository groceryProductRepository;
 
     public List<VendorProductDto> getVendorProducts(Long vendorUserId) {
         return productRepository.findByVendorUserIdOrderByCreatedAtDesc(vendorUserId).stream()
@@ -29,13 +38,38 @@ public class VendorCommerceService {
                 .collect(Collectors.toList());
     }
 
-    public VendorProductDto getProductById(Long id) {
+    public VendorProductDto getProductById(Long id, Long vendorUserId) {
         VendorProduct product = productRepository.findById(id)
+                .filter(candidate -> candidate.getVendorUser().getId().equals(vendorUserId))
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
         return mapToProductDto(product);
     }
 
     @Transactional
+    public List<Map<String, Object>> getVendorGroceryStores(AppUser vendorUser) {
+        return groceryStoreRepository.findByOwnerIdAndCommunityId(vendorUser.getId(), vendorUser.getCommunity().getId())
+                .stream().filter(store -> store.getStatus() == FoodGroceryStore.StoreStatus.ACTIVE)
+                .map(store -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", store.getId());
+                    result.put("name", store.getName());
+                    return result;
+                }).collect(Collectors.toList());
+    }
+
+    public List<Map<String, Object>> getVendorGroceryCategories(AppUser vendorUser, Long storeId) {
+        FoodGroceryStore store = groceryStoreRepository.findByIdAndCommunityId(storeId, vendorUser.getCommunity().getId())
+                .filter(candidate -> candidate.getOwner().getId().equals(vendorUser.getId()))
+                .orElseThrow(() -> new IllegalArgumentException("Grocery store not found: " + storeId));
+        return groceryCategoryRepository.findByStoreIdAndActiveOrderBySortOrder(store.getId(), true).stream()
+                .map(category -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", category.getId());
+                    result.put("name", category.getName());
+                    return result;
+                }).collect(Collectors.toList());
+    }
+
     public VendorProductDto createProduct(AppUser vendorUser, CreateProductRequest request) {
         CommerceProductCategory commerceCategory = null;
         if (request.getCommerceCategoryId() != null) {
@@ -61,8 +95,8 @@ public class VendorCommerceService {
                 .description(request.getDescription())
                 .hsnCode(request.getHsnCode())
                 .gstRate(request.getGstRate() != null ? request.getGstRate() : BigDecimal.valueOf(5.00))
-                .imageUrl(request.getImageUrl())
-                .additionalImages(request.getAdditionalImages())
+                .imageUrl(request.getImageUrl() != null ? request.getImageUrl() : firstImage(request.getImages()))
+                .additionalImages(request.getAdditionalImages() != null ? request.getAdditionalImages() : additionalImages(request.getImages()))
                 .communityOnly(Boolean.TRUE.equals(request.getCommunityOnly()))
                 .weightGrams(request.getWeightGrams())
                 .dimensionsCm(request.getDimensionsCm())
@@ -79,6 +113,7 @@ public class VendorCommerceService {
                         .sku(vr.getSku())
                         .barcode(vr.getBarcode())
                         .packSize(vr.getPackSize())
+                        .unitOfMeasure(vr.getUnitOfMeasure())
                         .mrp(vr.getMrp() != null ? vr.getMrp() : BigDecimal.ZERO)
                         .vendorCost(vr.getVendorCost() != null ? vr.getVendorCost() : BigDecimal.ZERO)
                         .defaultCommunityPrice(vr.getDefaultCommunityPrice() != null ? vr.getDefaultCommunityPrice() : BigDecimal.ZERO)
@@ -109,36 +144,35 @@ public class VendorCommerceService {
             }
         }
 
+        if (productType == VendorProduct.ProductType.FOOD
+                && (request.getFoodGroceryStoreId() == null || request.getFoodGroceryCategoryId() == null)) {
+            throw new IllegalArgumentException("Food listings require an owned grocery store and category.");
+        }
+
         productRepository.save(product);
+        if (productType == VendorProduct.ProductType.FOOD) {
+            publishFoodVariants(vendorUser, product, request.getFoodGroceryStoreId(), request.getFoodGroceryCategoryId());
+        }
         return mapToProductDto(product);
     }
 
     @Transactional
-    public void adjustStock(Long variantId, StockAdjustmentRequest request) {
+    public void adjustStock(Long variantId, StockAdjustmentRequest request, Long vendorUserId) {
+        VendorProductVariant variant = variantRepository.findById(variantId)
+                .filter(candidate -> candidate.getProduct().getVendorUser().getId().equals(vendorUserId))
+                .orElseThrow(() -> new IllegalArgumentException("Variant not found: " + variantId));
         VendorProductInventory inv = inventoryRepository.findByVariantId(variantId)
-                .orElseGet(() -> {
-                    VendorProductVariant variant = variantRepository.findById(variantId)
-                            .orElseThrow(() -> new IllegalArgumentException("Variant not found: " + variantId));
-                    return VendorProductInventory.builder()
-                            .variant(variant)
-                            .availableQty(request.getAvailableQty())
-                            .reservedQty(0)
-                            .committedQty(0)
-                            .allocatedQty(0)
-                            .pickedQty(0)
-                            .dispatchedQty(0)
-                            .deliveredQty(0)
-                            .damagedQty(0)
-                            .build();
-                });
-
+                .orElseGet(() -> VendorProductInventory.builder().variant(variant)
+                        .availableQty(0).reservedQty(0).committedQty(0).allocatedQty(0)
+                        .pickedQty(0).dispatchedQty(0).deliveredQty(0).damagedQty(0).build());
         inv.setAvailableQty(request.getAvailableQty());
         inventoryRepository.save(inv);
     }
 
     @Transactional
-    public InventoryReservationResponse reserveInventory(InventoryReservationRequest request) {
+    public InventoryReservationResponse reserveInventory(InventoryReservationRequest request, Long vendorUserId) {
         VendorProductInventory inv = inventoryRepository.findByVariantId(request.getVariantId())
+                .filter(candidate -> candidate.getVariant().getProduct().getVendorUser().getId().equals(vendorUserId))
                 .orElseThrow(() -> new IllegalArgumentException("Inventory not found for variant: " + request.getVariantId()));
 
         if (inv.getAvailableQty() < request.getQuantity()) {
@@ -235,10 +269,10 @@ public class VendorCommerceService {
         return Collections.emptyList();
     }
 
-    public Map<String, Object> requestPayout(String settlementId) {
+    public Map<String, Object> requestPayout(String settlementId, Long vendorUserId) {
         Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        res.put("message", "Payout initiated for settlement " + settlementId + ".");
+        res.put("success", false);
+        res.put("message", "Payout processing is not connected yet.");
         res.put("settlementId", settlementId);
         return res;
     }
@@ -281,6 +315,60 @@ public class VendorCommerceService {
                 .build();
     }
 
+    private void publishFoodVariants(AppUser vendorUser, VendorProduct product, Long storeId, Long categoryId) {
+        FoodGroceryStore store = groceryStoreRepository.findByIdAndCommunityId(storeId, vendorUser.getCommunity().getId())
+                .filter(candidate -> candidate.getOwner().getId().equals(vendorUser.getId())
+                        && candidate.getStatus() == FoodGroceryStore.StoreStatus.ACTIVE)
+                .orElseThrow(() -> new IllegalArgumentException("Active grocery store not found for this vendor."));
+        FoodGroceryCategory category = groceryCategoryRepository.findById(categoryId)
+                .filter(candidate -> candidate.getStore() != null
+                        && candidate.getStore().getId().equals(storeId)
+                        && candidate.getCommunity().getId().equals(vendorUser.getCommunity().getId())
+                        && Boolean.TRUE.equals(candidate.getActive()))
+                .orElseThrow(() -> new IllegalArgumentException("Active category not found for this grocery store."));
+
+        for (VendorProductVariant variant : product.getVariants()) {
+            BigDecimal mrp = variant.getMrp() != null ? variant.getMrp() : BigDecimal.ZERO;
+            BigDecimal communityPrice = variant.getDefaultCommunityPrice() != null
+                    ? variant.getDefaultCommunityPrice() : mrp;
+            String imageUrl = product.getImageUrl();
+            FoodGroceryProduct listing = FoodGroceryProduct.builder()
+                    .store(store).category(category).vendorVariant(variant)
+                    .name(product.getName()).slug("vendor-" + product.getId() + "-variant-" + variant.getId())
+                    .description(product.getDescription()).imageUrl(imageUrl)
+                    .brand(product.getBrand()).unit(variant.getUnitOfMeasure() != null ? variant.getUnitOfMeasure() : "UNIT")
+                    .unitValue(parsePackValue(variant.getPackSize())).price(mrp)
+                    .discountedPrice(communityPrice.compareTo(mrp) < 0 ? communityPrice : null)
+                    .stock(variant.getInventory() != null ? variant.getInventory().getAvailableQty() : 0)
+                    .barcode(variant.getBarcode()).community(vendorUser.getCommunity()).active(true).build();
+            groceryProductRepository.save(listing);
+        }
+    }
+
+    private BigDecimal parsePackValue(String packSize) {
+        if (packSize == null) return null;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^\\s*([0-9]+(?:\\.[0-9]+)?)").matcher(packSize);
+        return matcher.find() ? new BigDecimal(matcher.group(1)) : null;
+    }
+
+    private String firstImage(List<String> images) {
+        return images == null || images.isEmpty() ? null : images.get(0);
+    }
+
+    private String additionalImages(List<String> images) {
+        return images == null || images.size() < 2 ? null : String.join(",", images.subList(1, images.size()));
+    }
+
+    private List<String> productImages(VendorProduct product) {
+        List<String> images = new ArrayList<>();
+        if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) images.add(product.getImageUrl());
+        if (product.getAdditionalImages() != null && !product.getAdditionalImages().isBlank()) {
+            Arrays.stream(product.getAdditionalImages().split(","))
+                    .map(String::trim).filter(image -> !image.isBlank()).forEach(images::add);
+        }
+        return images;
+    }
+
     private VendorProductDto mapToProductDto(VendorProduct product) {
         List<ProductVariantDto> variantDtos = product.getVariants() != null
                 ? product.getVariants().stream().map(v -> ProductVariantDto.builder()
@@ -289,9 +377,12 @@ public class VendorCommerceService {
                         .sku(v.getSku())
                         .barcode(v.getBarcode())
                         .packSize(v.getPackSize())
+                        .unitOfMeasure(v.getUnitOfMeasure())
                         .mrp(v.getMrp())
                         .vendorCost(v.getVendorCost())
+                        .costPrice(v.getVendorCost())
                         .defaultCommunityPrice(v.getDefaultCommunityPrice())
+                        .communityPrice(v.getDefaultCommunityPrice())
                         .memberPrice(v.getMemberPrice())
                         .bulkMinQty(v.getBulkMinQty())
                         .bulkPrice(v.getBulkPrice())
@@ -313,6 +404,8 @@ public class VendorCommerceService {
         return VendorProductDto.builder()
                 .id(String.valueOf(product.getId()))
                 .name(product.getName())
+                .productName(product.getName())
+                .vendorId(product.getVendorUser() != null ? String.valueOf(product.getVendorUser().getId()) : null)
                 .productType(product.getProductType() != null ? product.getProductType().name() : null)
                 .category(product.getCategory())
                 .subCategory(product.getSubCategory())
@@ -322,9 +415,12 @@ public class VendorCommerceService {
                 .description(product.getDescription())
                 .hsnCode(product.getHsnCode())
                 .gstRate(product.getGstRate())
+                .taxRatePercent(product.getGstRate())
                 .status(product.getStatus())
                 .imageUrl(product.getImageUrl())
                 .additionalImages(product.getAdditionalImages())
+                .images(productImages(product))
+                .createdAt(product.getCreatedAt())
                 .communityOnly(product.getCommunityOnly())
                 .weightGrams(product.getWeightGrams())
                 .dimensionsCm(product.getDimensionsCm())

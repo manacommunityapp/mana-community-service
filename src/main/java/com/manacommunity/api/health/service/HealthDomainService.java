@@ -132,7 +132,7 @@ public class HealthDomainService {
         if (p.getCategory() == ProviderCategory.DIAGNOSTIC_CENTER) {
             accreds.add("NABL");
             accreds.add("ISO 15189");
-        } else if (p.getCategory() == ProviderCategory.CLINIC || p.getCategory() == ProviderCategory.DOCTOR) {
+        } else if (p.getCategory() == ProviderCategory.CLINIC || p.getCategory() == ProviderCategory.DOCTOR || p.getCategory() == ProviderCategory.PHYSIOTHERAPIST || p.getCategory() == ProviderCategory.FITNESS_TRAINER) {
             if (Boolean.TRUE.equals(p.getIsVerified())) accreds.add("Community Verified");
         } else if (p.getCategory() == ProviderCategory.PHARMACY) {
             accreds.add("Licensed Pharmacy");
