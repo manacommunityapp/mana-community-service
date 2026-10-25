@@ -50,8 +50,34 @@ public record SportsDashboardResponse(
             // Eligibility fields — used by the frontend to filter/badge categories.
             String gender,
             Integer minAge,
-            Integer maxAge
-    ) {}
+            Integer maxAge,
+            List<String> formats
+    ) {
+        public EventCard(
+                Long id,
+                java.util.UUID uuid,
+                String name,
+                LocalDate eventDateStart,
+                LocalDate eventDateEnd,
+                String sportName,
+                String categoryName,
+                String venueName,
+                Integer maxParticipants,
+                Integer registeredCount,
+                String registrationStatus,
+                String auctionStatus,
+                boolean teamSport,
+                Long myRegistrationId,
+                String myRegistrationStatus,
+                String gender,
+                Integer minAge,
+                Integer maxAge
+        ) {
+            this(id, uuid, name, eventDateStart, eventDateEnd, sportName, categoryName, venueName,
+                    maxParticipants, registeredCount, registrationStatus, auctionStatus, teamSport,
+                    myRegistrationId, myRegistrationStatus, gender, minAge, maxAge, List.of());
+        }
+    }
 
     /** A tournament with its child events grouped for "Open for Registration". */
     public record TournamentCard(

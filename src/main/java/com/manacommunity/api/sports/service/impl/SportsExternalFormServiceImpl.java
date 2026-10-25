@@ -129,11 +129,25 @@ public class SportsExternalFormServiceImpl implements SportsExternalFormService 
                 } catch (Exception ignored) {}
             } else if ("matchFormat".equalsIgnoreCase(fieldKey)) {
                 mappingType = SportsExternalFormFieldMapping.MappingType.FORMAT_LOOKUP;
-                Map<String, String> fmtRules = Map.of(
-                        "Singles", "SINGLES",
-                        "Doubles", "DOUBLES",
-                        "Mixed Doubles", "MIXED_DOUBLES"
-                );
+                // Build format options from the event's explicitly declared formats only.
+                // Falls back to SINGLES + DOUBLES if the event has no explicit formats stored.
+                List<SportsEvent.MatchFormat> eventFormats = event.getFormat();
+                java.util.LinkedHashMap<String, String> fmtRules = new java.util.LinkedHashMap<>();
+                if (eventFormats != null && !eventFormats.isEmpty()) {
+                    for (SportsEvent.MatchFormat fmt : eventFormats) {
+                        switch (fmt) {
+                            case SINGLES -> fmtRules.put("Singles", "SINGLES");
+                            case DOUBLES -> fmtRules.put("Doubles", "DOUBLES");
+                            case MIXED_DOUBLES -> fmtRules.put("Mixed Doubles", "MIXED_DOUBLES");
+                            case TEAM -> fmtRules.put("Team", "TEAM");
+                        }
+                    }
+                }
+                // Fallback: if no formats were resolved, default to Singles + Doubles
+                if (fmtRules.isEmpty()) {
+                    fmtRules.put("Singles", "SINGLES");
+                    fmtRules.put("Doubles", "DOUBLES");
+                }
                 try {
                     mappingRulesJson = objectMapper.writeValueAsString(fmtRules);
                 } catch (Exception ignored) {}

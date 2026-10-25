@@ -164,6 +164,9 @@ public class SportsDashboardService {
         Integer maxAge = e.getMaxAge() != null ? e.getMaxAge() : (firstCat != null ? firstCat.getMaxAge() : null);
         String gender = (e.getGender() != null && !e.getGender().isBlank()) ? e.getGender()
                 : (firstCat != null ? firstCat.getGender() : null);
+        List<String> formats = e.getFormat() != null
+                ? e.getFormat().stream().filter(Objects::nonNull).map(Enum::name).toList()
+                : List.of();
         return new EventCard(
                 e.getId(),
                 e.getUuid(),
@@ -182,7 +185,8 @@ public class SportsDashboardService {
                 myReg != null && myReg.getStatus() != null ? myReg.getStatus().name() : null,
                 gender,
                 minAge,
-                maxAge
+                maxAge,
+                formats
         );
     }
 
