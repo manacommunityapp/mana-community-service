@@ -2,7 +2,6 @@ package com.manacommunity.api.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -28,8 +27,6 @@ public class RegisterRequest {
     String inviteCode;
     @NotBlank
     String password;
-    @NotNull
-    @Past
     LocalDate dateOfBirth;
     @NotBlank
     String gender; // MALE / FEMALE / OTHER
