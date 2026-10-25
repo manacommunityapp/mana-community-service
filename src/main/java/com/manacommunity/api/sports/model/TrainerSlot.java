@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "trainer_slot", schema = "sports",
+@Table(name = "trainer_slot",
         indexes = {
                 @Index(name = "idx_trainer_slot_trainer", columnList = "trainer_id"),
                 @Index(name = "idx_trainer_slot_date", columnList = "slot_date"),

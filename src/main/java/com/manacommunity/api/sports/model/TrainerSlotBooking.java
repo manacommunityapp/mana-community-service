@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "trainer_slot_booking", schema = "sports",
+@Table(name = "trainer_slot_booking",
         indexes = {
                 @Index(name = "idx_tsb_slot", columnList = "slot_id"),
                 @Index(name = "idx_tsb_user", columnList = "user_id"),
