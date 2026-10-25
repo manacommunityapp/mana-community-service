@@ -1,5 +1,6 @@
 package com.manacommunity.api.food.entity;
 
+import com.manacommunity.api.model.Community;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,6 +37,10 @@ public class FoodGroceryOrderItem {
 
     @Column(name = "total_price", precision = 10, scale = 2)
     private BigDecimal totalPrice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id", nullable = false)
+    private Community community;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

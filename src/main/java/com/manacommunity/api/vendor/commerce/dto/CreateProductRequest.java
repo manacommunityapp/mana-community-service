@@ -1,5 +1,6 @@
 package com.manacommunity.api.vendor.commerce.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -15,10 +16,14 @@ public class CreateProductRequest {
 
     @NotBlank
     @Size(max = 200)
+    @JsonAlias("productName")
     private String name;
 
     /** Product type: PHYSICAL_PRODUCT, DIGITAL_PRODUCT, SERVICE, FOOD, BOOKING, SUBSCRIPTION */
     private String productType;
+
+    private Long foodGroceryStoreId;
+    private Long foodGroceryCategoryId;
 
     @NotBlank
     @Size(max = 80)
@@ -39,9 +44,13 @@ public class CreateProductRequest {
     private String hsnCode;
 
     @DecimalMin("0.0")
+    @JsonAlias("taxRatePercent")
     private BigDecimal gstRate;
 
     private String imageUrl;
+
+    @JsonAlias("images")
+    private List<String> images;
 
     /** Comma-separated additional image URLs. */
     private String additionalImages;
@@ -75,9 +84,13 @@ public class CreateProductRequest {
         @DecimalMin("0.0")
         private BigDecimal mrp;
         @DecimalMin("0.0")
+        @JsonAlias("costPrice")
         private BigDecimal vendorCost;
         @DecimalMin("0.0")
+        @JsonAlias("communityPrice")
         private BigDecimal defaultCommunityPrice;
+
+        private String unitOfMeasure;
 
         // Community pricing tiers
         @DecimalMin("0.0")

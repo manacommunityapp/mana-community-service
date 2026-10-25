@@ -18,7 +18,10 @@ public class ProductVariantDto {
     // Core pricing
     private BigDecimal mrp;
     private BigDecimal vendorCost;
+    private BigDecimal costPrice;
     private BigDecimal defaultCommunityPrice;
+    private BigDecimal communityPrice;
+    private String unitOfMeasure;
 
     // Community pricing tiers
     private BigDecimal memberPrice;

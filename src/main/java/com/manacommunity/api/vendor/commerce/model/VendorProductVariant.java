@@ -38,6 +38,9 @@ public class VendorProductVariant extends BaseAuditEntity {
     @Column(name = "pack_size", nullable = false, length = 50)
     private String packSize;
 
+    @Column(name = "unit_of_measure", length = 30)
+    private String unitOfMeasure;
+
     // ── Core pricing (legacy precision 12,2 — kept for backward compat) ─────────
     @Column(precision = 12, scale = 2, nullable = false)
     private BigDecimal mrp;

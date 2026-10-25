@@ -99,6 +99,7 @@ public class CommerceCoreController {
     }
 
     @GetMapping("/settlements/my")
+    @PreAuthorize("hasAuthority('View Commerce Settlements')")
     public ResponseEntity<List<CommerceSettlementDto>> getMySettlements(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
