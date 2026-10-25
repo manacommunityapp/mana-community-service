@@ -14,7 +14,7 @@ CREATE TABLE khata_parties (
     notes         VARCHAR(255),
     last_activity TIMESTAMP,
     created_at    TIMESTAMP    NOT NULL,
-    CONSTRAINT fk_khata_party_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_khata_party_user FOREIGN KEY (user_id) REFERENCES app_user(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_khata_parties_user_type ON khata_parties (user_id, khata_type);
