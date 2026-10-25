@@ -115,7 +115,7 @@ public class UserController {
             return ResponseEntity.ok(java.util.Collections.emptyList());
         }
         final Long finalCommId = targetCommunityId;
-        return ResponseEntity.ok(appUserRepo.findByCommunityIdAndFullNameContainingIgnoreCase(finalCommId, query)
+        return ResponseEntity.ok(appUserRepo.searchCommunityMembers(finalCommId, query)
                 .stream().map(u -> toUserResponse(u, isAdmin || loggedInUser.getId().equals(u.getId()))).toList());
     }
 
