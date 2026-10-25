@@ -36,6 +36,21 @@ public class VmsPaymentController {
         return ResponseEntity.ok(paymentService.getCommunityPayments(user.getCommunity().getId(), pageable));
     }
 
+    @GetMapping("/mine")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<PaymentResponse>> getMyPayments(@RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size, @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(paymentService.getMyPayments(user, pageable));
+    }
+
+    @GetMapping("/earnings-summary")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<java.util.Map<String, java.math.BigDecimal>> getMyEarningsSummary(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(paymentService.getMyEarningsSummary(loggedInUserService.resolve(principal)));
+    }
+
     @GetMapping("/vendor/{vendorId}")
     @PreAuthorize("hasAuthority('Manage Vendor Payments')")
     public ResponseEntity<Page<PaymentResponse>> getVendorPayments(

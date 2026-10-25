@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface VmsVendorDocumentRepository extends JpaRepository<VmsVendorDocument, Long> {
     List<VmsVendorDocument> findByVendorId(Long vendorId);
+    java.util.Optional<VmsVendorDocument> findByIdAndVendorId(Long id, Long vendorId);
     List<VmsVendorDocument> findByVendorIdAndActive(Long vendorId, Boolean active);
     List<VmsVendorDocument> findByExpiryDateBeforeAndActive(LocalDate date, Boolean active);
 }

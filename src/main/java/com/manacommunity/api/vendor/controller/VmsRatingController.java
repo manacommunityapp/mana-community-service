@@ -30,9 +30,35 @@ public class VmsRatingController {
     public ResponseEntity<Page<RatingResponse>> getVendorRatings(
             @PathVariable Long vendorId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
         PageRequest pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(ratingService.getVendorRatings(vendorId, pageable));
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ratingService.getVendorRatings(vendorId, user.getCommunity().getId(), pageable));
+    }
+
+    @PutMapping("/{id}/reply")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<RatingResponse> reply(@PathVariable Long id, @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ratingService.replyToRating(id, body.get("reply"), user));
+    }
+
+    @PutMapping("/{id}/moderate")
+    @PreAuthorize("hasAuthority('Manage Vendors')")
+    public ResponseEntity<RatingResponse> moderate(@PathVariable Long id, @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ratingService.moderate(id, body.get("status"), user.getCommunity().getId()));
+    }
+
+    @PostMapping("/{id}/report")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> report(@PathVariable Long id, @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        ratingService.report(id, body.getOrDefault("reason", ""), loggedInUserService.resolve(principal));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping
