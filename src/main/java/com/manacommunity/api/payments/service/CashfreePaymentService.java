@@ -16,6 +16,7 @@ import com.manacommunity.api.payments.entity.CashfreeOrder;
 import com.manacommunity.api.payments.exception.PaymentGatewayException;
 import com.manacommunity.api.payments.exception.PaymentVerificationException;
 import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
+import com.manacommunity.api.market.bazaar.listener.MarketBazaarPaymentListener.CashfreePaymentSucceededEvent;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -30,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
@@ -77,9 +79,18 @@ public class CashfreePaymentService {
     private final RestTemplate                     restTemplate;
     private final AuditService                     auditService;
     private final SportsEventRegistrationRepository regRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
 
+    /** Returns a checkout order only to its payer, including its session credentials. */
+    @Transactional(readOnly = true)
+    public CashfreeOrderResponse getUserOrder(String manaOrderId, AppUser user) {
+        CashfreeOrder order = orderRepository.findByManaOrderId(manaOrderId)
+                .filter(candidate -> candidate.getUser() != null && candidate.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Payment order", "manaOrderId", manaOrderId));
+        return toResponse(order, true);
+    }
     // ─── Order Creation ──────────────────────────────────────────────────────
 
     /**
@@ -218,6 +229,7 @@ public class CashfreePaymentService {
                 order.setStatus("PAID");
                 order.setPaidAt(LocalDateTime.now());
                 orderRepository.save(order);
+                dispatchBusinessConfirmation(order);
                 auditService.record(AuditAction.PAYMENT_COMPLETED, AuditModule.PAYMENT,
                         "CashfreeOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Payment verified PAID: manaOrderId={} cfPaymentId={} amount=₹{}",
@@ -433,6 +445,11 @@ public class CashfreePaymentService {
         if (order.getReferenceType() == null) return;
         switch (order.getReferenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
+            case "MARKET_STALL_BOOKING" -> {
+                if (order.getUser() != null) {
+                    eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(order.getReferenceType(), order.getReferenceId(), order.getUser().getId(), order.getAmount()));
+                }
+            }
             default -> log.debug("No business confirmation handler for referenceType={}", order.getReferenceType());
         }
     }

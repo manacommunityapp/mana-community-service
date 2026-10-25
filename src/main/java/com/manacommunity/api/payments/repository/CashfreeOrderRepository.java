@@ -16,6 +16,8 @@ public interface CashfreeOrderRepository extends JpaRepository<CashfreeOrder, Lo
 
     Optional<CashfreeOrder> findByManaOrderId(String manaOrderId);
 
+    Optional<CashfreeOrder> findTopByReferenceTypeAndReferenceIdAndStatusOrderByCreatedAtDesc(String referenceType, Long referenceId, String status);
+
     Optional<CashfreeOrder> findByCfPaymentId(String cfPaymentId);
 
     boolean existsByWebhookEventId(String webhookEventId);
