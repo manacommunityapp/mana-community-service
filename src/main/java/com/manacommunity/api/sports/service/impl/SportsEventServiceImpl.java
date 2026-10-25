@@ -757,26 +757,80 @@ public class SportsEventServiceImpl implements SportsEventService {
                 b == null ? "" : b.trim().toLowerCase());
     }
 
+    @Override
     @Transactional
-    public void withdraw(Long registrationId, Long userId) {
+    public void withdraw(Long registrationId, Long userId, boolean admin, String reason) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
-        if (!reg.getUser().getId().equals(userId))
+        boolean isOwner = reg.getUser() != null && reg.getUser().getId().equals(userId);
+        if (!isOwner && !admin)
             throw new UnauthorizedActionException("You can only withdraw your own registration.");
+
+        if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN
+                || reg.getStatus() == SportsEventRegistration.RegistrationStatus.REJECTED) {
+            throw new InvalidInputException("This registration is already " + reg.getStatus().name().toLowerCase() + ".");
+        }
+
+        SportsEvent event = reg.getEvent();
+
+        // Cutoff: participants cannot unregister once the event has started (admins can).
+        if (!admin && event != null) {
+            LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
+                    : (event.getTournament() != null ? event.getTournament().getEventDateStart() : null);
+            if (start != null && !LocalDate.now().isBefore(start)) {
+                throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
+            }
+        }
+
+        // Auction pool: remove still-queued entry; block if the player is already in the live/sold auction.
+        if (event != null && reg.getFamilyMember() == null && reg.getUser() != null) {
+            auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
+                for (SportsAuctionPlayer p : playerRepo.findByConfigId(config.getId())) {
+                    if (p.getUser() == null || !p.getUser().getId().equals(reg.getUser().getId())) continue;
+                    if (p.getStatus() == SportsAuctionPlayer.PlayerStatus.QUEUED
+                            || p.getStatus() == SportsAuctionPlayer.PlayerStatus.PASSED) {
+                        playerRepo.delete(p);
+                    } else {
+                        throw new InvalidInputException(
+                                "This player is already part of the auction (" + p.getStatus().name().toLowerCase()
+                                        + ") and cannot be withdrawn. Please contact the organizers.");
+                    }
+                }
+            });
+        }
 
         reg.setStatus(SportsEventRegistration.RegistrationStatus.WITHDRAWN);
         regRepo.save(reg);
 
+        String eventName = event != null ? event.getName() : "the event";
+        Long eventId = event != null ? event.getId() : null;
+        String who = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                ? reg.getPlayerName()
+                : (reg.getUser() != null ? reg.getUser().getFullName() : "A participant");
+
         try {
-            String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "the event";
-            notificationService.createNotification(
-                    userId, NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
-                    "Registration Withdrawn",
-                    "Your registration for " + eventName + " has been withdrawn",
-                    null, ReferenceType.SPORTS_EVENT,
-                    reg.getEvent() != null ? reg.getEvent().getId() : null,
-                    NotificationPriority.NORMAL, null, null);
+            // Registration owner (also covers admin-initiated removal)
+            if (reg.getUser() != null) {
+                String msg = isOwner
+                        ? "Your registration for " + eventName + " has been withdrawn"
+                        : "Your registration for " + eventName + " was removed by an organizer"
+                                + (reason != null && !reason.isBlank() ? ": " + reason : ".");
+                notificationService.createNotification(
+                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        "Registration Withdrawn", msg, null, ReferenceType.SPORTS_EVENT, eventId,
+                        NotificationPriority.NORMAL, null, null);
+            }
+            // Doubles partner: let them know so they can pick a new partner
+            if (reg.getPartner() != null && reg.getPartner().getId() != null
+                    && (reg.getUser() == null || !reg.getPartner().getId().equals(reg.getUser().getId()))) {
+                notificationService.createNotification(
+                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        "Partner Withdrew",
+                        who + " has withdrawn from " + eventName + ". You may need to nominate a new partner.",
+                        null, ReferenceType.SPORTS_EVENT, eventId,
+                        NotificationPriority.NORMAL, null, null);
+            }
         } catch (Exception e) {
             log.warn("Failed to persist withdrawal notification", e);
         }
