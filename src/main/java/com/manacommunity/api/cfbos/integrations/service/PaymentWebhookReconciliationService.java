@@ -9,6 +9,12 @@ import java.util.Map;
 @Slf4j
 public class PaymentWebhookReconciliationService {
 
+    public boolean processCashfreeWebhook(Map<String, Object> payload, String signature, String timestamp) {
+        // Production: verify HMAC-SHA256(timestamp + rawBody, secretKey) == signature
+        log.info("Cashfree webhook received, type={}", payload.get("type"));
+        return true;
+    }
+
     public boolean processRazorpayWebhook(Map<String, Object> payload, String signature) {
         log.info("Processing Razorpay webhook event: {}", payload.get("event"));
         return true;
