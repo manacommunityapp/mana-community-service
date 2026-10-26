@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -304,5 +305,30 @@ public class AdminController {
             @AuthenticationPrincipal UserPrincipal principal) {
 
         return ResponseEntity.ok(adminService.regenerateInviteCode(resolveAdmin(principal)));
+    }
+
+    // ── Privacy / GDPR data requests ─────────────────────────────────────────
+
+    @GetMapping("/privacy/requests")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> getPrivacyRequests(
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/privacy/requests/{requestId}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Map<String, Object>> approvePrivacyRequest(
+            @PathVariable Long requestId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true, "requestId", requestId, "status", "APPROVED"));
+    }
+
+    @PostMapping("/privacy/requests/{requestId}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Map<String, Object>> rejectPrivacyRequest(
+            @PathVariable Long requestId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true, "requestId", requestId, "status", "REJECTED"));
     }
 }

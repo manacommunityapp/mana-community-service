@@ -39,7 +39,7 @@ public class SportsDashboardController {
         return ResponseEntity.ok(dashboardService.getStats(user));
     }
 
-    @GetMapping("/upcoming")
+    @GetMapping({"/upcoming", "/upcoming-events"})
     public ResponseEntity<List<UpcomingEvent>> getUpcomingEvents(
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);

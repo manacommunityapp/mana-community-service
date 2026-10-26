@@ -76,6 +76,13 @@ public class CommunityGraphController {
         return ResponseEntity.ok(List.of());
     }
 
+    @GetMapping("/relationships")
+    public ResponseEntity<List<Map<String, Object>>> getRelationships(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(List.of());
+    }
+
     @PostMapping({"/connect/{targetUserId}", "/relationships"})
     public ResponseEntity<?> connectWithNeighbor(
             @PathVariable(required = false) Long targetUserId,
