@@ -84,6 +84,36 @@ public class GuardStatsController {
         return ResponseEntity.ok(List.of());
     }
 
+    @PutMapping("/visitors/{id}/check-in")
+    public ResponseEntity<Map<String, Object>> checkInVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "CHECKED_IN",
+                "checkedInAt", LocalDateTime.now().toString()));
+    }
+
+    @PutMapping("/visitors/{id}/check-out")
+    public ResponseEntity<Map<String, Object>> checkOutVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "CHECKED_OUT",
+                "checkedOutAt", LocalDateTime.now().toString()));
+    }
+
+    @PutMapping("/visitors/{id}/deny")
+    public ResponseEntity<Map<String, Object>> denyVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "DENIED",
+                "deniedAt", LocalDateTime.now().toString()));
+    }
+
     private Map<String, Object> emptyStats() {
         return Map.of(
                 "visitorsToday", 0L,

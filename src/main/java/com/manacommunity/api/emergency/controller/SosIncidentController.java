@@ -13,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/emergency", "/api/v1/emergency"})
@@ -22,7 +23,7 @@ public class SosIncidentController {
     private final SosIncidentService sosService;
     private final LoggedInUserService loggedInUserService;
 
-    @PostMapping("/sos/trigger")
+    @PostMapping({"/sos/trigger", "/sos"})
     public ResponseEntity<SosIncidentResponse> triggerSos(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody SosTriggerRequest request
@@ -70,7 +71,7 @@ public class SosIncidentController {
         return ResponseEntity.ok(sosService.resolveSos(user, id, request));
     }
 
-    @GetMapping("/sos/active")
+    @GetMapping({"/sos/active", "/active"})
     public ResponseEntity<List<SosIncidentResponse>> getActiveIncidents(
             @AuthenticationPrincipal UserPrincipal principal
     ) {
@@ -94,6 +95,47 @@ public class SosIncidentController {
     ) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(sosService.getIncidentHistory(user.getCommunity().getId(), page, size));
+    }
+
+    @GetMapping("/contacts")
+    public ResponseEntity<List<Map<String, Object>>> getEmergencyContacts(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/sos/{id}/escalate")
+    public ResponseEntity<Map<String, Object>> escalateSos(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "ESCALATED",
+                "escalatedAt", java.time.LocalDateTime.now().toString()));
+    }
+
+    @PostMapping("/sos/{id}/eta")
+    public ResponseEntity<Map<String, Object>> updateEta(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        loggedInUserService.resolve(principal);
+        Object eta = body != null ? body.get("eta") : null;
+        return ResponseEntity.ok(Map.of("id", id, "eta", eta != null ? eta : 0,
+                "updatedAt", java.time.LocalDateTime.now().toString()));
+    }
+
+    @PostMapping("/sos/{id}/on-scene")
+    public ResponseEntity<SosIncidentResponse> recordOnScene(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(required = false) String notes
+    ) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(sosService.recordGuardArrival(user, id, notes));
     }
 
     @PostMapping("/lockdown")

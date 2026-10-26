@@ -1,9 +1,12 @@
 package com.manacommunity.api.graph.controller;
 
+import com.manacommunity.api.intelligence.dto.*;
+import com.manacommunity.api.intelligence.service.ManaIntelligenceService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,12 +15,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping({"/api/graph", "/api/community-graph"})
+@RequestMapping("/api/community-graph")
 @RequiredArgsConstructor
 public class CommunityGraphController {
 
     private final AppUserRepository appUserRepo;
     private final LoggedInUserService loggedInUserService;
+    private final ManaIntelligenceService intelligenceService;
 
     @GetMapping("/discover")
     public ResponseEntity<Map<String, Object>> discover(
@@ -81,6 +85,39 @@ public class CommunityGraphController {
             @AuthenticationPrincipal UserPrincipal principal) {
         loggedInUserService.resolve(principal);
         return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/recommendations/feed")
+    public ResponseEntity<Map<String, Object>> getRecommendationsFeed(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        List<RecommendationCardDto> feed = intelligenceService.getPersonalizedFeed(user);
+        return ResponseEntity.ok(Map.of("recommendations", feed, "total", feed.size()));
+    }
+
+    @GetMapping("/omnisearch")
+    public ResponseEntity<OmniSearchResponseDto> omniSearch(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "6") int limit,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(intelligenceService.omniSearch(user, q, limit));
+    }
+
+    @GetMapping("/privacy/visibility")
+    public ResponseEntity<Map<String, Object>> getVisibility(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("visibility", "PUBLIC", "profileVisible", true,
+                "showInSearch", true, "showSkills", true));
+    }
+
+    @PutMapping("/privacy/visibility")
+    public ResponseEntity<CommunityProfileDto> updateVisibility(
+            @Valid @RequestBody UpdateVisibilityRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(intelligenceService.updateVisibility(user, request));
     }
 
     @PostMapping({"/connect/{targetUserId}", "/relationships"})

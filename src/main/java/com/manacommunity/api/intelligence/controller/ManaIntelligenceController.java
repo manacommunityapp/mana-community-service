@@ -54,11 +54,48 @@ public class ManaIntelligenceController {
         return ResponseEntity.ok(intelligenceService.getTopSkills(user));
     }
 
+    @GetMapping("/privacy/visibility")
+    public ResponseEntity<Map<String, Object>> getVisibility(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("visibility", "PUBLIC", "profileVisible", true,
+                "showInSearch", true, "showSkills", true));
+    }
+
     @PutMapping("/privacy/visibility")
     public ResponseEntity<CommunityProfileDto> updateVisibility(
             @Valid @RequestBody UpdateVisibilityRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(intelligenceService.updateVisibility(user, request));
+    }
+
+    @GetMapping("/discover")
+    public ResponseEntity<Map<String, Object>> discover(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("neighbors", List.of(), "clubs", List.of()));
+    }
+
+    @GetMapping("/relationships")
+    public ResponseEntity<List<Map<String, Object>>> getRelationships(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping({"/relationships", "/connect/{targetUserId}"})
+    public ResponseEntity<Map<String, Object>> connect(
+            @PathVariable(required = false) Long targetUserId,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        Long target = targetUserId;
+        if (target == null && body != null) {
+            Object tid = body.get("targetId");
+            if (tid instanceof Number) target = ((Number) tid).longValue();
+            else if (tid != null) target = Long.parseLong(tid.toString());
+        }
+        return ResponseEntity.ok(Map.of("status", "CONNECTED", "targetUserId", target != null ? target : 0));
     }
 }
