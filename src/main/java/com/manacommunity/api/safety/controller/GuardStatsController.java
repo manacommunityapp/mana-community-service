@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -68,6 +69,19 @@ public class GuardStatsController {
                 "raisedBy",  user.getFullName(),
                 "raisedAt",  LocalDateTime.now().toString()
         ));
+    }
+
+    @GetMapping("/alerts")
+    public ResponseEntity<List<Map<String, Object>>> getAlerts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/visitors")
+    public ResponseEntity<List<Map<String, Object>>> getVisitors(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(List.of());
     }
 
     private Map<String, Object> emptyStats() {
