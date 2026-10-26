@@ -7,12 +7,14 @@ import com.manacommunity.api.homeservice.service.HomeServiceAdminService;
 import com.manacommunity.api.homeservice.service.HomeServiceWorkerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController("homeServiceAdminController")
 @RequestMapping("/api/v1/home-services/admin")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class HomeServiceAdminController {
     private final HomeServiceAdminService adminService;
     private final HomeServiceWorkerService workerService;

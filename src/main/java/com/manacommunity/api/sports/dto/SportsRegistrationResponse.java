@@ -40,6 +40,10 @@ public class SportsRegistrationResponse {
     private LocalDateTime verifiedAt;
 
     private Integer seed;
+    private String registrationSource;
+    private String phone;
+    private String externalResponseId;
+    private Boolean isExternalGuest;
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;
 

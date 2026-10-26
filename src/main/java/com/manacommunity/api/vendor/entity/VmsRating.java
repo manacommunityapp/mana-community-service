@@ -38,6 +38,19 @@ public class VmsRating {
     @Column(length = 2000)
     private String comment;
 
+    @Column(name = "vendor_reply", length = 2000)
+    private String vendorReply;
+
+    @Column(name = "vendor_replied_at")
+    private LocalDateTime vendorRepliedAt;
+
+    @Column(name = "reported", nullable = false)
+    @Builder.Default
+    private Boolean reported = false;
+
+    @Column(name = "report_reason", length = 1000)
+    private String reportReason;
+
     @Column(name = "is_anonymous", nullable = false)
     @Builder.Default
     private Boolean isAnonymous = false;

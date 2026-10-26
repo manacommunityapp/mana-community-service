@@ -1,5 +1,6 @@
 package com.manacommunity.api.food.controller;
 
+import com.manacommunity.api.constants.PermissionConstants;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -131,7 +132,7 @@ public class FoodGroceryController {
     }
 
     @PostMapping("/orders")
-    @PreAuthorize("hasAuthority('Manage Food Grocery')")
+    @PreAuthorize("hasAnyAuthority('View Food Grocery', 'Manage Food Grocery')")
     public ResponseEntity<?> placeOrder(
             @Valid @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -167,11 +168,41 @@ public class FoodGroceryController {
     @PreAuthorize("hasAuthority('Manage Food Grocery')")
     public ResponseEntity<?> updateStatus(
             @PathVariable Long id,
-            @RequestParam String status,
+            @RequestParam(required = false) String status,
+            @RequestBody(required = false) Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
-        return ResponseEntity.ok(groceryService.updateStatus(communityId, id, status));
+        String requestedStatus = status != null ? status : request != null ? String.valueOf(request.get("status")) : null;
+        if (requestedStatus == null || "null".equals(requestedStatus)) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(groceryService.updateStatus(communityId, id, requestedStatus));
+    }
+
+    @GetMapping("/vendor/orders")
+    @PreAuthorize("hasAuthority('" + PermissionConstants.VIEW_VENDOR_MANAGEMENT + "')")
+    public ResponseEntity<?> getVendorOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        PageRequest pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(groceryService.getVendorOrders(communityId, user.getId(), pageable));
+    }
+
+    @PatchMapping("/vendor/orders/{id}/status")
+    @PreAuthorize("hasAuthority('" + PermissionConstants.MANAGE_COMMERCE_ORDERS + "')")
+    public ResponseEntity<?> updateVendorOrderStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String status = request.get("status") != null ? request.get("status").toString() : null;
+        if (status == null || status.isBlank()) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(groceryService.updateVendorOrderStatus(
+                user.getCommunity().getId(), user.getId(), id, status));
     }
 
     @GetMapping("/delivery-slots")

@@ -69,4 +69,20 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
     long countByCommunityIdAndTournamentRegistrationStatus(Long communityId, com.manacommunity.api.sports.model.SportsEventStatus registrationStatus);
 
     long countByCommunityIdAndTournamentRegistrationStatusIn(Long communityId, List<com.manacommunity.api.sports.model.SportsEventStatus> registrationStatuses);
+
+    @Query("""
+        SELECT e FROM SportsEvent e
+        WHERE e.community.id = :communityId
+          AND e.sport.id = :sportId
+          AND LOWER(TRIM(e.name)) = LOWER(TRIM(:name))
+          AND ((:tournamentId IS NULL AND e.tournament IS NULL) OR (:tournamentId IS NOT NULL AND e.tournament.id = :tournamentId))
+          AND e.createdAt >= :since
+        ORDER BY e.createdAt DESC
+    """)
+    List<SportsEvent> findRecentDuplicates(
+            @Param("communityId") Long communityId,
+            @Param("sportId") Long sportId,
+            @Param("name") String name,
+            @Param("tournamentId") Long tournamentId,
+            @Param("since") java.time.LocalDateTime since);
 }

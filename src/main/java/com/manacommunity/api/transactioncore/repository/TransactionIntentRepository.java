@@ -14,6 +14,9 @@ import java.util.Optional;
 public interface TransactionIntentRepository extends JpaRepository<TransactionIntent, Long> {
     Optional<TransactionIntent> findByIntentId(String intentId);
     Optional<TransactionIntent> findByIdempotencyKey(String idempotencyKey);
+    Optional<TransactionIntent> findByReceiptNumber(String receiptNumber);
+    Optional<TransactionIntent> findByGatewayOrderId(String gatewayOrderId);
+    Optional<TransactionIntent> findByOrderReferenceId(String orderReferenceId);
     Optional<TransactionIntent> findByDomainAndOrderReferenceId(TransactionDomain domain, String orderReferenceId);
     Page<TransactionIntent> findByPayerId(Long payerId, Pageable pageable);
     Page<TransactionIntent> findByCommunityIdAndStatus(Long communityId, TransactionIntentStatus status, Pageable pageable);

@@ -1,6 +1,7 @@
 package com.manacommunity.api.serviceplatform.amc.service;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.user.model.AppUser;
@@ -104,8 +105,17 @@ public class AmcService {
 
     @Transactional
     public AmcSubscriptionDto useVisit(Long subscriptionId) {
+        return useVisit(subscriptionId, null, true);
+    }
+
+    @Transactional
+    public AmcSubscriptionDto useVisit(Long subscriptionId, Long requestingUserId, boolean isAdmin) {
         AmcSubscription sub = amcSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("AmcSubscription", subscriptionId));
+
+        if (!isAdmin && (sub.getUser() == null || requestingUserId == null || !sub.getUser().getId().equals(requestingUserId))) {
+            throw new AccessDeniedException("You do not have permission to use visits on this subscription.");
+        }
 
         if (!engine.canUseAmcVisit(sub, LocalDate.now())) {
             throw new IllegalStateException("AMC subscription is not active or has no remaining visits");

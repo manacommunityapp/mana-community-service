@@ -30,6 +30,20 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
     java.util.List<AppUser> findByCommunityIdAndFullNameContainingIgnoreCase(Long communityId, String query);
+
+    @Query("""
+            SELECT u FROM AppUser u
+            WHERE u.community.id = :communityId
+              AND (
+                   LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR
+                   LOWER(u.flatNo) LIKE LOWER(CONCAT('%', :query, '%')) OR
+                   LOWER(u.block) LIKE LOWER(CONCAT('%', :query, '%')) OR
+                   LOWER(CONCAT(COALESCE(u.block, ''), ' ', COALESCE(u.flatNo, ''))) LIKE LOWER(CONCAT('%', :query, '%')) OR
+                   LOWER(CONCAT(COALESCE(u.block, ''), '-', COALESCE(u.flatNo, ''))) LIKE LOWER(CONCAT('%', :query, '%'))
+              )
+            """)
+    java.util.List<AppUser> searchCommunityMembers(@Param("communityId") Long communityId, @Param("query") String query);
+    java.util.Optional<AppUser> findFirstByCommunityIdAndFullNameIgnoreCase(Long communityId, String fullName);
     java.util.List<AppUser> findByCommunityId(Long communityId);
     Page<AppUser> findByCommunityId(Long communityId, Pageable pageable);
 

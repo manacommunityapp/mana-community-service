@@ -1,14 +1,13 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.PagedResponse;
+import com.manacommunity.api.dto.ResidentInvoiceResponse;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Invoice;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.repository.InvoiceRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.BillingService;
-import lombok.Builder;
-import lombok.Data;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -47,7 +45,7 @@ public class BillingController {
 
     @GetMapping("/invoices")
     @PreAuthorize("hasAuthority('View Admin')")
-    public ResponseEntity<PagedResponse<InvoiceResponse>> getInvoices(
+    public ResponseEntity<PagedResponse<ResidentInvoiceResponse>> getInvoices(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -66,7 +64,7 @@ public class BillingController {
     }
 
     @GetMapping("/invoices/my")
-    public ResponseEntity<List<InvoiceResponse>> getMyInvoices(
+    public ResponseEntity<List<ResidentInvoiceResponse>> getMyInvoices(
             @AuthenticationPrincipal UserPrincipal principal) {
         var invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(principal.getId());
         return ResponseEntity.ok(invoices.stream().map(this::toInvoiceResponse).toList());
@@ -74,7 +72,7 @@ public class BillingController {
 
     @PostMapping("/invoices/{id}/pay")
     @PreAuthorize("hasAuthority('View Admin')")
-    public ResponseEntity<InvoiceResponse> markAsPaid(
+    public ResponseEntity<ResidentInvoiceResponse> markAsPaid(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -90,8 +88,8 @@ public class BillingController {
 
     // ── Mappers ───────────────────────────────────────────────────────────
 
-    private InvoiceResponse toInvoiceResponse(Invoice i) {
-        return InvoiceResponse.builder()
+    private ResidentInvoiceResponse toInvoiceResponse(Invoice i) {
+        return ResidentInvoiceResponse.builder()
                 .id(i.getId())
                 .invoiceNumber(i.getInvoiceNumber())
                 .residentName(i.getResident() != null ? i.getResident().getFullName() : null)
@@ -101,32 +99,12 @@ public class BillingController {
                 .cgst(i.getCgst())
                 .sgst(i.getSgst())
                 .totalAmount(i.getTotalAmount())
-                .dueDate(i.getDueDate().toString())
+                .dueDate(i.getDueDate() != null ? i.getDueDate().toString() : null)
                 .status(i.getStatus())
                 .pdfUrl(i.getPdfUrl())
                 .eventTitle(i.getExpense() != null ? i.getExpense().getTitle() : null)
                 .generatedAt(i.getGeneratedAt())
                 .paidAt(i.getPaidAt())
                 .build();
-    }
-
-    @Data
-    @Builder
-    public static class InvoiceResponse {
-        private Long id;
-        private String invoiceNumber;
-        private String residentName;
-        private Long residentId;
-        private String flatNo;
-        private BigDecimal taxableAmount;
-        private BigDecimal cgst;
-        private BigDecimal sgst;
-        private BigDecimal totalAmount;
-        private String dueDate;
-        private String status;
-        private String pdfUrl;
-        private String eventTitle;
-        private LocalDateTime generatedAt;
-        private LocalDateTime paidAt;
     }
 }

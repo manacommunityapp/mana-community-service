@@ -15,6 +15,7 @@ import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,7 +76,7 @@ public class ActivityRegistrationService {
         registration.setPrimaryName(resolvePrimaryName(req, user));
         registration.setPrimaryEmail(normalize(req.getPrimaryEmail()) != null ? normalize(req.getPrimaryEmail()) : user.getEmail());
         registration.setPrimaryPhone(normalize(req.getPrimaryPhone()));
-        registration.setParticipantData(toJson(req.getParticipants()));
+        registration.setParticipantData(toJson(sanitizeParticipants(req.getParticipants())));
         registration.setCustomData(toJson(req.getCustomData()));
         registration.setIdempotencyKey(idempotencyKey);
         registration.setStatus(status);
@@ -208,7 +209,21 @@ public class ActivityRegistrationService {
             String participantName = normalize(req.getParticipants().get(0).getFullName());
             if (participantName != null) return participantName;
         }
-        return user.getFullName();
+        return normalize(user.getFullName());
+    }
+
+    private List<ActivityRegistrationRequest.ParticipantRequest> sanitizeParticipants(List<ActivityRegistrationRequest.ParticipantRequest> participants) {
+        if (participants == null) return null;
+        for (var p : participants) {
+            if (p != null) {
+                p.setFullName(normalize(p.getFullName()));
+                p.setGender(normalize(p.getGender()));
+                p.setRelationship(normalize(p.getRelationship()));
+                p.setEmail(normalize(p.getEmail()));
+                p.setPhone(normalize(p.getPhone()));
+            }
+        }
+        return participants;
     }
 
     private EventProgram getProgram(Long programId) {
@@ -272,7 +287,9 @@ public class ActivityRegistrationService {
 
     private String normalize(String value) {
         if (value == null) return null;
-        String trimmed = value.trim();
+        String sanitized = HtmlSanitizer.sanitizePlainText(value);
+        if (sanitized == null) return null;
+        String trimmed = sanitized.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
 

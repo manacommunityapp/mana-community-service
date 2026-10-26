@@ -74,6 +74,14 @@ public class SecurityConfig { // BUG FIX: was package-private
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
+    /**
+     * DPDP Act 2023 / Security gap: enforce HTTPS in non-local environments.
+     * Set app.security.require-https=true in production / staging application.properties.
+     * Default false keeps local dev on HTTP.
+     */
+    @Value("${app.security.require-https:false}")
+    private boolean requireHttps;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -194,7 +202,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Clickjacking: refuse to be framed (X-Frame-Options + CSP frame-ancestors).
                 .frameOptions(frame -> frame.deny())
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"))
                 // Force HTTPS for a year once served over TLS.
                 .httpStrictTransportSecurity(hsts -> hsts
                         .includeSubDomains(true).maxAgeInSeconds(31_536_000))
@@ -230,6 +238,14 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
+                // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
+                .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
+                // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
+                .requestMatchers("/api/insurance/webhooks/**").permitAll()
+                // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/cpos/crm/leads/inbound").permitAll()
+                .requestMatchers("/api/insurance/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
+                .requestMatchers("/api/payments/cashfree/admin/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // STOMP/WebSocket handshake — the CONNECT frame is authenticated
                 // separately by WebSocketConfig's channel interceptor (JWT in the
                 // STOMP headers), so the HTTP upgrade itself is permitted.
@@ -238,6 +254,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // secure registration form (the registration POST stays authenticated).
                 .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/sports/events/by-uuid/**").permitAll()
+                .requestMatchers("/api/sports/external-forms/public/**", "/api/integrations/google/forms/**").permitAll()
                 // Communities: only the public GET endpoints used by the registration form
                 // (list all communities, filter by type, and per-community public info) are open.
                 // Communities: public GET endpoints for listing, filtering, looking up communities and registration
@@ -252,13 +269,18 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Public file and media streaming (allows browsers to load images in <img> tags without Authorization headers)
                 .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
-                .requestMatchers("/api/files/refresh-url").permitAll()
+                // Health Directory & Public Camps / Triage
+                .requestMatchers(HttpMethod.GET, "/api/health/providers/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health/camps/upcoming").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/health/triage").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );
+        if (requireHttps) {
+            http.requiresChannel(channel -> channel.anyRequest().requiresSecure());
+        }
+
         return http.build();
     }
-
-
-
 }

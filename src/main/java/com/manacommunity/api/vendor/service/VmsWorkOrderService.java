@@ -85,6 +85,31 @@ public class VmsWorkOrderService {
     }
 
     @Transactional
+    public WorkOrderResponse updateStatusForUser(Long id, String status, AppUser user, boolean manager) {
+        VmsWorkOrder wo = workOrderRepo.findByIdAndCommunityId(id, user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", id));
+        boolean assignedVendor = wo.getVendor() != null && wo.getVendor().getUser() != null
+                && wo.getVendor().getUser().getId().equals(user.getId());
+        boolean assignee = wo.getAssignedTo() != null && wo.getAssignedTo().getId().equals(user.getId());
+        if (!manager && !assignedVendor && !assignee)
+            throw new org.springframework.security.access.AccessDeniedException("You are not assigned to this work order");
+        VmsWorkOrder.WorkOrderStatus next = VmsWorkOrder.WorkOrderStatus.valueOf(status.toUpperCase());
+        if (!manager) {
+            boolean allowed = switch (wo.getStatus()) {
+                case ASSIGNED -> next == VmsWorkOrder.WorkOrderStatus.ACCEPTED || next == VmsWorkOrder.WorkOrderStatus.REJECTED;
+                case ACCEPTED -> next == VmsWorkOrder.WorkOrderStatus.IN_PROGRESS;
+                case IN_PROGRESS -> next == VmsWorkOrder.WorkOrderStatus.ON_HOLD || next == VmsWorkOrder.WorkOrderStatus.COMPLETED;
+                case ON_HOLD -> next == VmsWorkOrder.WorkOrderStatus.IN_PROGRESS;
+                default -> false;
+            };
+            if (!allowed) throw new IllegalStateException("The work order cannot transition from " + wo.getStatus() + " to " + next);
+        }
+        wo.setStatus(next);
+        if (next == VmsWorkOrder.WorkOrderStatus.COMPLETED) wo.setCompletedAt(java.time.LocalDateTime.now());
+        return toResponse(workOrderRepo.save(wo));
+    }
+
+    @Transactional
     public WorkOrderResponse assignVendor(Long id, Long vendorId, Long communityId) {
         VmsWorkOrder wo = workOrderRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", id));

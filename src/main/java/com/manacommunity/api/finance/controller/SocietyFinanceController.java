@@ -126,4 +126,55 @@ public class SocietyFinanceController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(service.getGstSummary(user.getCommunity().getId(), month));
     }
+
+    // ── Vendor Bills ──────────────────────────────────────────────
+
+    @GetMapping("/vendor-bills")
+    public ResponseEntity<List<SocietyVendorBillDto>> listVendorBills(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(service.getVendorBills(user.getCommunity().getId(), status));
+    }
+
+    @PostMapping("/vendor-bills")
+    public ResponseEntity<SocietyVendorBillDto> createVendorBill(
+            @Valid @RequestBody CreateSocietyVendorBillDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(service.createVendorBill(user.getCommunity().getId(), dto, user));
+    }
+
+    @PostMapping("/vendor-bills/{id}/approve")
+    public ResponseEntity<SocietyVendorBillDto> approveVendorBill(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        AppUser user = loggedInUserService.resolve(principal);
+        String notes = body != null ? body.get("notes") : null;
+        return ResponseEntity.ok(service.approveVendorBill(id, notes, user));
+    }
+
+    @PostMapping("/vendor-bills/{id}/pay")
+    public ResponseEntity<SocietyVendorBillDto> payVendorBill(
+            @PathVariable Long id,
+            @Valid @RequestBody PaySocietyVendorBillDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        return ResponseEntity.ok(service.payVendorBill(id, dto));
+    }
+
+    // ── Invoice Payment Recording ─────────────────────────────────
+
+    @PostMapping("/invoices/record-payment")
+    public ResponseEntity<Map<String, Object>> recordInvoicePayment(
+            @Valid @RequestBody RecordInvoicePaymentDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(service.recordInvoicePayment(user.getCommunity().getId(), dto));
+    }
 }

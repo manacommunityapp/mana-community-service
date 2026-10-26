@@ -7,8 +7,12 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SportsEventRegistrationRepository extends JpaRepository<SportsEventRegistration, Long> {
+    Optional<SportsEventRegistration> findFirstByEventIdAndUserIdAndStatus(
+            Long eventId, Long userId, SportsEventRegistration.RegistrationStatus status);
+
     boolean existsByEventIdAndUserId(Long eventId, Long userId);
     boolean existsByEventIdAndUserIdAndPlayerName(Long eventId, Long userId, String playerName);
     boolean existsByEventIdAndUserIdAndStatusIn(Long eventId, Long userId, List<SportsEventRegistration.RegistrationStatus> statuses);

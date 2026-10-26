@@ -1,4 +1,5 @@
 package com.manacommunity.api.sports.service.impl;
+import com.manacommunity.api.dto.TeamRegistrationRequest;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -126,6 +127,37 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsMeta sport = sportMetaRepo.findById(req.getSportId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sport", req.getSportId()));
 
+        SportsTournament tournament = null;
+        if (req.getTournamentId() != null) {
+            tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseGet(() -> {
+                        return eventRepo.findById(req.getTournamentId())
+                                .map(SportsEvent::getTournament)
+                                .filter(java.util.Objects::nonNull)
+                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    });
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
+        }
+        Long tournamentId = (tournament != null) ? tournament.getId() : null;
+
+        // Idempotency deduplication check: if an identical event was created in the last 20 seconds, return it
+        if (req.getCommunityId() != null && req.getName() != null) {
+            LocalDateTime recentThreshold = LocalDateTime.now().minusSeconds(20);
+            List<SportsEvent> recentDuplicates = eventRepo.findRecentDuplicates(
+                    req.getCommunityId(),
+                    sport.getId(),
+                    req.getName(),
+                    tournamentId,
+                    recentThreshold
+            );
+            if (!recentDuplicates.isEmpty()) {
+                SportsEvent existing = recentDuplicates.get(0);
+                log.warn("Duplicate sports event creation prevented: returning existing event id={} for name='{}'",
+                        existing.getId(), existing.getName());
+                return existing;
+            }
+        }
+
         SportsVenue venue = null;
         if (req.getVenueId() != null) {
             venue = venueRepo.findById(req.getVenueId())
@@ -191,11 +223,8 @@ public class SportsEventServiceImpl implements SportsEventService {
             event.setSponsors(sponsorsList);
         }
 
-        if (req.getTournamentId() != null) {
-            SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+        if (tournament != null) {
             event.setTournament(tournament);
-            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
         }
 
         SportsEvent saved = eventRepo.save(event);
@@ -242,7 +271,8 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (req.getFamilyMemberId() != null) {
             com.manacommunity.api.user.model.FamilyMember member = familyMemberRepository.findByIdAndUserId(req.getFamilyMemberId(), userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
+                    .orElseGet(() -> familyMemberRepository.findById(req.getFamilyMemberId())
+                            .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId())));
             familyMember = member;
             pName = member.getName();
             relation = member.getRelation();
@@ -270,19 +300,48 @@ public class SportsEventServiceImpl implements SportsEventService {
         } else {
             pName = req.getPlayerName() != null && !req.getPlayerName().isBlank() ? req.getPlayerName() : user.getFullName();
 
-            boolean missingDob = user.getDateOfBirth() == null;
-            boolean missingGender = user.getGender() == null || user.getGender().trim().isEmpty();
+            boolean isSelf = normEq(pName, user.getFullName());
 
-            if (missingDob && missingGender) {
-                throw new InvalidInputException("Please update your Gender and Date of Birth in your Profile before registering for sports events.");
-            } else if (missingDob) {
-                throw new InvalidInputException("Please update your Date of Birth in your Profile before registering for sports events.");
-            } else if (missingGender) {
-                throw new InvalidInputException("Please update your Gender in your Profile before registering for sports events.");
+            if (req.getGender() != null && !req.getGender().isBlank()) {
+                gender = req.getGender().trim().toUpperCase();
+            } else {
+                gender = user.getGender();
             }
 
-            gender = user.getGender();
-            age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
+            if (req.getAge() != null && req.getAge() > 0) {
+                age = req.getAge();
+            } else if (req.getDateOfBirth() != null && !req.getDateOfBirth().isBlank()) {
+                try {
+                    LocalDate pDob = LocalDate.parse(req.getDateOfBirth().trim());
+                    age = Period.between(pDob, LocalDate.now()).getYears();
+                } catch (Exception e) {
+                    age = user.getDateOfBirth() != null ? Period.between(user.getDateOfBirth(), LocalDate.now()).getYears() : 0;
+                }
+            } else if (user.getDateOfBirth() != null) {
+                age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
+            } else {
+                age = 0;
+            }
+
+            if (isSelf) {
+                boolean missingDob = user.getDateOfBirth() == null;
+                boolean missingGender = user.getGender() == null || user.getGender().trim().isEmpty();
+
+                if (missingDob && missingGender) {
+                    throw new InvalidInputException("Please update your Gender and Date of Birth in your Profile before registering for sports events.");
+                } else if (missingDob) {
+                    throw new InvalidInputException("Please update your Date of Birth in your Profile before registering for sports events.");
+                } else if (missingGender) {
+                    throw new InvalidInputException("Please update your Gender in your Profile before registering for sports events.");
+                }
+            } else {
+                if (gender == null || gender.trim().isEmpty()) {
+                    throw new InvalidInputException("Please select Gender for player " + pName + " before registering.");
+                }
+                if (age <= 0) {
+                    throw new InvalidInputException("Please provide a valid Date of Birth / Age for player " + pName + " before registering.");
+                }
+            }
         }
 
         List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
@@ -651,12 +710,43 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    @Override
+    @Transactional
+    public List<SportsEventRegistration> registerTeam(TeamRegistrationRequest teamReq, Long captainUserId) {
+        if (!teamReq.getMemberUserIds().contains(captainUserId)) {
+            teamReq.getMemberUserIds().add(0, captainUserId);
+        }
+        Long captainId = teamReq.getCaptainUserId() != null ? teamReq.getCaptainUserId() : captainUserId;
+        List<SportsEventRegistration> results = new java.util.ArrayList<>();
+        for (Long memberId : teamReq.getMemberUserIds()) {
+            RegistrationRequest req = new RegistrationRequest();
+            req.setEventId(teamReq.getEventId());
+            req.setCategoryId(teamReq.getCategoryId());
+            SportsEventRegistration reg = registerUser(req, memberId);
+            reg.setProposedTeamName(teamReq.getTeamName());
+            if (memberId.equals(captainId)) {
+                reg.setCaptainNomination(true);
+            }
+            regRepo.save(reg);
+            results.add(reg);
+        }
+        return results;
+    }
+
     private static List<SportsEvent.MatchFormat> parseMatchFormats(String csv) {
         if (csv == null || csv.isBlank()) return new java.util.ArrayList<>();
-        return java.util.Arrays.stream(csv.split(","))
+        String cleaned = csv.replace("[", "").replace("]", "").replace("\"", "").replace("'", "");
+        return java.util.Arrays.stream(cleaned.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .map(SportsEvent.MatchFormat::valueOf)
+                .map(s -> {
+                    try {
+                        return SportsEvent.MatchFormat.valueOf(s.toUpperCase().replace(" ", "_"));
+                    } catch (IllegalArgumentException ex) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toList());
     }
 
@@ -667,26 +757,80 @@ public class SportsEventServiceImpl implements SportsEventService {
                 b == null ? "" : b.trim().toLowerCase());
     }
 
+    @Override
     @Transactional
-    public void withdraw(Long registrationId, Long userId) {
+    public void withdraw(Long registrationId, Long userId, boolean admin, String reason) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
-        if (!reg.getUser().getId().equals(userId))
+        boolean isOwner = reg.getUser() != null && reg.getUser().getId().equals(userId);
+        if (!isOwner && !admin)
             throw new UnauthorizedActionException("You can only withdraw your own registration.");
+
+        if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN
+                || reg.getStatus() == SportsEventRegistration.RegistrationStatus.REJECTED) {
+            throw new InvalidInputException("This registration is already " + reg.getStatus().name().toLowerCase() + ".");
+        }
+
+        SportsEvent event = reg.getEvent();
+
+        // Cutoff: participants cannot unregister once the event has started (admins can).
+        if (!admin && event != null) {
+            LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
+                    : (event.getTournament() != null ? event.getTournament().getEventDateStart() : null);
+            if (start != null && !LocalDate.now().isBefore(start)) {
+                throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
+            }
+        }
+
+        // Auction pool: remove still-queued entry; block if the player is already in the live/sold auction.
+        if (event != null && reg.getFamilyMember() == null && reg.getUser() != null) {
+            auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
+                for (SportsAuctionPlayer p : playerRepo.findByConfigId(config.getId())) {
+                    if (p.getUser() == null || !p.getUser().getId().equals(reg.getUser().getId())) continue;
+                    if (p.getStatus() == SportsAuctionPlayer.PlayerStatus.QUEUED
+                            || p.getStatus() == SportsAuctionPlayer.PlayerStatus.PASSED) {
+                        playerRepo.delete(p);
+                    } else {
+                        throw new InvalidInputException(
+                                "This player is already part of the auction (" + p.getStatus().name().toLowerCase()
+                                        + ") and cannot be withdrawn. Please contact the organizers.");
+                    }
+                }
+            });
+        }
 
         reg.setStatus(SportsEventRegistration.RegistrationStatus.WITHDRAWN);
         regRepo.save(reg);
 
+        String eventName = event != null ? event.getName() : "the event";
+        Long eventId = event != null ? event.getId() : null;
+        String who = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                ? reg.getPlayerName()
+                : (reg.getUser() != null ? reg.getUser().getFullName() : "A participant");
+
         try {
-            String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "the event";
-            notificationService.createNotification(
-                    userId, NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
-                    "Registration Withdrawn",
-                    "Your registration for " + eventName + " has been withdrawn",
-                    null, ReferenceType.SPORTS_EVENT,
-                    reg.getEvent() != null ? reg.getEvent().getId() : null,
-                    NotificationPriority.NORMAL, null, null);
+            // Registration owner (also covers admin-initiated removal)
+            if (reg.getUser() != null) {
+                String msg = isOwner
+                        ? "Your registration for " + eventName + " has been withdrawn"
+                        : "Your registration for " + eventName + " was removed by an organizer"
+                                + (reason != null && !reason.isBlank() ? ": " + reason : ".");
+                notificationService.createNotification(
+                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        "Registration Withdrawn", msg, null, ReferenceType.SPORTS_EVENT, eventId,
+                        NotificationPriority.NORMAL, null, null);
+            }
+            // Doubles partner: let them know so they can pick a new partner
+            if (reg.getPartner() != null && reg.getPartner().getId() != null
+                    && (reg.getUser() == null || !reg.getPartner().getId().equals(reg.getUser().getId()))) {
+                notificationService.createNotification(
+                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        "Partner Withdrew",
+                        who + " has withdrawn from " + eventName + ". You may need to nominate a new partner.",
+                        null, ReferenceType.SPORTS_EVENT, eventId,
+                        NotificationPriority.NORMAL, null, null);
+            }
         } catch (Exception e) {
             log.warn("Failed to persist withdrawal notification", e);
         }
@@ -1248,7 +1392,13 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public void deleteEvent(Long eventId) {
-        tournamentRepo.deleteByEventId(eventId);
+        long activeRegs = regRepo.countActiveByEventId(eventId);
+        if (activeRegs > 0) {
+            throw new InvalidInputException(
+                    "Cannot delete sports event id=" + eventId + " because " + activeRegs
+                    + " active registration(s) exist. Please close registration instead.");
+        }
+
         eventRepo.deleteById(eventId);
 
         auditService.record(
@@ -1267,7 +1417,17 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
         
-        if (event.getTournament() != null) {
+        if (req.getTournamentId() != null && !req.getTournamentId().equals(eventId)) {
+            SportsTournament tournament = tournamentRepo.findById(req.getTournamentId())
+                    .orElseGet(() -> {
+                        return eventRepo.findById(req.getTournamentId())
+                                .map(SportsEvent::getTournament)
+                                .filter(java.util.Objects::nonNull)
+                                .orElseThrow(() -> new ResourceNotFoundException("SportsTournament", req.getTournamentId()));
+                    });
+            event.setTournament(tournament);
+            validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), tournament);
+        } else if (event.getTournament() != null) {
             validateEventDatesWithinTournament(req.getEventDateStart(), req.getEventDateEnd(), event.getTournament());
         }
 
@@ -1290,7 +1450,9 @@ public class SportsEventServiceImpl implements SportsEventService {
         event.setMaxPlayers(req.getMaxPlayers());
         event.setGender(req.getGender());
         event.setPlayersBorn(req.getPlayersBorn());
-        event.setFormat(parseMatchFormats(req.getFormat()));
+        if (req.getFormat() != null) {
+            event.setFormat(parseMatchFormats(req.getFormat()));
+        }
         event.setTournamentType(req.getTournamentType() != null
                 ? SportsEvent.TournamentType.valueOf(req.getTournamentType()) : null);
         

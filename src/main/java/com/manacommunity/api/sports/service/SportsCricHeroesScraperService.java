@@ -9,9 +9,14 @@ import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,23 +42,166 @@ public class SportsCricHeroesScraperService {
 
     private static final int CONNECT_TIMEOUT_MS = 12_000;
     private static final int FETCH_TIMEOUT_MS   = 15_000;
+    private static final int MAX_REDIRECT_HOPS  = 5;
+
+    private static final Set<String> ALLOWED_HOSTS = Set.of(
+            "cricheroes.com",
+            "www.cricheroes.com",
+            "chshare.link",
+            "www.chshare.link"
+    );
+
+    @FunctionalInterface
+    public interface DnsLookup {
+        InetAddress[] resolve(String host) throws UnknownHostException;
+    }
+
+    // ── SSRF Defense & Validation ────────────────────────────────────────────
+
+    /**
+     * Validates that the provided URL is a safe, external CricHeroes HTTPS URL
+     * and does not resolve to private, loopback, or cloud metadata IP addresses.
+     *
+     * @param inputUrl The raw URL string to validate
+     * @return Normalized URI
+     * @throws IllegalArgumentException if the URL fails any security check
+     */
+    public static URI validateSafeUrl(String inputUrl) {
+        return validateSafeUrl(inputUrl, InetAddress::getAllByName);
+    }
+
+    /**
+     * Overload supporting custom DNS lookup for testability and IP pinning.
+     */
+    public static URI validateSafeUrl(String inputUrl, DnsLookup dnsLookup) {
+        if (inputUrl == null || inputUrl.isBlank()) {
+            throw new IllegalArgumentException("CricHeroes URL cannot be empty");
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(inputUrl.trim()).normalize();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid URL syntax: " + e.getMessage(), e);
+        }
+
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new IllegalArgumentException("Only HTTPS URLs are permitted");
+        }
+
+        if (uri.getUserInfo() != null) {
+            throw new IllegalArgumentException("URL must not contain user credentials");
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new IllegalArgumentException("URL host cannot be empty");
+        }
+
+        String normalizedHost = host.toLowerCase(Locale.ROOT);
+        boolean isWhitelisted = ALLOWED_HOSTS.contains(normalizedHost)
+                || normalizedHost.endsWith(".cricheroes.com")
+                || normalizedHost.endsWith(".chshare.link");
+
+        if (!isWhitelisted) {
+            throw new IllegalArgumentException("Host '" + host + "' is not permitted");
+        }
+
+        if (uri.getPort() != -1 && uri.getPort() != 443) {
+            throw new IllegalArgumentException("Only standard HTTPS port (443) is permitted");
+        }
+
+        // SSRF IP checks (DNS resolution against loopback, RFC 1918 private, and RFC 3927 cloud metadata)
+        try {
+            InetAddress[] addresses = dnsLookup.resolve(normalizedHost);
+            if (addresses == null || addresses.length == 0) {
+                throw new IllegalArgumentException("Unable to resolve host: " + host);
+            }
+            for (InetAddress addr : addresses) {
+                if (isRestrictedIp(addr)) {
+                    log.warn("Blocked SSRF attempt targeting restricted IP {} for host {}", addr.getHostAddress(), host);
+                    throw new IllegalArgumentException("Target host resolves to a restricted internal IP address");
+                }
+            }
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException("Host resolution failed for: " + host, e);
+        }
+
+        return uri;
+    }
+
+    /**
+     * Checks if the IP address belongs to loopback, site-local private, link-local metadata,
+     * or other reserved address ranges.
+     */
+    public static boolean isRestrictedIp(InetAddress addr) {
+        if (addr == null) return true;
+        if (addr.isLoopbackAddress()
+                || addr.isSiteLocalAddress()
+                || addr.isLinkLocalAddress()
+                || addr.isAnyLocalAddress()
+                || addr.isMulticastAddress()) {
+            return true;
+        }
+
+        String ip = addr.getHostAddress();
+        return ip.startsWith("169.254.")    // Cloud metadata (AWS, Azure, GCP 169.254.169.254)
+                || ip.startsWith("127.")      // IPv4 Loopback
+                || ip.startsWith("0.")        // Current network
+                || ip.startsWith("10.")       // Class A Private
+                || ip.startsWith("192.168.")  // Class C Private
+                || ip.startsWith("172.16.")   // Class B Private
+                || ip.startsWith("172.17.")
+                || ip.startsWith("172.18.")
+                || ip.startsWith("172.19.")
+                || ip.startsWith("172.20.")
+                || ip.startsWith("172.21.")
+                || ip.startsWith("172.22.")
+                || ip.startsWith("172.23.")
+                || ip.startsWith("172.24.")
+                || ip.startsWith("172.25.")
+                || ip.startsWith("172.26.")
+                || ip.startsWith("172.27.")
+                || ip.startsWith("172.28.")
+                || ip.startsWith("172.29.")
+                || ip.startsWith("172.30.")
+                || ip.startsWith("172.31.")
+                || ip.equals("255.255.255.255");
+    }
 
     // ── Public API ──────────────────────────────────────────────────────────
 
     /**
      * Resolves short share URLs (e.g. https://chshare.link/player/…)
-     * to the canonical CricHeroes player-profile URL by following redirects.
+     * to the canonical CricHeroes player-profile URL by following redirects safely.
      */
     public String resolveCanonicalUrl(String inputUrl) throws IOException {
-        if (inputUrl == null || inputUrl.isBlank()) {
-            throw new IllegalArgumentException("CricHeroes URL cannot be empty");
+        URI currentUri = validateSafeUrl(inputUrl);
+        String currentUrl = currentUri.toASCIIString();
+
+        int hops = 0;
+        while (hops < MAX_REDIRECT_HOPS) {
+            Connection.Response response = Jsoup.connect(currentUrl)
+                    .userAgent(USER_AGENT)
+                    .followRedirects(false)
+                    .timeout(CONNECT_TIMEOUT_MS)
+                    .execute();
+
+            int statusCode = response.statusCode();
+            if (statusCode >= 300 && statusCode < 400) {
+                String location = response.header("Location");
+                if (location == null || location.isBlank()) {
+                    break;
+                }
+                URI nextUri = currentUri.resolve(location).normalize();
+                currentUri = validateSafeUrl(nextUri.toASCIIString());
+                currentUrl = currentUri.toASCIIString();
+                hops++;
+            } else {
+                return response.url().toExternalForm();
+            }
         }
-        Connection.Response response = Jsoup.connect(inputUrl.trim())
-                .userAgent(USER_AGENT)
-                .followRedirects(true)
-                .timeout(CONNECT_TIMEOUT_MS)
-                .execute();
-        return response.url().toExternalForm();
+        return currentUrl;
     }
 
     /**
@@ -79,14 +227,18 @@ public class SportsCricHeroesScraperService {
      */
     public SportsCricHeroesProfileResponse fetchProfile(String rawUrl, String formatScope) throws IOException {
         String canonicalUrl = resolveCanonicalUrl(rawUrl);
+        validateSafeUrl(canonicalUrl);
         String chId         = extractPlayerId(canonicalUrl);
 
         log.info("Scraping CricHeroes profile: chId={} url={}", chId, canonicalUrl);
 
-        Document doc = Jsoup.connect(canonicalUrl)
+        Connection.Response response = Jsoup.connect(canonicalUrl)
                 .userAgent(USER_AGENT)
+                .followRedirects(false)
                 .timeout(FETCH_TIMEOUT_MS)
-                .get();
+                .execute();
+
+        Document doc = response.parse();
 
         // ── Bio ──────────────────────────────────────────────────────────
         String name = doc.select("h1.player-name, .profile-name, .user-name").text();

@@ -53,9 +53,16 @@ public class PetController {
     public ResponseEntity<PetDto> getPet(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
         Pet pet = petRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pet", id));
+        boolean isSuperAdmin = user.hasRole("SUPER_ADMIN");
+        boolean isOwner = pet.getOwner() != null && pet.getOwner().getId().equals(user.getId());
+        boolean isSameCommunity = pet.getCommunity() != null && user.getCommunity() != null
+                && pet.getCommunity().getId().equals(user.getCommunity().getId());
+        if (!isSuperAdmin && !isOwner && !isSameCommunity) {
+            throw new ResourceNotFoundException("Pet", id);
+        }
         return ResponseEntity.ok(toDto(pet));
     }
 

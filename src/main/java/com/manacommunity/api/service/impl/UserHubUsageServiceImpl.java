@@ -1,6 +1,7 @@
 package com.manacommunity.api.service.impl;
 
 import com.manacommunity.api.model.UserHubUsage;
+import com.manacommunity.api.privacy.ConsentGuard;
 import com.manacommunity.api.repository.UserHubUsageRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
@@ -22,10 +23,16 @@ public class UserHubUsageServiceImpl implements UserHubUsageService {
 
     private final UserHubUsageRepository hubUsageRepo;
     private final AppUserRepository appUserRepo;
+    private final ConsentGuard consentGuard;
 
     @Override
     @Transactional
     public void trackClick(Long userId, String hubId, String hubLabel) {
+        // DPDP Act 2023 s.6 — analytics is non-essential; skip silently if consent not granted.
+        if (!consentGuard.hasConsent(userId, "ANALYTICS")) {
+            log.debug("Hub usage tracking skipped for user={}: ANALYTICS consent not granted", userId);
+            return;
+        }
         Optional<UserHubUsage> existing = hubUsageRepo.findByUserIdAndHubId(userId, hubId);
 
         if (existing.isPresent()) {

@@ -2,6 +2,7 @@ package com.manacommunity.api.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -23,16 +24,28 @@ import java.util.concurrent.Executor;
 public class RestClientConfig {
 
     /**
-     * General-purpose RestTemplate used by ExpoPushServiceImpl.
-     * If the project already declares a RestTemplate @Bean elsewhere,
-     * rename this to pushRestTemplate and inject it with @Qualifier("pushRestTemplate")
-     * in ExpoPushServiceImpl.
+     * Primary RestTemplate — used by ExpoPushServiceImpl and other lightweight callers.
+     * Expo SLA is p99 < 500ms, so 5s connect + 8s read is conservative.
      */
     @Bean
+    @Primary
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5_000);   // 5s to establish TCP connection to Expo
-        factory.setReadTimeout(8_000);      // 8s to receive full response
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(8_000);
+        return new RestTemplate(factory);
+    }
+
+    /**
+     * Dedicated RestTemplate for the Tripjack flight gateway.
+     * GDS searches fan out across multiple airline systems and can take 10-15 s;
+     * the primary 8 s read timeout would cause false timeouts on busy routes.
+     */
+    @Bean("flightRestTemplate")
+    public RestTemplate flightRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);  // 10 s to reach Tripjack edge
+        factory.setReadTimeout(30_000);     // 30 s for GDS fan-out to complete
         return new RestTemplate(factory);
     }
 

@@ -23,5 +23,11 @@ public record TripResponse(
         String organizerName,
         Long organizerId,
         String notes,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // Flight transport fields
+        String transport,
+        String flightOriginIata,
+        String flightDestIata,
+        String groupPnr,
+        BigDecimal farePerPerson
 ) {}

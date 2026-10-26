@@ -141,11 +141,21 @@ public class EventBookingRegistration {
     @Transient
     private Long lunchDinnerId;
 
-    @Transient
+    @Column(name = "phone", length = 50)
     private String phone;
 
-    @Transient
+    @Column(name = "email", length = 255)
     private String email;
+
+    @Column(name = "ticket_type", length = 30)
+    private String ticketType;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "agreed")
+    @Builder.Default
+    private Boolean agreed = false;
 
     @Column(name = "checked_in")
     @Builder.Default

@@ -421,6 +421,71 @@ public class ExpoPushServiceImpl implements ExpoPushService {
         );
     }
 
+    // ── CRM ───────────────────────────────────────────────────────────────
+
+    @Override
+    public void notifyCrmLeadAssigned(Long agentUserId, String leadName,
+                                      String assignerName, Long leadId) {
+        if (agentUserId == null) return;
+        sendToUser(
+            agentUserId,
+            "📋 Lead assigned to you",
+            leadName + " — assigned by " + (assignerName != null ? assignerName : "admin"),
+            Map.of("type", "CRM_LEAD_ASSIGNED", "leadId", leadId),
+            "default"
+        );
+    }
+
+    @Override
+    public void notifyCrmNewInboundLead(Long agentUserId, String leadName,
+                                        String portal, Long leadId) {
+        if (agentUserId == null) return;
+        sendToUser(
+            agentUserId,
+            "🔔 New inbound lead",
+            leadName + " from " + (portal != null ? portal : "portal"),
+            Map.of("type", "CRM_INBOUND_LEAD", "leadId", leadId),
+            "default"
+        );
+    }
+
+    @Override
+    public void notifyCrmStageChanged(Long agentUserId, String leadName,
+                                      String newStage, Long leadId) {
+        if (agentUserId == null) return;
+        String stageLabel = switch (newStage != null ? newStage : "") {
+            case "CONTACTED"    -> "Contacted";
+            case "QUALIFIED"    -> "Qualified";
+            case "SITE_VISIT"   -> "Site Visit";
+            case "NEGOTIATION"  -> "Negotiation";
+            case "CLOSED"       -> "Closed ✅";
+            default             -> newStage;
+        };
+        sendToUser(
+            agentUserId,
+            "⬆️ Lead stage updated",
+            leadName + " → " + stageLabel,
+            Map.of("type", "CRM_STAGE_CHANGED", "leadId", leadId, "stage", newStage != null ? newStage : ""),
+            "default"
+        );
+    }
+
+    @Override
+    public void notifyCrmFollowUpDue(Long agentUserId, String leadName,
+                                     String followUpNote, Long leadId) {
+        if (agentUserId == null) return;
+        String body = followUpNote != null && !followUpNote.isBlank()
+                ? leadName + " — " + followUpNote
+                : "Follow up with " + leadName + " now";
+        sendToUser(
+            agentUserId,
+            "⏰ Follow-up due",
+            body,
+            Map.of("type", "CRM_FOLLOW_UP", "leadId", leadId),
+            "default"
+        );
+    }
+
     private String sportEmoji(String sport) {
         if (sport == null) return "🏅";
         return switch (sport.toUpperCase()) {

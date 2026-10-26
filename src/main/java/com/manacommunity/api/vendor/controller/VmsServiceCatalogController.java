@@ -56,28 +56,34 @@ public class VmsServiceCatalogController {
     }
 
     @PostMapping("/vendor/{vendorId}")
-    @PreAuthorize("hasAuthority('Manage Vendors')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<VendorServiceResponse> create(
             @PathVariable Long vendorId,
             @Valid @RequestBody VendorServiceRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        boolean manager = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Vendors"));
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(serviceCatalogService.create(req, vendorId, user.getCommunity()));
+                .body(serviceCatalogService.create(req, vendorId, user.getCommunity(), user, manager));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('Manage Vendors')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<VendorServiceResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody VendorServiceRequest req) {
-        return ResponseEntity.ok(serviceCatalogService.update(id, req));
+            @Valid @RequestBody VendorServiceRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        boolean manager = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Vendors"));
+        return ResponseEntity.ok(serviceCatalogService.update(id, req, user.getCommunity().getId(), user, manager));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('Manage Vendors')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        serviceCatalogService.delete(id);
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        boolean manager = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Vendors"));
+        serviceCatalogService.delete(id, user.getCommunity().getId(), user, manager);
         return ResponseEntity.noContent().build();
     }
 }

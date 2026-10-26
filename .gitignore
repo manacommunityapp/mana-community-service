@@ -49,3 +49,4 @@ src/main/resources/application-local.properties
 **/application-local.yaml
 **/application-local.properties
 
+/.mvn/jvm.config

@@ -1,0 +1,48 @@
+package com.manacommunity.api.mobility.service;
+
+import com.manacommunity.api.mobility.dto.*;
+import com.manacommunity.api.user.model.AppUser;
+import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+public interface MobilityService {
+
+    // ── Passenger ──────────────────────────────────────────────────
+    MobilityFareQuoteDto getFareQuote(AppUser user, FareQuoteRequest req);
+    MobilityTripDto requestRide(AppUser user, CreateMobilityTripRequest req);
+    MobilityTripDto getActiveTrip(AppUser user);
+    MobilityTripDto getTrip(AppUser user, Long tripId);
+    Page<MobilityTripDto> getTripHistory(AppUser user, int page, int size);
+    MobilityTripDto cancelTrip(AppUser user, Long tripId, CancelTripRequest req);
+    void rateTrip(AppUser user, Long tripId, RateTripRequest req);
+    MobilityStatsDto getPassengerStats(AppUser user);
+
+    // ── Driver ─────────────────────────────────────────────────────
+    MobilityDriverDto getMyDriverProfile(AppUser user);
+    MobilityDriverDto registerDriver(AppUser user, RegisterDriverRequest req);
+    MobilityDriverDto setAvailability(AppUser user, String availability);
+    List<MobilityDriverDocumentDto> getMyDocuments(AppUser user);
+    MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file);
+    List<MobilityVehicleDto> getMyVehicles(AppUser user);
+    DriverEarningsSummaryDto getMyEarnings(AppUser user);
+    DriverRideOfferDto getPendingOffer(AppUser user);
+    void respondToOffer(AppUser user, Long offerId, AcceptRejectOfferRequest req);
+    MobilityTripDto getDriverActiveTrip(AppUser user);
+    MobilityTripDto updateTripStatus(AppUser user, Long tripId, String status);
+    boolean verifyPickupPin(AppUser user, Long tripId, String pin);
+
+    // ── Carpool ────────────────────────────────────────────────────
+    Page<MobilityCarpoolOfferDto> getCarpoolOffers(AppUser user, String destination, int page, int size);
+    MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId);
+    void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req);
+    MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req);
+
+    // ── Ops / Admin ────────────────────────────────────────────────
+    Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);
+    void reviewDocument(AppUser reviewer, Long driverId, Long documentId, ReviewDocumentRequest req);
+    Page<MobilityTripDto> getActiveTripsOps(int page, int size);
+    void suspendDriver(AppUser ops, Long driverId, String reason);
+    void reinstateDriver(AppUser ops, Long driverId);
+}

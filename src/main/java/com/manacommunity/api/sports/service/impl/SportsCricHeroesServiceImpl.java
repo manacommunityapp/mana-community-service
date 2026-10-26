@@ -57,6 +57,11 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
         }
 
         String url = request.getCricHeroesUrl().trim();
+        try {
+            SportsCricHeroesScraperService.validateSafeUrl(url);
+        } catch (IllegalArgumentException e) {
+            throw new ManaCommunityException(e.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_CRICHEROES_URL");
+        }
         String cricheroesId = extractCricHeroesId(url);
 
         SportsCricHeroesProfile.FormatScope scope = SportsCricHeroesProfile.FormatScope.OVERALL;
@@ -393,7 +398,7 @@ public class SportsCricHeroesServiceImpl implements SportsCricHeroesService {
         String cleaned = url.replaceAll("[?#].*$", "").replaceAll("/$", "");
         String[] parts = cleaned.split("/");
         String lastSegment = parts[parts.length - 1];
-        if (lastSegment.isBlank() || lastSegment.length() > 100) {
+        if (lastSegment.isBlank() || lastSegment.length() > 100 || !lastSegment.matches("^[a-zA-Z0-9_-]+$")) {
             throw new ManaCommunityException("Invalid CricHeroes URL format", HttpStatus.BAD_REQUEST, "INVALID_CRICHEROES_URL");
         }
         return lastSegment;

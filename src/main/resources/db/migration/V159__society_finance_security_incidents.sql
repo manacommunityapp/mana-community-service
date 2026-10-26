@@ -1,6 +1,6 @@
 -- Society Finance: expense vouchers with maker-checker-approver workflow
 CREATE TABLE IF NOT EXISTS society_expense (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT         NOT NULL,
     voucher_number  VARCHAR(50),
     category        VARCHAR(100)   NOT NULL,
@@ -26,15 +26,16 @@ CREATE TABLE IF NOT EXISTS society_expense (
     receipt_url     VARCHAR(500),
     payment_method  VARCHAR(50),
     utr_reference   VARCHAR(100),
-    created_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME,
-    INDEX idx_society_expense_community (community_id),
-    INDEX idx_society_expense_status (status)
+    created_at      TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ
 );
+
+CREATE INDEX IF NOT EXISTS idx_society_expense_community ON society_expense (community_id);
+CREATE INDEX IF NOT EXISTS idx_society_expense_status ON society_expense (status);
 
 -- Society Finance: chart of accounts
 CREATE TABLE IF NOT EXISTS chart_of_account (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT        NOT NULL,
     code            VARCHAR(20)   NOT NULL,
     name            VARCHAR(255)  NOT NULL,
@@ -42,14 +43,15 @@ CREATE TABLE IF NOT EXISTS chart_of_account (
     balance         DECIMAL(14,2) NOT NULL DEFAULT 0,
     description     VARCHAR(500),
     is_reserve_fund BOOLEAN       NOT NULL DEFAULT FALSE,
-    created_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME,
-    INDEX idx_coa_community (community_id)
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ
 );
+
+CREATE INDEX IF NOT EXISTS idx_coa_community ON chart_of_account (community_id);
 
 -- Society Finance: general ledger (double-entry bookkeeping)
 CREATE TABLE IF NOT EXISTS general_ledger_entry (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT        NOT NULL,
     entry_date      DATE          NOT NULL,
     voucher_number  VARCHAR(50),
@@ -60,14 +62,15 @@ CREATE TABLE IF NOT EXISTS general_ledger_entry (
     description     VARCHAR(500),
     reference_type  VARCHAR(50),
     reference_id    BIGINT,
-    created_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_gle_community (community_id),
-    INDEX idx_gle_entry_date (entry_date)
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_gle_community ON general_ledger_entry (community_id);
+CREATE INDEX IF NOT EXISTS idx_gle_entry_date ON general_ledger_entry (entry_date);
 
 -- Safety: security incidents
 CREATE TABLE IF NOT EXISTS security_incident (
-    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id                BIGSERIAL PRIMARY KEY,
     community_id      BIGINT       NOT NULL,
     type              VARCHAR(50)  NOT NULL,
     title             VARCHAR(255) NOT NULL,
@@ -81,9 +84,10 @@ CREATE TABLE IF NOT EXISTS security_incident (
     assigned_to_name  VARCHAR(255),
     image_url         VARCHAR(500),
     resolution_notes  VARCHAR(2000),
-    resolved_at       DATETIME,
-    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at        DATETIME,
-    INDEX idx_security_incident_community (community_id),
-    INDEX idx_security_incident_status (status)
+    resolved_at       TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMPTZ
 );
+
+CREATE INDEX IF NOT EXISTS idx_security_incident_community ON security_incident (community_id);
+CREATE INDEX IF NOT EXISTS idx_security_incident_status ON security_incident (status);

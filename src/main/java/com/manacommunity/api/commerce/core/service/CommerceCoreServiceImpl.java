@@ -3,17 +3,22 @@ package com.manacommunity.api.commerce.core.service;
 import com.manacommunity.api.commerce.core.dto.*;
 import com.manacommunity.api.commerce.core.model.*;
 import com.manacommunity.api.commerce.core.repository.*;
+import com.manacommunity.api.finance.dto.FinanceDocumentDto;
 import com.manacommunity.api.finance.personal.service.PersonalFinanceService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -33,7 +38,12 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     private final CommerceRefundRepository refundRepository;
     private final CommerceRiskEngine riskEngine;
     private final PersonalFinanceService personalFinanceService;
+    private final CommerceInvoiceService invoiceService;
+    private final CommerceInventoryService inventoryService;
+    private final CommerceLoyaltyService loyaltyService;
+    private final CommerceNotificationService notificationService;
     private final AppUserRepository userRepository;
+    private final CommerceCommissionService commissionService;
 
     private static final Map<String, Integer> failedOtpAttempts = new ConcurrentHashMap<>();
     private static final Map<String, Long> lockoutTimestamps = new ConcurrentHashMap<>();
@@ -161,6 +171,16 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
 
         orderItems.forEach(i -> i.setOrder(order));
         CommerceOrder savedOrder = orderRepository.save(order);
+
+        // Phase 8: commit stock for confirmed orders
+        try {
+            inventoryService.commitStock(savedOrder);
+        } catch (Exception e) {
+            log.warn("Inventory commit failed for order {}: {}", orderNumber, e.getMessage());
+        }
+        // Phase 12: notify buyer + vendor
+        notificationService.notifyOrderConfirmed(savedOrder);
+        notificationService.notifyVendorNewOrder(savedOrder);
 
         // Payment record
         CommercePayment payment = CommercePayment.builder()
@@ -291,6 +311,14 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
 
             order.setStatus(CommerceOrderStatus.COMPLETED);
             orderRepository.save(order);
+            // Auto-generate GST invoice on completion
+            try { invoiceService.generateInvoiceForOrder(order); }
+            catch (Exception ex) { log.warn("Invoice generation failed for order {}: {}", order.getOrderNumber(), ex.getMessage()); }
+            // Phase 10: award loyalty points on completion
+            try { loyaltyService.awardPointsForOrder(order); }
+            catch (Exception ex) { log.warn("Loyalty award failed for order {}: {}", order.getOrderNumber(), ex.getMessage()); }
+            // Phase 12: notify buyer on completion
+            notificationService.notifyOrderCompleted(order);
 
             return HandoverVerificationResponse.builder()
                     .verified(true)
@@ -457,21 +485,159 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     @Transactional(readOnly = true)
     public List<CommerceSettlementDto> getMySettlements(AppUser seller) {
         return settlementRepository.findBySeller_Id(seller.getId()).stream()
-                .map(s -> CommerceSettlementDto.builder()
-                        .id(s.getId())
-                        .settlementNumber(s.getSettlementNumber())
-                        .vendorId(s.getVendorId())
-                        .sellerId(seller.getId())
-                        .communityId(s.getCommunity() != null ? s.getCommunity().getId() : null)
-                        .grossAmount(s.getGrossAmount())
-                        .platformFee(s.getPlatformFee())
-                        .deductions(s.getDeductions())
-                        .netPayout(s.getNetPayout())
-                        .status(s.getStatus())
-                        .payoutUtr(s.getPayoutUtr())
-                        .payoutDate(s.getPayoutDate() != null ? s.getPayoutDate().toString() : null)
-                        .build())
+                .map(this::toSettlementDto)
                 .collect(Collectors.toList());
+    }
+
+    // ── Phase 4: order lifecycle transitions ──────────────────────────────────
+
+    @Override
+    @Transactional
+    public CommerceOrderDto cancelOrder(AppUser user, String orderNumber, String reason) {
+        CommerceOrder order = requireOrder(orderNumber);
+
+        boolean isBuyer = order.getBuyer() != null && order.getBuyer().getId().equals(user.getId());
+        if (!isBuyer && !isAdmin(user)) {
+            throw new AccessDeniedException("Only the buyer or an admin can cancel this order.");
+        }
+
+        EnumSet<CommerceOrderStatus> cancellable = EnumSet.of(
+                CommerceOrderStatus.PENDING, CommerceOrderStatus.CONFIRMED, CommerceOrderStatus.PROCESSING);
+        if (!cancellable.contains(order.getStatus())) {
+            throw new IllegalStateException("Order cannot be cancelled in status: " + order.getStatus());
+        }
+
+        // Phase 8: restore stock on cancellation
+        try {
+            inventoryService.releaseStock(order);
+        } catch (Exception e) {
+            log.warn("Inventory release failed for order {}: {}", orderNumber, e.getMessage());
+        }
+
+        order.setStatus(CommerceOrderStatus.CANCELLED);
+        order.setCancellationReason(reason);
+        CommerceOrder saved = orderRepository.save(order);
+        notificationService.notifyOrderCancelled(saved);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public CommerceOrderDto processOrder(AppUser vendor, String orderNumber, String vendorNote) {
+        CommerceOrder order = requireOrder(orderNumber);
+        requireVendorOrAdmin(vendor, order);
+
+        if (order.getStatus() != CommerceOrderStatus.CONFIRMED) {
+            throw new IllegalStateException("Order must be CONFIRMED before processing. Current: " + order.getStatus());
+        }
+
+        order.setStatus(CommerceOrderStatus.PROCESSING);
+        if (vendorNote != null && !vendorNote.isBlank()) order.setVendorNotes(vendorNote);
+        CommerceOrder saved = orderRepository.save(order);
+        notificationService.notifyOrderProcessing(saved);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public CommerceOrderDto markReadyForPickup(AppUser vendor, String orderNumber) {
+        CommerceOrder order = requireOrder(orderNumber);
+        requireVendorOrAdmin(vendor, order);
+
+        if (order.getStatus() != CommerceOrderStatus.PROCESSING) {
+            throw new IllegalStateException("Order must be PROCESSING to mark ready. Current: " + order.getStatus());
+        }
+
+        order.setStatus(CommerceOrderStatus.READY_FOR_PICKUP);
+        CommerceOrder saved = orderRepository.save(order);
+        notificationService.notifyOrderReady(saved);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public CommerceOrderDto markOutForDelivery(AppUser vendor, String orderNumber, String estimatedDeliveryDate) {
+        CommerceOrder order = requireOrder(orderNumber);
+        requireVendorOrAdmin(vendor, order);
+
+        if (order.getStatus() != CommerceOrderStatus.READY_FOR_PICKUP) {
+            throw new IllegalStateException("Order must be READY_FOR_PICKUP to dispatch. Current: " + order.getStatus());
+        }
+
+        order.setStatus(CommerceOrderStatus.OUT_FOR_DELIVERY);
+        if (estimatedDeliveryDate != null) {
+            try {
+                order.setEstimatedDeliveryDate(LocalDate.parse(estimatedDeliveryDate));
+            } catch (Exception ignored) {}
+        }
+        CommerceOrder saved = orderRepository.save(order);
+        notificationService.notifyOrderOutForDelivery(saved);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public CommerceOrderDto markDelivered(AppUser user, String orderNumber) {
+        CommerceOrder order = requireOrder(orderNumber);
+        requireVendorOrAdmin(user, order);
+
+        EnumSet<CommerceOrderStatus> deliverable = EnumSet.of(
+                CommerceOrderStatus.OUT_FOR_DELIVERY, CommerceOrderStatus.READY_FOR_PICKUP);
+        if (!deliverable.contains(order.getStatus())) {
+            throw new IllegalStateException("Cannot mark as delivered from status: " + order.getStatus());
+        }
+
+        order.setStatus(CommerceOrderStatus.DELIVERED);
+        order.setActualDeliveryAt(LocalDateTime.now());
+        CommerceOrder saved = orderRepository.save(order);
+        notificationService.notifyOrderDelivered(saved);
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CommerceOrderDto> getVendorOrders(AppUser vendor, CommerceOrderStatus status) {
+        String vendorIdStr = String.valueOf(vendor.getId());
+        List<CommerceOrder> orders = status != null
+                ? orderRepository.findByVendorIdAndStatusOrderByCreatedAtDesc(vendorIdStr, status)
+                : orderRepository.findByVendorIdOrderByCreatedAtDesc(vendorIdStr);
+
+        if (orders.isEmpty()) {
+            // also look by sellerId
+            orders = status != null
+                    ? orderRepository.findBySellerIdAndStatusOrderByCreatedAtDesc(vendor.getId(), status)
+                    : orderRepository.findBySellerIdOrderByCreatedAtDesc(vendor.getId());
+        }
+
+        return orders.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CommerceOrderDto> getAdminOrders(AppUser admin, CommerceOrderStatus status, Pageable pageable) {
+        if (!isAdmin(admin)) {
+            throw new AccessDeniedException("Only admins can view all community orders.");
+        }
+        Long communityId = admin.getCommunity().getId();
+        Page<CommerceOrder> page = status != null
+                ? orderRepository.findByCommunityIdAndStatusPaged(communityId, status, pageable)
+                : orderRepository.findByCommunityId(communityId, pageable);
+        return page.map(this::toDto);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private CommerceOrder requireOrder(String orderNumber) {
+        return orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+    }
+
+    private void requireVendorOrAdmin(AppUser user, CommerceOrder order) {
+        boolean isSeller = (order.getSeller() != null && order.getSeller().getId().equals(user.getId()))
+                || (order.getVendorId() != null && order.getVendorId().equals(String.valueOf(user.getId())));
+        if (!isSeller && !isAdmin(user)) {
+            throw new AccessDeniedException("Only the vendor or an admin can perform this action.");
+        }
     }
 
     private CommerceOrderDto toDto(CommerceOrder order) {
@@ -508,7 +674,138 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                 .handoverOtp(order.getHandoverOtp())
                 .qrToken(order.getQrToken())
                 .items(itemDtos)
+                .notes(order.getNotes())
+                .vendorNotes(order.getVendorNotes())
+                .estimatedDeliveryDate(order.getEstimatedDeliveryDate() != null ? order.getEstimatedDeliveryDate().toString() : null)
+                .actualDeliveryAt(order.getActualDeliveryAt() != null ? order.getActualDeliveryAt().toString() : null)
+                .cancellationReason(order.getCancellationReason())
+                .invoiceDocumentId(order.getInvoiceDocumentId())
                 .createdAt(order.getCreatedAt() != null ? order.getCreatedAt().toString() : Instant.now().toString())
+                .updatedAt(order.getUpdatedAt() != null ? order.getUpdatedAt().toString() : null)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<FinanceDocumentDto> getOrderInvoice(AppUser user, String orderNumber) {
+        CommerceOrder order = requireOrder(orderNumber);
+        if (order.getBuyer() != null && !order.getBuyer().getId().equals(user.getId()) && !isAdmin(user)) {
+            throw new AccessDeniedException("Not authorised to view this invoice");
+        }
+        return invoiceService.findInvoiceForOrder(order);
+    }
+
+    // ── Phase 7: Settlement & Payouts ─────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public CommerceSettlementDto runSettlementCycle(AppUser admin, com.manacommunity.api.commerce.core.dto.CommerceSettlementRunRequest req) {
+        if (!isAdmin(admin)) throw new AccessDeniedException("Only admins can run settlement cycles");
+
+        Instant start = java.time.LocalDate.parse(req.getCycleStart()).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        Instant end   = java.time.LocalDate.parse(req.getCycleEnd()).plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+
+        List<CommerceOrder> orders;
+        if (req.getSellerId() != null) {
+            orders = orderRepository.findCompletedOrdersForSellerInCycle(req.getSellerId(), start, end);
+        } else if (req.getVendorId() != null) {
+            orders = orderRepository.findCompletedOrdersForVendorInCycle(req.getVendorId(), start, end);
+        } else {
+            throw new IllegalArgumentException("Either sellerId or vendorId must be provided");
+        }
+
+        BigDecimal gross = orders.stream()
+                .map(CommerceOrder::getTotalAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Use commission engine: request override > vendor-specific rule > category rule > community default > 2.5%
+        BigDecimal fee;
+        if (req.getPlatformFeePercent() != null) {
+            fee = gross.multiply(BigDecimal.valueOf(req.getPlatformFeePercent() / 100.0))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+        } else {
+            fee = commissionService.computeFeeAmount(gross, admin.getCommunity().getId(), req.getSellerId(), null);
+        }
+        BigDecimal net = gross.subtract(fee);
+
+        String settlementNum = "STL-" + java.time.LocalDate.parse(req.getCycleEnd()).getYear()
+                + "-" + System.currentTimeMillis();
+
+        var community = admin.getCommunity();
+        AppUser seller = req.getSellerId() != null
+                ? userRepository.findById(req.getSellerId()).orElse(null) : null;
+
+        var settlement = CommerceSettlement.builder()
+                .settlementNumber(settlementNum)
+                .vendorId(req.getVendorId())
+                .seller(seller)
+                .community(community)
+                .cycleStartDate(start)
+                .cycleEndDate(end)
+                .totalOrdersCount(orders.size())
+                .grossAmount(gross)
+                .platformFee(fee)
+                .deductions(BigDecimal.ZERO)
+                .netPayout(net)
+                .status("PENDING")
+                .adminNote(req.getAdminNote())
+                .build();
+
+        var saved = settlementRepository.save(settlement);
+        return toSettlementDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public CommerceSettlementDto markSettlementPaid(AppUser admin, String settlementNumber,
+            com.manacommunity.api.commerce.core.dto.CommerceSettlementMarkPaidRequest req) {
+        if (!isAdmin(admin)) throw new AccessDeniedException("Only admins can mark settlements as paid");
+
+        var settlement = settlementRepository.findBySettlementNumber(settlementNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Settlement not found: " + settlementNumber));
+
+        if (!"PENDING".equals(settlement.getStatus())) {
+            throw new IllegalStateException("Settlement is not in PENDING state: " + settlement.getStatus());
+        }
+
+        settlement.setPayoutUtr(req.getPayoutUtr());
+        settlement.setPayoutDate(Instant.now());
+        settlement.setProcessedAt(Instant.now());
+        settlement.setStatus("PAID");
+        if (req.getAdminNote() != null) settlement.setAdminNote(req.getAdminNote());
+
+        return toSettlementDto(settlementRepository.save(settlement));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CommerceSettlementDto> getAdminSettlements(AppUser admin, String status, Pageable pageable) {
+        if (!isAdmin(admin)) throw new AccessDeniedException("Only admins can view all settlements");
+        Long communityId = admin.getCommunity().getId();
+        Page<CommerceSettlement> page = (status != null && !status.isBlank())
+                ? settlementRepository.findByCommunityIdAndStatusPaged(communityId, status.toUpperCase(), pageable)
+                : settlementRepository.findByCommunityIdPaged(communityId, pageable);
+        return page.map(this::toSettlementDto);
+    }
+
+    private CommerceSettlementDto toSettlementDto(CommerceSettlement s) {
+        return CommerceSettlementDto.builder()
+                .id(s.getId())
+                .settlementNumber(s.getSettlementNumber())
+                .vendorId(s.getVendorId())
+                .sellerId(s.getSeller() != null ? s.getSeller().getId() : null)
+                .communityId(s.getCommunity() != null ? s.getCommunity().getId() : null)
+                .cycleStartDate(s.getCycleStartDate() != null ? s.getCycleStartDate().toString() : null)
+                .cycleEndDate(s.getCycleEndDate() != null ? s.getCycleEndDate().toString() : null)
+                .totalOrdersCount(s.getTotalOrdersCount())
+                .grossAmount(s.getGrossAmount())
+                .platformFee(s.getPlatformFee())
+                .deductions(s.getDeductions())
+                .netPayout(s.getNetPayout())
+                .status(s.getStatus())
+                .payoutUtr(s.getPayoutUtr())
+                .payoutDate(s.getPayoutDate() != null ? s.getPayoutDate().toString() : null)
                 .build();
     }
 
@@ -522,5 +819,114 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                     .anyMatch(r -> r.getName() != null && r.getName().toUpperCase().contains("ADMIN"));
         }
         return false;
+    }
+
+    // ── Phase 10: Loyalty & Rewards ──────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public CommerceLoyaltyDto getMyLoyalty(AppUser user) {
+        return loyaltyService.getMyLoyalty(user);
+    }
+
+    @Override
+    @Transactional
+    public CommerceLoyaltyDto redeemLoyaltyPoints(AppUser user, long points) {
+        loyaltyService.redeemPoints(user, points);
+        return loyaltyService.getMyLoyalty(user);
+    }
+
+    // ── Phase 15: Dispute Resolution ─────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CommerceDisputeDto> getAdminDisputes(AppUser admin, String status, Pageable pageable) {
+        Long communityId = admin.getCommunity().getId();
+        Page<CommerceDispute> page = (status != null && !status.isBlank())
+                ? disputeRepository.findByCommunityIdAndStatusPaged(communityId, status.toUpperCase(), pageable)
+                : disputeRepository.findByCommunityIdPaged(communityId, pageable);
+        return page.map(this::toDisputeDto);
+    }
+
+    @Override
+    @Transactional
+    public CommerceDisputeDto resolveDispute(AppUser admin, String disputeCode, String resolution, String adminNote) {
+        CommerceDispute dispute = disputeRepository.findByDisputeCode(disputeCode)
+                .orElseThrow(() -> new IllegalArgumentException("Dispute not found: " + disputeCode));
+
+        Long communityId = admin.getCommunity().getId();
+        if (!dispute.getOrder().getCommunity().getId().equals(communityId)) {
+            throw new AccessDeniedException("Dispute does not belong to your community.");
+        }
+
+        dispute.setResolution(resolution);
+        dispute.setAdminNote(adminNote);
+        dispute.setResolvedBy(admin);
+        dispute.setResolvedAt(Instant.now());
+        dispute.setStatus("RESOLVED");
+
+        if ("REFUND".equalsIgnoreCase(resolution)) {
+            try {
+                processRefund(admin, dispute.getOrder().getOrderNumber(), "Admin resolved dispute: " + disputeCode);
+            } catch (Exception ignored) {}
+        }
+
+        CommerceDispute saved = disputeRepository.save(dispute);
+        return toDisputeDto(saved);
+    }
+
+    private CommerceDisputeDto toDisputeDto(CommerceDispute d) {
+        return CommerceDisputeDto.builder()
+                .id(d.getId())
+                .disputeCode(d.getDisputeCode())
+                .orderId(d.getOrder().getId())
+                .orderNumber(d.getOrder().getOrderNumber())
+                .userId(d.getUser().getId())
+                .userName(d.getUser().getFullName())
+                .channel(d.getChannel())
+                .reason(d.getReason())
+                .description(d.getDescription())
+                .requestedResolution(d.getRequestedResolution())
+                .claimAmount(d.getClaimAmount())
+                .status(d.getStatus())
+                .vendorResponse(d.getVendorResponse())
+                .resolvedAt(d.getResolvedAt() != null ? d.getResolvedAt().toString() : null)
+                .createdAt(d.getCreatedAt() != null ? d.getCreatedAt().toString() : null)
+                .resolution(d.getResolution())
+                .adminNote(d.getAdminNote())
+                .resolvedByName(d.getResolvedBy() != null ? d.getResolvedBy().getFullName() : null)
+                .build();
+    }
+
+    // ── Phase 14: Vendor Ratings ──────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getVendorRatings(AppUser admin) {
+        Long communityId = admin.getCommunity().getId();
+        List<Object[]> rows = reviewRepository.vendorRatingSummaryByCommunity(communityId);
+        return rows.stream().map(r -> Map.<String, Object>of(
+                "vendorId", r[0] != null ? r[0].toString() : "",
+                "averageRating", r[1] != null ? ((Number) r[1]).doubleValue() : 0.0,
+                "reviewCount", r[2] != null ? ((Number) r[2]).longValue() : 0L
+        )).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getVendorRating(AppUser user, String targetType, String targetId) {
+        Object[] row = reviewRepository.aggregateRating(targetType, targetId);
+        if (row == null || row[0] == null) {
+            return Map.of("targetType", targetType, "targetId", targetId,
+                    "averageRating", 0.0, "reviewCount", 0L, "avgQuality", 0.0, "avgOnTime", 0.0);
+        }
+        return Map.of(
+                "targetType", targetType,
+                "targetId", targetId,
+                "averageRating", row[0] != null ? ((Number) row[0]).doubleValue() : 0.0,
+                "reviewCount", row[1] != null ? ((Number) row[1]).longValue() : 0L,
+                "avgQuality", row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
+                "avgOnTime", row[3] != null ? ((Number) row[3]).doubleValue() : 0.0
+        );
     }
 }

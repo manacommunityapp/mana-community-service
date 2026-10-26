@@ -13,4 +13,6 @@ public interface SportsAuctionTeamService {
     List<SportsAuctionTeam> getMyNominations(Long userId);
 
     List<SportsAuctionTeam> getCaptainRegistration(Long id);
+    void leaveTeam(Long teamId, Long userId);
+    void dissolveTeam(Long teamId, Long ownerUserId);
 }

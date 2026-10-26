@@ -23,7 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(EventController.class)
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 @DisplayName("EventController")
 class EventControllerTest extends BaseWebMvcTest {
 
@@ -221,7 +221,7 @@ class EventControllerTest extends BaseWebMvcTest {
             when(loggedInUserService.resolve(any())).thenReturn(adminUser);
             doThrow(new ManaCommunityException("Cannot delete event with 3 registration(s)",
                     HttpStatus.CONFLICT, "EVENT_HAS_REGISTRATIONS"))
-                    .when(eventService).delete(eq(100L), any());
+                    .when(eventService).delete(eq(100L), any(AppUser.class));
 
             mockMvc.perform(delete("/api/events/100"))
                     .andExpect(status().isConflict());
@@ -233,7 +233,7 @@ class EventControllerTest extends BaseWebMvcTest {
         void delete_returns403_unauthorized() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
             doThrow(new UnauthorizedActionException("Only the event creator can delete this event"))
-                    .when(eventService).delete(eq(100L), any());
+                    .when(eventService).delete(eq(100L), any(AppUser.class));
 
             mockMvc.perform(delete("/api/events/100"))
                     .andExpect(status().isForbidden());
@@ -251,7 +251,7 @@ class EventControllerTest extends BaseWebMvcTest {
         @DisplayName("POST /api/events/{id}/register returns 200 with updated event")
         void register_returns200() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
-            when(eventService.register(eq(100L), any())).thenReturn(sampleResponse);
+            when(eventService.register(eq(100L), any(), any())).thenReturn(sampleResponse);
 
             mockMvc.perform(post("/api/events/100/register"))
                     .andExpect(status().isOk())

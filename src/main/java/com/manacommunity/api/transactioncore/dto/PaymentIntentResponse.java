@@ -31,6 +31,11 @@ public class PaymentIntentResponse {
     private PaymentRail paymentRail;
     private String gatewayPaymentUrl;
     private String gatewayOrderId;
+    private String gatewayKeyId;
+    private String upiVpa;
+    private String upiIntentUri;
+    private String upiQrString;
+    private String receiptNumber;
     private String escrowId;
     private boolean escrowHeld;
     private List<PaymentSplit> splits;

@@ -1,6 +1,8 @@
 package com.manacommunity.api.groupbuying.service;
 
 import com.manacommunity.api.groupbuying.dto.*;
+import com.manacommunity.api.transactioncore.adapter.GroupBuyingTransactionAdapter;
+import com.manacommunity.api.transactioncore.dto.PaymentIntentResponse;
 import com.manacommunity.api.groupbuying.model.*;
 import com.manacommunity.api.groupbuying.repository.*;
 import com.manacommunity.api.model.Community;
@@ -29,6 +31,7 @@ public class GroupBuyingService {
     private final OrderDisputeRepository disputeRepository;
     private final BuyingGroupRepository buyingGroupRepository;
     private final GroupDealSettlementRepository settlementRepository;
+    private final GroupBuyingTransactionAdapter transactionAdapter;
 
     public List<GroupDealResponse> getDeals(Long communityId) {
         List<GroupDeal> deals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -95,6 +98,19 @@ public class GroupBuyingService {
         String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String deliveryOtp = String.format("%06d", (int)(Math.random() * 900000) + 100000);
 
+        String txnIntentId = null;
+        if (transactionAdapter != null) {
+            try {
+                PaymentIntentResponse intent = transactionAdapter.initiateGroupOrderPayment(
+                        orderNum, deal.getId(), user.getId(), total, 1L, deal.getCommunity() != null ? deal.getCommunity().getId() : 1L);
+                if (intent != null) {
+                    txnIntentId = intent.getIntentId();
+                }
+            } catch (Exception e) {
+                log.warn("Transaction adapter intent creation: {}", e.getMessage());
+            }
+        }
+
         GroupBuyOrder order = GroupBuyOrder.builder()
                 .orderNumber(orderNum)
                 .community(deal.getCommunity())
@@ -108,6 +124,7 @@ public class GroupBuyingService {
                 .status(OrderStatus.CONFIRMED)
                 .paymentStatus("PAID")
                 .paymentMethod(request.getPaymentType() != null ? request.getPaymentType() : "UPI")
+                .transactionId(txnIntentId != null ? txnIntentId : "TXN-" + orderNum)
                 .escrowHoldAmount(total)
                 .qrToken(qrToken)
                 .deliveryOtp(deliveryOtp)
@@ -256,6 +273,14 @@ public class GroupBuyingService {
                 ord.setUnitPrice(newTierPrice);
                 ord.setTotalAmount(newTierPrice.multiply(BigDecimal.valueOf(ord.getQuantity())));
                 orderRepository.save(ord);
+
+                if (transactionAdapter != null && ord.getTransactionId() != null) {
+                    try {
+                        transactionAdapter.refundTierSavingsDelta(ord.getTransactionId(), orderRefund, deal.getTitle());
+                    } catch (Exception e) {
+                        log.warn("Tier savings auto-refund via Transaction Core warning: {}", e.getMessage());
+                    }
+                }
 
                 refundedCount++;
                 totalRefunded = totalRefunded.add(orderRefund);

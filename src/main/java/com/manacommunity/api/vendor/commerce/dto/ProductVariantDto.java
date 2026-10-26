@@ -2,6 +2,7 @@ package com.manacommunity.api.vendor.commerce.dto;
 
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -13,9 +14,24 @@ public class ProductVariantDto {
     private String sku;
     private String barcode;
     private String packSize;
+
+    // Core pricing
     private BigDecimal mrp;
     private BigDecimal vendorCost;
+    private BigDecimal costPrice;
     private BigDecimal defaultCommunityPrice;
+    private BigDecimal communityPrice;
+    private String unitOfMeasure;
+
+    // Community pricing tiers
+    private BigDecimal memberPrice;
+    private Integer bulkMinQty;
+    private BigDecimal bulkPrice;
+    private BigDecimal promotionalPrice;
+    private LocalDate promotionalEndDate;
+    private String festivalTag;
+    private BigDecimal festivalPrice;
+
     private Boolean isActive;
     private Integer availableStock;
     private Integer reservedStock;
