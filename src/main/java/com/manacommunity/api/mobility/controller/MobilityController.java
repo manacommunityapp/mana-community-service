@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -456,6 +457,7 @@ public class MobilityController {
     // ── Ops / Admin ────────────────────────────────────────────────────────
 
     @GetMapping("/ops/documents/pending")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Page<PendingDocumentReviewDto>> getPendingDocuments(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -463,6 +465,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/documents/{documentId}/review")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> reviewDocument(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId,
@@ -473,6 +476,7 @@ public class MobilityController {
     }
 
     @GetMapping("/ops/trips/active")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Page<MobilityTripDto>> getActiveTrips(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -480,6 +484,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/suspend")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> suspendDriver(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId,
@@ -489,6 +494,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/reinstate")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> reinstateDriver(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId) {
