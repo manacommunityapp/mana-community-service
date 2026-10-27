@@ -467,11 +467,43 @@ public class MobilityServiceImpl implements MobilityService {
         booking.setStatus("CANCELLED");
         offer.setAvailableSeats((short) Math.min(offer.getTotalSeats(), offer.getAvailableSeats() + booking.getSeats()));
         if (offer.getStatus().equals("FULL")) offer.setStatus("ACTIVE");
+        MobilityCarpoolBooking next = carpoolBookingRepo.findFirstByOfferIdAndStatusOrderByBookedAtAsc(offerId, "WAITLISTED").orElse(null);
+        if (next != null && offer.getAvailableSeats() >= next.getSeats()) {
+            next.setStatus("CONFIRMED");
+            offer.setAvailableSeats((short) (offer.getAvailableSeats() - next.getSeats()));
+            if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
+            expoPushService.sendToUser(next.getUser().getId(), "Your shared journey is confirmed",
+                    "A seat opened on the " + offer.getJourneyType().toLowerCase() + " journey from " + offer.getOrigin() + ".",
+                    Map.of("type", "MOBILITY_WAITLIST_PROMOTED", "offerId", offerId), "default");
+            carpoolBookingRepo.save(next);
+        }
         carpoolBookingRepo.save(booking);
         carpoolRepo.save(offer);
         expoPushService.sendToUser(offer.getDriverUser().getId(), "Passenger left the journey",
                 "A seat is available again on your " + offer.getJourneyType().toLowerCase() + " journey.",
                 Map.of("type", "MOBILITY_GROUP_LEAVE", "offerId", offerId), "default");
+    }
+
+    @Override
+    public void joinCarpoolWaitlist(AppUser user, Long offerId, JoinCarpoolRequest req) {
+        if (req.getSeats() < 1 || req.getSeats() > 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seats must be between 1 and 8");
+        }
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        MobilityCarpoolBooking existing = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId()).orElse(null);
+        if (existing != null && "CONFIRMED".equals(existing.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already joined this journey");
+        }
+        if (existing != null && "WAITLISTED".equals(existing.getStatus())) return;
+        carpoolBookingRepo.save(MobilityCarpoolBooking.builder().offer(offer).user(user)
+                .seats((short) req.getSeats()).status("WAITLISTED").build());
+        expoPushService.sendToUser(user.getId(), "Added to journey waitlist",
+                "We’ll notify you if a seat opens on this journey.",
+                Map.of("type", "MOBILITY_WAITLISTED", "offerId", offerId), "default");
     }
 
     @Override

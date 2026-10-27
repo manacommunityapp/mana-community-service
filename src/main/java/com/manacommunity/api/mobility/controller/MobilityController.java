@@ -288,6 +288,15 @@ public class MobilityController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/journeys/offers/{id}/waitlist")
+    public ResponseEntity<Void> waitlistJourney(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolWaitlist(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/journeys/slots")
     public ResponseEntity<List<JourneySlotDto>> getJourneySlots(
             @AuthenticationPrincipal UserPrincipal p,

@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface MobilityCarpoolBookingRepository extends JpaRepository<MobilityCarpoolBooking, Long> {
     Optional<MobilityCarpoolBooking> findByOfferIdAndUserId(Long offerId, Long userId);
+    Optional<MobilityCarpoolBooking> findFirstByOfferIdAndStatusOrderByBookedAtAsc(Long offerId, String status);
 }

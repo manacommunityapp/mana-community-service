@@ -51,6 +51,7 @@ public interface MobilityService {
     Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
     Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size);
     void cancelCarpoolBooking(AppUser user, Long offerId);
+    void joinCarpoolWaitlist(AppUser user, Long offerId, JoinCarpoolRequest req);
     List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode);
     JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req);
     JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status);
