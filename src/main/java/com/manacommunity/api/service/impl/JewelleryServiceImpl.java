@@ -327,6 +327,30 @@ public class JewelleryServiceImpl implements JewelleryService {
         appointmentRepo.save(appt);
     }
 
+    private static final List<String> ALL_SLOTS = List.of(
+            "10:00 AM", "11:00 AM", "12:00 PM",
+            "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"
+    );
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getAvailableSlots(Long vendorId, java.time.LocalDate date) {
+        JewelleryVendorProfile vendor = vendorRepo.findByIdAndIsActiveTrue(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        List<JewelleryAppointment> booked = appointmentRepo.findByVendorAndAppointmentDateAndStatusIn(
+                vendor, date, List.of("PENDING", "CONFIRMED"));
+
+        java.util.Set<String> bookedTimes = booked.stream()
+                .map(JewelleryAppointment::getAppointmentTime)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        return ALL_SLOTS.stream()
+                .filter(slot -> !bookedTimes.contains(slot))
+                .collect(Collectors.toList());
+    }
+
     // ── Mappers ───────────────────────────────────────────────────
 
     private JewelleryDto.VendorResponse toVendorResponse(JewelleryVendorProfile v) {

@@ -64,6 +64,15 @@ public class JewelleryController {
         return ResponseEntity.ok(jewelleryService.getVendorById(id));
     }
 
+    /** Query available consultation slots for a vendor on a specific date. */
+    @GetMapping("/vendors/{id}/available-slots")
+    public ResponseEntity<List<String>> getAvailableSlots(
+            @PathVariable Long id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        java.time.LocalDate targetDate = date != null ? date : java.time.LocalDate.now().plusDays(1);
+        return ResponseEntity.ok(jewelleryService.getAvailableSlots(id, targetDate));
+    }
+
     /** Merchant-facing: fetch appointments booked for the logged-in vendor. */
     @GetMapping("/vendor/appointments")
     @PreAuthorize("isAuthenticated()")

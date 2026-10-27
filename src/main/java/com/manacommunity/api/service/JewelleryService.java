@@ -42,4 +42,5 @@ public interface JewelleryService {
     List<JewelleryDto.AppointmentResponse> getMyAppointments(AppUser user);
     JewelleryDto.AppointmentResponse bookAppointment(AppUser user, JewelleryDto.CreateAppointmentRequest req);
     void cancelAppointment(AppUser user, Long appointmentId, String reason);
+    List<String> getAvailableSlots(Long vendorId, java.time.LocalDate date);
 }

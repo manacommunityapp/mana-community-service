@@ -22,4 +22,8 @@ public interface JewelleryAppointmentRepository extends JpaRepository<JewelleryA
 
     /** Security check: only the owning vendor may update appointment status. */
     Optional<JewelleryAppointment> findByIdAndVendor(Long id, JewelleryVendorProfile vendor);
+
+    /** Query active appointments on a given date to compute remaining available slots. */
+    List<JewelleryAppointment> findByVendorAndAppointmentDateAndStatusIn(
+            JewelleryVendorProfile vendor, java.time.LocalDate appointmentDate, List<String> statuses);
 }
