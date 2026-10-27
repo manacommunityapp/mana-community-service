@@ -13,6 +13,7 @@ public class CreateCarpoolOfferRequest {
     private String vehicleModel;
     private String vehicleNumber;
     private String journeyType;
+    private String direction;
     private String hubCode;
     private String contextName;
     private String airportDirection;

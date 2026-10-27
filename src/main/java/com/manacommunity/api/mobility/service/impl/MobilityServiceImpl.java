@@ -512,6 +512,11 @@ public class MobilityServiceImpl implements MobilityService {
 
     @Override
     public MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req) {
+        String journeyType = req.getJourneyType() != null && !req.getJourneyType().isBlank() ? req.getJourneyType().toUpperCase() : (req.getAirportCode() != null ? "AIRPORT" : "GENERIC");
+        String journeyDirection = req.getDirection() != null && !req.getDirection().isBlank() ? req.getDirection().toUpperCase() : req.getAirportDirection();
+        if (!"AIRPORT".equals(journeyType) && (journeyDirection == null || (!"TO_HUB".equals(journeyDirection) && !"FROM_HUB".equals(journeyDirection)))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
         Community community = communityRepo.findById(user.getCommunity().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
         MobilityCarpoolOffer offer = carpoolRepo.save(MobilityCarpoolOffer.builder()
@@ -519,7 +524,8 @@ public class MobilityServiceImpl implements MobilityService {
                 .driverUser(user)
                 .origin(req.getOrigin())
                 .destination(req.getDestination())
-                .journeyType(req.getJourneyType() != null && !req.getJourneyType().isBlank() ? req.getJourneyType().toUpperCase() : (req.getAirportCode() != null ? "AIRPORT" : "GENERIC"))
+                .journeyType(journeyType)
+                .journeyDirection(journeyDirection)
                 .hubCode(req.getHubCode() != null ? req.getHubCode() : req.getAirportCode())
                 .contextName(req.getContextName())
                 .airportDirection(req.getAirportDirection())
@@ -616,7 +622,7 @@ public class MobilityServiceImpl implements MobilityService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String area,
+    public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
                                                               String travelAt, int timeWindowMinutes, int seats,
                                                               int luggageCount, int page, int size) {
         Instant from = null;
@@ -635,7 +641,11 @@ public class MobilityServiceImpl implements MobilityService {
         if (journeyType == null || hubCode == null || journeyType.isBlank() || hubCode.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "journeyType and hubCode are required");
         }
-        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), area,
+        String normalizedDirection = direction == null || direction.isBlank() ? null : direction.toUpperCase();
+        if (normalizedDirection != null && !"TO_HUB".equals(normalizedDirection) && !"FROM_HUB".equals(normalizedDirection)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), normalizedDirection, area,
                         from, to, Math.max(1, seats), Math.max(0, luggageCount), PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
                 .map(this::toCarpoolDto);
     }
@@ -677,7 +687,7 @@ public class MobilityServiceImpl implements MobilityService {
             return Page.empty(PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
         }
         long windowMillis = Math.max(15, Math.min(request.getTimeWindowMinutes(), 180)) * 60_000L;
-        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), request.getJourneyType(), request.getHubCode(),
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), request.getJourneyType(), request.getHubCode(), request.getDirection(),
                         request.getArea(), request.getTravelAt().minusMillis(windowMillis),
                         request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
                         PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
@@ -1047,6 +1057,7 @@ public class MobilityServiceImpl implements MobilityService {
                 .origin(o.getOrigin())
                 .destination(o.getDestination())
                 .journeyType(o.getJourneyType())
+                .journeyDirection(o.getJourneyDirection())
                 .hubCode(o.getHubCode())
                 .contextName(o.getContextName())
                 .airportDirection(o.getAirportDirection())

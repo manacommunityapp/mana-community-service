@@ -224,6 +224,7 @@ public class MobilityController {
             @AuthenticationPrincipal UserPrincipal p,
             @RequestParam String journeyType,
             @RequestParam String hubCode,
+            @RequestParam(required = false) String direction,
             @RequestParam(required = false) String area,
             @RequestParam(required = false) String travelAt,
             @RequestParam(defaultValue = "30") int timeWindowMinutes,
@@ -231,7 +232,7 @@ public class MobilityController {
             @RequestParam(defaultValue = "0") int luggageCount,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(mobilityService.searchJourneyOffers(user(p), journeyType, hubCode, area,
+        return ResponseEntity.ok(mobilityService.searchJourneyOffers(user(p), journeyType, hubCode, direction, area,
                 travelAt, timeWindowMinutes, seats, luggageCount, page, size));
     }
 

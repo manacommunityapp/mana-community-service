@@ -13,6 +13,7 @@ public class MobilityCarpoolOfferDto {
     private String origin;
     private String destination;
     private String journeyType;
+    private String journeyDirection;
     private String hubCode;
     private String contextName;
     private String airportDirection;

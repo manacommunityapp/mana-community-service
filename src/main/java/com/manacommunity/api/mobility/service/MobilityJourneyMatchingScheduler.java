@@ -34,7 +34,7 @@ public class MobilityJourneyMatchingScheduler {
             if (request.getJourneyType() == null || request.getHubCode() == null) continue;
             if (request.getLastMatchNotifiedAt() != null && request.getLastMatchNotifiedAt().isAfter(now.minus(Duration.ofHours(6)))) continue;
             long window = Math.max(15, Math.min(request.getTimeWindowMinutes(), 180)) * 60_000L;
-            Page<?> matches = offerRepo.findJourneyOffers(request.getCommunity().getId(), request.getJourneyType(), request.getHubCode(),
+            Page<?> matches = offerRepo.findJourneyOffers(request.getCommunity().getId(), request.getJourneyType(), request.getHubCode(), request.getDirection(),
                     request.getArea(), request.getTravelAt().minusMillis(window), request.getTravelAt().plusMillis(window),
                     request.getSeats(), request.getLuggageCount(), PageRequest.of(0, 5));
             if (matches.isEmpty()) continue;
