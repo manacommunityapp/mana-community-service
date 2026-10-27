@@ -7,6 +7,7 @@ import com.manacommunity.api.mobility.service.MobilityService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.trip.engine.CommuteMatchingEngine;
+import com.manacommunity.api.service.ExpoPushService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,6 +44,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityAirportRideRequestRepository airportRequestRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
+    private final ExpoPushService                expoPushService;
 
     // ── Fare rates ────────────────────────────────────────────────
     private static final BigDecimal BASE_FARE       = new BigDecimal("20");
@@ -447,6 +450,9 @@ public class MobilityServiceImpl implements MobilityService {
             carpoolBookingRepo.save(MobilityCarpoolBooking.builder()
                     .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED").build());
         }
+        expoPushService.sendToUser(offer.getDriverUser().getId(), "New passenger joined",
+                user.getFullName() + " joined your " + offer.getJourneyType().toLowerCase() + " journey.",
+                Map.of("type", "MOBILITY_GROUP_JOIN", "offerId", offerId), "default");
     }
 
     @Override
@@ -461,6 +467,9 @@ public class MobilityServiceImpl implements MobilityService {
         if (offer.getStatus().equals("FULL")) offer.setStatus("ACTIVE");
         carpoolBookingRepo.save(booking);
         carpoolRepo.save(offer);
+        expoPushService.sendToUser(offer.getDriverUser().getId(), "Passenger left the journey",
+                "A seat is available again on your " + offer.getJourneyType().toLowerCase() + " journey.",
+                Map.of("type", "MOBILITY_GROUP_LEAVE", "offerId", offerId), "default");
     }
 
     @Override
