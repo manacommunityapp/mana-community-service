@@ -97,7 +97,14 @@ public class MobilityController {
         // Returns driver's current lat/lng from the driver entity
         MobilityTripDto trip = mobilityService.getTrip(user(p), id);
         if (trip.getDriver() == null) return ResponseEntity.ok(Map.of());
-        return ResponseEntity.ok(Map.of("driverId", trip.getDriver().getDriverId()));
+        MobilityTripDriverDto driver = trip.getDriver();
+        Map<String, Object> location = new java.util.HashMap<>();
+        location.put("tripId", trip.getId());
+        location.put("driverId", driver.getDriverId());
+        location.put("driverLat", driver.getCurrentLat());
+        location.put("driverLng", driver.getCurrentLng());
+        location.put("updatedAt", driver.getLocationUpdatedAt());
+        return ResponseEntity.ok(location);
     }
 
     // ── Driver ─────────────────────────────────────────────────────────────
@@ -119,6 +126,13 @@ public class MobilityController {
             @AuthenticationPrincipal UserPrincipal p,
             @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(mobilityService.setAvailability(user(p), body.getOrDefault("availability", "OFFLINE")));
+    }
+
+    @PatchMapping("/driver/location")
+    public ResponseEntity<MobilityDriverDto> updateDriverLocation(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody UpdateDriverLocationRequest req) {
+        return ResponseEntity.ok(mobilityService.updateDriverLocation(user(p), req.getLatitude(), req.getLongitude()));
     }
 
     @GetMapping("/driver/documents")

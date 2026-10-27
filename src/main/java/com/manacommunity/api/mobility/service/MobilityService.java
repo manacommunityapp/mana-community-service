@@ -24,6 +24,7 @@ public interface MobilityService {
     MobilityDriverDto getMyDriverProfile(AppUser user);
     MobilityDriverDto registerDriver(AppUser user, RegisterDriverRequest req);
     MobilityDriverDto setAvailability(AppUser user, String availability);
+    MobilityDriverDto updateDriverLocation(AppUser user, double latitude, double longitude);
     List<MobilityDriverDocumentDto> getMyDocuments(AppUser user);
     MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file);
     List<MobilityVehicleDto> getMyVehicles(AppUser user);

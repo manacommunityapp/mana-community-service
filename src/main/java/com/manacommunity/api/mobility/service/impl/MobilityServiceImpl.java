@@ -278,6 +278,18 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     @Override
+    public MobilityDriverDto updateDriverLocation(AppUser user, double latitude, double longitude) {
+        MobilityDriver driver = requireDriver(user);
+        if (driver.getStatus() != MobilityDriverStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Driver not approved yet");
+        }
+        driver.setCurrentLat(latitude);
+        driver.setCurrentLng(longitude);
+        driver.setLocationUpdatedAt(Instant.now());
+        return toDriverDto(driverRepo.save(driver));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<MobilityDriverDocumentDto> getMyDocuments(AppUser user) {
         MobilityDriver driver = requireDriver(user);
@@ -1016,6 +1028,9 @@ public class MobilityServiceImpl implements MobilityService {
                     .vehicleModel(v != null ? v.getModel() : null)
                     .vehicleNumber(v != null ? v.getNumberPlate() : null)
                     .rating(d.getAvgRating())
+                    .currentLat(d.getCurrentLat())
+                    .currentLng(d.getCurrentLng())
+                    .locationUpdatedAt(d.getLocationUpdatedAt())
                     .build();
         }
         return MobilityTripDto.builder()
