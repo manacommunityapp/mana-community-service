@@ -22,6 +22,8 @@ import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.sports.model.SportsEventRegistration;
 import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
+import com.manacommunity.api.mobility.model.MobilityTrip;
+import com.manacommunity.api.mobility.repository.MobilityTripRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
@@ -79,6 +82,7 @@ public class CashfreePaymentService {
     private final RestTemplate                     restTemplate;
     private final AuditService                     auditService;
     private final SportsEventRegistrationRepository regRepository;
+    private final MobilityTripRepository mobilityTripRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
@@ -103,6 +107,8 @@ public class CashfreePaymentService {
     @Transactional
     public CashfreeOrderResponse createOrder(
             CashfreeCreateOrderRequest req, AppUser user, Community community) {
+
+        validateMobilityReference(req, user, community);
 
         String manaOrderId = "MANA-" + System.currentTimeMillis() + "-" + user.getId();
 
@@ -179,6 +185,23 @@ public class CashfreePaymentService {
             log.error("Failed to create Cashfree order for userId={} ref={}:{}: {}",
                     user.getId(), req.getReferenceType(), req.getReferenceId(), e.getMessage(), e);
             throw new PaymentGatewayException("Payment gateway error. Please try again.", e);
+        }
+    }
+
+    private void validateMobilityReference(CashfreeCreateOrderRequest req, AppUser user, Community community) {
+        if (!"MOBILITY_TRIP".equalsIgnoreCase(req.getReferenceType())) return;
+        MobilityTrip trip = mobilityTripRepository.findById(req.getReferenceId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mobility trip not found"));
+        if (trip.getPassenger() == null || !trip.getPassenger().getId().equals(user.getId())
+                || trip.getCommunity() == null || !trip.getCommunity().getId().equals(community.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Mobility trip is outside your account");
+        }
+        if (trip.getQuotedTotal() == null || req.getAmount().compareTo(trip.getQuotedTotal()) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount does not match the mobility fare");
+        }
+        if (trip.getStatus() == com.manacommunity.api.mobility.model.MobilityTripStatus.CANCELLED
+                || trip.getStatus() == com.manacommunity.api.mobility.model.MobilityTripStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Mobility trip is no longer payable");
         }
     }
 

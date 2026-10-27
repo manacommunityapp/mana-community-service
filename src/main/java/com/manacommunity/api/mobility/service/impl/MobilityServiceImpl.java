@@ -7,6 +7,8 @@ import com.manacommunity.api.mobility.service.MobilityService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.trip.engine.CommuteMatchingEngine;
+import com.manacommunity.api.service.ExpoPushService;
+import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,8 +23,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,8 +42,15 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityVehicleRepository      vehicleRepo;
     private final MobilityDriverOfferRepository  offerRepo;
     private final MobilityCarpoolOfferRepository carpoolRepo;
+    private final MobilityCarpoolBookingRepository carpoolBookingRepo;
+    private final MobilityJourneySlotRepository journeySlotRepo;
+    private final MobilityJourneyMatchRepository journeyMatchRepo;
+    private final MobilityAirportRideRequestRepository airportRequestRepo;
+    private final MobilityServiceZoneRepository    serviceZoneRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
+    private final ExpoPushService                expoPushService;
+    private final FileStorageService             fileStorageService;
 
     // ── Fare rates ────────────────────────────────────────────────
     private static final BigDecimal BASE_FARE       = new BigDecimal("20");
@@ -204,6 +216,25 @@ public class MobilityServiceImpl implements MobilityService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<MobilityServiceZoneDto> getServiceZones(AppUser user) {
+        if (user.getCommunity() == null || user.getCommunity().getId() == null) {
+            return List.of();
+        }
+        return serviceZoneRepo.findByCommunityIdAndActiveTrueOrderByNameAsc(user.getCommunity().getId())
+                .stream()
+                .map(zone -> MobilityServiceZoneDto.builder()
+                        .id(zone.getId())
+                        .name(zone.getName())
+                        .centerLat(zone.getCenterLat())
+                        .centerLng(zone.getCenterLng())
+                        .radiusKm(zone.getRadiusKm())
+                        .active(zone.isActive())
+                        .build())
+                .toList();
+    }
+
     // ── Driver ────────────────────────────────────────────────────
 
     @Override
@@ -247,6 +278,18 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     @Override
+    public MobilityDriverDto updateDriverLocation(AppUser user, double latitude, double longitude) {
+        MobilityDriver driver = requireDriver(user);
+        if (driver.getStatus() != MobilityDriverStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Driver not approved yet");
+        }
+        driver.setCurrentLat(latitude);
+        driver.setCurrentLng(longitude);
+        driver.setLocationUpdatedAt(Instant.now());
+        return toDriverDto(driverRepo.save(driver));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<MobilityDriverDocumentDto> getMyDocuments(AppUser user) {
         MobilityDriver driver = requireDriver(user);
@@ -256,11 +299,19 @@ public class MobilityServiceImpl implements MobilityService {
     @Override
     public MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file) {
         MobilityDriver driver = requireDriver(user);
-        // File upload to storage omitted; store a placeholder URL
-        String fileUrl = "/uploads/mobility/driver/" + driver.getId() + "/" + docType + "_" + System.currentTimeMillis();
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document file is required");
+        }
+        MobilityDocumentType documentType;
+        try {
+            documentType = MobilityDocumentType.valueOf(docType.toUpperCase());
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported document type");
+        }
+        String fileUrl = fileStorageService.store(file, user.getId(), "mobility/driver/" + driver.getId()).url();
         MobilityDriverDocument doc = docRepo.save(MobilityDriverDocument.builder()
                 .driver(driver)
-                .docType(MobilityDocumentType.valueOf(docType.toUpperCase()))
+                .docType(documentType)
                 .fileUrl(fileUrl)
                 .status(MobilityDocumentStatus.PENDING)
                 .build());
@@ -402,30 +453,112 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<MobilityCarpoolOfferDto> getCarpoolOffers(AppUser user, String destination, int page, int size) {
         Long communityId = user.getCommunity().getId();
         return carpoolRepo.findActive(communityId, destination, PageRequest.of(page, Math.min(size, 50)))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, false));
     }
 
     @Override
     @Transactional(readOnly = true)
     public MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId) {
-        return toCarpoolDto(carpoolRepo.findById(offerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found")));
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        return toCarpoolDto(offer, canRevealRoute(user, offer));
     }
 
     @Override
     public void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req) {
-        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        if (offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot join your own journey offer");
+        }
+        if (req.getSeats() < 1 || req.getSeats() > 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seats must be between 1 and 8");
+        }
         if (offer.getAvailableSeats() < req.getSeats()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Not enough seats available");
+        }
+        MobilityCarpoolBooking existing = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId()).orElse(null);
+        if (existing != null && "CONFIRMED".equals(existing.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already joined this journey");
         }
         offer.setAvailableSeats((short) (offer.getAvailableSeats() - req.getSeats()));
         if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
         carpoolRepo.save(offer);
+        if (existing != null) {
+            existing.setSeats((short) req.getSeats());
+            existing.setStatus("CONFIRMED");
+            carpoolBookingRepo.save(existing);
+        } else {
+            carpoolBookingRepo.save(MobilityCarpoolBooking.builder()
+                    .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED").build());
+        }
+        expoPushService.sendToUser(offer.getDriverUser().getId(), "New passenger joined",
+                user.getFullName() + " joined your " + offer.getJourneyType().toLowerCase() + " journey.",
+                Map.of("type", "MOBILITY_GROUP_JOIN", "offerId", offerId), "default");
+    }
+
+    @Override
+    public void cancelCarpoolBooking(AppUser user, Long offerId) {
+        MobilityCarpoolBooking booking = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey booking not found"));
+        if (!"CONFIRMED".equals(booking.getStatus())) return;
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        booking.setStatus("CANCELLED");
+        offer.setAvailableSeats((short) Math.min(offer.getTotalSeats(), offer.getAvailableSeats() + booking.getSeats()));
+        if (offer.getStatus().equals("FULL")) offer.setStatus("ACTIVE");
+        MobilityCarpoolBooking next = carpoolBookingRepo.findFirstByOfferIdAndStatusOrderByBookedAtAsc(offerId, "WAITLISTED").orElse(null);
+        if (next != null && offer.getAvailableSeats() >= next.getSeats()) {
+            next.setStatus("CONFIRMED");
+            offer.setAvailableSeats((short) (offer.getAvailableSeats() - next.getSeats()));
+            if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
+            expoPushService.sendToUser(next.getUser().getId(), "Your shared journey is confirmed",
+                    "A seat opened on the " + offer.getJourneyType().toLowerCase() + " journey from " + offer.getOrigin() + ".",
+                    Map.of("type", "MOBILITY_WAITLIST_PROMOTED", "offerId", offerId), "default");
+            carpoolBookingRepo.save(next);
+        }
+        carpoolBookingRepo.save(booking);
+        carpoolRepo.save(offer);
+        expoPushService.sendToUser(offer.getDriverUser().getId(), "Passenger left the journey",
+                "A seat is available again on your " + offer.getJourneyType().toLowerCase() + " journey.",
+                Map.of("type", "MOBILITY_GROUP_LEAVE", "offerId", offerId), "default");
+    }
+
+    @Override
+    public void joinCarpoolWaitlist(AppUser user, Long offerId, JoinCarpoolRequest req) {
+        if (req.getSeats() < 1 || req.getSeats() > 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seats must be between 1 and 8");
+        }
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        MobilityCarpoolBooking existing = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId()).orElse(null);
+        if (existing != null && "CONFIRMED".equals(existing.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already joined this journey");
+        }
+        if (existing != null && "WAITLISTED".equals(existing.getStatus())) return;
+        carpoolBookingRepo.save(MobilityCarpoolBooking.builder().offer(offer).user(user)
+                .seats((short) req.getSeats()).status("WAITLISTED").build());
+        expoPushService.sendToUser(user.getId(), "Added to journey waitlist",
+                "We’ll notify you if a seat opens on this journey.",
+                Map.of("type", "MOBILITY_WAITLISTED", "offerId", offerId), "default");
     }
 
     @Override
     public MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req) {
+        String journeyType = req.getJourneyType() != null && !req.getJourneyType().isBlank() ? req.getJourneyType().toUpperCase() : (req.getAirportCode() != null ? "AIRPORT" : "GENERIC");
+        String journeyDirection = req.getDirection() != null && !req.getDirection().isBlank() ? req.getDirection().toUpperCase() : req.getAirportDirection();
+        if (!"AIRPORT".equals(journeyType) && (journeyDirection == null || (!"TO_HUB".equals(journeyDirection) && !"FROM_HUB".equals(journeyDirection)))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
         Community community = communityRepo.findById(user.getCommunity().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
         MobilityCarpoolOffer offer = carpoolRepo.save(MobilityCarpoolOffer.builder()
@@ -433,6 +566,16 @@ public class MobilityServiceImpl implements MobilityService {
                 .driverUser(user)
                 .origin(req.getOrigin())
                 .destination(req.getDestination())
+                .journeyType(journeyType)
+                .journeyDirection(journeyDirection)
+                .hubCode(req.getHubCode() != null ? req.getHubCode() : req.getAirportCode())
+                .contextName(req.getContextName())
+                .airportDirection(req.getAirportDirection())
+                .airportCode(req.getAirportCode())
+                .airportName(req.getAirportName())
+                .flightNumber(req.getFlightNumber())
+                .terminal(req.getTerminal())
+                .luggageCapacity((short) req.getLuggageCapacity())
                 .departureTime(Instant.parse(req.getDepartureTime()))
                 .totalSeats((short) req.getTotalSeats())
                 .availableSeats((short) req.getTotalSeats())
@@ -441,7 +584,294 @@ public class MobilityServiceImpl implements MobilityService {
                 .vehicleNumber(req.getVehicleNumber())
                 .status("ACTIVE")
                 .build());
-        return toCarpoolDto(offer);
+        return toCarpoolDto(offer, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getAirportRides(AppUser user, String airportCode, String direction, String area, String travelDate, int page, int size) {
+        Instant from = null;
+        Instant to = null;
+        if (travelDate != null && !travelDate.isBlank()) {
+            LocalDate date = LocalDate.parse(travelDate);
+            from = date.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+            to = date.plusDays(1).atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+        }
+        return carpoolRepo.findAirportRides(user.getCommunity().getId(), airportCode, direction, area, from, to, 1, 0,
+                        PageRequest.of(page, Math.min(size, 50)))
+                .map(offer -> toCarpoolDto(offer, false));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size) {
+        return carpoolRepo.findMyAirportRides(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(offer -> toCarpoolDto(offer, true));
+    }
+
+    @Override
+    public AirportRideRequestDto createAirportRideRequest(AppUser user, CreateAirportRideRequest req) {
+        Community community = communityRepo.findById(user.getCommunity().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
+        Instant travelAt;
+        try {
+            travelAt = Instant.parse(req.getTravelAt());
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601");
+        }
+        MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
+                .community(community).requester(user).direction(req.getDirection().toUpperCase())
+                .journeyType(req.getJourneyType() != null ? req.getJourneyType().toUpperCase() : "AIRPORT")
+                .airportCode(req.getAirportCode().toUpperCase()).hubCode(req.getHubCode() != null ? req.getHubCode() : req.getAirportCode().toUpperCase())
+                .contextName(req.getContextName()).area(req.getArea().trim())
+                .travelAt(travelAt).timeWindowMinutes(req.getTimeWindowMinutes())
+                .seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
+                .flightNumber(req.getFlightNumber()).terminal(req.getTerminal()).status("OPEN").build());
+        return toAirportRequestDto(request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AirportRideRequestDto> getMyAirportRideRequests(AppUser user, int page, int size) {
+        return airportRequestRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(this::toAirportRequestDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getAirportRideMatches(AppUser user, Long requestId, int page, int size) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Travel request not found"));
+        long windowMillis = request.getTimeWindowMinutes() * 60_000L;
+        Instant from = request.getTravelAt().minusMillis(windowMillis);
+        Instant to = request.getTravelAt().plusMillis(windowMillis);
+        return carpoolRepo.findAirportRides(user.getCommunity().getId(), request.getAirportCode(), request.getDirection(), request.getArea(), from, to, request.getSeats(), request.getLuggageCount(), PageRequest.of(page, Math.min(size, 50))).map(this::toCarpoolDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneyTypeConfigDto> getJourneyTypeConfigs() {
+        return List.of(
+                JourneyTypeConfigDto.builder().code("OFFICE").label("Office commute").description("Fixed routes for employees").icon("business").hubExamples(List.of("HITEC_CITY", "GACHIBOWLI")).build(),
+                JourneyTypeConfigDto.builder().code("SCHOOL").label("School & college").description("Verified student and staff transport").icon("school").hubExamples(List.of("DPS", "NALSAR")).build(),
+                JourneyTypeConfigDto.builder().code("EVENT").label("Family & events").description("Weddings, reunions and community functions").icon("people").hubExamples(List.of("WEDDING", "REUNION")).build(),
+                JourneyTypeConfigDto.builder().code("SPORTS").label("Sports & tournaments").description("Shared travel to stadiums and venues").icon("trophy").hubExamples(List.of("RGI_STADIUM", "GACHIBOWLI_STADIUM")).build(),
+                JourneyTypeConfigDto.builder().code("RAILWAY").label("Railway stations").description("Arrival and departure transfers").icon("train").hubExamples(List.of("SC", "KCG", "HYB")).build(),
+                JourneyTypeConfigDto.builder().code("BUS_TERMINAL").label("Bus terminals").description("Intercity bus transfers").icon("bus").hubExamples(List.of("MGBS", "JBS")).build(),
+                JourneyTypeConfigDto.builder().code("AIRPORT").label("Airport rides").description("Flight and luggage-aware airport trips").icon("airplane").hubExamples(List.of("HYD", "BLR", "DEL", "BOM")).build()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
+                                                              String travelAt, int timeWindowMinutes, int seats,
+                                                              int luggageCount, int page, int size) {
+        Instant from = null;
+        Instant to = null;
+        if (travelAt != null && !travelAt.isBlank()) {
+            Instant requested;
+            try {
+                requested = Instant.parse(travelAt);
+            } catch (Exception ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601");
+            }
+            long window = Math.max(15, Math.min(timeWindowMinutes, 180)) * 60_000L;
+            from = requested.minusMillis(window);
+            to = requested.plusMillis(window);
+        }
+        if (journeyType == null || hubCode == null || journeyType.isBlank() || hubCode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "journeyType and hubCode are required");
+        }
+        String normalizedDirection = direction == null || direction.isBlank() ? null : direction.toUpperCase();
+        if (normalizedDirection != null && !"TO_HUB".equals(normalizedDirection) && !"FROM_HUB".equals(normalizedDirection)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), normalizedDirection, area,
+                        from, to, Math.max(1, seats), Math.max(0, luggageCount), PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(offer -> toCarpoolDto(offer, false));
+    }
+
+    @Override
+    public AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req) {
+        boolean supported = getJourneyTypeConfigs().stream().anyMatch(c -> c.getCode().equalsIgnoreCase(req.getJourneyType()));
+        if (!supported) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported journey type");
+        if (!"TO_HUB".equalsIgnoreCase(req.getDirection()) && !"FROM_HUB".equalsIgnoreCase(req.getDirection())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        Instant travelAt;
+        try { travelAt = Instant.parse(req.getTravelAt()); }
+        catch (Exception ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601"); }
+        Community community = communityRepo.findById(user.getCommunity().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
+        MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
+                .community(community).requester(user).journeyType(req.getJourneyType().toUpperCase())
+                .direction(req.getDirection().toUpperCase()).hubCode(req.getHubCode().toUpperCase())
+                .contextName(req.getContextName()).area(req.getArea().trim()).travelAt(travelAt)
+                .timeWindowMinutes(req.getTimeWindowMinutes()).seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
+                .status("OPEN").build());
+        return toAirportRequestDto(request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size) {
+        return airportRequestRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(Math.max(0, page), Math.min(size, 50)))
+                .map(this::toAirportRequestDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey request not found"));
+        if (request.getHubCode() == null || request.getJourneyType() == null) {
+            return Page.empty(PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
+        }
+        long windowMillis = Math.max(15, Math.min(request.getTimeWindowMinutes(), 180)) * 60_000L;
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), request.getJourneyType(), request.getHubCode(), request.getDirection(),
+                        request.getArea(), request.getTravelAt().minusMillis(windowMillis),
+                        request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(offer -> toCarpoolDto(offer, false));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode) {
+        List<MobilityJourneySlot> slots;
+        if (journeyType != null && !journeyType.isBlank() && hubCode != null && !hubCode.isBlank()) {
+            slots = journeySlotRepo.findByCommunityIdAndStatusAndJourneyTypeAndHubCodeOrderByDepartureTimeAsc(
+                    user.getCommunity().getId(), "ACTIVE", journeyType.toUpperCase(), hubCode.toUpperCase());
+        } else {
+            slots = journeySlotRepo.findByCommunityIdAndStatusOrderByDepartureTimeAsc(user.getCommunity().getId(), "ACTIVE");
+        }
+        return slots.stream().map(this::toJourneySlotDto).toList();
+    }
+
+    @Override
+    public JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req) {
+        boolean supported = getJourneyTypeConfigs().stream().anyMatch(c -> c.getCode().equalsIgnoreCase(req.getJourneyType()));
+        if (!supported) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported journey type");
+        if (!"TO_HUB".equalsIgnoreCase(req.getDirection()) && !"FROM_HUB".equalsIgnoreCase(req.getDirection())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        LocalTime departure;
+        try { departure = LocalTime.parse(req.getDepartureTime()); }
+        catch (Exception ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "departureTime must be HH:mm or HH:mm:ss"); }
+        MobilityJourneySlot slot = journeySlotRepo.save(MobilityJourneySlot.builder()
+                .community(user.getCommunity()).createdBy(user).journeyType(req.getJourneyType().toUpperCase())
+                .direction(req.getDirection().toUpperCase()).hubCode(req.getHubCode().toUpperCase())
+                .origin(req.getOrigin().trim()).destination(req.getDestination().trim()).departureTime(departure)
+                .daysOfWeek(req.getDaysOfWeek().trim().toUpperCase()).seatCapacity((short) req.getSeatCapacity())
+                .luggageCapacity((short) req.getLuggageCapacity()).pricePerSeat(req.getPricePerSeat() == null ? BigDecimal.ZERO : req.getPricePerSeat())
+                .status("ACTIVE").build());
+        return toJourneySlotDto(slot);
+    }
+
+    @Override
+    public JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status) {
+        MobilityJourneySlot slot = journeySlotRepo.findById(slotId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey slot not found"));
+        if (!slot.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Slot is outside your community");
+        }
+        String normalized = status == null ? "" : status.toUpperCase();
+        if (!List.of("ACTIVE", "PAUSED").contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status must be ACTIVE or PAUSED");
+        }
+        slot.setStatus(normalized);
+        return toJourneySlotDto(journeySlotRepo.save(slot));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JourneyMatchProposalDto> getJourneyProposals(AppUser user, int page, int size) {
+        return journeyMatchRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toJourneyMatchProposalDto);
+    }
+
+    @Override
+    public void respondToJourneyProposal(AppUser user, Long proposalId, boolean accept) {
+        MobilityJourneyMatch proposal = journeyMatchRepo.findByIdAndRequesterId(proposalId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey proposal not found"));
+        if (!"PROPOSED".equals(proposal.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Journey proposal already answered");
+        }
+        proposal.setRespondedAt(Instant.now());
+        if (accept) {
+            JoinCarpoolRequest join = new JoinCarpoolRequest();
+            join.setSeats(proposal.getRequest().getSeats());
+            joinCarpoolOffer(user, proposal.getOffer().getId(), join);
+            proposal.setStatus("ACCEPTED");
+        } else {
+            proposal.setStatus("DECLINED");
+        }
+        journeyMatchRepo.save(proposal);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JourneyBookingDto> getMyJourneyBookings(AppUser user, int page, int size) {
+        return carpoolBookingRepo.findByUserIdOrderByBookedAtDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(booking -> toJourneyBookingDto(booking, booking.getOffer().getDriverUser().getId().equals(user.getId())));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getMyJourneyOffers(AppUser user, int page, int size) {
+        return carpoolRepo.findByDriverUserIdOrderByDepartureTimeDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(offer -> toCarpoolDto(offer, true));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneyBookingDto> getJourneyPassengers(AppUser user, Long offerId) {
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the offer owner can view passengers");
+        }
+        return carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED")
+                .stream().map(booking -> toJourneyBookingDto(booking, true)).toList();
+    }
+
+    @Override
+    public void cancelJourneyOffer(AppUser user, Long offerId) {
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the offer owner can cancel it");
+        }
+        if ("CANCELLED".equals(offer.getStatus()) || "COMPLETED".equals(offer.getStatus())) return;
+        offer.setStatus("CANCELLED");
+        carpoolRepo.save(offer);
+        carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED").forEach(booking -> {
+            booking.setStatus("CANCELLED");
+            carpoolBookingRepo.save(booking);
+            expoPushService.sendToUser(booking.getUser().getId(), "Journey cancelled",
+                    "The driver cancelled your shared journey offer.",
+                    Map.of("type", "MOBILITY_GROUP_CANCELLED", "offerId", offerId), "default");
+        });
+        carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "WAITLISTED").forEach(booking -> {
+            booking.setStatus("CANCELLED");
+            carpoolBookingRepo.save(booking);
+        });
+    }
+
+    @Override
+    public void cancelJourneyRequest(AppUser user, Long requestId) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey request not found"));
+        if (!"OPEN".equals(request.getStatus())) return;
+        request.setStatus("CANCELLED");
+        airportRequestRepo.save(request);
+        journeyMatchRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(0, 100))
+                .getContent().stream().filter(match -> match.getRequest().getId().equals(requestId) && "PROPOSED".equals(match.getStatus()))
+                .forEach(match -> { match.setStatus("DECLINED"); match.setRespondedAt(Instant.now()); journeyMatchRepo.save(match); });
     }
 
     // ── Ops ───────────────────────────────────────────────────────
@@ -487,7 +917,7 @@ public class MobilityServiceImpl implements MobilityService {
     @Override
     @Transactional(readOnly = true)
     public Page<MobilityTripDto> getActiveTripsOps(int page, int size) {
-        return tripRepo.findAll(PageRequest.of(page, Math.min(size, 100))).map(this::toDto);
+        return tripRepo.findByStatusInOrderByRequestedAtDesc(activeStatuses(), PageRequest.of(Math.max(0, page), Math.min(size, 100))).map(this::toDto);
     }
 
     @Override
@@ -598,6 +1028,9 @@ public class MobilityServiceImpl implements MobilityService {
                     .vehicleModel(v != null ? v.getModel() : null)
                     .vehicleNumber(v != null ? v.getNumberPlate() : null)
                     .rating(d.getAvgRating())
+                    .currentLat(d.getCurrentLat())
+                    .currentLng(d.getCurrentLng())
+                    .locationUpdatedAt(d.getLocationUpdatedAt())
                     .build();
         }
         return MobilityTripDto.builder()
@@ -668,20 +1101,76 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     private MobilityCarpoolOfferDto toCarpoolDto(MobilityCarpoolOffer o) {
+        return toCarpoolDto(o, false);
+    }
+
+    private MobilityCarpoolOfferDto toCarpoolDto(MobilityCarpoolOffer o, boolean revealRoute) {
         AppUser u = o.getDriverUser();
         String name = u.getFullName() != null ? u.getFullName() : "Driver";
         return MobilityCarpoolOfferDto.builder()
                 .id(o.getId())
+                .driverUserId(u.getId())
                 .driverName(name.trim())
                 .rating(o.getDriverRating())
-                .origin(o.getOrigin())
-                .destination(o.getDestination())
+                .origin(revealRoute ? o.getOrigin() : "Pickup area (shared after joining)")
+                .destination(revealRoute ? o.getDestination() : "Destination (shared after joining)")
+                .journeyType(o.getJourneyType())
+                .journeyDirection(o.getJourneyDirection())
+                .hubCode(o.getHubCode())
+                .contextName(o.getContextName())
+                .airportDirection(o.getAirportDirection())
+                .airportCode(o.getAirportCode())
+                .airportName(o.getAirportName())
+                .flightNumber(o.getFlightNumber())
+                .terminal(o.getTerminal())
+                .luggageCapacity(o.getLuggageCapacity() == null ? 0 : o.getLuggageCapacity())
                 .departureTime(o.getDepartureTime())
                 .totalSeats(o.getTotalSeats())
                 .availableSeats(o.getAvailableSeats())
                 .pricePerSeat(o.getPricePerSeat())
                 .vehicleModel(o.getVehicleModel())
                 .vehicleNumber(o.getVehicleNumber())
+                .status(o.getStatus())
                 .build();
+    }
+
+    private boolean canRevealRoute(AppUser user, MobilityCarpoolOffer offer) {
+        return offer.getDriverUser().getId().equals(user.getId())
+                || carpoolBookingRepo.findByOfferIdAndUserId(offer.getId(), user.getId())
+                .map(booking -> "CONFIRMED".equals(booking.getStatus()))
+                .orElse(false);
+    }
+
+    private AirportRideRequestDto toAirportRequestDto(MobilityAirportRideRequest r) {
+        return AirportRideRequestDto.builder().id(r.getId()).direction(r.getDirection()).journeyType(r.getJourneyType())
+                .airportCode(r.getAirportCode()).hubCode(r.getHubCode()).contextName(r.getContextName())
+                .area(r.getArea()).travelAt(r.getTravelAt()).timeWindowMinutes(r.getTimeWindowMinutes())
+                .seats(r.getSeats()).luggageCount(r.getLuggageCount()).flightNumber(r.getFlightNumber())
+                .terminal(r.getTerminal()).status(r.getStatus()).createdAt(r.getCreatedAt()).build();
+    }
+
+    private JourneySlotDto toJourneySlotDto(MobilityJourneySlot s) {
+        return JourneySlotDto.builder().id(s.getId()).journeyType(s.getJourneyType()).direction(s.getDirection())
+                .hubCode(s.getHubCode()).origin(s.getOrigin()).destination(s.getDestination())
+                .departureTime(s.getDepartureTime().toString()).daysOfWeek(s.getDaysOfWeek())
+                .seatCapacity(s.getSeatCapacity()).luggageCapacity(s.getLuggageCapacity())
+                .pricePerSeat(s.getPricePerSeat()).status(s.getStatus()).build();
+    }
+
+    private JourneyMatchProposalDto toJourneyMatchProposalDto(MobilityJourneyMatch match) {
+        return JourneyMatchProposalDto.builder().id(match.getId()).requestId(match.getRequest().getId())
+                .status(match.getStatus()).createdAt(match.getCreatedAt()).offer(toCarpoolDto(match.getOffer())).build();
+    }
+
+    private JourneyBookingDto toJourneyBookingDto(MobilityCarpoolBooking booking) {
+        return toJourneyBookingDto(booking, false);
+    }
+
+    private JourneyBookingDto toJourneyBookingDto(MobilityCarpoolBooking booking, boolean offerOwner) {
+        AppUser passenger = booking.getUser();
+        return JourneyBookingDto.builder().id(booking.getId()).offerId(booking.getOffer().getId())
+                .userId(passenger.getId()).userName(passenger.getFullName()).seats(booking.getSeats())
+                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer(), true))
+                .offerOwner(offerOwner).build();
     }
 }
