@@ -875,7 +875,7 @@ public class MobilityServiceImpl implements MobilityService {
     @Override
     @Transactional(readOnly = true)
     public Page<MobilityTripDto> getActiveTripsOps(int page, int size) {
-        return tripRepo.findAll(PageRequest.of(page, Math.min(size, 100))).map(this::toDto);
+        return tripRepo.findByStatusInOrderByRequestedAtDesc(activeStatuses(), PageRequest.of(Math.max(0, page), Math.min(size, 100))).map(this::toDto);
     }
 
     @Override
