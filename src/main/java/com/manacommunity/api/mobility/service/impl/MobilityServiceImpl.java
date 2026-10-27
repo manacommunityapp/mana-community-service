@@ -46,6 +46,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityJourneySlotRepository journeySlotRepo;
     private final MobilityJourneyMatchRepository journeyMatchRepo;
     private final MobilityAirportRideRequestRepository airportRequestRepo;
+    private final MobilityServiceZoneRepository    serviceZoneRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
     private final ExpoPushService                expoPushService;
@@ -213,6 +214,25 @@ public class MobilityServiceImpl implements MobilityService {
                 .totalSpend(spend)
                 .avgRating(0)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MobilityServiceZoneDto> getServiceZones(AppUser user) {
+        if (user.getCommunity() == null || user.getCommunity().getId() == null) {
+            return List.of();
+        }
+        return serviceZoneRepo.findByCommunityIdAndActiveTrueOrderByNameAsc(user.getCommunity().getId())
+                .stream()
+                .map(zone -> MobilityServiceZoneDto.builder()
+                        .id(zone.getId())
+                        .name(zone.getName())
+                        .centerLat(zone.getCenterLat())
+                        .centerLng(zone.getCenterLng())
+                        .radiusKm(zone.getRadiusKm())
+                        .active(zone.isActive())
+                        .build())
+                .toList();
     }
 
     // ── Driver ────────────────────────────────────────────────────

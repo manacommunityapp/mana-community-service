@@ -86,9 +86,8 @@ public class MobilityController {
     }
 
     @GetMapping("/service-zones")
-    public ResponseEntity<List<Map<String, Object>>> getServiceZones(@AuthenticationPrincipal UserPrincipal p) {
-        // Placeholder — return empty list until zone seeding is done
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<List<MobilityServiceZoneDto>> getServiceZones(@AuthenticationPrincipal UserPrincipal p) {
+        return ResponseEntity.ok(mobilityService.getServiceZones(user(p)));
     }
 
     @GetMapping("/trips/{id}/location")

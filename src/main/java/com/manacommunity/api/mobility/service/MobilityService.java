@@ -18,6 +18,7 @@ public interface MobilityService {
     MobilityTripDto cancelTrip(AppUser user, Long tripId, CancelTripRequest req);
     void rateTrip(AppUser user, Long tripId, RateTripRequest req);
     MobilityStatsDto getPassengerStats(AppUser user);
+    List<MobilityServiceZoneDto> getServiceZones(AppUser user);
 
     // ── Driver ─────────────────────────────────────────────────────
     MobilityDriverDto getMyDriverProfile(AppUser user);
