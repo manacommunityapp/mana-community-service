@@ -8,6 +8,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.trip.engine.CommuteMatchingEngine;
 import com.manacommunity.api.service.ExpoPushService;
+import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
     private final ExpoPushService                expoPushService;
+    private final FileStorageService             fileStorageService;
 
     // ── Fare rates ────────────────────────────────────────────────
     private static final BigDecimal BASE_FARE       = new BigDecimal("20");
@@ -265,11 +267,19 @@ public class MobilityServiceImpl implements MobilityService {
     @Override
     public MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file) {
         MobilityDriver driver = requireDriver(user);
-        // File upload to storage omitted; store a placeholder URL
-        String fileUrl = "/uploads/mobility/driver/" + driver.getId() + "/" + docType + "_" + System.currentTimeMillis();
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document file is required");
+        }
+        MobilityDocumentType documentType;
+        try {
+            documentType = MobilityDocumentType.valueOf(docType.toUpperCase());
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported document type");
+        }
+        String fileUrl = fileStorageService.store(file, user.getId(), "mobility/driver/" + driver.getId()).url();
         MobilityDriverDocument doc = docRepo.save(MobilityDriverDocument.builder()
                 .driver(driver)
-                .docType(MobilityDocumentType.valueOf(docType.toUpperCase()))
+                .docType(documentType)
                 .fileUrl(fileUrl)
                 .status(MobilityDocumentStatus.PENDING)
                 .build());
