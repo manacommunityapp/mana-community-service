@@ -51,6 +51,9 @@ public interface MobilityService {
     Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
     Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size);
     void cancelCarpoolBooking(AppUser user, Long offerId);
+    List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode);
+    JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req);
+    JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

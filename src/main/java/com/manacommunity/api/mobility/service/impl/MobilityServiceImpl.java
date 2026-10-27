@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.ZoneId;
 import java.util.List;
@@ -41,6 +42,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityDriverOfferRepository  offerRepo;
     private final MobilityCarpoolOfferRepository carpoolRepo;
     private final MobilityCarpoolBookingRepository carpoolBookingRepo;
+    private final MobilityJourneySlotRepository journeySlotRepo;
     private final MobilityAirportRideRequestRepository airportRequestRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
@@ -646,6 +648,54 @@ public class MobilityServiceImpl implements MobilityService {
                 .map(this::toCarpoolDto);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode) {
+        List<MobilityJourneySlot> slots;
+        if (journeyType != null && !journeyType.isBlank() && hubCode != null && !hubCode.isBlank()) {
+            slots = journeySlotRepo.findByCommunityIdAndStatusAndJourneyTypeAndHubCodeOrderByDepartureTimeAsc(
+                    user.getCommunity().getId(), "ACTIVE", journeyType.toUpperCase(), hubCode.toUpperCase());
+        } else {
+            slots = journeySlotRepo.findByCommunityIdAndStatusOrderByDepartureTimeAsc(user.getCommunity().getId(), "ACTIVE");
+        }
+        return slots.stream().map(this::toJourneySlotDto).toList();
+    }
+
+    @Override
+    public JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req) {
+        boolean supported = getJourneyTypeConfigs().stream().anyMatch(c -> c.getCode().equalsIgnoreCase(req.getJourneyType()));
+        if (!supported) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported journey type");
+        if (!"TO_HUB".equalsIgnoreCase(req.getDirection()) && !"FROM_HUB".equalsIgnoreCase(req.getDirection())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        LocalTime departure;
+        try { departure = LocalTime.parse(req.getDepartureTime()); }
+        catch (Exception ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "departureTime must be HH:mm or HH:mm:ss"); }
+        MobilityJourneySlot slot = journeySlotRepo.save(MobilityJourneySlot.builder()
+                .community(user.getCommunity()).createdBy(user).journeyType(req.getJourneyType().toUpperCase())
+                .direction(req.getDirection().toUpperCase()).hubCode(req.getHubCode().toUpperCase())
+                .origin(req.getOrigin().trim()).destination(req.getDestination().trim()).departureTime(departure)
+                .daysOfWeek(req.getDaysOfWeek().trim().toUpperCase()).seatCapacity((short) req.getSeatCapacity())
+                .luggageCapacity((short) req.getLuggageCapacity()).pricePerSeat(req.getPricePerSeat() == null ? BigDecimal.ZERO : req.getPricePerSeat())
+                .status("ACTIVE").build());
+        return toJourneySlotDto(slot);
+    }
+
+    @Override
+    public JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status) {
+        MobilityJourneySlot slot = journeySlotRepo.findById(slotId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey slot not found"));
+        if (!slot.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Slot is outside your community");
+        }
+        String normalized = status == null ? "" : status.toUpperCase();
+        if (!List.of("ACTIVE", "PAUSED").contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status must be ACTIVE or PAUSED");
+        }
+        slot.setStatus(normalized);
+        return toJourneySlotDto(journeySlotRepo.save(slot));
+    }
+
     // ── Ops ───────────────────────────────────────────────────────
 
     @Override
@@ -903,5 +953,13 @@ public class MobilityServiceImpl implements MobilityService {
                 .area(r.getArea()).travelAt(r.getTravelAt()).timeWindowMinutes(r.getTimeWindowMinutes())
                 .seats(r.getSeats()).luggageCount(r.getLuggageCount()).flightNumber(r.getFlightNumber())
                 .terminal(r.getTerminal()).status(r.getStatus()).createdAt(r.getCreatedAt()).build();
+    }
+
+    private JourneySlotDto toJourneySlotDto(MobilityJourneySlot s) {
+        return JourneySlotDto.builder().id(s.getId()).journeyType(s.getJourneyType()).direction(s.getDirection())
+                .hubCode(s.getHubCode()).origin(s.getOrigin()).destination(s.getDestination())
+                .departureTime(s.getDepartureTime().toString()).daysOfWeek(s.getDaysOfWeek())
+                .seatCapacity(s.getSeatCapacity()).luggageCapacity(s.getLuggageCapacity())
+                .pricePerSeat(s.getPricePerSeat()).status(s.getStatus()).build();
     }
 }

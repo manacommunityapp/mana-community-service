@@ -288,6 +288,29 @@ public class MobilityController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/journeys/slots")
+    public ResponseEntity<List<JourneySlotDto>> getJourneySlots(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(required = false) String journeyType,
+            @RequestParam(required = false) String hubCode) {
+        return ResponseEntity.ok(mobilityService.getJourneySlots(user(p), journeyType, hubCode));
+    }
+
+    @PostMapping("/journeys/slots")
+    public ResponseEntity<JourneySlotDto> createJourneySlot(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateJourneySlotRequest req) {
+        return ResponseEntity.ok(mobilityService.createJourneySlot(user(p), req));
+    }
+
+    @PatchMapping("/journeys/slots/{id}/status")
+    public ResponseEntity<JourneySlotDto> updateJourneySlotStatus(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(mobilityService.updateJourneySlotStatus(user(p), id, body.get("status")));
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(
