@@ -8,6 +8,7 @@ import java.time.Instant;
 @Data @Builder
 public class MobilityCarpoolOfferDto {
     private Long id;
+    private Long driverUserId;
     private String driverName;
     private BigDecimal rating;
     private String origin;

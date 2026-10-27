@@ -14,4 +14,5 @@ public class JourneyBookingDto {
     private String status;
     private Instant bookedAt;
     private MobilityCarpoolOfferDto offer;
+    private boolean offerOwner;
 }

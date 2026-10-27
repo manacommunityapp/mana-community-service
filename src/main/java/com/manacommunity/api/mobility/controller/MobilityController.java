@@ -346,6 +346,14 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.getMyJourneyBookings(user(p), page, size));
     }
 
+    @GetMapping("/journeys/offers/mine")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getMyJourneyOffers(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyOffers(user(p), page, size));
+    }
+
     @GetMapping("/journeys/offers/{id}/passengers")
     public ResponseEntity<List<JourneyBookingDto>> getJourneyPassengers(
             @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {

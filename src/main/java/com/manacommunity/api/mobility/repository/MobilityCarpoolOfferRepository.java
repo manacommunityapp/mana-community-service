@@ -11,6 +11,8 @@ import jakarta.persistence.LockModeType;
 
 public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCarpoolOffer, Long> {
 
+    Page<MobilityCarpoolOffer> findByDriverUserIdOrderByDepartureTimeDesc(Long userId, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.id = :id")
     java.util.Optional<MobilityCarpoolOffer> findByIdForUpdate(Long id);

@@ -58,6 +58,7 @@ public interface MobilityService {
     Page<JourneyMatchProposalDto> getJourneyProposals(AppUser user, int page, int size);
     void respondToJourneyProposal(AppUser user, Long proposalId, boolean accept);
     Page<JourneyBookingDto> getMyJourneyBookings(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getMyJourneyOffers(AppUser user, int page, int size);
     List<JourneyBookingDto> getJourneyPassengers(AppUser user, Long offerId);
     void cancelJourneyOffer(AppUser user, Long offerId);
     void cancelJourneyRequest(AppUser user, Long requestId);

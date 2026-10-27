@@ -774,7 +774,15 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<JourneyBookingDto> getMyJourneyBookings(AppUser user, int page, int size) {
         return carpoolBookingRepo.findByUserIdOrderByBookedAtDesc(user.getId(),
                         PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(this::toJourneyBookingDto);
+                .map(booking -> toJourneyBookingDto(booking, booking.getOffer().getDriverUser().getId().equals(user.getId())));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getMyJourneyOffers(AppUser user, int page, int size) {
+        return carpoolRepo.findByDriverUserIdOrderByDepartureTimeDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toCarpoolDto);
     }
 
     @Override
@@ -786,7 +794,7 @@ public class MobilityServiceImpl implements MobilityService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the offer owner can view passengers");
         }
         return carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED")
-                .stream().map(this::toJourneyBookingDto).toList();
+                .stream().map(booking -> toJourneyBookingDto(booking, true)).toList();
     }
 
     @Override
@@ -1052,6 +1060,7 @@ public class MobilityServiceImpl implements MobilityService {
         String name = u.getFullName() != null ? u.getFullName() : "Driver";
         return MobilityCarpoolOfferDto.builder()
                 .id(o.getId())
+                .driverUserId(u.getId())
                 .driverName(name.trim())
                 .rating(o.getDriverRating())
                 .origin(o.getOrigin())
@@ -1098,9 +1107,14 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     private JourneyBookingDto toJourneyBookingDto(MobilityCarpoolBooking booking) {
+        return toJourneyBookingDto(booking, false);
+    }
+
+    private JourneyBookingDto toJourneyBookingDto(MobilityCarpoolBooking booking, boolean offerOwner) {
         AppUser passenger = booking.getUser();
         return JourneyBookingDto.builder().id(booking.getId()).offerId(booking.getOffer().getId())
                 .userId(passenger.getId()).userName(passenger.getFullName()).seats(booking.getSeats())
-                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer())).build();
+                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer()))
+                .offerOwner(offerOwner).build();
     }
 }
