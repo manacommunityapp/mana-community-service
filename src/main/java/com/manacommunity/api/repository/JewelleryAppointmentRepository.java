@@ -16,4 +16,10 @@ public interface JewelleryAppointmentRepository extends JpaRepository<JewelleryA
             JewelleryVendorProfile vendor, String status);
 
     Optional<JewelleryAppointment> findByIdAndUser(Long id, AppUser user);
+
+    /** Merchant dashboard: all appointments for this vendor, newest first. */
+    List<JewelleryAppointment> findByVendorOrderByAppointmentDateDescCreatedAtDesc(JewelleryVendorProfile vendor);
+
+    /** Security check: only the owning vendor may update appointment status. */
+    Optional<JewelleryAppointment> findByIdAndVendor(Long id, JewelleryVendorProfile vendor);
 }

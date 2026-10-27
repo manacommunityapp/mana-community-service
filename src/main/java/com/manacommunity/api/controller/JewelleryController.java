@@ -51,6 +51,34 @@ public class JewelleryController {
         return ResponseEntity.ok(jewelleryService.registerVendor(user, req));
     }
 
+    /** Public storefront — used by the buyer vendor/[vendorId] screen. */
+    @GetMapping("/vendors/{id}")
+    public ResponseEntity<JewelleryDto.VendorResponse> getVendorById(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(jewelleryService.getVendorById(id));
+    }
+
+    /** Merchant-facing: fetch appointments booked for the logged-in vendor. */
+    @GetMapping("/vendor/appointments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<JewelleryDto.AppointmentResponse>> getVendorAppointments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(jewelleryService.getVendorAppointments(user));
+    }
+
+    /** Merchant-facing: accept, confirm or mark complete an appointment. */
+    @PatchMapping("/vendor/appointments/{id}/status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> updateAppointmentStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        AppUser user = loggedInUserService.resolve(principal);
+        jewelleryService.updateAppointmentStatus(user, id, body.get("status"));
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Products ──────────────────────────────────────────────────
 
     @GetMapping("/products")
