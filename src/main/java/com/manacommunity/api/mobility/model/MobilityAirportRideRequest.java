@@ -37,4 +37,5 @@ public class MobilityAirportRideRequest {
     @Column(length = 20) private String terminal;
     @Column(nullable = false, length = 20) private String status = "OPEN";
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
+    @Column(name = "last_match_notified_at") private Instant lastMatchNotifiedAt;
 }
