@@ -3,6 +3,8 @@ package com.manacommunity.api.mobility.service;
 import com.manacommunity.api.mobility.model.MobilityAirportRideRequest;
 import com.manacommunity.api.mobility.repository.MobilityAirportRideRequestRepository;
 import com.manacommunity.api.mobility.repository.MobilityCarpoolOfferRepository;
+import com.manacommunity.api.mobility.repository.MobilityJourneyMatchRepository;
+import com.manacommunity.api.mobility.model.MobilityJourneyMatch;
 import com.manacommunity.api.service.ExpoPushService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.util.Map;
 public class MobilityJourneyMatchingScheduler {
     private final MobilityAirportRideRequestRepository requestRepo;
     private final MobilityCarpoolOfferRepository offerRepo;
+    private final MobilityJourneyMatchRepository matchRepo;
     private final ExpoPushService expoPushService;
 
     @Scheduled(fixedDelay = 900_000L)
@@ -35,6 +38,14 @@ public class MobilityJourneyMatchingScheduler {
                     request.getArea(), request.getTravelAt().minusMillis(window), request.getTravelAt().plusMillis(window),
                     request.getSeats(), request.getLuggageCount(), PageRequest.of(0, 5));
             if (matches.isEmpty()) continue;
+            matches.getContent().forEach(item -> {
+                var offer = (com.manacommunity.api.mobility.model.MobilityCarpoolOffer) item;
+                if (offer.getDriverUser().getId().equals(request.getRequester().getId())) return;
+                if (matchRepo.findByRequestIdAndOfferId(request.getId(), offer.getId()).isEmpty()) {
+                    matchRepo.save(MobilityJourneyMatch.builder().request(request).offer(offer)
+                            .requester(request.getRequester()).status("PROPOSED").build());
+                }
+            });
             expoPushService.sendToUser(request.getRequester().getId(), "A shared journey is forming",
                     matches.getTotalElements() + " compatible " + request.getJourneyType().toLowerCase() + " ride(s) found near " + request.getHubCode() + ".",
                     Map.of("type", "MOBILITY_GROUP_MATCH", "requestId", request.getId()), "default");

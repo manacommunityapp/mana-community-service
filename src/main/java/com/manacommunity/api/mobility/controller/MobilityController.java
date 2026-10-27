@@ -320,6 +320,23 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.updateJourneySlotStatus(user(p), id, body.get("status")));
     }
 
+    @GetMapping("/journeys/proposals")
+    public ResponseEntity<Page<JourneyMatchProposalDto>> getJourneyProposals(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getJourneyProposals(user(p), page, size));
+    }
+
+    @PostMapping("/journeys/proposals/{id}/respond")
+    public ResponseEntity<Void> respondToJourneyProposal(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+        mobilityService.respondToJourneyProposal(user(p), id, Boolean.TRUE.equals(body.get("accept")));
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(

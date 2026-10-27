@@ -43,6 +43,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityCarpoolOfferRepository carpoolRepo;
     private final MobilityCarpoolBookingRepository carpoolBookingRepo;
     private final MobilityJourneySlotRepository journeySlotRepo;
+    private final MobilityJourneyMatchRepository journeyMatchRepo;
     private final MobilityAirportRideRequestRepository airportRequestRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
@@ -431,6 +432,9 @@ public class MobilityServiceImpl implements MobilityService {
         if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
         }
+        if (offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot join your own journey offer");
+        }
         if (req.getSeats() < 1 || req.getSeats() > 8) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seats must be between 1 and 8");
         }
@@ -728,6 +732,33 @@ public class MobilityServiceImpl implements MobilityService {
         return toJourneySlotDto(journeySlotRepo.save(slot));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JourneyMatchProposalDto> getJourneyProposals(AppUser user, int page, int size) {
+        return journeyMatchRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toJourneyMatchProposalDto);
+    }
+
+    @Override
+    public void respondToJourneyProposal(AppUser user, Long proposalId, boolean accept) {
+        MobilityJourneyMatch proposal = journeyMatchRepo.findByIdAndRequesterId(proposalId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey proposal not found"));
+        if (!"PROPOSED".equals(proposal.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Journey proposal already answered");
+        }
+        proposal.setRespondedAt(Instant.now());
+        if (accept) {
+            JoinCarpoolRequest join = new JoinCarpoolRequest();
+            join.setSeats(proposal.getRequest().getSeats());
+            joinCarpoolOffer(user, proposal.getOffer().getId(), join);
+            proposal.setStatus("ACCEPTED");
+        } else {
+            proposal.setStatus("DECLINED");
+        }
+        journeyMatchRepo.save(proposal);
+    }
+
     // ── Ops ───────────────────────────────────────────────────────
 
     @Override
@@ -993,5 +1024,10 @@ public class MobilityServiceImpl implements MobilityService {
                 .departureTime(s.getDepartureTime().toString()).daysOfWeek(s.getDaysOfWeek())
                 .seatCapacity(s.getSeatCapacity()).luggageCapacity(s.getLuggageCapacity())
                 .pricePerSeat(s.getPricePerSeat()).status(s.getStatus()).build();
+    }
+
+    private JourneyMatchProposalDto toJourneyMatchProposalDto(MobilityJourneyMatch match) {
+        return JourneyMatchProposalDto.builder().id(match.getId()).requestId(match.getRequest().getId())
+                .status(match.getStatus()).createdAt(match.getCreatedAt()).offer(toCarpoolDto(match.getOffer())).build();
     }
 }

@@ -55,6 +55,8 @@ public interface MobilityService {
     List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode);
     JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req);
     JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status);
+    Page<JourneyMatchProposalDto> getJourneyProposals(AppUser user, int page, int size);
+    void respondToJourneyProposal(AppUser user, Long proposalId, boolean accept);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);
