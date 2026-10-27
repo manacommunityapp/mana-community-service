@@ -38,6 +38,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityVehicleRepository      vehicleRepo;
     private final MobilityDriverOfferRepository  offerRepo;
     private final MobilityCarpoolOfferRepository carpoolRepo;
+    private final MobilityAirportRideRequestRepository airportRequestRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
 
@@ -471,7 +472,7 @@ public class MobilityServiceImpl implements MobilityService {
             from = date.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
             to = date.plusDays(1).atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
         }
-        return carpoolRepo.findAirportRides(user.getCommunity().getId(), airportCode, direction, area, from, to,
+        return carpoolRepo.findAirportRides(user.getCommunity().getId(), airportCode, direction, area, from, to, 1, 0,
                         PageRequest.of(page, Math.min(size, 50)))
                 .map(this::toCarpoolDto);
     }
@@ -481,6 +482,43 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size) {
         return carpoolRepo.findMyAirportRides(user.getId(), PageRequest.of(page, Math.min(size, 50)))
                 .map(this::toCarpoolDto);
+    }
+
+    @Override
+    public AirportRideRequestDto createAirportRideRequest(AppUser user, CreateAirportRideRequest req) {
+        Community community = communityRepo.findById(user.getCommunity().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
+        Instant travelAt;
+        try {
+            travelAt = Instant.parse(req.getTravelAt());
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601");
+        }
+        MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
+                .community(community).requester(user).direction(req.getDirection().toUpperCase())
+                .airportCode(req.getAirportCode().toUpperCase()).area(req.getArea().trim())
+                .travelAt(travelAt).timeWindowMinutes(req.getTimeWindowMinutes())
+                .seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
+                .flightNumber(req.getFlightNumber()).terminal(req.getTerminal()).status("OPEN").build());
+        return toAirportRequestDto(request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AirportRideRequestDto> getMyAirportRideRequests(AppUser user, int page, int size) {
+        return airportRequestRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(this::toAirportRequestDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getAirportRideMatches(AppUser user, Long requestId, int page, int size) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Travel request not found"));
+        long windowMillis = request.getTimeWindowMinutes() * 60_000L;
+        Instant from = request.getTravelAt().minusMillis(windowMillis);
+        Instant to = request.getTravelAt().plusMillis(windowMillis);
+        return carpoolRepo.findAirportRides(user.getCommunity().getId(), request.getAirportCode(), request.getDirection(), request.getArea(), from, to, request.getSeats(), request.getLuggageCount(), PageRequest.of(page, Math.min(size, 50))).map(this::toCarpoolDto);
     }
 
     // ── Ops ───────────────────────────────────────────────────────
@@ -729,5 +767,12 @@ public class MobilityServiceImpl implements MobilityService {
                 .vehicleNumber(o.getVehicleNumber())
                 .status(o.getStatus())
                 .build();
+    }
+
+    private AirportRideRequestDto toAirportRequestDto(MobilityAirportRideRequest r) {
+        return AirportRideRequestDto.builder().id(r.getId()).direction(r.getDirection()).airportCode(r.getAirportCode())
+                .area(r.getArea()).travelAt(r.getTravelAt()).timeWindowMinutes(r.getTimeWindowMinutes())
+                .seats(r.getSeats()).luggageCount(r.getLuggageCount()).flightNumber(r.getFlightNumber())
+                .terminal(r.getTerminal()).status(r.getStatus()).createdAt(r.getCreatedAt()).build();
     }
 }

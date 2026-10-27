@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
 
@@ -23,8 +24,9 @@ public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCa
            " AND o.airportCode = :airportCode AND o.airportDirection = :direction" +
            " AND (:area IS NULL OR LOWER(o.origin) LIKE LOWER(CONCAT('%', :area, '%')) OR LOWER(o.destination) LIKE LOWER(CONCAT('%', :area, '%')))" +
            " AND (:fromTime IS NULL OR o.departureTime >= :fromTime) AND (:toTime IS NULL OR o.departureTime < :toTime)" +
+           " AND o.availableSeats >= :seats AND COALESCE(o.luggageCapacity, 0) >= :luggageCount" +
            " ORDER BY o.departureTime ASC")
-    Page<MobilityCarpoolOffer> findAirportRides(Long communityId, String airportCode, String direction, String area, java.time.Instant fromTime, java.time.Instant toTime, Pageable pageable);
+    Page<MobilityCarpoolOffer> findAirportRides(@Param("communityId") Long communityId, @Param("airportCode") String airportCode, @Param("direction") String direction, @Param("area") String area, @Param("fromTime") java.time.Instant fromTime, @Param("toTime") java.time.Instant toTime, @Param("seats") int seats, @Param("luggageCount") int luggageCount, Pageable pageable);
 
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.driverUser.id = :userId AND o.airportCode IS NOT NULL ORDER BY o.departureTime DESC")
     Page<MobilityCarpoolOffer> findMyAirportRides(Long userId, Pageable pageable);

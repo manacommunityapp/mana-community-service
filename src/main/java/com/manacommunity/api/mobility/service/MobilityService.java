@@ -40,6 +40,9 @@ public interface MobilityService {
     MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req);
     Page<MobilityCarpoolOfferDto> getAirportRides(AppUser user, String airportCode, String direction, String area, String travelDate, int page, int size);
     Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size);
+    AirportRideRequestDto createAirportRideRequest(AppUser user, CreateAirportRideRequest req);
+    Page<AirportRideRequestDto> getMyAirportRideRequests(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getAirportRideMatches(AppUser user, Long requestId, int page, int size);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

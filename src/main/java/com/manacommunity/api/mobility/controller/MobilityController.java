@@ -269,6 +269,30 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.getMyAirportRides(user(p), page, size));
     }
 
+    @PostMapping("/airport-rides/requests")
+    public ResponseEntity<AirportRideRequestDto> createAirportRideRequest(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateAirportRideRequest req) {
+        return ResponseEntity.ok(mobilityService.createAirportRideRequest(user(p), req));
+    }
+
+    @GetMapping("/airport-rides/requests/mine")
+    public ResponseEntity<Page<AirportRideRequestDto>> getMyAirportRideRequests(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyAirportRideRequests(user(p), page, size));
+    }
+
+    @GetMapping("/airport-rides/requests/{requestId}/matches")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getAirportRideMatches(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long requestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getAirportRideMatches(user(p), requestId, page, size));
+    }
+
     // ── Ops / Admin ────────────────────────────────────────────────────────
 
     @GetMapping("/ops/documents/pending")
