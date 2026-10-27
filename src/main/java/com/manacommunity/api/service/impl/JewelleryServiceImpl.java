@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.manacommunity.api.media.service.MediaUrlService;
+
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +30,7 @@ public class JewelleryServiceImpl implements JewelleryService {
     private final JewelleryPhotoJobRepository photoJobRepo;
     private final JewelleryWishlistRepository wishlistRepo;
     private final JewelleryAppointmentRepository appointmentRepo;
+    private final MediaUrlService mediaUrlService;
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -386,9 +389,16 @@ public class JewelleryServiceImpl implements JewelleryService {
     }
 
     private JewelleryDto.PhotoJobResponse toPhotoJobResponse(JewelleryPhotoJob j) {
+        String outputUrl = null;
+        if (j.getOutputObjectKey() != null && !j.getOutputObjectKey().isBlank()) {
+            outputUrl = j.getOutputObjectKey().startsWith("http")
+                    ? j.getOutputObjectKey()
+                    : mediaUrlService.resolveStoredUrl(j.getOutputObjectKey());
+        }
         return JewelleryDto.PhotoJobResponse.builder()
                 .id(j.getId())
                 .status(j.getStatus())
+                .outputUrl(outputUrl)
                 .createdAt(j.getCreatedAt().format(DT))
                 .completedAt(j.getCompletedAt() != null ? j.getCompletedAt().format(DT) : null)
                 .errorCode(j.getErrorCode())

@@ -1,6 +1,11 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.JewelleryDto;
+import com.manacommunity.api.media.dto.PresignedUploadRequest;
+import com.manacommunity.api.media.dto.PresignedUrlResponse;
+import com.manacommunity.api.media.entity.MediaModule;
+import com.manacommunity.api.media.entity.MediaType;
+import com.manacommunity.api.media.service.MediaService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.JewelleryService;
 import com.manacommunity.api.user.model.AppUser;
@@ -25,6 +30,7 @@ public class JewelleryController {
 
     private final JewelleryService jewelleryService;
     private final LoggedInUserService loggedInUserService;
+    private final MediaService mediaService;
 
     // ── Vendors ───────────────────────────────────────────────────
 
@@ -126,6 +132,33 @@ public class JewelleryController {
     }
 
     // ── Try-On ────────────────────────────────────────────────────
+
+    /**
+     * Step 1 of photo try-on flow: obtain a presigned S3 PUT URL.
+     * The mobile app PUTs the photo directly to S3 (no app-server round-trip),
+     * then passes the returned s3Key to POST /try-on/sessions/{id}/photo-jobs.
+     *
+     * The photo is stored under module=MARKETPLACE / subContext=JEWELLERY_TRYON.
+     * The JewelleryPhotoWorker deletes source photos after 24 h (DPDP compliance).
+     */
+    @PostMapping("/try-on/uploads")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PresignedUrlResponse> requestPhotoUploadUrl(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+
+        PresignedUploadRequest req = new PresignedUploadRequest();
+        req.setModule(MediaModule.MARKETPLACE);
+        req.setModuleId("jewellery-tryon");
+        req.setCommunityId(user.getCommunity() != null ? user.getCommunity().getId() : 0L);
+        req.setSubContext("JEWELLERY_TRYON");
+        req.setMediaType(MediaType.IMAGE);
+        req.setMimeType("image/jpeg");
+        req.setOriginalFileName("tryon-source.jpg");
+        req.setApprovalRequired(false);
+
+        return ResponseEntity.ok(mediaService.generatePresignedUploadUrl(req, user.getId()));
+    }
 
     @PostMapping("/try-on/sessions")
     @PreAuthorize("isAuthenticated()")
