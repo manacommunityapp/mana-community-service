@@ -38,6 +38,8 @@ public interface MobilityService {
     MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId);
     void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req);
     MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req);
+    Page<MobilityCarpoolOfferDto> getAirportRides(AppUser user, String airportCode, String direction, String area, String travelDate, int page, int size);
+    Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

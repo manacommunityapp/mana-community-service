@@ -31,6 +31,24 @@ public class MobilityCarpoolOffer {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String destination;
 
+    @Column(name = "airport_direction", length = 20)
+    private String airportDirection;
+
+    @Column(name = "airport_code", length = 3)
+    private String airportCode;
+
+    @Column(name = "airport_name", length = 160)
+    private String airportName;
+
+    @Column(name = "flight_number", length = 20)
+    private String flightNumber;
+
+    @Column(name = "terminal", length = 20)
+    private String terminal;
+
+    @Column(name = "luggage_capacity")
+    private Short luggageCapacity;
+
     @Column(name = "departure_time", nullable = false)
     private Instant departureTime;
 

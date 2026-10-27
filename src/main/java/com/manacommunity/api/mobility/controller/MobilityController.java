@@ -9,7 +9,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -210,6 +212,61 @@ public class MobilityController {
             @AuthenticationPrincipal UserPrincipal p,
             @Valid @RequestBody CreateCarpoolOfferRequest req) {
         return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
+    }
+
+    @GetMapping("/airport-rides/airports")
+    public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
+        return ResponseEntity.ok(List.of(
+                Map.of("code", "HYD", "name", "Rajiv Gandhi International Airport", "city", "Hyderabad"),
+                Map.of("code", "BLR", "name", "Kempegowda International Airport", "city", "Bengaluru"),
+                Map.of("code", "DEL", "name", "Indira Gandhi International Airport", "city", "Delhi"),
+                Map.of("code", "BOM", "name", "Chhatrapati Shivaji Maharaj International Airport", "city", "Mumbai")
+        ));
+    }
+
+    @GetMapping("/airport-rides/search")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> searchAirportRides(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam String airportCode,
+            @RequestParam String direction,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) String travelDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getAirportRides(user(p), airportCode, direction, area, travelDate, page, size));
+    }
+
+    @PostMapping("/airport-rides")
+    public ResponseEntity<MobilityCarpoolOfferDto> createAirportRide(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateCarpoolOfferRequest req) {
+        if (req.getAirportCode() == null || req.getAirportDirection() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "airportCode and airportDirection are required");
+        }
+        return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
+    }
+
+    @GetMapping("/airport-rides/{id}")
+    public ResponseEntity<MobilityCarpoolOfferDto> getAirportRide(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getCarpoolOffer(user(p), id));
+    }
+
+    @PostMapping("/airport-rides/{id}/join")
+    public ResponseEntity<Void> joinAirportRide(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolOffer(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/airport-rides/my-trips")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getMyAirportTrips(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyAirportRides(user(p), page, size));
     }
 
     // ── Ops / Admin ────────────────────────────────────────────────────────

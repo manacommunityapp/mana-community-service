@@ -22,6 +22,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -408,14 +409,24 @@ public class MobilityServiceImpl implements MobilityService {
     @Override
     @Transactional(readOnly = true)
     public MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId) {
-        return toCarpoolDto(carpoolRepo.findById(offerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found")));
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        return toCarpoolDto(offer);
     }
 
     @Override
     public void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req) {
-        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
+        }
+        if (req.getSeats() < 1 || req.getSeats() > 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seats must be between 1 and 8");
+        }
         if (offer.getAvailableSeats() < req.getSeats()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Not enough seats available");
         }
@@ -433,6 +444,12 @@ public class MobilityServiceImpl implements MobilityService {
                 .driverUser(user)
                 .origin(req.getOrigin())
                 .destination(req.getDestination())
+                .airportDirection(req.getAirportDirection())
+                .airportCode(req.getAirportCode())
+                .airportName(req.getAirportName())
+                .flightNumber(req.getFlightNumber())
+                .terminal(req.getTerminal())
+                .luggageCapacity((short) req.getLuggageCapacity())
                 .departureTime(Instant.parse(req.getDepartureTime()))
                 .totalSeats((short) req.getTotalSeats())
                 .availableSeats((short) req.getTotalSeats())
@@ -442,6 +459,28 @@ public class MobilityServiceImpl implements MobilityService {
                 .status("ACTIVE")
                 .build());
         return toCarpoolDto(offer);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getAirportRides(AppUser user, String airportCode, String direction, String area, String travelDate, int page, int size) {
+        Instant from = null;
+        Instant to = null;
+        if (travelDate != null && !travelDate.isBlank()) {
+            LocalDate date = LocalDate.parse(travelDate);
+            from = date.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+            to = date.plusDays(1).atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+        }
+        return carpoolRepo.findAirportRides(user.getCommunity().getId(), airportCode, direction, area, from, to,
+                        PageRequest.of(page, Math.min(size, 50)))
+                .map(this::toCarpoolDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size) {
+        return carpoolRepo.findMyAirportRides(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(this::toCarpoolDto);
     }
 
     // ── Ops ───────────────────────────────────────────────────────
@@ -676,12 +715,19 @@ public class MobilityServiceImpl implements MobilityService {
                 .rating(o.getDriverRating())
                 .origin(o.getOrigin())
                 .destination(o.getDestination())
+                .airportDirection(o.getAirportDirection())
+                .airportCode(o.getAirportCode())
+                .airportName(o.getAirportName())
+                .flightNumber(o.getFlightNumber())
+                .terminal(o.getTerminal())
+                .luggageCapacity(o.getLuggageCapacity() == null ? 0 : o.getLuggageCapacity())
                 .departureTime(o.getDepartureTime())
                 .totalSeats(o.getTotalSeats())
                 .availableSeats(o.getAvailableSeats())
                 .pricePerSeat(o.getPricePerSeat())
                 .vehicleModel(o.getVehicleModel())
                 .vehicleNumber(o.getVehicleNumber())
+                .status(o.getStatus())
                 .build();
     }
 }
