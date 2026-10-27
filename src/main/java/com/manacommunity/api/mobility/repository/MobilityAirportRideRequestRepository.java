@@ -11,4 +11,5 @@ public interface MobilityAirportRideRequestRepository extends JpaRepository<Mobi
     Page<MobilityAirportRideRequest> findByRequesterIdOrderByCreatedAtDesc(Long requesterId, Pageable pageable);
     java.util.Optional<MobilityAirportRideRequest> findByIdAndRequesterId(Long id, Long requesterId);
     List<MobilityAirportRideRequest> findByStatusAndTravelAtBetweenOrderByTravelAtAsc(String status, Instant from, Instant to);
+    List<MobilityAirportRideRequest> findByStatusAndTravelAtBefore(String status, Instant before);
 }

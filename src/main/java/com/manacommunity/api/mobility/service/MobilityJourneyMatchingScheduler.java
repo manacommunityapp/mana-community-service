@@ -29,6 +29,7 @@ public class MobilityJourneyMatchingScheduler {
     @Scheduled(fixedDelay = 900_000L)
     public void notifyOpenJourneyMatches() {
         Instant now = Instant.now();
+        expireStaleJourneys(now);
         for (MobilityAirportRideRequest request : requestRepo.findByStatusAndTravelAtBetweenOrderByTravelAtAsc(
                 "OPEN", now, now.plus(Duration.ofHours(48)))) {
             if (request.getJourneyType() == null || request.getHubCode() == null) continue;
@@ -52,5 +53,19 @@ public class MobilityJourneyMatchingScheduler {
             request.setLastMatchNotifiedAt(now);
             requestRepo.save(request);
         }
+    }
+
+    private void expireStaleJourneys(Instant now) {
+        requestRepo.findByStatusAndTravelAtBefore("OPEN", now).forEach(request -> {
+            request.setStatus("EXPIRED");
+            requestRepo.save(request);
+            expoPushService.sendToUser(request.getRequester().getId(), "Journey request expired",
+                    "The requested travel time has passed without a confirmed shared journey.",
+                    Map.of("type", "MOBILITY_REQUEST_EXPIRED", "requestId", request.getId()), "default");
+        });
+        offerRepo.findByStatusInAndDepartureTimeBefore(java.util.List.of("ACTIVE", "FULL"), now).forEach(offer -> {
+            offer.setStatus("COMPLETED");
+            offerRepo.save(offer);
+        });
     }
 }

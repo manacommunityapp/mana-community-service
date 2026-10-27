@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
+import java.util.List;
 
 public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCarpoolOffer, Long> {
 
     Page<MobilityCarpoolOffer> findByDriverUserIdOrderByDepartureTimeDesc(Long userId, Pageable pageable);
+    List<MobilityCarpoolOffer> findByStatusInAndDepartureTimeBefore(List<String> statuses, Instant before);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.id = :id")
