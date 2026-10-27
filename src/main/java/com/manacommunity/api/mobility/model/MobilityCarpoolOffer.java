@@ -31,6 +31,15 @@ public class MobilityCarpoolOffer {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String destination;
 
+    @Column(name = "journey_type", nullable = false, length = 30)
+    private String journeyType = "GENERIC";
+
+    @Column(name = "hub_code", length = 30)
+    private String hubCode;
+
+    @Column(name = "context_name", length = 160)
+    private String contextName;
+
     @Column(name = "airport_direction", length = 20)
     private String airportDirection;
 

@@ -24,7 +24,10 @@ public class MobilityAirportRideRequest {
     private AppUser requester;
 
     @Column(nullable = false, length = 20) private String direction;
-    @Column(name = "airport_code", nullable = false, length = 3) private String airportCode;
+    @Column(name = "journey_type", nullable = false, length = 30) private String journeyType = "AIRPORT";
+    @Column(name = "airport_code", length = 3) private String airportCode;
+    @Column(name = "hub_code", length = 30) private String hubCode;
+    @Column(name = "context_name", length = 160) private String contextName;
     @Column(nullable = false, columnDefinition = "TEXT") private String area;
     @Column(name = "travel_at", nullable = false) private Instant travelAt;
     @Column(name = "time_window_minutes", nullable = false) private int timeWindowMinutes = 30;

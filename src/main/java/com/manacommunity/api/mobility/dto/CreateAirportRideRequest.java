@@ -6,7 +6,10 @@ import lombok.Data;
 @Data
 public class CreateAirportRideRequest {
     @NotBlank private String direction;
+    private String journeyType;
     @NotBlank @Size(min = 3, max = 3) private String airportCode;
+    private String hubCode;
+    private String contextName;
     @NotBlank private String area;
     @NotBlank private String travelAt;
     @Min(15) @Max(180) private int timeWindowMinutes = 30;

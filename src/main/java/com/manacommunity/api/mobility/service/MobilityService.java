@@ -43,6 +43,12 @@ public interface MobilityService {
     AirportRideRequestDto createAirportRideRequest(AppUser user, CreateAirportRideRequest req);
     Page<AirportRideRequestDto> getMyAirportRideRequests(AppUser user, int page, int size);
     Page<MobilityCarpoolOfferDto> getAirportRideMatches(AppUser user, Long requestId, int page, int size);
+    List<JourneyTypeConfigDto> getJourneyTypeConfigs();
+    Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String area,
+                                                       String travelAt, int timeWindowMinutes, int seats,
+                                                       int luggageCount, int page, int size);
+    AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req);
+    Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

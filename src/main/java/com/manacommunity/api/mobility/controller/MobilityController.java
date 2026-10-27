@@ -214,6 +214,64 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
     }
 
+    @GetMapping("/journeys/config")
+    public ResponseEntity<List<JourneyTypeConfigDto>> getJourneyTypeConfigs() {
+        return ResponseEntity.ok(mobilityService.getJourneyTypeConfigs());
+    }
+
+    @GetMapping("/journeys/search")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> searchJourneyOffers(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam String journeyType,
+            @RequestParam String hubCode,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) String travelAt,
+            @RequestParam(defaultValue = "30") int timeWindowMinutes,
+            @RequestParam(defaultValue = "1") int seats,
+            @RequestParam(defaultValue = "0") int luggageCount,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.searchJourneyOffers(user(p), journeyType, hubCode, area,
+                travelAt, timeWindowMinutes, seats, luggageCount, page, size));
+    }
+
+    @PostMapping("/journeys/offers")
+    public ResponseEntity<MobilityCarpoolOfferDto> createJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateCarpoolOfferRequest req) {
+        return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
+    }
+
+    @GetMapping("/journeys/offers/{id}")
+    public ResponseEntity<MobilityCarpoolOfferDto> getJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getCarpoolOffer(user(p), id));
+    }
+
+    @PostMapping("/journeys/offers/{id}/join")
+    public ResponseEntity<Void> joinJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolOffer(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/journeys/requests")
+    public ResponseEntity<AirportRideRequestDto> createJourneyRequest(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateJourneyRequest req) {
+        return ResponseEntity.ok(mobilityService.createJourneyRequest(user(p), req));
+    }
+
+    @GetMapping("/journeys/requests/mine")
+    public ResponseEntity<Page<AirportRideRequestDto>> getMyJourneyRequests(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyRequests(user(p), page, size));
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(

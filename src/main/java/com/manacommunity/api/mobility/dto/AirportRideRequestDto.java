@@ -9,7 +9,10 @@ import java.time.Instant;
 public class AirportRideRequestDto {
     private Long id;
     private String direction;
+    private String journeyType;
     private String airportCode;
+    private String hubCode;
+    private String contextName;
     private String area;
     private Instant travelAt;
     private int timeWindowMinutes;

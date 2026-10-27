@@ -445,6 +445,9 @@ public class MobilityServiceImpl implements MobilityService {
                 .driverUser(user)
                 .origin(req.getOrigin())
                 .destination(req.getDestination())
+                .journeyType(req.getJourneyType() != null && !req.getJourneyType().isBlank() ? req.getJourneyType().toUpperCase() : (req.getAirportCode() != null ? "AIRPORT" : "GENERIC"))
+                .hubCode(req.getHubCode() != null ? req.getHubCode() : req.getAirportCode())
+                .contextName(req.getContextName())
                 .airportDirection(req.getAirportDirection())
                 .airportCode(req.getAirportCode())
                 .airportName(req.getAirportName())
@@ -496,7 +499,9 @@ public class MobilityServiceImpl implements MobilityService {
         }
         MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
                 .community(community).requester(user).direction(req.getDirection().toUpperCase())
-                .airportCode(req.getAirportCode().toUpperCase()).area(req.getArea().trim())
+                .journeyType(req.getJourneyType() != null ? req.getJourneyType().toUpperCase() : "AIRPORT")
+                .airportCode(req.getAirportCode().toUpperCase()).hubCode(req.getHubCode() != null ? req.getHubCode() : req.getAirportCode().toUpperCase())
+                .contextName(req.getContextName()).area(req.getArea().trim())
                 .travelAt(travelAt).timeWindowMinutes(req.getTimeWindowMinutes())
                 .seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
                 .flightNumber(req.getFlightNumber()).terminal(req.getTerminal()).status("OPEN").build());
@@ -519,6 +524,74 @@ public class MobilityServiceImpl implements MobilityService {
         Instant from = request.getTravelAt().minusMillis(windowMillis);
         Instant to = request.getTravelAt().plusMillis(windowMillis);
         return carpoolRepo.findAirportRides(user.getCommunity().getId(), request.getAirportCode(), request.getDirection(), request.getArea(), from, to, request.getSeats(), request.getLuggageCount(), PageRequest.of(page, Math.min(size, 50))).map(this::toCarpoolDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneyTypeConfigDto> getJourneyTypeConfigs() {
+        return List.of(
+                JourneyTypeConfigDto.builder().code("OFFICE").label("Office commute").description("Fixed routes for employees").icon("business").hubExamples(List.of("HITEC_CITY", "GACHIBOWLI")).build(),
+                JourneyTypeConfigDto.builder().code("SCHOOL").label("School & college").description("Verified student and staff transport").icon("school").hubExamples(List.of("DPS", "NALSAR")).build(),
+                JourneyTypeConfigDto.builder().code("EVENT").label("Family & events").description("Weddings, reunions and community functions").icon("people").hubExamples(List.of("WEDDING", "REUNION")).build(),
+                JourneyTypeConfigDto.builder().code("SPORTS").label("Sports & tournaments").description("Shared travel to stadiums and venues").icon("trophy").hubExamples(List.of("RGI_STADIUM", "GACHIBOWLI_STADIUM")).build(),
+                JourneyTypeConfigDto.builder().code("RAILWAY").label("Railway stations").description("Arrival and departure transfers").icon("train").hubExamples(List.of("SC", "KCG", "HYB")).build(),
+                JourneyTypeConfigDto.builder().code("BUS_TERMINAL").label("Bus terminals").description("Intercity bus transfers").icon("bus").hubExamples(List.of("MGBS", "JBS")).build(),
+                JourneyTypeConfigDto.builder().code("AIRPORT").label("Airport rides").description("Flight and luggage-aware airport trips").icon("airplane").hubExamples(List.of("HYD", "BLR", "DEL", "BOM")).build()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String area,
+                                                              String travelAt, int timeWindowMinutes, int seats,
+                                                              int luggageCount, int page, int size) {
+        Instant from = null;
+        Instant to = null;
+        if (travelAt != null && !travelAt.isBlank()) {
+            Instant requested;
+            try {
+                requested = Instant.parse(travelAt);
+            } catch (Exception ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601");
+            }
+            long window = Math.max(15, Math.min(timeWindowMinutes, 180)) * 60_000L;
+            from = requested.minusMillis(window);
+            to = requested.plusMillis(window);
+        }
+        if (journeyType == null || hubCode == null || journeyType.isBlank() || hubCode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "journeyType and hubCode are required");
+        }
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), area,
+                        from, to, Math.max(1, seats), Math.max(0, luggageCount), PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toCarpoolDto);
+    }
+
+    @Override
+    public AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req) {
+        boolean supported = getJourneyTypeConfigs().stream().anyMatch(c -> c.getCode().equalsIgnoreCase(req.getJourneyType()));
+        if (!supported) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported journey type");
+        if (!"TO_HUB".equalsIgnoreCase(req.getDirection()) && !"FROM_HUB".equalsIgnoreCase(req.getDirection())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
+        }
+        Instant travelAt;
+        try { travelAt = Instant.parse(req.getTravelAt()); }
+        catch (Exception ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601"); }
+        Community community = communityRepo.findById(user.getCommunity().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
+        MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
+                .community(community).requester(user).journeyType(req.getJourneyType().toUpperCase())
+                .direction(req.getDirection().toUpperCase()).hubCode(req.getHubCode().toUpperCase())
+                .contextName(req.getContextName()).area(req.getArea().trim()).travelAt(travelAt)
+                .timeWindowMinutes(req.getTimeWindowMinutes()).seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
+                .status("OPEN").build());
+        return toAirportRequestDto(request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size) {
+        return airportRequestRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(Math.max(0, page), Math.min(size, 50)))
+                .map(this::toAirportRequestDto);
     }
 
     // ── Ops ───────────────────────────────────────────────────────
@@ -753,6 +826,9 @@ public class MobilityServiceImpl implements MobilityService {
                 .rating(o.getDriverRating())
                 .origin(o.getOrigin())
                 .destination(o.getDestination())
+                .journeyType(o.getJourneyType())
+                .hubCode(o.getHubCode())
+                .contextName(o.getContextName())
                 .airportDirection(o.getAirportDirection())
                 .airportCode(o.getAirportCode())
                 .airportName(o.getAirportName())
@@ -770,7 +846,8 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     private AirportRideRequestDto toAirportRequestDto(MobilityAirportRideRequest r) {
-        return AirportRideRequestDto.builder().id(r.getId()).direction(r.getDirection()).airportCode(r.getAirportCode())
+        return AirportRideRequestDto.builder().id(r.getId()).direction(r.getDirection()).journeyType(r.getJourneyType())
+                .airportCode(r.getAirportCode()).hubCode(r.getHubCode()).contextName(r.getContextName())
                 .area(r.getArea()).travelAt(r.getTravelAt()).timeWindowMinutes(r.getTimeWindowMinutes())
                 .seats(r.getSeats()).luggageCount(r.getLuggageCount()).flightNumber(r.getFlightNumber())
                 .terminal(r.getTerminal()).status(r.getStatus()).createdAt(r.getCreatedAt()).build();

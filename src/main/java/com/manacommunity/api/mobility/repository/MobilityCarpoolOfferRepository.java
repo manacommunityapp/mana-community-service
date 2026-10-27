@@ -30,4 +30,20 @@ public interface MobilityCarpoolOfferRepository extends JpaRepository<MobilityCa
 
     @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.driverUser.id = :userId AND o.airportCode IS NOT NULL ORDER BY o.departureTime DESC")
     Page<MobilityCarpoolOffer> findMyAirportRides(Long userId, Pageable pageable);
+
+    @Query("SELECT o FROM MobilityCarpoolOffer o WHERE o.community.id = :communityId AND o.status IN ('ACTIVE', 'FULL')" +
+           " AND o.journeyType = :journeyType AND o.hubCode = :hubCode" +
+           " AND (:area IS NULL OR LOWER(o.origin) LIKE LOWER(CONCAT('%', :area, '%')) OR LOWER(o.destination) LIKE LOWER(CONCAT('%', :area, '%')))" +
+           " AND (:fromTime IS NULL OR o.departureTime >= :fromTime) AND (:toTime IS NULL OR o.departureTime < :toTime)" +
+           " AND o.availableSeats >= :seats AND COALESCE(o.luggageCapacity, 0) >= :luggageCount" +
+           " ORDER BY o.departureTime ASC")
+    Page<MobilityCarpoolOffer> findJourneyOffers(@Param("communityId") Long communityId,
+                                                  @Param("journeyType") String journeyType,
+                                                  @Param("hubCode") String hubCode,
+                                                  @Param("area") String area,
+                                                  @Param("fromTime") java.time.Instant fromTime,
+                                                  @Param("toTime") java.time.Instant toTime,
+                                                  @Param("seats") int seats,
+                                                  @Param("luggageCount") int luggageCount,
+                                                  Pageable pageable);
 }

@@ -12,6 +12,9 @@ public class MobilityCarpoolOfferDto {
     private BigDecimal rating;
     private String origin;
     private String destination;
+    private String journeyType;
+    private String hubCode;
+    private String contextName;
     private String airportDirection;
     private String airportCode;
     private String airportName;
