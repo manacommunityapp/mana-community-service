@@ -411,7 +411,7 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<MobilityCarpoolOfferDto> getCarpoolOffers(AppUser user, String destination, int page, int size) {
         Long communityId = user.getCommunity().getId();
         return carpoolRepo.findActive(communityId, destination, PageRequest.of(page, Math.min(size, 50)))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, false));
     }
 
     @Override
@@ -422,7 +422,7 @@ public class MobilityServiceImpl implements MobilityService {
         if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
         }
-        return toCarpoolDto(offer);
+        return toCarpoolDto(offer, canRevealRoute(user, offer));
     }
 
     @Override
@@ -542,7 +542,7 @@ public class MobilityServiceImpl implements MobilityService {
                 .vehicleNumber(req.getVehicleNumber())
                 .status("ACTIVE")
                 .build());
-        return toCarpoolDto(offer);
+        return toCarpoolDto(offer, true);
     }
 
     @Override
@@ -557,14 +557,14 @@ public class MobilityServiceImpl implements MobilityService {
         }
         return carpoolRepo.findAirportRides(user.getCommunity().getId(), airportCode, direction, area, from, to, 1, 0,
                         PageRequest.of(page, Math.min(size, 50)))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, false));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size) {
         return carpoolRepo.findMyAirportRides(user.getId(), PageRequest.of(page, Math.min(size, 50)))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, true));
     }
 
     @Override
@@ -647,7 +647,7 @@ public class MobilityServiceImpl implements MobilityService {
         }
         return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), normalizedDirection, area,
                         from, to, Math.max(1, seats), Math.max(0, luggageCount), PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, false));
     }
 
     @Override
@@ -691,7 +691,7 @@ public class MobilityServiceImpl implements MobilityService {
                         request.getArea(), request.getTravelAt().minusMillis(windowMillis),
                         request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
                         PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, false));
     }
 
     @Override
@@ -782,7 +782,7 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<MobilityCarpoolOfferDto> getMyJourneyOffers(AppUser user, int page, int size) {
         return carpoolRepo.findByDriverUserIdOrderByDepartureTimeDesc(user.getId(),
                         PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(this::toCarpoolDto);
+                .map(offer -> toCarpoolDto(offer, true));
     }
 
     @Override
@@ -1056,6 +1056,10 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     private MobilityCarpoolOfferDto toCarpoolDto(MobilityCarpoolOffer o) {
+        return toCarpoolDto(o, false);
+    }
+
+    private MobilityCarpoolOfferDto toCarpoolDto(MobilityCarpoolOffer o, boolean revealRoute) {
         AppUser u = o.getDriverUser();
         String name = u.getFullName() != null ? u.getFullName() : "Driver";
         return MobilityCarpoolOfferDto.builder()
@@ -1063,8 +1067,8 @@ public class MobilityServiceImpl implements MobilityService {
                 .driverUserId(u.getId())
                 .driverName(name.trim())
                 .rating(o.getDriverRating())
-                .origin(o.getOrigin())
-                .destination(o.getDestination())
+                .origin(revealRoute ? o.getOrigin() : "Pickup area (shared after joining)")
+                .destination(revealRoute ? o.getDestination() : "Destination (shared after joining)")
                 .journeyType(o.getJourneyType())
                 .journeyDirection(o.getJourneyDirection())
                 .hubCode(o.getHubCode())
@@ -1083,6 +1087,13 @@ public class MobilityServiceImpl implements MobilityService {
                 .vehicleNumber(o.getVehicleNumber())
                 .status(o.getStatus())
                 .build();
+    }
+
+    private boolean canRevealRoute(AppUser user, MobilityCarpoolOffer offer) {
+        return offer.getDriverUser().getId().equals(user.getId())
+                || carpoolBookingRepo.findByOfferIdAndUserId(offer.getId(), user.getId())
+                .map(booking -> "CONFIRMED".equals(booking.getStatus()))
+                .orElse(false);
     }
 
     private AirportRideRequestDto toAirportRequestDto(MobilityAirportRideRequest r) {
@@ -1114,7 +1125,7 @@ public class MobilityServiceImpl implements MobilityService {
         AppUser passenger = booking.getUser();
         return JourneyBookingDto.builder().id(booking.getId()).offerId(booking.getOffer().getId())
                 .userId(passenger.getId()).userName(passenger.getFullName()).seats(booking.getSeats())
-                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer()))
+                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer(), true))
                 .offerOwner(offerOwner).build();
     }
 }
