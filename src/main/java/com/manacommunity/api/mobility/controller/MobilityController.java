@@ -272,6 +272,22 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.getMyJourneyRequests(user(p), page, size));
     }
 
+    @GetMapping("/journeys/requests/{requestId}/matches")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getJourneyMatches(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long requestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getJourneyMatches(user(p), requestId, page, size));
+    }
+
+    @PostMapping("/journeys/offers/{id}/leave")
+    public ResponseEntity<Void> leaveJourney(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelCarpoolBooking(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(

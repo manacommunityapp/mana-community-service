@@ -49,6 +49,8 @@ public interface MobilityService {
                                                        int luggageCount, int page, int size);
     AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req);
     Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size);
+    void cancelCarpoolBooking(AppUser user, Long offerId);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

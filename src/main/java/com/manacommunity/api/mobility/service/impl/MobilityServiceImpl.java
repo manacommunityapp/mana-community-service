@@ -38,6 +38,7 @@ public class MobilityServiceImpl implements MobilityService {
     private final MobilityVehicleRepository      vehicleRepo;
     private final MobilityDriverOfferRepository  offerRepo;
     private final MobilityCarpoolOfferRepository carpoolRepo;
+    private final MobilityCarpoolBookingRepository carpoolBookingRepo;
     private final MobilityAirportRideRequestRepository airportRequestRepo;
     private final CommunityRepository            communityRepo;
     private final CommuteMatchingEngine          matchingEngine;
@@ -431,8 +432,34 @@ public class MobilityServiceImpl implements MobilityService {
         if (offer.getAvailableSeats() < req.getSeats()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Not enough seats available");
         }
+        MobilityCarpoolBooking existing = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId()).orElse(null);
+        if (existing != null && "CONFIRMED".equals(existing.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already joined this journey");
+        }
         offer.setAvailableSeats((short) (offer.getAvailableSeats() - req.getSeats()));
         if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
+        carpoolRepo.save(offer);
+        if (existing != null) {
+            existing.setSeats((short) req.getSeats());
+            existing.setStatus("CONFIRMED");
+            carpoolBookingRepo.save(existing);
+        } else {
+            carpoolBookingRepo.save(MobilityCarpoolBooking.builder()
+                    .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED").build());
+        }
+    }
+
+    @Override
+    public void cancelCarpoolBooking(AppUser user, Long offerId) {
+        MobilityCarpoolBooking booking = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey booking not found"));
+        if (!"CONFIRMED".equals(booking.getStatus())) return;
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        booking.setStatus("CANCELLED");
+        offer.setAvailableSeats((short) Math.min(offer.getTotalSeats(), offer.getAvailableSeats() + booking.getSeats()));
+        if (offer.getStatus().equals("FULL")) offer.setStatus("ACTIVE");
+        carpoolBookingRepo.save(booking);
         carpoolRepo.save(offer);
     }
 
@@ -592,6 +619,22 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size) {
         return airportRequestRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(Math.max(0, page), Math.min(size, 50)))
                 .map(this::toAirportRequestDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey request not found"));
+        if (request.getHubCode() == null || request.getJourneyType() == null) {
+            return Page.empty(PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
+        }
+        long windowMillis = Math.max(15, Math.min(request.getTimeWindowMinutes(), 180)) * 60_000L;
+        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), request.getJourneyType(), request.getHubCode(),
+                        request.getArea(), request.getTravelAt().minusMillis(windowMillis),
+                        request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toCarpoolDto);
     }
 
     // ── Ops ───────────────────────────────────────────────────────
