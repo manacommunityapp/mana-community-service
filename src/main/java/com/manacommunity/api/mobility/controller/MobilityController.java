@@ -337,6 +337,34 @@ public class MobilityController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/journeys/bookings/mine")
+    public ResponseEntity<Page<JourneyBookingDto>> getMyJourneyBookings(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyBookings(user(p), page, size));
+    }
+
+    @GetMapping("/journeys/offers/{id}/passengers")
+    public ResponseEntity<List<JourneyBookingDto>> getJourneyPassengers(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getJourneyPassengers(user(p), id));
+    }
+
+    @PostMapping("/journeys/offers/{id}/cancel")
+    public ResponseEntity<Void> cancelJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelJourneyOffer(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/journeys/requests/{id}/cancel")
+    public ResponseEntity<Void> cancelJourneyRequest(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelJourneyRequest(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/airport-rides/airports")
     public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
         return ResponseEntity.ok(List.of(

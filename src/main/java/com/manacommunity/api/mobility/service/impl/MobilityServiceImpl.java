@@ -759,6 +759,61 @@ public class MobilityServiceImpl implements MobilityService {
         journeyMatchRepo.save(proposal);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<JourneyBookingDto> getMyJourneyBookings(AppUser user, int page, int size) {
+        return carpoolBookingRepo.findByUserIdOrderByBookedAtDesc(user.getId(),
+                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
+                .map(this::toJourneyBookingDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JourneyBookingDto> getJourneyPassengers(AppUser user, Long offerId) {
+        MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the offer owner can view passengers");
+        }
+        return carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED")
+                .stream().map(this::toJourneyBookingDto).toList();
+    }
+
+    @Override
+    public void cancelJourneyOffer(AppUser user, Long offerId) {
+        MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
+        if (!offer.getDriverUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the offer owner can cancel it");
+        }
+        if ("CANCELLED".equals(offer.getStatus()) || "COMPLETED".equals(offer.getStatus())) return;
+        offer.setStatus("CANCELLED");
+        carpoolRepo.save(offer);
+        carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED").forEach(booking -> {
+            booking.setStatus("CANCELLED");
+            carpoolBookingRepo.save(booking);
+            expoPushService.sendToUser(booking.getUser().getId(), "Journey cancelled",
+                    "The driver cancelled your shared journey offer.",
+                    Map.of("type", "MOBILITY_GROUP_CANCELLED", "offerId", offerId), "default");
+        });
+        carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "WAITLISTED").forEach(booking -> {
+            booking.setStatus("CANCELLED");
+            carpoolBookingRepo.save(booking);
+        });
+    }
+
+    @Override
+    public void cancelJourneyRequest(AppUser user, Long requestId) {
+        MobilityAirportRideRequest request = airportRequestRepo.findByIdAndRequesterId(requestId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey request not found"));
+        if (!"OPEN".equals(request.getStatus())) return;
+        request.setStatus("CANCELLED");
+        airportRequestRepo.save(request);
+        journeyMatchRepo.findByRequesterIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(0, 100))
+                .getContent().stream().filter(match -> match.getRequest().getId().equals(requestId) && "PROPOSED".equals(match.getStatus()))
+                .forEach(match -> { match.setStatus("DECLINED"); match.setRespondedAt(Instant.now()); journeyMatchRepo.save(match); });
+    }
+
     // ── Ops ───────────────────────────────────────────────────────
 
     @Override
@@ -1029,5 +1084,12 @@ public class MobilityServiceImpl implements MobilityService {
     private JourneyMatchProposalDto toJourneyMatchProposalDto(MobilityJourneyMatch match) {
         return JourneyMatchProposalDto.builder().id(match.getId()).requestId(match.getRequest().getId())
                 .status(match.getStatus()).createdAt(match.getCreatedAt()).offer(toCarpoolDto(match.getOffer())).build();
+    }
+
+    private JourneyBookingDto toJourneyBookingDto(MobilityCarpoolBooking booking) {
+        AppUser passenger = booking.getUser();
+        return JourneyBookingDto.builder().id(booking.getId()).offerId(booking.getOffer().getId())
+                .userId(passenger.getId()).userName(passenger.getFullName()).seats(booking.getSeats())
+                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer())).build();
     }
 }
