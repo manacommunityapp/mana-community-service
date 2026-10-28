@@ -6,7 +6,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import java.util.UUID;
 
 import java.util.List;
 import java.util.Map;
@@ -45,11 +53,19 @@ public class RechargeController {
 
     @Data @NoArgsConstructor @AllArgsConstructor
     public static class RechargeInitiateRequest {
+        @NotBlank
+        @Pattern(regexp = "\\d{10}", message = "mobileNumber must be a 10 digit number")
         private String mobileNumber;
+        @NotBlank
         private String operatorId;
+        @NotBlank
         private String circle;
+        @NotBlank
         private String planId;
+        @NotNull @Positive
         private Double amount;
+        @NotBlank
+        @Pattern(regexp = "PREPAID", message = "Only prepaid recharge is currently supported")
         private String rechargeType; // PREPAID | POSTPAID
     }
 
@@ -62,6 +78,7 @@ public class RechargeController {
         private Double amount;
         private String mobileNumber;
         private String operatorId;
+        private String planDescription;
     }
 
     // ── Static plan catalogue ─────────────────────────────────────────────────
@@ -114,11 +131,23 @@ public class RechargeController {
     }
 
     @PostMapping("/initiate")
-    public ResponseEntity<RechargeResponse> initiateRecharge(@RequestBody RechargeInitiateRequest request) {
+    public ResponseEntity<RechargeResponse> initiateRecharge(@Valid @RequestBody RechargeInitiateRequest request) {
+        String operatorId = request.getOperatorId().trim().toUpperCase();
+        List<RechargePlanDto> plans = PLAN_CATALOGUE.get(operatorId);
+        if (plans == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported mobile operator");
+        }
+        RechargePlanDto plan = plans.stream()
+            .filter(candidate -> candidate.getId().equalsIgnoreCase(request.getPlanId().trim()))
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Plan is not available for this operator"));
+        if (Double.compare(request.getAmount(), plan.getPrice().doubleValue()) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount does not match the selected plan");
+        }
         log.info("[Recharge] initiate mobile={} operator={} plan={} amount={}",
-            request.getMobileNumber(), request.getOperatorId(), request.getPlanId(), request.getAmount());
+            request.getMobileNumber(), operatorId, plan.getId(), request.getAmount());
 
-        String tr = "MANA-RCH-" + System.currentTimeMillis();
+        String tr = "MANA-RCH-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
         String pa = "recharge@manapay";
         String pn = "Mana+Pay+Recharge";
         double amount = request.getAmount() != null ? request.getAmount() : 0.0;
@@ -137,7 +166,8 @@ public class RechargeController {
             .phonePeUrl(phonePeUrl)
             .amount(amount)
             .mobileNumber(request.getMobileNumber())
-            .operatorId(request.getOperatorId())
+            .operatorId(operatorId)
+            .planDescription(plan.getDescription())
             .build());
     }
 }
