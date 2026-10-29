@@ -241,4 +241,12 @@ public class VisitorPassController {
     public ResponseEntity<List<VisitorAuditLog>> getAuditLogs() {
         return ResponseEntity.ok(visitorPassService.getRecentAuditLogs());
     }
+
+    @PutMapping("/{id}/photo")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<VisitorPassResponse> capturePhoto(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(visitorPassService.capturePhoto(id, body.get("photoUrl")));
+    }
 }
