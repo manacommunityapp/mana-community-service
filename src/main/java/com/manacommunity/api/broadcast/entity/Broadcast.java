@@ -22,7 +22,7 @@ public class Broadcast extends BaseAuditEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")
-    private AppUser createdBy;
+    private AppUser createdByUser;
 
     private String title;
 

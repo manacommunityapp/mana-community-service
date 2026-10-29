@@ -22,7 +22,7 @@ public class BroadcastService {
     public Broadcast send(SendBroadcastRequest req, AppUser user) {
         Broadcast broadcast = Broadcast.builder()
                 .community(user.getCommunity())
-                .createdBy(user)
+                .createdByUser(user)
                 .title(req.getTitle())
                 .message(req.getMessage())
                 .category(req.getCategory() != null ? req.getCategory() : "GENERAL")
