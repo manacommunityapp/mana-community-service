@@ -4,6 +4,8 @@ import com.manacommunity.api.helpdesk.dto.HelpdeskAnalyticsResponse;
 import com.manacommunity.api.helpdesk.dto.TicketFeedbackRequest;
 import com.manacommunity.api.helpdesk.dto.TicketRequest;
 import com.manacommunity.api.helpdesk.dto.TicketResponse;
+import com.manacommunity.api.helpdesk.entity.TicketSlaRule;
+import com.manacommunity.api.helpdesk.repository.TicketSlaRuleRepository;
 import com.manacommunity.api.helpdesk.service.TicketService;
 import com.manacommunity.api.user.model.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +26,7 @@ import java.util.List;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final TicketSlaRuleRepository slaRuleRepository;
 
     @GetMapping
     @Operation(summary = "Get all tickets in the community with optional status filter")
@@ -133,5 +136,17 @@ public class TicketController {
     @Operation(summary = "Get helpdesk SLA and performance analytics for a community")
     public ResponseEntity<HelpdeskAnalyticsResponse> getAnalytics(@RequestParam Long communityId) {
         return ResponseEntity.ok(ticketService.getAnalytics(communityId));
+    }
+
+    @GetMapping("/sla-policies")
+    @Operation(summary = "List active SLA policies for the community")
+    public ResponseEntity<List<TicketSlaRule>> getSlaPolicies(
+            @RequestParam(required = false) Long communityId) {
+        List<TicketSlaRule> rules = communityId != null
+                ? slaRuleRepository.findAll().stream()
+                    .filter(r -> r.isActive() && (r.getCommunity() == null || r.getCommunity().getId().equals(communityId)))
+                    .toList()
+                : slaRuleRepository.findAll().stream().filter(TicketSlaRule::isActive).toList();
+        return ResponseEntity.ok(rules);
     }
 }

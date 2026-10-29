@@ -198,6 +198,24 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));
     }
 
+    @GetMapping("/my-visitors")
+    @PreAuthorize("hasAuthority('View Visitors')")
+    public ResponseEntity<List<VisitorPassResponse>> getMyVisitors(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(visitorPassService.getMyPasses(user.getId()));
+    }
+
+    @PostMapping("/pre-approve")
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
+    public ResponseEntity<VisitorPassResponse> preApprove(
+            @Valid @RequestBody VisitorPassRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(visitorPassService.create(req, user, user.getCommunity()));
+    }
+
     @GetMapping("/verify")
     @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> verifyPass(

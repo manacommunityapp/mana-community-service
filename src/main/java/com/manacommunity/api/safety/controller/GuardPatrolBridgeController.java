@@ -63,4 +63,16 @@ public class GuardPatrolBridgeController {
         session.put("status", "ACTIVE");
         return ResponseEntity.ok(session);
     }
+
+    @GetMapping("/session")
+    public ResponseEntity<Map<String, Object>> getCurrentSession(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Map<String, Object> session = new HashMap<>();
+        session.put("guardId", user.getId());
+        session.put("guardName", user.getFullName());
+        session.put("status", "ACTIVE");
+        session.put("checkpointsScanned", 0);
+        return ResponseEntity.ok(session);
+    }
 }

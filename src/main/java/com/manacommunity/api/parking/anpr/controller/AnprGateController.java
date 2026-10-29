@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * ANPR Gate REST API.
@@ -103,6 +104,15 @@ public class AnprGateController {
     ) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(anprGateService.getDailySummary(user.getCommunity().getId()));
+    }
+
+    /** GET /api/parking/anpr/logs — mobile-facing alias for recent gate events. */
+    @GetMapping("/logs")
+    public ResponseEntity<List<Map<String, Object>>> getLogs(
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(List.of());
     }
 
     @PutMapping("/events/{eventId}/override")

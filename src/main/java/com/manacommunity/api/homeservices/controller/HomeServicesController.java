@@ -60,6 +60,26 @@ public class HomeServicesController {
         return ResponseEntity.status(HttpStatus.CREATED).body(staffService.createStaff(communityId, request));
     }
 
+    @PutMapping("/staff/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<DomesticStaffResponse> updateStaff(
+            @PathVariable Long id,
+            @Valid @RequestBody DomesticStaffRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(staffService.updateStaff(id, request));
+    }
+
+    @DeleteMapping("/staff/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> removeStaff(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        staffService.removeStaff(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Attendance ──────────────────────────────────────────────────
 
     @GetMapping("/attendance")
