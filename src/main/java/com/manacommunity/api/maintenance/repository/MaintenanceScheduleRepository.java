@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface MaintenanceScheduleRepository extends JpaRepository<MaintenanceSchedule, Long> {
     List<MaintenanceSchedule> findByCommunityIdAndIsActiveTrueOrderByNextDueDateAsc(Long communityId);
+
+    List<MaintenanceSchedule> findByIsActiveTrueAndNextDueDateLessThanEqual(java.time.LocalDate date);
 }
