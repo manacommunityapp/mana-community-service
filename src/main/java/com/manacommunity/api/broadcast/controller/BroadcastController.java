@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/broadcasts")
+@RequestMapping("/api/broadcasts")
 @RequiredArgsConstructor
 public class BroadcastController {
 
