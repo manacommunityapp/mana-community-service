@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/security/cameras")
+@RequestMapping("/api/cctv/cameras")
 @RequiredArgsConstructor
 public class CameraController {
 
