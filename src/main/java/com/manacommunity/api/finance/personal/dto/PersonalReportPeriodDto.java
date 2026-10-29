@@ -14,7 +14,12 @@ public class PersonalReportPeriodDto {
     private BigDecimal totalIncome;
     private BigDecimal totalExpenses;
     private BigDecimal netSavings;
+    private int savingsRate;
+    private BigDecimal previousPeriodExpenses;
+    private Double expenseChangePercentage;
+    private String trendInsightText;
     private List<TopCategoryDto> topCategories;
+    private List<TopCategoryDto> topIncomeSources;
     private List<MonthlyBreakdownDto> monthlyBreakdown;
 
     @Data

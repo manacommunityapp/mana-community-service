@@ -69,6 +69,70 @@ public class GroupBuyingController {
         return ResponseEntity.ok(groupBuyingService.checkoutGroupBuy(id, user, request));
     }
 
+    @PostMapping("/orders/{orderNumber}/pay")
+    public ResponseEntity<OrderPaymentResponse> payOrder(
+            @PathVariable String orderNumber,
+            @Valid @RequestBody OrderPaymentRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.processOrderPayment(orderNumber, user, request));
+    }
+
+    @PostMapping("/orders/{orderNumber}/cancel")
+    public ResponseEntity<GroupOrderResponse> cancelOrder(
+            @PathVariable String orderNumber,
+            @Valid @RequestBody OrderCancellationRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.cancelOrder(orderNumber, user, request));
+    }
+
+    @GetMapping("/vendor/orders")
+    public ResponseEntity<List<GroupOrderResponse>> getVendorOrders(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.getVendorOrders(
+                user.getId() != null ? "VND-" + user.getId() : null,
+                user.getCommunity().getId()));
+    }
+
+    @PatchMapping("/vendor/orders/{orderNumber}/fulfillment")
+    public ResponseEntity<GroupOrderResponse> updateFulfillment(
+            @PathVariable String orderNumber,
+            @Valid @RequestBody OrderFulfillmentUpdateRequest request) {
+        return ResponseEntity.ok(groupBuyingService.updateFulfillment(orderNumber, request));
+    }
+
+    @PostMapping("/vendor/orders/verify-delivery")
+    public ResponseEntity<GroupOrderResponse> verifyDelivery(
+            @Valid @RequestBody DeliveryVerificationRequest request) {
+        return ResponseEntity.ok(groupBuyingService.verifyDeliveryOtp(request));
+    }
+
+    @GetMapping("/vendor/settlements")
+    public ResponseEntity<List<VendorSettlementResponse>> getVendorSettlements(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.getVendorSettlements(
+                user.getCommunity().getId(),
+                user.getId() != null ? "VND-" + user.getId() : null));
+    }
+
+    @PostMapping("/vendor/settlements/deal/{dealId}/generate")
+    public ResponseEntity<VendorSettlementResponse> generateSettlement(
+            @PathVariable Long dealId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(groupBuyingService.generateDealSettlement(dealId, user));
+    }
+
+    @PostMapping("/vendor/settlements/{id}/payout")
+    public ResponseEntity<VendorSettlementResponse> payoutSettlement(
+            @PathVariable Long id,
+            @RequestParam(required = false) String payoutReference) {
+        return ResponseEntity.ok(groupBuyingService.payoutSettlement(id, payoutReference));
+    }
+
     @PostMapping("/orders/{orderNumber}/authorize-collector")
     public ResponseEntity<AuthorizedCollectorResponse> authorizeCollector(
             @PathVariable String orderNumber,
@@ -180,5 +244,4 @@ public class GroupBuyingController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(groupBuyingService.queryCommunityAi(user.getCommunity().getId(), request.getQuery()));
     }
-
 }

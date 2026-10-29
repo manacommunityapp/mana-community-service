@@ -128,4 +128,56 @@ public interface ExpoPushService {
                             String badgeName,
                             String badgeEmoji,
                             String rarity);
+
+    // ── Security / Visitors ───────────────────────────────────────────────
+
+    /** Notify resident when a visitor arrives at the security gate requesting entry. */
+    void notifyVisitorApproval(Long residentId,
+                               String visitorName,
+                               String flatNumber,
+                               String purpose,
+                               Long passId);
+
+    // ── Emergency / SOS ───────────────────────────────────────────────────
+
+    /** Broadcast high-priority emergency / SOS alert to community. */
+    void notifyEmergencyAlert(Long communityId,
+                              String title,
+                              String description,
+                              String location);
+
+    // ── Finance / Maintenance ─────────────────────────────────────────────
+
+    /** Notify resident of maintenance fee or invoice due. */
+    void notifyMaintenanceDue(Long residentId,
+                              String flatNumber,
+                              double amount,
+                              String dueDate,
+                              Long invoiceId);
+
+    // ── CRM ───────────────────────────────────────────────────────────────
+
+    /** Notify an agent that a lead was assigned to them. */
+    void notifyCrmLeadAssigned(Long agentUserId,
+                               String leadName,
+                               String assignerName,
+                               Long leadId);
+
+    /** Notify an agent that a new inbound portal lead was auto-assigned. */
+    void notifyCrmNewInboundLead(Long agentUserId,
+                                 String leadName,
+                                 String portal,
+                                 Long leadId);
+
+    /** Notify the assigned agent when their lead advances to a new stage. */
+    void notifyCrmStageChanged(Long agentUserId,
+                               String leadName,
+                               String newStage,
+                               Long leadId);
+
+    /** Remind the assigned agent that a follow-up is now due. */
+    void notifyCrmFollowUpDue(Long agentUserId,
+                              String leadName,
+                              String followUpNote,
+                              Long leadId);
 }

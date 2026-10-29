@@ -66,6 +66,34 @@ class HelpdeskSlaEngineTest {
     }
 
     @Test
+    @DisplayName("Should evaluate SLA status: ON_TRACK, AT_RISK, BREACHED")
+    void testEvaluateSlaStatus() {
+        LocalDateTime created = LocalDateTime.of(2026, 10, 1, 10, 0);
+        LocalDateTime due = created.plusHours(4); // 4 hour SLA (10:00 to 14:00)
+
+        Ticket ticket = Ticket.builder()
+                .status(Ticket.TicketStatus.OPEN)
+                .slaDueAt(due)
+                .build();
+        ticket.setCreatedAt(created);
+
+        // 1 hour elapsed (25% elapsed) -> ON_TRACK
+        assertEquals(Ticket.SlaStatus.ON_TRACK, engine.evaluateSlaStatus(ticket, created.plusHours(1)));
+
+        // 3 hours elapsed (75% elapsed) -> AT_RISK
+        assertEquals(Ticket.SlaStatus.AT_RISK, engine.evaluateSlaStatus(ticket, created.plusHours(3)));
+
+        // 3.5 hours elapsed (87.5% elapsed) -> AT_RISK
+        assertEquals(Ticket.SlaStatus.AT_RISK, engine.evaluateSlaStatus(ticket, created.plusMinutes(210)));
+
+        // 4 hours elapsed (100% elapsed) -> BREACHED
+        assertEquals(Ticket.SlaStatus.BREACHED, engine.evaluateSlaStatus(ticket, created.plusHours(4)));
+
+        // 5 hours elapsed (>100%) -> BREACHED
+        assertEquals(Ticket.SlaStatus.BREACHED, engine.evaluateSlaStatus(ticket, created.plusHours(5)));
+    }
+
+    @Test
     @DisplayName("Should evaluate escalation level accurately")
     void testEvaluateEscalationLevel() {
         LocalDateTime created = LocalDateTime.of(2026, 10, 1, 8, 0);

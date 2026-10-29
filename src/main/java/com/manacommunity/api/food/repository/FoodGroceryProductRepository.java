@@ -11,11 +11,15 @@ public interface FoodGroceryProductRepository extends JpaRepository<FoodGroceryP
 
     Page<FoodGroceryProduct> findByStoreIdAndActive(Long storeId, Boolean active, Pageable pageable);
 
+    Page<FoodGroceryProduct> findByCategoryIdAndStoreIdAndActive(Long categoryId, Long storeId, Boolean active, Pageable pageable);
+
+    java.util.Optional<FoodGroceryProduct> findByIdAndStoreIdAndCommunityIdAndActive(Long id, Long storeId, Long communityId, Boolean active);
+
     Page<FoodGroceryProduct> findByCategoryIdAndActive(Long categoryId, Boolean active, Pageable pageable);
 
     Page<FoodGroceryProduct> findByStoreIdAndIsFeatured(Long storeId, Boolean isFeatured, Pageable pageable);
 
-    @Query("SELECT p FROM FoodGroceryProduct p WHERE p.store.id = :storeId " +
+    @Query("SELECT p FROM FoodGroceryProduct p WHERE p.store.id = :storeId AND p.active = true " +
            "AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.brand) LIKE LOWER(CONCAT('%', :query, '%')))")
     Page<FoodGroceryProduct> searchByStore(@Param("storeId") Long storeId, @Param("query") String query, Pageable pageable);
 }

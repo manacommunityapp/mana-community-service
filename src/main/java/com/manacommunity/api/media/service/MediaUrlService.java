@@ -57,6 +57,39 @@ public class MediaUrlService {
         return buildUrl(media.getBucketName(), media.getMediumKey());
     }
 
+    /**
+     * Resolve a URL that was persisted as a plain string (e.g. AppUser.profilePicUrl).
+     * If it points at our private S3 bucket (raw, or a previously presigned/expired URL),
+     * the object key is extracted and a fresh access URL is generated.
+     * Any other value (null, data URI, external URL) is returned unchanged.
+     */
+    public String resolveStoredUrl(String stored) {
+        if (stored == null || stored.isBlank()) return stored;
+        try {
+            if (!stored.startsWith("http")) return stored;
+            java.net.URI uri = java.net.URI.create(stored);
+            String host = uri.getHost();
+            String bucket = props.getS3().getBucket();
+            if (host == null || bucket == null || !host.endsWith(".amazonaws.com")) return stored;
+
+            String path = uri.getRawPath() == null ? "" : uri.getRawPath();
+            String key;
+            if (host.startsWith(bucket + ".s3")) {
+                key = path.startsWith("/") ? path.substring(1) : path;           // virtual-hosted style
+            } else if (host.startsWith("s3") && path.startsWith("/" + bucket + "/")) {
+                key = path.substring(bucket.length() + 2);                        // path style
+            } else {
+                return stored;
+            }
+            if (key.isBlank()) return stored;
+            key = java.net.URLDecoder.decode(key.replace("+", "%2B"), java.nio.charset.StandardCharsets.UTF_8);
+            return buildUrl(bucket, key);
+        } catch (Exception e) {
+            log.warn("Could not resolve stored media URL: {}", e.getMessage());
+            return stored;
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private String buildUrl(String bucket, String key) {

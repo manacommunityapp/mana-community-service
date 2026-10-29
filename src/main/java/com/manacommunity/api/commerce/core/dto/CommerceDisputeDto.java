@@ -28,4 +28,7 @@ public class CommerceDisputeDto {
     private String vendorResponse;
     private String resolvedAt;
     private String createdAt;
+    private String resolution;
+    private String adminNote;
+    private String resolvedByName;
 }

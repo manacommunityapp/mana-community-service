@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +21,8 @@ import java.util.Map;
 public class SocietyFinanceService {
 
     private final SocietyExpenseRepository expenseRepo;
+    private final SocietyVendorBillRepository vendorBillRepo;
+    private final FinanceInvoiceRepository invoiceRepo;
     private final ChartOfAccountRepository coaRepo;
     private final GeneralLedgerEntryRepository ledgerRepo;
 
@@ -27,24 +30,39 @@ public class SocietyFinanceService {
 
     @Transactional(readOnly = true)
     public SocietyDashboardSummaryDto getDashboardSummary(Long communityId) {
+        LocalDate today = LocalDate.now();
+        LocalDate monthStart = today.withDayOfMonth(1);
+
         BigDecimal assetBalance = coaRepo.sumBalanceByType(communityId, ChartOfAccount.AccountType.ASSET);
-        BigDecimal reserves = coaRepo.sumReserveFundBalances(communityId);
+        BigDecimal sinkingFund = coaRepo.sumReserveFundBalances(communityId);
+        BigDecimal fixedDeposits = coaRepo.sumFixedDepositBalances(communityId);
+        BigDecimal totalCollected = ledgerRepo.sumMonthlyCollections(communityId, monthStart, today);
+        BigDecimal outstandingReceivables = invoiceRepo.sumOutstandingReceivables();
+        BigDecimal pendingPayables = vendorBillRepo.sumPendingPayables(communityId,
+                List.of(SocietyVendorBill.BillStatus.PAID, SocietyVendorBill.BillStatus.DRAFT));
+
+        BigDecimal totalDemand = totalCollected.add(outstandingReceivables);
+        BigDecimal collectionRate = totalDemand.compareTo(BigDecimal.ZERO) > 0
+                ? totalCollected.multiply(BigDecimal.valueOf(100))
+                        .divide(totalDemand, 1, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(100);
+
         long pendingApprovals = expenseRepo.countByCommunityIdAndStatusIn(communityId,
                 List.of(SocietyExpense.ApprovalStatus.PENDING_CHECKER, SocietyExpense.ApprovalStatus.PENDING_APPROVER));
         long recentTxns = ledgerRepo.findByCommunityIdOrderByEntryDateDesc(communityId).stream()
-                .filter(e -> e.getEntryDate().isAfter(LocalDate.now().minusDays(30)))
+                .filter(e -> e.getEntryDate().isAfter(today.minusDays(30)))
                 .count();
 
         return SocietyDashboardSummaryDto.builder()
                 .operatingBalance(assetBalance)
-                .sinkingFundBalance(BigDecimal.ZERO)
-                .fixedDepositsBalance(BigDecimal.ZERO)
-                .totalReserves(reserves)
-                .totalMonthlyDemand(BigDecimal.ZERO)
-                .totalCollected(BigDecimal.ZERO)
-                .collectionRate(BigDecimal.ZERO)
-                .outstandingReceivables(BigDecimal.ZERO)
-                .pendingPayables(BigDecimal.ZERO)
+                .sinkingFundBalance(sinkingFund)
+                .fixedDepositsBalance(fixedDeposits)
+                .totalReserves(sinkingFund.add(fixedDeposits))
+                .totalMonthlyDemand(totalDemand)
+                .totalCollected(totalCollected)
+                .collectionRate(collectionRate)
+                .outstandingReceivables(outstandingReceivables)
+                .pendingPayables(pendingPayables)
                 .pendingApprovalsCount(pendingApprovals)
                 .recentTransactionsCount(recentTxns)
                 .build();
@@ -227,7 +245,170 @@ public class SocietyFinanceService {
         return gst;
     }
 
+    // ── Vendor Bills ───────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<SocietyVendorBillDto> getVendorBills(Long communityId, String status) {
+        List<SocietyVendorBill> bills;
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            bills = vendorBillRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(
+                    communityId, SocietyVendorBill.BillStatus.valueOf(status));
+        } else {
+            bills = vendorBillRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
+        }
+        return bills.stream().map(this::toBillDto).toList();
+    }
+
+    @Transactional
+    public SocietyVendorBillDto createVendorBill(Long communityId, CreateSocietyVendorBillDto dto, AppUser creator) {
+        BigDecimal gross = dto.getGrossAmount();
+        BigDecimal gstPct = dto.getGstPercent() != null ? dto.getGstPercent() : BigDecimal.ZERO;
+        BigDecimal gstAmt = gross.multiply(gstPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal tdsRate = dto.getTdsRate() != null ? dto.getTdsRate() : BigDecimal.ZERO;
+        BigDecimal tdsAmt = gross.multiply(tdsRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal net = gross.add(gstAmt).subtract(tdsAmt);
+
+        String billNo = dto.getBillNumber() != null ? dto.getBillNumber()
+                : "BILL-" + LocalDate.now().getYear() + "-"
+                  + String.format("%04d", vendorBillRepo.findByCommunityIdOrderByCreatedAtDesc(communityId).size() + 1);
+
+        SocietyVendorBill bill = SocietyVendorBill.builder()
+                .communityId(communityId)
+                .billNumber(billNo)
+                .vendorId(dto.getVendorId())
+                .vendorName(dto.getVendorName())
+                .billDate(dto.getBillDate() != null ? dto.getBillDate() : LocalDate.now())
+                .dueDate(dto.getDueDate())
+                .description(dto.getDescription())
+                .grossAmount(gross)
+                .gstPercent(gstPct)
+                .gstAmount(gstAmt)
+                .tdsSection(dto.getTdsSection())
+                .tdsAmount(tdsAmt)
+                .netPayable(net)
+                .paidAmount(BigDecimal.ZERO)
+                .balanceDue(net)
+                .status(SocietyVendorBill.BillStatus.RECEIVED)
+                .createdByName(creator.getFullName())
+                .build();
+
+        return toBillDto(vendorBillRepo.save(bill));
+    }
+
+    @Transactional
+    public SocietyVendorBillDto approveVendorBill(Long id, String notes, AppUser approver) {
+        SocietyVendorBill bill = requireBill(id);
+        bill.setStatus(SocietyVendorBill.BillStatus.APPROVED);
+        bill.setApprovedByName(approver.getFullName());
+        bill.setApprovedDate(LocalDate.now());
+        bill.setApprovalNotes(notes);
+        return toBillDto(vendorBillRepo.save(bill));
+    }
+
+    @Transactional
+    public SocietyVendorBillDto payVendorBill(Long id, PaySocietyVendorBillDto dto) {
+        SocietyVendorBill bill = requireBill(id);
+        BigDecimal newPaid = bill.getPaidAmount().add(dto.getAmount());
+        bill.setPaidAmount(newPaid);
+        BigDecimal newBalance = bill.getNetPayable().subtract(newPaid);
+        bill.setBalanceDue(newBalance.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newBalance);
+        bill.setStatus(bill.getBalanceDue().compareTo(BigDecimal.ZERO) == 0
+                ? SocietyVendorBill.BillStatus.PAID
+                : SocietyVendorBill.BillStatus.PARTIALLY_PAID);
+        bill.setPaymentMethod(dto.getPaymentMethod());
+        bill.setUtrReference(dto.getUtrReference());
+        bill.setPaidDate(LocalDate.now());
+
+        String voucherNo = "VBP-" + System.currentTimeMillis();
+        bill.setGlVoucherNumber(voucherNo);
+        bill = vendorBillRepo.save(bill);
+
+        // GL: Dr Vendor Payables (2030) / Cr Operating Bank (1010)
+        postGl(bill.getCommunityId(), voucherNo, "2030", "Vendor Payables",
+                dto.getAmount(), BigDecimal.ZERO, "VENDOR_BILL", String.valueOf(id));
+        postGl(bill.getCommunityId(), voucherNo, "1010", "Operating Bank",
+                BigDecimal.ZERO, dto.getAmount(), "VENDOR_BILL", String.valueOf(id));
+
+        return toBillDto(bill);
+    }
+
+    // ── Invoice Payment Recording ──────────────────────────────────
+
+    @Transactional
+    public Map<String, Object> recordInvoicePayment(Long communityId, RecordInvoicePaymentDto dto) {
+        FinanceInvoice invoice = invoiceRepo.findById(dto.getInvoiceId())
+                .orElseThrow(() -> new ResourceNotFoundException("FinanceInvoice", dto.getInvoiceId()));
+
+        invoice.setStatus("Paid");
+        invoiceRepo.save(invoice);
+
+        String voucherNo = "RCP-" + System.currentTimeMillis();
+
+        // GL: Dr Operating Bank (1010) / Cr Maintenance Collections (3010)
+        postGl(communityId, voucherNo, "1010", "Operating Bank",
+                dto.getAmount(), BigDecimal.ZERO, "INVOICE_PAYMENT", String.valueOf(dto.getInvoiceId()));
+        postGl(communityId, voucherNo, "3010", "Maintenance Collections",
+                BigDecimal.ZERO, dto.getAmount(), "INVOICE_PAYMENT", String.valueOf(dto.getInvoiceId()));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("voucherNumber", voucherNo);
+        result.put("invoiceId", dto.getInvoiceId());
+        result.put("amount", dto.getAmount());
+        result.put("status", "Paid");
+        return result;
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────
+
+    private SocietyVendorBill requireBill(Long id) {
+        return vendorBillRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("SocietyVendorBill", id));
+    }
+
+    private void postGl(Long communityId, String voucherNo, String accountCode, String accountName,
+                        BigDecimal debit, BigDecimal credit, String refType, String refId) {
+        ledgerRepo.save(GeneralLedgerEntry.builder()
+                .communityId(communityId)
+                .entryDate(LocalDate.now())
+                .voucherNumber(voucherNo)
+                .accountCode(accountCode)
+                .accountName(accountName)
+                .debit(debit)
+                .credit(credit)
+                .referenceType(refType)
+                .referenceId(refId)
+                .build());
+    }
+
+    private SocietyVendorBillDto toBillDto(SocietyVendorBill b) {
+        return SocietyVendorBillDto.builder()
+                .id(b.getId())
+                .billNumber(b.getBillNumber())
+                .vendorId(b.getVendorId())
+                .vendorName(b.getVendorName())
+                .billDate(b.getBillDate() != null ? b.getBillDate().toString() : null)
+                .dueDate(b.getDueDate() != null ? b.getDueDate().toString() : null)
+                .description(b.getDescription())
+                .grossAmount(b.getGrossAmount())
+                .gstPercent(b.getGstPercent())
+                .gstAmount(b.getGstAmount())
+                .tdsSection(b.getTdsSection())
+                .tdsAmount(b.getTdsAmount())
+                .netPayable(b.getNetPayable())
+                .paidAmount(b.getPaidAmount())
+                .balanceDue(b.getBalanceDue())
+                .status(b.getStatus().name())
+                .approvedByName(b.getApprovedByName())
+                .approvedDate(b.getApprovedDate() != null ? b.getApprovedDate().toString() : null)
+                .approvalNotes(b.getApprovalNotes())
+                .paymentMethod(b.getPaymentMethod())
+                .utrReference(b.getUtrReference())
+                .paidDate(b.getPaidDate() != null ? b.getPaidDate().toString() : null)
+                .glVoucherNumber(b.getGlVoucherNumber())
+                .createdByName(b.getCreatedByName())
+                .createdAt(b.getCreatedAt() != null ? b.getCreatedAt().toString() : null)
+                .build();
+    }
 
     private SocietyExpense requireExpense(Long id) {
         return expenseRepo.findById(id)

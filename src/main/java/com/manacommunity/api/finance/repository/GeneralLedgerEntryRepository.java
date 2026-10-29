@@ -21,4 +21,9 @@ public interface GeneralLedgerEntryRepository extends JpaRepository<GeneralLedge
             "WHERE e.communityId = :communityId AND e.accountCode LIKE '4%' " +
             "AND e.entryDate BETWEEN :from AND :to")
     BigDecimal sumExpenseDebits(Long communityId, LocalDate from, LocalDate to);
+
+    @Query("SELECT COALESCE(SUM(e.credit), 0) FROM GeneralLedgerEntry e " +
+            "WHERE e.communityId = :communityId AND e.accountCode LIKE '3%' " +
+            "AND e.entryDate BETWEEN :from AND :to")
+    BigDecimal sumMonthlyCollections(Long communityId, LocalDate from, LocalDate to);
 }

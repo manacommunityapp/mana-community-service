@@ -10,4 +10,5 @@ import java.util.List;
 public interface TripBookingRepository extends JpaRepository<TripBooking, String> {
     List<TripBooking> findByUserIdOrderByBookedAtDesc(Long userId);
     List<TripBooking> findByTripIdOrderByBookedAtDesc(String tripId);
+    List<TripBooking> findByTripIdAndStatus(String tripId, String status);
 }

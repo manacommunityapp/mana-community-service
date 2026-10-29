@@ -1,6 +1,7 @@
 package com.manacommunity.api.food.entity;
 
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.vendor.commerce.model.VendorProductVariant;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,6 +23,10 @@ public class FoodGroceryProduct {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false)
     private FoodGroceryStore store;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_variant_id")
+    private VendorProductVariant vendorVariant;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)

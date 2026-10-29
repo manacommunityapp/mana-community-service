@@ -17,5 +17,11 @@ public record TripRequest(
         Integer maxParticipants,
         BigDecimal estimatedCost,
         @Size(max = 200) String meetingPoint,
-        String notes
+        String notes,
+        // Flight transport fields (all optional)
+        @Size(max = 100) String transport,
+        @Size(min = 3, max = 3) String flightOriginIata,
+        @Size(min = 3, max = 3) String flightDestIata,
+        @Size(max = 20) String groupPnr,
+        BigDecimal farePerPerson
 ) {}

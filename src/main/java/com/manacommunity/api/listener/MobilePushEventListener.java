@@ -269,4 +269,63 @@ public class MobilePushEventListener {
             event.getRarity()
         );
     }
+
+    // ── Security / Visitor ────────────────────────────────────────────────
+
+    /**
+     * Fires when a visitor arrives at the security gate and requests entry.
+     */
+    @Async
+    @EventListener
+    public void onVisitorArrival(com.manacommunity.api.event.VisitorArrivalEvent event) {
+        log.debug("[Push] Visitor arrival: residentId={} visitor='{}' flat='{}'",
+                  event.getResidentId(), event.getVisitorName(), event.getFlatNumber());
+
+        pushService.notifyVisitorApproval(
+            event.getResidentId(),
+            event.getVisitorName(),
+            event.getFlatNumber(),
+            event.getPurpose(),
+            event.getPassId()
+        );
+    }
+
+    // ── Emergency / SOS ───────────────────────────────────────────────────
+
+    /**
+     * Fires when an emergency / SOS alert is triggered in a community.
+     */
+    @Async
+    @EventListener
+    public void onEmergencyBroadcast(com.manacommunity.api.event.EmergencyBroadcastEvent event) {
+        log.debug("[Push] Emergency broadcast: communityId={} title='{}'",
+                  event.getCommunityId(), event.getTitle());
+
+        pushService.notifyEmergencyAlert(
+            event.getCommunityId(),
+            event.getTitle(),
+            event.getDescription(),
+            event.getLocation()
+        );
+    }
+
+    // ── Finance / Maintenance ─────────────────────────────────────────────
+
+    /**
+     * Fires when a maintenance bill/invoice is generated for a flat.
+     */
+    @Async
+    @EventListener
+    public void onMaintenanceInvoice(com.manacommunity.api.event.MaintenanceInvoiceEvent event) {
+        log.debug("[Push] Maintenance invoice: residentId={} flat='{}' amount={}",
+                  event.getResidentId(), event.getFlatNumber(), event.getAmount());
+
+        pushService.notifyMaintenanceDue(
+            event.getResidentId(),
+            event.getFlatNumber(),
+            event.getAmount(),
+            event.getDueDate(),
+            event.getInvoiceId()
+        );
+    }
 }

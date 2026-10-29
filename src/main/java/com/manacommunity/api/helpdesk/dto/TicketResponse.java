@@ -32,6 +32,13 @@ public class TicketResponse {
     private String residentSignoffAt;
     private String attachments;
     private String resolvedAt;
+    private String slaStatus;
+    private int urgencyScore;
+    private String aiClassificationJson;
+    private String resolutionNotes;
+    private String resolutionProofUrl;
+    private String resolutionCode;
+    private int reopenCount;
     private String createdAt;
     private String updatedAt;
     private List<CommentDto> comments;

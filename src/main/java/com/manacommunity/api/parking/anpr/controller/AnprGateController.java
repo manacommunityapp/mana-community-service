@@ -1,6 +1,7 @@
 package com.manacommunity.api.parking.anpr.controller;
 
 import com.manacommunity.api.parking.anpr.dto.*;
+import com.manacommunity.api.parking.anpr.entity.AnprGateEvent;
 import com.manacommunity.api.parking.anpr.service.AnprGateService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -112,5 +113,18 @@ public class AnprGateController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(List.of());
+    }
+
+    @PutMapping("/events/{eventId}/override")
+    public ResponseEntity<AnprGateEventResponse> overrideBarrierAction(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long eventId,
+            @RequestParam AnprGateEvent.BarrierAction action) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String role = user.getRole() == null ? "" : user.getRole().toUpperCase();
+        if (!(role.contains("ADMIN") || role.contains("GUARD") || role.contains("SECURITY"))) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(anprGateService.overrideBarrierAction(user.getCommunity().getId(), eventId, action));
     }
 }

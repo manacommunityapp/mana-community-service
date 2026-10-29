@@ -27,6 +27,7 @@ import com.manacommunity.api.security.PasswordPolicy;
 import com.manacommunity.api.security.TokenBlacklistService;
 import com.manacommunity.api.user.service.AuthService;
 import com.manacommunity.api.service.CommunityModuleService;
+import com.manacommunity.api.service.RolePermissionService;
 import com.manacommunity.api.service.OtpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
     @Autowired
     private CommunityModuleService communityModuleService;
+    @Autowired(required = false)
+    private RolePermissionService rolePermissionService;
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
     @Autowired
@@ -77,6 +80,10 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
     @Autowired
     private com.manacommunity.api.service.NotificationManagementService notificationService;
+    @Autowired
+    private com.manacommunity.api.privacy.ConsentRecordRepository consentRecordRepository;
+    @Autowired
+    private com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
     @Autowired
     private com.manacommunity.api.email.EmailService emailService;
     @Autowired
@@ -138,6 +145,16 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
+
+        // Bot protection — verify CAPTCHA token when app.captcha.enabled=true.
+        captchaVerificationService.verify(request.getCaptchaToken());
+
+        // DPDP Act 2023 s.6 — explicit consent to Privacy Notice is mandatory.
+        if (request.getConsentToPrivacyNotice() == null || !request.getConsentToPrivacyNotice()) {
+            throw new ManaCommunityException(
+                "You must accept the Privacy Notice before registering.",
+                HttpStatus.BAD_REQUEST, "CONSENT_REQUIRED");
+        }
 
         // 0. Assert the registrant's email was verified via OTP before reaching this step.
         //    The frontend calls POST /api/otp/verify at step 3, which consumes the code and
@@ -241,6 +258,19 @@ public class AuthServiceImpl implements AuthService {
                 ? request.getResidentType().trim() : "Resident");
 
         AppUser saved = userRepository.save(user);
+
+        // DPDP Act 2023 s.6 — persist the explicit consent record at registration.
+        com.manacommunity.api.privacy.ConsentRecord essentialConsent =
+            com.manacommunity.api.privacy.ConsentRecord.builder()
+                .userId(saved.getId())
+                .consentPurpose("ESSENTIAL")
+                .granted(true)
+                .collectionPoint("REGISTRATION")
+                .noticeVersion(request.getConsentNoticeVersion() != null
+                        ? request.getConsentNoticeVersion() : "2026-10-13-v1")
+                .build();
+        consentRecordRepository.save(essentialConsent);
+
         auditLog.record(AuditLogService.Action.REGISTER, saved.getId(), saved.getEmail());
         auditService.record(
                 com.manacommunity.api.security.AuditAction.USER_CREATED,
@@ -401,16 +431,32 @@ public class AuthServiceImpl implements AuthService {
 
     /** Builds the standard auth payload with a fresh access + refresh token pair. */
     private AuthResponse buildAuthResponse(AppUser user, String message) {
+        java.util.List<String> permissions = (rolePermissionService != null)
+                ? rolePermissionService.getEffectivePermissionsForUser(user)
+                : java.util.Collections.emptyList();
+
+        java.util.List<String> rolesList = (user.getRole() == null || user.getRole().isBlank())
+                ? java.util.Collections.emptyList()
+                : java.util.Arrays.stream(user.getRole().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .toList();
+
+        String token = jwtTokenProvider.generateToken(user, permissions);
+
         AuthResponse response = new AuthResponse(
                 String.valueOf(user.getId()),
                 message,
-                jwtTokenProvider.generateToken(user),
+                token,
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
                 user.getCommunity() != null ? user.getCommunity().getId() : null,
                 user.getDateOfBirth()
         );
+        response.setRoles(rolesList);
+        response.setPermissions(permissions);
         response.setRefreshToken(jwtTokenProvider.generateRefreshToken(user));
         
         java.util.List<String> enabledModules;

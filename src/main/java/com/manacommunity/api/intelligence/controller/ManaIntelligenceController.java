@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/graph")
+@RequestMapping({"/api/graph", "/api/api/graph", "/graph"})
 @RequiredArgsConstructor
 public class ManaIntelligenceController {
 

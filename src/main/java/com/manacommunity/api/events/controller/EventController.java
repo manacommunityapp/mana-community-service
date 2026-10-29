@@ -2,6 +2,7 @@ package com.manacommunity.api.events.controller;
 
 import com.manacommunity.api.events.dto.DashboardAnalyticsResponse;
 import com.manacommunity.api.events.dto.DashboardStatsResponse;
+import com.manacommunity.api.events.dto.EventRegistrationRequest;
 import com.manacommunity.api.events.dto.EventRequest;
 import com.manacommunity.api.events.dto.EventResponse;
 import com.manacommunity.api.events.dto.PendingActionItemDto;
@@ -158,9 +159,10 @@ public class EventController {
     @PreAuthorize("hasAnyAuthority('Register Event', 'View Events')")
     public ResponseEntity<EventResponse> register(
             @PathVariable Long id,
+            @RequestBody(required = false) EventRegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(eventService.register(id, user));
+        return ResponseEntity.ok(eventService.register(id, user, req));
     }
 
     @DeleteMapping("/{id}/register")

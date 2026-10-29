@@ -71,4 +71,19 @@ public class CommerceSettlement extends BaseAuditEntity {
 
     @Column(name = "payout_date")
     private Instant payoutDate;
+
+    @Column(name = "processed_at")
+    private Instant processedAt;
+
+    @Column(name = "admin_note", length = 300)
+    private String adminNote;
+
+    @Column(name = "bank_account_number", length = 40)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_ifsc", length = 20)
+    private String bankIfsc;
+
+    @Column(name = "upi_id", length = 80)
+    private String upiId;
 }

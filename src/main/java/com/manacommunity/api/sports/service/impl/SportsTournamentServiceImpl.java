@@ -84,11 +84,20 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             return; // already gone — treat delete as idempotent
         }
 
+        List<SportsEvent> events = eventRepo.findByTournamentId(id);
+        long activeRegs = events.stream()
+                .mapToLong(ev -> regRepo.countActiveByEventId(ev.getId()))
+                .sum();
+        if (activeRegs > 0) {
+            throw new com.manacommunity.api.exception.InvalidInputException(
+                    "Cannot delete tournament id=" + id + " because " + activeRegs
+                    + " active registration(s) exist across its events. Please close the tournament instead.");
+        }
+
         // Disassociate the sports events instead of deleting them: null out the
         // FK on each event so the tournament can be removed without cascade-
         // deleting events (which own registrations/matches and would block the
         // delete). The events survive, just unlinked from any tournament.
-        List<SportsEvent> events = eventRepo.findByTournamentId(id);
         for (SportsEvent ev : events) {
             ev.setTournament(null);
         }

@@ -23,6 +23,8 @@ public interface PersonalTransactionRepository extends JpaRepository<PersonalTra
 
     List<PersonalTransaction> findByUserIdAndIsManaProjectionTrueOrderByTransactionDateDesc(Long userId);
 
+    Optional<PersonalTransaction> findFirstByUserIdAndSourceModuleAndSourceTypeAndSourceId(Long userId, String sourceModule, String sourceType, String sourceId);
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM PersonalFinanceTransaction t WHERE t.user.id = :userId AND t.type = 'INCOME' AND t.transactionDate BETWEEN :from AND :to")
     BigDecimal sumIncomeForPeriod(@Param("userId") Long userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 

@@ -30,6 +30,7 @@ import com.manacommunity.api.repository.*;
 import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.util.HtmlSanitizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -82,7 +83,7 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig config = configRepo.findById(configId).orElseThrow(
             () -> new IllegalArgumentException("SportsTournament config not found: " + configId));
 
-        config.setTournamentName(req.tournamentName());
+        config.setTournamentName(HtmlSanitizer.sanitizePlainText(req.tournamentName()));
         config.setSport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())));
         config.setCommunity(communityRepo.findById(req.communityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.communityId())));
         if (req.eventId() != null) config.setEvent(eventRepo.findById(req.eventId()).orElseThrow(() -> new ResourceNotFoundException("SportsEvent", req.eventId())));
@@ -136,7 +137,7 @@ public class SportsMatchPersistenceService {
 
     private SportsTournamentConfig buildConfig(SportsTournamentConfigRequest req, Long adminUserId) {
         SportsTournamentConfig.SportsTournamentConfigBuilder builder = SportsTournamentConfig.builder()
-            .tournamentName(req.tournamentName())
+            .tournamentName(HtmlSanitizer.sanitizePlainText(req.tournamentName()))
             .sport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())))
             .community(communityRepo.findById(req.communityId()).orElseThrow(() -> new ResourceNotFoundException("Community", req.communityId())))
             .tournamentType(TournamentType.valueOf(req.tournamentType()))

@@ -1,6 +1,5 @@
 package com.manacommunity.api.groupbuying.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 @Data
@@ -8,7 +7,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PickupVerificationRequest {
-    @NotBlank
     private String qrToken;
+    private String orderNumber;
+    private String collectorPin;
 }
-

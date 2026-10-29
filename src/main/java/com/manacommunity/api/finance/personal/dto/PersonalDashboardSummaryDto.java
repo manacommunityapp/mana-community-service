@@ -17,6 +17,13 @@ public class PersonalDashboardSummaryDto {
     private BigDecimal totalAssets;
     private BigDecimal totalLiabilities;
     private BigDecimal netWorth;
+    
+    // Community Spending vs Other Personal Spending
+    private BigDecimal totalCommunitySpending;
+    private List<PersonalSpendingCategoryDto> communitySpendingBreakdown;
+    private BigDecimal totalOtherSpending;
+    private List<PersonalSpendingCategoryDto> otherSpendingBreakdown;
+
     private List<PersonalTransactionDto> recentTransactions;
     private List<PersonalTransactionDto> manaProjections;
     private List<PersonalBudgetDto> budgetAlerts;

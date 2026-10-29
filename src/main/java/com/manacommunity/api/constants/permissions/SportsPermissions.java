@@ -51,6 +51,11 @@ public final class SportsPermissions {
     public static final String CREATE_EDIT_SPORTS_ANALYTICS = "Create/Edit Sports Analytics";
     public static final String DELETE_SPORTS_ANALYTICS      = "Delete Sports Analytics";
 
+    // Karate Classes
+    public static final String VIEW_KARATE_CLASSES        = "View Karate Classes";
+    public static final String CREATE_EDIT_KARATE_CLASSES  = "Create/Edit Karate Classes";
+    public static final String DELETE_KARATE_CLASSES       = "Delete Karate Classes";
+
     public static final List<String> VIEW_ALL = List.of(
             VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU,
             VIEW_AUCTION_CONFIG, VIEW_LIVE_AUCTION,
@@ -67,6 +72,7 @@ public final class SportsPermissions {
             VIEW_PLAYER_POOL, CREATE_EDIT_PLAYER_POOL, DELETE_PLAYER_POOL,
             VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS, DELETE_EVENT_REGISTRATIONS,
             VIEW_AUCTION_RESULTS, CREATE_EDIT_AUCTION_RESULTS, DELETE_AUCTION_RESULTS,
-            VIEW_SPORTS_ANALYTICS, CREATE_EDIT_SPORTS_ANALYTICS, DELETE_SPORTS_ANALYTICS
+            VIEW_SPORTS_ANALYTICS, CREATE_EDIT_SPORTS_ANALYTICS, DELETE_SPORTS_ANALYTICS,
+            VIEW_KARATE_CLASSES, CREATE_EDIT_KARATE_CLASSES, DELETE_KARATE_CLASSES
     );
 }

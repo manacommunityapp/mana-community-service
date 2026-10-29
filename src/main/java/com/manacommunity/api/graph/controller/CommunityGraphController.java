@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/community-graph")
+@RequestMapping({"/api/community-graph", "/api/api/community-graph", "/community-graph"})
 @RequiredArgsConstructor
 public class CommunityGraphController {
 
@@ -119,6 +119,7 @@ public class CommunityGraphController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(intelligenceService.updateVisibility(user, request));
     }
+
 
     @PostMapping({"/connect/{targetUserId}", "/relationships"})
     public ResponseEntity<?> connectWithNeighbor(

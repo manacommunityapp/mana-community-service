@@ -15,6 +15,7 @@ public class AuthorizeCollectorRequest {
     @NotBlank
     private String name;
 
+    private String relation;
     private String relationship;
     private String phone;
 }

@@ -201,11 +201,32 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(com.manacommunity.api.payments.exception.PaymentGatewayException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGateway(
+            com.manacommunity.api.payments.exception.PaymentGatewayException ex,
+            HttpServletRequest request) {
+        log.error("Payment gateway error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(),
+                "Payment gateway error. Please try again.", request, null);
+    }
+
+    @ExceptionHandler(com.manacommunity.api.payments.exception.PaymentVerificationException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentVerification(
+            com.manacommunity.api.payments.exception.PaymentVerificationException ex,
+            HttpServletRequest request) {
+        log.warn("Payment verification failed at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     /** Catch-all for any other ManaCommunityException subtype. */
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(
             ManaCommunityException ex, HttpServletRequest request) {
-        log.error("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        if (ex.getStatus().is5xxServerError()) {
+            log.error("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage(), ex);
+        } else {
+            log.warn("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        }
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
@@ -403,7 +424,7 @@ public class GlobalExceptionHandler {
         }
 
         String constraintName = extractConstraintName(ex);
-        log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName);
+        log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName, ex);
 
         String friendlyMessage = "The operation conflicts with existing data — a referenced record is missing, "
                 + "or a unique value is already in use.";

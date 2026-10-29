@@ -278,6 +278,17 @@ const API = '/api/tournament';
 const TOKEN = localStorage.getItem('token') || '';
 const headers = ()=> ({'Content-Type':'application/json','Authorization':'Bearer '+TOKEN});
 
+// ── SANITIZE ────────────────────────────────
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── STATE ──────────────────────────────────
 let tournamentTypes = [];
 let events = [];
@@ -345,7 +356,7 @@ async function loadEvents(){
     events = await apiFetch(API+'/events');
     const sel = document.getElementById('fEvent');
     sel.innerHTML = '<option value="">— Select Event —</option>' +
-      events.map(e=>`<option value="${e.id}">${e.name} (${e.sportName} • ${e.eventDateStart||''})</option>`).join('');
+      events.map(e=>`<option value="${e.id}">${escapeHtml(e.name)} (${escapeHtml(e.sportName)} • ${escapeHtml(e.eventDateStart||'')})</option>`).join('');
   }catch(e){ console.warn('Events load failed:',e); }
 }
 
@@ -366,12 +377,12 @@ function renderConfigTable(){
   }
   empty.style.display='none'; wrap.style.display='block';
   tbody.innerHTML = configs.map(c=>`<tr>
-    <td style="font-weight:600;color:var(--accent)">${c.tournamentName}</td>
-    <td>${formatType(c.tournamentType)}</td>
-    <td>${c.eventName||'—'}</td>
-    <td>${c.totalTeams||'—'}</td>
-    <td>${c.startDate||'—'}</td>
-    <td><span class="status-badge status-${c.status}">${c.status}</span></td>
+    <td style="font-weight:600;color:var(--accent)">${escapeHtml(c.tournamentName)}</td>
+    <td>${escapeHtml(formatType(c.tournamentType))}</td>
+    <td>${escapeHtml(c.eventName||'—')}</td>
+    <td>${escapeHtml(c.totalTeams||'—')}</td>
+    <td>${escapeHtml(c.startDate||'—')}</td>
+    <td><span class="status-badge status-${escapeHtml(c.status)}">${escapeHtml(c.status)}</span></td>
     <td>
       <button class="btn btn-ghost btn-sm" onclick="editConfig(${c.id})">Edit</button>
     </td>

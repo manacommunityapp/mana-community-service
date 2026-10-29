@@ -91,7 +91,17 @@ public class PersonalFinanceController {
             @RequestParam(value = "limit", defaultValue = "50") int limit,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(financeService.getTransactions(user, type, categoryId, accountId, from, to, tag, page, limit));
+        int safePage = Math.max(0, page);
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        return ResponseEntity.ok(financeService.getTransactions(user, type, categoryId, accountId, from, to, tag, safePage, safeLimit));
+    }
+
+    @GetMapping({"/api/v1/personal-finance/transactions/{id}", "/personal-finance/transactions/{id}"})
+    public ResponseEntity<PersonalTransactionDto> getTransaction(
+            @PathVariable("id") String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(financeService.getTransaction(id, user));
     }
 
     @PostMapping({"/api/v1/personal-finance/transactions", "/personal-finance/transactions"})
@@ -297,5 +307,14 @@ public class PersonalFinanceController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(financeService.getManaProjections(user));
+    }
+
+    // ─── Financial Insights ─────────────────────────────────────────────────────
+
+    @GetMapping({"/api/v1/personal-finance/insights", "/personal-finance/insights"})
+    public ResponseEntity<FinancialInsightsSummaryDto> getFinancialInsights(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(financeService.getFinancialInsights(user));
     }
 }

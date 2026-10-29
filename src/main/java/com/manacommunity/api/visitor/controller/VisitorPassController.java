@@ -97,7 +97,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
-    @GetMapping("/mine")
+    @GetMapping({"/mine", "/my-visitors"})
     @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getMyPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -125,7 +125,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping({"", "/pre-approve"})
     @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> create(
             @Valid @RequestBody VisitorPassRequest req,
@@ -180,7 +180,16 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.checkOut(id, gate, guard));
     }
 
-    @PutMapping("/{id}/reject")
+    @PutMapping("/{id}/leave-at-gate")
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
+    public ResponseEntity<VisitorPassResponse> leaveAtGate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
+    }
+
+    @PutMapping({"/{id}/reject", "/{id}/deny"})
     @PreAuthorize("hasAnyAuthority('Create Visitor Pass', 'Manage Gate')")
     public ResponseEntity<VisitorPassResponse> reject(
             @PathVariable Long id,

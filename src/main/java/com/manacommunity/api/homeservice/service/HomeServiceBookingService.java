@@ -91,6 +91,26 @@ public class HomeServiceBookingService {
         return bookingRepository.save(booking);
     }
 
+    @Transactional
+    public HomeServiceBookingEntity completeWithOtp(String bookingId, String otp) {
+        HomeServiceBookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new HomeServiceNotFoundException("Booking not found: " + bookingId));
+        booking.setStatus(HomeServiceBookingStatus.COMPLETED);
+        booking.setUpdatedAt(LocalDateTime.now());
+        return bookingRepository.save(booking);
+    }
+
+    @Transactional
+    public HomeServiceBookingEntity processPayment(String bookingId, java.math.BigDecimal amount, String paymentMethod) {
+        HomeServiceBookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new HomeServiceNotFoundException("Booking not found: " + bookingId));
+        if (amount != null) {
+            booking.setPrice(amount);
+        }
+        booking.setUpdatedAt(LocalDateTime.now());
+        return bookingRepository.save(booking);
+    }
+
     public List<HomeServiceBookingEntity> getBookingsByResident(String residentUserId) {
         return bookingRepository.findByResidentUserIdOrderByCreatedAtDesc(residentUserId);
     }

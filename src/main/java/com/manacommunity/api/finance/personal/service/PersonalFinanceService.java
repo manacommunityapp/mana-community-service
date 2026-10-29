@@ -4,6 +4,7 @@ import com.manacommunity.api.finance.personal.dto.*;
 import com.manacommunity.api.user.model.AppUser;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PersonalFinanceService {
@@ -13,6 +14,7 @@ public interface PersonalFinanceService {
     List<PersonalCategoryDto> getCategories(AppUser user);
     PersonalCategoryDto createCategory(CreatePersonalCategoryDto dto, AppUser user);
     List<PersonalTransactionDto> getTransactions(AppUser user, String type, String categoryId, String accountId, String from, String to, String tag, int page, int limit);
+    PersonalTransactionDto getTransaction(String id, AppUser user);
     CreatePersonalTransactionDto parseNaturalLanguageText(String text, AppUser user);
     PersonalTransactionDto createTransaction(CreatePersonalTransactionDto dto, AppUser user);
     void deleteTransaction(String id, AppUser user);
@@ -26,6 +28,9 @@ public interface PersonalFinanceService {
     void markBillPaid(String id, AppUser user);
     PersonalReportPeriodDto getReport(AppUser user, String period);
     List<PersonalTransactionDto> getManaProjections(AppUser user);
+    PersonalTransactionDto autoProjectTransaction(AppUser user, BigDecimal amount, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor);
+    PersonalTransactionDto upsertProjectionBySource(AppUser user, String type, BigDecimal amount, LocalDate date, String sourceModule, String sourceType, String sourceId, String sourceLabel, String categoryName, String categoryIcon, String categoryColor);
+    void voidProjectionBySource(AppUser user, String sourceModule, String sourceType, String sourceId);
 
     // P3 Enhancements
     List<PersonalInstallmentDto> getInstallments(AppUser user);
@@ -41,4 +46,5 @@ public interface PersonalFinanceService {
     BatchImportResultDto batchImportTransactions(BatchImportTransactionDto dto, AppUser user);
     int processDueRecurring(AppUser user);
     int processAllDueRecurring();
+    FinancialInsightsSummaryDto getFinancialInsights(AppUser user);
 }

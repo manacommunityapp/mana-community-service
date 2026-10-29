@@ -20,6 +20,8 @@ public class RegistrationRequest {
     Long partnerUserId;
     Long partnerFamilyMemberId;
     Long familyMemberId;
+    String gender;
+    String dateOfBirth;
     String cricHeroesUrl;
 
     /**

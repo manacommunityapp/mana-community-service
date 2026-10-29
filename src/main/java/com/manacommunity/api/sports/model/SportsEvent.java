@@ -150,14 +150,27 @@ public class SportsEvent {
     public void setFormat(List<MatchFormat> formats) {
         if (this.eventFormats == null) {
             this.eventFormats = new ArrayList<>();
-        } else {
-            this.eventFormats.clear();
         }
-        if (formats != null) {
-            for (MatchFormat f : formats) {
-                if (f != null) {
-                    this.eventFormats.add(SportsEventFormat.builder().event(this).format(f).build());
-                }
+        if (formats == null || formats.isEmpty()) {
+            this.eventFormats.clear();
+            return;
+        }
+
+        java.util.LinkedHashSet<MatchFormat> targetSet = formats.stream()
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        // 1. Remove formats not in target list and deduplicate existing elements
+        java.util.Set<MatchFormat> retained = new java.util.HashSet<>();
+        this.eventFormats.removeIf(ef -> ef.getFormat() == null
+                || !targetSet.contains(ef.getFormat())
+                || !retained.add(ef.getFormat()));
+
+        // 2. Add only formats not already present in retained
+        for (MatchFormat f : targetSet) {
+            if (!retained.contains(f)) {
+                this.eventFormats.add(SportsEventFormat.builder().event(this).format(f).build());
+                retained.add(f);
             }
         }
     }

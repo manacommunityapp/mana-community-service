@@ -23,5 +23,7 @@ public class GroupBuyCheckoutRequest {
     private BigDecimal amountToPayNow;
     private BigDecimal escrowHoldAmount;
     private String deliveryAddressOrPickup;
+    private String deliveryAddress;
+    private String deliveryNotes;
     private String specialNotes;
 }

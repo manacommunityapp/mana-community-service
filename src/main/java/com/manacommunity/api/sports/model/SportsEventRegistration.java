@@ -117,6 +117,24 @@ public class SportsEventRegistration {
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_source", length = 32)
+    @Builder.Default
+    private RegistrationSource registrationSource = RegistrationSource.MANA_NATIVE;
+
+    @Column(length = 50)
+    private String phone;
+
+    @Column(name = "external_response_id", length = 255)
+    private String externalResponseId;
+
+    @Column(name = "external_form_id")
+    private Long externalFormId;
+
+    @Column(name = "is_external_guest")
+    @Builder.Default
+    private Boolean isExternalGuest = false;
+
     private LocalDateTime registeredAt;
     private LocalDateTime updatedAt;
 
@@ -131,6 +149,7 @@ public class SportsEventRegistration {
         updatedAt = LocalDateTime.now();
     }
 
+    public enum RegistrationSource { MANA_NATIVE, GOOGLE_FORMS, EXTERNAL_FORM }
     public enum RegistrationStatus { PENDING, REGISTERED, CONFIRMED, WITHDRAWN, REJECTED }
     public enum PartnerConfirmationStatus { PENDING, CONFIRMED, DECLINED }
 }

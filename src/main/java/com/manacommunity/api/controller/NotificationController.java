@@ -56,8 +56,8 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.getUserNotificationsSummary(principal.getId(), Math.max(page, 0), safeSize));
     }
 
-    /** GET /api/notifications/count — unread badge count. */
-    @GetMapping("/count")
+    /** GET /api/notifications/count or /api/notifications/unread-count — unread badge count. */
+    @GetMapping({"/count", "/unread-count"})
     public ResponseEntity<NotificationCountResponse> getUnreadCount(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(notificationService.getUnreadCount(principal.getId()));
@@ -70,6 +70,15 @@ public class NotificationController {
             @Valid @RequestBody MarkReadRequest request) {
         int updated = notificationService.markAsRead(principal.getId(), request.notificationIds());
         return ResponseEntity.ok(Map.of("updated", updated));
+    }
+
+    /** PUT /api/notifications/{id}/read — mark a single notification as read by path variable. */
+    @PutMapping({"/{id}/read", "/read/{id}"})
+    public ResponseEntity<Map<String, Object>> markSingleAsRead(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        int updated = notificationService.markAsRead(principal.getId(), List.of(id));
+        return ResponseEntity.ok(Map.of("updated", updated, "id", id));
     }
 
     /** PUT /api/notifications/read-all — mark all notifications as read. */

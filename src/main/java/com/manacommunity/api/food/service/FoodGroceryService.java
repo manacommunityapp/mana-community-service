@@ -28,6 +28,7 @@ public class FoodGroceryService {
     private final FoodGroceryCategoryRepository categoryRepo;
     private final FoodGroceryProductRepository productRepo;
     private final FoodGroceryOrderRepository orderRepo;
+    private final FoodGroceryOrderItemRepository orderItemRepo;
     private final FoodGroceryDeliverySlotRepository slotRepo;
     private final FoodGroceryWishlistRepository wishlistRepo;
 
@@ -123,11 +124,17 @@ public class FoodGroceryService {
 
     @Transactional(readOnly = true)
     public Page<Map<String, Object>> getProducts(Long communityId, Long storeId, Long categoryId, String search, Pageable pageable) {
+        if (storeId == null) {
+            return Page.empty(pageable);
+        }
+        storeRepo.findByIdAndCommunityId(storeId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));
         if (search != null && !search.isBlank()) {
-            return productRepo.searchByStore(storeId, search, pageable).map(this::toProductResponse);
+            return productRepo.searchByStore(storeId, search.trim(), pageable).map(this::toProductResponse);
         }
         if (categoryId != null) {
-            return productRepo.findByCategoryIdAndActive(categoryId, true, pageable).map(this::toProductResponse);
+            return productRepo.findByCategoryIdAndStoreIdAndActive(categoryId, storeId, true, pageable)
+                    .map(this::toProductResponse);
         }
         return productRepo.findByStoreIdAndActive(storeId, true, pageable).map(this::toProductResponse);
     }
@@ -136,17 +143,22 @@ public class FoodGroceryService {
     public Map<String, Object> getProductById(Long communityId, Long id) {
         FoodGroceryProduct product = productRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", id));
+        if (!product.getCommunity().getId().equals(communityId) || !Boolean.TRUE.equals(product.getActive())) {
+            throw new ResourceNotFoundException("GroceryProduct", id);
+        }
         return toProductResponse(product);
     }
 
     @Transactional
     public Map<String, Object> createProduct(Long communityId, Map<String, Object> request) {
         Long storeId = Long.valueOf(request.get("storeId").toString());
-        FoodGroceryStore store = storeRepo.findById(storeId)
+        FoodGroceryStore store = storeRepo.findByIdAndCommunityId(storeId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));
 
         Long categoryId = Long.valueOf(request.get("categoryId").toString());
         FoodGroceryCategory category = categoryRepo.findById(categoryId)
+                .filter(c -> c.getStore() != null && c.getStore().getId().equals(storeId)
+                        && c.getCommunity().getId().equals(communityId))
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryCategory", categoryId));
 
         Community community = new Community();
@@ -181,6 +193,7 @@ public class FoodGroceryService {
     @Transactional
     public Map<String, Object> updateProduct(Long communityId, Long id, Map<String, Object> request) {
         FoodGroceryProduct product = productRepo.findById(id)
+                .filter(p -> p.getCommunity().getId().equals(communityId))
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", id));
 
         if (request.containsKey("name")) product.setName((String) request.get("name"));
@@ -210,43 +223,107 @@ public class FoodGroceryService {
 
     @Transactional
     public Map<String, Object> placeOrder(Long communityId, Map<String, Object> request, AppUser user) {
-        Community community = user.getCommunity();
         Long storeId = Long.valueOf(request.get("storeId").toString());
-        FoodGroceryStore store = storeRepo.findById(storeId)
+        FoodGroceryStore store = storeRepo.findByIdAndCommunityId(storeId, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));
+        if (store.getStatus() != FoodGroceryStore.StoreStatus.ACTIVE || !Boolean.TRUE.equals(store.getDeliveryEnabled())) {
+            throw new IllegalArgumentException("This grocery store is not accepting delivery orders.");
+        }
 
-        String orderNumber = "GRO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        Object rawItems = request.get("items");
+        if (!(rawItems instanceof List<?>) || ((List<?>) rawItems).isEmpty()) {
+            throw new IllegalArgumentException("At least one product is required.");
+        }
+        Community community = user.getCommunity();
+        List<FoodGroceryOrderItem> orderItems = new java.util.ArrayList<>();
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (Object rawItem : (List<?>) rawItems) {
+            if (!(rawItem instanceof Map<?, ?>)) throw new IllegalArgumentException("Invalid order item.");
+            Map<?, ?> item = (Map<?, ?>) rawItem;
+            Long productId = Long.valueOf(item.get("productId").toString());
+            int quantity = Integer.parseInt(item.get("quantity").toString());
+            if (quantity <= 0) throw new IllegalArgumentException("Product quantity must be positive.");
+            FoodGroceryProduct product = productRepo.findByIdAndStoreIdAndCommunityIdAndActive(
+                    productId, storeId, communityId, true)
+                    .orElseThrow(() -> new ResourceNotFoundException("GroceryProduct", productId));
+            com.manacommunity.api.vendor.commerce.model.VendorProductVariant linkedVariant = product.getVendorVariant();
+            int available = linkedVariant != null && linkedVariant.getInventory() != null
+                    ? linkedVariant.getInventory().getAvailableQty()
+                    : product.getStock() == null ? 0 : product.getStock();
+            if (available < quantity) throw new IllegalArgumentException("Insufficient stock for " + product.getName() + ".");
+            BigDecimal unitPrice = product.getDiscountedPrice() != null ? product.getDiscountedPrice() : product.getPrice();
+            if (unitPrice == null || unitPrice.signum() < 0) throw new IllegalArgumentException("Product price is unavailable.");
+            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
+            subtotal = subtotal.add(lineTotal);
+            orderItems.add(FoodGroceryOrderItem.builder().product(product).productName(product.getName())
+                    .quantity(quantity).unitPrice(unitPrice).totalPrice(lineTotal).community(community).build());
+            if (linkedVariant != null && linkedVariant.getInventory() != null) {
+                linkedVariant.getInventory().setAvailableQty(available - quantity);
+            } else {
+                product.setStock(available - quantity);
+                productRepo.save(product);
+            }
+        }
 
-        FoodGroceryOrder order = FoodGroceryOrder.builder()
-                .user(user)
-                .store(store)
-                .orderNumber(orderNumber)
-                .status(FoodGroceryOrder.GroceryOrderStatus.PLACED)
-                .subtotal(request.get("subtotal") != null ?
-                        new BigDecimal(request.get("subtotal").toString()) : BigDecimal.ZERO)
-                .tax(request.get("tax") != null ?
-                        new BigDecimal(request.get("tax").toString()) : BigDecimal.ZERO)
-                .deliveryFee(request.get("deliveryFee") != null ?
-                        new BigDecimal(request.get("deliveryFee").toString()) : BigDecimal.ZERO)
-                .discount(request.get("discount") != null ?
-                        new BigDecimal(request.get("discount").toString()) : BigDecimal.ZERO)
-                .totalAmount(request.get("totalAmount") != null ?
-                        new BigDecimal(request.get("totalAmount").toString()) : BigDecimal.ZERO)
-                .deliveryAddress((String) request.get("deliveryAddress"))
-                .deliverySlot(request.get("deliverySlot") != null ?
-                        LocalDateTime.parse((String) request.get("deliverySlot")) : null)
+        LocalDateTime deliveryAt = null;
+        if (request.get("deliverySlot") != null && !request.get("deliverySlot").toString().isBlank()) {
+            Long slotId = Long.valueOf(request.get("deliverySlot").toString());
+            FoodGroceryDeliverySlot slot = slotRepo.findById(slotId)
+                    .filter(s -> s.getCommunity().getId().equals(communityId)
+                            && s.getStore().getId().equals(storeId))
+                    .orElseThrow(() -> new ResourceNotFoundException("GroceryDeliverySlot", slotId));
+            if (slot.getBooked() == null || slot.getCapacity() == null || slot.getBooked() >= slot.getCapacity()) {
+                throw new IllegalArgumentException("The selected delivery slot is full.");
+            }
+            slot.setBooked(slot.getBooked() + 1);
+            slotRepo.save(slot);
+            deliveryAt = LocalDateTime.of(slot.getDate(), slot.getStartTime());
+        }
+
+        BigDecimal tax = BigDecimal.ZERO;
+        BigDecimal deliveryFee = store.getDeliveryFee() != null ? store.getDeliveryFee() : BigDecimal.ZERO;
+        FoodGroceryOrder order = FoodGroceryOrder.builder().user(user).store(store)
+                .orderNumber("GRO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .status(FoodGroceryOrder.GroceryOrderStatus.PLACED).subtotal(subtotal).tax(tax)
+                .deliveryFee(deliveryFee).discount(BigDecimal.ZERO).totalAmount(subtotal.add(tax).add(deliveryFee))
+                .deliveryAddress((String) request.get("deliveryAddress")).deliverySlot(deliveryAt)
                 .paymentMethod((String) request.get("paymentMethod"))
-                .paymentStatus(FoodGroceryOrder.PaymentStatus.PENDING)
-                .community(community)
-                .build();
-
-        return toOrderResponse(orderRepo.save(order));
+                .paymentStatus(FoodGroceryOrder.PaymentStatus.PENDING).community(community).build();
+        order = orderRepo.save(order);
+        for (FoodGroceryOrderItem item : orderItems) item.setOrder(order);
+        orderItemRepo.saveAll(orderItems);
+        return toOrderResponse(order);
     }
 
     @Transactional(readOnly = true)
     public Page<Map<String, Object>> getMyOrders(Long communityId, Long userId, Pageable pageable) {
         return orderRepo.findByUserIdAndCommunityId(userId, communityId, pageable)
                 .map(this::toOrderResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Map<String, Object>> getVendorOrders(Long communityId, Long ownerId, Pageable pageable) {
+        return orderRepo.findVendorOrders(ownerId, communityId, pageable).map(this::toOrderResponse);
+    }
+
+    @Transactional
+    public Map<String, Object> updateVendorOrderStatus(Long communityId, Long ownerId, Long orderId, String status) {
+        FoodGroceryOrder order = orderRepo.findVendorOrder(orderId, ownerId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("GroceryOrder", orderId));
+        FoodGroceryOrder.GroceryOrderStatus next = FoodGroceryOrder.GroceryOrderStatus.valueOf(status);
+        FoodGroceryOrder.GroceryOrderStatus current = order.getStatus();
+        boolean validTransition = (current == FoodGroceryOrder.GroceryOrderStatus.PLACED
+                    && next == FoodGroceryOrder.GroceryOrderStatus.CONFIRMED)
+                || (current == FoodGroceryOrder.GroceryOrderStatus.CONFIRMED
+                    && next == FoodGroceryOrder.GroceryOrderStatus.PACKING)
+                || (current == FoodGroceryOrder.GroceryOrderStatus.PACKING
+                    && next == FoodGroceryOrder.GroceryOrderStatus.OUT_FOR_DELIVERY)
+                || (current == FoodGroceryOrder.GroceryOrderStatus.OUT_FOR_DELIVERY
+                    && next == FoodGroceryOrder.GroceryOrderStatus.DELIVERED);
+        if (!validTransition) throw new IllegalArgumentException("Invalid grocery order status transition.");
+        order.setStatus(next);
+        if (next == FoodGroceryOrder.GroceryOrderStatus.DELIVERED) order.setDeliveredAt(LocalDateTime.now());
+        return toOrderResponse(orderRepo.save(order));
     }
 
     @Transactional(readOnly = true)
@@ -271,8 +348,12 @@ public class FoodGroceryService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getDeliverySlots(Long communityId, Long storeId, LocalDate date) {
-        return slotRepo.findByStoreIdAndDate(storeId, date)
-                .stream().map(s -> {
+        storeRepo.findByIdAndCommunityId(storeId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("GroceryStore", storeId));
+        return slotRepo.findByStoreIdAndDate(storeId, date).stream()
+                .filter(s -> s.getCommunity().getId().equals(communityId))
+                .filter(s -> s.getCapacity() != null && s.getBooked() != null && s.getBooked() < s.getCapacity())
+                .map(s -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", s.getId());
                     map.put("storeId", s.getStore() != null ? s.getStore().getId() : null);
@@ -363,7 +444,8 @@ public class FoodGroceryService {
         map.put("unitValue", p.getUnitValue());
         map.put("price", p.getPrice());
         map.put("discountedPrice", p.getDiscountedPrice());
-        map.put("stock", p.getStock());
+        map.put("stock", p.getVendorVariant() != null && p.getVendorVariant().getInventory() != null
+                ? p.getVendorVariant().getInventory().getAvailableQty() : p.getStock());
         map.put("lowStockThreshold", p.getLowStockThreshold());
         map.put("active", p.getActive());
         map.put("communityId", p.getCommunity() != null ? p.getCommunity().getId() : null);
@@ -392,6 +474,16 @@ public class FoodGroceryService {
         map.put("communityId", o.getCommunity() != null ? o.getCommunity().getId() : null);
         map.put("createdAt", o.getCreatedAt());
         map.put("updatedAt", o.getUpdatedAt());
+        map.put("items", orderItemRepo.findByOrderId(o.getId()).stream().map(item -> {
+            Map<String, Object> line = new HashMap<>();
+            line.put("id", item.getId());
+            line.put("productId", item.getProduct() != null ? item.getProduct().getId() : null);
+            line.put("productName", item.getProductName());
+            line.put("quantity", item.getQuantity());
+            line.put("unitPrice", item.getUnitPrice());
+            line.put("totalPrice", item.getTotalPrice());
+            return line;
+        }).collect(Collectors.toList()));
         return map;
     }
 }

@@ -80,4 +80,35 @@ public class BiometricUserEnrollment {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Community getCommunity() { return community; }
+    public void setCommunity(Community community) { this.community = community; }
+    public AppUser getUser() { return user; }
+    public void setUser(AppUser user) { this.user = user; }
+    public BiometricPersonType getPersonType() { return personType; }
+    public void setPersonType(BiometricPersonType personType) { this.personType = personType; }
+    public String getPersonName() { return personName; }
+    public void setPersonName(String personName) { this.personName = personName; }
+    public String getUnitNumber() { return unitNumber; }
+    public void setUnitNumber(String unitNumber) { this.unitNumber = unitNumber; }
+    public String getFaceEmbeddingHash() { return faceEmbeddingHash; }
+    public void setFaceEmbeddingHash(String faceEmbeddingHash) { this.faceEmbeddingHash = faceEmbeddingHash; }
+    public String getFaceFeatureVersion() { return faceFeatureVersion; }
+    public void setFaceFeatureVersion(String faceFeatureVersion) { this.faceFeatureVersion = faceFeatureVersion; }
+    public EnrollmentStatus getEnrollmentStatus() { return enrollmentStatus; }
+    public void setEnrollmentStatus(EnrollmentStatus enrollmentStatus) { this.enrollmentStatus = enrollmentStatus; }
+    public String getTimeWindowStart() { return timeWindowStart; }
+    public void setTimeWindowStart(String timeWindowStart) { this.timeWindowStart = timeWindowStart; }
+    public String getTimeWindowEnd() { return timeWindowEnd; }
+    public void setTimeWindowEnd(String timeWindowEnd) { this.timeWindowEnd = timeWindowEnd; }
+    public String getAllowedDays() { return allowedDays; }
+    public void setAllowedDays(String allowedDays) { this.allowedDays = allowedDays; }
+    public LocalDateTime getExpirationDate() { return expirationDate; }
+    public void setExpirationDate(LocalDateTime expirationDate) { this.expirationDate = expirationDate; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

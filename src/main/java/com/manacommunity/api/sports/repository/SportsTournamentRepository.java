@@ -37,8 +37,4 @@ public interface SportsTournamentRepository extends JpaRepository<SportsTourname
     long countByRegistrationStatusIn(List<SportsEventStatus> statuses);
     long countByCommunityIdAndRegistrationStatusIn(Long communityId, List<SportsEventStatus> statuses);
 
-    @Modifying
-    @Transactional
-    @Query("DELETE FROM SportsTournament t WHERE t.id IN (SELECT t2.id FROM SportsTournament t2 JOIN t2.sportsEvents se WHERE se.id = :eventId)")
-    void deleteByEventId(@Param("eventId") Long eventId);
 }

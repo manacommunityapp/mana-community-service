@@ -11,6 +11,7 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.dto.PagedResponse;
 import com.manacommunity.api.sports.dto.SportsPlayerCategoryRequest;
 import com.manacommunity.api.dto.RegistrationRequest;
+import com.manacommunity.api.dto.TeamRegistrationRequest;
 import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.dto.SportsEventResponse;
@@ -211,13 +212,23 @@ public class SportsController {
         return ResponseEntity.ok(toEventResponse(eventService.updateEvent(id, req)));
     }
 
-    @DeleteMapping({"/events/{id}", "/tournaments/{id}"})
-    public ResponseEntity<Void> deleteTournament(
+    @DeleteMapping("/events/{id}")
+    public ResponseEntity<Void> deleteSportsEvent(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
-        log.info("Deleting tournament/event id={}", id);
+        log.info("Deleting sports event id={}", id);
         eventService.deleteEvent(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/tournaments/{id}")
+    public ResponseEntity<Void> deleteSportsTournament(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Deleting tournament id={}", id);
+        tournamentService.deleteTournament(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -404,13 +415,29 @@ public class SportsController {
                 .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
     }
 
+    @PostMapping("/register-team")
+    public ResponseEntity<List<SportsRegistrationResponse>> registerTeam(
+            @Valid @RequestBody TeamRegistrationRequest teamReq,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        log.info("Registering team '{}' for event eventId={} with {} members",
+                teamReq.getTeamName(), teamReq.getEventId(), teamReq.getMemberUserIds().size());
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registrations.stream().map(this::toRegistrationResponse).toList());
+    }
+
     @DeleteMapping("/register/{registrationId}")
     public ResponseEntity<Void> withdraw(@PathVariable Long registrationId,
+                                         @RequestParam(required = false) String reason,
                                          @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         log.info("Withdrawing registration registrationId={}", registrationId);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        eventService.withdraw(registrationId, ctx.userId());
+        boolean admin = ctx.superAdmin()
+                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        eventService.withdraw(registrationId, ctx.userId(), admin, reason);
         return ResponseEntity.noContent().build();
     }
 
@@ -762,6 +789,10 @@ public class SportsController {
                 .cricHeroesId(r.getCricheroesId())
                 .verifiedAt(r.getVerifiedAt())
                 .seed(r.getSeed())
+                .registrationSource(r.getRegistrationSource() != null ? r.getRegistrationSource().name() : null)
+                .phone(r.getPhone())
+                .externalResponseId(r.getExternalResponseId())
+                .isExternalGuest(r.getIsExternalGuest())
                 .registeredAt(r.getRegisteredAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();

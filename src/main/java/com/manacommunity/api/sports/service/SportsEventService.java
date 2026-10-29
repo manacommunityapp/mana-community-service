@@ -3,6 +3,7 @@ import com.manacommunity.api.sports.controller.SportsController;
 
 
 import com.manacommunity.api.dto.RegistrationRequest;
+import com.manacommunity.api.dto.TeamRegistrationRequest;
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.model.SportsEventRegistration;
 import com.manacommunity.api.sports.model.SportsEvent;
@@ -25,6 +26,7 @@ public interface SportsEventService {
     List<SportsEvent> getClosedEvents();
     List<SportsEvent> getClosedEvents(Long communityId);
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
+    List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId);
     List<SportsEvent> getAllEvents();
     Page<SportsEvent> getAllEvents(Pageable pageable);
     List<SportsEvent> getAllEventsIncludingInactive();
@@ -36,7 +38,8 @@ public interface SportsEventService {
     SportsEvent saveEvent(SportsEvent event);
     void deleteEvent(Long eventId);
     SportsEvent updateEvent(Long eventId, SportsEventRequest req);
-    void withdraw(Long registrationId, Long userId);
+    void withdraw(Long registrationId, Long userId, boolean admin, String reason);
+    default void withdraw(Long registrationId, Long userId) { withdraw(registrationId, userId, false, null); }
     List<SportsEventRegistration> getEventRegistrations(Long eventId);
     List<SportsEventRegistration> getUserRegistrations(Long userId);
     SportsEventRegistration confirmRegistration(Long registrationId);
