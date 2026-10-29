@@ -153,17 +153,19 @@ public class ForumController {
             post.setCommentCount(post.getCommentCount() + 1);
             postRepo.save(post);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(toCommentMap(comment));
+            return ResponseEntity.status(HttpStatus.CREATED).body(toCommentMap(comment, user));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     /** GET /api/forum/posts/{postId}/comments — list all comments for a post */
     @GetMapping("/posts/{postId}/comments")
     public ResponseEntity<List<Map<String, Object>>> getComments(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long postId) {
         if (!postRepo.existsById(postId)) return ResponseEntity.notFound().build();
+        AppUser viewer = loggedInUserService.resolve(principal);
         List<Map<String, Object>> comments = commentRepo.findByPostIdOrderByCreatedAtAsc(postId)
-                .stream().map(this::toCommentMap).toList();
+                .stream().map(c -> toCommentMap(c, viewer)).toList();
         return ResponseEntity.ok(comments);
     }
 
@@ -217,18 +219,19 @@ public class ForumController {
         Map<String, Object> m = toPostSummary(p, viewer);
         m.put("content", p.getContent());
         List<Map<String, Object>> comments = commentRepo.findByPostIdOrderByCreatedAtAsc(p.getId())
-                .stream().map(c -> toCommentMap(c)).toList();
+                .stream().map(c -> toCommentMap(c, viewer)).toList();
         m.put("comments", comments);
         return m;
     }
 
-    private Map<String, Object> toCommentMap(ForumComment c) {
+    private Map<String, Object> toCommentMap(ForumComment c, AppUser viewer) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id",         c.getId());
         m.put("content",    c.getContent());
         m.put("authorId",   c.getAuthor().getId());
         m.put("authorName", c.getAuthor().getFullName());
         m.put("likeCount",  c.getLikeCount());
+        m.put("isOwn",      viewer != null && viewer.getId().equals(c.getAuthor().getId()));
         m.put("createdAt",  c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
         return m;
     }
