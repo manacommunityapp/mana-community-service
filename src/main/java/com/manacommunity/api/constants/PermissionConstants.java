@@ -35,6 +35,8 @@ public final class PermissionConstants {
     public static final String ROLE_VENDOR               = "VENDOR";
     public static final String ROLE_CASHIER              = "CASHIER";
     public static final String ROLE_STAFF                = "STAFF";
+    public static final String ROLE_ACCOUNTANT           = "ACCOUNTANT";
+    public static final String ROLE_READONLY_ADMIN       = "READONLY_ADMIN";
 
 
     // ──── PERMISSION GROUPS (delegates) ─────────────────────────────
@@ -559,6 +561,31 @@ public final class PermissionConstants {
             ).flatMap(List::stream).toList()
     );
 
+    public static final List<String> ACCOUNTANT_PERMISSIONS = Collections.unmodifiableList(
+            Stream.of(
+                    COMMON_MODULE_ADMIN_BASE_PERMISSIONS,
+                    List.of(AdminPermissions.VIEW_ADMIN,
+                            AdminPermissions.VIEW_USER_DASHBOARD),
+                    List.of(ServicePlatformPermissions.VIEW_SERVICE_REQUESTS,
+                            ServicePlatformPermissions.VIEW_WORK_ORDERS,
+                            ServicePlatformPermissions.VIEW_SERVICE_CATALOG,
+                            ServicePlatformPermissions.VIEW_SERVICE_PROVIDERS)
+            ).flatMap(List::stream).distinct().toList()
+    );
+
+    public static final List<String> READONLY_ADMIN_PERMISSIONS = Collections.unmodifiableList(
+            Stream.of(
+                    COMMON_MODULE_ADMIN_BASE_PERMISSIONS,
+                    List.of(AdminPermissions.VIEW_ADMIN,
+                            AdminPermissions.VIEW_USER_DASHBOARD),
+                    SportsPermissions.VIEW_ALL,
+                    List.of(EventPermissions.VIEW_EVENTS,
+                            EventPermissions.VIEW_EVENT_DASHBOARD,
+                            EventPermissions.VIEW_EVENT_SCHEDULE,
+                            EventPermissions.VIEW_EVENT_REPORTS)
+            ).flatMap(List::stream).distinct().toList()
+    );
+
     public static final List<String> USER_PERMISSIONS = Collections.unmodifiableList(
             Stream.of(
                     List.of(CommunityFeedPermissions.VIEW_FEED,
@@ -609,7 +636,9 @@ public final class PermissionConstants {
             Map.entry(ROLE_USER,                     USER_PERMISSIONS),
             Map.entry(ROLE_VENDOR,                   VENDOR_PERMISSIONS),
             Map.entry(ROLE_CASHIER,                  CASHIER_PERMISSIONS),
-            Map.entry(ROLE_STAFF,                    STAFF_PERMISSIONS)
+            Map.entry(ROLE_STAFF,                    STAFF_PERMISSIONS),
+            Map.entry(ROLE_ACCOUNTANT,               ACCOUNTANT_PERMISSIONS),
+            Map.entry(ROLE_READONLY_ADMIN,           READONLY_ADMIN_PERMISSIONS)
     );
 
     public static List<String> getPermissionsForRole(String roleName) {
