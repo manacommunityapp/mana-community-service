@@ -40,6 +40,8 @@ public class CommunityRoleInitializer {
             Map.entry(PermissionConstants.ROLE_VENDOR, PermissionConstants.VENDOR_PERMISSIONS),
             Map.entry(PermissionConstants.ROLE_CASHIER, PermissionConstants.CASHIER_PERMISSIONS),
             Map.entry(PermissionConstants.ROLE_STAFF, PermissionConstants.STAFF_PERMISSIONS),
+            Map.entry(PermissionConstants.ROLE_ACCOUNTANT, PermissionConstants.ACCOUNTANT_PERMISSIONS),
+            Map.entry(PermissionConstants.ROLE_READONLY_ADMIN, PermissionConstants.READONLY_ADMIN_PERMISSIONS),
             Map.entry(PermissionConstants.ROLE_USER, PermissionConstants.USER_PERMISSIONS)
     );
 
