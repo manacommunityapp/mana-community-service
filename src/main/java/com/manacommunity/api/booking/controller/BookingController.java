@@ -478,6 +478,27 @@ public class BookingController {
         return ResponseEntity.ok(couponService.validateCoupon(code));
     }
 
+    // ── Paid Amenity Booking ─────────────────────────────────────
+
+    @PostMapping("/bookings/{id}/confirm-payment")
+    @PreAuthorize("hasAuthority('Manage Resource Booking')")
+    public ResponseEntity<Map<String, Object>> confirmPayment(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        java.math.BigDecimal fee = new java.math.BigDecimal(body.get("fee").toString());
+        String note = body.containsKey("note") ? body.get("note").toString() : null;
+        com.manacommunity.api.booking.entity.ResourceBooking booking =
+                bookingService.confirmBookingWithPayment(id, fee, note);
+        return ResponseEntity.ok(Map.of(
+                "bookingId", booking.getId(),
+                "totalAmount", booking.getTotalAmount(),
+                "paymentStatus", booking.getPaymentStatus(),
+                "paymentNote", booking.getPaymentNote() != null ? booking.getPaymentNote() : ""
+        ));
+    }
+
     // ── Dashboard & Analytics ────────────────────────────────────
 
     @GetMapping("/dashboard")
