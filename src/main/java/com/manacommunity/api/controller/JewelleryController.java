@@ -1,6 +1,11 @@
 package com.manacommunity.api.controller;
 
 import com.manacommunity.api.dto.JewelleryDto;
+import com.manacommunity.api.media.dto.PresignedUploadRequest;
+import com.manacommunity.api.media.dto.PresignedUrlResponse;
+import com.manacommunity.api.media.entity.MediaModule;
+import com.manacommunity.api.media.entity.MediaType;
+import com.manacommunity.api.media.service.MediaService;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.JewelleryService;
 import com.manacommunity.api.user.model.AppUser;
@@ -25,6 +30,7 @@ public class JewelleryController {
 
     private final JewelleryService jewelleryService;
     private final LoggedInUserService loggedInUserService;
+    private final MediaService mediaService;
 
     // ── Vendors ───────────────────────────────────────────────────
 
@@ -49,6 +55,43 @@ public class JewelleryController {
             @Valid @RequestBody JewelleryDto.RegisterVendorRequest req) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(jewelleryService.registerVendor(user, req));
+    }
+
+    /** Public storefront — used by the buyer vendor/[vendorId] screen. */
+    @GetMapping("/vendors/{id}")
+    public ResponseEntity<JewelleryDto.VendorResponse> getVendorById(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(jewelleryService.getVendorById(id));
+    }
+
+    /** Query available consultation slots for a vendor on a specific date. */
+    @GetMapping("/vendors/{id}/available-slots")
+    public ResponseEntity<List<String>> getAvailableSlots(
+            @PathVariable Long id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        java.time.LocalDate targetDate = date != null ? date : java.time.LocalDate.now().plusDays(1);
+        return ResponseEntity.ok(jewelleryService.getAvailableSlots(id, targetDate));
+    }
+
+    /** Merchant-facing: fetch appointments booked for the logged-in vendor. */
+    @GetMapping("/vendor/appointments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<JewelleryDto.AppointmentResponse>> getVendorAppointments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(jewelleryService.getVendorAppointments(user));
+    }
+
+    /** Merchant-facing: accept, confirm or mark complete an appointment. */
+    @PatchMapping("/vendor/appointments/{id}/status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> updateAppointmentStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        AppUser user = loggedInUserService.resolve(principal);
+        jewelleryService.updateAppointmentStatus(user, id, body.get("status"));
+        return ResponseEntity.noContent().build();
     }
 
     // ── Products ──────────────────────────────────────────────────
@@ -98,6 +141,33 @@ public class JewelleryController {
     }
 
     // ── Try-On ────────────────────────────────────────────────────
+
+    /**
+     * Step 1 of photo try-on flow: obtain a presigned S3 PUT URL.
+     * The mobile app PUTs the photo directly to S3 (no app-server round-trip),
+     * then passes the returned s3Key to POST /try-on/sessions/{id}/photo-jobs.
+     *
+     * The photo is stored under module=MARKETPLACE / subContext=JEWELLERY_TRYON.
+     * The JewelleryPhotoWorker deletes source photos after 24 h (DPDP compliance).
+     */
+    @PostMapping("/try-on/uploads")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PresignedUrlResponse> requestPhotoUploadUrl(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+
+        PresignedUploadRequest req = new PresignedUploadRequest();
+        req.setModule(MediaModule.MARKETPLACE);
+        req.setModuleId("jewellery-tryon");
+        req.setCommunityId(user.getCommunity() != null ? user.getCommunity().getId() : 0L);
+        req.setSubContext("JEWELLERY_TRYON");
+        req.setMediaType(MediaType.IMAGE);
+        req.setMimeType("image/jpeg");
+        req.setOriginalFileName("tryon-source.jpg");
+        req.setApprovalRequired(false);
+
+        return ResponseEntity.ok(mediaService.generatePresignedUploadUrl(req, user.getId()));
+    }
 
     @PostMapping("/try-on/sessions")
     @PreAuthorize("isAuthenticated()")

@@ -16,6 +16,9 @@ public interface JewelleryPhotoJobRepository extends JpaRepository<JewelleryPhot
 
     List<JewelleryPhotoJob> findByUserAndUserSavedTrueOrderByCreatedAtDesc(AppUser user);
 
+    /** Claim oldest queued jobs for background processing */
+    List<JewelleryPhotoJob> findTop10ByStatusOrderByCreatedAtAsc(String status);
+
     @Query("SELECT j FROM JewelleryPhotoJob j WHERE j.expiresAt < :now AND j.status NOT IN ('DELETION_PENDING', 'EXPIRED')")
     List<JewelleryPhotoJob> findExpiredJobs(LocalDateTime now);
 

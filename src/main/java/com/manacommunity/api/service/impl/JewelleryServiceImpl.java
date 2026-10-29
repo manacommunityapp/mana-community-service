@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.manacommunity.api.media.service.MediaUrlService;
+
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +30,7 @@ public class JewelleryServiceImpl implements JewelleryService {
     private final JewelleryPhotoJobRepository photoJobRepo;
     private final JewelleryWishlistRepository wishlistRepo;
     private final JewelleryAppointmentRepository appointmentRepo;
+    private final MediaUrlService mediaUrlService;
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -71,25 +74,67 @@ public class JewelleryServiceImpl implements JewelleryService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public JewelleryDto.VendorResponse getVendorById(Long id) {
+        return vendorRepo.findByIdAndIsActiveTrue(id)
+                .map(this::toVendorResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JewelleryDto.AppointmentResponse> getVendorAppointments(AppUser user) {
+        JewelleryVendorProfile vendor = vendorRepo.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
+        return appointmentRepo.findByVendorOrderByAppointmentDateDescCreatedAtDesc(vendor)
+                .stream()
+                .map(this::toAppointmentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void updateAppointmentStatus(AppUser user, Long appointmentId, String status) {
+        JewelleryVendorProfile vendor = vendorRepo.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
+        JewelleryAppointment appt = appointmentRepo.findByIdAndVendor(appointmentId, vendor)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Status must not be blank");
+        }
+        appt.setStatus(status.toUpperCase());
+        appointmentRepo.save(appt);
+    }
+
     // ── Products ──────────────────────────────────────────────────
+
 
     @Override
     @Transactional(readOnly = true)
     public Page<JewelleryDto.ProductResponse> getProducts(
             String category, String material, String q, Pageable pageable, AppUser user) {
-        Page<JewelleryProduct> page;
+        List<JewelleryProduct> list;
         if (q != null && !q.isBlank()) {
-            page = productRepo.searchActive(q, pageable);
+            list = productRepo.searchActive(q, pageable);
         } else if (category != null && material != null) {
-            page = productRepo.findByCategoryAndMaterialAndStatus(category, material, "ACTIVE", pageable);
+            list = productRepo.findByCategoryAndMaterialAndStatusOrderByCreatedAtDesc(category, material, "ACTIVE");
         } else if (category != null) {
-            page = productRepo.findByCategoryAndStatusOrderByCreatedAtDesc(category, "ACTIVE", pageable);
+            list = productRepo.findByCategoryAndStatusOrderByCreatedAtDesc(category, "ACTIVE");
         } else if (material != null) {
-            page = productRepo.findByMaterialAndStatus(material, "ACTIVE", pageable);
+            list = productRepo.findByMaterialAndStatusOrderByCreatedAtDesc(material, "ACTIVE");
         } else {
-            page = productRepo.findByStatusOrderByCreatedAtDesc("ACTIVE", pageable);
+            // Use Pageable-aware method for the unfiltered case so pagination info is correct
+            return productRepo.findByStatusOrderByCreatedAtDesc("ACTIVE", pageable)
+                    .map(p -> toProductResponse(p, user));
         }
-        return page.map(p -> toProductResponse(p, user));
+        // Manually build a Page from the filtered list for consistent pagination response
+        int start = (int) pageable.getOffset();
+        int end   = Math.min(start + pageable.getPageSize(), list.size());
+        List<JewelleryProduct> pageSlice = start >= list.size() ? List.of() : list.subList(start, end);
+        return new org.springframework.data.domain.PageImpl<>(
+                pageSlice.stream().map(p -> toProductResponse(p, user)).collect(Collectors.toList()),
+                pageable,
+                list.size());
     }
 
     @Override
@@ -114,8 +159,14 @@ public class JewelleryServiceImpl implements JewelleryService {
     public Page<JewelleryDto.ProductResponse> getVendorProducts(Long vendorId, Pageable pageable, AppUser user) {
         JewelleryVendorProfile vendor = vendorRepo.findByIdAndIsActiveTrue(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
-        return productRepo.findByVendorAndStatus(vendor, "ACTIVE", pageable)
-                .map(p -> toProductResponse(p, user));
+        List<JewelleryProduct> list = productRepo.findByVendorAndStatusOrderByCreatedAtDesc(vendor, "ACTIVE");
+        int start = (int) pageable.getOffset();
+        int end   = Math.min(start + pageable.getPageSize(), list.size());
+        List<JewelleryProduct> pageSlice = start >= list.size() ? List.of() : list.subList(start, end);
+        return new org.springframework.data.domain.PageImpl<>(
+                pageSlice.stream().map(p -> toProductResponse(p, user)).collect(Collectors.toList()),
+                pageable,
+                list.size());
     }
 
     @Override
@@ -276,6 +327,30 @@ public class JewelleryServiceImpl implements JewelleryService {
         appointmentRepo.save(appt);
     }
 
+    private static final List<String> ALL_SLOTS = List.of(
+            "10:00 AM", "11:00 AM", "12:00 PM",
+            "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"
+    );
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getAvailableSlots(Long vendorId, java.time.LocalDate date) {
+        JewelleryVendorProfile vendor = vendorRepo.findByIdAndIsActiveTrue(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        List<JewelleryAppointment> booked = appointmentRepo.findByVendorAndAppointmentDateAndStatusIn(
+                vendor, date, List.of("PENDING", "CONFIRMED"));
+
+        java.util.Set<String> bookedTimes = booked.stream()
+                .map(JewelleryAppointment::getAppointmentTime)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        return ALL_SLOTS.stream()
+                .filter(slot -> !bookedTimes.contains(slot))
+                .collect(Collectors.toList());
+    }
+
     // ── Mappers ───────────────────────────────────────────────────
 
     private JewelleryDto.VendorResponse toVendorResponse(JewelleryVendorProfile v) {
@@ -297,13 +372,13 @@ public class JewelleryServiceImpl implements JewelleryService {
 
     private JewelleryDto.ProductResponse toProductResponse(JewelleryProduct p, AppUser user) {
         List<String> imageUrls = assetRepo
-                .findByProductAndApprovalStatusAndAssetType(p, "APPROVED", "IMAGE_MAIN")
+                .findByProductAndAssetTypeAndApprovalStatus(p, "IMAGE_MAIN", "APPROVED")
                 .stream()
                 .map(JewelleryProductAsset::getAssetUrl)
                 .collect(Collectors.toList());
 
         String tryOnAssetUrl = assetRepo
-                .findByProductAndApprovalStatusAndAssetType(p, "APPROVED", "AR_2D")
+                .findByProductAndAssetTypeAndApprovalStatus(p, "AR_2D", "APPROVED")
                 .stream()
                 .findFirst()
                 .map(JewelleryProductAsset::getAssetUrl)
@@ -338,9 +413,16 @@ public class JewelleryServiceImpl implements JewelleryService {
     }
 
     private JewelleryDto.PhotoJobResponse toPhotoJobResponse(JewelleryPhotoJob j) {
+        String outputUrl = null;
+        if (j.getOutputObjectKey() != null && !j.getOutputObjectKey().isBlank()) {
+            outputUrl = j.getOutputObjectKey().startsWith("http")
+                    ? j.getOutputObjectKey()
+                    : mediaUrlService.resolveStoredUrl(j.getOutputObjectKey());
+        }
         return JewelleryDto.PhotoJobResponse.builder()
                 .id(j.getId())
                 .status(j.getStatus())
+                .outputUrl(outputUrl)
                 .createdAt(j.getCreatedAt().format(DT))
                 .completedAt(j.getCompletedAt() != null ? j.getCompletedAt().format(DT) : null)
                 .errorCode(j.getErrorCode())

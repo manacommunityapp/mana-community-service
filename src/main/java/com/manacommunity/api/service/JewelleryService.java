@@ -13,6 +13,12 @@ public interface JewelleryService {
     JewelleryDto.VendorResponse registerVendor(AppUser user, JewelleryDto.RegisterVendorRequest req);
     JewelleryDto.VendorResponse getMyVendorProfile(AppUser user);
     List<JewelleryDto.VendorResponse> getNearbyVendors(String area);
+    /** Public storefront: single vendor by id. */
+    JewelleryDto.VendorResponse getVendorById(Long id);
+    /** Merchant-facing: appointments booked with the caller's vendor profile. */
+    List<JewelleryDto.AppointmentResponse> getVendorAppointments(AppUser user);
+    /** Merchant-facing: update appointment status (CONFIRMED / COMPLETED / CANCELLED). */
+    void updateAppointmentStatus(AppUser user, Long appointmentId, String status);
 
     // Products
     Page<JewelleryDto.ProductResponse> getProducts(String category, String material, String q, Pageable pageable, AppUser user);
@@ -36,4 +42,5 @@ public interface JewelleryService {
     List<JewelleryDto.AppointmentResponse> getMyAppointments(AppUser user);
     JewelleryDto.AppointmentResponse bookAppointment(AppUser user, JewelleryDto.CreateAppointmentRequest req);
     void cancelAppointment(AppUser user, Long appointmentId, String reason);
+    List<String> getAvailableSlots(Long vendorId, java.time.LocalDate date);
 }

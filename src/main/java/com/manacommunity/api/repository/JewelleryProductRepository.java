@@ -12,7 +12,9 @@ import java.util.Optional;
 
 public interface JewelleryProductRepository extends JpaRepository<JewelleryProduct, Long> {
 
-    List<JewelleryProduct> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
+    /** Paginated unfiltered product list. */
+    org.springframework.data.domain.Page<JewelleryProduct> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
+
 
     List<JewelleryProduct> findByCategoryAndStatusOrderByCreatedAtDesc(String category, String status);
 
