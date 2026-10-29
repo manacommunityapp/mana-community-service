@@ -37,6 +37,9 @@ public class MaintenanceSchedule {
     @Column(name = "last_done_date")
     private LocalDate lastDoneDate;
 
+    @Column(name = "last_run_date")
+    private LocalDate lastRunDate;
+
     @Column(name = "assigned_vendor_id")
     private Long assignedVendorId;
 
