@@ -82,7 +82,7 @@ public class SportsDashboardService {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
-                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
                 .collect(Collectors.toMap(
                         r -> r.getEvent().getId(),
                         Function.identity(),
@@ -103,7 +103,7 @@ public class SportsDashboardService {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
-                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
                 .collect(Collectors.toMap(
                         r -> r.getEvent().getId(),
                         Function.identity(),
@@ -207,6 +207,7 @@ public class SportsDashboardService {
 
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
+        Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
         return new MyRegistration(
                 r.getId(),
                 e != null ? e.getId() : null,
@@ -218,7 +219,10 @@ public class SportsDashboardService {
                 r.getStatus() != null ? r.getStatus().name() : null,
                 r.getMatchType() != null ? r.getMatchType().name() : null,
                 r.getCaptainNomination(),
-                r.getCaptainConfirmation()
+                r.getCaptainConfirmation(),
+                r.getPlayerName(),
+                r.getRelation(),
+                familyMemberId
         );
     }
 
