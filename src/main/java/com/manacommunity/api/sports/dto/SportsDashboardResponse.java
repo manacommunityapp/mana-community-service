@@ -118,6 +118,27 @@ public record SportsDashboardResponse(
             String status,
             String matchType,
             Boolean captainNomination,
-            Boolean captainConfirmation
-    ) {}
+            Boolean captainConfirmation,
+            String playerName,
+            String relation,
+            Long familyMemberId
+    ) {
+        public MyRegistration(
+                Long id,
+                Long eventId,
+                String eventName,
+                LocalDate eventDateStart,
+                String sportName,
+                String categoryName,
+                String eventRegistrationStatus,
+                String status,
+                String matchType,
+                Boolean captainNomination,
+                Boolean captainConfirmation
+        ) {
+            this(id, eventId, eventName, eventDateStart, sportName, categoryName,
+                    eventRegistrationStatus, status, matchType, captainNomination, captainConfirmation,
+                    null, null, null);
+        }
+    }
 }
