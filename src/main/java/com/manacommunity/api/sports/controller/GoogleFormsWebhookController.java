@@ -32,8 +32,6 @@ public class GoogleFormsWebhookController {
             @PathVariable String token,
             @RequestBody Map<String, Object> payload
     ) {
-        log.info("Received Google Forms webhook for token: {}", token);
-
         String externalResponseId = (String) payload.getOrDefault(
                 "externalResponseId",
                 "gf_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12)

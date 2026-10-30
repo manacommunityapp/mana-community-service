@@ -123,6 +123,18 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     """)
     long countActiveByEventId(@org.springframework.data.repository.query.Param("eventId") Long eventId);
 
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r.event.id, COUNT(r) FROM SportsEventRegistration r
+        WHERE r.event.id IN :eventIds
+          AND (r.status IS NULL OR r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          ))
+        GROUP BY r.event.id
+    """)
+    java.util.List<Object[]> countActiveByEventIdIn(
+            @org.springframework.data.repository.query.Param("eventIds") java.util.List<Long> eventIds);
+
     @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
     List<SportsEventRegistration> findByEventId(Long eventId);
 

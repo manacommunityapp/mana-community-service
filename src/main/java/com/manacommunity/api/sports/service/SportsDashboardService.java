@@ -82,7 +82,7 @@ public class SportsDashboardService {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
-                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
                 .collect(Collectors.toMap(
                         r -> r.getEvent().getId(),
                         Function.identity(),
@@ -103,7 +103,7 @@ public class SportsDashboardService {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
 
         Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
-                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null)
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
                 .collect(Collectors.toMap(
                         r -> r.getEvent().getId(),
                         Function.identity(),
@@ -131,12 +131,26 @@ public class SportsDashboardService {
             List<SportsTournament> tournaments,
             Map<Long, SportsEventRegistration> regByEvent) {
 
+        // Collect all event IDs up front and bulk-fetch registration counts in one query
+        List<Long> allEventIds = tournaments.stream()
+                .flatMap(t -> t.getSportsEvents() != null ? t.getSportsEvents().stream() : java.util.stream.Stream.empty())
+                .map(SportsEvent::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Integer> regCountByEvent = new HashMap<>();
+        if (!allEventIds.isEmpty()) {
+            registrationRepo.countActiveByEventIdIn(allEventIds)
+                    .forEach(row -> regCountByEvent.put((Long) row[0], ((Number) row[1]).intValue()));
+        }
+
         List<TournamentCard> cards = new ArrayList<>();
         for (SportsTournament t : tournaments) {
             List<SportsEvent> childEvents = t.getSportsEvents() != null ? t.getSportsEvents() : List.of();
             List<EventCard> eventCards = childEvents.stream()
                     .filter(e -> e.getActive() == null || e.getActive())
-                    .map(e -> toEventCard(e, regByEvent.get(e.getId())))
+                    .map(e -> toEventCard(e, regByEvent.get(e.getId()), regCountByEvent.getOrDefault(e.getId(), 0)))
                     .toList();
             cards.add(new TournamentCard(
                     t.getId(),
@@ -155,8 +169,7 @@ public class SportsDashboardService {
 
     // ── Mapping helpers ───────────────────────────────────────────────
 
-    private EventCard toEventCard(SportsEvent e, SportsEventRegistration myReg) {
-        int regCount = e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0;
+    private EventCard toEventCard(SportsEvent e, SportsEventRegistration myReg, int regCount) {
         SportsPlayerCategory firstCat = (e.getCategories() != null && !e.getCategories().isEmpty())
                 ? e.getCategories().stream().filter(Objects::nonNull).findFirst().orElse(null)
                 : null;
@@ -207,6 +220,7 @@ public class SportsDashboardService {
 
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
+        Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
         return new MyRegistration(
                 r.getId(),
                 e != null ? e.getId() : null,
@@ -218,7 +232,10 @@ public class SportsDashboardService {
                 r.getStatus() != null ? r.getStatus().name() : null,
                 r.getMatchType() != null ? r.getMatchType().name() : null,
                 r.getCaptainNomination(),
-                r.getCaptainConfirmation()
+                r.getCaptainConfirmation(),
+                r.getPlayerName(),
+                r.getRelation(),
+                familyMemberId
         );
     }
 
