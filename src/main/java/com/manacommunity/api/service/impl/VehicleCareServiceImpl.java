@@ -6,19 +6,19 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import com.manacommunity.api.service.VehicleCareService;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +33,7 @@ public class VehicleCareServiceImpl implements VehicleCareService {
     private final VehicleBookingAddonRepository bookingAddonRepo;
     private final VehicleCarePlanCatalogRepository planCatalogRepo;
     private final VehicleCarePlanRepository planRepo;
+    private final AppUserRepository appUserRepo;
 
     // ── Vehicles ─────────────────────────────────────────────────
 
@@ -85,6 +86,11 @@ public class VehicleCareServiceImpl implements VehicleCareService {
     public void deleteVehicle(AppUser user, Long vehicleId) {
         VehicleProfile vehicle = vehicleProfileRepo.findByIdAndOwner(vehicleId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found"));
+        boolean hasBookings = bookingRepo.findByResidentOrderByCreatedAtDesc(user, PageRequest.of(0, 50))
+                .getContent().stream().anyMatch(b -> b.getVehicle() != null && b.getVehicle().getId().equals(vehicleId));
+        if (hasBookings) {
+            throw new IllegalStateException("Cannot delete vehicle with linked service bookings.");
+        }
         vehicleProfileRepo.delete(vehicle);
     }
 
@@ -122,10 +128,45 @@ public class VehicleCareServiceImpl implements VehicleCareService {
     // ── Slots ────────────────────────────────────────────────────
 
     @Override
+    @Transactional
     public List<VehicleServiceSlotResponse> getAvailableSlots(AppUser user, LocalDate from, LocalDate to) {
-        return slotRepo.findByCommunityIdAndSlotDateBetweenOrderBySlotDateAscStartTimeAsc(
-                        user.getCommunity().getId(), from, to)
-                .stream().map(this::toSlotResponse).collect(Collectors.toList());
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : 1L;
+        LocalDate effectiveFrom = from != null ? from : LocalDate.now();
+        LocalDate effectiveTo = to != null ? to : effectiveFrom.plusDays(7);
+        if (effectiveTo.isBefore(effectiveFrom)) {
+            effectiveTo = effectiveFrom.plusDays(7);
+        }
+
+        List<VehicleServiceSlot> slots = slotRepo.findByCommunityIdAndSlotDateBetweenOrderBySlotDateAscStartTimeAsc(
+                communityId, effectiveFrom, effectiveTo);
+
+        if (slots.isEmpty()) {
+            // Auto-generate standard operational slots (8 AM to 6 PM) for the requested range if none exist
+            LocalDate cur = effectiveFrom;
+            java.time.LocalTime[] startTimes = {
+                    java.time.LocalTime.of(8, 0), java.time.LocalTime.of(9, 0),
+                    java.time.LocalTime.of(10, 0), java.time.LocalTime.of(11, 0),
+                    java.time.LocalTime.of(14, 0), java.time.LocalTime.of(15, 0),
+                    java.time.LocalTime.of(16, 0), java.time.LocalTime.of(17, 0)
+            };
+            while (!cur.isAfter(effectiveTo)) {
+                for (java.time.LocalTime st : startTimes) {
+                    VehicleServiceSlot s = VehicleServiceSlot.builder()
+                            .communityId(communityId)
+                            .slotDate(cur)
+                            .startTime(st)
+                            .endTime(st.plusHours(1))
+                            .totalCapacity(3)
+                            .bookedCount(0)
+                            .build();
+                    slotRepo.save(s);
+                    slots.add(s);
+                }
+                cur = cur.plusDays(1);
+            }
+        }
+
+        return slots.stream().map(this::toSlotResponse).collect(Collectors.toList());
     }
 
     // ── Bookings ─────────────────────────────────────────────────
@@ -140,12 +181,17 @@ public class VehicleCareServiceImpl implements VehicleCareService {
         VehicleServiceSlot slot = slotRepo.findByIdForUpdate(req.getSlotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
 
+        if (user.getCommunity() != null && !slot.getCommunityId().equals(user.getCommunity().getId())) {
+            throw new IllegalArgumentException("Selected slot belongs to a different community");
+        }
+
         if (slot.getBookedCount() >= slot.getTotalCapacity()) {
             throw new IllegalStateException("Slot is fully booked");
         }
 
         slot.setBookedCount(slot.getBookedCount() + 1);
         slotRepo.save(slot);
+
 
         BigDecimal addonTotal = BigDecimal.ZERO;
         VehicleCareBooking booking = VehicleCareBooking.builder()
@@ -266,9 +312,13 @@ public class VehicleCareServiceImpl implements VehicleCareService {
     @Override
     @Transactional
     public VehicleCarePlanResponse updatePlanStatus(AppUser user, Long planId, String newStatus) {
+        List<String> allowedPlanStatuses = Arrays.asList("ACTIVE", "PAUSED", "CANCELLED");
+        if (newStatus == null || !allowedPlanStatuses.contains(newStatus.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid plan status: " + newStatus);
+        }
         VehicleCarePlan plan = planRepo.findByIdAndResident(planId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));
-        plan.setStatus(newStatus);
+        plan.setStatus(newStatus.toUpperCase());
         return toPlanResponse(planRepo.save(plan));
     }
 
@@ -286,10 +336,70 @@ public class VehicleCareServiceImpl implements VehicleCareService {
     @Override
     @Transactional
     public VehicleCareBookingResponse updateJobStatus(AppUser technician, Long bookingId, String newStatus) {
+        List<String> allowedStatuses = Arrays.asList("CONFIRMED", "ASSIGNED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS", "COMPLETED", "NO_SHOW", "CANCELLED");
+        if (newStatus == null || !allowedStatuses.contains(newStatus.toUpperCase())) {
+            throw new IllegalArgumentException("Invalid job status: " + newStatus);
+        }
         VehicleCareBooking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-        booking.setStatus(newStatus);
+
+        if (technician.getCommunity() != null && !booking.getCommunityId().equals(technician.getCommunity().getId())) {
+            throw new AccessDeniedException("Cannot update booking for another community");
+        }
+        if (booking.getTechnician() != null && !booking.getTechnician().getId().equals(technician.getId())) {
+            boolean isAdmin = (technician.getRole() != null && technician.getRole().toUpperCase().contains("ADMIN"))
+                    || (technician.getUserRoles() != null && technician.getUserRoles().stream()
+                    .anyMatch(r -> r.getName() != null && r.getName().toUpperCase().contains("ADMIN")));
+            if (!isAdmin) {
+                throw new AccessDeniedException("Not authorized to update this booking");
+            }
+        }
+        if (booking.getTechnician() == null) {
+            booking.setTechnician(technician);
+        }
+        booking.setStatus(newStatus.toUpperCase());
         return toBookingResponse(bookingRepo.save(booking));
+    }
+
+    // ── Payment & Admin ──────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public VehicleCareBookingResponse confirmPayment(AppUser user, Long bookingId, String paymentReference) {
+        VehicleCareBooking booking = bookingRepo.findByIdAndResident(bookingId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+        booking.setPaymentReference(paymentReference);
+        if ("PENDING_PAYMENT".equals(booking.getStatus())) {
+            booking.setStatus("CONFIRMED");
+        }
+        return toBookingResponse(bookingRepo.save(booking));
+    }
+
+    @Override
+    @Transactional
+    public VehicleCareBookingResponse assignTechnician(Long bookingId, Long technicianId) {
+        VehicleCareBooking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+        AppUser tech = appUserRepo.findById(technicianId)
+                .orElseThrow(() -> new ResourceNotFoundException("Technician not found"));
+        booking.setTechnician(tech);
+        if ("CONFIRMED".equals(booking.getStatus()) || "PENDING_PAYMENT".equals(booking.getStatus())) {
+            booking.setStatus("ASSIGNED");
+        }
+        return toBookingResponse(bookingRepo.save(booking));
+    }
+
+    @Override
+    public Page<VehicleCareBookingResponse> getCommunityBookings(Long communityId, String status, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        List<String> statuses;
+        if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            statuses = Collections.singletonList(status.toUpperCase());
+        } else {
+            statuses = Arrays.asList("PENDING_PAYMENT", "CONFIRMED", "ASSIGNED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW");
+        }
+        return bookingRepo.findByCommunityAndStatuses(communityId, statuses, pageable)
+                .map(this::toBookingResponse);
     }
 
     // ── Mapping helpers ──────────────────────────────────────────
@@ -351,22 +461,32 @@ public class VehicleCareServiceImpl implements VehicleCareService {
         List<VehicleBookingAddon> bAddons = bookingAddonRepo.findByBooking(b);
         List<VehicleServiceAddonResponse> addonResp = bAddons.stream()
                 .map(ba -> toAddonResponse(ba.getAddon())).collect(Collectors.toList());
+        List<String> addonNames = addonResp.stream()
+                .map(VehicleServiceAddonResponse::getName).collect(Collectors.toList());
+
+        LocalDate slotDate = slot != null ? slot.getSlotDate() : null;
+        LocalTime startTime = slot != null ? slot.getStartTime() : null;
+        LocalTime endTime = slot != null ? slot.getEndTime() : null;
+
+        boolean canCancel = Arrays.asList("PENDING_PAYMENT", "CONFIRMED", "ASSIGNED").contains(b.getStatus());
+        boolean canRate = "COMPLETED".equals(b.getStatus()) && b.getRating() == null;
+
         return VehicleCareBookingResponse.builder()
                 .id(b.getId())
                 .bookingNumber(b.getBookingNumber())
                 .status(b.getStatus())
-                .vehicleId(v.getId())
-                .vehicleNickname(v.getNickname())
-                .vehicleType(v.getVehicleType())
-                .vehiclePlate(v.getPlateNumber())
-                .vehicleDisplay(v.getMake() + " " + v.getModel())
-                .serviceId(svc.getId())
-                .serviceName(svc.getName())
-                .durationMinutes(svc.getDurationMinutes())
-                .slotId(slot.getId())
-                .scheduledDate(slot.getSlotDate())
-                .scheduledStart(slot.getStartTime())
-                .scheduledEnd(slot.getEndTime())
+                .vehicleId(v != null ? v.getId() : null)
+                .vehicleNickname(v != null ? v.getNickname() : null)
+                .vehicleType(v != null ? v.getVehicleType() : null)
+                .vehiclePlate(v != null ? v.getPlateNumber() : null)
+                .vehicleDisplay(v != null ? (v.getMake() + " " + v.getModel()) : null)
+                .serviceId(svc != null ? svc.getId() : null)
+                .serviceName(svc != null ? svc.getName() : null)
+                .durationMinutes(svc != null ? svc.getDurationMinutes() : 0)
+                .slotId(slot != null ? slot.getId() : null)
+                .scheduledDate(slotDate)
+                .scheduledStart(startTime)
+                .scheduledEnd(endTime)
                 .technicianId(b.getTechnician() != null ? b.getTechnician().getId() : null)
                 .technicianName(b.getTechnician() != null ? b.getTechnician().getFullName() : null)
                 .baseAmount(b.getBaseAmount())
@@ -378,10 +498,26 @@ public class VehicleCareServiceImpl implements VehicleCareService {
                 .rating(b.getRating())
                 .reviewText(b.getReviewText())
                 .createdAt(b.getCreatedAt())
+                // Mobile UI compatibility helpers
+                .date(slotDate != null ? slotDate.toString() : "")
+                .startTime(startTime != null ? startTime.toString() : "")
+                .endTime(endTime != null ? endTime.toString() : "")
+                .location(b.getLocationNotes() != null ? b.getLocationNotes() : "")
+                .quotedPrice(b.getTotalAmount())
+                .paidAmount(b.getTotalAmount())
+                .addonNames(addonNames)
+                .canCancel(canCancel)
+                .canRate(canRate)
                 .build();
     }
 
     private VehicleCarePlanCatalogResponse toPlanCatalogResponse(VehicleCarePlanCatalog p) {
+        int savings = 0;
+        if (p.getOriginalPrice() != null && p.getOriginalPrice().compareTo(BigDecimal.ZERO) > 0 && p.getPrice() != null) {
+            savings = p.getOriginalPrice().subtract(p.getPrice())
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(p.getOriginalPrice(), 0, java.math.RoundingMode.HALF_UP).intValue();
+        }
         return VehicleCarePlanCatalogResponse.builder()
                 .id(p.getId())
                 .name(p.getName())
@@ -392,22 +528,37 @@ public class VehicleCareServiceImpl implements VehicleCareService {
                 .originalPrice(p.getOriginalPrice())
                 .vehicleTypes(p.getVehicleTypes() != null
                         ? Arrays.asList(p.getVehicleTypes().split(",")) : Collections.emptyList())
+                .creditsPerCycle(p.getWashesPerMonth())
+                .savingsPercent(Math.max(savings, 0))
+                .frequency(p.getFrequencyLabel() != null ? p.getFrequencyLabel() : "Monthly")
+                .emoji("🚗")
+                .popular(p.getSortOrder() == 1)
                 .build();
     }
 
     private VehicleCarePlanResponse toPlanResponse(VehicleCarePlan p) {
+        String planName = p.getPlanCatalog() != null ? p.getPlanCatalog().getName() : "Wash Plan";
+        String freq = p.getPlanCatalog() != null ? p.getPlanCatalog().getFrequencyLabel() : "Monthly";
+        String vNick = p.getVehicle() != null ? p.getVehicle().getNickname() : "";
+        String vPlate = p.getVehicle() != null ? p.getVehicle().getPlateNumber() : "";
+        String vDisplay = p.getVehicle() != null ? (p.getVehicle().getMake() + " " + p.getVehicle().getModel()) : "";
+
         return VehicleCarePlanResponse.builder()
                 .id(p.getId())
-                .planName(p.getPlanCatalog().getName())
-                .frequencyLabel(p.getPlanCatalog().getFrequencyLabel())
-                .vehicleNickname(p.getVehicle().getNickname())
-                .vehiclePlate(p.getVehicle().getPlateNumber())
+                .planName(planName)
+                .frequencyLabel(freq)
+                .vehicleNickname(vNick)
+                .vehiclePlate(vPlate)
                 .status(p.getStatus())
                 .creditsTotal(p.getCreditsTotal())
                 .creditsUsed(p.getCreditsUsed())
                 .creditsRemaining(p.getCreditsTotal() - p.getCreditsUsed())
                 .startDate(p.getStartDate())
                 .endDate(p.getEndDate())
+                .name(planName)
+                .vehicleDisplay(vDisplay)
+                .nextRenewalDate(p.getEndDate() != null ? p.getEndDate().toString() : "")
+                .frequency(freq)
                 .build();
     }
 

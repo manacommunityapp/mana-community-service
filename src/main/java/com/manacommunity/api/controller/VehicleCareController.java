@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/vehicle-care")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class VehicleCareController {
 
     private final LoggedInUserService loggedInUserService;
@@ -133,6 +135,15 @@ public class VehicleCareController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/bookings/{bookingId}/confirm-payment")
+    public ResponseEntity<VehicleCareBookingResponse> confirmPayment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long bookingId,
+            @RequestParam(required = false) String paymentReference) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(vehicleCareService.confirmPayment(user, bookingId, paymentReference));
+    }
+
     @PostMapping("/bookings/{bookingId}/review")
     public ResponseEntity<VehicleCareBookingResponse> submitReview(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -178,6 +189,7 @@ public class VehicleCareController {
     // ── Vendor / Technician ──────────────────────────────────────
 
     @GetMapping("/vendor/jobs")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'SUPER_ADMIN', 'TECHNICIAN', 'VENDOR') or hasAuthority('Manage Vehicle Care')")
     public ResponseEntity<List<VehicleCareBookingResponse>> getMyJobs(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "active") String filter) {
@@ -186,11 +198,36 @@ public class VehicleCareController {
     }
 
     @PatchMapping("/vendor/jobs/{bookingId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'SUPER_ADMIN', 'TECHNICIAN', 'VENDOR') or hasAuthority('Manage Vehicle Care')")
     public ResponseEntity<VehicleCareBookingResponse> updateJobStatus(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long bookingId,
             @RequestParam String status) {
         AppUser technician = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(vehicleCareService.updateJobStatus(technician, bookingId, status));
+    }
+
+    // ── Admin Endpoints ──────────────────────────────────────────
+
+    @GetMapping("/admin/bookings")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'SUPER_ADMIN') or hasAuthority('Manage Vehicle Care')")
+    public ResponseEntity<Page<VehicleCareBookingResponse>> getCommunityBookings(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        AppUser admin = loggedInUserService.resolve(principal);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        return ResponseEntity.ok(vehicleCareService.getCommunityBookings(admin.getCommunity().getId(), status, Math.max(page, 0), safeSize));
+    }
+
+    @PatchMapping("/admin/bookings/{bookingId}/assign")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'SUPER_ADMIN') or hasAuthority('Manage Vehicle Care')")
+    public ResponseEntity<VehicleCareBookingResponse> assignTechnician(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long bookingId,
+            @RequestParam Long technicianId) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(vehicleCareService.assignTechnician(bookingId, technicianId));
     }
 }

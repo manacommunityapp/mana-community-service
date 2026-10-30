@@ -53,4 +53,16 @@ public class VehicleCareBookingResponse {
     private String reviewText;
 
     private LocalDateTime createdAt;
+
+    // Mobile UI compatibility helpers
+    private String date;
+    private String startTime;
+    private String endTime;
+    private String location;
+    private BigDecimal quotedPrice;
+    private BigDecimal paidAmount;
+    private List<String> addonNames;
+    private boolean canCancel;
+    private boolean canRate;
 }
+
