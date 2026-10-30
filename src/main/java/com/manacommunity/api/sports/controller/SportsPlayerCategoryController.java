@@ -52,20 +52,17 @@ public class SportsPlayerCategoryController {
         log.info("Creating player category name={}", req.getName());
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        String userRole = loggedInUser.getRole();
         String typeValue;
-        switch (userRole) {
-            case ROLE_SUPER_ADMIN:
-                typeValue = "DEFAULT";
-                break;
-            case ROLE_ADMIN, ROLE_SPORTS_ADMIN:
-                typeValue = "USER";
-                break;
-            case ROLE_VENDOR:
-                typeValue = "VENDOR";
-                break;
-            default:
-                throw new com.manacommunity.api.exception.InvalidInputException("Unknown user role: " + userRole);
+        if (loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
+            typeValue = "DEFAULT";
+        } else if (loggedInUser.hasRole(ROLE_VENDOR)) {
+            typeValue = "VENDOR";
+        } else if (loggedInUser.hasRole(ROLE_ADMIN)) {
+            typeValue = "ADMIN";
+        } else if (loggedInUser.hasRole(ROLE_SPORTS_ADMIN)) {
+            typeValue = "SPORTS_ADMIN";
+        } else {
+            typeValue = "USER";
         }
         req.setType(typeValue);
 

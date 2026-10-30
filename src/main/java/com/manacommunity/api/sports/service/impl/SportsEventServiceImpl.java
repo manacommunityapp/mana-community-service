@@ -763,7 +763,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
-        boolean isOwner = reg.getUser() != null && reg.getUser().getId().equals(userId);
+        boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(userId))
+                || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(userId));
         if (!isOwner && !admin)
             throw new UnauthorizedActionException("You can only withdraw your own registration.");
 

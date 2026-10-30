@@ -19,4 +19,11 @@ public class VehicleCarePlanResponse {
     private int creditsRemaining;
     private LocalDate startDate;
     private LocalDate endDate;
+
+    // Mobile UI compatibility helpers
+    private String name;
+    private String vehicleDisplay;
+    private String nextRenewalDate;
+    private String frequency;
 }
+
