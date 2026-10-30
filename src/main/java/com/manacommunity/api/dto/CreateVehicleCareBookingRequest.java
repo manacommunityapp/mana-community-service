@@ -1,5 +1,6 @@
 package com.manacommunity.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import java.util.List;
@@ -19,7 +20,9 @@ public class CreateVehicleCareBookingRequest {
 
     private List<Long> addonIds;
 
+    @JsonAlias({"location", "location_notes"})
     private String locationNotes;
 
     private String idempotencyKey;
 }
+

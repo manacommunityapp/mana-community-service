@@ -1,5 +1,6 @@
 package com.manacommunity.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -13,6 +14,7 @@ public class CreateVehicleProfileRequest {
     private String nickname;
 
     @NotBlank
+    @JsonAlias({"type", "vehicle_type"})
     private String vehicleType;
 
     @NotBlank
@@ -30,5 +32,7 @@ public class CreateVehicleProfileRequest {
     @Size(max = 20)
     private String plateNumber;
 
+    @JsonAlias({"isDefault", "is_default"})
     private boolean setAsDefault;
 }
+

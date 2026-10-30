@@ -17,4 +17,12 @@ public class VehicleCarePlanCatalogResponse {
     private BigDecimal price;
     private BigDecimal originalPrice;
     private List<String> vehicleTypes;
+
+    // Mobile UI compatibility helpers
+    private int creditsPerCycle;
+    private int savingsPercent;
+    private String frequency;
+    private String emoji;
+    private boolean popular;
 }
+

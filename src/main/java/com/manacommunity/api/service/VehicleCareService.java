@@ -39,4 +39,12 @@ public interface VehicleCareService {
     // Vendor / Technician jobs
     List<VehicleCareBookingResponse> getMyJobs(AppUser technician, String filter);
     VehicleCareBookingResponse updateJobStatus(AppUser technician, Long bookingId, String newStatus);
+
+    // Payment & Lifecycle
+    VehicleCareBookingResponse confirmPayment(AppUser user, Long bookingId, String paymentReference);
+
+    // Admin & Dispatch
+    VehicleCareBookingResponse assignTechnician(Long bookingId, Long technicianId);
+    Page<VehicleCareBookingResponse> getCommunityBookings(Long communityId, String status, int page, int size);
 }
+
