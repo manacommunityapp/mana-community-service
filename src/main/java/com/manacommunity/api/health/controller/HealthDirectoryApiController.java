@@ -521,6 +521,33 @@ public class HealthDirectoryApiController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── Round 6: Condition Groups, Language Preference, Insurance Coverage ────
+
+    @GetMapping("/specialties/condition-groups")
+    public ResponseEntity<List<ConditionGroupDto>> getConditionGroups(
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        return ResponseEntity.ok(healthDomainService.getConditionGroups(tenantId));
+    }
+
+    @PostMapping("/appointments/language-preference")
+    public ResponseEntity<Void> setLanguagePreference(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody LanguagePreferenceRequest req,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        healthDomainService.setLanguagePreference(tenantId, userId, req);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/surgery/insurance-coverage/{procedureId}")
+    public ResponseEntity<InsuranceCoverageDto> getSurgeryInsuranceCoverage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String procedureId,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getSurgeryInsuranceCoverage(tenantId, userId, procedureId));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();

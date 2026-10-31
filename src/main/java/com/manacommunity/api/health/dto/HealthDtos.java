@@ -644,4 +644,37 @@ public class HealthDtos {
         private UUID patientId;
         private GoldPlanTier planTier;
     }
+
+    // ── Round 6: Condition Groups, Language, Insurance Coverage ───────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ConditionGroupDto {
+        private String id;
+        private ConditionGroup group;
+        private String label;
+        private String mappedSpecialty;
+        private Integer availableDoctors;
+        private String avgWaitMin;
+        private String startingPrice;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class LanguagePreferenceRequest {
+        private UUID patientId;
+        private ConsultLanguage preferredLanguage;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class InsuranceCoverageDto {
+        private String procedureId;
+        private String procedureName;
+        private InsuranceCoverageStatus status;
+        private String policyNumber;
+        private String insurer;
+        private Long sumInsured;
+        private Long amountUsed;
+        private Long amountAvailable;
+        private Boolean cashlessEligible;
+        private String notes;
+    }
 }

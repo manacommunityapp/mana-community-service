@@ -89,4 +89,14 @@ public class HealthEnums {
     public enum HospitalNetworkType {
         CASHLESS_TPA, REIMBURSEMENT_ONLY, BOTH
     }
+    public enum ConsultLanguage {
+        ENGLISH, HINDI, TELUGU, TAMIL, KANNADA, MARATHI, BENGALI, MALAYALAM, GUJARATI, PUNJABI, ODIA, ASSAMESE
+    }
+    public enum ConditionGroup {
+        COLD_COUGH_FEVER, SKIN_HAIR, STOMACH_ISSUES, BACK_JOINT_PAIN, CARDIAC, SEXUAL_HEALTH,
+        PREGNANCY, CONCEIVING, CHILD_INFANT, LAB_REPORT_ANALYSIS, WEIGHT_MANAGEMENT, NOT_SURE
+    }
+    public enum InsuranceCoverageStatus {
+        COVERED, PARTIALLY_COVERED, NOT_COVERED, VERIFICATION_PENDING
+    }
 }

@@ -908,4 +908,42 @@ public class HealthDomainService {
     public void cancelGoldMembership(Long tenantId, Long userId) {
         // Seed: no-op
     }
+
+    // ── Round 6: Condition Groups, Language Preference, Insurance Coverage ────
+
+    public List<ConditionGroupDto> getConditionGroups(Long tenantId) {
+        return List.of(
+            ConditionGroupDto.builder().id("cold-fever").group(ConditionGroup.COLD_COUGH_FEVER).label("Cold & Fever").mappedSpecialty("General Medicine").availableDoctors(12).avgWaitMin("10").startingPrice("₹199").build(),
+            ConditionGroupDto.builder().id("skin").group(ConditionGroup.SKIN_HAIR).label("Skin & Hair").mappedSpecialty("Dermatology").availableDoctors(8).avgWaitMin("12").startingPrice("₹299").build(),
+            ConditionGroupDto.builder().id("stomach").group(ConditionGroup.STOMACH_ISSUES).label("Stomach Issues").mappedSpecialty("Gastroenterology").availableDoctors(6).avgWaitMin("15").startingPrice("₹349").build(),
+            ConditionGroupDto.builder().id("back-joint").group(ConditionGroup.BACK_JOINT_PAIN).label("Back & Joints").mappedSpecialty("Orthopedics").availableDoctors(7).avgWaitMin("14").startingPrice("₹399").build(),
+            ConditionGroupDto.builder().id("cardiac").group(ConditionGroup.CARDIAC).label("Heart Issues").mappedSpecialty("Cardiology").availableDoctors(5).avgWaitMin("18").startingPrice("₹499").build(),
+            ConditionGroupDto.builder().id("sexual-health").group(ConditionGroup.SEXUAL_HEALTH).label("Sexual Health").mappedSpecialty("Sexual Health").availableDoctors(4).avgWaitMin("10").startingPrice("₹299").build(),
+            ConditionGroupDto.builder().id("pregnancy").group(ConditionGroup.PREGNANCY).label("Pregnancy").mappedSpecialty("Gynecology").availableDoctors(9).avgWaitMin("12").startingPrice("₹349").build(),
+            ConditionGroupDto.builder().id("conceiving").group(ConditionGroup.CONCEIVING).label("Conceiving").mappedSpecialty("Fertility").availableDoctors(3).avgWaitMin("20").startingPrice("₹499").build(),
+            ConditionGroupDto.builder().id("child").group(ConditionGroup.CHILD_INFANT).label("Child & Infant").mappedSpecialty("Pediatrics").availableDoctors(7).avgWaitMin("10").startingPrice("₹249").build(),
+            ConditionGroupDto.builder().id("lab-report").group(ConditionGroup.LAB_REPORT_ANALYSIS).label("Report Analysis").mappedSpecialty("Lab Report Analysis").availableDoctors(5).avgWaitMin("8").startingPrice("₹199").build(),
+            ConditionGroupDto.builder().id("weight").group(ConditionGroup.WEIGHT_MANAGEMENT).label("Weight Loss").mappedSpecialty("Nutrition").availableDoctors(4).avgWaitMin("12").startingPrice("₹299").build(),
+            ConditionGroupDto.builder().id("not-sure").group(ConditionGroup.NOT_SURE).label("I Don't Know").mappedSpecialty("General Medicine").availableDoctors(12).avgWaitMin("10").startingPrice("₹199").build()
+        );
+    }
+
+    public void setLanguagePreference(Long tenantId, Long userId, LanguagePreferenceRequest req) {
+        // Seed: no-op — preference stored in profile
+    }
+
+    public InsuranceCoverageDto getSurgeryInsuranceCoverage(Long tenantId, Long userId, String procedureId) {
+        return InsuranceCoverageDto.builder()
+            .procedureId(procedureId)
+            .procedureName("Surgery Procedure")
+            .status(InsuranceCoverageStatus.COVERED)
+            .policyNumber("SH-2026-" + String.format("%05d", Math.abs(procedureId.hashCode() % 99999)))
+            .insurer("Star Health Insurance")
+            .sumInsured(500000L)
+            .amountUsed(120000L)
+            .amountAvailable(380000L)
+            .cashlessEligible(true)
+            .notes("This procedure falls within your policy's scheduled surgery list. Cashless pre-authorization will be initiated.")
+            .build();
+    }
 }
