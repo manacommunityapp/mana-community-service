@@ -49,6 +49,14 @@ public final class SportsScheduleResponse {
             LocalDateTime registeredAt,
             Boolean captainNomination,
             Boolean captainConfirmation,
-            String proposedTeamName
+            String proposedTeamName,
+            String playerName,
+            String relation,
+            Long familyMemberId,
+            LocalDate eventDateStart,
+            LocalDate eventDateEnd,
+            String startTime,
+            String venueName,
+            String venueCity
     ) {}
 }

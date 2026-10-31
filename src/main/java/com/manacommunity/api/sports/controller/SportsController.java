@@ -16,12 +16,15 @@ import com.manacommunity.api.dto.SponsorDto;
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.dto.SportsEventResponse;
 import com.manacommunity.api.sports.dto.SportsRegistrationResponse;
+import com.manacommunity.api.sports.dto.SportsCommunityFamilyMemberResponse;
 import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
+import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.user.repository.FamilyMemberRepository;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.sports.repository.SportsPlayerCategoryRepository;
 import com.manacommunity.api.sports.repository.SportsMetaRepository;
@@ -66,6 +69,8 @@ public class SportsController {
     private final PermissionCheckService permissionCheckService;
     private final SportsEventCsvImportService csvImportService;
     private final SportsEventRegistrationRepository registrationRepo;
+    private final AppUserRepository appUserRepository;
+    private final FamilyMemberRepository familyMemberRepository;
 
     @GetMapping("/meta")
     public ResponseEntity<List<SportsMetaResponse>> getAllSports(
@@ -404,6 +409,27 @@ public class SportsController {
         return ResponseEntity.ok(events.stream().map(this::toEventResponse).toList());
     }
 
+    @GetMapping("/community-residents/{residentId}/family-members")
+    public ResponseEntity<List<SportsCommunityFamilyMemberResponse>> getCommunityResidentFamilyMembers(
+            @PathVariable Long residentId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        AppUser resident = appUserRepository.findById(residentId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", residentId));
+        Long residentCommunityId = resident.getCommunity() != null ? resident.getCommunity().getId() : null;
+        if (!ctx.superAdmin() && (ctx.communityId() == null || !ctx.communityId().equals(residentCommunityId))) {
+            throw new UnauthorizedActionException("You can only view family choices for residents in your community.");
+        }
+        List<SportsCommunityFamilyMemberResponse> members = familyMemberRepository
+                .findByUserIdOrderByCreatedAtAsc(residentId).stream()
+                .filter(member -> member.getStatus() == null || "ACTIVE".equalsIgnoreCase(member.getStatus()))
+                .map(member -> new SportsCommunityFamilyMemberResponse(
+                        member.getId(), member.getName(), member.getRelation(), member.getAge(), member.getGender()))
+                .toList();
+        return ResponseEntity.ok(members);
+    }
+
     @PostMapping("/register")
     public ResponseEntity<SportsRegistrationResponse> register(
             @Valid @RequestBody RegistrationRequest req,
@@ -411,8 +437,22 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         log.info("Registering user for event eventId={}", req.getEventId());
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (req.getFamilyMemberId() != null && familyMemberRepository
+                .findByIdAndUserId(req.getFamilyMemberId(), ctx.userId()).isEmpty()) {
+            throw new UnauthorizedActionException("Use Register Others to register a different resident's family member.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
+    }
+
+    @PostMapping("/register-others")
+    public ResponseEntity<SportsRegistrationResponse> registerOthers(
+            @Valid @RequestBody RegistrationRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(toRegistrationResponse(eventService.registerOthers(req, ctx.userId())));
     }
 
     @PostMapping("/register-team")

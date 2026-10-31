@@ -15,6 +15,7 @@ public class RegistrationRequest {
     String email;
     String relation;
     String flatNumber;
+    Long participantUserId;
     Integer age;
     String role;
     Long partnerUserId;
