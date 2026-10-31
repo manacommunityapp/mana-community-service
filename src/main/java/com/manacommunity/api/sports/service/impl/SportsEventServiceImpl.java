@@ -245,6 +245,46 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Transactional
+    public SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId) {
+        if (req.getParticipantUserId() == null) {
+            throw new InvalidInputException("Select a community resident before registering for someone else.");
+        }
+        AppUser requester = userRepo.findById(requesterUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", requesterUserId));
+        AppUser participant = userRepo.findById(req.getParticipantUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", req.getParticipantUserId()));
+        SportsEvent event = eventRepo.findById(req.getEventId())
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
+
+        Long requesterCommunityId = requester.getCommunity() != null ? requester.getCommunity().getId() : null;
+        Long participantCommunityId = participant.getCommunity() != null ? participant.getCommunity().getId() : null;
+        Long eventCommunityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+        if (requesterCommunityId == null || !requesterCommunityId.equals(participantCommunityId)
+                || (eventCommunityId != null && !eventCommunityId.equals(participantCommunityId))) {
+            throw new UnauthorizedActionException("You can only register residents from the event's community.");
+        }
+
+        req.setEmail(requester.getEmail());
+        if (req.getFamilyMemberId() != null) {
+            familyMemberRepository.findByIdAndUserId(req.getFamilyMemberId(), participant.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
+        } else {
+            req.setPlayerName(participant.getFullName());
+            req.setFlatNumber(participant.getFlatNo());
+            req.setGender(participant.getGender());
+            if (participant.getDateOfBirth() != null) {
+                req.setDateOfBirth(participant.getDateOfBirth().toString());
+                req.setAge(Period.between(participant.getDateOfBirth(), LocalDate.now()).getYears());
+                if (req.getAge() < 18 && regRepo.existsByUserIdAndAgeGreaterThanEqual(participant.getId(), 18)) {
+                    throw new InvalidInputException("Age conflict detected: Historical records show prior participation in Adult categories. To register your child/family member, please add them via Family Members.");
+                }
+            }
+            req.setRelation("SELF");
+        }
+        return registerUser(req, participant.getId());
+    }
+
+    @Transactional
     public SportsEventRegistration registerUser(RegistrationRequest req, Long userId) {
         SportsEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
