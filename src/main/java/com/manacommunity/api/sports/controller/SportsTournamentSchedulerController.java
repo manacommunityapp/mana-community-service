@@ -43,6 +43,7 @@ public class SportsTournamentSchedulerController {
     private final SportsEventRepository      eventRepo;
     private final LoggedInUserService        loggedInUserService;
     private final com.manacommunity.api.sports.repository.SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsTournamentRepository tournamentRepo;
     private final com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator playoffGenerator;
     private final com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
 
@@ -173,20 +174,58 @@ public class SportsTournamentSchedulerController {
                 if (e.getVenue().getMapLink() != null) venueStr += " (" + e.getVenue().getMapLink() + ")";
             }
 
-            return Map.<String, Object>ofEntries(
-                Map.entry("id", e.getId()),
-                Map.entry("name", e.getName() != null ? e.getName() : ""),
-                Map.entry("sportId", e.getSport() != null ? e.getSport().getId() : 0),
-                Map.entry("sportName", e.getSport() != null ? e.getSport().getName() : ""),
-                Map.entry("communityId", e.getCommunity() != null ? e.getCommunity().getId() : 0),
-                Map.entry("communityName", e.getCommunity() != null ? e.getCommunity().getName() : ""),
-                Map.entry("eventDateStart", e.getEventDateStart() != null ? e.getEventDateStart().toString() : ""),
-                Map.entry("eventDateEnd", e.getEventDateEnd() != null ? e.getEventDateEnd().toString() : ""),
-                Map.entry("status", e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : ""),
-                Map.entry("totalTeams", totalTeams),
-                Map.entry("venueId", e.getVenue() != null ? e.getVenue().getId() : 0),
-                Map.entry("venueName", venueStr)
-            );
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", e.getId());
+            map.put("name", e.getName() != null ? e.getName() : "");
+            map.put("tournamentId", e.getTournament() != null ? e.getTournament().getId() : null);
+            map.put("tournamentName", e.getTournament() != null && e.getTournament().getName() != null ? e.getTournament().getName() : "");
+            map.put("sportId", e.getSport() != null ? e.getSport().getId() : 0L);
+            map.put("sportName", e.getSport() != null ? e.getSport().getName() : "");
+            map.put("communityId", e.getCommunity() != null ? e.getCommunity().getId() : 0L);
+            map.put("communityName", e.getCommunity() != null ? e.getCommunity().getName() : "");
+            map.put("eventDateStart", e.getEventDateStart() != null ? e.getEventDateStart().toString() : "");
+            map.put("eventDateEnd", e.getEventDateEnd() != null ? e.getEventDateEnd().toString() : "");
+            map.put("status", e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : "");
+            map.put("totalTeams", totalTeams);
+            map.put("venueId", e.getVenue() != null ? e.getVenue().getId() : 0L);
+            map.put("venueName", venueStr);
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/tournament/tournaments
+     * Returns all tournaments for the current community for dropdown selection.
+     */
+    @GetMapping("/tournaments")
+    public ResponseEntity<List<Map<String, Object>>> getTournamentsForDropdown(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (communityId == null && principal != null) {
+            AppUser currentUser = loggedInUserService.resolve(principal);
+            if (currentUser != null && currentUser.getCommunity() != null) {
+                communityId = currentUser.getCommunity().getId();
+            }
+        }
+
+        List<SportsTournament> tournaments;
+        if (communityId != null) {
+            tournaments = tournamentRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
+        } else {
+            tournaments = Collections.emptyList();
+        }
+
+        List<Map<String, Object>> result = tournaments.stream().map(t -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", t.getId());
+            map.put("name", t.getName() != null ? t.getName() : "");
+            map.put("eventDateStart", t.getEventDateStart() != null ? t.getEventDateStart().toString() : "");
+            map.put("eventDateEnd", t.getEventDateEnd() != null ? t.getEventDateEnd().toString() : "");
+            map.put("maxParticipants", t.getMaxParticipants() != null ? t.getMaxParticipants() : 0);
+            map.put("status", t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : "");
+            return map;
         }).toList();
 
         return ResponseEntity.ok(result);
