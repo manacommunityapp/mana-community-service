@@ -29,6 +29,9 @@ public final class QuoteFieldValidator {
         ALLOWED.put(Category.HOME, Set.of("pincode", "propertyType", "sumInsuredWanted"));
         ALLOWED.put(Category.TRAVEL, Set.of("destination", "startDate", "endDate", "travellers"));
         ALLOWED.put(Category.PERSONAL_ACCIDENT, Set.of("age", "coverWanted"));
+        ALLOWED.put(Category.SPORTS_PA, Set.of("age", "sport", "coverWanted"));
+        ALLOWED.put(Category.SPORTS_EVENT_LIABILITY, Set.of("eventName", "expectedParticipants", "eventDate", "coverWanted"));
+        ALLOWED.put(Category.SPORTS_TEAM_GROUP, Set.of("teamName", "memberCount", "sport", "coverWanted"));
         ALLOWED.put(Category.OTHER, Set.of());
     }
 
@@ -86,6 +89,28 @@ public final class QuoteFieldValidator {
             }
             case PERSONAL_ACCIDENT -> {
                 if (!isInt(f.get("age"), 18, 70)) errors.put("age", "Age must be 18 to 70");
+            }
+            case SPORTS_PA -> {
+                if (!isInt(f.get("age"), 5, 70)) errors.put("age", "Age must be 5 to 70");
+                if (!(f.get("sport") instanceof String s) || s.isBlank() || s.length() > 60)
+                    errors.put("sport", "Select a sport");
+            }
+            case SPORTS_EVENT_LIABILITY -> {
+                if (!(f.get("eventName") instanceof String s) || s.isBlank() || s.length() > 200)
+                    errors.put("eventName", "Enter the event name");
+                if (!isInt(f.get("expectedParticipants"), 1, 10_000))
+                    errors.put("expectedParticipants", "Expected participants must be 1 to 10,000");
+                LocalDate evDate = date(f.get("eventDate"));
+                if (evDate == null) errors.put("eventDate", "Enter a valid event date");
+                else if (evDate.isBefore(today)) errors.put("eventDate", "Event date cannot be in the past");
+            }
+            case SPORTS_TEAM_GROUP -> {
+                if (!(f.get("teamName") instanceof String s) || s.isBlank() || s.length() > 200)
+                    errors.put("teamName", "Enter the team or club name");
+                if (!isInt(f.get("memberCount"), 2, 500))
+                    errors.put("memberCount", "Members must be 2 to 500");
+                if (!(f.get("sport") instanceof String sp) || sp.isBlank() || sp.length() > 60)
+                    errors.put("sport", "Select a sport");
             }
             default -> errors.put("category", "Quotes are not available for this category");
         }
