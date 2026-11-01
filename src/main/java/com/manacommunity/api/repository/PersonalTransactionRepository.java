@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+@org.springframework.stereotype.Repository("legacyPersonalTransactionRepository")
 public interface PersonalTransactionRepository extends JpaRepository<PersonalTransaction, Long> {
 
     List<PersonalTransaction> findByUserIdAndCommunityIdOrderByDateDesc(Long userId, Long communityId);

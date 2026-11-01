@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+@org.springframework.stereotype.Repository("legacyPersonalBudgetRepository")
 public interface PersonalBudgetRepository extends JpaRepository<PersonalBudget, Long> {
 
     List<PersonalBudget> findByUserIdAndMonthAndYear(Long userId, Integer month, Integer year);

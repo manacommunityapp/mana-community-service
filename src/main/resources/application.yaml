@@ -9,6 +9,8 @@ logging:
 spring:
   application:
     name: mana-community-service
+  main:
+    allow-bean-definition-overriding: true
 
   # ── Flyway Database Migrations ─────────────────────────────────────────
   flyway:

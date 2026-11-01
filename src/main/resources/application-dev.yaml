@@ -49,6 +49,7 @@ server:
 app:
   #insert-sample-data: ${APP_INSERT_SAMPLE_DATA:false}
   insert-sample-data: false
+  insert-sports-sample-data: ${APP_INSERT_SPORTS_SAMPLE_DATA:false}
   # AI/Ollama integration — temporarily OFF (no Ollama server in the dev env).
   ai:
     enabled: false
