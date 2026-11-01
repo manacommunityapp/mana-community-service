@@ -30,5 +30,21 @@ public interface SportsPlayerCategoryRepository extends JpaRepository<SportsPlay
      */
     @Query("SELECT c FROM SportsPlayerCategory c WHERE c.type = 'DEFAULT' OR c.community.id = :communityId")
     List<SportsPlayerCategory> findDefaultAndCommunityCategories(@Param("communityId") Long communityId);
+
+    /**
+     * Check if a category with the same name exists within the relevant scope (DEFAULT or community),
+     * optionally excluding an existing category ID during updates.
+     */
+    @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END FROM SportsPlayerCategory c " +
+           "WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(:name)) " +
+           "AND (" +
+           "  (:communityId IS NULL AND (c.type = 'DEFAULT' OR c.community IS NULL)) " +
+           "  OR (:communityId IS NOT NULL AND (c.type = 'DEFAULT' OR c.community.id = :communityId))" +
+           ") " +
+           "AND (:excludeId IS NULL OR c.id <> :excludeId)")
+    boolean existsDuplicateName(@Param("name") String name,
+                                @Param("communityId") Long communityId,
+                                @Param("excludeId") Long excludeId);
 }
+
 

@@ -3,6 +3,7 @@ import com.manacommunity.api.model.Community;
 
 
 import com.manacommunity.api.sports.dto.SportsPlayerCategoryRequest;
+import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.sports.model.SportsPlayerCategory;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -43,6 +44,12 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
     @Override
     @Transactional
     public SportsPlayerCategory createCategory(SportsPlayerCategoryRequest req) {
+        String trimmedName = req.getName() != null ? req.getName().trim() : "";
+        req.setName(trimmedName);
+        if (categoryRepo.existsDuplicateName(trimmedName, req.getCommunityId(), null)) {
+            throw new DuplicateResourceException("PlayerCategory", "name", trimmedName);
+        }
+
         log.info("Creating player category name={} type={} communityId={}", req.getName(), req.getCategoryType(), req.getCommunityId());
         SportsPlayerCategory cat = SportsPlayerCategory.builder()
                 .name(req.getName())
@@ -51,7 +58,7 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
                 .minAge(req.getMinAge())
                 .maxAge(req.getMaxAge())
                 .gender(req.getGender())
-                .type(req.getType())
+                .type(req.getType() != null ? req.getType() : "DEFAULT")
                 .build();
         if (req.getCommunityId() != null) {
             cat.setCommunity(communityRepo.findById(req.getCommunityId())
@@ -63,9 +70,19 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
     @Override
     @Transactional
     public SportsPlayerCategory updateCategory(Long id, SportsPlayerCategoryRequest req) {
-        log.info("Updating player category id={} name={}", id, req.getName());
         SportsPlayerCategory cat = categoryRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsPlayerCategory", id));
+
+        String trimmedName = req.getName() != null ? req.getName().trim() : "";
+        req.setName(trimmedName);
+        Long commId = req.getCommunityId() != null ? req.getCommunityId()
+                : (cat.getCommunity() != null ? cat.getCommunity().getId() : null);
+
+        if (categoryRepo.existsDuplicateName(trimmedName, commId, id)) {
+            throw new DuplicateResourceException("PlayerCategory", "name", trimmedName);
+        }
+
+        log.info("Updating player category id={} name={}", id, req.getName());
         cat.setName(req.getName());
         cat.setCategory_type(req.getCategoryType());
         cat.setDescription(req.getDescription());
@@ -78,7 +95,7 @@ public class SportsPlayerCategoryServiceImpl implements SportsPlayerCategoryServ
         if (req.getCommunityId() != null) {
             cat.setCommunity(communityRepo.findById(req.getCommunityId())
                     .orElseThrow(() -> new ResourceNotFoundException("Community", req.getCommunityId())));
-        } else {
+        } else if ("DEFAULT".equalsIgnoreCase(req.getType())) {
             cat.setCommunity(null);
         }
         return categoryRepo.save(cat);

@@ -51,6 +51,60 @@ public class SportsTournamentSchedulerService {
     private final SportsTournamentMatchRepository   matchRepo;
     private final SportsGroupTeamStandingRepository standingRepo;
     private final SportsVenueRepository             venueRepo;
+    private final SportsAuctionTeamRepository       teamRepo;
+    private final com.manacommunity.api.sports.repository.SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsEventRepository             eventRepo;
+
+    public List<Map<String, Object>> getConfigTeams(Long configId) {
+        if (configId == null) {
+            return java.util.Collections.emptyList();
+        }
+        SportsTournamentConfig config = configRepo.findById(configId)
+                .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+                .orElse(null);
+
+        List<SportsAuctionTeam> teams = java.util.Collections.emptyList();
+        if (config != null) {
+            teams = teamRepo.findByConfigIdOrderByTeamName(config.getId());
+        }
+
+        if (teams.isEmpty()) {
+            Long eventId = (config != null && config.getEvent() != null) ? config.getEvent().getId() : configId;
+            teams = teamRepo.findByEventIdOrderByTeamName(eventId);
+            if (teams.isEmpty()) {
+                var ac = auctionConfigRepo.findByEventId(eventId).orElse(null);
+                if (ac != null) {
+                    teams = teamRepo.findByConfigIdOrderByTeamName(ac.getId());
+                }
+            }
+        }
+
+        java.util.Map<Long, String> teamGroupMap = new java.util.HashMap<>();
+        if (config != null) {
+            List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+            for (SportsTournamentGroup g : groups) {
+                List<SportsGroupTeamStanding> standings = standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(g.getId());
+                for (SportsGroupTeamStanding s : standings) {
+                    if (s.getTeam() != null) {
+                        teamGroupMap.put(s.getTeam().getId(), g.getGroupName());
+                    }
+                }
+            }
+        }
+
+        return teams.stream().map(t -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", t.getId());
+            map.put("teamId", t.getId());
+            map.put("name", t.getTeamName());
+            map.put("teamName", t.getTeamName());
+            map.put("color", t.getColorHex() != null ? t.getColorHex() : "#3b82f6");
+            map.put("colorHex", t.getColorHex() != null ? t.getColorHex() : "#3b82f6");
+            map.put("group", teamGroupMap.getOrDefault(t.getId(), "UNASSIGNED"));
+            map.put("ownerName", t.getOwnerName() != null ? t.getOwnerName() : "");
+            return map;
+        }).toList();
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // ENTRY POINT — builds config + schedule from request
@@ -79,8 +133,41 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsTournamentScheduleResponse getSchedule(Long configId) {
+        if (configId == null) {
+            return new SportsTournamentScheduleResponse(0L, "Tournament", "ROUND_ROBIN", 0, 0, 0, java.time.LocalDate.now(), java.time.LocalDate.now(), List.of(), List.of(), List.of());
+        }
         SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+                .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+                .orElse(null);
+
+        if (config == null) {
+            var eventOpt = eventRepo.findById(configId);
+            if (eventOpt.isPresent()) {
+                var event = eventOpt.get();
+                return new SportsTournamentScheduleResponse(
+                    configId,
+                    event.getName() != null ? event.getName() : "Event #" + configId,
+                    "ROUND_ROBIN",
+                    0, 0, 0,
+                    event.getEventDateStart() != null ? event.getEventDateStart() : java.time.LocalDate.now(),
+                    event.getEventDateEnd() != null ? event.getEventDateEnd() : java.time.LocalDate.now(),
+                    List.of(),
+                    List.of(),
+                    List.of()
+                );
+            }
+            return new SportsTournamentScheduleResponse(
+                configId,
+                "Tournament #" + configId,
+                "ROUND_ROBIN",
+                0, 0, 0,
+                java.time.LocalDate.now(),
+                java.time.LocalDate.now(),
+                List.of(),
+                List.of(),
+                List.of()
+            );
+        }
         return buildResponse(config);
     }
 
@@ -147,8 +234,12 @@ public class SportsTournamentSchedulerService {
         matchPersistence.assignTeamsToGroups(configId, assignments);
     }
 
-    public void scheduleManualMatch(Long configId, SportsMatchScheduleRequest req) {
-        matchPersistence.scheduleManualMatch(configId, req);
+    public SportsTournamentMatch scheduleManualMatch(Long configId, SportsMatchScheduleRequest req) {
+        return matchPersistence.scheduleManualMatch(configId, req);
+    }
+
+    public void deleteMatch(Long matchId) {
+        matchPersistence.deleteMatch(matchId);
     }
 
     /**

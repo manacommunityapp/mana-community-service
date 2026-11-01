@@ -27,8 +27,8 @@ public class SportsPlayerCategory {
     private String name;
 
     @JsonProperty("categoryType")
-    @Column(nullable = false, unique = false, length = 10)
-    private String category_type; // MENS, WOMENS, BOYS, GIRLS, KIDS, SENIORS
+    @Column(nullable = false, unique = false, length = 50)
+    private String category_type; // MENS, WOMENS, BOYS, GIRLS, KIDS, SENIORS, MIXED, etc.
 
     @Column(length = 200)
     private String description;
@@ -39,11 +39,11 @@ public class SportsPlayerCategory {
     @Column(nullable = false,name = "max_age")
     private Integer maxAge;
 
-    @Column(nullable = false,unique = false, length = 10)
+    @Column(nullable = false,unique = false, length = 20)
     private String gender; // MALE, FEMALE, ALL
 
-    @Column(nullable = false,unique = false, length = 10)
-    private String type; // DEFAULT, USER, VENDOR
+    @Column(nullable = false,unique = false, length = 50)
+    private String type; // DEFAULT, USER, VENDOR, ADMIN, SPORTS_ADMIN
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)

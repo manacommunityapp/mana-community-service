@@ -43,6 +43,7 @@ public class SportsTournamentSchedulerController {
     private final SportsEventRepository      eventRepo;
     private final LoggedInUserService        loggedInUserService;
     private final com.manacommunity.api.sports.repository.SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsTournamentRepository tournamentRepo;
     private final com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator playoffGenerator;
     private final com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
 
@@ -87,7 +88,33 @@ public class SportsTournamentSchedulerController {
     @GetMapping("/config/{id}")
     public ResponseEntity<SportsTournamentConfigResponse> getConfig(@PathVariable Long id) {
         SportsTournamentConfig config = configRepo.findById(id)
-                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsTournamentConfig", id));
+                .or(() -> configRepo.findByEventId(id).stream().findFirst())
+                .orElse(null);
+        if (config == null) {
+            SportsEvent event = eventRepo.findById(id).orElse(null);
+            if (event != null) {
+                SportsTournamentConfig draft = SportsTournamentConfig.builder()
+                    .id(event.getId())
+                    .tournamentName(event.getName() != null ? event.getName() : "Event #" + id)
+                    .sport(event.getSport())
+                    .community(event.getCommunity())
+                    .event(event)
+                    .tournamentType(com.manacommunity.api.sports.model.TournamentType.ROUND_ROBIN)
+                    .totalTeams(8)
+                    .numberOfGroups(2)
+                    .startDate(event.getEventDateStart() != null ? event.getEventDateStart() : java.time.LocalDate.now())
+                    .endDate(event.getEventDateEnd() != null ? event.getEventDateEnd() : java.time.LocalDate.now())
+                    .status(SportsTournamentConfig.TournamentStatus.DRAFT)
+                    .matchDurationMinutes(60)
+                    .pointsForWin(2)
+                    .pointsForDraw(1)
+                    .pointsForLoss(0)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build();
+                return ResponseEntity.ok(schedulerService.toConfigResponse(draft));
+            }
+            throw new com.manacommunity.api.exception.ResourceNotFoundException("SportsTournamentConfig", id);
+        }
         return ResponseEntity.ok(schedulerService.toConfigResponse(config));
     }
 
@@ -101,6 +128,16 @@ public class SportsTournamentSchedulerController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(schedulerService.getConfigsByCommunity(communityId));
+    }
+
+    /**
+     * GET /api/tournament/{configId}/teams
+     * Returns all participating teams for a tournament config.
+     */
+    @GetMapping("/{configId}/teams")
+    public ResponseEntity<List<Map<String, Object>>> getConfigTeams(@PathVariable Long configId) {
+        log.info("Fetching teams for tournament configId={}", configId);
+        return ResponseEntity.ok(schedulerService.getConfigTeams(configId));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -137,20 +174,58 @@ public class SportsTournamentSchedulerController {
                 if (e.getVenue().getMapLink() != null) venueStr += " (" + e.getVenue().getMapLink() + ")";
             }
 
-            return Map.<String, Object>ofEntries(
-                Map.entry("id", e.getId()),
-                Map.entry("name", e.getName() != null ? e.getName() : ""),
-                Map.entry("sportId", e.getSport() != null ? e.getSport().getId() : 0),
-                Map.entry("sportName", e.getSport() != null ? e.getSport().getName() : ""),
-                Map.entry("communityId", e.getCommunity() != null ? e.getCommunity().getId() : 0),
-                Map.entry("communityName", e.getCommunity() != null ? e.getCommunity().getName() : ""),
-                Map.entry("eventDateStart", e.getEventDateStart() != null ? e.getEventDateStart().toString() : ""),
-                Map.entry("eventDateEnd", e.getEventDateEnd() != null ? e.getEventDateEnd().toString() : ""),
-                Map.entry("status", e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : ""),
-                Map.entry("totalTeams", totalTeams),
-                Map.entry("venueId", e.getVenue() != null ? e.getVenue().getId() : 0),
-                Map.entry("venueName", venueStr)
-            );
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", e.getId());
+            map.put("name", e.getName() != null ? e.getName() : "");
+            map.put("tournamentId", e.getTournament() != null ? e.getTournament().getId() : null);
+            map.put("tournamentName", e.getTournament() != null && e.getTournament().getName() != null ? e.getTournament().getName() : "");
+            map.put("sportId", e.getSport() != null ? e.getSport().getId() : 0L);
+            map.put("sportName", e.getSport() != null ? e.getSport().getName() : "");
+            map.put("communityId", e.getCommunity() != null ? e.getCommunity().getId() : 0L);
+            map.put("communityName", e.getCommunity() != null ? e.getCommunity().getName() : "");
+            map.put("eventDateStart", e.getEventDateStart() != null ? e.getEventDateStart().toString() : "");
+            map.put("eventDateEnd", e.getEventDateEnd() != null ? e.getEventDateEnd().toString() : "");
+            map.put("status", e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : "");
+            map.put("totalTeams", totalTeams);
+            map.put("venueId", e.getVenue() != null ? e.getVenue().getId() : 0L);
+            map.put("venueName", venueStr);
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/tournament/tournaments
+     * Returns all tournaments for the current community for dropdown selection.
+     */
+    @GetMapping("/tournaments")
+    public ResponseEntity<List<Map<String, Object>>> getTournamentsForDropdown(
+            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (communityId == null && principal != null) {
+            AppUser currentUser = loggedInUserService.resolve(principal);
+            if (currentUser != null && currentUser.getCommunity() != null) {
+                communityId = currentUser.getCommunity().getId();
+            }
+        }
+
+        List<SportsTournament> tournaments;
+        if (communityId != null) {
+            tournaments = tournamentRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
+        } else {
+            tournaments = Collections.emptyList();
+        }
+
+        List<Map<String, Object>> result = tournaments.stream().map(t -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", t.getId());
+            map.put("name", t.getName() != null ? t.getName() : "");
+            map.put("eventDateStart", t.getEventDateStart() != null ? t.getEventDateStart().toString() : "");
+            map.put("eventDateEnd", t.getEventDateEnd() != null ? t.getEventDateEnd().toString() : "");
+            map.put("maxParticipants", t.getMaxParticipants() != null ? t.getMaxParticipants() : 0);
+            map.put("status", t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : "");
+            return map;
         }).toList();
 
         return ResponseEntity.ok(result);
@@ -303,12 +378,24 @@ public class SportsTournamentSchedulerController {
      */
     @PostMapping("/{configId}/manual/matches")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<String> scheduleManualMatch(
+    public ResponseEntity<SportsMatchResponse> scheduleManualMatch(
             @PathVariable Long configId,
             @Valid @RequestBody SportsMatchScheduleRequest req) {
         log.info("Scheduling manual match configId={} stage={}", configId, req.stage());
-        schedulerService.scheduleManualMatch(configId, req);
-        return ResponseEntity.ok("Match scheduled successfully for " + req.stage());
+        SportsTournamentMatch match = schedulerService.scheduleManualMatch(configId, req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(schedulerService.toMatchResponse(match));
+    }
+
+    /**
+     * DELETE /api/tournament/match/{matchId}
+     * Deletes a single match.
+     */
+    @DeleteMapping("/match/{matchId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteMatch(@PathVariable Long matchId) {
+        log.info("Deleting match matchId={}", matchId);
+        schedulerService.deleteMatch(matchId);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -317,7 +404,11 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping("/{configId}/matches")
     public ResponseEntity<List<SportsMatchResponse>> getMatches(@PathVariable Long configId) {
-        List<SportsMatchResponse> matches = matchRepo.findByConfigId(configId)
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+            .orElse(null);
+        Long targetId = config != null ? config.getId() : configId;
+        List<SportsMatchResponse> matches = matchRepo.findByConfigIdOrderByScheduledAt(targetId)
             .stream().map(schedulerService::toMatchResponse).toList();
         return ResponseEntity.ok(matches);
     }
