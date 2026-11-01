@@ -150,6 +150,7 @@ public class SportsTournamentSchedulerController {
      * to populate the "Event" dropdown in the tournament config form.
      */
     @GetMapping("/events")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getEventsForDropdown(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -197,6 +198,23 @@ public class SportsTournamentSchedulerController {
                 catName = e.getCategories().iterator().next().getName();
             }
             map.put("categoryName", catName);
+
+            List<String> formats = new java.util.ArrayList<>();
+            try {
+                if (e.getFormat() != null && !e.getFormat().isEmpty()) {
+                    formats = e.getFormat().stream()
+                            .filter(java.util.Objects::nonNull)
+                            .map(Enum::name)
+                            .collect(java.util.stream.Collectors.toList());
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to extract format for event {}: {}", e.getId(), ex.getMessage());
+            }
+            map.put("format", formats);
+            map.put("formats", formats);
+            map.put("minPlayers", e.getMinPlayers() != null ? e.getMinPlayers() : 1);
+            map.put("maxPlayers", e.getMaxPlayers() != null ? e.getMaxPlayers() : 1);
+
             return map;
         }).toList();
 
