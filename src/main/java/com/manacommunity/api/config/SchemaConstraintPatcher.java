@@ -109,6 +109,19 @@ public class SchemaConstraintPatcher {
                         END $$;
                         """);
                 log.info("sports_tournament_match status constraint patched to support DRAFT.");
+
+                // Widen sports_player_category columns so 'SPORTS_ADMIN' (12 chars), 'MIXED_DOUBLES' (13 chars) fit without value too long
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.sports_player_category') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_player_category ALTER COLUMN type TYPE varchar(50);
+                            ALTER TABLE manacommunity.sports_player_category ALTER COLUMN category_type TYPE varchar(50);
+                            ALTER TABLE manacommunity.sports_player_category ALTER COLUMN gender TYPE varchar(20);
+                          END IF;
+                        END $$;
+                        """);
+                log.info("sports_player_category column lengths widened successfully.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }

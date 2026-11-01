@@ -65,6 +65,9 @@ public class SportsPlayerCategoryController {
             typeValue = "USER";
         }
         req.setType(typeValue);
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN) && req.getCommunityId() == null && loggedInUser.getCommunity() != null) {
+            req.setCommunityId(loggedInUser.getCommunity().getId());
+        }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.createCategory(req));
     }
@@ -76,6 +79,10 @@ public class SportsPlayerCategoryController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         log.info("Updating player category id={}", id);
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN) && req.getCommunityId() == null && loggedInUser.getCommunity() != null) {
+            req.setCommunityId(loggedInUser.getCommunity().getId());
+        }
         return ResponseEntity.ok(categoryService.updateCategory(id, req));
     }
 
