@@ -609,4 +609,29 @@ public class HealthDirectoryApiController {
         Long userId = (principal != null) ? principal.getId() : 1L;
         return ResponseEntity.ok(healthDomainService.getWalkInDoctors(tenantId, userId, specialty));
     }
+
+    // ── Round 8 Endpoints ─────────────────────────────────────────────────────
+
+    @GetMapping("/doctors")
+    public ResponseEntity<List<DoctorDto>> getDoctors(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getDoctors(tenantId, userId));
+    }
+
+    @GetMapping("/radiology/centers")
+    public ResponseEntity<List<RadiologyCenterDto>> getRadiologyCenters(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String modality) {
+        return ResponseEntity.ok(healthDomainService.getRadiologyCenters(tenantId, modality));
+    }
+
+    @GetMapping("/blood-bank/availability")
+    public ResponseEntity<List<BloodBankAvailabilityDto>> getBloodBankAvailability(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        return ResponseEntity.ok(healthDomainService.getBloodBankAvailability(tenantId));
+    }
 }

@@ -739,4 +739,46 @@ public class HealthDtos {
         private String specialty;
         private String department;
     }
+
+    // ── Round 8 DTOs ──────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DoctorDto {
+        private Long id;
+        private String name;
+        private String specialty;
+        private Integer experienceYears;
+        private BigDecimal rating;
+        private Long consultationFee;
+        private String qualifications;
+        private Boolean verifiedBadge;
+        private Integer verifiedCommunityConsultations;
+        private Boolean isOpenNow;
+        private Boolean walkInAvailable;
+        private List<String> availableSlots;
+        private String clinicName;
+        private String location;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class RadiologyCenterDto {
+        private String id;
+        private String name;
+        private String address;
+        private Double distanceKm;
+        private List<String> accreditation;
+        private List<String> availableModalities;
+        private String reportTurnaround;
+        private Double rating;
+        private Boolean homeService;
+        private Boolean openNow;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class BloodBankAvailabilityDto {
+        private String bloodType;
+        private Integer units;
+        private String status;
+        private String centerName;
+    }
 }

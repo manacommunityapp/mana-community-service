@@ -1002,9 +1002,62 @@ public class HealthDomainService {
             .build();
     }
 
+    // ── Round 8 Methods ───────────────────────────────────────────────────────
+
+    public List<DoctorDto> getDoctors(Long tenantId, Long userId) {
+        return List.of(
+            DoctorDto.builder().id(1L).name("Dr. Ramesh Mehta").specialty("General Physician").experienceYears(18)
+                .rating(BigDecimal.valueOf(4.8)).consultationFee(499L).qualifications("MBBS, MD")
+                .verifiedBadge(true).verifiedCommunityConsultations(312).isOpenNow(true).walkInAvailable(true)
+                .availableSlots(List.of("10:00 AM", "11:30 AM", "3:00 PM")).clinicName("Mana Health Centre").location("Clubhouse, Ground Floor").build(),
+            DoctorDto.builder().id(2L).name("Dr. Shalini Verma").specialty("Paediatrician").experienceYears(12)
+                .rating(BigDecimal.valueOf(4.9)).consultationFee(699L).qualifications("MBBS, MD Paediatrics")
+                .verifiedBadge(true).verifiedCommunityConsultations(198).isOpenNow(true).walkInAvailable(false)
+                .availableSlots(List.of("9:00 AM", "10:30 AM", "4:00 PM")).clinicName("Mana Paediatric Clinic").location("Block A, Level 1").build(),
+            DoctorDto.builder().id(3L).name("Dr. Arvind Krishnan").specialty("Cardiologist").experienceYears(22)
+                .rating(BigDecimal.valueOf(4.7)).consultationFee(1200L).qualifications("MBBS, DM Cardiology")
+                .verifiedBadge(true).verifiedCommunityConsultations(87).isOpenNow(false).walkInAvailable(false)
+                .availableSlots(List.of("2:00 PM", "4:30 PM")).clinicName("Apollo Cardiac Care").location("HSR Layout, 3 km").build(),
+            DoctorDto.builder().id(4L).name("Dr. Meena Pillai").specialty("Gynaecologist").experienceYears(16)
+                .rating(BigDecimal.valueOf(4.8)).consultationFee(899L).qualifications("MBBS, MS Obstetrics & Gynaecology")
+                .verifiedBadge(true).verifiedCommunityConsultations(154).isOpenNow(true).walkInAvailable(true)
+                .availableSlots(List.of("11:00 AM", "2:00 PM")).clinicName("Motherhood Clinic").location("Outer Ring Road, 2.1 km").build()
+        );
+    }
+
     public List<DoctorDto> getWalkInDoctors(Long tenantId, Long userId, String specialty) {
         return getDoctors(tenantId, userId).stream()
             .filter(d -> d.isOpenNow() != null && d.isOpenNow())
             .toList();
+    }
+
+    public List<RadiologyCenterDto> getRadiologyCenters(Long tenantId, String modality) {
+        return List.of(
+            RadiologyCenterDto.builder().id("c1").name("Manipal Imaging & Diagnostics").address("Sarjapur Main Road, Bengaluru")
+                .distanceKm(2.3).accreditation(List.of("NABH", "ISO 9001", "ACR"))
+                .availableModalities(List.of("XRAY", "ULTRASOUND", "CT", "MRI", "PET", "MAMMOGRAM"))
+                .reportTurnaround("Same day / 4–6 hrs").rating(4.8).homeService(false).openNow(true).build(),
+            RadiologyCenterDto.builder().id("c2").name("Apollo Radiology Centre").address("Outer Ring Road, HSR Layout")
+                .distanceKm(3.7).accreditation(List.of("NABH", "JCI"))
+                .availableModalities(List.of("XRAY", "ULTRASOUND", "CT", "MRI", "PET"))
+                .reportTurnaround("2–4 hrs").rating(4.9).homeService(false).openNow(true).build(),
+            RadiologyCenterDto.builder().id("c3").name("SRL Diagnostics @ Mana").address("Community Clubhouse, Ground Floor")
+                .distanceKm(0.1).accreditation(List.of("NABL", "CAP"))
+                .availableModalities(List.of("XRAY", "ULTRASOUND"))
+                .reportTurnaround("1–3 hrs").rating(4.6).homeService(true).openNow(true).build()
+        );
+    }
+
+    public List<BloodBankAvailabilityDto> getBloodBankAvailability(Long tenantId) {
+        return List.of(
+            BloodBankAvailabilityDto.builder().bloodType("A+").units(12).status("AVAILABLE").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("A-").units(3).status("LOW").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("B+").units(8).status("AVAILABLE").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("B-").units(1).status("CRITICAL").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("AB+").units(6).status("AVAILABLE").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("AB-").units(0).status("UNAVAILABLE").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("O+").units(15).status("AVAILABLE").centerName("Mana Community Blood Bank").build(),
+            BloodBankAvailabilityDto.builder().bloodType("O-").units(2).status("LOW").centerName("Mana Community Blood Bank").build()
+        );
     }
 }
