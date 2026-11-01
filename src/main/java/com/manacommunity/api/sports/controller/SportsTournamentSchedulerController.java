@@ -189,6 +189,14 @@ public class SportsTournamentSchedulerController {
             map.put("totalTeams", totalTeams);
             map.put("venueId", e.getVenue() != null ? e.getVenue().getId() : 0L);
             map.put("venueName", venueStr);
+            map.put("gender", e.getGender() != null ? e.getGender() : "ALL");
+            map.put("minAge", e.getMinAge() != null ? e.getMinAge() : 0);
+            map.put("maxAge", e.getMaxAge() != null ? e.getMaxAge() : 100);
+            String catName = "";
+            if (e.getCategories() != null && !e.getCategories().isEmpty()) {
+                catName = e.getCategories().iterator().next().getName();
+            }
+            map.put("categoryName", catName);
             return map;
         }).toList();
 
