@@ -564,4 +564,49 @@ public class HealthDirectoryApiController {
                 "disclaimer", "This triage is for informational guidance only and is not an automated medical diagnosis."
         ));
     }
+
+    // ── Round 7 Endpoints ─────────────────────────────────────────────────────
+
+    @GetMapping("/labs/categories")
+    public ResponseEntity<List<LabCategoryDto>> getLabCategories(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getLabCategories(tenantId, userId));
+    }
+
+    @GetMapping("/labs/individual-tests")
+    public ResponseEntity<List<IndividualLabTestDto>> getIndividualLabTests(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String category) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getIndividualLabTests(tenantId, userId, category));
+    }
+
+    @GetMapping("/surgery/condition-shortcuts")
+    public ResponseEntity<List<SurgeryConditionShortcutDto>> getSurgeryConditionShortcuts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getSurgeryConditionShortcuts(tenantId, userId));
+    }
+
+    @PostMapping("/cancer/expert-opinion")
+    public ResponseEntity<ExpertOpinionStatusDto> submitExpertOpinionRequest(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody ExpertOpinionRequestDto req,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.submitExpertOpinionRequest(tenantId, userId, req));
+    }
+
+    @GetMapping("/doctors/walk-in")
+    public ResponseEntity<List<DoctorDto>> getWalkInDoctors(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String specialty) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getWalkInDoctors(tenantId, userId, specialty));
+    }
 }

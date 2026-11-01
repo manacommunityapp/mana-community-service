@@ -99,4 +99,21 @@ public class HealthEnums {
     public enum InsuranceCoverageStatus {
         COVERED, PARTIALLY_COVERED, NOT_COVERED, VERIFICATION_PENDING
     }
+    public enum SortOption {
+        RELEVANCE, TOP_RATED, FEE_ASC, EXPERIENCE
+    }
+    public enum LabCategory {
+        FULL_BODY, DIABETES, HEART, CANCER, WOMEN_HEALTH, MEN_HEALTH,
+        VITAMIN, SENIOR_CITIZEN, KIDS, INDIVIDUAL_TEST
+    }
+    public enum DoctorAvailabilityType {
+        WALK_IN, APPOINTMENT_ONLY, BOTH
+    }
+    public enum SurgeryCondition {
+        PILES, KIDNEY_STONES, LIPOMA, GALLSTONES, FISSURE, KNEE_REPLACEMENT,
+        CATARACT, HERNIA, APPENDIX, BARIATRIC
+    }
+    public enum ExpertOpinionStatus {
+        REPORTS_SUBMITTED, UNDER_REVIEW, EXPERT_ASSIGNED, OPINION_READY, CLOSED
+    }
 }

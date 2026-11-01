@@ -946,4 +946,65 @@ public class HealthDomainService {
             .notes("This procedure falls within your policy's scheduled surgery list. Cashless pre-authorization will be initiated.")
             .build();
     }
+
+    // ── Round 7 service methods ───────────────────────────────────────────────
+
+    public List<LabCategoryDto> getLabCategories(Long tenantId, Long userId) {
+        return List.of(
+            LabCategoryDto.builder().id("full-body").category(LabCategory.FULL_BODY).label("Full Body").icon("body").packageCount(12).build(),
+            LabCategoryDto.builder().id("diabetes").category(LabCategory.DIABETES).label("Diabetes").icon("water").packageCount(6).build(),
+            LabCategoryDto.builder().id("heart").category(LabCategory.HEART).label("Heart").icon("heart").packageCount(5).build(),
+            LabCategoryDto.builder().id("cancer").category(LabCategory.CANCER).label("Cancer Screening").icon("ribbon").packageCount(4).build(),
+            LabCategoryDto.builder().id("women").category(LabCategory.WOMEN_HEALTH).label("Women Health").icon("woman").packageCount(7).build(),
+            LabCategoryDto.builder().id("men").category(LabCategory.MEN_HEALTH).label("Men Health").icon("man").packageCount(5).build(),
+            LabCategoryDto.builder().id("vitamin").category(LabCategory.VITAMIN).label("Vitamin").icon("sunny").packageCount(4).build(),
+            LabCategoryDto.builder().id("senior").category(LabCategory.SENIOR_CITIZEN).label("Senior Citizen").icon("people").packageCount(4).build(),
+            LabCategoryDto.builder().id("kids").category(LabCategory.KIDS).label("Kids").icon("happy").packageCount(3).build(),
+            LabCategoryDto.builder().id("individual").category(LabCategory.INDIVIDUAL_TEST).label("Individual Tests").icon("flask").packageCount(50).build()
+        );
+    }
+
+    public List<IndividualLabTestDto> getIndividualLabTests(Long tenantId, Long userId, String category) {
+        return List.of(
+            IndividualLabTestDto.builder().id("vit-b12").name("Vitamin B12 – Serum").price(822L).originalPrice(1259L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("vit-d").name("Vitamin D (25-OH)").price(1225L).originalPrice(2519L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("hba1c").name("HbA1c (Glycosylated Haemoglobin)").price(549L).originalPrice(839L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("EDTA Blood").build(),
+            IndividualLabTestDto.builder().id("thyroid").name("Thyroid Profile (T3, T4 & TSH)").price(601L).originalPrice(839L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("cbc").name("Complete Blood Count (CBC)").price(416L).originalPrice(839L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("EDTA Blood").build(),
+            IndividualLabTestDto.builder().id("lipid").name("Lipid Profile").price(380L).originalPrice(650L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(true).fastingHours(10).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("lft").name("Liver Function Test (LFT)").price(480L).originalPrice(750L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("kft").name("Kidney Function Test (KFT)").price(520L).originalPrice(800L).reportTurnaround("8–72 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build(),
+            IndividualLabTestDto.builder().id("dengue").name("Dengue NS1 Antigen").price(350L).originalPrice(600L).reportTurnaround("4–24 Hrs").availability(List.of("Home", "Center")).fastingRequired(false).sampleType("Serum").build()
+        );
+    }
+
+    public List<SurgeryConditionShortcutDto> getSurgeryConditionShortcuts(Long tenantId, Long userId) {
+        return List.of(
+            SurgeryConditionShortcutDto.builder().id("piles").condition(SurgeryCondition.PILES).label("Piles").mappedCategory("General Surgery").icon("medical").color("#DC2626").availableSurgeons(8).startingCost("₹18,000").build(),
+            SurgeryConditionShortcutDto.builder().id("kidney-stones").condition(SurgeryCondition.KIDNEY_STONES).label("Kidney Stones").mappedCategory("Urology").icon("water").color("#2563EB").availableSurgeons(6).startingCost("₹35,000").build(),
+            SurgeryConditionShortcutDto.builder().id("lipoma").condition(SurgeryCondition.LIPOMA).label("Lipoma").mappedCategory("General Surgery").icon("cut").color("#059669").availableSurgeons(10).startingCost("₹8,000").build(),
+            SurgeryConditionShortcutDto.builder().id("gallstones").condition(SurgeryCondition.GALLSTONES).label("Gallstones").mappedCategory("General Surgery").icon("medkit").color("#D97706").availableSurgeons(9).startingCost("₹40,000").build(),
+            SurgeryConditionShortcutDto.builder().id("fissure").condition(SurgeryCondition.FISSURE).label("Fissure").mappedCategory("General Surgery").icon("medical").color("#7C3AED").availableSurgeons(7).startingCost("₹12,000").build(),
+            SurgeryConditionShortcutDto.builder().id("tkr").condition(SurgeryCondition.KNEE_REPLACEMENT).label("Knee Replacement").mappedCategory("Orthopedics").icon("accessibility").color("#0D9488").availableSurgeons(5).startingCost("₹1,20,000").build(),
+            SurgeryConditionShortcutDto.builder().id("cataract").condition(SurgeryCondition.CATARACT).label("Cataract").mappedCategory("Ophthalmology").icon("eye").color("#6366F1").availableSurgeons(12).startingCost("₹15,000").build(),
+            SurgeryConditionShortcutDto.builder().id("hernia").condition(SurgeryCondition.HERNIA).label("Hernia").mappedCategory("General Surgery").icon("body").color("#DB2777").availableSurgeons(8).startingCost("₹35,000").build()
+        );
+    }
+
+    public ExpertOpinionStatusDto submitExpertOpinionRequest(Long tenantId, Long userId, ExpertOpinionRequestDto req) {
+        return ExpertOpinionStatusDto.builder()
+            .requestId("EXP-" + System.currentTimeMillis() % 100000)
+            .status(ExpertOpinionStatus.REPORTS_SUBMITTED)
+            .assignedExperts("Tumor Board — 3 specialists assigned")
+            .expectedCompletionDate("3 business days")
+            .partnerInstitution("Tata Memorial Centre + National Cancer Grid")
+            .notes("Your dedicated patient advocate will contact you within 2 hours to guide document submission.")
+            .build();
+    }
+
+    public List<DoctorDto> getWalkInDoctors(Long tenantId, Long userId, String specialty) {
+        return getDoctors(tenantId, userId).stream()
+            .filter(d -> d.isOpenNow() != null && d.isOpenNow())
+            .toList();
+    }
 }

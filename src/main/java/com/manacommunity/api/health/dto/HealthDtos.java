@@ -677,4 +677,66 @@ public class HealthDtos {
         private Boolean cashlessEligible;
         private String notes;
     }
+
+    // ── Round 7 DTOs ──────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class LabCategoryDto {
+        private String id;
+        private LabCategory category;
+        private String label;
+        private String icon;
+        private Integer packageCount;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class IndividualLabTestDto {
+        private String id;
+        private String name;
+        private Long price;
+        private Long originalPrice;
+        private String reportTurnaround;
+        private List<String> availability;
+        private Boolean fastingRequired;
+        private Integer fastingHours;
+        private String sampleType;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SurgeryConditionShortcutDto {
+        private String id;
+        private SurgeryCondition condition;
+        private String label;
+        private String mappedCategory;
+        private String icon;
+        private String color;
+        private Integer availableSurgeons;
+        private String startingCost;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ExpertOpinionRequestDto {
+        private UUID patientId;
+        private String cancerType;
+        private String reportNotes;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ExpertOpinionStatusDto {
+        private String requestId;
+        private ExpertOpinionStatus status;
+        private String assignedExperts;
+        private String expectedCompletionDate;
+        private String partnerInstitution;
+        private String notes;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DoctorAvailabilityFilterDto {
+        private Boolean walkInOnly;
+        private Boolean instantConfirmationOnly;
+        private SortOption sortBy;
+        private String specialty;
+        private String department;
+    }
 }
