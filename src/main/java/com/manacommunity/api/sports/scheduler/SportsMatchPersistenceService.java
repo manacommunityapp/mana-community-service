@@ -167,13 +167,50 @@ public class SportsMatchPersistenceService {
     // ═══════════════════════════════════════════════════════════════
     // MANUAL SCHEDULING (Drag & Drop UI Integration)
     // ═══════════════════════════════════════════════════════════════
+    public SportsTournamentConfig resolveConfig(Long configId) {
+        if (configId == null) {
+            throw new ResourceNotFoundException("SportsTournamentConfig", "id is null");
+        }
+        SportsTournamentConfig config = configRepo.findById(configId)
+                .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+                .orElse(null);
+
+        if (config == null) {
+            // Check if configId is an Event ID
+            SportsEvent event = eventRepo.findById(configId).orElse(null);
+            if (event != null) {
+                // Auto-provision a default tournament config for this event so operations can proceed seamlessly
+                SportsTournamentConfig newConfig = SportsTournamentConfig.builder()
+                    .tournamentName(event.getName() != null ? event.getName() : "Event #" + configId)
+                    .sport(event.getSport())
+                    .community(event.getCommunity())
+                    .event(event)
+                    .tournamentType(com.manacommunity.api.sports.model.TournamentType.ROUND_ROBIN)
+                    .totalTeams(8)
+                    .numberOfGroups(2)
+                    .startDate(event.getEventDateStart() != null ? event.getEventDateStart() : java.time.LocalDate.now())
+                    .endDate(event.getEventDateEnd() != null ? event.getEventDateEnd() : java.time.LocalDate.now())
+                    .status(SportsTournamentConfig.TournamentStatus.DRAFT)
+                    .matchDurationMinutes(60)
+                    .pointsForWin(2)
+                    .pointsForDraw(1)
+                    .pointsForLoss(0)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+                return configRepo.save(newConfig);
+            }
+            throw new ResourceNotFoundException("SportsTournamentConfig", configId);
+        }
+        return config;
+    }
+
     @Transactional
     public void assignTeamsToGroups(Long configId, List<GroupAssignmentRequest> assignments) {
-        SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config.getId();
 
         // Clear existing group standings for manual mode override
-        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(configId);
+        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(effectiveConfigId);
         groups.forEach(g -> standingRepo.deleteAll(standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(g.getId())));
 
         // Group the assignments by groupId
@@ -213,32 +250,59 @@ public class SportsMatchPersistenceService {
     }
 
     @Transactional
-    public void scheduleManualMatch(Long configId, SportsMatchScheduleRequest req) {
-        SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+    public SportsTournamentMatch scheduleManualMatch(Long configId, SportsMatchScheduleRequest req) {
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config.getId();
 
         SportsAuctionTeam home = req.homeTeamId() != null ? teamRepo.findById(req.homeTeamId()).orElse(null) : null;
         SportsAuctionTeam away = req.awayTeamId() != null ? teamRepo.findById(req.awayTeamId()).orElse(null) : null;
 
         // Find group if it's a group stage match
         SportsTournamentGroup group = null;
-        if ("GROUP_STAGE".equals(req.matchType())) {
-            group = groupRepo.findByConfigIdOrderByGroupOrder(configId).stream()
-                .filter(g -> g.getGroupName().replace(" ", "_").toUpperCase().equals(req.stage().replace(" ", "_").toUpperCase()))
+        if ("GROUP_STAGE".equalsIgnoreCase(req.matchType()) && req.stage() != null) {
+            String targetStage = req.stage().replace(" ", "_").toUpperCase();
+            group = groupRepo.findByConfigIdOrderByGroupOrder(effectiveConfigId).stream()
+                .filter(g -> g.getGroupName().replace(" ", "_").toUpperCase().equals(targetStage))
                 .findFirst()
                 .orElse(null);
         }
+
+        MatchRound round;
+        if ("GROUP_STAGE".equalsIgnoreCase(req.matchType())) {
+            round = MatchRound.GROUP_STAGE;
+        } else if (req.stage() != null) {
+            try {
+                round = MatchRound.valueOf(req.stage().trim().toUpperCase());
+            } catch (Exception e) {
+                log.warn("Could not parse MatchRound for stage '{}', defaulting to FINAL", req.stage());
+                round = MatchRound.FINAL;
+            }
+        } else {
+            round = MatchRound.FINAL;
+        }
+
+        LocalDateTime scheduledAt = parseDateTimeSafe(req.startTime());
+        SportsVenue venue = req.venueId() != null
+                ? venueRepo.findById(req.venueId()).orElse(config.getVenue())
+                : config.getVenue();
+        SportsCourt court = req.courtId() != null
+                ? courtRepo.findById(req.courtId()).orElse(null)
+                : null;
+        int duration = req.durationMinutes() != null && req.durationMinutes() > 0
+                ? req.durationMinutes()
+                : (config.getMatchDurationMinutes() != null ? config.getMatchDurationMinutes() : 60);
 
         SportsTournamentMatch m = SportsTournamentMatch.builder()
             .config(config)
             .community(config.getCommunity())
             .group(group)
-            .round("GROUP_STAGE".equals(req.matchType()) ? MatchRound.GROUP_STAGE : MatchRound.valueOf(req.stage()))
+            .round(round)
             .teamA(home)
             .teamB(away)
-            .scheduledAt(LocalDateTime.parse(req.startTime()))
-            .durationMinutes(config.getMatchDurationMinutes() != null ? config.getMatchDurationMinutes() : 90)
-            .venue(config.getVenue())
+            .scheduledAt(scheduledAt)
+            .durationMinutes(duration)
+            .venue(venue)
+            .court(court)
             .status(MatchStatus.SCHEDULED)
             .build();
 
@@ -252,6 +316,37 @@ public class SportsMatchPersistenceService {
             null,
             "configId=" + configId + ", round=" + saved.getRound() + ", time=" + saved.getScheduledAt()
         );
+
+        return saved;
+    }
+
+    @Transactional
+    public void deleteMatch(Long matchId) {
+        if (matchId == null) return;
+        matchRepo.deleteById(matchId);
+        log.info("Deleted tournament match id={}", matchId);
+    }
+
+    private LocalDateTime parseDateTimeSafe(String raw) {
+        if (raw == null || raw.isBlank()) return LocalDateTime.now();
+        String cleaned = raw.trim();
+        if (cleaned.endsWith("Z")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 1);
+        }
+        if (cleaned.contains(".")) {
+            int dotIdx = cleaned.indexOf(".");
+            cleaned = cleaned.substring(0, dotIdx);
+        }
+        try {
+            return LocalDateTime.parse(cleaned);
+        } catch (Exception e) {
+            try {
+                return LocalDateTime.parse(cleaned.replace(" ", "T"));
+            } catch (Exception ex) {
+                log.warn("Could not parse datetime '{}', falling back to now: {}", raw, ex.getMessage());
+                return LocalDateTime.now();
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -323,18 +418,18 @@ public class SportsMatchPersistenceService {
 
     @Transactional
     public int saveMatchesBulk(Long configId, List<SportsBulkMatchSaveRequest.MatchData> matches) {
-        SportsTournamentConfig config = configRepo.findById(configId)
-            .orElseThrow(() -> new IllegalArgumentException("SportsTournament config not found: " + configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config.getId();
 
         // Replace all existing matches for this config
-        matchRepo.deleteByConfigId(configId);
+        matchRepo.deleteByConfigId(effectiveConfigId);
 
         List<SportsTournamentMatch> entities = matches.stream()
             .map(m -> buildMatchEntity(config, m))
             .toList();
 
         matchRepo.saveAll(entities);
-        log.info("Bulk-saved {} matches for config {}", entities.size(), configId);
+        log.info("Bulk-saved {} matches for config {}", entities.size(), effectiveConfigId);
         return entities.size();
     }
 
@@ -344,15 +439,13 @@ public class SportsMatchPersistenceService {
      */
     @Transactional
     public int updateMatchesStatus(Long configId, String statusStr) {
-        configRepo.findById(configId)
-            .orElseThrow(() -> new IllegalArgumentException("SportsTournament config not found: " + configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config.getId();
 
         MatchStatus status = parseStatus(statusStr, MatchStatus.SCHEDULED);
-        int updated = matchRepo.updateStatusByConfigId(configId, status);
+        int updated = matchRepo.updateStatusByConfigId(effectiveConfigId, status);
 
         // Mirror the publish state on the parent config so listings stay in sync
-        SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
         if (status == MatchStatus.PUBLISHED) {
             config.setStatus(SportsTournamentConfig.TournamentStatus.ACTIVE);
         } else if (status == MatchStatus.DRAFT) {
@@ -360,7 +453,7 @@ public class SportsMatchPersistenceService {
         }
         configRepo.save(config);
 
-        log.info("Updated {} matches to status {} for config {}", updated, status, configId);
+        log.info("Updated {} matches to status {} for config {}", updated, status, effectiveConfigId);
         return updated;
     }
 
@@ -369,12 +462,12 @@ public class SportsMatchPersistenceService {
      */
     @Transactional
     public int deleteMatchesByConfigId(Long configId) {
-        configRepo.findById(configId)
-            .orElseThrow(() -> new IllegalArgumentException("SportsTournament config not found: " + configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config.getId();
 
-        long count = matchRepo.countByConfigId(configId);
-        matchRepo.deleteByConfigId(configId);
-        log.info("Deleted {} matches for config {}", count, configId);
+        long count = matchRepo.countByConfigId(effectiveConfigId);
+        matchRepo.deleteByConfigId(effectiveConfigId);
+        log.info("Deleted {} matches for config {}", count, effectiveConfigId);
         return (int) count;
     }
 

@@ -87,7 +87,33 @@ public class SportsTournamentSchedulerController {
     @GetMapping("/config/{id}")
     public ResponseEntity<SportsTournamentConfigResponse> getConfig(@PathVariable Long id) {
         SportsTournamentConfig config = configRepo.findById(id)
-                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsTournamentConfig", id));
+                .or(() -> configRepo.findByEventId(id).stream().findFirst())
+                .orElse(null);
+        if (config == null) {
+            SportsEvent event = eventRepo.findById(id).orElse(null);
+            if (event != null) {
+                SportsTournamentConfig draft = SportsTournamentConfig.builder()
+                    .id(event.getId())
+                    .tournamentName(event.getName() != null ? event.getName() : "Event #" + id)
+                    .sport(event.getSport())
+                    .community(event.getCommunity())
+                    .event(event)
+                    .tournamentType(com.manacommunity.api.sports.model.TournamentType.ROUND_ROBIN)
+                    .totalTeams(8)
+                    .numberOfGroups(2)
+                    .startDate(event.getEventDateStart() != null ? event.getEventDateStart() : java.time.LocalDate.now())
+                    .endDate(event.getEventDateEnd() != null ? event.getEventDateEnd() : java.time.LocalDate.now())
+                    .status(SportsTournamentConfig.TournamentStatus.DRAFT)
+                    .matchDurationMinutes(60)
+                    .pointsForWin(2)
+                    .pointsForDraw(1)
+                    .pointsForLoss(0)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build();
+                return ResponseEntity.ok(schedulerService.toConfigResponse(draft));
+            }
+            throw new com.manacommunity.api.exception.ResourceNotFoundException("SportsTournamentConfig", id);
+        }
         return ResponseEntity.ok(schedulerService.toConfigResponse(config));
     }
 
@@ -101,6 +127,16 @@ public class SportsTournamentSchedulerController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.ok(schedulerService.getConfigsByCommunity(communityId));
+    }
+
+    /**
+     * GET /api/tournament/{configId}/teams
+     * Returns all participating teams for a tournament config.
+     */
+    @GetMapping("/{configId}/teams")
+    public ResponseEntity<List<Map<String, Object>>> getConfigTeams(@PathVariable Long configId) {
+        log.info("Fetching teams for tournament configId={}", configId);
+        return ResponseEntity.ok(schedulerService.getConfigTeams(configId));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -303,12 +339,24 @@ public class SportsTournamentSchedulerController {
      */
     @PostMapping("/{configId}/manual/matches")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<String> scheduleManualMatch(
+    public ResponseEntity<SportsMatchResponse> scheduleManualMatch(
             @PathVariable Long configId,
             @Valid @RequestBody SportsMatchScheduleRequest req) {
         log.info("Scheduling manual match configId={} stage={}", configId, req.stage());
-        schedulerService.scheduleManualMatch(configId, req);
-        return ResponseEntity.ok("Match scheduled successfully for " + req.stage());
+        SportsTournamentMatch match = schedulerService.scheduleManualMatch(configId, req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(schedulerService.toMatchResponse(match));
+    }
+
+    /**
+     * DELETE /api/tournament/match/{matchId}
+     * Deletes a single match.
+     */
+    @DeleteMapping("/match/{matchId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteMatch(@PathVariable Long matchId) {
+        log.info("Deleting match matchId={}", matchId);
+        schedulerService.deleteMatch(matchId);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -317,7 +365,11 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping("/{configId}/matches")
     public ResponseEntity<List<SportsMatchResponse>> getMatches(@PathVariable Long configId) {
-        List<SportsMatchResponse> matches = matchRepo.findByConfigId(configId)
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+            .orElse(null);
+        Long targetId = config != null ? config.getId() : configId;
+        List<SportsMatchResponse> matches = matchRepo.findByConfigIdOrderByScheduledAt(targetId)
             .stream().map(schedulerService::toMatchResponse).toList();
         return ResponseEntity.ok(matches);
     }

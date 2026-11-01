@@ -17,6 +17,10 @@ public interface SportsAuctionTeamRepository extends JpaRepository<SportsAuction
     @Query("SELECT t FROM SportsAuctionTeam t WHERE t.id = :id")
     java.util.Optional<SportsAuctionTeam> findByIdForUpdate(@Param("id") Long id);
     List<SportsAuctionTeam> findByConfigIdOrderByTeamName(Long configId);
+
+    @Query("SELECT t FROM SportsAuctionTeam t WHERE t.event.id = :eventId ORDER BY t.teamName")
+    List<SportsAuctionTeam> findByEventIdOrderByTeamName(@Param("eventId") Long eventId);
+
     long countByConfigId(Long configId);
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(t.totalBudget), 0) FROM SportsAuctionTeam t WHERE t.config.id = :configId")
