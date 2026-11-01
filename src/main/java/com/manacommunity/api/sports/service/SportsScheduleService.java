@@ -92,7 +92,15 @@ public class SportsScheduleService {
                 r.getRegisteredAt(),
                 r.getCaptainNomination(),
                 r.getCaptainConfirmation(),
-                r.getProposedTeamName()
+                r.getProposedTeamName(),
+                r.getPlayerName(),
+                r.getRelation(),
+                r.getFamilyMember() != null ? r.getFamilyMember().getId() : null,
+                event != null ? event.getEventDateStart() : null,
+                event != null ? event.getEventDateEnd() : null,
+                event != null ? event.getStartTime() : null,
+                event != null && event.getVenue() != null ? event.getVenue().getName() : null,
+                event != null && event.getVenue() != null ? event.getVenue().getCity() : null
         );
     }
 

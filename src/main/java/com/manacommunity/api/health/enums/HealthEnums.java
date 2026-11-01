@@ -89,4 +89,31 @@ public class HealthEnums {
     public enum HospitalNetworkType {
         CASHLESS_TPA, REIMBURSEMENT_ONLY, BOTH
     }
+    public enum ConsultLanguage {
+        ENGLISH, HINDI, TELUGU, TAMIL, KANNADA, MARATHI, BENGALI, MALAYALAM, GUJARATI, PUNJABI, ODIA, ASSAMESE
+    }
+    public enum ConditionGroup {
+        COLD_COUGH_FEVER, SKIN_HAIR, STOMACH_ISSUES, BACK_JOINT_PAIN, CARDIAC, SEXUAL_HEALTH,
+        PREGNANCY, CONCEIVING, CHILD_INFANT, LAB_REPORT_ANALYSIS, WEIGHT_MANAGEMENT, NOT_SURE
+    }
+    public enum InsuranceCoverageStatus {
+        COVERED, PARTIALLY_COVERED, NOT_COVERED, VERIFICATION_PENDING
+    }
+    public enum SortOption {
+        RELEVANCE, TOP_RATED, FEE_ASC, EXPERIENCE
+    }
+    public enum LabCategory {
+        FULL_BODY, DIABETES, HEART, CANCER, WOMEN_HEALTH, MEN_HEALTH,
+        VITAMIN, SENIOR_CITIZEN, KIDS, INDIVIDUAL_TEST
+    }
+    public enum DoctorAvailabilityType {
+        WALK_IN, APPOINTMENT_ONLY, BOTH
+    }
+    public enum SurgeryCondition {
+        PILES, KIDNEY_STONES, LIPOMA, GALLSTONES, FISSURE, KNEE_REPLACEMENT,
+        CATARACT, HERNIA, APPENDIX, BARIATRIC
+    }
+    public enum ExpertOpinionStatus {
+        REPORTS_SUBMITTED, UNDER_REVIEW, EXPERT_ASSIGNED, OPINION_READY, CLOSED
+    }
 }

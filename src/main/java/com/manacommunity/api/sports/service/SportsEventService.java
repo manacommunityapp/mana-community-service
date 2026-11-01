@@ -26,6 +26,7 @@ public interface SportsEventService {
     List<SportsEvent> getClosedEvents();
     List<SportsEvent> getClosedEvents(Long communityId);
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
+    SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId);
     List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId);
     List<SportsEvent> getAllEvents();
     Page<SportsEvent> getAllEvents(Pageable pageable);
@@ -41,6 +42,8 @@ public interface SportsEventService {
     void withdraw(Long registrationId, Long userId, boolean admin, String reason);
     default void withdraw(Long registrationId, Long userId) { withdraw(registrationId, userId, false, null); }
     List<SportsEventRegistration> getEventRegistrations(Long eventId);
+    List<SportsEventRegistration> getEventRegistrations(Long eventId, boolean latestOnly);
+    List<SportsEventRegistration> getRegistrationHistory(Long eventId, Long registrationId);
     List<SportsEventRegistration> getUserRegistrations(Long userId);
     SportsEventRegistration confirmRegistration(Long registrationId);
     SportsEventRegistration rejectRegistration(Long registrationId, String reason);

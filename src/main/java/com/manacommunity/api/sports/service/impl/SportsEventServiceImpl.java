@@ -245,6 +245,46 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Transactional
+    public SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId) {
+        if (req.getParticipantUserId() == null) {
+            throw new InvalidInputException("Select a community resident before registering for someone else.");
+        }
+        AppUser requester = userRepo.findById(requesterUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", requesterUserId));
+        AppUser participant = userRepo.findById(req.getParticipantUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", req.getParticipantUserId()));
+        SportsEvent event = eventRepo.findById(req.getEventId())
+                .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
+
+        Long requesterCommunityId = requester.getCommunity() != null ? requester.getCommunity().getId() : null;
+        Long participantCommunityId = participant.getCommunity() != null ? participant.getCommunity().getId() : null;
+        Long eventCommunityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+        if (requesterCommunityId == null || !requesterCommunityId.equals(participantCommunityId)
+                || (eventCommunityId != null && !eventCommunityId.equals(participantCommunityId))) {
+            throw new UnauthorizedActionException("You can only register residents from the event's community.");
+        }
+
+        req.setEmail(requester.getEmail());
+        if (req.getFamilyMemberId() != null) {
+            familyMemberRepository.findByIdAndUserId(req.getFamilyMemberId(), participant.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
+        } else {
+            req.setPlayerName(participant.getFullName());
+            req.setFlatNumber(participant.getFlatNo());
+            req.setGender(participant.getGender());
+            if (participant.getDateOfBirth() != null) {
+                req.setDateOfBirth(participant.getDateOfBirth().toString());
+                req.setAge(Period.between(participant.getDateOfBirth(), LocalDate.now()).getYears());
+                if (req.getAge() < 18 && regRepo.existsByUserIdAndAgeGreaterThanEqual(participant.getId(), 18)) {
+                    throw new InvalidInputException("Age conflict detected: Historical records show prior participation in Adult categories. To register your child/family member, please add them via Family Members.");
+                }
+            }
+            req.setRelation("SELF");
+        }
+        return registerUser(req, participant.getId());
+    }
+
+    @Transactional
     public SportsEventRegistration registerUser(RegistrationRequest req, Long userId) {
         SportsEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
@@ -839,10 +879,92 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     public List<SportsEventRegistration> getEventRegistrations(Long eventId) {
+        return getEventRegistrations(eventId, false);
+    }
+
+    @Override
+    public List<SportsEventRegistration> getEventRegistrations(Long eventId, boolean latestOnly) {
         List<SportsEventRegistration> regs = regRepo.findByEventId(eventId);
         hydrateCaptaincy(regs, eventId);
-        return regs;
+        if (!latestOnly || regs == null || regs.isEmpty()) {
+            return regs;
+        }
+
+        java.util.Map<String, SportsEventRegistration> latestMap = new java.util.LinkedHashMap<>();
+        for (SportsEventRegistration reg : regs) {
+            String pKey = getParticipantIdentityKey(reg);
+            SportsEventRegistration existing = latestMap.get(pKey);
+            if (existing == null || compareRegistrationPrecedence(reg, existing) > 0) {
+                latestMap.put(pKey, reg);
+            }
+        }
+        return new java.util.ArrayList<>(latestMap.values());
     }
+
+    @Override
+    public List<SportsEventRegistration> getRegistrationHistory(Long eventId, Long registrationId) {
+        SportsEventRegistration target = regRepo.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
+
+        List<SportsEventRegistration> allEventRegs = regRepo.findByEventId(eventId);
+        String targetKey = getParticipantIdentityKey(target);
+
+        List<SportsEventRegistration> history = allEventRegs.stream()
+                .filter(r -> !r.getId().equals(registrationId))
+                .filter(r -> getParticipantIdentityKey(r).equals(targetKey))
+                .sorted((a, b) -> {
+                    java.time.LocalDateTime ta = a.getRegisteredAt() != null ? a.getRegisteredAt() : java.time.LocalDateTime.MIN;
+                    java.time.LocalDateTime tb = b.getRegisteredAt() != null ? b.getRegisteredAt() : java.time.LocalDateTime.MIN;
+                    int cmp = tb.compareTo(ta);
+                    if (cmp != 0) return cmp;
+                    return Long.compare(b.getId() != null ? b.getId() : 0, a.getId() != null ? a.getId() : 0);
+                })
+                .toList();
+        hydrateCaptaincy(history, eventId);
+        return history;
+    }
+
+    private static String getParticipantIdentityKey(SportsEventRegistration reg) {
+        String pName = reg.getPlayerName() != null ? reg.getPlayerName().trim().toLowerCase() : "";
+        String rel = reg.getRelation() != null ? reg.getRelation().trim().toLowerCase() : "";
+        String flat = reg.getFlatNumber() != null ? reg.getFlatNumber().trim().toLowerCase() : "";
+
+        if (reg.getUser() != null && reg.getUser().getId() != null) {
+            String sub = !pName.isEmpty() ? pName : (!rel.isEmpty() ? rel : "self");
+            return "u_" + reg.getUser().getId() + "_" + sub;
+        }
+        if (!flat.isEmpty() && !pName.isEmpty()) {
+            return "f_" + flat + "_" + pName;
+        }
+        return !pName.isEmpty() ? "n_" + pName : "id_" + reg.getId();
+    }
+
+    private static int compareRegistrationPrecedence(SportsEventRegistration a, SportsEventRegistration b) {
+        int wa = getStatusWeight(a.getStatus());
+        int wb = getStatusWeight(b.getStatus());
+        if (wa != wb) {
+            return Integer.compare(wa, wb);
+        }
+        java.time.LocalDateTime ta = a.getRegisteredAt() != null ? a.getRegisteredAt() : java.time.LocalDateTime.MIN;
+        java.time.LocalDateTime tb = b.getRegisteredAt() != null ? b.getRegisteredAt() : java.time.LocalDateTime.MIN;
+        int timeCmp = ta.compareTo(tb);
+        if (timeCmp != 0) {
+            return timeCmp;
+        }
+        return Long.compare(a.getId() != null ? a.getId() : 0, b.getId() != null ? b.getId() : 0);
+    }
+
+    private static int getStatusWeight(SportsEventRegistration.RegistrationStatus status) {
+        if (status == null) return -1;
+        return switch (status) {
+            case CONFIRMED -> 4;
+            case REGISTERED -> 3;
+            case PENDING -> 2;
+            case WITHDRAWN -> 1;
+            case REJECTED -> 0;
+        };
+    }
+
 
     @Override
     public List<SportsEventRegistration> getUserRegistrations(Long userId) {
