@@ -44,6 +44,10 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
         WHERE e.id IN (
             SELECT r.event.id FROM SportsEventRegistration r
             WHERE r.user.id = :userId
+            AND r.status NOT IN (
+                com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+                com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+            )
         )
         AND e.tournament.registrationStatus <> com.manacommunity.api.sports.model.SportsEventStatus.CANCELLED
         ORDER BY e.eventDateStart ASC
