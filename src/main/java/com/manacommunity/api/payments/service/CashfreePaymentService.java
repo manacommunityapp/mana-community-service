@@ -84,6 +84,8 @@ public class CashfreePaymentService {
     private final SportsEventRegistrationRepository regRepository;
     private final MobilityTripRepository mobilityTripRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.groupbuying.service.GroupBuyPaymentConfirmationService> groupBuyPaymentConfirmationService;
+    private final com.manacommunity.api.commerce.core.repository.CommerceOrderRepository commerceOrderRepository;
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
 
@@ -109,6 +111,7 @@ public class CashfreePaymentService {
             CashfreeCreateOrderRequest req, AppUser user, Community community) {
 
         validateMobilityReference(req, user, community);
+        validateGroupBuyOrderReference(req, user, community);
 
         String manaOrderId = "MANA-" + System.currentTimeMillis() + "-" + user.getId();
 
@@ -202,6 +205,24 @@ public class CashfreePaymentService {
         if (trip.getStatus() == com.manacommunity.api.mobility.model.MobilityTripStatus.CANCELLED
                 || trip.getStatus() == com.manacommunity.api.mobility.model.MobilityTripStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Mobility trip is no longer payable");
+        }
+    }
+
+    private void validateGroupBuyOrderReference(CashfreeCreateOrderRequest req, AppUser user, Community community) {
+        if (!"GROUP_BUY_ORDER".equalsIgnoreCase(req.getReferenceType())) return;
+        com.manacommunity.api.commerce.core.model.CommerceOrder co = commerceOrderRepository.findById(req.getReferenceId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group buy commerce order not found"));
+        if (co.getBuyer() == null || !co.getBuyer().getId().equals(user.getId())
+                || co.getCommunity() == null || !co.getCommunity().getId().equals(community.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Group buy order belongs to another resident or community");
+        }
+        if (co.getTotalAmount() == null || req.getAmount().compareTo(co.getTotalAmount()) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount (" + req.getAmount() + ") does not match group buy total (" + co.getTotalAmount() + ")");
+        }
+        if (co.getStatus() == com.manacommunity.api.commerce.core.model.CommerceOrderStatus.CANCELLED
+                || co.getStatus() == com.manacommunity.api.commerce.core.model.CommerceOrderStatus.COMPLETED
+                || co.getStatus() == com.manacommunity.api.commerce.core.model.CommerceOrderStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Group buy order is already " + co.getStatus());
         }
     }
 
@@ -468,6 +489,7 @@ public class CashfreePaymentService {
         if (order.getReferenceType() == null) return;
         switch (order.getReferenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
+            case "GROUP_BUY_ORDER" -> confirmGroupBuyOrder(order);
             case "MARKET_STALL_BOOKING" -> {
                 if (order.getUser() != null) {
                     eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(order.getReferenceType(), order.getReferenceId(), order.getUser().getId(), order.getAmount()));
@@ -494,6 +516,30 @@ public class CashfreePaymentService {
                 log.info("Sports registration {} CONFIRMED after payment {}", reg.getId(), order.getManaOrderId());
             }, () -> log.warn("No PENDING sports registration found for eventId={} userId={} after payment {}",
                     eventId, userId, order.getManaOrderId()));
+    }
+
+    private void confirmGroupBuyOrder(CashfreeOrder order) {
+        if (order.getReferenceId() == null) {
+            log.warn("Cannot confirm group buy order: missing referenceId on order {}", order.getManaOrderId());
+            return;
+        }
+        try {
+            var confirmationService = groupBuyPaymentConfirmationService.getIfAvailable();
+            if (confirmationService != null) {
+                confirmationService.confirmPayment(
+                        order.getReferenceId(),
+                        order.getManaOrderId(),
+                        order.getCfPaymentId(),
+                        order.getPaymentMethod(),
+                        order.getAmount()
+                );
+                log.info("Group buy payment confirmed for commerceOrderId={} via payment {}", order.getReferenceId(), order.getManaOrderId());
+            } else {
+                log.warn("GroupBuyPaymentConfirmationService not available to confirm group buy order {}", order.getManaOrderId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to confirm group buy order {}: {}", order.getManaOrderId(), e.getMessage(), e);
+        }
     }
 
     // ─── Notification Dispatch ────────────────────────────────────────────────

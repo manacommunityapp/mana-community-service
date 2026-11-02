@@ -1027,7 +1027,7 @@ public class HealthDomainService {
 
     public List<DoctorDto> getWalkInDoctors(Long tenantId, Long userId, String specialty) {
         return getDoctors(tenantId, userId).stream()
-            .filter(d -> d.isOpenNow() != null && d.isOpenNow())
+            .filter(d -> d.getIsOpenNow() != null && d.getIsOpenNow())
             .toList();
     }
 

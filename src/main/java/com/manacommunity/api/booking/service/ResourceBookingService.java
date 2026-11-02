@@ -722,7 +722,7 @@ public class ResourceBookingService {
 
     @Transactional
     public ResourceBooking confirmBookingWithPayment(Long bookingId, BigDecimal fee, String paymentNote) {
-        ResourceBooking booking = bookingRepository.findById(bookingId)
+        ResourceBooking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
 
         booking.setTotalAmount(fee);
@@ -733,6 +733,6 @@ public class ResourceBookingService {
         // Full cfbos invoice integration requires propertyId/residentId which are society-finance concepts
         // — wire to InvoiceEngine when resident <-> property mapping is available for this booking
 
-        return bookingRepository.save(booking);
+        return bookingRepo.save(booking);
     }
 }
