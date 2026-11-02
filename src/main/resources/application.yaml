@@ -103,6 +103,9 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  insert-sample-data: ${INSERT_SAMPLE_DATA:false}
+  insert-sports-sample-data: ${INSERT_SPORTS_SAMPLE_DATA:false}
+  delete-sports-sample-data: ${DELETE_SPORTS_SAMPLE_DATA:false}
   razorpay:
     enabled: ${RAZORPAY_ENABLED:false}
     key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder}
@@ -292,7 +295,7 @@ app:
       otp:
         enabled: ${REGISTRATION_OTP_ENABLED:false}
         length: ${REGISTRATION_OTP_LENGTH:6}
-        ttl-minutes: ${REGISTRATION_OTP_TTL_MINUTES:10}
+        ttl-minutes: ${REGISTRATION_OTP_TTL_MINUTES:5}
         max-sends-per-hour: ${REGISTRATION_OTP_MAX_SENDS:3}
         max-verify-attempts: ${REGISTRATION_OTP_MAX_ATTEMPTS:3}
         verified-window-minutes: ${REGISTRATION_OTP_VERIFIED_WINDOW:30}
