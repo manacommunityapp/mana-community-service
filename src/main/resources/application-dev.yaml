@@ -64,6 +64,11 @@ app:
     recipient-mode: NONE
   security:
     mock-auth-enabled: false
+    rate-limit:
+      enabled: ${RATE_LIMIT_ENABLED:false}
+    auth-rate-limit:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:false}
+      bypass-localhost: true
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}

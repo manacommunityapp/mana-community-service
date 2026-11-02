@@ -37,6 +37,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final long MAX_BACKOFF_SEC = 3600L;
 
     private final boolean enabled;
+    private final boolean bypassLocalhost;
     private final int loginLimit;
     private final long loginWindowMs;
     private final int registerLimit;
@@ -45,22 +46,26 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private final long forgotPasswordWindowMs;
     private final int otpLimit;
     private final long otpWindowMs;
+    private final long otpMaxBackoffSec;
     private final boolean trustForwardedHeader;
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     public AuthRateLimitFilter(
-            @Value("${app.security.rate-limit.enabled:true}") boolean enabled,
-            @Value("${app.security.auth-rate-limit.login.limit:5}") int loginLimit,
+            @Value("${app.security.auth-rate-limit.enabled:${app.security.rate-limit.enabled:true}}") boolean enabled,
+            @Value("${app.security.auth-rate-limit.bypass-localhost:true}") boolean bypassLocalhost,
+            @Value("${app.security.auth-rate-limit.login.limit:10}") int loginLimit,
             @Value("${app.security.auth-rate-limit.login.window-minutes:15}") int loginWindowMin,
-            @Value("${app.security.auth-rate-limit.register.limit:3}") int registerLimit,
+            @Value("${app.security.auth-rate-limit.register.limit:10}") int registerLimit,
             @Value("${app.security.auth-rate-limit.register.window-minutes:60}") int registerWindowMin,
-            @Value("${app.security.auth-rate-limit.forgot-password.limit:3}") int forgotPasswordLimit,
+            @Value("${app.security.auth-rate-limit.forgot-password.limit:10}") int forgotPasswordLimit,
             @Value("${app.security.auth-rate-limit.forgot-password.window-minutes:60}") int forgotPasswordWindowMin,
-            @Value("${app.security.auth-rate-limit.otp.limit:5}") int otpLimit,
-            @Value("${app.security.auth-rate-limit.otp.window-minutes:15}") int otpWindowMin,
+            @Value("${app.security.auth-rate-limit.otp.limit:30}") int otpLimit,
+            @Value("${app.security.auth-rate-limit.otp.window-minutes:10}") int otpWindowMin,
+            @Value("${app.security.auth-rate-limit.otp.max-backoff-seconds:60}") long otpMaxBackoffSec,
             @Value("${app.security.rate-limit.trust-forwarded-header:false}") boolean trustForwardedHeader) {
         this.enabled = enabled;
+        this.bypassLocalhost = bypassLocalhost;
         this.loginLimit = loginLimit;
         this.loginWindowMs = loginWindowMin * 60_000L;
         this.registerLimit = registerLimit;
@@ -69,6 +74,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         this.forgotPasswordWindowMs = forgotPasswordWindowMin * 60_000L;
         this.otpLimit = otpLimit;
         this.otpWindowMs = otpWindowMin * 60_000L;
+        this.otpMaxBackoffSec = otpMaxBackoffSec;
         this.trustForwardedHeader = trustForwardedHeader;
     }
 
@@ -88,6 +94,11 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         }
 
         String clientIp = clientIp(request);
+        if (bypassLocalhost && isLoopback(clientIp)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         String bucketKey = rule.name + ":" + clientIp;
         long now = System.currentTimeMillis();
 
@@ -104,7 +115,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         if (bucket.count.get() > rule.limit) {
             int consecutiveBlocks = bucket.consecutiveBlocks.incrementAndGet();
             long baseRetry = Math.max(1, (rule.windowMs - (now - bucket.windowStart)) / 1000);
-            long backoff = Math.min(MAX_BACKOFF_SEC, baseRetry * (1L << Math.min(consecutiveBlocks - 1, 10)));
+            long maxBackoff = "otp".equals(rule.name) ? otpMaxBackoffSec : MAX_BACKOFF_SEC;
+            long backoff = Math.min(maxBackoff, baseRetry * (1L << Math.min(consecutiveBlocks - 1, 10)));
             writeTooManyRequests(request, response, backoff, rule.name);
             log.warn("Auth rate limit hit: endpoint={} ip={} attempts={} window={}min",
                     rule.name, clientIp, bucket.count.get(), rule.windowMs / 60_000);
@@ -140,6 +152,15 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             }
         }
         return request.getRemoteAddr();
+    }
+
+    private boolean isLoopback(String ip) {
+        if (ip == null || ip.isBlank()) return false;
+        String trimmed = ip.trim();
+        return "127.0.0.1".equals(trimmed)
+                || "0:0:0:0:0:0:0:1".equals(trimmed)
+                || "::1".equals(trimmed)
+                || "localhost".equalsIgnoreCase(trimmed);
     }
 
     private void evictIfNeeded(long now) {
