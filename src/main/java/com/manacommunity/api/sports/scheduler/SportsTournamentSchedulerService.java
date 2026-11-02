@@ -282,7 +282,8 @@ public class SportsTournamentSchedulerService {
         List<SportsTournamentGroup> groups  = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
 
         int totalRounds = matches.stream()
-            .mapToInt(SportsTournamentMatch::getRoundNumber).max().orElse(0);
+            .mapToInt(m -> Objects.requireNonNullElse(m.getRoundNumber(), 1))
+            .max().orElse(0);
 
         // Build group responses
         List<SportsTournamentGroupResponse> groupResponses = groups.stream().map(g -> {
@@ -296,13 +297,13 @@ public class SportsTournamentSchedulerService {
             return new SportsTournamentGroupResponse(g.getId(), g.getGroupName(), standings, gMatches);
         }).toList();
 
-        // Build round responses
+        // Build round responses (null-safe roundNumber grouping and sorting)
         Map<Integer, List<SportsTournamentMatch>> byRound = matches.stream()
-            .collect(Collectors.groupingBy(SportsTournamentMatch::getRoundNumber));
+            .collect(Collectors.groupingBy(m -> Objects.requireNonNullElse(m.getRoundNumber(), 1)));
         List<RoundResponse> rounds = byRound.entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .map(e -> new RoundResponse(
-                e.getValue().get(0).getRound().name(),
+                (e.getValue().get(0).getRound() != null ? e.getValue().get(0).getRound().name() : "ROUND " + e.getKey()),
                 e.getKey(),
                 e.getValue().stream().map(this::toMatchResponse).toList()))
             .toList();
@@ -317,14 +318,18 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsMatchResponse toMatchResponse(SportsTournamentMatch m) {
+        String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : extractNote(m.getMatchNotes(), "homeName", "TBD");
+        String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : extractNote(m.getMatchNotes(), "awayName", "TBD");
+        String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
+
         return new SportsMatchResponse(
-            m.getId(), m.getRound() != null ? m.getRound().name() : "TBD",
+            m.getId(), roundName,
             Objects.requireNonNullElse(m.getMatchNumber(), 0),
             Objects.requireNonNullElse(m.getBracketSlot(), 0),
             m.getTeamA() != null ? m.getTeamA().getId() : null,
-            m.getTeamA() != null ? m.getTeamA().getTeamName() : "TBD",
+            teamAName,
             m.getTeamB() != null ? m.getTeamB().getId() : null,
-            m.getTeamB() != null ? m.getTeamB().getTeamName() : "TBD",
+            teamBName,
             m.getTeamA() != null ? m.getTeamA().getColorHex() : "#555",
             m.getTeamB() != null ? m.getTeamB().getColorHex() : "#555",
             m.getScheduledAt() != null ? m.getScheduledAt().toString() : "",
@@ -332,13 +337,31 @@ public class SportsTournamentSchedulerService {
             m.getVenue() != null ? m.getVenue().getName() : null,
             m.getCourt() != null ? m.getCourt().getId() : null,
             m.getCourt() != null ? m.getCourt().getName() : null,
-            m.getStatus().name(),
+            m.getStatus() != null ? m.getStatus().name() : "SCHEDULED",
             m.getScoreTeamA(), m.getScoreTeamB(),
             m.getWinner() != null ? m.getWinner().getTeamName() : null,
             m.getWinnerAdvancesToMatchId(),
-            m.getStatus() == MatchStatus.BYE
+            m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED
         );
     }
+
+    private String extractNote(String notes, String key, String fallback) {
+        if (notes == null || notes.isBlank()) return fallback;
+        try {
+            String pattern = "\"" + key + "\":\"([^\"]*)\"";
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(notes);
+            if (matcher.find()) {
+                String val = matcher.group(1);
+                if (val != null && !val.isBlank() && !"dummy".equalsIgnoreCase(val)) {
+                    return val;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not extract {} from matchNotes: {}", key, e.getMessage());
+        }
+        return fallback;
+    }
+
 
     private StandingResponse toStandingResponse(SportsGroupTeamStanding s) {
         return new StandingResponse(

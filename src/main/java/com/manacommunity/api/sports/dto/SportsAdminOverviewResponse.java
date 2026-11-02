@@ -13,11 +13,20 @@ public record SportsAdminOverviewResponse(
         List<TournamentRow> tournaments,
         List<EventRow> events,
         List<RegistrationRow> pendingRegistrations,
-        List<RegistrationRow> confirmedRegistrations
+        List<RegistrationRow> confirmedRegistrations,
+        List<RegistrationRow> registrations
 ) {
 
     public record RegistrationRow(
             Long id,
+            Long eventId,
+            Long userId,
+            Long familyMemberId,
+            String participantName,
+            String gender,
+            Long categoryId,
+            String categoryName,
+            String categoryGender,
             String playerName,
             String email,
             String flatNumber,
@@ -58,7 +67,9 @@ public record SportsAdminOverviewResponse(
             String auctionStatus,
             SportRef sport,
             Long tournamentId,
-            Boolean adminApprovalRequired
+            Boolean adminApprovalRequired,
+            String venueName,
+            String venueCity
     ) {}
 
     /** Just the sport fields the cards display (name + icon/iconUrl). */

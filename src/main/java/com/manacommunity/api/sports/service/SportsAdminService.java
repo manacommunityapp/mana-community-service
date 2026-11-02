@@ -21,6 +21,7 @@ import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository
 import com.manacommunity.api.sports.model.SportsEventRegistration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,10 +56,7 @@ public class SportsAdminService {
                 ? tournamentService.getAllTournaments()
                 : (activeCommId != null ? tournamentService.getCommunityTournaments(activeCommId) : List.of());
 
-        PageRequest eventPage = PageRequest.of(0, 100, Sort.by("eventDateStart").descending());
-        List<SportsEvent> events = isSuperAdmin && activeCommId == null
-                ? eventService.getAllEvents(eventPage).getContent()
-                : (activeCommId != null ? eventService.getCommunityEvents(activeCommId, eventPage).getContent() : List.of());
+        List<SportsEvent> events = loadAllEvents(isSuperAdmin && activeCommId == null, activeCommId);
 
         List<TournamentRow> tournamentRows = tournaments.stream()
                 .map(this::toTournamentRow)
@@ -88,26 +86,62 @@ public class SportsAdminService {
                 .map(this::toRegistrationRow)
                 .toList();
 
-        return new SportsAdminOverviewResponse(tournamentRows, eventRows, pendingRegistrations, confirmedRegistrations);
+        List<RegistrationRow> allRegistrations = registrations.stream()
+                .map(this::toRegistrationRow)
+                .toList();
+
+        return new SportsAdminOverviewResponse(tournamentRows, eventRows, pendingRegistrations, confirmedRegistrations, allRegistrations);
     }
 
     private RegistrationRow toRegistrationRow(SportsEventRegistration r) {
+        var familyMember = r.getFamilyMember();
+        var user = r.getUser();
+        var category = r.getCategory();
         String eventName = r.getEvent() != null ? r.getEvent().getName() : "";
         String sportName = r.getEvent() != null && r.getEvent().getSport() != null ? r.getEvent().getSport().getName() : "";
+        String participantName = r.getPlayerName();
+        if (participantName == null || participantName.isBlank()) {
+            participantName = familyMember != null ? familyMember.getName() : user != null ? user.getFullName() : null;
+        }
+        String participantGender = familyMember != null ? familyMember.getGender() : user != null ? user.getGender() : null;
+        Integer participantAge = r.getAge() != null ? r.getAge() : familyMember != null ? familyMember.getAge() : null;
         return new RegistrationRow(
                 r.getId(),
+                r.getEvent() != null ? r.getEvent().getId() : null,
+                user != null ? user.getId() : null,
+                familyMember != null ? familyMember.getId() : null,
+                participantName,
+                participantGender,
+                category != null ? category.getId() : null,
+                category != null ? category.getName() : null,
+                category != null ? category.getGender() : null,
                 r.getPlayerName(),
                 r.getEmail(),
                 r.getFlatNumber(),
                 r.getRole(),
                 r.getRelation(),
-                r.getAge(),
+                participantAge,
                 r.getStatus() != null ? r.getStatus().name() : null,
                 eventName,
                 sportName,
                 r.getRegisteredAt(),
                 r.getProposedTeamName()
         );
+    }
+
+    private List<SportsEvent> loadAllEvents(boolean allCommunities, Long communityId) {
+        if (!allCommunities && communityId == null) return List.of();
+        List<SportsEvent> result = new java.util.ArrayList<>();
+        int pageNumber = 0;
+        Page<SportsEvent> page;
+        do {
+            PageRequest pageable = PageRequest.of(pageNumber++, 100, Sort.by("eventDateStart").descending());
+            page = allCommunities
+                    ? eventService.getAllEvents(pageable)
+                    : eventService.getCommunityEvents(communityId, pageable);
+            result.addAll(page.getContent());
+        } while (page.hasNext());
+        return result;
     }
 
     private TournamentRow toTournamentRow(SportsTournament t) {
@@ -142,7 +176,9 @@ public class SportsAdminService {
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 sport != null ? new SportRef(sport.getName(), sport.getIcon(), sport.getIconUrl()) : null,
                 t != null ? t.getId() : null,
-                e.getAdminApprovalRequired()
+                e.getAdminApprovalRequired(),
+                e.getVenue() != null ? e.getVenue().getName() : null,
+                e.getVenue() != null ? e.getVenue().getCity() : null
         );
     }
 

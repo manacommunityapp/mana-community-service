@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.time.LocalDate;
 import java.util.stream.Collectors;
 
 import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
@@ -48,6 +49,13 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
     @Override
     @Transactional(readOnly = true)
     public SportsAnalyticsResponse getAnalytics(AppUser user, Long requestedCommunityId) {
+        return getAnalytics(user, requestedCommunityId, null, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SportsAnalyticsResponse getAnalytics(AppUser user, Long requestedCommunityId, Long sportId, LocalDate fromDate, LocalDate toDate) {
+        boolean filtersApplied = sportId != null || fromDate != null || toDate != null;
         boolean isSuperAdmin = user != null && user.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? requestedCommunityId
                 : (user != null && user.getCommunity() != null ? user.getCommunity().getId() : requestedCommunityId);
@@ -57,15 +65,27 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
                 ? tournamentRepo.findAll()
                 : tournamentRepo.findByEventCommunityIdOrderByCreatedAtDesc(targetCommunityId);
 
-        long activeTournaments = tournaments.stream()
-                .filter(t -> t.getRegistrationStatus() == SportsEventStatus.REGISTRATION_OPEN
-                        || t.getRegistrationStatus() == SportsEventStatus.LIVE)
-                .count();
-
         // 2. Fetch Events
         List<SportsEvent> events = targetCommunityId == null
                 ? eventRepo.findAll()
                 : eventRepo.findByCommunityIdOrderByEventDateStartDesc(targetCommunityId);
+
+        if (filtersApplied) {
+            events = events.stream()
+                    .filter(e -> sportId == null || (e.getSport() != null && sportId.equals(e.getSport().getId())))
+                    .filter(e -> matchesDateRange(e, fromDate, toDate))
+                    .toList();
+            Set<Long> matchingEventIds = events.stream().map(SportsEvent::getId).collect(Collectors.toSet());
+            tournaments = tournaments.stream()
+                    .filter(t -> t.getSportsEvents() != null && t.getSportsEvents().stream()
+                            .anyMatch(e -> matchingEventIds.contains(e.getId())))
+                    .toList();
+        }
+
+        long activeTournaments = tournaments.stream()
+                .filter(t -> t.getRegistrationStatus() == SportsEventStatus.REGISTRATION_OPEN
+                        || t.getRegistrationStatus() == SportsEventStatus.LIVE)
+                .count();
 
         long activeEvents = events.stream()
                 .filter(e -> Boolean.TRUE.equals(e.getActive()))
@@ -75,6 +95,12 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         List<SportsEventRegistration> registrations = targetCommunityId == null
                 ? registrationRepo.findAll()
                 : registrationRepo.findByCommunityId(targetCommunityId);
+        if (filtersApplied) {
+            Set<Long> matchingEventIds = events.stream().map(SportsEvent::getId).collect(Collectors.toSet());
+            registrations = registrations.stream()
+                    .filter(r -> r.getEvent() != null && matchingEventIds.contains(r.getEvent().getId()))
+                    .toList();
+        }
 
         long totalRegistrations = registrations.size();
         long confirmedRegistrations = registrations.stream()
@@ -88,10 +114,10 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         // Distinct participants
         Set<String> uniqueParticipantKeys = new HashSet<>();
         for (SportsEventRegistration r : registrations) {
-            if (r.getUser() != null) {
-                uniqueParticipantKeys.add("U-" + r.getUser().getId());
-            } else if (r.getFamilyMember() != null) {
+            if (r.getFamilyMember() != null) {
                 uniqueParticipantKeys.add("FM-" + r.getFamilyMember().getId());
+            } else if (r.getUser() != null) {
+                uniqueParticipantKeys.add("U-" + r.getUser().getId());
             } else if (r.getPlayerName() != null) {
                 uniqueParticipantKeys.add("NAME-" + r.getPlayerName());
             }
@@ -104,6 +130,11 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
                 : venueRepo.findAll().stream()
                 .filter(v -> v.getCommunity() != null && targetCommunityId.equals(v.getCommunity().getId()))
                 .toList();
+        if (filtersApplied) {
+            Set<Long> matchingVenueIds = events.stream().filter(e -> e.getVenue() != null)
+                    .map(e -> e.getVenue().getId()).collect(Collectors.toSet());
+            venues = venues.stream().filter(v -> matchingVenueIds.contains(v.getId())).toList();
+        }
 
         OverviewMetrics overview = new OverviewMetrics(
                 tournaments.size(),
@@ -131,20 +162,20 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         allSportIds.addAll(regBySport.keySet());
 
         List<SportParticipationMetric> sportParticipation = new ArrayList<>();
-        for (Long sportId : allSportIds) {
-            List<SportsEvent> sportEvents = eventsBySport.getOrDefault(sportId, List.of());
-            List<SportsEventRegistration> sportRegs = regBySport.getOrDefault(sportId, List.of());
+        for (Long sId : allSportIds) {
+            List<SportsEvent> sportEvents = eventsBySport.getOrDefault(sId, List.of());
+            List<SportsEventRegistration> sportRegs = regBySport.getOrDefault(sId, List.of());
             SportsMeta sportMeta = !sportEvents.isEmpty() ? sportEvents.get(0).getSport()
                     : (!sportRegs.isEmpty() ? sportRegs.get(0).getEvent().getSport() : null);
 
-            String sportName = sportMeta != null ? sportMeta.getName() : "Sport #" + sportId;
+            String sportName = sportMeta != null ? sportMeta.getName() : "Sport #" + sId;
             String icon = sportMeta != null ? sportMeta.getIcon() : "🏅";
             long sConfirmed = sportRegs.stream()
                     .filter(r -> r.getStatus() == SportsEventRegistration.RegistrationStatus.CONFIRMED)
                     .count();
 
             sportParticipation.add(new SportParticipationMetric(
-                    sportId, sportName, icon, sportEvents.size(), sportRegs.size(), sConfirmed
+                    sId, sportName, icon, sportEvents.size(), sportRegs.size(), sConfirmed
             ));
         }
         sportParticipation.sort((a, b) -> Long.compare(b.totalRegistrations(), a.totalRegistrations()));
@@ -168,10 +199,10 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         long otherCount = 0;
         for (SportsEventRegistration r : registrations) {
             String gender = null;
-            if (r.getUser() != null && r.getUser().getGender() != null) {
-                gender = r.getUser().getGender();
-            } else if (r.getFamilyMember() != null && r.getFamilyMember().getGender() != null) {
+            if (r.getFamilyMember() != null && r.getFamilyMember().getGender() != null) {
                 gender = r.getFamilyMember().getGender();
+            } else if (r.getUser() != null && r.getUser().getGender() != null) {
+                gender = r.getUser().getGender();
             }
             if (gender != null) {
                 if (gender.equalsIgnoreCase("MALE") || gender.equalsIgnoreCase("M")) {
@@ -263,6 +294,12 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
         List<SportsAuctionConfig> auctionConfigs = targetCommunityId == null
                 ? auctionConfigRepo.findAll()
                 : auctionConfigRepo.findByCreatedByCommunityIdOrderByCreatedAtDesc(targetCommunityId);
+        if (filtersApplied) {
+            Set<Long> matchingEventIds = events.stream().map(SportsEvent::getId).collect(Collectors.toSet());
+            auctionConfigs = auctionConfigs.stream()
+                    .filter(cfg -> cfg.getEvent() != null && matchingEventIds.contains(cfg.getEvent().getId()))
+                    .toList();
+        }
 
         long totalTeams = 0;
         long totalPlayers = 0;
@@ -293,5 +330,15 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
                 venueUtilization,
                 auctionSummary
         );
+    }
+
+    private boolean matchesDateRange(SportsEvent event, LocalDate fromDate, LocalDate toDate) {
+        LocalDate eventStart = event.getEventDateStart();
+        LocalDate eventEnd = event.getEventDateEnd();
+        if (eventStart == null && event.getTournament() != null) eventStart = event.getTournament().getEventDateStart();
+        if (eventEnd == null && event.getTournament() != null) eventEnd = event.getTournament().getEventDateEnd();
+        if (fromDate != null && eventEnd != null && eventEnd.isBefore(fromDate)) return false;
+        if (toDate != null && eventStart != null && eventStart.isAfter(toDate)) return false;
+        return true;
     }
 }

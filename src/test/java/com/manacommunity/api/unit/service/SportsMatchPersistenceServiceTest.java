@@ -6,7 +6,9 @@ import com.manacommunity.api.sports.service.*;
 import com.manacommunity.api.sports.scheduler.*;
 import com.manacommunity.api.sports.controller.*;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.sports.dto.SportsBulkMatchSaveRequest;
+
 import com.manacommunity.api.sports.repository.SportsAuctionTeamRepository;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -152,14 +154,15 @@ class SportsMatchPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("throws IllegalArgumentException for unknown configId")
+        @DisplayName("throws ResourceNotFoundException for unknown configId")
         void unknownConfig() {
             when(configRepo.findById(anyLong())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.saveMatchesBulk(999L, List.of()))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("999");
         }
+
 
         @Test
         @DisplayName("match notes contain team names as JSON")
