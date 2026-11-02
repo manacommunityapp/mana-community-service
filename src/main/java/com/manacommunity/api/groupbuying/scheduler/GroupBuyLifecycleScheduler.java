@@ -26,6 +26,7 @@ public class GroupBuyLifecycleScheduler {
     private final GroupBuyOrderRepository orderRepository;
     private final CommerceOrderRepository commerceOrderRepository;
     private final ObjectProvider<CashfreePaymentService> cashfreePaymentService;
+    private final ObjectProvider<com.manacommunity.api.payments.repository.CashfreeOrderRepository> cashfreeOrderRepository;
 
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -115,6 +116,7 @@ public class GroupBuyLifecycleScheduler {
     private void refundUnsuccessfulDealOrders(GroupDeal deal) {
         List<GroupBuyOrder> orders = orderRepository.findByDealId(deal.getId());
         CashfreePaymentService cfService = cashfreePaymentService.getIfAvailable();
+        var cfOrderRepo = cashfreeOrderRepository.getIfAvailable();
 
         for (GroupBuyOrder ord : orders) {
             if (ord.getStatus() == OrderStatus.CONFIRMED && "PAID".equals(ord.getPaymentStatus())) {
@@ -133,9 +135,22 @@ public class GroupBuyLifecycleScheduler {
                     co.setCancellationReason("Deal target not reached by cutoff time");
                     commerceOrderRepository.save(co);
 
-                    if (cfService != null && ord.getCommerceOrder().getOrderNumber() != null) {
+                    if (cfService != null && co.getId() != null) {
                         try {
-                            cfService.initiateRefund(co.getOrderNumber(), ord.getTotalAmount(), "Campaign target not reached");
+                            String manaOrderIdToRefund = null;
+                            if (cfOrderRepo != null) {
+                                var cfOrderOpt = cfOrderRepo.findTopByReferenceTypeAndReferenceIdAndStatusOrderByCreatedAtDesc(
+                                        "GROUP_BUY_ORDER", co.getId(), "PAID");
+                                if (cfOrderOpt.isPresent()) {
+                                    manaOrderIdToRefund = cfOrderOpt.get().getManaOrderId();
+                                }
+                            }
+                            if (manaOrderIdToRefund == null && ord.getTransactionId() != null && ord.getTransactionId().startsWith("MANA-")) {
+                                manaOrderIdToRefund = ord.getTransactionId();
+                            }
+                            if (manaOrderIdToRefund != null) {
+                                cfService.initiateRefund(manaOrderIdToRefund, ord.getTotalAmount(), "Campaign target not reached");
+                            }
                         } catch (Exception e) {
                             log.warn("Auto-refund call to Cashfree for order {} skipped/failed: {}", co.getOrderNumber(), e.getMessage());
                         }
