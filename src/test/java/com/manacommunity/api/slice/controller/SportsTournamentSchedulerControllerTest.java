@@ -34,10 +34,13 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+
 @WebMvcTest(SportsTournamentSchedulerController.class)
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 @DisplayName("SportsTournamentSchedulerController")
 class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
 
@@ -47,8 +50,10 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
     @MockitoBean SportsEventRepository       eventRepo;
     @MockitoBean LoggedInUserService         loggedInUserService;
     @MockitoBean SportsAuctionConfigRepository     auctionConfigRepo;
+    @MockitoBean com.manacommunity.api.sports.repository.SportsTournamentRepository tournamentRepo;
     @MockitoBean SportsPlayoffScheduleGenerator    playoffGenerator;
     @MockitoBean com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
+
 
     // ── GET /api/tournament/{configId}/matches ────────────────────────
 
@@ -99,7 +104,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
         void admin_bulkSave_returns200() throws Exception {
             when(schedulerService.saveMatchesBulk(eq(84L), any())).thenReturn(4);
 
-            mockMvc.perform(post("/api/tournament/84/matches/bulk")
+            mockMvc.perform(post("/api/tournament/84/matches/bulk").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(buildRequest(4))))
                     .andExpect(status().isOk())
@@ -111,7 +116,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
         @WithMockUserPrincipal(role = "MEMBER")
         @DisplayName("MEMBER role is rejected with 403")
         void member_rejected_403() throws Exception {
-            mockMvc.perform(post("/api/tournament/84/matches/bulk")
+            mockMvc.perform(post("/api/tournament/84/matches/bulk").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(buildRequest(1))))
                     .andExpect(status().isForbidden());
@@ -120,7 +125,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
         @Test
         @DisplayName("unauthenticated request returns 4xx")
         void unauthenticated_4xx() throws Exception {
-            mockMvc.perform(post("/api/tournament/84/matches/bulk")
+            mockMvc.perform(post("/api/tournament/84/matches/bulk").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(buildRequest(1))))
                     .andExpect(status().is4xxClientError());
@@ -149,7 +154,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
                             new SportsPlayoffMatchDraftResponse.ParticipantRef("b", "B"),
                             "2026-06-20", "09:20 AM", 30, 1L, 1L, false, null)));
 
-            mockMvc.perform(post("/api/tournament/playoff/generate")
+            mockMvc.perform(post("/api/tournament/playoff/generate").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(input())))
                     .andExpect(status().isOk())
@@ -161,7 +166,7 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
         @WithMockUserPrincipal(role = "MEMBER")
         @DisplayName("MEMBER role is rejected with 403")
         void member_rejected_403() throws Exception {
-            mockMvc.perform(post("/api/tournament/playoff/generate")
+            mockMvc.perform(post("/api/tournament/playoff/generate").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(input())))
                     .andExpect(status().isForbidden());
@@ -170,10 +175,11 @@ class SportsTournamentSchedulerControllerTest extends BaseWebMvcTest {
         @Test
         @DisplayName("unauthenticated request returns 4xx")
         void unauthenticated_4xx() throws Exception {
-            mockMvc.perform(post("/api/tournament/playoff/generate")
+            mockMvc.perform(post("/api/tournament/playoff/generate").with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(input())))
                     .andExpect(status().is4xxClientError());
         }
     }
 }
+
