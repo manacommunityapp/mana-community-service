@@ -161,6 +161,8 @@ public class SportsAdminService {
     private EventRow toEventRow(SportsEvent e) {
         SportsMeta sport = e.getSport();
         SportsTournament t = e.getTournament();
+        String eventStatus = e.getStatus() != null ? e.getStatus().name()
+                : (t != null && t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null);
         return new EventRow(
                 e.getId(),
                 e.getName(),
@@ -172,7 +174,7 @@ public class SportsAdminService {
                 e.getMinAge(),
                 e.getMaxAge(),
                 e.getMaxParticipants(),
-                t != null && t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null,
+                eventStatus,
                 e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null,
                 sport != null ? new SportRef(sport.getName(), sport.getIcon(), sport.getIconUrl()) : null,
                 t != null ? t.getId() : null,
