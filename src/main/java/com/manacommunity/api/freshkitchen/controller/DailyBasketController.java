@@ -1,18 +1,18 @@
 package com.manacommunity.api.freshkitchen.controller;
 
-import com.manacommunity.api.freshkitchen.dto.BasketItemRequest;
-import com.manacommunity.api.freshkitchen.dto.DailyBasketDto;
-import com.manacommunity.api.freshkitchen.dto.DailyBasketItemDto;
-import com.manacommunity.api.freshkitchen.dto.VacationPauseRequest;
+import com.manacommunity.api.freshkitchen.dto.*;
 import com.manacommunity.api.freshkitchen.service.DailyBasketService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping({"/api/v1/daily-basket", "/daily-basket"})
@@ -81,5 +81,25 @@ public class DailyBasketController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : 1L;
         return ResponseEntity.ok(dailyBasketService.resumeBasket(user.getId(), communityId));
+    }
+
+    @GetMapping("/today-pass")
+    public ResponseEntity<DeliveryPassDto> getTodayPass(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : 1L;
+        DeliveryPassDto pass = dailyBasketService.getTodayDeliveryPass(user.getId(), communityId, date);
+        return pass != null ? ResponseEntity.ok(pass) : ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/orders/lookup")
+    public ResponseEntity<DeliveryPassDto> lookupOrder(@RequestParam String query) {
+        return ResponseEntity.ok(dailyBasketService.lookupOrderByTokenOrNumber(query));
+    }
+
+    @PostMapping("/handover/verify")
+    public ResponseEntity<DeliveryPassDto> verifyHandover(@Valid @RequestBody HandoverVerifyRequest request) {
+        return ResponseEntity.ok(dailyBasketService.verifyDeliveryHandover(request));
     }
 }

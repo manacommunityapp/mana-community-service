@@ -14,6 +14,8 @@ import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.freshkitchen.dto.BasketItemRequest;
 import com.manacommunity.api.freshkitchen.dto.DailyBasketDto;
 import com.manacommunity.api.freshkitchen.dto.DailyBasketItemDto;
+import com.manacommunity.api.freshkitchen.dto.DeliveryPassDto;
+import com.manacommunity.api.freshkitchen.dto.HandoverVerifyRequest;
 import com.manacommunity.api.freshkitchen.dto.VacationPauseRequest;
 import com.manacommunity.api.freshkitchen.model.*;
 import com.manacommunity.api.freshkitchen.repository.DailyBasketItemRepository;
@@ -32,6 +34,7 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -343,5 +346,89 @@ public class DailyBasketService {
         }
 
         return ordersGenerated;
+    }
+
+    @Transactional(readOnly = true)
+    public DeliveryPassDto getTodayDeliveryPass(Long userId, Long communityId, LocalDate date) {
+        LocalDate queryDate = date != null ? date : LocalDate.now();
+        List<CommerceOrder> orders = commerceOrderRepository.findByBuyerIdOrderByCreatedAtDesc(userId);
+
+        // Find today's daily basket order
+        Optional<CommerceOrder> todayOrder = orders.stream()
+                .filter(o -> o.getOrderNumber() != null && o.getOrderNumber().startsWith("DB-"))
+                .filter(o -> queryDate.equals(o.getEstimatedDeliveryDate()))
+                .findFirst();
+
+        if (todayOrder.isPresent()) {
+            return DeliveryPassDto.fromEntity(todayOrder.get());
+        }
+
+        // Fallback: any active (CONFIRMED/OUT_FOR_DELIVERY) order for the user
+        Optional<CommerceOrder> activeOrder = orders.stream()
+                .filter(o -> o.getOrderNumber() != null && o.getOrderNumber().startsWith("DB-"))
+                .filter(o -> o.getStatus() == CommerceOrderStatus.CONFIRMED || o.getStatus() == CommerceOrderStatus.OUT_FOR_DELIVERY)
+                .findFirst();
+
+        return activeOrder.map(DeliveryPassDto::fromEntity).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public DeliveryPassDto lookupOrderByTokenOrNumber(String tokenOrNumber) {
+        if (tokenOrNumber == null || tokenOrNumber.isBlank()) {
+            throw new InvalidInputException("Order number or QR token is required for lookup");
+        }
+
+        Optional<CommerceOrder> orderOpt = tokenOrNumber.startsWith("TKN-")
+                ? commerceOrderRepository.findByQrToken(tokenOrNumber)
+                : commerceOrderRepository.findByOrderNumber(tokenOrNumber);
+
+        if (orderOpt.isEmpty()) {
+            orderOpt = commerceOrderRepository.findByQrToken(tokenOrNumber);
+            if (orderOpt.isEmpty()) {
+                orderOpt = commerceOrderRepository.findByOrderNumber(tokenOrNumber);
+            }
+        }
+
+        return orderOpt.map(DeliveryPassDto::fromEntity)
+                .orElseThrow(() -> new ResourceNotFoundException("CommerceOrder", tokenOrNumber));
+    }
+
+    @Transactional
+    public DeliveryPassDto verifyDeliveryHandover(HandoverVerifyRequest request) {
+        if ((request.getQrToken() == null || request.getQrToken().isBlank()) &&
+            (request.getOrderNumber() == null || request.getOrderNumber().isBlank())) {
+            throw new InvalidInputException("Either QR token or order number must be provided for delivery verification");
+        }
+
+        CommerceOrder order = null;
+        if (request.getQrToken() != null && !request.getQrToken().isBlank()) {
+            order = commerceOrderRepository.findByQrToken(request.getQrToken().trim()).orElse(null);
+        }
+        if (order == null && request.getOrderNumber() != null && !request.getOrderNumber().isBlank()) {
+            order = commerceOrderRepository.findByOrderNumber(request.getOrderNumber().trim()).orElse(null);
+        }
+
+        if (order == null) {
+            throw new ResourceNotFoundException("Active Delivery Order", request.getQrToken() != null ? request.getQrToken() : request.getOrderNumber());
+        }
+
+        // If OTP provided, verify against order handoverOtp
+        if (request.getHandoverOtp() != null && !request.getHandoverOtp().isBlank()) {
+            if (order.getHandoverOtp() != null && !order.getHandoverOtp().trim().equals(request.getHandoverOtp().trim())) {
+                throw new InvalidInputException("Invalid 6-digit delivery OTP entered.");
+            }
+        }
+
+        order.setStatus(CommerceOrderStatus.DELIVERED);
+        order.setIsEscrowLocked(false);
+        order.setActualDeliveryAt(LocalDateTime.now());
+        if (request.getRunnerNotes() != null && !request.getRunnerNotes().isBlank()) {
+            order.setVendorNotes((order.getVendorNotes() != null ? order.getVendorNotes() + " | " : "") + request.getRunnerNotes());
+        }
+
+        CommerceOrder saved = commerceOrderRepository.save(order);
+        log.info("Morning daily basket order {} successfully DELIVERED and escrow unlocked via runner handover.", saved.getOrderNumber());
+
+        return DeliveryPassDto.fromEntity(saved);
     }
 }
