@@ -9,5 +9,6 @@ public enum FoodCategory {
     CONDIMENT,
     BEVERAGE,
     SNACK,
-    FRESH_PRODUCE
+    FRESH_PRODUCE,
+    HEALTHY_BREAKFAST
 }
