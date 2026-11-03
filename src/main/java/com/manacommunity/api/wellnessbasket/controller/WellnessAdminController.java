@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,6 +23,12 @@ public class WellnessAdminController {
     private final WellnessMenuRotationService menuRotationService;
     private final WellnessClusterService clusterService;
     private final WellnessSubscriptionService subscriptionService;
+
+    @GetMapping("/swaps/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'DIETITIAN')")
+    public ResponseEntity<List<WellnessSwapDto>> getPendingSwaps() {
+        return ResponseEntity.ok(menuRotationService.getPendingSwaps());
+    }
 
     @PatchMapping("/swaps/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'DIETITIAN')")

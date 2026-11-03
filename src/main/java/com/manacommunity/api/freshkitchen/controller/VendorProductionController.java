@@ -9,6 +9,7 @@ import com.manacommunity.api.freshkitchen.service.VendorProductionCapacityServic
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +46,18 @@ public class VendorProductionController {
             @RequestParam String vendorId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(capacityService.getVendorDailyManifest(vendorId, date));
+    }
+
+    @GetMapping(value = "/production-manifest/export", produces = "text/csv")
+    public ResponseEntity<String> exportManifestCsv(
+            @RequestParam String vendorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        String csv = capacityService.exportVendorDailyManifestCsv(vendorId, date);
+        LocalDate queryDate = date != null ? date : LocalDate.now();
+        String filename = "manifest-" + vendorId + "-" + queryDate + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(csv);
     }
 
     @PostMapping("/batches")

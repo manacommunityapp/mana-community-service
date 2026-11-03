@@ -4,7 +4,11 @@ import com.manacommunity.api.commerce.core.model.CommerceChannel;
 import com.manacommunity.api.commerce.core.model.CommerceOrder;
 import com.manacommunity.api.commerce.core.model.CommerceOrderItem;
 import com.manacommunity.api.commerce.core.model.CommerceOrderStatus;
+import com.manacommunity.api.commerce.core.model.CommerceWallet;
+import com.manacommunity.api.commerce.core.model.CommerceWalletTransaction;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceWalletRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceWalletTransactionRepository;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.freshkitchen.dto.BasketItemRequest;
@@ -42,6 +46,8 @@ public class DailyBasketService {
     private final AppUserRepository userRepository;
     private final CommunityRepository communityRepository;
     private final CommerceOrderRepository commerceOrderRepository;
+    private final CommerceWalletRepository commerceWalletRepository;
+    private final CommerceWalletTransactionRepository commerceWalletTransactionRepository;
     private final VendorProductionCapacityService capacityService;
 
     private final SecureRandom secureRandom = new SecureRandom();
@@ -300,6 +306,36 @@ public class DailyBasketService {
             order.setSubtotalAmount(subtotal);
             order.setTotalAmount(subtotal);
             order.setItems(orderItems);
+
+            // Auto-debit resident's CommerceWallet if sufficient balance exists
+            Optional<CommerceWallet> walletOpt = commerceWalletRepository
+                    .findByUserIdAndCommunityId(basket.getUser().getId(), basket.getCommunity().getId());
+
+            if (walletOpt.isPresent() && walletOpt.get().getBalance().compareTo(subtotal) >= 0) {
+                CommerceWallet wallet = walletOpt.get();
+                wallet.setBalance(wallet.getBalance().subtract(subtotal));
+                commerceWalletRepository.save(wallet);
+
+                commerceWalletTransactionRepository.save(CommerceWalletTransaction.builder()
+                        .wallet(wallet)
+                        .txnRef("TXN-DB-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                        .txnType("PAYMENT")
+                        .amount(subtotal.negate())
+                        .balanceAfter(wallet.getBalance())
+                        .referenceId(orderNum)
+                        .description("Daily Basket Auto-debit: " + orderNum)
+                        .build());
+
+                order.setPaymentMethod("COMMERCE_WALLET");
+                order.setPaymentStatus("PAID");
+                order.setIsEscrowLocked(true);
+                log.info("Auto-debited ₹{} from wallet for order {}", subtotal, orderNum);
+            } else {
+                order.setPaymentMethod("CASHFREE_SUBSCRIPTION");
+                order.setPaymentStatus("PENDING_PAYMENT");
+                order.setIsEscrowLocked(false);
+                log.info("Insufficient wallet balance for order {}. Marked as PENDING_PAYMENT.", orderNum);
+            }
 
             commerceOrderRepository.save(order);
             ordersGenerated++;

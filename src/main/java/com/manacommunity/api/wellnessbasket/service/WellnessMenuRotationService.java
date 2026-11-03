@@ -404,6 +404,13 @@ public class WellnessMenuRotationService {
                 .orElse(Collections.emptyList());
     }
 
+    @Transactional(readOnly = true)
+    public List<WellnessSwapDto> getPendingSwaps() {
+        return swapRepository.findByStatus("PENDING").stream()
+                .map(s -> toSwapDto(s, s.getSubscriberPreference().getUserId()))
+                .toList();
+    }
+
     private WellnessSwapDto toSwapDto(WellnessMenuSwap swap, Long userId) {
         String origName = productConfigRepository.findById(swap.getOriginalProductId())
                 .map(FreshFoodProductConfig::getName).orElse("Product #" + swap.getOriginalProductId());

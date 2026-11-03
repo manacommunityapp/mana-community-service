@@ -226,4 +226,26 @@ public class VendorProductionCapacityService {
                 .items(items)
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public String exportVendorDailyManifestCsv(String vendorId, LocalDate date) {
+        VendorDailyManifestDto manifest = getVendorDailyManifest(vendorId, date);
+        StringBuilder csv = new StringBuilder();
+        csv.append("Vendor ID,Vendor Name,Production Date,Product ID,Product Name,Max Capacity,Reserved Qty,Available Qty,Is Sold Out,Batches\n");
+
+        for (VendorDailyManifestDto.ManifestItemDto item : manifest.getItems()) {
+            csv.append('"').append(manifest.getVendorId()).append("\",");
+            csv.append('"').append(manifest.getVendorName() != null ? manifest.getVendorName() : "").append("\",");
+            csv.append('"').append(manifest.getProductionDate()).append("\",");
+            csv.append('"').append(item.getProductId()).append("\",");
+            csv.append('"').append(item.getProductName() != null ? item.getProductName().replace("\"", "\"\"") : "").append("\",");
+            csv.append(item.getMaxCapacity()).append(',');
+            csv.append(item.getReservedQuantity()).append(',');
+            csv.append(item.getAvailableQuantity()).append(',');
+            csv.append(Boolean.TRUE.equals(item.getIsSoldOut()) ? "YES" : "NO").append(',');
+            csv.append('"').append(item.getBatchNumbers() != null ? String.join("; ", item.getBatchNumbers()) : "").append("\"\n");
+        }
+
+        return csv.toString();
+    }
 }
