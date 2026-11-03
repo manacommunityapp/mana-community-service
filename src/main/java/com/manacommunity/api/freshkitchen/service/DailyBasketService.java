@@ -9,6 +9,7 @@ import com.manacommunity.api.commerce.core.model.CommerceWalletTransaction;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceWalletRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceWalletTransactionRepository;
+import com.manacommunity.api.commerce.core.service.CommerceNotificationService;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.freshkitchen.dto.BasketItemRequest;
@@ -52,6 +53,7 @@ public class DailyBasketService {
     private final CommerceWalletRepository commerceWalletRepository;
     private final CommerceWalletTransactionRepository commerceWalletTransactionRepository;
     private final VendorProductionCapacityService capacityService;
+    private final CommerceNotificationService notificationService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -340,9 +342,10 @@ public class DailyBasketService {
                 log.info("Insufficient wallet balance for order {}. Marked as PENDING_PAYMENT.", orderNum);
             }
 
-            commerceOrderRepository.save(order);
+            CommerceOrder saved = commerceOrderRepository.save(order);
             ordersGenerated++;
             log.info("Generated Daily Basket CommerceOrder {} for basket {} total ₹{}", orderNum, basket.getId(), subtotal);
+            notificationService.notifyOrderConfirmed(saved);
         }
 
         return ordersGenerated;
@@ -428,7 +431,42 @@ public class DailyBasketService {
 
         CommerceOrder saved = commerceOrderRepository.save(order);
         log.info("Morning daily basket order {} successfully DELIVERED and escrow unlocked via runner handover.", saved.getOrderNumber());
+        notificationService.notifyMorningHandoverVerified(saved);
 
         return DeliveryPassDto.fromEntity(saved);
     }
+
+    @Transactional(readOnly = true)
+    public void sendNightlyCutoffReminders(LocalDate tomorrow) {
+        DayOfWeek dow = tomorrow.getDayOfWeek();
+        List<DailyBasket> baskets = basketRepository.findByIsActiveTrue();
+        for (DailyBasket basket : baskets) {
+            if (basket.isPausedOn(tomorrow) || basket.getUser() == null) {
+                continue;
+            }
+            boolean hasItems = basket.getItems().stream()
+                    .filter(item -> Boolean.TRUE.equals(item.getIsActive()))
+                    .anyMatch(item -> item.isActiveOnDay(dow));
+            if (hasItems) {
+                notificationService.notifyNightlyBasketCutoffReminder(basket.getUser().getId(), basket.getDeliverySlot());
+            }
+        }
+    }
+
+    @Transactional
+    public int dispatchMorningOrders(LocalDate today) {
+        List<CommerceOrder> orders = commerceOrderRepository.findAll().stream()
+                .filter(o -> o.getOrderNumber() != null && o.getOrderNumber().startsWith("DB-"))
+                .filter(o -> today.equals(o.getEstimatedDeliveryDate()))
+                .filter(o -> o.getStatus() == CommerceOrderStatus.CONFIRMED)
+                .toList();
+
+        for (CommerceOrder order : orders) {
+            order.setStatus(CommerceOrderStatus.OUT_FOR_DELIVERY);
+            commerceOrderRepository.save(order);
+            notificationService.notifyMorningOutForDeliveryWithPin(order);
+        }
+        return orders.size();
+    }
 }
+
