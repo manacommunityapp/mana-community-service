@@ -144,8 +144,26 @@ class DailyBasketServiceTest {
 
         assertNotNull(pass);
         assertEquals("DB-20261104-1", pass.getOrderNumber());
-        assertEquals("481923", pass.getHandoverOtp());
+        assertNull(pass.getHandoverOtp(), "Handover OTP must be masked from runner lookup to prevent unauthorized access");
         assertEquals("402", pass.getDeliveryAddress().contains("402") ? "402" : "");
+    }
+
+    @Test
+    void testVerifyDeliveryHandover_MissingOtpAndQr_ThrowsException() {
+        when(commerceOrderRepository.findByOrderNumber("DB-20261104-1"))
+                .thenReturn(Optional.of(testOrder));
+
+        HandoverVerifyRequest request = HandoverVerifyRequest.builder()
+                .orderNumber("DB-20261104-1")
+                .runnerNotes("Attempting delivery without OTP or QR token")
+                .build();
+
+        assertThrows(InvalidInputException.class, () ->
+                dailyBasketService.verifyDeliveryHandover(request)
+        );
+
+        verify(commerceOrderRepository, never()).save(any());
+        verify(notificationService, never()).notifyMorningHandoverVerified(any());
     }
 
     @Test

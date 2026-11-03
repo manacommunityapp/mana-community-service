@@ -12,6 +12,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ public class VendorProductionController {
     }
 
     @PostMapping("/production-capacity")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<VendorCapacityDto> setCapacity(
             @Valid @RequestBody VendorCapacityDto request) {
         return ResponseEntity.ok(capacityService.setOrUpdateCapacity(request));
@@ -61,12 +63,14 @@ public class VendorProductionController {
     }
 
     @PostMapping("/batches")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ProductionBatchDto> createBatch(
             @Valid @RequestBody ProductionBatchDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(freshKitchenService.createProductionBatch(request));
     }
 
     @PostMapping("/batches/{batchNumber}/release")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ProductionBatchDto> releaseBatch(
             @PathVariable String batchNumber,
             @Valid @RequestBody BatchReleaseRequest request) {

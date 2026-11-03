@@ -312,9 +312,10 @@ public class DailyBasketService {
             order.setTotalAmount(subtotal);
             order.setItems(orderItems);
 
-            // Auto-debit resident's CommerceWallet if sufficient balance exists
+            // Auto-debit resident's CommerceWallet if sufficient balance exists.
+            // Use PESSIMISTIC_WRITE lock to prevent concurrent double-spend.
             Optional<CommerceWallet> walletOpt = commerceWalletRepository
-                    .findByUserIdAndCommunityId(basket.getUser().getId(), basket.getCommunity().getId());
+                    .findByUserIdAndCommunityIdWithLock(basket.getUser().getId(), basket.getCommunity().getId());
 
             if (walletOpt.isPresent() && walletOpt.get().getBalance().compareTo(subtotal) >= 0) {
                 CommerceWallet wallet = walletOpt.get();
@@ -392,8 +393,13 @@ public class DailyBasketService {
             }
         }
 
-        return orderOpt.map(DeliveryPassDto::fromEntity)
+        DeliveryPassDto dto = orderOpt
+                .map(DeliveryPassDto::fromEntity)
                 .orElseThrow(() -> new ResourceNotFoundException("CommerceOrder", tokenOrNumber));
+        // Security: Never expose the handover OTP to the runner lookup endpoint.
+        // The OTP is only revealed to the buyer via getTodayDeliveryPass().
+        dto.setHandoverOtp(null);
+        return dto;
     }
 
     @Transactional
@@ -415,11 +421,19 @@ public class DailyBasketService {
             throw new ResourceNotFoundException("Active Delivery Order", request.getQrToken() != null ? request.getQrToken() : request.getOrderNumber());
         }
 
-        // If OTP provided, verify against order handoverOtp
-        if (request.getHandoverOtp() != null && !request.getHandoverOtp().isBlank()) {
-            if (order.getHandoverOtp() != null && !order.getHandoverOtp().trim().equals(request.getHandoverOtp().trim())) {
-                throw new InvalidInputException("Invalid 6-digit delivery OTP entered.");
-            }
+        // Security: Delivery MUST be verified by either the correct OTP or the matching QR token.
+        // A missing or null value for BOTH is an explicit bypass attempt — reject it.
+        boolean otpMatch = request.getHandoverOtp() != null
+                && !request.getHandoverOtp().isBlank()
+                && order.getHandoverOtp() != null
+                && order.getHandoverOtp().trim().equals(request.getHandoverOtp().trim());
+        boolean qrMatch = request.getQrToken() != null
+                && !request.getQrToken().isBlank()
+                && order.getQrToken() != null
+                && order.getQrToken().trim().equals(request.getQrToken().trim());
+        if (!otpMatch && !qrMatch) {
+            throw new InvalidInputException(
+                    "Delivery verification failed: a valid 6-digit OTP or matching QR token must be provided.");
         }
 
         order.setStatus(CommerceOrderStatus.DELIVERED);

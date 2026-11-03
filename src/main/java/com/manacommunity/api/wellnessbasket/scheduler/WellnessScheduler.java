@@ -20,11 +20,13 @@ public class WellnessScheduler {
     private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
 
     /**
-     * 10:00 PM Nightly:
-     * Generates wellness orders for tomorrow's deliveries (Mon-Sat).
-     * Integrates with the DailyBasket and CommerceOrder engine.
+     * NOTE: This method is intentionally NOT scheduled.
+     * DailyBasketScheduler is the single authoritative 22:00 IST nightly job that calls
+     * dailyBasketService.generateDailyOrders(tomorrow) for ALL basket types including wellness.
+     * Running both schedulers at the same second caused a TOCTOU race condition on CommerceOrder
+     * creation (two concurrent transactions could both read isPresent=false before either commits).
+     * If a separate wellness-only nightly job is needed in future, schedule it at a different time.
      */
-    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Kolkata")
     public void generateNightlyWellnessOrders() {
         LocalDate tomorrow = LocalDate.now(IST_ZONE).plusDays(1);
         log.info("Running nightly Wellness Subscription order generation for {}", tomorrow);

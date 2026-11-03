@@ -122,7 +122,8 @@ public class WellnessSubscriptionService {
         }
 
         // Sync or initialize DailyBasket for this user
-        Community community = communityRepository.findAll().stream().findFirst().orElse(null);
+        // Security: use the subscribing user's actual community, not the first in DB
+        Community community = user.getCommunity();
         if (community != null) {
             DailyBasket basket = basketRepository.findByUserIdAndCommunityId(userId, community.getId())
                     .orElseGet(() -> {
@@ -209,7 +210,10 @@ public class WellnessSubscriptionService {
         WellnessSubscriberPreference saved = subscriberPrefRepository.save(pref);
 
         // Pause underlying daily basket if present
-        Community community = communityRepository.findAll().stream().findFirst().orElse(null);
+        // Security: resolve the user's actual community, not the first community in the DB
+        AppUser targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", String.valueOf(userId)));
+        Community community = targetUser.getCommunity();
         if (community != null) {
             basketRepository.findByUserIdAndCommunityId(userId, community.getId()).ifPresent(b -> {
                 b.setIsPaused(true);
@@ -233,7 +237,10 @@ public class WellnessSubscriptionService {
         pref.setPauseUntil(null);
         WellnessSubscriberPreference saved = subscriberPrefRepository.save(pref);
 
-        Community community = communityRepository.findAll().stream().findFirst().orElse(null);
+        // Security: resolve the user's actual community, not the first community in the DB
+        AppUser resumeUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", String.valueOf(userId)));
+        Community community = resumeUser.getCommunity();
         if (community != null) {
             basketRepository.findByUserIdAndCommunityId(userId, community.getId()).ifPresent(b -> {
                 b.setIsPaused(false);
@@ -260,7 +267,10 @@ public class WellnessSubscriptionService {
         subscriberPrefRepository.save(pref);
 
         // Remove wellness items from daily basket
-        Community community = communityRepository.findAll().stream().findFirst().orElse(null);
+        // Security: resolve the user's actual community, not the first community in the DB
+        AppUser cancelUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", String.valueOf(userId)));
+        Community community = cancelUser.getCommunity();
         if (community != null) {
             basketRepository.findByUserIdAndCommunityId(userId, community.getId()).ifPresent(b -> {
                 List<DailyBasketItem> items = basketItemRepository.findByBasketId(b.getId());
