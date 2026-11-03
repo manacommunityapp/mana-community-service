@@ -356,7 +356,7 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             }
 
             notificationService.createBulkNotifications(
-                    userIds, type, NotificationCategory.EVENTS,
+                    userIds, type, NotificationCategory.SPORTS,
                     title, body, null,
                     ReferenceType.TOURNAMENT, tournament.getId(),
                     priority, null,

@@ -723,7 +723,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 notificationService.createNotification(
                         partner.getId(),
                         NotificationType.PARTNER_SELECTED,
-                        NotificationCategory.EVENTS,
+                        NotificationCategory.SPORTS,
                         "Doubles Partner Invitation — " + event.getName(),
                         body,
                         "/sports?tab=my-sports&confirmPartner=" + saved.getId(),
@@ -858,7 +858,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         : "Your registration for " + eventName + " was removed by an organizer"
                                 + (reason != null && !reason.isBlank() ? ": " + reason : ".");
                 notificationService.createNotification(
-                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.SPORTS,
                         "Registration Withdrawn", msg, null, ReferenceType.SPORTS_EVENT, eventId,
                         NotificationPriority.NORMAL, null, null);
             }
@@ -866,7 +866,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             if (reg.getPartner() != null && reg.getPartner().getId() != null
                     && (reg.getUser() == null || !reg.getPartner().getId().equals(reg.getUser().getId()))) {
                 notificationService.createNotification(
-                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.SPORTS,
                         "Partner Withdrew",
                         who + " has withdrawn from " + eventName + ". You may need to nominate a new partner.",
                         null, ReferenceType.SPORTS_EVENT, eventId,
@@ -1191,7 +1191,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 notificationService.createNotification(
                         reg.getUser().getId(),
                         type,
-                        NotificationCategory.EVENTS,
+                        NotificationCategory.SPORTS,
                         title,
                         msg,
                         null,
@@ -1725,7 +1725,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
 
             notificationService.createBulkNotifications(
-                    userIds, type, NotificationCategory.EVENTS,
+                    userIds, type, NotificationCategory.SPORTS,
                     title, body, null,
                     ReferenceType.SPORTS_EVENT, event.getId(),
                     priority, null,

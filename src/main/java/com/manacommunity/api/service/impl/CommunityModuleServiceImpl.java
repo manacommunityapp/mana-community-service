@@ -52,10 +52,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
 
         CommunityModule cm = communityModuleRepo.findByCommunityIdAndModuleKey(communityId, moduleKey)
                 .orElseGet(() -> {
-                    com.manacommunity.api.constants.ModuleConstants.ModuleDef def = com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
-                            .filter(m -> m.key().equals(moduleKey))
-                            .findFirst()
-                            .orElseThrow(() -> new ResourceNotFoundException("CommunityModule", "moduleKey", moduleKey));
+                    ModuleConstants.ModuleDef def = resolveModuleDef(moduleKey);
                     LocalDateTime now = LocalDateTime.now();
                     return CommunityModule.builder()
                             .community(community)
@@ -82,10 +79,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
             CommunityModule cm = communityModuleRepo
                     .findByCommunityIdAndModuleKey(request.communityId(), toggle.moduleKey())
                     .orElseGet(() -> {
-                        com.manacommunity.api.constants.ModuleConstants.ModuleDef def = com.manacommunity.api.constants.ModuleConstants.ALL_MODULES.stream()
-                                .filter(m -> m.key().equals(toggle.moduleKey()))
-                                .findFirst()
-                                .orElseThrow(() -> new ResourceNotFoundException("CommunityModule", "moduleKey", toggle.moduleKey()));
+                        ModuleConstants.ModuleDef def = resolveModuleDef(toggle.moduleKey());
                         LocalDateTime now = LocalDateTime.now();
                         return CommunityModule.builder()
                                 .community(community)
@@ -139,6 +133,29 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
             return false;
         }
         return communityModuleRepo.isModuleEnabled(communityId, moduleKey);
+    }
+
+    private ModuleConstants.ModuleDef resolveModuleDef(String moduleKey) {
+        return ModuleConstants.ALL_MODULES.stream()
+                .filter(m -> m.key().equals(moduleKey))
+                .findFirst()
+                .orElseGet(() -> new ModuleConstants.ModuleDef(moduleKey, formatLabel(moduleKey), 99));
+    }
+
+    private String formatLabel(String moduleKey) {
+        if (moduleKey == null || moduleKey.isBlank()) {
+            return "Unknown Module";
+        }
+        String[] words = moduleKey.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (!w.isEmpty()) {
+                if (!sb.isEmpty()) sb.append(" ");
+                sb.append(Character.toUpperCase(w.charAt(0)))
+                  .append(w.substring(1).toLowerCase());
+            }
+        }
+        return sb.toString();
     }
 
     private CommunityModuleResponse toResponse(CommunityModule cm) {
