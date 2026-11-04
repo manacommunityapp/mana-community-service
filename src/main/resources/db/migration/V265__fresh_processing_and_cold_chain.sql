@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS manacommunity.fresh_batch_quality_check (
     check_name                  VARCHAR(100) NOT NULL, -- SENSORY_VISUAL, PH_ACIDITY, TEMPERATURE, PACKAGING_SEAL, HYGIENE_SWAB
     measured_value              VARCHAR(100) NOT NULL,
     is_passed                   BOOLEAN NOT NULL,
-    checked_by_user_id          BIGINT NOT NULL REFERENCES manacommunity.app_users(id),
+    checked_by_user_id          BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
     checked_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
     notes                       VARCHAR(500)
 );
@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_fresh_qc_batch ON manacommunity.fresh_batch_quali
 CREATE TABLE IF NOT EXISTS manacommunity.fresh_batch_release (
     id                          BIGSERIAL PRIMARY KEY,
     batch_id                    BIGINT NOT NULL UNIQUE REFERENCES manacommunity.fresh_processing_batch(id) ON DELETE CASCADE,
-    released_by_user_id         BIGINT NOT NULL REFERENCES manacommunity.app_users(id),
+    released_by_user_id         BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
     release_decision            VARCHAR(30) NOT NULL, -- APPROVED, REJECTED, QUARANTINED
     temperature_verified_celsius NUMERIC(4,1) NOT NULL,
     released_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS manacommunity.fresh_batch_temperature_log (
     batch_id                    BIGINT NOT NULL REFERENCES manacommunity.fresh_processing_batch(id) ON DELETE CASCADE,
     logged_temp_celsius         NUMERIC(4,1) NOT NULL,
     location_tag                VARCHAR(100) NOT NULL, -- COLD_ROOM_1, TRANSIT_CRATE, PACKING_BENCH, DISPATCH_DOCK
-    logged_by_user_id           BIGINT REFERENCES manacommunity.app_users(id),
+    logged_by_user_id           BIGINT REFERENCES manacommunity.app_user(id),
     logged_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_fresh_temp_log_batch ON manacommunity.fresh_batch_temperature_log(batch_id);

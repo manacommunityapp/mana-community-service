@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS manacommunity.fresh_product_pricing (
     is_active               BOOLEAN       NOT NULL DEFAULT true,
     created_by_vendor_id    BIGINT        REFERENCES manacommunity.vms_vendors(id),
     admin_approved          BOOLEAN       NOT NULL DEFAULT false,
-    admin_approved_by       BIGINT        REFERENCES manacommunity.app_users(id),
+    admin_approved_by       BIGINT        REFERENCES manacommunity.app_user(id),
     admin_approved_at       TIMESTAMPTZ,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
