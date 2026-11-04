@@ -7,5 +7,6 @@ public enum BatchStatus {
     RELEASED,
     REJECTED,
     EXPIRED,
-    LOCKED_OUT
+    LOCKED_OUT,
+    QUARANTINED
 }
