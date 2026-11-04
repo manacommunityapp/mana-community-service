@@ -1,7 +1,10 @@
 package com.manacommunity.api.fresh.weight.service;
 
 import com.manacommunity.api.commerce.core.model.CommerceOrder;
+import com.manacommunity.api.exception.InvalidStateTransitionException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.fresh.fulfilment.model.FreshFulfilmentItem;
+import com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus;
 import com.manacommunity.api.fresh.fulfilment.repository.FreshFulfilmentItemRepository;
 import com.manacommunity.api.fresh.weight.dto.RecordWeightRequest;
 import com.manacommunity.api.fresh.weight.dto.WeightAdjustmentDto;
@@ -35,7 +38,12 @@ public class FreshWeightAdjustmentService {
     @Transactional
     public WeightAdjustmentDto recordActualWeight(RecordWeightRequest req) {
         FreshFulfilmentItem item = itemRepository.findById(req.getFulfilmentItemId())
-                .orElseThrow(() -> new IllegalArgumentException("Fulfilment item not found: " + req.getFulfilmentItemId()));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshFulfilmentItem", req.getFulfilmentItemId()));
+
+        FulfilmentGroupStatus groupStatus = item.getFulfilmentGroup() != null ? item.getFulfilmentGroup().getStatus() : null;
+        if (groupStatus == FulfilmentGroupStatus.DELIVERED || groupStatus == FulfilmentGroupStatus.CANCELLED) {
+            throw new InvalidStateTransitionException("FreshFulfilmentItem", groupStatus.name(), "WEIGHT_ADJUSTED");
+        }
 
         CommerceOrder order = item.getFulfilmentGroup().getOrder();
         AppUser customer = order.getBuyer();

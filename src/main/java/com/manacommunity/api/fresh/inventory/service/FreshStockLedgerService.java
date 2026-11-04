@@ -1,5 +1,6 @@
 package com.manacommunity.api.fresh.inventory.service;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.fresh.city.model.FreshFulfilmentLocation;
 import com.manacommunity.api.fresh.city.repository.FreshFulfilmentLocationRepository;
 import com.manacommunity.api.fresh.inventory.dto.*;
@@ -41,7 +42,7 @@ public class FreshStockLedgerService {
     @Transactional
     public StockMovementDto recordStockMovement(RecordStockMovementRequest req) {
         VendorProduct product = vendorProductRepository.findById(req.getVendorProductId())
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + req.getVendorProductId()));
+                .orElseThrow(() -> new ResourceNotFoundException("VendorProduct", req.getVendorProductId()));
 
         FoodProductionBatch batch = req.getBatchId() != null
                 ? batchRepository.findById(req.getBatchId()).orElse(null)
@@ -103,7 +104,7 @@ public class FreshStockLedgerService {
     @Transactional
     public ProductWastageDto recordWastage(RecordWastageRequest req) {
         VendorProduct product = vendorProductRepository.findById(req.getVendorProductId())
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + req.getVendorProductId()));
+                .orElseThrow(() -> new ResourceNotFoundException("VendorProduct", req.getVendorProductId()));
 
         FoodProductionBatch batch = req.getBatchId() != null
                 ? batchRepository.findById(req.getBatchId()).orElse(null)
@@ -114,7 +115,7 @@ public class FreshStockLedgerService {
                 : null;
 
         AppUser recordedBy = userRepository.findById(req.getRecordedByUserId())
-                .orElseThrow(() -> new IllegalArgumentException("Recorded by user not found: " + req.getRecordedByUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", req.getRecordedByUserId()));
 
         BigDecimal costPrice = req.getCostPricePerUnit() != null
                 ? req.getCostPricePerUnit()

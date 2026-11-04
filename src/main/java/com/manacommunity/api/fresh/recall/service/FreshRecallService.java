@@ -1,5 +1,7 @@
 package com.manacommunity.api.fresh.recall.service;
 
+import com.manacommunity.api.exception.InvalidStateTransitionException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.fresh.fulfilment.model.FreshFulfilmentItem;
 import com.manacommunity.api.fresh.fulfilment.repository.FreshFulfilmentItemRepository;
 import com.manacommunity.api.fresh.recall.dto.InitiateRecallRequest;
@@ -42,7 +44,7 @@ public class FreshRecallService {
     @Transactional
     public ProductRecallDto initiateRecall(InitiateRecallRequest req) {
         VendorProduct product = vendorProductRepository.findById(req.getVendorProductId())
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + req.getVendorProductId()));
+                .orElseThrow(() -> new ResourceNotFoundException("VendorProduct", req.getVendorProductId()));
 
         FoodProductionBatch batch = null;
         if (req.getBatchId() != null) {
@@ -55,7 +57,7 @@ public class FreshRecallService {
         }
 
         AppUser initiator = userRepository.findById(req.getInitiatedByUserId())
-                .orElseThrow(() -> new IllegalArgumentException("Initiator user not found: " + req.getInitiatedByUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", req.getInitiatedByUserId()));
 
         String ref = "RCL-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"))
                 + "-" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
@@ -130,22 +132,35 @@ public class FreshRecallService {
     @Transactional
     public ProductRecallDto processRecallRefunds(Long recallId) {
         FreshProductRecall recall = recallRepository.findById(recallId)
-                .orElseThrow(() -> new IllegalArgumentException("Recall not found: " + recallId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshProductRecall", recallId));
+
+        if (recall.getStatus() == RecallStatus.COMPLETED) {
+            log.info("Recall {} is already COMPLETED. Returning idempotently.", recall.getRecallReference());
+            return toDto(recall);
+        }
 
         List<FreshProductRecallOrder> orders = recallOrderRepository.findByRecallId(recallId);
         Instant now = Instant.now();
 
+        List<FreshProductRecallOrder> toUpdate = new ArrayList<>();
         for (FreshProductRecallOrder order : orders) {
-            order.setCustomerNotified(true);
-            order.setRefundProcessed(true);
-            order.setNotificationSentAt(now);
+            if (!Boolean.TRUE.equals(order.getRefundProcessed())) {
+                order.setCustomerNotified(true);
+                order.setRefundProcessed(true);
+                order.setNotificationSentAt(now);
+                toUpdate.add(order);
+            }
         }
 
-        recallOrderRepository.saveAll(orders);
+        if (!toUpdate.isEmpty()) {
+            recallOrderRepository.saveAll(toUpdate);
+        }
+
         recall.setStatus(RecallStatus.COMPLETED);
         recallRepository.save(recall);
 
-        log.info("Completed recall {} refunds for {} orders", recall.getRecallReference(), orders.size());
+        log.info("Completed recall {} refunds for {} orders (processed {})",
+                recall.getRecallReference(), orders.size(), toUpdate.size());
         return toDto(recall);
     }
 
@@ -159,7 +174,7 @@ public class FreshRecallService {
     @Transactional(readOnly = true)
     public ProductRecallDto getRecallById(Long recallId) {
         FreshProductRecall recall = recallRepository.findById(recallId)
-                .orElseThrow(() -> new IllegalArgumentException("Recall not found: " + recallId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshProductRecall", recallId));
         return toDto(recall);
     }
 
@@ -173,13 +188,13 @@ public class FreshRecallService {
                 .recallReference(r.getRecallReference())
                 .batchId(r.getBatch() != null ? r.getBatch().getId() : null)
                 .batchNumber(r.getBatch() != null ? r.getBatch().getBatchNumber() : null)
-                .vendorProductId(r.getVendorProduct().getId())
-                .productName(r.getVendorProduct().getName())
+                .vendorProductId(r.getVendorProduct() != null ? r.getVendorProduct().getId() : null)
+                .productName(r.getVendorProduct() != null ? r.getVendorProduct().getName() : null)
                 .severity(r.getSeverity())
                 .reason(r.getReason())
                 .detailedRootCause(r.getDetailedRootCause())
-                .initiatedByUserId(r.getInitiatedByUser().getId())
-                .initiatedByUserName(r.getInitiatedByUser().getFullName())
+                .initiatedByUserId(r.getInitiatedByUser() != null ? r.getInitiatedByUser().getId() : null)
+                .initiatedByUserName(r.getInitiatedByUser() != null ? r.getInitiatedByUser().getFullName() : null)
                 .initiatedAt(r.getInitiatedAt())
                 .status(r.getStatus())
                 .affectedOrdersCount(r.getAffectedOrdersCount())

@@ -27,6 +27,7 @@ public class VendorProductionController {
     private final FreshKitchenService freshKitchenService;
 
     @GetMapping("/production-capacity")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<VendorCapacityDto>> getCapacity(
             @RequestParam(required = false) String vendorId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -44,6 +45,7 @@ public class VendorProductionController {
     }
 
     @GetMapping("/production-manifest")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<VendorDailyManifestDto> getManifest(
             @RequestParam String vendorId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -51,6 +53,7 @@ public class VendorProductionController {
     }
 
     @GetMapping(value = "/production-manifest/export", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<String> exportManifestCsv(
             @RequestParam String vendorId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

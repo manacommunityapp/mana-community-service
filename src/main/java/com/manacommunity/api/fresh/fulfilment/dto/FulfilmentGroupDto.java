@@ -38,6 +38,8 @@ public class FulfilmentGroupDto {
     private BigDecimal subtotalAmount;
     private BigDecimal totalWeightG;
     private Boolean requiresColdChain;
+    private Integer failedOtpAttempts;
+    private Boolean isHandoverLocked;
     private List<FulfilmentItemDto> items;
     private Instant createdAt;
     private Instant updatedAt;

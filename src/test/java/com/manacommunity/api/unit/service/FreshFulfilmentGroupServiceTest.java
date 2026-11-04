@@ -1,6 +1,7 @@
 package com.manacommunity.api.unit.service;
 
 import com.manacommunity.api.commerce.core.model.CommerceChannel;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.commerce.core.model.CommerceOrder;
 import com.manacommunity.api.commerce.core.model.CommerceOrderItem;
 import com.manacommunity.api.commerce.core.model.CommerceOrderStatus;
@@ -184,7 +185,7 @@ class FreshFulfilmentGroupServiceTest {
 
         VerifyHandoverRequest req = VerifyHandoverRequest.builder().otp("000000").build();
         assertThatThrownBy(() -> fulfilmentGroupService.verifyHandover(1L, req))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(InvalidInputException.class)
                 .hasMessageContaining("Invalid OTP or QR token");
     }
 }

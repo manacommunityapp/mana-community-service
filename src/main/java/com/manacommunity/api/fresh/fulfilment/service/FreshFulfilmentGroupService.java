@@ -4,6 +4,10 @@ import com.manacommunity.api.commerce.core.model.CommerceOrder;
 import com.manacommunity.api.commerce.core.model.CommerceOrderItem;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderItemRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
+import com.manacommunity.api.exception.HandoverLockoutException;
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.InvalidStateTransitionException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.fresh.catalog.model.DeliveryMode;
 import com.manacommunity.api.fresh.catalog.model.FreshProductCatalogProfile;
 import com.manacommunity.api.fresh.catalog.model.FulfilmentOwnerType;
@@ -42,7 +46,7 @@ public class FreshFulfilmentGroupService {
     @Transactional
     public List<FulfilmentGroupDto> splitOrderIntoFulfilmentGroups(Long orderId) {
         CommerceOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("CommerceOrder", orderId));
 
         List<FreshFulfilmentGroup> existingGroups = groupRepository.findByOrderId(orderId);
         if (!existingGroups.isEmpty()) {
@@ -180,14 +184,21 @@ public class FreshFulfilmentGroupService {
     @Transactional(readOnly = true)
     public FulfilmentGroupDto getFulfilmentGroupById(Long groupId) {
         FreshFulfilmentGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Fulfilment group not found: " + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshFulfilmentGroup", groupId));
         return toGroupDto(group);
     }
 
     @Transactional
     public FulfilmentGroupDto updateStatus(Long groupId, UpdateFulfilmentGroupStatusRequest req) {
         FreshFulfilmentGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Fulfilment group not found: " + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshFulfilmentGroup", groupId));
+
+        if (group.getStatus() == FulfilmentGroupStatus.CANCELLED) {
+            throw new InvalidStateTransitionException("FreshFulfilmentGroup", "CANCELLED", req.getStatus().name());
+        }
+        if (group.getStatus() == FulfilmentGroupStatus.DELIVERED && req.getStatus() != FulfilmentGroupStatus.DELIVERED) {
+            throw new InvalidStateTransitionException("FreshFulfilmentGroup", "DELIVERED", req.getStatus().name());
+        }
 
         group.setStatus(req.getStatus());
         if (req.getTrackingReference() != null) {
@@ -212,15 +223,42 @@ public class FreshFulfilmentGroupService {
     @Transactional
     public FulfilmentGroupDto verifyHandover(Long groupId, VerifyHandoverRequest req) {
         FreshFulfilmentGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Fulfilment group not found: " + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshFulfilmentGroup", groupId));
 
-        boolean otpMatches = group.getHandoverOtp() != null && group.getHandoverOtp().equals(req.getOtp());
-        boolean qrMatches = req.getQrCodeToken() != null && req.getQrCodeToken().equals(group.getQrCodeToken());
-
-        if (!otpMatches && !qrMatches) {
-            throw new IllegalArgumentException("Invalid OTP or QR token for handover verification");
+        if (Boolean.TRUE.equals(group.getIsHandoverLocked()) ||
+                (group.getFailedOtpAttempts() != null && group.getFailedOtpAttempts() >= 5)) {
+            throw new HandoverLockoutException(group.getGroupReference(),
+                    group.getFailedOtpAttempts() != null ? group.getFailedOtpAttempts() : 5, 5);
         }
 
+        if (group.getStatus() == FulfilmentGroupStatus.CANCELLED) {
+            throw new InvalidStateTransitionException("FreshFulfilmentGroup", "CANCELLED", "DELIVERED");
+        }
+
+        if (group.getStatus() == FulfilmentGroupStatus.DELIVERED) {
+            log.info("Fulfilment group {} is already DELIVERED. Returning idempotently.", group.getGroupReference());
+            return toGroupDto(group);
+        }
+
+        boolean otpMatches = req.getOtp() != null && !req.getOtp().isBlank()
+                && group.getHandoverOtp() != null && group.getHandoverOtp().trim().equals(req.getOtp().trim());
+        boolean qrMatches = req.getQrCodeToken() != null && !req.getQrCodeToken().isBlank()
+                && group.getQrCodeToken() != null && group.getQrCodeToken().trim().equals(req.getQrCodeToken().trim());
+
+        if (!otpMatches && !qrMatches) {
+            int attempts = (group.getFailedOtpAttempts() != null ? group.getFailedOtpAttempts() : 0) + 1;
+            group.setFailedOtpAttempts(attempts);
+            if (attempts >= 5) {
+                group.setIsHandoverLocked(true);
+                groupRepository.save(group);
+                log.warn("Handover locked out for group {} after {} failed attempts", group.getGroupReference(), attempts);
+                throw new HandoverLockoutException(group.getGroupReference(), attempts, 5);
+            }
+            groupRepository.save(group);
+            throw new InvalidInputException("Invalid OTP or QR token for handover verification (attempt " + attempts + "/5)");
+        }
+
+        group.setFailedOtpAttempts(0);
         group.setStatus(FulfilmentGroupStatus.DELIVERED);
         group.setDeliveredAt(Instant.now());
         if (group.getItems() != null) {
@@ -269,6 +307,8 @@ public class FreshFulfilmentGroupService {
                 .subtotalAmount(group.getSubtotalAmount())
                 .totalWeightG(group.getTotalWeightG())
                 .requiresColdChain(group.getRequiresColdChain())
+                .failedOtpAttempts(group.getFailedOtpAttempts())
+                .isHandoverLocked(group.getIsHandoverLocked())
                 .items(itemDtos)
                 .createdAt(group.getCreatedAt())
                 .updatedAt(group.getUpdatedAt())

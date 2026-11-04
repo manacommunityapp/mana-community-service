@@ -90,6 +90,14 @@ public class FreshFulfilmentGroup {
     @Builder.Default
     private Boolean requiresColdChain = false;
 
+    @Column(name = "failed_otp_attempts", nullable = false)
+    @Builder.Default
+    private Integer failedOtpAttempts = 0;
+
+    @Column(name = "is_handover_locked", nullable = false)
+    @Builder.Default
+    private Boolean isHandoverLocked = false;
+
     @Column(name = "metadata_json", columnDefinition = "JSONB")
     private String metadataJson;
 

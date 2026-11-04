@@ -3,9 +3,12 @@ package com.manacommunity.api.fresh.inventory.controller;
 import com.manacommunity.api.fresh.inventory.dto.*;
 import com.manacommunity.api.fresh.inventory.model.WastageCategory;
 import com.manacommunity.api.fresh.inventory.service.FreshStockLedgerService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,12 +16,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/fresh/inventory")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'VENDOR')")
 public class FreshInventoryController {
 
     private final FreshStockLedgerService stockLedgerService;
 
     @PostMapping("/movement")
-    public ResponseEntity<StockMovementDto> recordStockMovement(@Valid @RequestBody RecordStockMovementRequest req) {
+    public ResponseEntity<StockMovementDto> recordStockMovement(
+            @Valid @RequestBody RecordStockMovementRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            req.setCreatedByUserId(principal.getId());
+        }
         return ResponseEntity.ok(stockLedgerService.recordStockMovement(req));
     }
 
@@ -33,7 +42,12 @@ public class FreshInventoryController {
     }
 
     @PostMapping("/wastage")
-    public ResponseEntity<ProductWastageDto> recordWastage(@Valid @RequestBody RecordWastageRequest req) {
+    public ResponseEntity<ProductWastageDto> recordWastage(
+            @Valid @RequestBody RecordWastageRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            req.setRecordedByUserId(principal.getId());
+        }
         return ResponseEntity.ok(stockLedgerService.recordWastage(req));
     }
 
