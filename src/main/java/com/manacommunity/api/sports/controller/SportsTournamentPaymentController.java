@@ -66,6 +66,8 @@ public class SportsTournamentPaymentController {
         payment.setPaymentMode(parsePaymentMode(req.getPaymentMode()));
         payment.setTransactionRef(req.getTransactionRef());
         payment.setNotes(req.getNotes());
+        payment.setCollectedByName(req.getCollectedByName());
+        payment.setCollectedByContact(req.getCollectedByContact());
         payment.setPaidAt(LocalDateTime.now());
 
         if (req.getUserId() != null) {
@@ -160,6 +162,8 @@ public class SportsTournamentPaymentController {
                 .paymentMode(p.getPaymentMode() != null ? p.getPaymentMode().name() : "UPI")
                 .transactionRef(p.getTransactionRef())
                 .notes(p.getNotes())
+                .collectedByName(p.getCollectedByName())
+                .collectedByContact(p.getCollectedByContact())
                 .markedByUserId(p.getMarkedByUser() != null ? p.getMarkedByUser().getId() : null)
                 .markedByUserName(p.getMarkedByUserName())
                 .paidAt(p.getPaidAt() != null ? p.getPaidAt().toString() : null)
@@ -183,6 +187,8 @@ public class SportsTournamentPaymentController {
         private String paymentMode;
         private String transactionRef;
         private String notes;
+        private String collectedByName;
+        private String collectedByContact;
         private String markedByUserName;
     }
 
@@ -205,6 +211,8 @@ public class SportsTournamentPaymentController {
         private String paymentMode;
         private String transactionRef;
         private String notes;
+        private String collectedByName;
+        private String collectedByContact;
         private Long markedByUserId;
         private String markedByUserName;
         private String paidAt;

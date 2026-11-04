@@ -85,6 +85,12 @@ public class SportsTournamentPlayerPayment {
     @Column(name = "marked_by_user_name", length = 150)
     private String markedByUserName;
 
+    @Column(name = "collected_by_name", length = 150)
+    private String collectedByName;
+
+    @Column(name = "collected_by_contact", length = 150)
+    private String collectedByContact;
+
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
