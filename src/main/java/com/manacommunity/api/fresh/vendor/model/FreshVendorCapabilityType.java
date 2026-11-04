@@ -1,0 +1,16 @@
+package com.manacommunity.api.fresh.vendor.model;
+
+public enum FreshVendorCapabilityType {
+    FRUIT_SUPPLIER,
+    VEGETABLE_SUPPLIER,
+    FRESH_CUT_PROCESSOR,
+    DAIRY_VENDOR,
+    BATTER_MANUFACTURER,
+    NUTRITION_VENDOR,
+    DRY_FRUIT_SUPPLIER,
+    CHICKEN_SUPPLIER,
+    MUTTON_SUPPLIER,
+    SEAFOOD_SUPPLIER,
+    HEALTHY_SNACK_VENDOR,
+    DELIVERY_PARTNER
+}
