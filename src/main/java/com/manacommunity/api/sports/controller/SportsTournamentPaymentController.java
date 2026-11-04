@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -41,6 +42,7 @@ public class SportsTournamentPaymentController {
     }
 
     @PostMapping("/{tournamentId}/payments/mark-paid")
+    @Transactional
     public ResponseEntity<SportsTournamentPlayerPaymentResponse> markPaid(
             @PathVariable Long tournamentId,
             @RequestBody SportsTournamentPlayerPaymentRequest req,
@@ -64,6 +66,8 @@ public class SportsTournamentPaymentController {
         payment.setPaymentMode(parsePaymentMode(req.getPaymentMode()));
         payment.setTransactionRef(req.getTransactionRef());
         payment.setNotes(req.getNotes());
+        payment.setCollectedByName(req.getCollectedByName());
+        payment.setCollectedByContact(req.getCollectedByContact());
         payment.setPaidAt(LocalDateTime.now());
 
         if (req.getUserId() != null) {
@@ -87,6 +91,41 @@ public class SportsTournamentPaymentController {
         SportsTournamentPlayerPayment saved = paymentRepo.save(payment);
         log.info("Recorded payment for tournamentId={} playerKey={} markedBy={}", tournamentId, saved.getPlayerKey(), saved.getMarkedByUserName());
         return ResponseEntity.ok(toResponse(saved));
+    }
+
+    @PostMapping("/{tournamentId}/payments/mark-unpaid")
+    @Transactional
+    public ResponseEntity<Void> markUnpaid(
+            @PathVariable Long tournamentId,
+            @RequestParam(required = false) String playerKey,
+            @RequestBody(required = false) SportsTournamentPlayerPaymentRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        String key = playerKey != null && !playerKey.isBlank()
+                ? playerKey
+                : (req != null ? req.getPlayerKey() : null);
+
+        if (key != null) {
+            paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, key).ifPresent(p -> {
+                paymentRepo.delete(p);
+                log.info("Removed payment / marked unpaid for tournamentId={} playerKey={}", tournamentId, key);
+            });
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{tournamentId}/payments/{playerKey}")
+    @Transactional
+    public ResponseEntity<Void> deletePayment(
+            @PathVariable Long tournamentId,
+            @PathVariable String playerKey,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, playerKey).ifPresent(p -> {
+            paymentRepo.delete(p);
+            log.info("Deleted payment / marked unpaid for tournamentId={} playerKey={}", tournamentId, playerKey);
+        });
+        return ResponseEntity.noContent().build();
     }
 
     private SportsTournamentPlayerPayment.PaymentStatus parsePaymentStatus(String s) {
@@ -123,6 +162,8 @@ public class SportsTournamentPaymentController {
                 .paymentMode(p.getPaymentMode() != null ? p.getPaymentMode().name() : "UPI")
                 .transactionRef(p.getTransactionRef())
                 .notes(p.getNotes())
+                .collectedByName(p.getCollectedByName())
+                .collectedByContact(p.getCollectedByContact())
                 .markedByUserId(p.getMarkedByUser() != null ? p.getMarkedByUser().getId() : null)
                 .markedByUserName(p.getMarkedByUserName())
                 .paidAt(p.getPaidAt() != null ? p.getPaidAt().toString() : null)
@@ -146,6 +187,8 @@ public class SportsTournamentPaymentController {
         private String paymentMode;
         private String transactionRef;
         private String notes;
+        private String collectedByName;
+        private String collectedByContact;
         private String markedByUserName;
     }
 
@@ -168,6 +211,8 @@ public class SportsTournamentPaymentController {
         private String paymentMode;
         private String transactionRef;
         private String notes;
+        private String collectedByName;
+        private String collectedByContact;
         private Long markedByUserId;
         private String markedByUserName;
         private String paidAt;

@@ -21,6 +21,7 @@ import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
+import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.user.repository.AppUserRepository;
@@ -47,6 +48,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.sports.service.SportsEventCsvImportService;
@@ -93,20 +95,47 @@ public class SportsController {
             @Valid @RequestBody SportsMetaRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
-        log.info("Creating sport name={}", request.name());
+        String name = request.name() != null ? request.name().trim() : "";
+        log.info("Creating sport name={}", name);
+
+        Long communityId = null;
+        if (principal != null) {
+            ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+            if (!ctx.superAdmin() && ctx.communityId() != null) {
+                communityId = ctx.communityId();
+            }
+        }
+
+        // If sport already exists in this scope (even if inactive/soft-deleted),
+        // re-activate and update it instead of throwing a unique constraint violation (409 Conflict).
+        Optional<SportsMeta> existingOpt = sportMetaRepo.findByNameAndCommunity(name, communityId);
+        if (existingOpt.isPresent()) {
+            SportsMeta existing = existingOpt.get();
+            log.info("Sport '{}' already exists in scope (id={}, active={}). Re-activating / updating.",
+                    name, existing.getId(), existing.getActive());
+            existing.setName(name);
+            if (request.icon() != null && !request.icon().isBlank()) {
+                existing.setIcon(request.icon());
+            }
+            if (request.iconUrl() != null) {
+                existing.setIconUrl(request.iconUrl());
+            }
+            if (request.formats() != null && !request.formats().isEmpty()) {
+                existing.setFormats(request.formats());
+            }
+            existing.setActive(request.active() != null ? request.active() : true);
+            SportsMeta saved = sportMetaRepo.save(existing);
+            return ResponseEntity.ok(toSportsMetaResponse(saved));
+        }
+
         SportsMeta sport = SportsMeta.builder()
-                .name(request.name())
+                .name(name)
                 .icon(request.icon())
                 .iconUrl(request.iconUrl())
                 .formats(request.formats() != null ? request.formats() : List.of())
                 .active(request.active() != null ? request.active() : true)
+                .communityId(communityId)
                 .build();
-        if (principal != null) {
-            ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-            if (!ctx.superAdmin() && ctx.communityId() != null) {
-                sport.setCommunityId(ctx.communityId());
-            }
-        }
         SportsMeta saved = sportMetaRepo.save(sport);
         return ResponseEntity.status(HttpStatus.CREATED).body(toSportsMetaResponse(saved));
     }
@@ -130,7 +159,14 @@ public class SportsController {
                 throw new UnauthorizedActionException("You do not have permission to modify this sport.");
             }
         }
-        sport.setName(request.name());
+
+        String name = request.name() != null ? request.name().trim() : sport.getName();
+        Optional<SportsMeta> duplicate = sportMetaRepo.findByNameAndCommunity(name, sport.getCommunityId());
+        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+            throw new DuplicateResourceException("Sport", "name", name);
+        }
+
+        sport.setName(name);
         sport.setIcon(request.icon());
         sport.setIconUrl(request.iconUrl());
         if (request.formats() != null) {
