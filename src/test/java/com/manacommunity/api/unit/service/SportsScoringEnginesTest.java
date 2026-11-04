@@ -117,4 +117,48 @@ class SportsScoringEnginesTest {
                 .isInstanceOf(InvalidInputException.class)
                 .hasMessageContaining("Invalid football event type: SIXER");
     }
+
+    @Test
+    @DisplayName("DefaultScoringEngine: Handles custom and unmapped sports with configurable targets")
+    void defaultScoringEngineRules() {
+        com.manacommunity.api.sports.engine.DefaultScoringEngine defaultEngine =
+                new com.manacommunity.api.sports.engine.DefaultScoringEngine();
+
+        SportsScoringConfig pickleballConfig = SportsScoringConfig.builder()
+                .pointsToWinPeriod(11)
+                .mustWinByTwo(true)
+                .periodsToWin(2)
+                .build();
+
+        SportsMatchPeriodScore p1 = SportsMatchPeriodScore.builder().scoreTeamA(11).scoreTeamB(9).build();
+        assertThat(defaultEngine.checkPeriodWon(match, p1, pickleballConfig)).isTrue();
+
+        SportsMatchPeriodScore p2 = SportsMatchPeriodScore.builder().scoreTeamA(11).scoreTeamB(10).build();
+        assertThat(defaultEngine.checkPeriodWon(match, p2, pickleballConfig)).isFalse();
+
+        SportsMatchPeriodScore p3 = SportsMatchPeriodScore.builder().scoreTeamA(12).scoreTeamB(10).build();
+        assertThat(defaultEngine.checkPeriodWon(match, p3, pickleballConfig)).isTrue();
+
+        assertThat(defaultEngine.checkMatchWon(match, List.of(p1, p3), pickleballConfig)).isTrue();
+    }
+
+    @Test
+    @DisplayName("ScoringEngineRegistry: Looks up registered engines and falls back to default")
+    void registryLookupAndFallback() {
+        com.manacommunity.api.sports.engine.DefaultScoringEngine defaultEngine =
+                new com.manacommunity.api.sports.engine.DefaultScoringEngine();
+        com.manacommunity.api.sports.engine.ScoringEngineRegistry registry =
+                new com.manacommunity.api.sports.engine.ScoringEngineRegistry(
+                        List.of(badmintonEngine, tennisEngine, footballEngine), defaultEngine
+                );
+
+        assertThat(registry.getEngine("BADMINTON")).isInstanceOf(BadmintonScoringEngine.class);
+        assertThat(registry.getEngine("TENNIS")).isInstanceOf(TennisScoringEngine.class);
+        assertThat(registry.getEngine("FOOTBALL")).isInstanceOf(FootballScoringEngine.class);
+        // Case-insensitive & space normalization
+        assertThat(registry.getEngine("football")).isInstanceOf(FootballScoringEngine.class);
+        // Fallback for unmapped sport
+        assertThat(registry.getEngine("CARROM")).isInstanceOf(com.manacommunity.api.sports.engine.DefaultScoringEngine.class);
+        assertThat(registry.getEngine(null)).isInstanceOf(com.manacommunity.api.sports.engine.DefaultScoringEngine.class);
+    }
 }

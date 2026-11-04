@@ -42,11 +42,13 @@ public class SportsGenericScoringService {
     private final ObjectMapper objectMapper;
 
     private static final Set<String> POINT_BASED_SPORTS = Set.of(
-            "BADMINTON", "VOLLEYBALL", "TABLE_TENNIS", "TENNIS"
+            "BADMINTON", "VOLLEYBALL", "TABLE_TENNIS", "TENNIS",
+            "PICKLEBALL", "SQUASH", "CARROM", "FOOSBALL",
+            "POOL", "BILLIARDS", "SNOOKER", "DART", "BOWLING", "TUG_OF_WAR", "CHESS"
     );
 
     private static final Set<String> TIMED_SPORTS = Set.of(
-            "FOOTBALL", "BASKETBALL"
+            "FOOTBALL", "SOCCER", "BASKETBALL", "KABADDI"
     );
 
     @Transactional
@@ -392,20 +394,50 @@ public class SportsGenericScoringService {
             case "BADMINTON" -> new SportsScoringConfigResponse(
                     null, null, "BADMINTON", 3, 21, true, 2, null, false, false, 30, null
             );
-            case "FOOTBALL" -> new SportsScoringConfigResponse(
-                    null, null, "FOOTBALL", 2, null, false, null, 45, true, true, null, null
+            case "PICKLEBALL" -> new SportsScoringConfigResponse(
+                    null, null, "PICKLEBALL", 3, 11, true, 2, null, false, false, 15, null
+            );
+            case "SQUASH" -> new SportsScoringConfigResponse(
+                    null, null, "SQUASH", 5, 11, true, 3, null, false, false, null, null
+            );
+            case "FOOTBALL", "SOCCER" -> new SportsScoringConfigResponse(
+                    null, null, sportType.toUpperCase(), 2, null, false, null, 45, true, true, null, null
             );
             case "BASKETBALL" -> new SportsScoringConfigResponse(
                     null, null, "BASKETBALL", 4, null, false, null, 12, true, false, null, null
             );
-            case "VOLLEYBALL" -> new SportsScoringConfigResponse(
-                    null, null, "VOLLEYBALL", 5, 25, true, 3, null, false, false, 15, null
+            case "VOLLEYBALL", "BEACH_VOLLEYBALL", "GRASS_VOLLEYBALL", "THROWBALL" -> new SportsScoringConfigResponse(
+                    null, null, sportType.toUpperCase(), 5, 25, true, 3, null, false, false, 15, null
             );
             case "TENNIS" -> new SportsScoringConfigResponse(
                     null, null, "TENNIS", 3, 6, false, 2, null, false, false, 7, null
             );
             case "TABLE_TENNIS" -> new SportsScoringConfigResponse(
                     null, null, "TABLE_TENNIS", 5, 11, true, 3, null, false, false, null, null
+            );
+            case "KABADDI" -> new SportsScoringConfigResponse(
+                    null, null, "KABADDI", 2, null, false, null, 20, true, false, null, null
+            );
+            case "CARROM" -> new SportsScoringConfigResponse(
+                    null, null, "CARROM", 8, 25, false, null, null, false, false, null, null
+            );
+            case "CHESS" -> new SportsScoringConfigResponse(
+                    null, null, "CHESS", 1, null, false, null, null, false, false, null, null
+            );
+            case "FOOSBALL" -> new SportsScoringConfigResponse(
+                    null, null, "FOOSBALL", 5, 5, false, 3, null, false, false, null, null
+            );
+            case "POOL", "BILLIARDS", "SNOOKER" -> new SportsScoringConfigResponse(
+                    null, null, sportType.toUpperCase(), 5, null, false, 3, null, false, false, null, null
+            );
+            case "DART" -> new SportsScoringConfigResponse(
+                    null, null, "DART", 5, null, false, 3, null, false, false, null, null
+            );
+            case "BOWLING" -> new SportsScoringConfigResponse(
+                    null, null, "BOWLING", 3, null, false, null, null, false, false, null, null
+            );
+            case "TUG_OF_WAR" -> new SportsScoringConfigResponse(
+                    null, null, "TUG_OF_WAR", 3, null, false, 2, null, false, false, null, null
             );
             default -> new SportsScoringConfigResponse(
                     null, null, sportType.toUpperCase(), 2, null, false, null, null, false, false, null, null
@@ -541,14 +573,20 @@ public class SportsGenericScoringService {
             case "BADMINTON" -> SportsScoringConfig.builder()
                     .sportType("BADMINTON").periodsCount(3).pointsToWinPeriod(21)
                     .mustWinByTwo(true).periodsToWin(2).tiebreakPointsToWin(30).build();
-            case "FOOTBALL" -> SportsScoringConfig.builder()
-                    .sportType("FOOTBALL").periodsCount(2).periodDurationMinutes(45)
+            case "PICKLEBALL" -> SportsScoringConfig.builder()
+                    .sportType("PICKLEBALL").periodsCount(3).pointsToWinPeriod(11)
+                    .mustWinByTwo(true).periodsToWin(2).tiebreakPointsToWin(15).build();
+            case "SQUASH" -> SportsScoringConfig.builder()
+                    .sportType("SQUASH").periodsCount(5).pointsToWinPeriod(11)
+                    .mustWinByTwo(true).periodsToWin(3).build();
+            case "FOOTBALL", "SOCCER" -> SportsScoringConfig.builder()
+                    .sportType(sportType.toUpperCase()).periodsCount(2).periodDurationMinutes(45)
                     .hasOvertime(true).hasPenaltyShootout(true).build();
             case "BASKETBALL" -> SportsScoringConfig.builder()
                     .sportType("BASKETBALL").periodsCount(4).periodDurationMinutes(12)
                     .hasOvertime(true).build();
-            case "VOLLEYBALL" -> SportsScoringConfig.builder()
-                    .sportType("VOLLEYBALL").periodsCount(5).pointsToWinPeriod(25)
+            case "VOLLEYBALL", "BEACH_VOLLEYBALL", "GRASS_VOLLEYBALL", "THROWBALL" -> SportsScoringConfig.builder()
+                    .sportType(sportType.toUpperCase()).periodsCount(5).pointsToWinPeriod(25)
                     .mustWinByTwo(true).periodsToWin(3).tiebreakPointsToWin(15).build();
             case "TENNIS" -> SportsScoringConfig.builder()
                     .sportType("TENNIS").periodsCount(3).pointsToWinPeriod(6)
@@ -556,6 +594,23 @@ public class SportsGenericScoringService {
             case "TABLE_TENNIS" -> SportsScoringConfig.builder()
                     .sportType("TABLE_TENNIS").periodsCount(5).pointsToWinPeriod(11)
                     .mustWinByTwo(true).periodsToWin(3).build();
+            case "KABADDI" -> SportsScoringConfig.builder()
+                    .sportType("KABADDI").periodsCount(2).periodDurationMinutes(20)
+                    .hasOvertime(true).build();
+            case "CARROM" -> SportsScoringConfig.builder()
+                    .sportType("CARROM").periodsCount(8).pointsToWinPeriod(25).build();
+            case "CHESS" -> SportsScoringConfig.builder()
+                    .sportType("CHESS").periodsCount(1).build();
+            case "FOOSBALL" -> SportsScoringConfig.builder()
+                    .sportType("FOOSBALL").periodsCount(5).pointsToWinPeriod(5).periodsToWin(3).build();
+            case "POOL", "BILLIARDS", "SNOOKER" -> SportsScoringConfig.builder()
+                    .sportType(sportType.toUpperCase()).periodsCount(5).periodsToWin(3).build();
+            case "DART" -> SportsScoringConfig.builder()
+                    .sportType("DART").periodsCount(5).periodsToWin(3).build();
+            case "BOWLING" -> SportsScoringConfig.builder()
+                    .sportType("BOWLING").periodsCount(3).build();
+            case "TUG_OF_WAR" -> SportsScoringConfig.builder()
+                    .sportType("TUG_OF_WAR").periodsCount(3).periodsToWin(2).build();
             default -> SportsScoringConfig.builder()
                     .sportType(sportType).periodsCount(2).build();
         };
@@ -563,9 +618,17 @@ public class SportsGenericScoringService {
 
     private String buildPeriodLabel(String sportType, int periodNumber) {
         return switch (sportType.toUpperCase()) {
-            case "BADMINTON", "VOLLEYBALL", "TENNIS", "TABLE_TENNIS" -> "Set " + periodNumber;
-            case "FOOTBALL" -> periodNumber <= 2 ? (periodNumber == 1 ? "1st Half" : "2nd Half") : "Extra Time " + (periodNumber - 2);
+            case "BADMINTON", "VOLLEYBALL", "BEACH_VOLLEYBALL", "GRASS_VOLLEYBALL",
+                 "TENNIS", "TABLE_TENNIS", "PICKLEBALL", "SQUASH", "THROWBALL" -> "Set " + periodNumber;
+            case "FOOTBALL", "SOCCER", "KABADDI" -> periodNumber <= 2
+                    ? (periodNumber == 1 ? "1st Half" : "2nd Half")
+                    : "Extra Time " + (periodNumber - 2);
             case "BASKETBALL" -> "Q" + periodNumber;
+            case "CARROM" -> "Board " + periodNumber;
+            case "CHESS", "FOOSBALL", "BOWLING" -> "Game " + periodNumber;
+            case "POOL", "BILLIARDS", "SNOOKER" -> "Frame " + periodNumber;
+            case "DART" -> "Leg " + periodNumber;
+            case "TUG_OF_WAR" -> "Round " + periodNumber;
             default -> "Period " + periodNumber;
         };
     }
