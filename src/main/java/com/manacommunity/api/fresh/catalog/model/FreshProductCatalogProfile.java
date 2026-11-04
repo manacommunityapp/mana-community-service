@@ -66,6 +66,30 @@ public class FreshProductCatalogProfile {
     @Builder.Default
     private String orderUnit = "kg";
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "business_model", nullable = false, length = 40)
+    @Builder.Default
+    private BusinessModel businessModel = BusinessModel.MARKETPLACE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "inventory_owner_type", nullable = false, length = 40)
+    @Builder.Default
+    private InventoryOwnerType inventoryOwnerType = InventoryOwnerType.VENDOR;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fulfilment_owner_type", nullable = false, length = 40)
+    @Builder.Default
+    private FulfilmentOwnerType fulfilmentOwnerType = FulfilmentOwnerType.VENDOR;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_mode", nullable = false, length = 40)
+    @Builder.Default
+    private DeliveryMode deliveryMode = DeliveryMode.VENDOR_DELIVERY;
+
+    @Column(name = "seller_of_record", length = 120)
+    @Builder.Default
+    private String sellerOfRecord = "VENDOR";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

@@ -24,6 +24,7 @@ public class FreshVendorController {
 
     private final FreshVendorCapabilityService capabilityService;
     private final FreshVendorStaffService staffService;
+    private final com.manacommunity.api.fresh.vendor.service.FreshVendorDocumentService documentService;
 
     @PostMapping("/capabilities/apply")
     public ResponseEntity<VendorCapabilityDto> applyForCapability(
@@ -59,6 +60,18 @@ public class FreshVendorController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/documents")
+    public ResponseEntity<VendorDocumentDto> uploadDocument(
+            @Valid @RequestBody UploadVendorDocumentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(documentService.uploadDocument(request));
+    }
+
+    @GetMapping("/documents")
+    public ResponseEntity<List<VendorDocumentDto>> getVendorDocuments(
+            @RequestParam Long vendorId) {
+        return ResponseEntity.ok(documentService.getVendorDocuments(vendorId));
+    }
+
     @GetMapping("/dashboard/summary")
     public ResponseEntity<FreshVendorDashboardSummaryDto> getDashboardSummary(
             @RequestParam Long vendorId) {
@@ -80,3 +93,4 @@ public class FreshVendorController {
         return ResponseEntity.ok(summary);
     }
 }
+

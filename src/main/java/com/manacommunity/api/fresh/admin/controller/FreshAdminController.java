@@ -22,6 +22,7 @@ public class FreshAdminController {
 
     private final FreshVendorCapabilityService capabilityService;
     private final com.manacommunity.api.fresh.pilot.service.FreshPilotDataSeeder pilotDataSeeder;
+    private final com.manacommunity.api.fresh.vendor.service.FreshVendorDocumentService documentService;
 
     @GetMapping("/capabilities/pending")
     public ResponseEntity<List<VendorCapabilityDto>> getPendingCapabilities() {
@@ -51,6 +52,23 @@ public class FreshAdminController {
         Long adminUserId = principal != null ? principal.getId() : 1L;
         String reason = body != null ? body.getOrDefault("reason", "Administrative suspension") : "Administrative suspension";
         return ResponseEntity.ok(capabilityService.suspendCapability(capabilityId, reason, adminUserId));
+    }
+
+    @GetMapping("/vendors/{vendorId}/documents")
+    public ResponseEntity<List<com.manacommunity.api.fresh.vendor.dto.VendorDocumentDto>> getVendorDocuments(
+            @PathVariable Long vendorId) {
+        return ResponseEntity.ok(documentService.getVendorDocuments(vendorId));
+    }
+
+    @PostMapping("/documents/{documentId}/verify")
+    public ResponseEntity<com.manacommunity.api.fresh.vendor.dto.VendorDocumentDto> verifyDocument(
+            @PathVariable Long documentId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long adminUserId = principal != null ? principal.getId() : 1L;
+        boolean approved = body != null && Boolean.TRUE.equals(body.get("approved"));
+        String rejectionReason = body != null ? (String) body.get("rejectionReason") : null;
+        return ResponseEntity.ok(documentService.verifyDocument(documentId, approved, rejectionReason, adminUserId));
     }
 
     @PostMapping("/pilot/seed")
