@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,11 @@ public class FamilyMemberSlimResponse {
     private Integer age;
     private String dob;
     private String email;
+
+    @JsonProperty("dateOfBirth")
+    public String getDateOfBirth() {
+        return dob;
+    }
 
     public FamilyMemberSlimResponse(Long id, String name, String gothram,
                                     String relation, String phone, String gender) {

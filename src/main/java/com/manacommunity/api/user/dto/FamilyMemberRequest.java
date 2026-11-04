@@ -1,5 +1,7 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -11,6 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class FamilyMemberRequest {
 
     @NotBlank(message = "Family member name is required")
@@ -21,7 +24,10 @@ public class FamilyMemberRequest {
     private String relation;
 
     private Integer age;
+
+    @JsonAlias({"dateOfBirth", "date_of_birth", "birthDate"})
     private String dob;
+
     private String gender;
     private String phone;
     private String email;
@@ -33,6 +39,11 @@ public class FamilyMemberRequest {
     private String avatar;
     private String notes;
     private String status;
+
+    public String getEffectiveDob() {
+        if (dob != null && !dob.isBlank()) return dob.trim();
+        return null;
+    }
 
     public String getEffectiveGothram() {
         if (gothram != null && !gothram.isBlank()) return gothram.trim();

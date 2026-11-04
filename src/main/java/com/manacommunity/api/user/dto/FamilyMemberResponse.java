@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,4 +33,9 @@ public class FamilyMemberResponse {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @JsonProperty("dateOfBirth")
+    public String getDateOfBirth() {
+        return dob;
+    }
 }
