@@ -128,6 +128,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                         .name(user.getFullName().trim())
                         .relation("Self (Head)")
                         .age(age)
+                        .dob(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : null)
                         .gender(user.getGender() != null ? user.getGender() : (isFemale ? "FEMALE" : "MALE"))
                         .avatar(avatar)
                         .email(user.getEmail())
@@ -209,6 +210,20 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
 
 
 
+    private Integer calculateAgeFromDob(String dobStr) {
+        if (dobStr == null || dobStr.isBlank()) return null;
+        try {
+            String clean = dobStr.trim();
+            if (clean.length() >= 10) {
+                clean = clean.substring(0, 10);
+            }
+            LocalDate birthDate = LocalDate.parse(clean);
+            return Period.between(birthDate, LocalDate.now()).getYears();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     @Override
     @Transactional
     public FamilyMemberResponse addFamilyMember(FamilyMemberRequest request, AppUser user, Long communityId) {
@@ -222,11 +237,19 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
 
         String gender = (request.getGender() != null && !request.getGender().isBlank()) ? request.getGender().trim() : "Male";
         boolean isFemale = "Female".equalsIgnoreCase(gender) || "F".equalsIgnoreCase(gender);
-        int computedAge = request.getAge() != null ? request.getAge() : 30;
+
+        String effectiveDob = request.getEffectiveDob();
+        Integer computedAge = request.getAge();
+        if ((computedAge == null || computedAge <= 0) && effectiveDob != null) {
+            computedAge = calculateAgeFromDob(effectiveDob);
+        }
+        if (computedAge == null || computedAge <= 0) {
+            computedAge = 30;
+        }
 
         String avatar = request.getAvatar();
         if (avatar == null || avatar.isBlank()) {
-            avatar = isFemale ? (computedAge < 18 ? "??" : "??") : (computedAge < 18 ? "??" : "??");
+            avatar = isFemale ? (computedAge < 18 ? "👧" : "👩") : (computedAge < 18 ? "👦" : "👨");
         }
 
         FamilyMember member = FamilyMember.builder()
@@ -235,7 +258,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 .name(request.getName().trim())
                 .relation(request.getRelation() != null ? request.getRelation().trim() : "Family")
                 .age(computedAge)
-                .dob(request.getDob())
+                .dob(effectiveDob)
                 .gender(gender)
                 .phone(request.getPhone() != null ? request.getPhone().trim() : null)
                 .email(request.getEmail() != null ? request.getEmail().trim() : null)
@@ -289,9 +312,22 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
             existing.setName(request.getName().trim());
         }
         if (request.getRelation() != null) existing.setRelation(request.getRelation().trim());
-        if (request.getAge() != null) existing.setAge(request.getAge());
         if (request.getGender() != null) existing.setGender(request.getGender().trim());
-        if (request.getDob() != null) existing.setDob(request.getDob());
+
+        if (request.getDob() != null) {
+            String trimmedDob = request.getDob().trim();
+            existing.setDob(trimmedDob.isEmpty() ? null : trimmedDob);
+            if (!trimmedDob.isEmpty() && (request.getAge() == null || request.getAge() <= 0)) {
+                Integer calculatedAge = calculateAgeFromDob(trimmedDob);
+                if (calculatedAge != null && calculatedAge > 0) {
+                    existing.setAge(calculatedAge);
+                }
+            }
+        }
+        if (request.getAge() != null && request.getAge() > 0) {
+            existing.setAge(request.getAge());
+        }
+
         if (request.getPhone() != null) existing.setPhone(request.getPhone().trim());
         if (request.getEmail() != null) existing.setEmail(request.getEmail().trim());
         if (request.getBloodGroup() != null) existing.setBloodGroup(request.getBloodGroup().trim());
