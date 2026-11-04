@@ -337,6 +337,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
         if (request.getAvatar() != null) existing.setAvatar(request.getAvatar());
         if (request.getNotes() != null) existing.setNotes(request.getNotes());
         if (request.getStatus() != null) existing.setStatus(request.getStatus());
+        if (request.getDob() != null) existing.setDob(request.getDob());
 
         existing.setUpdatedAt(LocalDateTime.now());
         FamilyMember saved = repository.save(existing);
