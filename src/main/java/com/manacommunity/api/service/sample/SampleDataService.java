@@ -49,6 +49,7 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
+    private final com.manacommunity.api.fresh.pilot.service.FreshPilotDataSeeder freshPilotDataSeeder;
 
     @Override
     @Transactional
@@ -137,6 +138,9 @@ public class SampleDataService implements ApplicationRunner {
             // Layer 6 — dedicated per-table seeders (depend on previous layers)
             courtDataSeeder.seed();
             sportsEventRegistrationDataSeeder.seed();
+
+            // Layer 7 — Mana Fresh Stage 12 Pilot Operations
+            freshPilotDataSeeder.seedStage12PilotData();
 
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");

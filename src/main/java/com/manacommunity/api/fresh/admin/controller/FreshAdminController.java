@@ -21,6 +21,7 @@ import java.util.Map;
 public class FreshAdminController {
 
     private final FreshVendorCapabilityService capabilityService;
+    private final com.manacommunity.api.fresh.pilot.service.FreshPilotDataSeeder pilotDataSeeder;
 
     @GetMapping("/capabilities/pending")
     public ResponseEntity<List<VendorCapabilityDto>> getPendingCapabilities() {
@@ -51,4 +52,15 @@ public class FreshAdminController {
         String reason = body != null ? body.getOrDefault("reason", "Administrative suspension") : "Administrative suspension";
         return ResponseEntity.ok(capabilityService.suspendCapability(capabilityId, reason, adminUserId));
     }
+
+    @PostMapping("/pilot/seed")
+    public ResponseEntity<Map<String, Object>> seedPilotEnvironment() {
+        return ResponseEntity.ok(pilotDataSeeder.seedStage12PilotData());
+    }
+
+    @GetMapping("/pilot/metrics")
+    public ResponseEntity<com.manacommunity.api.fresh.pilot.dto.FreshPilotMetricsDto> getPilotMetrics() {
+        return ResponseEntity.ok(pilotDataSeeder.getPilotMetrics());
+    }
 }
+
