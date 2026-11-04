@@ -179,6 +179,7 @@ class WellnessBasketServiceTest {
 
         when(subscriberPrefRepository.findByUserId(101L)).thenReturn(Optional.of(pref));
         when(subscriberPrefRepository.save(any(WellnessSubscriberPreference.class))).thenAnswer(i -> i.getArgument(0));
+        when(userRepository.findById(101L)).thenReturn(Optional.of(testUser));
 
         LocalDate from = LocalDate.now().plusDays(2);
         LocalDate to = LocalDate.now().plusDays(7);
