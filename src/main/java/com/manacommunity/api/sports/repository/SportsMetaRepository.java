@@ -24,4 +24,17 @@ public interface SportsMetaRepository extends JpaRepository<SportsMeta, Long> {
     List<SportsMeta> findActiveByCommunity(@org.springframework.data.repository.query.Param("communityId") Long communityId);
 
     java.util.Optional<SportsMeta> findByNameIgnoreCase(String name);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT s FROM SportsMeta s WHERE LOWER(TRIM(s.name)) = LOWER(TRIM(:name)) AND " +
+        "((:communityId IS NULL AND s.communityId IS NULL) OR s.communityId = :communityId) " +
+        "ORDER BY s.id DESC")
+    List<SportsMeta> findAllByNameAndCommunity(
+        @org.springframework.data.repository.query.Param("name") String name,
+        @org.springframework.data.repository.query.Param("communityId") Long communityId
+    );
+
+    default java.util.Optional<SportsMeta> findByNameAndCommunity(String name, Long communityId) {
+        return findAllByNameAndCommunity(name, communityId).stream().findFirst();
+    }
 }
