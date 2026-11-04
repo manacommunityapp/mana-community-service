@@ -40,7 +40,7 @@ public class SportsGenericScoringController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("/score")
-    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public ResponseEntity<SportsGenericScoreResponse> recordEvent(
             @Valid @RequestBody SportsGenericScoreRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -52,7 +52,7 @@ public class SportsGenericScoringController {
     }
 
     @PostMapping("/{matchId}/undo")
-    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public ResponseEntity<SportsGenericScoreResponse> undoLastEvent(@PathVariable Long matchId) {
         log.info("Undoing last generic score event matchId={}", matchId);
         SportsGenericScoreResponse response = scoringService.undoLastEvent(matchId);
@@ -66,7 +66,7 @@ public class SportsGenericScoringController {
     }
 
     @PostMapping("/{matchId}/period/{periodNumber}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public ResponseEntity<Void> completePeriod(
             @PathVariable Long matchId,
             @PathVariable Integer periodNumber) {
@@ -77,7 +77,7 @@ public class SportsGenericScoringController {
     }
 
     @PostMapping("/{matchId}/period/{periodNumber}/score")
-    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
     public ResponseEntity<SportsPeriodScoreResponse> recordPeriodResult(
             @PathVariable Long matchId,
             @PathVariable Integer periodNumber,

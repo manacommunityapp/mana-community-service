@@ -1,12 +1,9 @@
 package com.manacommunity.api.sports.scheduler;
-import com.manacommunity.api.sports.repository.*;
-import com.manacommunity.api.sports.model.*;
-import com.manacommunity.api.sports.dto.*;
 
 import com.manacommunity.api.sports.dto.BallEventRequest;
 import com.manacommunity.api.sports.dto.BallEventResponse;
 import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse;
-import com.manacommunity.api.sports.scheduler.SportsLiveScoringService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +11,11 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -38,9 +37,9 @@ public class SportsLiveScoringController {
     }
 
     @MessageMapping("/match/{matchId}/undo")
-    public void handleUndo(@DestinationVariable Long matchId, java.util.Map<String, Integer> payload, Principal principal) {
+    public void handleUndo(@DestinationVariable Long matchId, Map<String, Integer> payload, Principal principal) {
         if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
-        Integer inningsNumber = payload.getOrDefault("inningsNumber", 1);
+        Integer inningsNumber = payload != null ? payload.getOrDefault("inningsNumber", 1) : 1;
         BallEventResponse response = liveScoringService.undoLastBall(matchId, inningsNumber);
         messagingTemplate.convertAndSend("/topic/match/" + matchId + "/undo", response);
 
@@ -49,9 +48,9 @@ public class SportsLiveScoringController {
     }
 
     @MessageMapping("/match/{matchId}/startInnings")
-    public void handleStartInnings(@DestinationVariable Long matchId, java.util.Map<String, Integer> payload, Principal principal) {
+    public void handleStartInnings(@DestinationVariable Long matchId, Map<String, Integer> payload, Principal principal) {
         if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");
-        Integer inningsNumber = payload.getOrDefault("inningsNumber", 1);
+        Integer inningsNumber = payload != null ? payload.getOrDefault("inningsNumber", 1) : 1;
         liveScoringService.startInnings(matchId, inningsNumber);
 
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);
@@ -65,9 +64,12 @@ public class SportsLiveScoringController {
 
     @PostMapping("/api/tournament/match/{matchId}/ball")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
-    public BallEventResponse recordBallRest(@PathVariable Long matchId, @Valid @RequestBody BallEventRequest req) {
-        log.info("Recording ball event matchId={}", matchId);
-        BallEventResponse response = liveScoringService.recordBall(req, null);
+    public BallEventResponse recordBallRest(@PathVariable Long matchId,
+                                            @Valid @RequestBody BallEventRequest req,
+                                            @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = principal != null ? principal.getId() : null;
+        log.info("Recording ball event matchId={} userId={}", matchId, userId);
+        BallEventResponse response = liveScoringService.recordBall(req, userId);
         messagingTemplate.convertAndSend("/topic/match/" + matchId, response);
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);
         messagingTemplate.convertAndSend("/topic/match/" + matchId + "/state", state);
@@ -76,8 +78,11 @@ public class SportsLiveScoringController {
 
     @PostMapping("/api/tournament/match/{matchId}/undo")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
-    public BallEventResponse undoBallRest(@PathVariable Long matchId, @RequestParam(defaultValue = "1") Integer inningsNumber) {
-        log.info("Undoing last ball matchId={} inningsNumber={}", matchId, inningsNumber);
+    public BallEventResponse undoBallRest(@PathVariable Long matchId,
+                                          @RequestParam(defaultValue = "1") Integer inningsNumber,
+                                          @AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = principal != null ? principal.getId() : null;
+        log.info("Undoing last ball matchId={} inningsNumber={} userId={}", matchId, inningsNumber, userId);
         BallEventResponse response = liveScoringService.undoLastBall(matchId, inningsNumber);
         messagingTemplate.convertAndSend("/topic/match/" + matchId + "/undo", response);
         SportsLiveMatchStateResponse state = liveScoringService.getMatchState(matchId);
