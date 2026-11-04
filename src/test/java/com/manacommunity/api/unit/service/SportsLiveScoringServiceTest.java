@@ -11,6 +11,7 @@ import com.manacommunity.api.sports.repository.SportsMatchBallEventRepository;
 import com.manacommunity.api.sports.repository.SportsScoringCommandRepository;
 import com.manacommunity.api.sports.repository.SportsScoringCorrectionRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.repository.SportsScoringConfigRepository;
 import com.manacommunity.api.sports.scheduler.SportsLiveScoringService;
 import com.manacommunity.api.sports.scheduler.SportsMatchBallEvent;
 import com.manacommunity.api.sports.scheduler.SportsScoringCommand;
@@ -54,6 +55,9 @@ class SportsLiveScoringServiceTest {
 
     @Mock
     private SportsScoringAuthorizationService authService;
+
+    @Mock
+    private SportsScoringConfigRepository scoringConfigRepo;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();

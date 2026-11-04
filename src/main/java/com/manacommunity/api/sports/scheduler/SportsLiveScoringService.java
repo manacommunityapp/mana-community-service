@@ -19,6 +19,7 @@ import com.manacommunity.api.sports.repository.SportsMatchBallEventRepository;
 import com.manacommunity.api.sports.repository.SportsScoringCommandRepository;
 import com.manacommunity.api.sports.repository.SportsScoringCorrectionRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.repository.SportsScoringConfigRepository;
 import com.manacommunity.api.sports.service.SportsScoringAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class SportsLiveScoringService {
     private final SportsScoringCommandRepository commandRepo;
     private final SportsScoringCorrectionRepository correctionRepo;
     private final SportsScoringAuthorizationService authService;
+    private final SportsScoringConfigRepository scoringConfigRepo;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -143,6 +145,68 @@ public class SportsLiveScoringService {
         } else {
             match.setScoreTeamB(scoreFormatted);
         }
+
+        // ── Auto-completion checks for Overs Quota & Target Chase ──
+        int oversLimit = 20;
+        if (match.getConfig() != null && scoringConfigRepo != null) {
+            var scOpt = scoringConfigRepo.findByConfigId(match.getConfig().getId());
+            if (scOpt.isPresent() && scOpt.get().getOversPerInnings() != null && scOpt.get().getOversPerInnings() > 0) {
+                oversLimit = scOpt.get().getOversPerInnings();
+            }
+        }
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            try {
+                Map<?, ?> override = objectMapper.readValue(match.getMatchConfigOverrideJson(), Map.class);
+                if (override.get("oversPerInnings") != null) {
+                    oversLimit = ((Number) override.get("oversPerInnings")).intValue();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        int totalLegalDeliveries = 0;
+        for (SportsMatchBallEvent b : existing) {
+            if (b.getExtrasType() == null || (!"WIDE".equalsIgnoreCase(b.getExtrasType()) && !"NO_BALL".equalsIgnoreCase(b.getExtrasType()))) {
+                totalLegalDeliveries++;
+            }
+        }
+        if (req.extrasType() == null || (!"WIDE".equalsIgnoreCase(req.extrasType()) && !"NO_BALL".equalsIgnoreCase(req.extrasType()))) {
+            totalLegalDeliveries++;
+        }
+
+        // Target reached in Innings 2?
+        if (req.inningsNumber() == 2) {
+            List<SportsMatchBallEvent> inn1Balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(match.getId(), 1);
+            int targetRuns = inn1Balls.isEmpty() ? 0 : (inn1Balls.get(inn1Balls.size() - 1).getTotalRuns() + 1);
+            if (newTotalRuns >= targetRuns && targetRuns > 0) {
+                match.setStatus(MatchStatus.COMPLETED);
+                match.setCompletedAt(LocalDateTime.now());
+                SportsAuctionTeam chasingTeam = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
+                match.setWinner(chasingTeam);
+                match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                int remainingWickets = 10 - newTotalWickets;
+                match.setWinMargin(chasingTeam.getTeamName() + " won by " + remainingWickets + " wickets");
+            } else if (totalLegalDeliveries >= oversLimit * 6 || newTotalWickets >= 10) {
+                // Overs limit reached or all out in 2nd innings
+                match.setStatus(MatchStatus.COMPLETED);
+                match.setCompletedAt(LocalDateTime.now());
+                SportsAuctionTeam teamInn1 = isTeamABatting(match, 1) ? match.getTeamA() : match.getTeamB();
+                SportsAuctionTeam teamInn2 = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
+                int inn1Runs = inn1Balls.isEmpty() ? 0 : inn1Balls.get(inn1Balls.size() - 1).getTotalRuns();
+                if (newTotalRuns > inn1Runs) {
+                    match.setWinner(teamInn2);
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                    match.setWinMargin(teamInn2.getTeamName() + " won by " + (10 - newTotalWickets) + " wickets");
+                } else if (newTotalRuns < inn1Runs) {
+                    match.setWinner(teamInn1);
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                    match.setWinMargin(teamInn1.getTeamName() + " won by " + (inn1Runs - newTotalRuns) + " runs");
+                } else {
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.DRAW);
+                    match.setWinMargin("Match Tied");
+                }
+            }
+        }
+
         matchRepo.save(match);
 
         BallEventResponse response = toBallEventResponse(event);
@@ -271,6 +335,31 @@ public class SportsLiveScoringService {
         SportsAuctionTeam teamInn1 = isTeamABatting(match, 1) ? match.getTeamA() : match.getTeamB();
         SportsAuctionTeam teamInn2 = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
 
+        Integer oversLimit = 20;
+        Integer maxOversPerBowler = 4;
+        Integer ballsPerOver = 6;
+
+        if (match.getConfig() != null && scoringConfigRepo != null) {
+            Optional<SportsScoringConfig> scOpt = scoringConfigRepo.findByConfigId(match.getConfig().getId());
+            if (scOpt.isPresent()) {
+                SportsScoringConfig sc = scOpt.get();
+                if (sc.getOversPerInnings() != null && sc.getOversPerInnings() > 0) oversLimit = sc.getOversPerInnings();
+                if (sc.getMaxOversPerBowler() != null && sc.getMaxOversPerBowler() > 0) maxOversPerBowler = sc.getMaxOversPerBowler();
+                if (sc.getBallsPerOver() != null && sc.getBallsPerOver() > 0) ballsPerOver = sc.getBallsPerOver();
+            }
+        }
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            try {
+                Map<?, ?> override = objectMapper.readValue(match.getMatchConfigOverrideJson(), Map.class);
+                if (override.get("oversPerInnings") != null) {
+                    oversLimit = ((Number) override.get("oversPerInnings")).intValue();
+                }
+                if (override.get("maxOversPerBowler") != null) {
+                    maxOversPerBowler = ((Number) override.get("maxOversPerBowler")).intValue();
+                }
+            } catch (Exception ignored) {}
+        }
+
         return new SportsLiveMatchStateResponse(
                 matchId,
                 match.getStatus().name(),
@@ -287,7 +376,10 @@ public class SportsLiveScoringService {
                 match.getTeamB() != null ? match.getTeamB().getColorHex() : "#555",
                 match.getTeamA() != null ? match.getTeamA().getId() : null,
                 match.getTeamB() != null ? match.getTeamB().getId() : null,
-                target
+                target,
+                oversLimit,
+                maxOversPerBowler,
+                ballsPerOver
         );
     }
 

@@ -376,6 +376,11 @@ public class SportsGenericScoringService {
         config.setHasOvertime(req.hasOvertime() != null ? req.hasOvertime() : false);
         config.setHasPenaltyShootout(req.hasPenaltyShootout() != null ? req.hasPenaltyShootout() : false);
         config.setTiebreakPointsToWin(req.tiebreakPointsToWin());
+        config.setOversPerInnings(req.oversPerInnings());
+        config.setMaxOversPerBowler(req.maxOversPerBowler());
+        config.setBallsPerOver(req.ballsPerOver() != null ? req.ballsPerOver() : 6);
+        config.setBreakDurationMinutes(req.breakDurationMinutes());
+        config.setTargetScore(req.targetScore());
         config.setScoringRulesJson(req.scoringRulesJson());
 
         scoringConfigRepo.save(config);
@@ -391,56 +396,77 @@ public class SportsGenericScoringService {
 
     public SportsScoringConfigResponse getDefaultScoringConfig(String sportType) {
         return switch (sportType.toUpperCase()) {
+            case "CRICKET", "BOX_CRICKET", "GULLY_CRICKET" -> new SportsScoringConfigResponse(
+                    null, null, sportType.toUpperCase(), 2, null, false, null, null, false, false, null,
+                    20, 4, 6, 15, null, null
+            );
             case "BADMINTON" -> new SportsScoringConfigResponse(
-                    null, null, "BADMINTON", 3, 21, true, 2, null, false, false, 30, null
+                    null, null, "BADMINTON", 3, 21, true, 2, null, false, false, 30,
+                    null, null, null, 5, null, null
             );
             case "PICKLEBALL" -> new SportsScoringConfigResponse(
-                    null, null, "PICKLEBALL", 3, 11, true, 2, null, false, false, 15, null
+                    null, null, "PICKLEBALL", 3, 11, true, 2, null, false, false, 15,
+                    null, null, null, 5, null, null
             );
             case "SQUASH" -> new SportsScoringConfigResponse(
-                    null, null, "SQUASH", 5, 11, true, 3, null, false, false, null, null
+                    null, null, "SQUASH", 5, 11, true, 3, null, false, false, null,
+                    null, null, null, 5, null, null
             );
             case "FOOTBALL", "SOCCER" -> new SportsScoringConfigResponse(
-                    null, null, sportType.toUpperCase(), 2, null, false, null, 45, true, true, null, null
+                    null, null, sportType.toUpperCase(), 2, null, false, null, 45, true, true, null,
+                    null, null, null, 15, null, null
             );
             case "BASKETBALL" -> new SportsScoringConfigResponse(
-                    null, null, "BASKETBALL", 4, null, false, null, 12, true, false, null, null
+                    null, null, "BASKETBALL", 4, null, false, null, 12, true, false, null,
+                    null, null, null, 15, null, null
             );
             case "VOLLEYBALL", "BEACH_VOLLEYBALL", "GRASS_VOLLEYBALL", "THROWBALL" -> new SportsScoringConfigResponse(
-                    null, null, sportType.toUpperCase(), 5, 25, true, 3, null, false, false, 15, null
+                    null, null, sportType.toUpperCase(), 5, 25, true, 3, null, false, false, 15,
+                    null, null, null, 5, null, null
             );
             case "TENNIS" -> new SportsScoringConfigResponse(
-                    null, null, "TENNIS", 3, 6, false, 2, null, false, false, 7, null
+                    null, null, "TENNIS", 3, 6, false, 2, null, false, false, 7,
+                    null, null, null, 10, null, null
             );
             case "TABLE_TENNIS" -> new SportsScoringConfigResponse(
-                    null, null, "TABLE_TENNIS", 5, 11, true, 3, null, false, false, null, null
+                    null, null, "TABLE_TENNIS", 5, 11, true, 3, null, false, false, null,
+                    null, null, null, 5, null, null
             );
             case "KABADDI" -> new SportsScoringConfigResponse(
-                    null, null, "KABADDI", 2, null, false, null, 20, true, false, null, null
+                    null, null, "KABADDI", 2, null, false, null, 20, true, false, null,
+                    null, null, null, 5, null, null
             );
             case "CARROM" -> new SportsScoringConfigResponse(
-                    null, null, "CARROM", 8, 25, false, null, null, false, false, null, null
+                    null, null, "CARROM", 8, 25, false, null, null, false, false, null,
+                    null, null, null, 5, 25, null
             );
             case "CHESS" -> new SportsScoringConfigResponse(
-                    null, null, "CHESS", 1, null, false, null, null, false, false, null, null
+                    null, null, "CHESS", 1, null, false, null, 15, false, false, null,
+                    null, null, null, null, null, null
             );
             case "FOOSBALL" -> new SportsScoringConfigResponse(
-                    null, null, "FOOSBALL", 5, 5, false, 3, null, false, false, null, null
+                    null, null, "FOOSBALL", 5, 5, false, 3, null, false, false, null,
+                    null, null, null, 5, 5, null
             );
             case "POOL", "BILLIARDS", "SNOOKER" -> new SportsScoringConfigResponse(
-                    null, null, sportType.toUpperCase(), 5, null, false, 3, null, false, false, null, null
+                    null, null, sportType.toUpperCase(), 5, null, false, 3, null, false, false, null,
+                    null, null, null, 5, null, null
             );
             case "DART" -> new SportsScoringConfigResponse(
-                    null, null, "DART", 5, null, false, 3, null, false, false, null, null
+                    null, null, "DART", 5, null, false, 3, null, false, false, null,
+                    null, null, null, 5, 501, null
             );
             case "BOWLING" -> new SportsScoringConfigResponse(
-                    null, null, "BOWLING", 3, null, false, null, null, false, false, null, null
+                    null, null, "BOWLING", 3, null, false, null, null, false, false, null,
+                    null, null, null, 5, null, null
             );
             case "TUG_OF_WAR" -> new SportsScoringConfigResponse(
-                    null, null, "TUG_OF_WAR", 3, null, false, 2, null, false, false, null, null
+                    null, null, "TUG_OF_WAR", 3, null, false, 2, null, false, false, null,
+                    null, null, null, 5, null, null
             );
             default -> new SportsScoringConfigResponse(
-                    null, null, sportType.toUpperCase(), 2, null, false, null, null, false, false, null, null
+                    null, null, sportType.toUpperCase(), 2, null, false, null, null, false, false, null,
+                    null, null, null, 10, null, null
             );
         };
     }
@@ -680,7 +706,21 @@ public class SportsGenericScoringService {
                 config.getHasOvertime(),
                 config.getHasPenaltyShootout(),
                 config.getTiebreakPointsToWin(),
+                config.getOversPerInnings(),
+                config.getMaxOversPerBowler(),
+                config.getBallsPerOver(),
+                config.getBreakDurationMinutes(),
+                config.getTargetScore(),
                 config.getScoringRulesJson()
         );
+    }
+
+    @Transactional
+    public SportsTournamentMatch updateMatchConfigOverride(Long matchId, String overrideJson) {
+        log.info("Updating match config override matchId={}", matchId);
+        SportsTournamentMatch match = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+        match.setMatchConfigOverrideJson(overrideJson);
+        return matchRepo.save(match);
     }
 }

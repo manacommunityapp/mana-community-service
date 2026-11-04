@@ -116,6 +116,17 @@ public class SportsGenericScoringController {
         return ResponseEntity.ok(scoringService.getDefaultScoringConfig(sportType));
     }
 
+    @PutMapping("/match/{matchId}/config-override")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
+    public ResponseEntity<Void> updateMatchConfigOverride(
+            @PathVariable Long matchId,
+            @RequestBody Map<String, String> body) {
+        String overrideJson = body.get("overrideJson");
+        log.info("Updating config override for matchId={}", matchId);
+        scoringService.updateMatchConfigOverride(matchId, overrideJson);
+        return ResponseEntity.ok().build();
+    }
+
     @MessageMapping("/generic-match/{matchId}/score")
     public void handleScore(@DestinationVariable Long matchId, SportsGenericScoreRequest request, Principal principal) {
         if (principal == null) throw new org.springframework.security.access.AccessDeniedException("Authentication required");

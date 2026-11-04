@@ -118,6 +118,9 @@ public class SportsTournamentMatch {
     private LocalDateTime completedAt;
     private String  matchNotes;
 
+    @Column(columnDefinition = "TEXT")
+    private String  matchConfigOverrideJson;
+
     // ── Swiss round ───────────────────────────────────────────────
     private Integer swissRoundNumber;
 
