@@ -46,6 +46,18 @@ public class FreshVendorSettlement {
     @Builder.Default
     private BigDecimal gatewayFeesDeducted = BigDecimal.ZERO;
 
+    @Column(name = "tds_deducted_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal tdsDeductedAmount = BigDecimal.ZERO;
+
+    @Column(name = "gst_on_commission_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal gstOnCommissionAmount = BigDecimal.ZERO;
+
+    @Column(name = "refund_clawbacks_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal refundClawbacksAmount = BigDecimal.ZERO;
+
     @Column(name = "net_payable_amount", nullable = false, precision = 14, scale = 2)
     @Builder.Default
     private BigDecimal netPayableAmount = BigDecimal.ZERO;

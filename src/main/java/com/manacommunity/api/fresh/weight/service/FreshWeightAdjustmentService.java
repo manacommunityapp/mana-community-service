@@ -13,6 +13,10 @@ import com.manacommunity.api.fresh.weight.model.WeightAdjustmentStatus;
 import com.manacommunity.api.fresh.weight.repository.FreshWeightAdjustmentLogRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.commerce.core.service.CommerceWalletService;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,8 @@ public class FreshWeightAdjustmentService {
     private final FreshFulfilmentItemRepository itemRepository;
     private final FreshWeightAdjustmentLogRepository weightLogRepository;
     private final AppUserRepository userRepository;
+    private final CommerceWalletService walletService;
+    private final AuditService auditService;
 
     private static final BigDecimal DEFAULT_MAX_TOLERANCE_PCT = new BigDecimal("15.00");
 
@@ -96,6 +102,29 @@ public class FreshWeightAdjustmentService {
         itemRepository.save(item);
 
         String ref = "WADJ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String walletTxnRef = null;
+
+        if (status == WeightAdjustmentStatus.REFUNDED_TO_WALLET && customer != null && refundOrCharge.compareTo(BigDecimal.ZERO) > 0 && walletService != null) {
+            try {
+                walletService.getOrCreateWallet(customer);
+                walletService.refund(customer, refundOrCharge, ref);
+                walletTxnRef = "TXN-" + ref;
+                log.info("Credited wallet ₹{} to user {} for underweight item {}", refundOrCharge, customer.getId(), item.getId());
+            } catch (Exception ex) {
+                log.error("Failed to credit wallet for weight adjustment {}: {}", ref, ex.getMessage());
+            }
+        } else if (status == WeightAdjustmentStatus.CHARGED_TO_WALLET && customer != null && refundOrCharge.compareTo(BigDecimal.ZERO) > 0 && walletService != null) {
+            try {
+                walletService.getOrCreateWallet(customer);
+                String prodName = item.getVendorProduct() != null ? item.getVendorProduct().getName() : ("Item #" + item.getId());
+                walletService.debit(customer, refundOrCharge, ref, "Weight variation adjustment: " + prodName);
+                walletTxnRef = "TXN-" + ref;
+                log.info("Debited wallet ₹{} from user {} for overweight item {}", refundOrCharge, customer.getId(), item.getId());
+            } catch (Exception ex) {
+                log.warn("Wallet debit skipped for weight adjustment {}: {}", ref, ex.getMessage());
+            }
+        }
+
         FreshWeightAdjustmentLog logEntry = FreshWeightAdjustmentLog.builder()
                 .adjustmentReference(ref)
                 .fulfilmentItem(item)
@@ -112,11 +141,17 @@ public class FreshWeightAdjustmentService {
                 .adjustmentStatus(status)
                 .reason(req.getReason())
                 .weighedByUser(weighedBy)
+                .walletTransactionRef(walletTxnRef)
                 .build();
 
         FreshWeightAdjustmentLog saved = weightLogRepository.save(logEntry);
-        log.info("Recorded weight adjustment {} for item {}: {}g -> {}g (Diff: {}%, Status: {})",
-                ref, item.getId(), requestedG, actualG, diffPct, status);
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_WEIGHT_ADJUSTED, AuditModule.FRESH_COMMERCE,
+                    "FreshWeightAdjustmentLog", ref, originalAmount.toString(), adjustedAmount.toString());
+        }
+
+        log.info("Recorded weight adjustment {} for item {}: {}g -> {}g (Diff: {}%, Status: {}, WalletTxn: {})",
+                ref, item.getId(), requestedG, actualG, diffPct, status, walletTxnRef);
 
         return toDto(saved);
     }
@@ -161,6 +196,7 @@ public class FreshWeightAdjustmentService {
                 .refundOrChargeAmount(entry.getRefundOrChargeAmount())
                 .adjustmentStatus(entry.getAdjustmentStatus())
                 .reason(entry.getReason())
+                .walletTransactionRef(entry.getWalletTransactionRef())
                 .weighedAt(entry.getWeighedAt())
                 .build();
     }

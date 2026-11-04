@@ -9,7 +9,11 @@ import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import com.manacommunity.api.vendor.repository.VmsVendorRepository;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FreshProcessingService {
 
     private final FreshProcessingRecipeRepository recipeRepository;
@@ -34,6 +39,7 @@ public class FreshProcessingService {
     private final VmsVendorRepository vendorRepository;
     private final VendorProductRepository vendorProductRepository;
     private final AppUserRepository userRepository;
+    private final AuditService auditService;
 
     // ----- Recipes -----
 
@@ -192,6 +198,14 @@ public class FreshProcessingService {
         }
         batchRepository.save(batch);
 
+        if (auditService != null) {
+            AuditAction auditAction = req.getReleaseDecision() == ReleaseDecision.APPROVED
+                    ? AuditAction.FRESH_BATCH_RELEASED
+                    : AuditAction.FRESH_BATCH_QUARANTINED;
+            auditService.record(auditAction, AuditModule.FRESH_COMMERCE, "FreshProcessingBatch",
+                    batch.getBatchNumber(), BatchStatus.QUALITY_INSPECTION.name(), batch.getStatus().name());
+        }
+
         return toBatchReleaseDto(release);
     }
 
@@ -205,20 +219,36 @@ public class FreshProcessingService {
             user = userRepository.findById(req.getLoggedByUserId()).orElse(null);
         }
 
-        FreshBatchTemperatureLog log = FreshBatchTemperatureLog.builder()
+        FreshBatchTemperatureLog logEntry = FreshBatchTemperatureLog.builder()
                 .batch(batch)
                 .loggedTempCelsius(req.getLoggedTempCelsius())
                 .locationTag(req.getLocationTag())
                 .loggedByUser(user)
                 .build();
 
-        temperatureLogRepository.save(log);
+        temperatureLogRepository.save(logEntry);
 
         // Update current storage temp on batch
         batch.setStorageTempCelsius(req.getLoggedTempCelsius());
+
+        // Critical Cold-Chain Enforcement: Chilled foods (batters, dairy, meat, seafood) must remain <= 4.0°C.
+        // If storage temperature breaches 4.0°C, automatically quarantine the batch to prevent spoiled dispatch.
+        if (req.getLoggedTempCelsius() != null && req.getLoggedTempCelsius().compareTo(BigDecimal.valueOf(4.0)) > 0) {
+            if (batch.getStatus() != BatchStatus.QUARANTINED && batch.getStatus() != BatchStatus.REJECTED) {
+                BatchStatus prevStatus = batch.getStatus();
+                batch.setStatus(BatchStatus.QUARANTINED);
+                log.warn("CRITICAL COLD-CHAIN BREACH: Batch {} temperature reached {}°C (> 4.0°C limit). Automatically QUARANTINED.",
+                        batch.getBatchNumber(), req.getLoggedTempCelsius());
+                if (auditService != null) {
+                    auditService.record(AuditAction.FRESH_BATCH_QUARANTINED, AuditModule.FRESH_COMMERCE,
+                            "FreshProcessingBatch", batch.getBatchNumber(), prevStatus.name(), BatchStatus.QUARANTINED.name());
+                }
+            }
+        }
+
         batchRepository.save(batch);
 
-        return toTemperatureLogDto(log);
+        return toTemperatureLogDto(logEntry);
     }
 
     public BatchDto getBatch(Long batchId) {

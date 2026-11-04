@@ -17,6 +17,10 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
+import com.manacommunity.api.commerce.core.service.CommerceWalletService;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +44,8 @@ public class FreshRecallService {
     private final VendorProductRepository vendorProductRepository;
     private final FoodProductionBatchRepository batchRepository;
     private final AppUserRepository userRepository;
+    private final CommerceWalletService walletService;
+    private final AuditService auditService;
 
     @Transactional
     public ProductRecallDto initiateRecall(InitiateRecallRequest req) {
@@ -123,6 +129,11 @@ public class FreshRecallService {
         savedRecall.setTotalRefundAmount(totalRefund);
         recallRepository.save(savedRecall);
 
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_RECALL_INITIATED, AuditModule.FRESH_COMMERCE,
+                    "FreshProductRecall", ref, null, req.getSeverity() + ":" + req.getReason());
+        }
+
         log.info("Initiated product recall {}: affected {} orders, {} customers, total refund ₹{}",
                 ref, recallOrders.size(), uniqueCustomers.size(), totalRefund);
 
@@ -145,6 +156,20 @@ public class FreshRecallService {
         List<FreshProductRecallOrder> toUpdate = new ArrayList<>();
         for (FreshProductRecallOrder order : orders) {
             if (!Boolean.TRUE.equals(order.getRefundProcessed())) {
+                String walletTxnRef = null;
+                if (order.getCustomer() != null && order.getRefundAmount() != null && order.getRefundAmount().compareTo(BigDecimal.ZERO) > 0 && walletService != null) {
+                    try {
+                        walletService.getOrCreateWallet(order.getCustomer());
+                        String refundRef = "RECALL-" + recall.getRecallReference() + "-" + order.getId();
+                        walletService.refund(order.getCustomer(), order.getRefundAmount(), refundRef);
+                        walletTxnRef = "TXN-" + refundRef;
+                        log.info("Credited recall refund ₹{} to user {} for recall {}",
+                                order.getRefundAmount(), order.getCustomer().getId(), recall.getRecallReference());
+                    } catch (Exception ex) {
+                        log.error("Failed to credit wallet for recall order {}: {}", order.getId(), ex.getMessage());
+                    }
+                }
+                order.setWalletTransactionRef(walletTxnRef);
                 order.setCustomerNotified(true);
                 order.setRefundProcessed(true);
                 order.setNotificationSentAt(now);
@@ -158,6 +183,11 @@ public class FreshRecallService {
 
         recall.setStatus(RecallStatus.COMPLETED);
         recallRepository.save(recall);
+
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_RECALL_REFUNDED, AuditModule.FRESH_COMMERCE,
+                    "FreshProductRecall", recall.getRecallReference(), RecallStatus.INITIATED.name(), RecallStatus.COMPLETED.name());
+        }
 
         log.info("Completed recall {} refunds for {} orders (processed {})",
                 recall.getRecallReference(), orders.size(), toUpdate.size());
@@ -219,6 +249,7 @@ public class FreshRecallService {
                 .refundAmount(ro.getRefundAmount())
                 .customerNotified(ro.getCustomerNotified())
                 .refundProcessed(ro.getRefundProcessed())
+                .walletTransactionRef(ro.getWalletTransactionRef())
                 .notificationSentAt(ro.getNotificationSentAt())
                 .createdAt(ro.getCreatedAt())
                 .build();

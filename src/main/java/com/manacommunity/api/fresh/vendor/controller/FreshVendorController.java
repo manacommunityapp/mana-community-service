@@ -27,18 +27,23 @@ public class FreshVendorController {
     private final com.manacommunity.api.fresh.vendor.service.FreshVendorDocumentService documentService;
 
     @PostMapping("/capabilities/apply")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.hasVendorRole(#principal, #request.vendorId, 'VENDOR_OWNER', 'VENDOR_MANAGER')")
     public ResponseEntity<VendorCapabilityDto> applyForCapability(
-            @Valid @RequestBody ApplyCapabilityRequest request) {
+            @Valid @RequestBody ApplyCapabilityRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.status(HttpStatus.CREATED).body(capabilityService.applyForCapability(request));
     }
 
     @GetMapping("/capabilities")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
     public ResponseEntity<List<VendorCapabilityDto>> getVendorCapabilities(
-            @RequestParam Long vendorId) {
+            @RequestParam Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(capabilityService.getCapabilitiesByVendor(vendorId));
     }
 
     @PostMapping("/staff")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.hasVendorRole(#principal, #request.vendorId, 'VENDOR_OWNER', 'VENDOR_MANAGER')")
     public ResponseEntity<VendorStaffDto> assignStaff(
             @Valid @RequestBody InviteStaffRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -47,34 +52,44 @@ public class FreshVendorController {
     }
 
     @GetMapping("/staff")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
     public ResponseEntity<List<VendorStaffDto>> getVendorStaff(
-            @RequestParam Long vendorId) {
+            @RequestParam Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(staffService.getStaffByVendor(vendorId));
     }
 
     @DeleteMapping("/staff/{staffUserId}")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.hasVendorRole(#principal, #vendorId, 'VENDOR_OWNER')")
     public ResponseEntity<Void> deactivateStaff(
             @RequestParam Long vendorId,
-            @PathVariable Long staffUserId) {
+            @PathVariable Long staffUserId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         staffService.deactivateStaff(vendorId, staffUserId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/documents")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.hasVendorRole(#principal, #request.vendorId, 'VENDOR_OWNER', 'VENDOR_MANAGER', 'QUALITY_MANAGER')")
     public ResponseEntity<VendorDocumentDto> uploadDocument(
-            @Valid @RequestBody UploadVendorDocumentRequest request) {
+            @Valid @RequestBody UploadVendorDocumentRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.status(HttpStatus.CREATED).body(documentService.uploadDocument(request));
     }
 
     @GetMapping("/documents")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
     public ResponseEntity<List<VendorDocumentDto>> getVendorDocuments(
-            @RequestParam Long vendorId) {
+            @RequestParam Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(documentService.getVendorDocuments(vendorId));
     }
 
     @GetMapping("/dashboard/summary")
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
     public ResponseEntity<FreshVendorDashboardSummaryDto> getDashboardSummary(
-            @RequestParam Long vendorId) {
+            @RequestParam Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         List<VendorCapabilityDto> capabilities = capabilityService.getCapabilitiesByVendor(vendorId);
 
         FreshVendorDashboardSummaryDto summary = FreshVendorDashboardSummaryDto.builder()

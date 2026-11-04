@@ -12,6 +12,7 @@ import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import com.manacommunity.api.vendor.repository.VmsVendorRepository;
+import com.manacommunity.api.security.AuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,8 @@ class FreshDispatchSettlementServiceTest {
     private CommunityRepository communityRepository;
     @Mock
     private AppUserRepository userRepository;
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private FreshDispatchSettlementService service;
@@ -173,8 +176,10 @@ class FreshDispatchSettlementServiceTest {
         VendorSettlementDto result = service.createSettlement(req);
 
         assertNotNull(result);
-        // 10000 - 1000 + 500 - 200 = 9300.00
-        assertEquals(new BigDecimal("9300.00"), result.getNetPayableAmount());
+        // 10000 - 1000 (commission) - 180 (18% GST on comm) - 100 (1% Sec 194-O TDS) + 500 (delivery) - 200 (gateway) = 9020.00
+        assertEquals(new BigDecimal("9020.00"), result.getNetPayableAmount());
+        assertEquals(new BigDecimal("100.00"), result.getTdsDeductedAmount());
+        assertEquals(new BigDecimal("180.00"), result.getGstOnCommissionAmount());
         assertEquals(SettlementStatus.PENDING, result.getStatus());
         verify(settlementRepository, times(1)).save(any(FreshVendorSettlement.class));
     }

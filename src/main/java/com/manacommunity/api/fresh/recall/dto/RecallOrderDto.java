@@ -24,6 +24,7 @@ public class RecallOrderDto {
     private BigDecimal refundAmount;
     private Boolean customerNotified;
     private Boolean refundProcessed;
+    private String walletTransactionRef;
     private Instant notificationSentAt;
     private Instant createdAt;
 }

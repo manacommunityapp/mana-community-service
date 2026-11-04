@@ -14,4 +14,5 @@ public class CreateSettlementRequest {
     private BigDecimal manaCommissionAmount;
     private BigDecimal deliveryFeesCollected;
     private BigDecimal gatewayFeesDeducted;
+    private BigDecimal refundClawbacksAmount;
 }

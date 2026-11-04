@@ -13,6 +13,9 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import com.manacommunity.api.vendor.repository.VmsVendorRepository;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,7 @@ public class FreshVendorCapabilityService {
     private final FreshVendorCapabilityRepository capabilityRepository;
     private final VmsVendorRepository vendorRepository;
     private final AppUserRepository userRepository;
+    private final AuditService auditService;
 
     @Transactional
     public VendorCapabilityDto applyForCapability(ApplyCapabilityRequest request) {
@@ -94,7 +98,16 @@ public class FreshVendorCapabilityService {
                     capability.getCapabilityType(), capability.getVendor().getBusinessName(), adminUser.getEmail(), capability.getRejectionReason());
         }
 
-        return VendorCapabilityDto.fromEntity(capabilityRepository.save(capability));
+        FreshVendorCapability saved = capabilityRepository.save(capability);
+        if (auditService != null) {
+            AuditAction action = Boolean.TRUE.equals(request.getApproved())
+                    ? AuditAction.FRESH_CAPABILITY_APPROVED
+                    : AuditAction.FRESH_CAPABILITY_SUSPENDED;
+            auditService.record(action, AuditModule.FRESH_COMMERCE, "FreshVendorCapability",
+                    saved.getId().toString(), CapabilityStatus.PENDING_APPROVAL.name(), saved.getStatus().name());
+        }
+
+        return VendorCapabilityDto.fromEntity(saved);
     }
 
     @Transactional
@@ -110,9 +123,15 @@ public class FreshVendorCapabilityService {
         capability.setApprovedByUser(adminUser);
         capability.setApprovedAt(LocalDateTime.now());
 
+        FreshVendorCapability saved = capabilityRepository.save(capability);
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_CAPABILITY_SUSPENDED, AuditModule.FRESH_COMMERCE, "FreshVendorCapability",
+                    saved.getId().toString(), CapabilityStatus.APPROVED.name(), CapabilityStatus.SUSPENDED.name());
+        }
+
         log.warn("Capability {} for vendor {} SUSPENDED by admin {}: {}",
                 capability.getCapabilityType(), capability.getVendor().getBusinessName(), adminUser.getEmail(), reason);
-        return VendorCapabilityDto.fromEntity(capabilityRepository.save(capability));
+        return VendorCapabilityDto.fromEntity(saved);
     }
 
     @Transactional(readOnly = true)

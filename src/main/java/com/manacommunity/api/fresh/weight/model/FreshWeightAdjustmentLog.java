@@ -76,6 +76,9 @@ public class FreshWeightAdjustmentLog {
     @JoinColumn(name = "weighed_by_user_id")
     private AppUser weighedByUser;
 
+    @Column(name = "wallet_transaction_ref", length = 100)
+    private String walletTransactionRef;
+
     @CreationTimestamp
     @Column(name = "weighed_at", nullable = false, updatable = false)
     private Instant weighedAt;

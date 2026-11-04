@@ -9,11 +9,15 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import com.manacommunity.api.vendor.repository.VmsVendorRepository;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,11 +30,16 @@ public class FreshVendorDocumentService {
     private final FreshVendorDocumentRepository documentRepository;
     private final VmsVendorRepository vendorRepository;
     private final AppUserRepository userRepository;
+    private final AuditService auditService;
 
     @Transactional
     public VendorDocumentDto uploadDocument(UploadVendorDocumentRequest request) {
         VmsVendor vendor = vendorRepository.findById(request.getVendorId())
                 .orElseThrow(() -> new IllegalArgumentException("Vendor not found with id: " + request.getVendorId()));
+
+        if (request.getFileUrl() != null && !request.getFileUrl().isBlank()) {
+            validateDocumentUrl(request.getFileUrl());
+        }
 
         FreshVendorDocument doc = documentRepository
                 .findByVendorIdAndDocumentType(request.getVendorId(), request.getDocumentType())
@@ -50,6 +59,19 @@ public class FreshVendorDocumentService {
         FreshVendorDocument saved = documentRepository.save(doc);
         log.info("Uploaded compliance document {} for vendor {}", request.getDocumentType(), vendor.getBusinessName());
         return mapToDto(saved);
+    }
+
+    private void validateDocumentUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            String host = uri.getHost();
+            if (host == null || "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host)
+                    || host.startsWith("192.168.") || host.startsWith("10.") || "169.254.169.254".equals(host)) {
+                throw new IllegalArgumentException("Invalid document URL origin: internal or loopback addresses disallowed.");
+            }
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid document URL format: " + ex.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -77,6 +99,12 @@ public class FreshVendorDocumentService {
         doc.setVerifiedAt(Instant.now());
 
         FreshVendorDocument saved = documentRepository.save(doc);
+        if (auditService != null) {
+            AuditAction action = approved ? AuditAction.FRESH_DOCUMENT_VERIFIED : AuditAction.FRESH_DOCUMENT_REJECTED;
+            auditService.record(action, AuditModule.FRESH_COMMERCE, "FreshVendorDocument",
+                    doc.getId().toString(), DocumentVerificationStatus.PENDING_VERIFICATION.name(), doc.getStatus().name());
+        }
+
         log.info("Document {} for vendor {} verified with decision: {}", doc.getId(), doc.getVendor().getBusinessName(), doc.getStatus());
         return mapToDto(saved);
     }

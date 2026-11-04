@@ -11,11 +11,17 @@ import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import com.manacommunity.api.vendor.repository.VmsVendorRepository;
+import com.manacommunity.api.exception.InvalidStateTransitionException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
+import com.manacommunity.api.security.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +43,7 @@ public class FreshDispatchSettlementService {
     private final VendorProductRepository vendorProductRepository;
     private final CommunityRepository communityRepository;
     private final AppUserRepository userRepository;
+    private final AuditService auditService;
 
     // ----- Purchase Orders (Demand Aggregation) -----
 
@@ -192,25 +199,43 @@ public class FreshDispatchSettlementService {
     @Transactional
     public VendorSettlementDto createSettlement(CreateSettlementRequest req) {
         VmsVendor vendor = vendorRepository.findById(req.getVendorId())
-                .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + req.getVendorId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", req.getVendorId()));
 
         String ref = "SETTLE-FRESH-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
                 + "-V" + vendor.getId() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
 
-        BigDecimal netPayable = req.getGrossSalesAmount()
-                .subtract(req.getManaCommissionAmount() != null ? req.getManaCommissionAmount() : BigDecimal.ZERO)
-                .add(req.getDeliveryFeesCollected() != null ? req.getDeliveryFeesCollected() : BigDecimal.ZERO)
-                .subtract(req.getGatewayFeesDeducted() != null ? req.getGatewayFeesDeducted() : BigDecimal.ZERO);
+        BigDecimal grossSales = req.getGrossSalesAmount() != null ? req.getGrossSalesAmount() : BigDecimal.ZERO;
+        BigDecimal manaCommission = req.getManaCommissionAmount() != null
+                ? req.getManaCommissionAmount()
+                : grossSales.multiply(new BigDecimal("0.10")).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal deliveryFees = req.getDeliveryFeesCollected() != null ? req.getDeliveryFeesCollected() : BigDecimal.ZERO;
+        BigDecimal gatewayFees = req.getGatewayFeesDeducted() != null ? req.getGatewayFeesDeducted() : BigDecimal.ZERO;
+
+        // Statutory deductions: TDS Section 194-O (1%), GST on commission (18%), and quality/weight clawbacks
+        BigDecimal tdsDeducted = grossSales.multiply(new BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gstOnCommission = manaCommission.multiply(new BigDecimal("0.18")).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal clawbacks = req.getRefundClawbacksAmount() != null ? req.getRefundClawbacksAmount() : BigDecimal.ZERO;
+
+        BigDecimal netPayable = grossSales
+                .subtract(manaCommission)
+                .subtract(gstOnCommission)
+                .subtract(tdsDeducted)
+                .subtract(clawbacks)
+                .add(deliveryFees)
+                .subtract(gatewayFees);
 
         FreshVendorSettlement s = FreshVendorSettlement.builder()
                 .settlementReference(ref)
                 .vendor(vendor)
                 .settlementPeriodStart(req.getSettlementPeriodStart())
                 .settlementPeriodEnd(req.getSettlementPeriodEnd())
-                .grossSalesAmount(req.getGrossSalesAmount())
-                .manaCommissionAmount(req.getManaCommissionAmount() != null ? req.getManaCommissionAmount() : BigDecimal.ZERO)
-                .deliveryFeesCollected(req.getDeliveryFeesCollected() != null ? req.getDeliveryFeesCollected() : BigDecimal.ZERO)
-                .gatewayFeesDeducted(req.getGatewayFeesDeducted() != null ? req.getGatewayFeesDeducted() : BigDecimal.ZERO)
+                .grossSalesAmount(grossSales)
+                .manaCommissionAmount(manaCommission)
+                .deliveryFeesCollected(deliveryFees)
+                .gatewayFeesDeducted(gatewayFees)
+                .tdsDeductedAmount(tdsDeducted)
+                .gstOnCommissionAmount(gstOnCommission)
+                .refundClawbacksAmount(clawbacks)
                 .netPayableAmount(netPayable)
                 .status(SettlementStatus.PENDING)
                 .build();
@@ -222,20 +247,38 @@ public class FreshDispatchSettlementService {
     @Transactional
     public VendorSettlementDto approveSettlement(Long settlementId) {
         FreshVendorSettlement s = settlementRepository.findById(settlementId)
-                .orElseThrow(() -> new IllegalArgumentException("Settlement not found: " + settlementId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshVendorSettlement", settlementId));
+        if (s.getStatus() != SettlementStatus.PENDING) {
+            throw new InvalidStateTransitionException("FreshVendorSettlement", s.getStatus().name(), SettlementStatus.APPROVED.name());
+        }
         s.setStatus(SettlementStatus.APPROVED);
         settlementRepository.save(s);
+
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_SETTLEMENT_APPROVED, AuditModule.FRESH_COMMERCE,
+                    "FreshVendorSettlement", s.getSettlementReference(), SettlementStatus.PENDING.name(), SettlementStatus.APPROVED.name());
+        }
+
         return toSettlementDto(s);
     }
 
     @Transactional
     public VendorSettlementDto processSettlement(Long settlementId, ProcessSettlementRequest req) {
         FreshVendorSettlement s = settlementRepository.findById(settlementId)
-                .orElseThrow(() -> new IllegalArgumentException("Settlement not found: " + settlementId));
+                .orElseThrow(() -> new ResourceNotFoundException("FreshVendorSettlement", settlementId));
+        if (s.getStatus() != SettlementStatus.APPROVED) {
+            throw new InvalidStateTransitionException("FreshVendorSettlement", s.getStatus().name(), SettlementStatus.PROCESSED.name());
+        }
         s.setStatus(SettlementStatus.PROCESSED);
         s.setPayoutUtrReference(req.getPayoutUtrReference());
         s.setProcessedAt(Instant.now());
         settlementRepository.save(s);
+
+        if (auditService != null) {
+            auditService.record(AuditAction.FRESH_SETTLEMENT_PROCESSED, AuditModule.FRESH_COMMERCE,
+                    "FreshVendorSettlement", s.getSettlementReference(), SettlementStatus.APPROVED.name(), SettlementStatus.PROCESSED.name());
+        }
+
         return toSettlementDto(s);
     }
 
@@ -328,6 +371,9 @@ public class FreshDispatchSettlementService {
                 .manaCommissionAmount(s.getManaCommissionAmount())
                 .deliveryFeesCollected(s.getDeliveryFeesCollected())
                 .gatewayFeesDeducted(s.getGatewayFeesDeducted())
+                .tdsDeductedAmount(s.getTdsDeductedAmount())
+                .gstOnCommissionAmount(s.getGstOnCommissionAmount())
+                .refundClawbacksAmount(s.getRefundClawbacksAmount())
                 .netPayableAmount(s.getNetPayableAmount())
                 .status(s.getStatus())
                 .payoutUtrReference(s.getPayoutUtrReference())

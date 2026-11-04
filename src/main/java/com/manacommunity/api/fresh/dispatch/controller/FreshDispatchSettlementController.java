@@ -5,10 +5,12 @@ import com.manacommunity.api.fresh.dispatch.model.DeliveryBatchStatus;
 import com.manacommunity.api.fresh.dispatch.model.PurchaseOrderStatus;
 import com.manacommunity.api.fresh.dispatch.model.SettlementStatus;
 import com.manacommunity.api.fresh.dispatch.service.FreshDispatchSettlementService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -24,14 +26,18 @@ public class FreshDispatchSettlementController {
     // ----- Purchase Orders -----
 
     @PostMapping("/purchase-orders")
-    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<PurchaseOrderDto> createPurchaseOrder(@RequestBody CreatePurchaseOrderRequest req) {
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.hasVendorRole(#principal, #req.vendorId, 'VENDOR_OWNER', 'VENDOR_MANAGER')")
+    public ResponseEntity<PurchaseOrderDto> createPurchaseOrder(
+            @RequestBody CreatePurchaseOrderRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(dispatchService.createPurchaseOrder(req));
     }
 
     @GetMapping("/purchase-orders")
-    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<List<PurchaseOrderDto>> getPurchaseOrders(@RequestParam Long vendorId) {
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
+    public ResponseEntity<List<PurchaseOrderDto>> getPurchaseOrders(
+            @RequestParam Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(dispatchService.getPurchaseOrdersByVendor(vendorId));
     }
 
@@ -84,10 +90,11 @@ public class FreshDispatchSettlementController {
     }
 
     @GetMapping("/settlements")
-    @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or (#vendorId != null and @freshSecurity.hasVendorRole(#principal, #vendorId, 'VENDOR_OWNER', 'VENDOR_MANAGER', 'VENDOR_ACCOUNTANT'))")
     public ResponseEntity<List<VendorSettlementDto>> getSettlements(
             @RequestParam(required = false) Long vendorId,
-            @RequestParam(required = false) SettlementStatus status) {
+            @RequestParam(required = false) SettlementStatus status,
+            @AuthenticationPrincipal UserPrincipal principal) {
         if (vendorId != null) {
             return ResponseEntity.ok(dispatchService.getSettlementsByVendor(vendorId));
         }

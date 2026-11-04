@@ -54,6 +54,9 @@ public class FreshProductRecallOrder {
     @Builder.Default
     private Boolean refundProcessed = false;
 
+    @Column(name = "wallet_transaction_ref", length = 100)
+    private String walletTransactionRef;
+
     @Column(name = "notification_sent_at")
     private Instant notificationSentAt;
 

@@ -31,5 +31,6 @@ public class WeightAdjustmentDto {
     private BigDecimal refundOrChargeAmount;
     private WeightAdjustmentStatus adjustmentStatus;
     private String reason;
+    private String walletTransactionRef;
     private Instant weighedAt;
 }

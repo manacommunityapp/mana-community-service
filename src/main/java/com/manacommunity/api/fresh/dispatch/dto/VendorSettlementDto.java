@@ -19,6 +19,9 @@ public class VendorSettlementDto {
     private BigDecimal manaCommissionAmount;
     private BigDecimal deliveryFeesCollected;
     private BigDecimal gatewayFeesDeducted;
+    private BigDecimal tdsDeductedAmount;
+    private BigDecimal gstOnCommissionAmount;
+    private BigDecimal refundClawbacksAmount;
     private BigDecimal netPayableAmount;
     private SettlementStatus status;
     private String payoutUtrReference;

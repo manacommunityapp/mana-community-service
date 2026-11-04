@@ -36,6 +36,8 @@ import com.manacommunity.api.freshkitchen.repository.FoodProductionBatchReposito
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.commerce.core.service.CommerceWalletService;
+import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,10 @@ class FreshSecurityAndExceptionTest {
     private AppUserRepository userRepository;
     @Mock
     private FreshWeightAdjustmentLogRepository weightLogRepository;
+    @Mock
+    private CommerceWalletService walletService;
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private FreshFulfilmentGroupService fulfilmentGroupService;
@@ -98,13 +104,17 @@ class FreshSecurityAndExceptionTest {
                 itemRepository,
                 vendorProductRepository,
                 batchRepository,
-                userRepository
+                userRepository,
+                walletService,
+                auditService
         );
 
         weightService = new FreshWeightAdjustmentService(
                 itemRepository,
                 weightLogRepository,
-                userRepository
+                userRepository,
+                walletService,
+                auditService
         );
 
         AppUser buyer = AppUser.builder().id(101L).fullName("Sandeep Kumar").build();

@@ -4,10 +4,12 @@ import com.manacommunity.api.fresh.fulfilment.dto.FulfilmentGroupDto;
 import com.manacommunity.api.fresh.fulfilment.dto.UpdateFulfilmentGroupStatusRequest;
 import com.manacommunity.api.fresh.fulfilment.dto.VerifyHandoverRequest;
 import com.manacommunity.api.fresh.fulfilment.service.FreshFulfilmentGroupService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +40,10 @@ public class FreshFulfilmentController {
     }
 
     @GetMapping("/vendors/{vendorId}/groups")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'VENDOR')")
-    public ResponseEntity<List<FulfilmentGroupDto>> getGroupsByVendor(@PathVariable Long vendorId) {
+    @PreAuthorize("hasRole('ADMIN') or @freshSecurity.isVendorStaff(#principal, #vendorId)")
+    public ResponseEntity<List<FulfilmentGroupDto>> getGroupsByVendor(
+            @PathVariable Long vendorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(fulfilmentGroupService.getFulfilmentGroupsByVendor(vendorId));
     }
 
