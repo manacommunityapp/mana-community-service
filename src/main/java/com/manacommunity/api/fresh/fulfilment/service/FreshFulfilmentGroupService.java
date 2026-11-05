@@ -15,11 +15,13 @@ import com.manacommunity.api.fresh.catalog.repository.FreshProductCatalogProfile
 import com.manacommunity.api.fresh.fulfilment.dto.*;
 import com.manacommunity.api.fresh.fulfilment.model.*;
 import com.manacommunity.api.fresh.fulfilment.repository.*;
+import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.vendor.commerce.model.VendorProduct;
 import com.manacommunity.api.vendor.commerce.repository.VendorProductRepository;
 import com.manacommunity.api.vendor.entity.VmsVendor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -174,8 +176,28 @@ public class FreshFulfilmentGroupService {
 
     @Transactional(readOnly = true)
     public List<FulfilmentGroupDto> getFulfilmentGroupsByOrder(Long orderId) {
+        return getFulfilmentGroupsByOrder(orderId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FulfilmentGroupDto> getFulfilmentGroupsByOrder(Long orderId, UserPrincipal principal) {
+        if (principal != null) {
+            boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                    "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+            if (!isAdmin) {
+                CommerceOrder order = orderRepository.findById(orderId)
+                        .orElseThrow(() -> new ResourceNotFoundException("CommerceOrder", orderId));
+                boolean isBuyer = order.getBuyer() != null && principal.getId() != null
+                        && principal.getId().equals(order.getBuyer().getId());
+                boolean isVendor = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                        "ROLE_VENDOR".equals(a.getAuthority()));
+                if (!isBuyer && !isVendor) {
+                    throw new AccessDeniedException("Access denied to order " + orderId);
+                }
+            }
+        }
         return groupRepository.findByOrderId(orderId).stream()
-                .map(this::toGroupDto)
+                .map(g -> toGroupDto(g, principal))
                 .collect(Collectors.toList());
     }
 
@@ -188,9 +210,27 @@ public class FreshFulfilmentGroupService {
 
     @Transactional(readOnly = true)
     public FulfilmentGroupDto getFulfilmentGroupById(Long groupId) {
+        return getFulfilmentGroupById(groupId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public FulfilmentGroupDto getFulfilmentGroupById(Long groupId, UserPrincipal principal) {
         FreshFulfilmentGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("FreshFulfilmentGroup", groupId));
-        return toGroupDto(group);
+        if (principal != null) {
+            boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                    "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+            boolean isBuyer = group.getOrder() != null && group.getOrder().getBuyer() != null
+                    && principal.getId() != null && principal.getId().equals(group.getOrder().getBuyer().getId());
+            boolean isVendor = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                    "ROLE_VENDOR".equals(a.getAuthority()));
+            boolean isRunner = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                    "ROLE_DELIVERY_PARTNER".equals(a.getAuthority()));
+            if (!isAdmin && !isBuyer && !isVendor && !isRunner) {
+                throw new AccessDeniedException("Access denied to fulfilment group " + groupId);
+            }
+        }
+        return toGroupDto(group, principal);
     }
 
     @Transactional
@@ -286,15 +326,35 @@ public class FreshFulfilmentGroupService {
     }
 
     public FulfilmentGroupDto toGroupDto(FreshFulfilmentGroup group) {
+        return toGroupDto(group, null);
+    }
+
+    public FulfilmentGroupDto toGroupDto(FreshFulfilmentGroup group, UserPrincipal principal) {
         List<FulfilmentItemDto> itemDtos = group.getItems() != null
                 ? group.getItems().stream().map(this::toItemDto).collect(Collectors.toList())
                 : Collections.emptyList();
 
+        boolean canSeeOtp = false;
+        if (principal == null) {
+            canSeeOtp = true; // Fallback for unit tests and internal calls
+        } else {
+            boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a ->
+                    "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+            boolean isBuyer = group.getOrder() != null && group.getOrder().getBuyer() != null
+                    && principal.getId() != null && principal.getId().equals(group.getOrder().getBuyer().getId());
+            canSeeOtp = isAdmin || isBuyer;
+        }
+
+        Long communityId = (group.getOrder() != null && group.getOrder().getCommunity() != null)
+                ? group.getOrder().getCommunity().getId()
+                : null;
+
         return FulfilmentGroupDto.builder()
                 .id(group.getId())
                 .groupReference(group.getGroupReference())
-                .orderId(group.getOrder().getId())
-                .orderNumber(group.getOrder().getOrderNumber())
+                .orderId(group.getOrder() != null ? group.getOrder().getId() : null)
+                .orderNumber(group.getOrder() != null ? group.getOrder().getOrderNumber() : null)
+                .communityId(communityId)
                 .groupNumber(group.getGroupNumber())
                 .vendorId(group.getVendor() != null ? group.getVendor().getId() : null)
                 .vendorBusinessName(group.getVendor() != null ? group.getVendor().getBusinessName() : null)
@@ -307,8 +367,8 @@ public class FreshFulfilmentGroupService {
                 .dispatchedAt(group.getDispatchedAt())
                 .deliveredAt(group.getDeliveredAt())
                 .trackingReference(group.getTrackingReference())
-                .handoverOtp(group.getHandoverOtp())
-                .qrCodeToken(group.getQrCodeToken())
+                .handoverOtp(canSeeOtp ? group.getHandoverOtp() : null)
+                .qrCodeToken(canSeeOtp ? group.getQrCodeToken() : null)
                 .subtotalAmount(group.getSubtotalAmount())
                 .totalWeightG(group.getTotalWeightG())
                 .requiresColdChain(group.getRequiresColdChain())

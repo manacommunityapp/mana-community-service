@@ -47,11 +47,14 @@ import com.manacommunity.api.vendor.entity.VmsVendor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import com.manacommunity.api.user.security.UserPrincipal;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -59,6 +62,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -352,5 +356,90 @@ public class FreshPrecautionaryHardeningTest {
                         .isEqualTo("Asia/Kolkata");
             }
         }
+    }
+
+    // ── 6. Security & Traceability Hardening (OTP Masking & IDOR Guards) ──
+
+    @Test
+    @DisplayName("Fulfilment Security: Delivery runner cannot see handover OTP or QR token")
+    void testDeliveryRunnerCannotSeeHandoverOtp() {
+        FreshFulfilmentGroup group = FreshFulfilmentGroup.builder()
+                .groupReference("FG-TEST-001")
+                .order(CommerceOrder.builder().orderNumber("ORD-101").buyer(customer).community(community).build())
+                .handoverOtp("482910")
+                .qrCodeToken("QR-TEST-TOKEN")
+                .status(FulfilmentGroupStatus.DISPATCHED)
+                .build();
+        group.setId(101L);
+
+        when(groupRepository.findById(101L)).thenReturn(Optional.of(group));
+
+        UserPrincipal runnerPrincipal = new UserPrincipal(
+                999L, "runner@mana.test", "pass",
+                List.of(new SimpleGrantedAuthority("ROLE_DELIVERY_PARTNER")),
+                null
+        );
+
+        FulfilmentGroupDto result = fulfilmentGroupService.getFulfilmentGroupById(101L, runnerPrincipal);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getGroupReference()).isEqualTo("FG-TEST-001");
+        assertThat(result.getHandoverOtp()).isNull();
+        assertThat(result.getQrCodeToken()).isNull();
+        assertThat(result.getCommunityId()).isEqualTo(community.getId());
+    }
+
+    @Test
+    @DisplayName("Fulfilment Security: Buyer resident can view plaintext handover OTP and QR token")
+    void testBuyerCanSeeHandoverOtp() {
+        FreshFulfilmentGroup group = FreshFulfilmentGroup.builder()
+                .groupReference("FG-TEST-002")
+                .order(CommerceOrder.builder().orderNumber("ORD-102").buyer(customer).community(community).build())
+                .handoverOtp("654321")
+                .qrCodeToken("QR-TEST-BUYER")
+                .status(FulfilmentGroupStatus.DISPATCHED)
+                .build();
+        group.setId(102L);
+
+        when(groupRepository.findById(102L)).thenReturn(Optional.of(group));
+
+        UserPrincipal buyerPrincipal = new UserPrincipal(
+                customer.getId(), customer.getEmail(), "pass",
+                List.of(new SimpleGrantedAuthority("ROLE_RESIDENT")),
+                customer
+        );
+
+        FulfilmentGroupDto result = fulfilmentGroupService.getFulfilmentGroupById(102L, buyerPrincipal);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getHandoverOtp()).isEqualTo("654321");
+        assertThat(result.getQrCodeToken()).isEqualTo("QR-TEST-BUYER");
+    }
+
+    @Test
+    @DisplayName("Fulfilment IDOR Guard: Resident cannot access another resident's order groups")
+    void testResidentCannotAccessOtherResidentsOrderGroups() {
+        AppUser otherCustomer = new AppUser();
+        otherCustomer.setId(888L);
+        otherCustomer.setEmail("other@mana.test");
+
+        CommerceOrder order = CommerceOrder.builder()
+                .orderNumber("ORD-999")
+                .buyer(otherCustomer)
+                .community(community)
+                .build();
+        order.setId(505L);
+
+        when(orderRepository.findById(505L)).thenReturn(Optional.of(order));
+
+        UserPrincipal residentPrincipal = new UserPrincipal(
+                customer.getId(), customer.getEmail(), "pass",
+                List.of(new SimpleGrantedAuthority("ROLE_RESIDENT")),
+                customer
+        );
+
+        assertThatThrownBy(() -> fulfilmentGroupService.getFulfilmentGroupsByOrder(505L, residentPrincipal))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Access denied to order 505");
     }
 }

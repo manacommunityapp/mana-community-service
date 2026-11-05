@@ -79,7 +79,11 @@ public class FreshProcessingController {
     @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<QualityCheckDto> addQualityCheck(
             @PathVariable Long batchId,
-            @RequestBody AddQualityCheckRequest req) {
+            @RequestBody AddQualityCheckRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            req.setCheckedByUserId(principal.getId());
+        }
         return ResponseEntity.ok(processingService.addQualityCheck(batchId, req));
     }
 
@@ -89,7 +93,11 @@ public class FreshProcessingController {
     @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<BatchReleaseDto> releaseBatch(
             @PathVariable Long batchId,
-            @RequestBody BatchReleaseRequest req) {
+            @RequestBody BatchReleaseRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            req.setReleasedByUserId(principal.getId());
+        }
         return ResponseEntity.ok(processingService.releaseBatch(batchId, req));
     }
 
@@ -99,7 +107,11 @@ public class FreshProcessingController {
     @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TemperatureLogDto> logTemperature(
             @PathVariable Long batchId,
-            @RequestBody LogTemperatureRequest req) {
+            @RequestBody LogTemperatureRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal != null && principal.getId() != null) {
+            req.setLoggedByUserId(principal.getId());
+        }
         return ResponseEntity.ok(processingService.logTemperature(batchId, req));
     }
 }

@@ -21,6 +21,7 @@ public class FulfilmentGroupDto {
     private String groupReference;
     private Long orderId;
     private String orderNumber;
+    private Long communityId;
     private Integer groupNumber;
     private Long vendorId;
     private String vendorBusinessName;

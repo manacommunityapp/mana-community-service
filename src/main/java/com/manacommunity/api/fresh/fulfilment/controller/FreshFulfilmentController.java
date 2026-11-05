@@ -29,14 +29,18 @@ public class FreshFulfilmentController {
 
     @GetMapping("/orders/{orderId}/groups")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'VENDOR', 'RESIDENT')")
-    public ResponseEntity<List<FulfilmentGroupDto>> getGroupsByOrder(@PathVariable Long orderId) {
-        return ResponseEntity.ok(fulfilmentGroupService.getFulfilmentGroupsByOrder(orderId));
+    public ResponseEntity<List<FulfilmentGroupDto>> getGroupsByOrder(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fulfilmentGroupService.getFulfilmentGroupsByOrder(orderId, principal));
     }
 
     @GetMapping("/groups/{groupId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'VENDOR', 'DELIVERY_PARTNER', 'RESIDENT')")
-    public ResponseEntity<FulfilmentGroupDto> getGroupById(@PathVariable Long groupId) {
-        return ResponseEntity.ok(fulfilmentGroupService.getFulfilmentGroupById(groupId));
+    public ResponseEntity<FulfilmentGroupDto> getGroupById(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fulfilmentGroupService.getFulfilmentGroupById(groupId, principal));
     }
 
     @GetMapping("/vendors/{vendorId}/groups")
