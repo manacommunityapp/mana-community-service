@@ -51,4 +51,12 @@ public class SportsRaceResultController {
         raceService.updateRanks(matchId);
         return ResponseEntity.ok(raceService.getResults(matchId));
     }
+
+    @PostMapping("/{matchId}/complete")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> completeRace(@PathVariable Long matchId) {
+        log.info("Completing race matchId={}", matchId);
+        raceService.completeRace(matchId);
+        return ResponseEntity.ok().build();
+    }
 }

@@ -10,6 +10,7 @@ import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse;
 import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.BatterState;
 import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.BowlerState;
 import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.InningsState;
+import com.manacommunity.api.sports.dto.SportsMatchResultRequest;
 import com.manacommunity.api.sports.model.DismissalType;
 import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.model.SportsAuctionPlayer;
@@ -44,6 +45,8 @@ public class SportsLiveScoringService {
     private final SportsScoringCorrectionRepository correctionRepo;
     private final SportsScoringAuthorizationService authService;
     private final SportsScoringConfigRepository scoringConfigRepo;
+    private final SportsBracketGenerator bracketGenerator;
+    private final SportsTournamentResultNotifier resultNotifier;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -207,7 +210,28 @@ public class SportsLiveScoringService {
             }
         }
 
-        matchRepo.save(match);
+        SportsTournamentMatch saved = matchRepo.save(match);
+        if (saved != null) {
+            match = saved;
+        }
+
+        if (match != null && match.getStatus() == MatchStatus.COMPLETED) {
+            try {
+                bracketGenerator.applyResult(new SportsMatchResultRequest(
+                    match.getId(),
+                    match.getWinner() != null ? match.getWinner().getId() : null,
+                    match.getScoreTeamA(),
+                    match.getScoreTeamB(),
+                    match.getWinMargin(),
+                    null, null, null, null,
+                    match.getWinner() != null ? match.getWinner().getTeamName() : match.getWinnerName(),
+                    null
+                ));
+                resultNotifier.notifyMatchResult(match.getId());
+            } catch (Exception ex) {
+                log.warn("Failed to advance bracket or notify on live match completion: {}", ex.getMessage());
+            }
+        }
 
         BallEventResponse response = toBallEventResponse(event);
 

@@ -94,6 +94,12 @@ public class SportsTournamentMatch {
     @JoinColumn(name = "winner_team_id")
     private SportsAuctionTeam winner;
 
+    @Column(name = "winner_name")
+    private String winnerName;
+
+    @Column(name = "winner_side")
+    private String winnerSide;
+
     @Enumerated(EnumType.STRING)
     private ResultType resultType;
 

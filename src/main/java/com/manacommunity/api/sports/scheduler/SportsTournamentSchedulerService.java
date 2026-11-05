@@ -127,8 +127,9 @@ public class SportsTournamentSchedulerService {
 
         // Generate + persist schedule
         List<SportsTournamentMatch> matches = bracketGenerator.generate(config, teams);
-        matchRepo.saveAll(matches);
-        log.info("Generated {} matches for tournament [{}]", matches.size(), config.getTournamentName());
+        List<SportsTournamentMatch> savedMatches = matchRepo.saveAll(matches);
+        matchPersistence.wireAndSaveKnockoutLinks(savedMatches);
+        log.info("Generated {} matches for tournament [{}]", savedMatches.size(), config.getTournamentName());
         return buildResponse(config);
     }
 
@@ -339,7 +340,7 @@ public class SportsTournamentSchedulerService {
             m.getCourt() != null ? m.getCourt().getName() : null,
             m.getStatus() != null ? m.getStatus().name() : "SCHEDULED",
             m.getScoreTeamA(), m.getScoreTeamB(),
-            m.getWinner() != null ? m.getWinner().getTeamName() : null,
+            m.getWinner() != null ? m.getWinner().getTeamName() : (m.getWinnerName() != null ? m.getWinnerName() : null),
             m.getWinnerAdvancesToMatchId(),
             m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED
         );
@@ -365,8 +366,10 @@ public class SportsTournamentSchedulerService {
 
     private StandingResponse toStandingResponse(SportsGroupTeamStanding s) {
         return new StandingResponse(
-            0, s.getTeam().getId(), s.getTeam().getTeamName(),
-            s.getTeam().getColorHex(),
+            0,
+            s.getTeam() != null ? s.getTeam().getId() : 0L,
+            s.getTeam() != null ? s.getTeam().getTeamName() : "TBD",
+            s.getTeam() != null ? s.getTeam().getColorHex() : "#555",
             s.getPlayed(), s.getWon(), s.getLost(), s.getDrawn(), s.getPoints(),
             Objects.requireNonNullElse(s.getNetRunRate(), 0.0), s.getQualified()
         );

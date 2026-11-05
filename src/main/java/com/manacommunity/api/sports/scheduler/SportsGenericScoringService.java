@@ -39,6 +39,8 @@ public class SportsGenericScoringService {
     private final SportsScoringCorrectionRepository correctionRepo;
     private final SportsScoringAuthorizationService authService;
     private final ScoringEngineRegistry engineRegistry;
+    private final SportsBracketGenerator bracketGenerator;
+    private final SportsTournamentResultNotifier resultNotifier;
     private final ObjectMapper objectMapper;
 
     private static final Set<String> POINT_BASED_SPORTS = Set.of(
@@ -321,22 +323,54 @@ public class SportsGenericScoringService {
                 else if (ps.getScoreTeamB() > ps.getScoreTeamA()) periodsWonB++;
             }
 
+            boolean aWon = false;
             if (config.getPeriodsToWin() != null) {
                 if (periodsWonA > periodsWonB) {
-                    match.setWinner(match.getTeamA());
+                    aWon = true;
+                    if (match.getTeamA() != null) match.setWinner(match.getTeamA());
                 } else if (periodsWonB > periodsWonA) {
-                    match.setWinner(match.getTeamB());
+                    if (match.getTeamB() != null) match.setWinner(match.getTeamB());
                 }
             } else {
                 int totalA = periods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamA).sum();
                 int totalB = periods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamB).sum();
-                if (totalA > totalB) match.setWinner(match.getTeamA());
-                else if (totalB > totalA) match.setWinner(match.getTeamB());
-                else match.setResultType(ResultType.DRAW);
+                if (totalA > totalB) {
+                    aWon = true;
+                    if (match.getTeamA() != null) match.setWinner(match.getTeamA());
+                } else if (totalB > totalA) {
+                    if (match.getTeamB() != null) match.setWinner(match.getTeamB());
+                } else {
+                    match.setResultType(ResultType.DRAW);
+                }
             }
 
+            String winnerName = null;
+            if (match.getWinner() != null) {
+                winnerName = match.getWinner().getTeamName();
+            } else if (match.getResultType() == ResultType.WIN) {
+                winnerName = aWon ? extractCompetitorName(match, true) : extractCompetitorName(match, false);
+            }
+            match.setWinnerName(winnerName);
+            match.setWinnerSide(match.getResultType() == ResultType.WIN ? (aWon ? "A" : "B") : null);
+
             updateMatchScore(match, sportType);
-            matchRepo.save(match);
+            match = matchRepo.save(match);
+
+            try {
+                bracketGenerator.applyResult(new SportsMatchResultRequest(
+                    match.getId(),
+                    match.getWinner() != null ? match.getWinner().getId() : null,
+                    match.getScoreTeamA(),
+                    match.getScoreTeamB(),
+                    match.getMatchNotes(),
+                    null, null, null, null,
+                    winnerName,
+                    match.getWinnerSide()
+                ));
+                resultNotifier.notifyMatchResult(match.getId());
+            } catch (Exception ex) {
+                log.warn("Failed to advance bracket or notify on generic match completion: {}", ex.getMessage());
+            }
         } else {
             int nextPeriod = periodNumber + 1;
             String label = buildPeriodLabel(sportType, nextPeriod);
@@ -722,5 +756,31 @@ public class SportsGenericScoringService {
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         match.setMatchConfigOverrideJson(overrideJson);
         return matchRepo.save(match);
+    }
+
+    private String extractCompetitorName(SportsTournamentMatch m, boolean isHome) {
+        if (m == null) return isHome ? "Competitor A" : "Competitor B";
+        if (isHome) {
+            if (m.getTeamA() != null) return m.getTeamA().getTeamName();
+            return extractNote(m.getMatchNotes(), "homeName", "Competitor A");
+        } else {
+            if (m.getTeamB() != null) return m.getTeamB().getTeamName();
+            return extractNote(m.getMatchNotes(), "awayName", "Competitor B");
+        }
+    }
+
+    private String extractNote(String notes, String key, String fallback) {
+        if (notes == null || notes.isBlank()) return fallback;
+        try {
+            String pattern = "\"" + key + "\":\"([^\"]*)\"";
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(notes);
+            if (matcher.find()) {
+                String val = matcher.group(1);
+                if (val != null && !val.isBlank() && !"dummy".equalsIgnoreCase(val)) {
+                    return val;
+                }
+            }
+        } catch (Exception ignored) {}
+        return fallback;
     }
 }
