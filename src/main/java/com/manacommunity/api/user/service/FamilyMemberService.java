@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface FamilyMemberService {
     List<FamilyMemberResponse> getFamilyMembersResponse(AppUser user, Long communityId);
+    List<FamilyMemberResponse> getFamilyMembersByUserId(Long targetUserId);
     List<FamilyMember> getFamilyMembers(AppUser user, Long communityId);
     List<FamilyMemberSlimResponse> getSlimFamilyMembers(Long targetUserId, AppUser currentUser);
     List<FamilyMemberSlimResponse> getSlimFamilyMembers(Long userId);

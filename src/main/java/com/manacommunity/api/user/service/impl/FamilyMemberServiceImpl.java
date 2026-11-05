@@ -86,6 +86,15 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<FamilyMemberResponse> getFamilyMembersByUserId(Long targetUserId) {
+        if (targetUserId == null) return Collections.emptyList();
+        return repository.findByUserIdOrderByCreatedAtAsc(targetUserId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<FamilyMember> getFamilyMembers(AppUser user, Long communityId) {
         if (user == null || user.getId() == null) {
             if (communityId != null) {
