@@ -6,5 +6,6 @@ public record SportsCommunityFamilyMemberResponse(
         String name,
         String relation,
         Integer age,
-        String gender
+        String gender,
+        String dob
 ) {}
