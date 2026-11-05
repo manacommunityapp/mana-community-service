@@ -16,4 +16,6 @@ public class FitnessStreakDto {
     private Integer totalActiveDays;
     private Integer weeklyWorkoutsCompleted;
     private Integer weeklyWorkoutsTarget;
+    private Integer todaySteps;
+    private Integer stepGoal;
 }

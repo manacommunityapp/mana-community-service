@@ -6,7 +6,6 @@ import com.manacommunity.api.wellness.dto.FitnessStreakDto;
 import com.manacommunity.api.wellness.entity.*;
 import com.manacommunity.api.wellness.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +15,9 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,6 +28,7 @@ public class FitnessGoalService {
     private final ActivityGoalRepository activityGoalRepository;
     private final FitnessStreakRepository fitnessStreakRepository;
     private final WorkoutLogRepository workoutLogRepository;
+    private final StepLogRepository stepLogRepository;
     private final WellnessProfileRepository profileRepository;
 
     // ── Body Metrics ──────────────────────────────────────────
@@ -56,8 +58,8 @@ public class FitnessGoalService {
         // Compute BMI if we have weight and profile has height
         if (log.getWeightKg() != null) {
             profileRepository.findByUserId(userId).ifPresent(profile -> {
-                if (profile.getHeightCm() != null && profile.getHeightCm() > 0) {
-                    BigDecimal heightM = new BigDecimal(profile.getHeightCm()).divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+                if (profile.getHeightCm() != null && profile.getHeightCm().compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal heightM = profile.getHeightCm().divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
                     BigDecimal bmi = log.getWeightKg().divide(heightM.multiply(heightM), 1, RoundingMode.HALF_UP);
                     log.setBmi(bmi);
                 }
@@ -105,10 +107,14 @@ public class FitnessGoalService {
 
         ActivityGoal goal = activityGoalRepository.findByUserId(userId).orElse(null);
         int weeklyTarget = goal != null && goal.getWeeklyWorkoutsTarget() != null ? goal.getWeeklyWorkoutsTarget() : 4;
+        int stepGoal = goal != null && goal.getDailyStepsTarget() != null ? goal.getDailyStepsTarget() : 8000;
 
         // Count workouts this week (Mon–Sun)
         LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         int weeklyCompleted = workoutLogRepository.getWorkoutCountForDateRange(userId, weekStart, LocalDate.now());
+
+        // Today's steps
+        Integer todaySteps = stepLogRepository.getTotalStepsForDate(userId, LocalDate.now());
 
         return FitnessStreakDto.builder()
                 .userId(userId)
@@ -118,13 +124,25 @@ public class FitnessGoalService {
                 .totalActiveDays(streak.getTotalActiveDays())
                 .weeklyWorkoutsCompleted(weeklyCompleted)
                 .weeklyWorkoutsTarget(weeklyTarget)
+                .todaySteps(todaySteps != null ? todaySteps : 0)
+                .stepGoal(stepGoal)
                 .build();
     }
 
     @Transactional
     public void refreshStreak(Long userId) {
-        // Recompute streak from workout_log data — called after each workout save
-        List<LocalDate> activeDates = workoutLogRepository.findDistinctWorkoutDatesByUserId(userId);
+        // Active days = union of workout days + days where step count met goal
+        List<LocalDate> workoutDates = workoutLogRepository.findDistinctWorkoutDatesByUserId(userId);
+
+        ActivityGoal goal = activityGoalRepository.findByUserId(userId).orElse(null);
+        int stepGoal = goal != null && goal.getDailyStepsTarget() != null ? goal.getDailyStepsTarget() : 8000;
+        List<LocalDate> stepGoalDates = stepLogRepository.findDatesWhereStepsMetGoal(userId, stepGoal);
+
+        // Sorted descending union
+        TreeSet<LocalDate> activeDateSet = new TreeSet<>((a, b) -> b.compareTo(a));
+        activeDateSet.addAll(workoutDates);
+        activeDateSet.addAll(stepGoalDates);
+        List<LocalDate> activeDates = new ArrayList<>(activeDateSet);
 
         int streak = 0;
         LocalDate cursor = LocalDate.now();

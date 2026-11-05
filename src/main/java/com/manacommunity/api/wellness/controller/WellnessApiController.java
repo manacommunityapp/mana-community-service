@@ -5,6 +5,7 @@ import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.FoodCatalog;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
 import com.manacommunity.api.wellness.service.FitnessGoalService;
+import com.manacommunity.api.wellness.service.StepService;
 import com.manacommunity.api.wellness.service.WellnessService;
 import com.manacommunity.api.wellness.service.WorkoutService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,11 +23,14 @@ public class WellnessApiController {
     private final WellnessService wellnessService;
     private final WorkoutService workoutService;
     private final FitnessGoalService fitnessGoalService;
+    private final StepService stepService;
 
-    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService, FitnessGoalService fitnessGoalService) {
+    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService,
+                                  FitnessGoalService fitnessGoalService, StepService stepService) {
         this.wellnessService = wellnessService;
         this.workoutService = workoutService;
         this.fitnessGoalService = fitnessGoalService;
+        this.stepService = stepService;
     }
 
     // ── Profile ──
@@ -243,5 +247,36 @@ public class WellnessApiController {
     public ResponseEntity<FitnessStreakDto> getStreak(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(fitnessGoalService.getStreak(principal.getId()));
+    }
+
+    // ── Steps ──
+
+    @GetMapping("/steps")
+    public ResponseEntity<StepLogDto> getSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(stepService.getStepsForDate(principal.getId(), date != null ? date : LocalDate.now()));
+    }
+
+    @GetMapping("/steps/range")
+    public ResponseEntity<List<StepLogDto>> getStepsRange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(stepService.getStepsForRange(principal.getId(), start, end));
+    }
+
+    @PostMapping("/steps")
+    public ResponseEntity<StepLogDto> logSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody StepLogDto dto) {
+        return ResponseEntity.ok(stepService.logSteps(principal.getId(), dto));
+    }
+
+    @PostMapping("/steps/sync")
+    public ResponseEntity<List<StepLogDto>> syncSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<StepLogDto> batch) {
+        return ResponseEntity.ok(stepService.syncFromHealthConnect(principal.getId(), batch));
     }
 }
