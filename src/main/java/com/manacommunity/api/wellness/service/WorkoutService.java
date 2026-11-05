@@ -78,6 +78,13 @@ public class WorkoutService {
         return saved;
     }
 
+    public WorkoutLogDto getWorkoutById(Long userId, Long workoutId) {
+        return workoutLogRepository.findById(workoutId)
+                .filter(w -> w.getUserId().equals(userId))
+                .map(this::toDto)
+                .orElseThrow(() -> new IllegalArgumentException("Workout not found: " + workoutId));
+    }
+
     @Transactional
     public void deleteWorkout(Long userId, Long workoutId) {
         workoutLogRepository.findById(workoutId)

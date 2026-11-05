@@ -7,6 +7,7 @@ import com.manacommunity.api.wellness.enums.WellnessEnums.*;
 import com.manacommunity.api.wellness.service.FitnessGoalService;
 import com.manacommunity.api.wellness.service.FitnessSummaryService;
 import com.manacommunity.api.wellness.service.StepService;
+import com.manacommunity.api.wellness.service.TrainerProgramService;
 import com.manacommunity.api.wellness.service.WellnessService;
 import com.manacommunity.api.wellness.service.WorkoutService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,15 +27,18 @@ public class WellnessApiController {
     private final FitnessGoalService fitnessGoalService;
     private final StepService stepService;
     private final FitnessSummaryService fitnessSummaryService;
+    private final TrainerProgramService trainerProgramService;
 
     public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService,
                                   FitnessGoalService fitnessGoalService, StepService stepService,
-                                  FitnessSummaryService fitnessSummaryService) {
+                                  FitnessSummaryService fitnessSummaryService,
+                                  TrainerProgramService trainerProgramService) {
         this.wellnessService = wellnessService;
         this.workoutService = workoutService;
         this.fitnessGoalService = fitnessGoalService;
         this.stepService = stepService;
         this.fitnessSummaryService = fitnessSummaryService;
+        this.trainerProgramService = trainerProgramService;
     }
 
     // ── Profile ──
@@ -300,5 +304,78 @@ public class WellnessApiController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         return ResponseEntity.ok(fitnessSummaryService.getWeeklyTrend(
                 principal.getId(), end != null ? end : LocalDate.now()));
+    }
+
+    // ── Trainer Programs ──
+
+    @GetMapping("/programs")
+    public ResponseEntity<List<TrainerProgramDto>> listPrograms(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String difficulty) {
+        return ResponseEntity.ok(trainerProgramService.listPrograms(principal.getId(), difficulty));
+    }
+
+    @GetMapping("/programs/{id}")
+    public ResponseEntity<TrainerProgramDto> getProgram(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(trainerProgramService.getProgram(id, principal.getId()));
+    }
+
+    @PostMapping("/programs")
+    public ResponseEntity<TrainerProgramDto> createProgram(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody TrainerProgramDto dto) {
+        return ResponseEntity.ok(trainerProgramService.createProgram(principal.getId(), dto));
+    }
+
+    @PostMapping("/programs/{id}/enroll")
+    public ResponseEntity<UserProgramEnrollmentDto> enroll(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate) {
+        return ResponseEntity.ok(trainerProgramService.enroll(principal.getId(), id, startDate));
+    }
+
+    @GetMapping("/programs/my")
+    public ResponseEntity<List<UserProgramEnrollmentDto>> getMyEnrollments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(trainerProgramService.getMyEnrollments(principal.getId()));
+    }
+
+    @GetMapping("/programs/today")
+    public ResponseEntity<UserProgramEnrollmentDto> getTodaysProgram(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(trainerProgramService.getTodaysEnrollment(principal.getId()));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/complete-day")
+    public ResponseEntity<UserProgramEnrollmentDto> completeDay(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.completeDay(principal.getId(), enrollmentId));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/pause")
+    public ResponseEntity<UserProgramEnrollmentDto> pauseEnrollment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.pauseEnrollment(principal.getId(), enrollmentId));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/resume")
+    public ResponseEntity<UserProgramEnrollmentDto> resumeEnrollment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.resumeEnrollment(principal.getId(), enrollmentId));
+    }
+
+    // ── Sports–Workout bridge ──
+
+    @PostMapping("/sports-workout")
+    public ResponseEntity<WorkoutLogDto> logSportsWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody SportsWorkoutRequest req) {
+        return ResponseEntity.ok(trainerProgramService.logSportsWorkout(principal.getId(), req));
     }
 }
