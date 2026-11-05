@@ -24,4 +24,7 @@ public interface WorkoutLogRepository extends JpaRepository<WorkoutLog, Long> {
 
     @Query("SELECT DISTINCT w.workoutDate FROM WorkoutLog w WHERE w.userId = :userId ORDER BY w.workoutDate DESC")
     List<LocalDate> findDistinctWorkoutDatesByUserId(Long userId);
+
+    @Query("SELECT COALESCE(SUM(w.durationMin), 0) FROM WorkoutLog w WHERE w.userId = :userId AND w.workoutDate = :date")
+    Integer getTotalWorkoutMinutesForDate(Long userId, LocalDate date);
 }

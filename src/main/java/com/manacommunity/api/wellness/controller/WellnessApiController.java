@@ -5,6 +5,7 @@ import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.FoodCatalog;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
 import com.manacommunity.api.wellness.service.FitnessGoalService;
+import com.manacommunity.api.wellness.service.FitnessSummaryService;
 import com.manacommunity.api.wellness.service.StepService;
 import com.manacommunity.api.wellness.service.WellnessService;
 import com.manacommunity.api.wellness.service.WorkoutService;
@@ -24,13 +25,16 @@ public class WellnessApiController {
     private final WorkoutService workoutService;
     private final FitnessGoalService fitnessGoalService;
     private final StepService stepService;
+    private final FitnessSummaryService fitnessSummaryService;
 
     public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService,
-                                  FitnessGoalService fitnessGoalService, StepService stepService) {
+                                  FitnessGoalService fitnessGoalService, StepService stepService,
+                                  FitnessSummaryService fitnessSummaryService) {
         this.wellnessService = wellnessService;
         this.workoutService = workoutService;
         this.fitnessGoalService = fitnessGoalService;
         this.stepService = stepService;
+        this.fitnessSummaryService = fitnessSummaryService;
     }
 
     // ── Profile ──
@@ -278,5 +282,23 @@ public class WellnessApiController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody List<StepLogDto> batch) {
         return ResponseEntity.ok(stepService.syncFromHealthConnect(principal.getId(), batch));
+    }
+
+    // ── Fitness Summary (unified aggregation) ──
+
+    @GetMapping("/fitness-summary")
+    public ResponseEntity<DailyFitnessSummaryDto> getFitnessSummary(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(fitnessSummaryService.getDailySummary(
+                principal.getId(), date != null ? date : LocalDate.now()));
+    }
+
+    @GetMapping("/fitness-summary/week")
+    public ResponseEntity<List<WeeklyFitnessPointDto>> getWeeklyFitnessTrend(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(fitnessSummaryService.getWeeklyTrend(
+                principal.getId(), end != null ? end : LocalDate.now()));
     }
 }
