@@ -461,7 +461,7 @@ public class SportsController {
                 .findByUserIdOrderByCreatedAtAsc(residentId).stream()
                 .filter(member -> member.getStatus() == null || "ACTIVE".equalsIgnoreCase(member.getStatus()))
                 .map(member -> new SportsCommunityFamilyMemberResponse(
-                        member.getId(), member.getName(), member.getRelation(), member.getAge(), member.getGender()))
+                        member.getId(), member.getName(), member.getRelation(), member.getAge(), member.getGender(), member.getDob()))
                 .toList();
         return ResponseEntity.ok(members);
     }
