@@ -48,6 +48,7 @@ public class WellnessService {
     private final AccountabilityPartnerRepository partnerRepository;
     private final AccountabilityAlertRepository alertRepository;
     private final WorkoutLogRepository workoutLogRepository;
+    private final FitnessGoalService fitnessGoalService;
 
     // ── Profile ──
 
@@ -78,7 +79,12 @@ public class WellnessService {
         profile.setDietaryRestrictions(dto.getDietaryRestrictions());
         profile.setAllergies(dto.getAllergies());
         profile.setHealthConditions(dto.getHealthConditions());
-        return toProfileDto(profileRepository.save(profile));
+        WellnessProfile saved = profileRepository.save(profile);
+        // Auto-log body metric whenever weight is updated via profile
+        if (dto.getWeightKg() != null) {
+            fitnessGoalService.autoLogWeightFromProfile(userId, saved.getWeightKg(), saved.getHeightCm());
+        }
+        return toProfileDto(saved);
     }
 
     // ── Meals ──

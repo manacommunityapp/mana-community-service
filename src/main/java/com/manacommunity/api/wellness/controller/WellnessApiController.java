@@ -4,6 +4,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.FoodCatalog;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
+import com.manacommunity.api.wellness.service.FitnessGoalService;
 import com.manacommunity.api.wellness.service.WellnessService;
 import com.manacommunity.api.wellness.service.WorkoutService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -20,10 +21,12 @@ public class WellnessApiController {
 
     private final WellnessService wellnessService;
     private final WorkoutService workoutService;
+    private final FitnessGoalService fitnessGoalService;
 
-    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService) {
+    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService, FitnessGoalService fitnessGoalService) {
         this.wellnessService = wellnessService;
         this.workoutService = workoutService;
+        this.fitnessGoalService = fitnessGoalService;
     }
 
     // ── Profile ──
@@ -195,5 +198,50 @@ public class WellnessApiController {
     public ResponseEntity<List<ExerciseCatalogDto>> getExercisesByCategory(
             @PathVariable String category) {
         return ResponseEntity.ok(workoutService.getExercisesByCategory(category));
+    }
+
+    // ── Body Metrics ──
+
+    @GetMapping("/body-metrics")
+    public ResponseEntity<List<BodyMetricLogDto>> getBodyMetrics(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "90") int days) {
+        return ResponseEntity.ok(fitnessGoalService.getBodyMetrics(principal.getId(), days));
+    }
+
+    @GetMapping("/body-metrics/latest")
+    public ResponseEntity<BodyMetricLogDto> getLatestBodyMetric(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getLatestBodyMetric(principal.getId()));
+    }
+
+    @PostMapping("/body-metrics")
+    public ResponseEntity<BodyMetricLogDto> logBodyMetric(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody BodyMetricLogDto dto) {
+        return ResponseEntity.ok(fitnessGoalService.logBodyMetric(principal.getId(), dto));
+    }
+
+    // ── Activity Goals ──
+
+    @GetMapping("/activity-goal")
+    public ResponseEntity<ActivityGoalDto> getActivityGoal(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getActivityGoal(principal.getId()));
+    }
+
+    @PutMapping("/activity-goal")
+    public ResponseEntity<ActivityGoalDto> saveActivityGoal(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody ActivityGoalDto dto) {
+        return ResponseEntity.ok(fitnessGoalService.saveActivityGoal(principal.getId(), dto));
+    }
+
+    // ── Streak ──
+
+    @GetMapping("/streak")
+    public ResponseEntity<FitnessStreakDto> getStreak(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getStreak(principal.getId()));
     }
 }

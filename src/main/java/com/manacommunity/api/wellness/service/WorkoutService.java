@@ -28,6 +28,7 @@ public class WorkoutService {
     private final WorkoutLogRepository workoutLogRepository;
     private final ExerciseCatalogRepository exerciseCatalogRepository;
     private final WellnessProfileRepository profileRepository;
+    private final FitnessGoalService fitnessGoalService;
 
     // ── Workout Logging ──
 
@@ -72,7 +73,9 @@ public class WorkoutService {
                 .notes(dto.getNotes())
                 .build();
 
-        return toDto(workoutLogRepository.save(log));
+        WorkoutLogDto saved = toDto(workoutLogRepository.save(log));
+        fitnessGoalService.refreshStreak(userId);
+        return saved;
     }
 
     @Transactional

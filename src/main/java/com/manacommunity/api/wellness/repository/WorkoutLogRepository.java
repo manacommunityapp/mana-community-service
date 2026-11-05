@@ -18,4 +18,10 @@ public interface WorkoutLogRepository extends JpaRepository<WorkoutLog, Long> {
 
     @Query("SELECT COUNT(w) FROM WorkoutLog w WHERE w.userId = :userId AND w.workoutDate = :date")
     Integer getWorkoutCountForDate(Long userId, LocalDate date);
+
+    @Query("SELECT COUNT(DISTINCT w.workoutDate) FROM WorkoutLog w WHERE w.userId = :userId AND w.workoutDate BETWEEN :start AND :end")
+    Integer getWorkoutCountForDateRange(Long userId, LocalDate start, LocalDate end);
+
+    @Query("SELECT DISTINCT w.workoutDate FROM WorkoutLog w WHERE w.userId = :userId ORDER BY w.workoutDate DESC")
+    List<LocalDate> findDistinctWorkoutDatesByUserId(Long userId);
 }
