@@ -22,6 +22,11 @@ public class UserProfileResponse {
     private String email;
     private String phone;
     private LocalDate dob;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("dateOfBirth")
+    public LocalDate getDateOfBirth() {
+        return dob;
+    }
     private String gender;
     private String flatNo;
     private String block;

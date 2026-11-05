@@ -72,17 +72,25 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setPhone(request.getPhone());
         }
         if (request.getDob() != null && !request.getDob().equals(user.getDateOfBirth())) {
-            List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
-                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
-                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
-                    com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
-            );
-            boolean hasActiveRegistrations = sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
-                    || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses);
-            if (hasActiveRegistrations) {
-                throw new com.manacommunity.api.exception.InvalidInputException(
-                        "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
-                        "To register family members or kids, please use the Family Members feature.");
+            // Only restrict if user already had a DOB established on their profile.
+            // If setting DOB for the first time, allow it.
+            if (user.getDateOfBirth() != null) {
+                boolean isAdmin = user.hasRole("ROLE_SUPER_ADMIN")
+                        || user.hasRole("ROLE_COMMUNITY_ADMIN")
+                        || user.hasRole("ROLE_ADMIN");
+                if (!isAdmin) {
+                    List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                            com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
+                            com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
+                            com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
+                    );
+                    boolean hasActiveRegistrations = sportsEventRegistrationRepository.existsActivePlayerRegistrationForUser(user.getId(), activeStatuses);
+                    if (hasActiveRegistrations) {
+                        throw new com.manacommunity.api.exception.InvalidInputException(
+                                "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
+                                "To register family members or kids, please use the Family Members feature.");
+                    }
+                }
             }
             user.setDateOfBirth(request.getDob());
         }
