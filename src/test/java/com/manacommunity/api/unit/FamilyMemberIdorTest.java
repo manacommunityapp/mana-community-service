@@ -1,5 +1,6 @@
 package com.manacommunity.api.unit;
 
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
@@ -147,14 +148,14 @@ class FamilyMemberIdorTest {
         }
 
         @Test
-        @DisplayName("deleting non-existent member throws IllegalArgumentException")
+        @DisplayName("deleting non-existent member throws ResourceNotFoundException")
         void deleteMissingMember() {
             when(repository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() ->
                     service.deleteFamilyMember(999L, ownerUser, 10L))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Family member not found");
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("not found");
         }
     }
 }

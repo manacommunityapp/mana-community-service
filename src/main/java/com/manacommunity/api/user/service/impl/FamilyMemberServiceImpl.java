@@ -45,8 +45,9 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
         // Community Admin scoping
         if (currentUser.hasRole("ADMIN") || currentUser.hasRole("COMMUNITY_ADMIN")) {
             Long userCommId = currentUser.getCommunity() != null ? currentUser.getCommunity().getId() : null;
-            Long targetCommId = existing.getCommunity() != null ? existing.getCommunity().getId() : null;
-            return userCommId != null && userCommId.equals(targetCommId);
+            Long targetCommId = existing.getCommunity() != null ? existing.getCommunity().getId()
+                    : (existing.getUser() != null && existing.getUser().getCommunity() != null ? existing.getUser().getCommunity().getId() : null);
+            return userCommId == null || targetCommId == null || userCommId.equals(targetCommId);
         }
         return false;
     }
@@ -314,7 +315,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", id));
 
         if (!isUserAuthorizedToManage(existing, user)) {
-            throw new UnauthorizedActionException("You are not authorized to update this family member.");
+            throw new UnauthorizedActionException("You can only modify your own family members.");
         }
 
         if (request.getName() != null && !request.getName().isBlank()) {
@@ -383,7 +384,7 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", id));
 
         if (!isUserAuthorizedToManage(existing, user)) {
-            throw new UnauthorizedActionException("You are not authorized to delete this family member.");
+            throw new UnauthorizedActionException("You can only delete your own family members.");
         }
 
         repository.delete(existing);
