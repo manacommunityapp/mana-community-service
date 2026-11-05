@@ -5,6 +5,7 @@ import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.FoodCatalog;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
 import com.manacommunity.api.wellness.service.WellnessService;
+import com.manacommunity.api.wellness.service.WorkoutService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,9 +19,11 @@ import java.util.List;
 public class WellnessApiController {
 
     private final WellnessService wellnessService;
+    private final WorkoutService workoutService;
 
-    public WellnessApiController(WellnessService wellnessService) {
+    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService) {
         this.wellnessService = wellnessService;
+        this.workoutService = workoutService;
     }
 
     // ── Profile ──
@@ -146,5 +149,51 @@ public class WellnessApiController {
             @PathVariable Long id) {
         wellnessService.markAlertRead(principal.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Workouts ──
+
+    @GetMapping("/workouts")
+    public ResponseEntity<List<WorkoutLogDto>> getWorkouts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(workoutService.getWorkoutsForDate(principal.getId(), date));
+    }
+
+    @GetMapping("/workouts/range")
+    public ResponseEntity<List<WorkoutLogDto>> getWorkoutsRange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(workoutService.getWorkoutsForRange(principal.getId(), start, end));
+    }
+
+    @PostMapping("/workouts")
+    public ResponseEntity<WorkoutLogDto> logWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody WorkoutLogDto dto) {
+        return ResponseEntity.ok(workoutService.logWorkout(principal.getId(), dto));
+    }
+
+    @DeleteMapping("/workouts/{id}")
+    public ResponseEntity<Void> deleteWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        workoutService.deleteWorkout(principal.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Exercise Catalog ──
+
+    @GetMapping("/exercise/search")
+    public ResponseEntity<List<ExerciseCatalogDto>> searchExercises(
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(workoutService.searchExercises(query));
+    }
+
+    @GetMapping("/exercise/category/{category}")
+    public ResponseEntity<List<ExerciseCatalogDto>> getExercisesByCategory(
+            @PathVariable String category) {
+        return ResponseEntity.ok(workoutService.getExercisesByCategory(category));
     }
 }

@@ -4,6 +4,7 @@ import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.*;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
 import com.manacommunity.api.wellness.repository.*;
+import com.manacommunity.api.wellness.repository.WorkoutLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,7 @@ public class WellnessService {
     private final WellnessProviderRepository providerRepository;
     private final AccountabilityPartnerRepository partnerRepository;
     private final AccountabilityAlertRepository alertRepository;
+    private final WorkoutLogRepository workoutLogRepository;
 
     // ── Profile ──
 
@@ -161,6 +163,10 @@ public class WellnessService {
         BigDecimal totalFat = meals.stream().map(m -> m.getTotalFat() != null ? m.getTotalFat() : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalFiber = meals.stream().map(m -> m.getTotalFiber() != null ? m.getTotalFiber() : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        Integer caloriesBurned = workoutLogRepository.getTotalCaloriesBurnedForDate(userId, date);
+        Integer workoutCount = workoutLogRepository.getWorkoutCountForDate(userId, date);
+        int netCalories = totalCalories - (caloriesBurned != null ? caloriesBurned : 0);
+
         return DailyNutritionSummaryDto.builder()
                 .date(date)
                 .totalCalories(totalCalories)
@@ -173,6 +179,9 @@ public class WellnessService {
                 .waterTargetMl(profile != null && profile.getDailyWaterTargetMl() != null ? profile.getDailyWaterTargetMl() : 2500)
                 .mealCount(meals.size())
                 .meals(meals.stream().map(this::toMealLogDto).collect(Collectors.toList()))
+                .caloriesBurned(caloriesBurned != null ? caloriesBurned : 0)
+                .netCalories(netCalories)
+                .workoutCount(workoutCount != null ? workoutCount : 0)
                 .build();
     }
 
