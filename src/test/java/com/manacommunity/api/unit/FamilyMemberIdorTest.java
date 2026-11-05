@@ -1,7 +1,11 @@
 package com.manacommunity.api.unit;
 
+import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
+import com.manacommunity.api.user.dto.FamilyMemberRequest;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.model.FamilyMember;
 import com.manacommunity.api.user.repository.FamilyMemberRepository;
@@ -22,10 +26,10 @@ import static org.mockito.Mockito.*;
 
 /**
  * IDOR protection tests for FamilyMember — verifies that users cannot modify
- * or delete family members belonging to another user.
+ * or delete family members belonging to another user, and verifies tournament DOB locks.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("FamilyMember IDOR Protection")
+@DisplayName("FamilyMember IDOR Protection & Tournament DOB Lock")
 class FamilyMemberIdorTest {
 
     @Mock
@@ -33,6 +37,9 @@ class FamilyMemberIdorTest {
 
     @Mock
     private com.manacommunity.api.repository.CommunityRepository communityRepository;
+
+    @Mock
+    private SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
     @InjectMocks
     private FamilyMemberServiceImpl service;
@@ -64,8 +71,11 @@ class FamilyMemberIdorTest {
         familyMember = FamilyMember.builder()
                 .id(42L)
                 .user(ownerUser)
+                .community(community)
                 .name("Test Member")
                 .relation("Spouse")
+                .dob("2010-01-01")
+                .age(14)
                 .build();
     }
 
@@ -103,9 +113,76 @@ class FamilyMemberIdorTest {
             assertThatThrownBy(() ->
                     service.updateFamilyMember(42L, familyMember, attackerUser, 10L))
                     .isInstanceOf(UnauthorizedActionException.class)
-                    .hasMessageContaining("only modify your own family members");
+                    .hasMessageContaining("You are not authorized to update this family member");
 
             verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("owner cannot update DOB when family member has active tournament registration")
+        void ownerCannotUpdateDobWhenActiveTournamentsExist() {
+            when(repository.findById(42L)).thenReturn(Optional.of(familyMember));
+            when(sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(eq(42L), any())).thenReturn(true);
+
+            FamilyMemberRequest req = FamilyMemberRequest.builder()
+                    .dob("2012-05-15")
+                    .build();
+
+            assertThatThrownBy(() ->
+                    service.updateFamilyMember(42L, req, ownerUser, 10L))
+                    .isInstanceOf(InvalidInputException.class)
+                    .hasMessageContaining("Date of birth cannot be modified while this family member has active registrations");
+
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("owner can update DOB when family member has no active tournament registrations")
+        void ownerCanUpdateDobWhenNoActiveTournaments() {
+            when(repository.findById(42L)).thenReturn(Optional.of(familyMember));
+            when(sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(eq(42L), any())).thenReturn(false);
+            when(repository.save(any())).thenReturn(familyMember);
+
+            FamilyMemberRequest req = FamilyMemberRequest.builder()
+                    .dob("2012-05-15")
+                    .build();
+
+            service.updateFamilyMember(42L, req, ownerUser, 10L);
+
+            verify(repository).save(familyMember);
+        }
+
+        @Test
+        @DisplayName("admin can update DOB even if family member has active tournament registration")
+        void adminCanUpdateDobEvenWithActiveTournaments() {
+            when(repository.findById(42L)).thenReturn(Optional.of(familyMember));
+            when(repository.save(any())).thenReturn(familyMember);
+
+            FamilyMemberRequest req = FamilyMemberRequest.builder()
+                    .dob("2012-05-15")
+                    .build();
+
+            service.updateFamilyMember(42L, req, adminUser, 10L);
+
+            verify(repository).save(familyMember);
+            verify(sportsEventRegistrationRepository, never()).existsActiveRegistrationForFamilyMember(any(), any());
+        }
+
+        @Test
+        @DisplayName("owner can set DOB for the first time even if registered")
+        void ownerCanSetDobFirstTime() {
+            familyMember.setDob(null);
+            when(repository.findById(42L)).thenReturn(Optional.of(familyMember));
+            when(repository.save(any())).thenReturn(familyMember);
+
+            FamilyMemberRequest req = FamilyMemberRequest.builder()
+                    .dob("2012-05-15")
+                    .build();
+
+            service.updateFamilyMember(42L, req, ownerUser, 10L);
+
+            verify(repository).save(familyMember);
+            verify(sportsEventRegistrationRepository, never()).existsActiveRegistrationForFamilyMember(any(), any());
         }
     }
 
@@ -141,20 +218,19 @@ class FamilyMemberIdorTest {
             assertThatThrownBy(() ->
                     service.deleteFamilyMember(42L, attackerUser, 10L))
                     .isInstanceOf(UnauthorizedActionException.class)
-                    .hasMessageContaining("only delete your own family members");
+                    .hasMessageContaining("You are not authorized to delete this family member");
 
             verify(repository, never()).delete(any(FamilyMember.class));
         }
 
         @Test
-        @DisplayName("deleting non-existent member throws IllegalArgumentException")
+        @DisplayName("deleting non-existent member throws ResourceNotFoundException")
         void deleteMissingMember() {
             when(repository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() ->
                     service.deleteFamilyMember(999L, ownerUser, 10L))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Family member not found");
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
     }
 }

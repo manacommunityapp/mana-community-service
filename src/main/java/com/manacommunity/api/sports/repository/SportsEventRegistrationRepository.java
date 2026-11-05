@@ -99,6 +99,32 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     default boolean existsActivePlayerRegistrationForUser(Long userId, List<SportsEventRegistration.RegistrationStatus> statuses) {
         return existsActivePlayerRegistrationForUser(userId, statuses, java.time.LocalDate.now());
     }
+
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT COUNT(r) > 0 FROM SportsEventRegistration r
+        WHERE (
+            r.familyMember.id = :familyMemberId
+            OR r.partnerFamilyMember.id = :familyMemberId
+        )
+        AND r.status IN :statuses
+        AND (
+            r.event IS NULL OR (
+                (r.event.status IS NULL OR r.event.status NOT IN (
+                    com.manacommunity.api.sports.model.SportsEventStatus.COMPLETED,
+                    com.manacommunity.api.sports.model.SportsEventStatus.CANCELLED
+                ))
+                AND (r.event.eventDateEnd IS NULL OR r.event.eventDateEnd >= :today)
+            )
+        )
+    """)
+    boolean existsActiveRegistrationForFamilyMember(
+            @org.springframework.data.repository.query.Param("familyMemberId") Long familyMemberId,
+            @org.springframework.data.repository.query.Param("statuses") List<SportsEventRegistration.RegistrationStatus> statuses,
+            @org.springframework.data.repository.query.Param("today") java.time.LocalDate today);
+
+    default boolean existsActiveRegistrationForFamilyMember(Long familyMemberId, List<SportsEventRegistration.RegistrationStatus> statuses) {
+        return existsActiveRegistrationForFamilyMember(familyMemberId, statuses, java.time.LocalDate.now());
+    }
     boolean existsByFamilyMemberIdAndStatusIn(Long familyMemberId, List<SportsEventRegistration.RegistrationStatus> statuses);
     boolean existsByPartnerIdAndStatusIn(Long partnerId, List<SportsEventRegistration.RegistrationStatus> statuses);
     boolean existsByPartnerFamilyMemberIdAndStatusIn(Long partnerFamilyMemberId, List<SportsEventRegistration.RegistrationStatus> statuses);
