@@ -47,12 +47,12 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsVenueDataSeeder venueDataSeeder;
     private final SportsCourtDataSeeder courtDataSeeder;
     private final SportsEventRegistrationDataSeeder sportsEventRegistrationDataSeeder;
+    private final SportsTournamentLifecycleSeeder tournamentLifecycleSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
     private final com.manacommunity.api.fresh.pilot.service.FreshPilotDataSeeder freshPilotDataSeeder;
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
         try {
             entityManager.createNativeQuery("SELECT setval('manacommunity.roles_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.roles), false)").getSingleResult();
@@ -70,9 +70,16 @@ public class SampleDataService implements ApplicationRunner {
         }
 
         boolean insertSampleData = environment.getProperty("app.insert-sample-data", Boolean.class, false);
+        boolean insertSportsSampleData = environment.getProperty("app.insert-sports-sample-data", Boolean.class, false)
+                || environment.getProperty("app.sports.insert-sample-data", Boolean.class, false)
+                || environment.getProperty("app.insert-sports-data", Boolean.class, false);
+
         if (insertSampleData) {
             log.info("Running sample data seeding as app.insert-sample-data is enabled...");
             executeSampleDataSql();
+        } else if (insertSportsSampleData) {
+            log.info("Running complete sports lifecycle sample data seeding as app.insert-sports-sample-data is enabled...");
+            seedSportsLifecycleOnly();
         }
     }
 
@@ -142,6 +149,9 @@ public class SampleDataService implements ApplicationRunner {
             // Layer 7 — Mana Fresh Stage 12 Pilot Operations
             freshPilotDataSeeder.seedStage12PilotData();
 
+            // Layer 8 — complete tournament lifecycle (fixtures, standings, playoffs, final, closure)
+            tournamentLifecycleSeeder.seed();
+
             log.info("═══════════════════════════════════════════════════════════");
             log.info("  Java-based database seeding completed successfully!");
             log.info("═══════════════════════════════════════════════════════════");
@@ -150,6 +160,50 @@ public class SampleDataService implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Failed to seed database: ", e);
             return "Failed to execute sample data: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Dedicated seeder method invoked when app.insert-sports-sample-data=true.
+     * Seeds base prerequisites and complete sports lifecycle fixtures up to closure.
+     */
+    @Transactional
+    public void seedSportsLifecycleOnly() {
+        try {
+            log.info("Starting isolated sports lifecycle sample data seeding...");
+
+            // Prerequisites: base roles, users, venues, sports metadata, community
+            communitySeeder.seed();
+            userSeeder.seed();
+            rolePermissionSeeder.seedUserPermissions();
+            playerCategorySeeder.seed();
+            sportsMetaSeeder.defaultSeed();
+            venueSeeder.seed();
+
+            Community le = communitySeeder.getLeCommunity();
+            defaultCommunityModuleDataService.seedModulesForCommunity(
+                    le.getId(),
+                    Set.of(ModuleConstants.MODULE_COMMUNITY_FEED,
+                            ModuleConstants.MODULE_SPORTS,
+                            ModuleConstants.MODULE_EVENTS,
+                            ModuleConstants.MODULE_ADMIN_HUB));
+            communityLeaderSeeder.seed();
+
+            // Core sports events & tournament
+            sportsEventSeeder.seed();
+            tournamentSeeder.seed();
+            auctionSeeder.seed();
+            courtDataSeeder.seed();
+            sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
+
+            // Seed complete tournament lifecycle up to closure
+            tournamentLifecycleSeeder.seed();
+
+            log.info("═══════════════════════════════════════════════════════════");
+            log.info("  Sports Lifecycle sample data seeded successfully!");
+            log.info("═══════════════════════════════════════════════════════════");
+        } catch (Exception e) {
+            log.error("Failed to seed sports lifecycle data: ", e);
         }
     }
 
@@ -197,6 +251,9 @@ public class SampleDataService implements ApplicationRunner {
             if (includeSampleRegistrations) {
                 extraRegistrations = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
             }
+
+            // Layer 7 — complete lifecycle fixtures, standings, playoffs, final, closure
+            tournamentLifecycleSeeder.seed();
 
             log.info("✓ Sports Data Feed completed successfully! (sampleRegistrations={})", includeSampleRegistrations);
 

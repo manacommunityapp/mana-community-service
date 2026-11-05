@@ -121,6 +121,8 @@ public class SportsDashboardService {
     public List<MyRegistration> getMyRegistrations(AppUser user) {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
         return myRegs.stream()
+                .filter(r -> r.getStatus() != SportsEventRegistration.RegistrationStatus.WITHDRAWN
+                          && r.getStatus() != SportsEventRegistration.RegistrationStatus.REJECTED)
                 .map(this::toMyRegistration)
                 .toList();
     }

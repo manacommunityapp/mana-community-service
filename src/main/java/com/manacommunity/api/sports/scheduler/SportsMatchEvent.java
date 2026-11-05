@@ -46,6 +46,9 @@ public class SportsMatchEvent {
     @Builder.Default
     private Boolean isUndone = false;
 
+    @Column(name = "command_id")
+    private java.util.UUID commandId;
+
     private Long createdBy;
     private LocalDateTime createdAt;
 

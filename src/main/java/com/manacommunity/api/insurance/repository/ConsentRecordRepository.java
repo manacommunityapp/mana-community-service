@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.*;
 
+@org.springframework.stereotype.Repository("insuranceConsentRecordRepository")
 public interface ConsentRecordRepository extends JpaRepository<ConsentRecord, Long> {
     List<ConsentRecord> findByUserIdOrderByCreatedAtDesc(Long userId);
     Optional<ConsentRecord> findFirstByUserIdAndPurposeAndPartnerIdOrderByIdDesc(Long userId, InsuranceEnums.ConsentPurpose purpose, Long partnerId);

@@ -45,6 +45,7 @@ public class SportsBracketGenerator {
     private final SportsTimeSlotAllocator           timeSlots;
     private final SportsCourtAllocator              courts;
     private final com.manacommunity.api.security.AuditService auditService;
+    private final SportsTournamentRepository        tournamentRepo;
 
     /** Dispatch to the right generator for the config's tournament type. */
     public List<SportsTournamentMatch> generate(SportsTournamentConfig config, List<SportsAuctionTeam> teams) {
@@ -172,12 +173,57 @@ public class SportsBracketGenerator {
         match.setCompletedAt(LocalDateTime.now());
 
         if (req.winnerTeamId() != null) {
-            SportsAuctionTeam winner = teamRepo.findById(req.winnerTeamId())
-                .orElseThrow(() -> new ResourceNotFoundException("Team", req.winnerTeamId()));
-            SportsAuctionTeam loser = winner.getId().equals(match.getTeamA().getId())
-                ? match.getTeamB() : match.getTeamA();
+            Optional<SportsAuctionTeam> winnerOpt = teamRepo.findById(req.winnerTeamId());
+            if (winnerOpt.isPresent()) {
+                SportsAuctionTeam winner = winnerOpt.get();
+                SportsAuctionTeam loser = (match.getTeamA() != null && winner.getId().equals(match.getTeamA().getId()))
+                    ? match.getTeamB() : match.getTeamA();
 
-            match.setWinner(winner);
+                match.setWinner(winner);
+                match.setWinnerName(winner.getTeamName());
+                match.setWinnerSide(match.getTeamA() != null && winner.getId().equals(match.getTeamA().getId()) ? "A" : "B");
+                matchRepo.save(match);
+
+                auditService.record(
+                    com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
+                    com.manacommunity.api.security.AuditModule.TOURNAMENT,
+                    "SportsTournamentMatch", String.valueOf(match.getId()),
+                    null,
+                    "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+
+                // Advance winner to next round match
+                if (match.getWinnerAdvancesToMatchId() != null) {
+                    matchRepo.findById(match.getWinnerAdvancesToMatchId()).ifPresent(next -> {
+                        if (next.getTeamA() == null) next.setTeamA(winner);
+                        else next.setTeamB(winner);
+                        advanceNonAuctionWinner(next, winner.getTeamName());
+                        matchRepo.save(next);
+                    });
+                }
+
+                // For double elimination: send loser to losers bracket
+                if (match.getLoserSentToMatchId() != null && loser != null) {
+                    matchRepo.findById(match.getLoserSentToMatchId()).ifPresent(losersMatch -> {
+                        if (losersMatch.getTeamA() == null) losersMatch.setTeamA(loser);
+                        else losersMatch.setTeamB(loser);
+                        matchRepo.save(losersMatch);
+                    });
+                }
+
+                // Update group standings for group matches
+                if (match.getGroup() != null) {
+                    updateGroupStandings(match, winner, loser, req);
+                }
+            } else {
+                String winnerName = req.winnerName() != null ? req.winnerName() : "Winner #" + req.winnerTeamId();
+                match.setWinnerName(winnerName);
+                match.setWinnerSide(req.winnerSide());
+                matchRepo.save(match);
+                advanceWinnerToNextMatch(match, winnerName);
+            }
+        } else if (req.winnerName() != null && !req.winnerName().isBlank()) {
+            match.setWinnerName(req.winnerName());
+            match.setWinnerSide(req.winnerSide());
             matchRepo.save(match);
 
             auditService.record(
@@ -185,30 +231,9 @@ public class SportsBracketGenerator {
                 com.manacommunity.api.security.AuditModule.TOURNAMENT,
                 "SportsTournamentMatch", String.valueOf(match.getId()),
                 null,
-                "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+                "winnerName=" + req.winnerName() + ", side=" + req.winnerSide() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
 
-            // Advance winner to next round match
-            if (match.getWinnerAdvancesToMatchId() != null) {
-                SportsTournamentMatch next = matchRepo.findById(match.getWinnerAdvancesToMatchId())
-                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", match.getWinnerAdvancesToMatchId()));
-                if (next.getTeamA() == null) next.setTeamA(winner);
-                else                          next.setTeamB(winner);
-                matchRepo.save(next);
-            }
-
-            // For double elimination: send loser to losers bracket
-            if (match.getLoserSentToMatchId() != null) {
-                SportsTournamentMatch losersMatch = matchRepo.findById(match.getLoserSentToMatchId())
-                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", match.getLoserSentToMatchId()));
-                if (losersMatch.getTeamA() == null) losersMatch.setTeamA(loser);
-                else                                 losersMatch.setTeamB(loser);
-                matchRepo.save(losersMatch);
-            }
-
-            // Update group standings for group matches
-            if (match.getGroup() != null) {
-                updateGroupStandings(match, winner, loser, req);
-            }
+            advanceWinnerToNextMatch(match, req.winnerName());
         } else {
             matchRepo.save(match);
             auditService.record(
@@ -224,7 +249,28 @@ public class SportsBracketGenerator {
             }
         }
 
+        // When the tournament FINAL concludes, automatically mark the tournament and config as COMPLETED!
+        if (match.getRound() == MatchRound.FINAL && match.getConfig() != null) {
+            SportsTournamentConfig cfg = match.getConfig();
+            cfg.setStatus(SportsTournamentConfig.TournamentStatus.COMPLETED);
+            configRepo.save(cfg);
+            if (cfg.getEvent() != null && cfg.getEvent().getTournament() != null) {
+                SportsTournament t = cfg.getEvent().getTournament();
+                t.setRegistrationStatus(SportsEventStatus.COMPLETED);
+                tournamentRepo.save(t);
+            }
+        }
+
         return match.getConfig();
+    }
+
+    private void advanceWinnerToNextMatch(SportsTournamentMatch match, String winnerName) {
+        if (match.getWinnerAdvancesToMatchId() != null && winnerName != null && !winnerName.isBlank()) {
+            matchRepo.findById(match.getWinnerAdvancesToMatchId()).ifPresent(next -> {
+                advanceNonAuctionWinner(next, winnerName);
+                matchRepo.save(next);
+            });
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -315,14 +361,18 @@ public class SportsBracketGenerator {
                 .forEach(s -> {
                     s.setQualified(true);
                     standingRepo.save(s);
-                    advancingTeams.add(s.getTeam());
+                    if (s.getTeam() != null) {
+                        advancingTeams.add(s.getTeam());
+                    }
                 });
         }
 
-        // Seed into knockout round 1 matches
-        // Cross-seeding: Group A #1 vs Group B #2, Group B #1 vs Group A #2
+        // Seed into knockout round 1 matches (exclude group stages)
         List<SportsTournamentMatch> koBracket = matchRepo
-            .findByConfigIdAndRoundNumberOrderByMatchNumber(configId, 1);
+            .findByConfigId(configId).stream()
+            .filter(m -> m.getRound() != MatchRound.GROUP_STAGE && m.getRound() != MatchRound.LEAGUE_MATCH && m.getRound() != MatchRound.THIRD_PLACE)
+            .sorted(Comparator.comparingInt(m -> Objects.requireNonNullElse(m.getRoundNumber(), 1)))
+            .toList();
 
         // Standard cross seeding
         List<SportsAuctionTeam> seeded = seeding.crossSeed(advancingTeams, groups.size(), advPer);
@@ -513,11 +563,17 @@ public class SportsBracketGenerator {
         matchRepo.findByConfigIdOrderBySwissRoundNumber(configId).stream()
             .filter(m -> m.getStatus() == MatchStatus.COMPLETED)
             .forEach(m -> {
-                Long wId = m.getWinner().getId();
-                Long lId = wId.equals(m.getTeamA().getId())
-                    ? m.getTeamB().getId() : m.getTeamA().getId();
-                scores.merge(wId, config.getPointsForWin() != null ? config.getPointsForWin() : 2, Integer::sum);
-                scores.merge(lId, config.getPointsForLoss() != null ? config.getPointsForLoss() : 0, Integer::sum);
+                if (m.getWinner() != null && m.getTeamA() != null && m.getTeamB() != null) {
+                    Long wId = m.getWinner().getId();
+                    Long lId = wId.equals(m.getTeamA().getId())
+                        ? m.getTeamB().getId() : m.getTeamA().getId();
+                    scores.merge(wId, config.getPointsForWin() != null ? config.getPointsForWin() : 2, Integer::sum);
+                    scores.merge(lId, config.getPointsForLoss() != null ? config.getPointsForLoss() : 0, Integer::sum);
+                } else if (m.getTeamA() != null && m.getTeamB() != null) {
+                    int drawPts = config.getPointsForDraw() != null ? config.getPointsForDraw() : 1;
+                    scores.merge(m.getTeamA().getId(), drawPts, Integer::sum);
+                    scores.merge(m.getTeamB().getId(), drawPts, Integer::sum);
+                }
             });
 
         Set<Long> teamIdsInConfig = new HashSet<>();
@@ -585,38 +641,61 @@ public class SportsBracketGenerator {
     // ═══════════════════════════════════════════════════════════════
     // STANDINGS UPDATE
     // ═══════════════════════════════════════════════════════════════
+    private SportsGroupTeamStanding getOrCreateStanding(SportsTournamentGroup group, SportsAuctionTeam team) {
+        if (group == null || team == null || team.getId() == null) return null;
+        SportsGroupTeamStanding s = standingRepo.findByGroupIdAndTeamId(group.getId(), team.getId());
+        if (s == null) {
+            s = SportsGroupTeamStanding.builder()
+                .group(group)
+                .team(team)
+                .seedRank(0)
+                .played(0).won(0).lost(0).drawn(0).points(0).netRunRate(0.0)
+                .build();
+            s = standingRepo.save(s);
+        }
+        return s;
+    }
+
     private void updateGroupStandings(SportsTournamentMatch match,
             SportsAuctionTeam winner, SportsAuctionTeam loser, SportsMatchResultRequest req) {
+        if (match == null || match.getGroup() == null) return;
 
         int ptsWin  = Objects.requireNonNullElse(match.getConfig().getPointsForWin(), 2);
         int ptsLoss = Objects.requireNonNullElse(match.getConfig().getPointsForLoss(), 0);
 
         // Update winner
-        SportsGroupTeamStanding ws = standingRepo
-            .findByGroupIdAndTeamId(match.getGroup().getId(), winner.getId());
-        ws.setPlayed(ws.getPlayed() + 1);
-        ws.setWon(ws.getWon() + 1);
-        ws.setPoints(ws.getPoints() + ptsWin);
-        if (req.runsTeamA() != null) updateNRR(ws, winner, match, req);
-        standingRepo.save(ws);
+        if (winner != null) {
+            SportsGroupTeamStanding ws = getOrCreateStanding(match.getGroup(), winner);
+            if (ws != null) {
+                ws.setPlayed(ws.getPlayed() + 1);
+                ws.setWon(ws.getWon() + 1);
+                ws.setPoints(ws.getPoints() + ptsWin);
+                if (req.runsTeamA() != null) updateNRR(ws, winner, match, req);
+                standingRepo.save(ws);
+            }
+        }
 
         // Update loser
-        SportsGroupTeamStanding ls = standingRepo
-            .findByGroupIdAndTeamId(match.getGroup().getId(), loser.getId());
-        ls.setPlayed(ls.getPlayed() + 1);
-        ls.setLost(ls.getLost() + 1);
-        ls.setPoints(ls.getPoints() + ptsLoss);
-        if (req.runsTeamB() != null) updateNRR(ls, loser, match, req);
-        standingRepo.save(ls);
+        if (loser != null) {
+            SportsGroupTeamStanding ls = getOrCreateStanding(match.getGroup(), loser);
+            if (ls != null) {
+                ls.setPlayed(ls.getPlayed() + 1);
+                ls.setLost(ls.getLost() + 1);
+                ls.setPoints(ls.getPoints() + ptsLoss);
+                if (req.runsTeamB() != null) updateNRR(ls, loser, match, req);
+                standingRepo.save(ls);
+            }
+        }
     }
 
     private void updateNRR(SportsGroupTeamStanding standing, SportsAuctionTeam team,
             SportsTournamentMatch match, SportsMatchResultRequest req) {
-        boolean isTeamA = team.getId().equals(match.getTeamA().getId());
-        int runsFor     = isTeamA ? req.runsTeamA() : req.runsTeamB();
-        int runsAgainst = isTeamA ? req.runsTeamB() : req.runsTeamA();
-        int oversFor    = isTeamA ? req.oversTeamA() : req.oversTeamB();
-        int oversAgainst= isTeamA ? req.oversTeamB() : req.oversTeamA();
+        if (standing == null || team == null || match == null) return;
+        boolean isTeamA = match.getTeamA() != null && team.getId().equals(match.getTeamA().getId());
+        int runsFor     = isTeamA ? (req.runsTeamA() != null ? req.runsTeamA() : 0) : (req.runsTeamB() != null ? req.runsTeamB() : 0);
+        int runsAgainst = isTeamA ? (req.runsTeamB() != null ? req.runsTeamB() : 0) : (req.runsTeamA() != null ? req.runsTeamA() : 0);
+        int oversFor    = isTeamA ? (req.oversTeamA() != null ? req.oversTeamA() : 0) : (req.oversTeamB() != null ? req.oversTeamB() : 0);
+        int oversAgainst= isTeamA ? (req.oversTeamB() != null ? req.oversTeamB() : 0) : (req.oversTeamA() != null ? req.oversTeamA() : 0);
 
         standing.setRunsFor(Objects.requireNonNullElse(standing.getRunsFor(), 0) + runsFor);
         standing.setRunsAgainst(Objects.requireNonNullElse(standing.getRunsAgainst(), 0) + runsAgainst);
@@ -629,23 +708,60 @@ public class SportsBracketGenerator {
     }
 
     private void updateGroupStandingsForDraw(SportsTournamentMatch match, SportsMatchResultRequest req) {
+        if (match == null || match.getGroup() == null) return;
         int ptsDraw = Objects.requireNonNullElse(match.getConfig().getPointsForDraw(), 1);
 
-        SportsGroupTeamStanding sa = standingRepo
-            .findByGroupIdAndTeamId(match.getGroup().getId(), match.getTeamA().getId());
-        sa.setPlayed(sa.getPlayed() + 1);
-        sa.setDrawn(sa.getDrawn() + 1);
-        sa.setPoints(sa.getPoints() + ptsDraw);
-        if (req.runsTeamA() != null) updateNRR(sa, match.getTeamA(), match, req);
-        standingRepo.save(sa);
+        if (match.getTeamA() != null) {
+            SportsGroupTeamStanding sa = getOrCreateStanding(match.getGroup(), match.getTeamA());
+            if (sa != null) {
+                sa.setPlayed(sa.getPlayed() + 1);
+                sa.setDrawn(sa.getDrawn() + 1);
+                sa.setPoints(sa.getPoints() + ptsDraw);
+                if (req.runsTeamA() != null) updateNRR(sa, match.getTeamA(), match, req);
+                standingRepo.save(sa);
+            }
+        }
 
-        SportsGroupTeamStanding sb = standingRepo
-            .findByGroupIdAndTeamId(match.getGroup().getId(), match.getTeamB().getId());
-        sb.setPlayed(sb.getPlayed() + 1);
-        sb.setDrawn(sb.getDrawn() + 1);
-        sb.setPoints(sb.getPoints() + ptsDraw);
-        if (req.runsTeamB() != null) updateNRR(sb, match.getTeamB(), match, req);
-        standingRepo.save(sb);
+        if (match.getTeamB() != null) {
+            SportsGroupTeamStanding sb = getOrCreateStanding(match.getGroup(), match.getTeamB());
+            if (sb != null) {
+                sb.setPlayed(sb.getPlayed() + 1);
+                sb.setDrawn(sb.getDrawn() + 1);
+                sb.setPoints(sb.getPoints() + ptsDraw);
+                if (req.runsTeamB() != null) updateNRR(sb, match.getTeamB(), match, req);
+                standingRepo.save(sb);
+            }
+        }
+    }
+
+    private void advanceNonAuctionWinner(SportsTournamentMatch next, String winnerName) {
+        if (next == null || winnerName == null || winnerName.isBlank()) return;
+        String notes = next.getMatchNotes();
+        String home = extractNote(notes, "homeName", "");
+        String away = extractNote(notes, "awayName", "");
+        String group = extractNote(notes, "groupName", "");
+        if (home.isBlank() || "TBD".equalsIgnoreCase(home) || "dummy".equalsIgnoreCase(home)) {
+            home = winnerName;
+        } else if (away.isBlank() || "TBD".equalsIgnoreCase(away) || "dummy".equalsIgnoreCase(away)) {
+            away = winnerName;
+        }
+        next.setMatchNotes(String.format("{\"homeName\":\"%s\",\"awayName\":\"%s\",\"groupName\":\"%s\"}",
+            home.replace("\"", "'"), away.replace("\"", "'"), group.replace("\"", "'")));
+    }
+
+    private String extractNote(String notes, String key, String fallback) {
+        if (notes == null || notes.isBlank()) return fallback;
+        try {
+            String pattern = "\"" + key + "\":\"([^\"]*)\"";
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(notes);
+            if (matcher.find()) {
+                String val = matcher.group(1);
+                if (val != null && !val.isBlank() && !"dummy".equalsIgnoreCase(val)) {
+                    return val;
+                }
+            }
+        } catch (Exception ignored) {}
+        return fallback;
     }
 
     // ═══════════════════════════════════════════════════════════════

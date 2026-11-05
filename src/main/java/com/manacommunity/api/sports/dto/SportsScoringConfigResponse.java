@@ -15,5 +15,10 @@ public record SportsScoringConfigResponse(
     Boolean hasOvertime,
     Boolean hasPenaltyShootout,
     Integer tiebreakPointsToWin,
+    Integer oversPerInnings,
+    Integer maxOversPerBowler,
+    Integer ballsPerOver,
+    Integer breakDurationMinutes,
+    Integer targetScore,
     String scoringRulesJson
 ) {}

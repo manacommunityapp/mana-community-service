@@ -37,9 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -386,20 +384,25 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig managed = configRepo.findById(configId).orElseThrow(
             () -> new IllegalArgumentException("SportsTournament config not found: " + configId));
 
-        // 5. Build + persist the new matches. The global DRAFT/PUBLISHED lifecycle status is
+        // 5. Sync groups and build + persist the new matches. The global DRAFT/PUBLISHED lifecycle status is
         //    applied to ordinary matches, but match-type markers (auto-advanced BYEs) are
         //    preserved so they aren't overwritten to DRAFT/PUBLISHED.
         List<SportsBulkMatchSaveRequest.MatchData> matches =
             req.matches() != null ? req.matches() : List.of();
+        Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(managed, matches);
         List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(managed, m))
+            .map(m -> buildMatchEntity(managed, m, groupMap))
             .peek(e -> {
                 if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
                     e.setStatus(matchStatus);
                 }
             })
             .toList();
-        matchRepo.saveAll(entities);
+        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
+        if (savedEntities == null || savedEntities.isEmpty()) {
+            savedEntities = entities;
+        }
+        wireAndSaveKnockoutLinks(savedEntities);
 
         log.info("Unified save: config {} ({}) with {} matches", configId,
             managed.getStatus(), entities.size());
@@ -424,14 +427,20 @@ public class SportsMatchPersistenceService {
         // Replace all existing matches for this config
         matchRepo.deleteByConfigId(effectiveConfigId);
 
+        Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(config, matches);
         List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(config, m))
+            .map(m -> buildMatchEntity(config, m, groupMap))
             .toList();
 
-        matchRepo.saveAll(entities);
+        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
+        if (savedEntities == null || savedEntities.isEmpty()) {
+            savedEntities = entities;
+        }
+        wireAndSaveKnockoutLinks(savedEntities);
         log.info("Bulk-saved {} matches for config {}", entities.size(), effectiveConfigId);
         return entities.size();
     }
+
 
     /**
      * Updates the status of every match for a config.
@@ -471,8 +480,114 @@ public class SportsMatchPersistenceService {
         return (int) count;
     }
 
+    public void wireAndSaveKnockoutLinks(List<SportsTournamentMatch> savedEntities) {
+        if (savedEntities == null || savedEntities.size() < 2) return;
+
+        // Exclude group stages and league matches from bracket advancement wiring
+        List<SportsTournamentMatch> koMatches = savedEntities.stream()
+            .filter(m -> m.getRound() != MatchRound.GROUP_STAGE && m.getRound() != MatchRound.LEAGUE_MATCH && m.getRound() != MatchRound.THIRD_PLACE)
+            .toList();
+        if (koMatches.size() < 2) return;
+
+        Map<Integer, List<SportsTournamentMatch>> byRound = koMatches.stream()
+            .sorted(Comparator.comparingInt(m -> Objects.requireNonNullElse(m.getBracketSlot(), 0)))
+            .collect(Collectors.groupingBy(m -> Objects.requireNonNullElse(m.getRoundNumber(), 1), LinkedHashMap::new, Collectors.toList()));
+
+        List<Integer> roundNums = new ArrayList<>(byRound.keySet());
+        Collections.sort(roundNums);
+
+        boolean updated = false;
+        for (int rIdx = 0; rIdx < roundNums.size() - 1; rIdx++) {
+            int currentRound = roundNums.get(rIdx);
+            int nextRound = roundNums.get(rIdx + 1);
+
+            List<SportsTournamentMatch> currentMatches = byRound.get(currentRound);
+            List<SportsTournamentMatch> nextMatches = byRound.get(nextRound);
+
+            if (currentMatches == null || nextMatches == null || nextMatches.isEmpty()) continue;
+
+            for (int i = 0; i < currentMatches.size(); i++) {
+                SportsTournamentMatch cur = currentMatches.get(i);
+                int targetIdx = Math.min(i / 2, nextMatches.size() - 1);
+                SportsTournamentMatch nxt = nextMatches.get(targetIdx);
+
+                if (nxt != null && nxt.getId() != null) {
+                    cur.setWinnerAdvancesToMatchId(nxt.getId());
+                    if (i % 2 == 0) {
+                        nxt.setWinnerFeedFromMatchA(cur.getId());
+                    } else {
+                        nxt.setWinnerFeedFromMatchB(cur.getId());
+                    }
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            matchRepo.saveAll(koMatches);
+            log.info("Wired winnerAdvancesToMatchId links for {} knockout matches", koMatches.size());
+        }
+    }
+
+    private Map<String, SportsTournamentGroup> syncGroupsForConfig(SportsTournamentConfig config, List<SportsBulkMatchSaveRequest.MatchData> matches) {
+        Map<String, SportsTournamentGroup> groupMap = new HashMap<>();
+        List<SportsTournamentGroup> existing = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+        for (SportsTournamentGroup g : existing) {
+            groupMap.put(g.getGroupName(), g);
+        }
+        int nextOrder = existing.size() + 1;
+        for (SportsBulkMatchSaveRequest.MatchData m : matches) {
+            String gName = m.groupName();
+            if (gName != null && !gName.isBlank() &&
+                ("GROUP".equalsIgnoreCase(m.stage()) || "ROUND_ROBIN".equalsIgnoreCase(m.stage()) || gName.startsWith("Group") || gName.startsWith("Pool"))) {
+                if (!groupMap.containsKey(gName)) {
+                    SportsTournamentGroup grp = SportsTournamentGroup.builder()
+                        .config(config)
+                        .groupName(gName)
+                        .groupOrder(nextOrder++)
+                        .build();
+                    grp = groupRepo.save(grp);
+                    groupMap.put(gName, grp);
+                }
+            }
+        }
+
+        // Pre-seed standings rows for teams in each group to prevent NPE on first match completion
+        for (SportsBulkMatchSaveRequest.MatchData m : matches) {
+            String gName = m.groupName();
+            if (gName != null && groupMap.containsKey(gName)) {
+                SportsTournamentGroup grp = groupMap.get(gName);
+                SportsAuctionTeam teamA = tryResolveTeam(m.homeId());
+                SportsAuctionTeam teamB = tryResolveTeam(m.awayId());
+                if (teamA != null && standingRepo.findByGroupIdAndTeamId(grp.getId(), teamA.getId()) == null) {
+                    standingRepo.save(SportsGroupTeamStanding.builder()
+                        .group(grp).team(teamA).seedRank(0)
+                        .played(0).won(0).lost(0).drawn(0).points(0).netRunRate(0.0)
+                        .build());
+                }
+                if (teamB != null && standingRepo.findByGroupIdAndTeamId(grp.getId(), teamB.getId()) == null) {
+                    standingRepo.save(SportsGroupTeamStanding.builder()
+                        .group(grp).team(teamB).seedRank(0)
+                        .played(0).won(0).lost(0).drawn(0).points(0).netRunRate(0.0)
+                        .build());
+                }
+            }
+        }
+
+        return groupMap;
+    }
+
     private SportsTournamentMatch buildMatchEntity(SportsTournamentConfig config, SportsBulkMatchSaveRequest.MatchData m) {
-        MatchRound round = stageToRound(m.stage());
+        return buildMatchEntity(config, m, null);
+    }
+
+    private SportsTournamentMatch buildMatchEntity(
+            SportsTournamentConfig config,
+            SportsBulkMatchSaveRequest.MatchData m,
+            Map<String, SportsTournamentGroup> groupMap) {
+
+        MatchRound round = resolveMatchRound(m);
+        int roundNumber = resolveRoundNumber(m, round);
 
         SportsAuctionTeam teamA = tryResolveTeam(m.homeId());
         SportsAuctionTeam teamB = tryResolveTeam(m.awayId());
@@ -483,17 +598,35 @@ public class SportsMatchPersistenceService {
         String notes = String.format("{\"homeName\":\"%s\",\"awayName\":\"%s\",\"groupName\":\"%s\"}",
             safe(m.homeName()), safe(m.awayName()), safe(m.groupName()));
 
+        SportsVenue venue = config.getVenue();
+        if (m.venueId() != null) {
+            venue = venueRepo.findById(m.venueId()).orElse(config.getVenue());
+        }
+
+        SportsCourt court = null;
+        if (m.courtId() != null) {
+            court = courtRepo.findById(m.courtId()).orElse(null);
+        }
+
+        SportsTournamentGroup group = null;
+        if (groupMap != null && m.groupName() != null) {
+            group = groupMap.get(m.groupName());
+        }
+
         return SportsTournamentMatch.builder()
             .config(config)
             .community(config.getCommunity())
+            .group(group)
             .round(round)
+            .roundNumber(roundNumber)
+            .bracketSlot(m.bracketSlot() != null ? m.bracketSlot() : 0)
             .matchNumber(m.matchNumber() != null ? m.matchNumber() : 0)
             .teamA(teamA)
             .teamB(teamB)
             .scheduledAt(scheduledAt)
             .durationMinutes(m.duration() != null ? m.duration() : 60)
-            .venue(m.venueId() != null ? venueRepo.findById(m.venueId()).orElseThrow(() -> new ResourceNotFoundException("Venue", m.venueId())) : config.getVenue())
-            .court(m.courtId() != null ? courtRepo.findById(m.courtId()).orElseThrow(() -> new ResourceNotFoundException("SportsCourt", m.courtId())) : null)
+            .venue(venue)
+            .court(court)
             .status(parseStatus(m.status(), MatchStatus.SCHEDULED))
             .matchNotes(notes)
             .build();
@@ -510,14 +643,61 @@ public class SportsMatchPersistenceService {
         }
     }
 
-    private MatchRound stageToRound(String stage) {
-        if (stage == null) return MatchRound.LEAGUE_MATCH;
-        return switch (stage.toUpperCase()) {
-            case "GROUP"   -> MatchRound.GROUP_STAGE;
-            case "PLAYOFF" -> MatchRound.SEMI_FINAL;
-            default        -> MatchRound.FINAL;  // KNOCKOUT
+    private MatchRound resolveMatchRound(SportsBulkMatchSaveRequest.MatchData m) {
+
+        if (m.round() != null && !m.round().isBlank()) {
+            try {
+                return MatchRound.valueOf(m.round().trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        String name = (m.groupName() != null ? m.groupName() : "").toUpperCase();
+        if (name.contains("THIRD_PLACE") || name.contains("3RD PLACE") || name.contains("THIRD PLACE")) {
+            return MatchRound.THIRD_PLACE;
+        }
+        if (name.contains("FINAL") && !name.contains("SEMI") && !name.contains("QUARTER")) {
+            return MatchRound.FINAL;
+        }
+        if (name.contains("SEMI")) {
+            return MatchRound.SEMI_FINAL;
+        }
+        if (name.contains("QUARTER")) {
+            return MatchRound.QUARTER_FINAL;
+        }
+        if (name.contains("ROUND OF 16") || name.contains("ROUND_OF_16") || name.contains("R16")) {
+            return MatchRound.ROUND_OF_16;
+        }
+        if (name.contains("ROUND OF 32") || name.contains("ROUND_OF_32") || name.contains("R32")) {
+            return MatchRound.ROUND_OF_32;
+        }
+        if (name.contains("ROUND OF 64") || name.contains("ROUND_OF_64") || name.contains("R64")) {
+            return MatchRound.ROUND_OF_64;
+        }
+
+        if (m.stage() == null) return MatchRound.LEAGUE_MATCH;
+        return switch (m.stage().toUpperCase()) {
+            case "GROUP"       -> MatchRound.GROUP_STAGE;
+            case "ROUND_ROBIN" -> MatchRound.LEAGUE_MATCH;
+            case "PLAYOFF"     -> MatchRound.SEMI_FINAL;
+            default            -> MatchRound.FINAL;
         };
     }
+
+    private int resolveRoundNumber(SportsBulkMatchSaveRequest.MatchData m, MatchRound round) {
+        if (m.roundNumber() != null && m.roundNumber() > 0) {
+            return m.roundNumber();
+        }
+        return switch (round) {
+            case ROUND_OF_64        -> 1;
+            case ROUND_OF_32        -> 2;
+            case ROUND_OF_16        -> 3;
+            case QUARTER_FINAL      -> 4;
+            case SEMI_FINAL         -> 5;
+            case FINAL, THIRD_PLACE -> 6;
+            case GROUP_STAGE, LEAGUE_MATCH -> 1;
+            default                 -> 1;
+        };
+    }
+
 
     private SportsAuctionTeam tryResolveTeam(String id) {
         if (id == null || id.isBlank() || "TBD".equalsIgnoreCase(id) || "dummy".equalsIgnoreCase(id)) return null;

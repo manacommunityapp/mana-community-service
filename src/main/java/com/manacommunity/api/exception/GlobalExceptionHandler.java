@@ -465,6 +465,8 @@ public class GlobalExceptionHandler {
             friendlyMessage = "This player is already registered for this event. "
                     + "If registering for a different format (e.g. Doubles), please try again — "
                     + "this may require a database update.";
+        } else if (constraintName.contains("sports_meta") || constraintName.contains("uq_sports_meta")) {
+            friendlyMessage = "A sport with this name already exists in this community.";
         }
 
         return build(HttpStatus.CONFLICT, "DATA_CONFLICT", friendlyMessage, request, null);

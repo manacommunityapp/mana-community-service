@@ -48,25 +48,27 @@ public class SportsTournamentResultNotifier {
     @Transactional(readOnly = true)
     public void notifyMatchResult(Long matchId) {
         SportsTournamentMatch match = matchRepo.findById(matchId).orElse(null);
-        if (match == null || match.getWinner() == null) return;
+        if (match == null || (match.getWinner() == null && match.getWinnerName() == null)) return;
 
         SportsTournamentConfig config = match.getConfig();
         String tournamentName = config != null ? config.getTournamentName() : "the tournament";
         String roundName = match.getRound() != null ? prettify(match.getRound().name()) : "your match";
 
         SportsAuctionTeam winnerTeam = match.getWinner();
-        SportsAuctionTeam loserTeam = otherSide(match, winnerTeam);
+        SportsAuctionTeam loserTeam = winnerTeam != null ? otherSide(match, winnerTeam) : null;
         String opponentName = loserTeam != null ? loserTeam.getTeamName() : "your opponent";
         String score = score(match);
 
-        // 1. Winner notification → the winning side's players.
-        for (AppUser user : teamUsers(winnerTeam)) {
-            resultEmailService.sendWinnerNotification(user, tournamentName, roundName, opponentName, score, null);
+        // 1. Winner notification → the winning side's players (if auction team exists).
+        if (winnerTeam != null) {
+            for (AppUser user : teamUsers(winnerTeam)) {
+                resultEmailService.sendWinnerNotification(user, tournamentName, roundName, opponentName, score, null);
+            }
         }
 
-        // 2. SportsTournament completion → everyone, once the FINAL is decided.
+        // 2. Tournament completion → everyone, once the FINAL is decided.
         if (match.getRound() == MatchRound.FINAL && config != null) {
-            String champion = winnerTeam.getTeamName();
+            String champion = winnerTeam != null ? winnerTeam.getTeamName() : (match.getWinnerName() != null ? match.getWinnerName() : "Champion");
             String runnerUp = loserTeam != null ? loserTeam.getTeamName() : "";
             String thirdPlace = thirdPlaceName(config.getId());
             resultEmailService.sendTournamentCompletion(

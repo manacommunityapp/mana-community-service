@@ -76,4 +76,53 @@ class CommunityModuleServiceTest {
 
         assertThat(enabled).isTrue();
     }
+
+    @Test
+    @DisplayName("bulkUpdate successfully processes known and new module keys without 404")
+    void bulkUpdateWithNewModulesSucceeds() {
+        Community community = TestDataBuilder.community();
+        when(communityRepository.findById(2L)).thenReturn(Optional.of(community));
+        when(communityModuleRepository.findByCommunityIdAndModuleKey(2L, "SPORTS")).thenReturn(Optional.empty());
+        when(communityModuleRepository.findByCommunityIdAndModuleKey(2L, "ENTERTAINMENT")).thenReturn(Optional.empty());
+        when(communityModuleRepository.findByCommunityIdAndModuleKey(2L, "CUSTOM_UNKNOWN_MODULE")).thenReturn(Optional.empty());
+        when(communityModuleRepository.save(any(CommunityModule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommunityModuleBulkRequest request = new CommunityModuleBulkRequest(
+                2L,
+                List.of(
+                        new CommunityModuleBulkRequest.ModuleToggle("SPORTS", true),
+                        new CommunityModuleBulkRequest.ModuleToggle("ENTERTAINMENT", true),
+                        new CommunityModuleBulkRequest.ModuleToggle("CUSTOM_UNKNOWN_MODULE", false)
+                )
+        );
+
+        List<CommunityModuleResponse> responses = communityModuleService.bulkUpdate(request);
+
+        assertThat(responses).hasSize(3);
+        assertThat(responses.get(0).moduleKey()).isEqualTo("SPORTS");
+        assertThat(responses.get(0).isEnabled()).isTrue();
+        assertThat(responses.get(1).moduleKey()).isEqualTo("ENTERTAINMENT");
+        assertThat(responses.get(1).isEnabled()).isTrue();
+        assertThat(responses.get(2).moduleKey()).isEqualTo("CUSTOM_UNKNOWN_MODULE");
+        assertThat(responses.get(2).moduleLabel()).isEqualTo("Custom Unknown Module");
+        assertThat(responses.get(2).isEnabled()).isFalse();
+
+        verify(communityModuleRepository, times(3)).save(any(CommunityModule.class));
+    }
+
+    @Test
+    @DisplayName("toggleModule successfully creates missing module and toggles enabled state")
+    void toggleModuleCreatesIfMissing() {
+        Community community = TestDataBuilder.community();
+        when(communityRepository.findById(2L)).thenReturn(Optional.of(community));
+        when(communityModuleRepository.findByCommunityIdAndModuleKey(2L, "ENTERTAINMENT")).thenReturn(Optional.empty());
+        when(communityModuleRepository.save(any(CommunityModule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommunityModuleResponse response = communityModuleService.toggleModule(2L, "ENTERTAINMENT", true);
+
+        assertThat(response.moduleKey()).isEqualTo("ENTERTAINMENT");
+        assertThat(response.isEnabled()).isTrue();
+        assertThat(response.moduleLabel()).isEqualTo("Entertainment & Movies");
+        verify(communityModuleRepository).save(any(CommunityModule.class));
+    }
 }

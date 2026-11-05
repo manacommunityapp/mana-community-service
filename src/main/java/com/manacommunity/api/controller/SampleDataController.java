@@ -62,6 +62,21 @@ public class SampleDataController {
     }
 
     @Operation(
+            summary = "Feed Sports Tournament Lifecycle Only",
+            description = "Seeds complete sports tournament lifecycle data (fixtures, standings, playoffs, final, champion results, and live scoring) up to tournament closure."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sports tournament lifecycle seeded successfully"),
+            @ApiResponse(responseCode = "400", description = "Failed to seed sports tournament lifecycle")
+    })
+    @PostMapping("/sports-lifecycle")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Map<String, Object>> feedSportsLifecycle() {
+        sampleDataService.seedSportsLifecycleOnly();
+        return ResponseEntity.ok(Map.of("message", "Sports tournament lifecycle data seeded successfully!", "status", "SUCCESS"));
+    }
+
+    @Operation(
             summary = "Feed All Sample Data",
             description = "Seeds full end-to-end sample data across all modules (Users, Roles, Venues, Tournaments, Events, Auctions, and Inventories)."
     )

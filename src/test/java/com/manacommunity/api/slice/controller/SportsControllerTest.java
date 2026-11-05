@@ -26,7 +26,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.http.MediaType;
 
 import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_SPORTS_MAIN;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
@@ -52,6 +55,7 @@ class SportsControllerTest extends BaseWebMvcTest {
     @MockitoBean PermissionCheckService     permissionCheckService;
     @MockitoBean SportsEventCsvImportService csvImportService;
     @MockitoBean com.manacommunity.api.sports.repository.SportsEventRegistrationRepository registrationRepo;
+    @MockitoBean com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
 
     // ── GET /api/sports/meta ──────────────────────────────────────────
 
@@ -94,6 +98,85 @@ class SportsControllerTest extends BaseWebMvcTest {
         void unauthenticated_returns4xx() throws Exception {
             mockMvc.perform(get("/api/sports/meta"))
                     .andExpect(status().is4xxClientError());
+        }
+    }
+
+    // ── POST /api/sports/meta ─────────────────────────────────────────
+
+    @Nested
+    @DisplayName("POST /api/sports/meta")
+    class CreateSport {
+
+        @Test
+        @WithMockUserPrincipal(role = "ADMIN")
+        @DisplayName("successfully creates sport when name is unique, returns 201")
+        void createSport_newSport_returns201() throws Exception {
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(CREATE_EDIT_SPORTS_MAIN));
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, false, 2L));
+            when(sportMetaRepo.findByNameAndCommunity(eq("Skating"), eq(2L)))
+                    .thenReturn(Optional.empty());
+            when(sportMetaRepo.save(any(SportsMeta.class))).thenAnswer(inv -> {
+                SportsMeta s = inv.getArgument(0);
+                s.setId(101L);
+                return s;
+            });
+
+            mockMvc.perform(post("/api/sports/meta")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "name": "Skating",
+                                      "icon": "🏆",
+                                      "iconUrl": "data:image/jpeg;base64,samplebase64",
+                                      "formats": ["SINGLES"],
+                                      "active": true
+                                    }
+                                    """))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(101))
+                    .andExpect(jsonPath("$.name").value("Skating"))
+                    .andExpect(jsonPath("$.iconUrl").value("data:image/jpeg;base64,samplebase64"));
+        }
+
+        @Test
+        @WithMockUserPrincipal(role = "ADMIN")
+        @DisplayName("reactivates and updates existing sport if already present in scope, returns 200 without 409 conflict")
+        void createSport_existingInactiveSport_reactivatesAndReturns200() throws Exception {
+            AppUser mockUser = AppUser.builder().id(1L).build();
+            SportsMeta existingInactive = SportsMeta.builder()
+                    .id(55L)
+                    .name("Skating")
+                    .active(false)
+                    .communityId(2L)
+                    .build();
+
+            doNothing().when(permissionCheckService).requireAnyPermission(any(), eq(CREATE_EDIT_SPORTS_MAIN));
+            when(loggedInUserService.resolveContext(any()))
+                    .thenReturn(new LoggedInUserService.ResolvedUser(mockUser, false, 2L));
+            when(sportMetaRepo.findByNameAndCommunity(eq("Skating"), eq(2L)))
+                    .thenReturn(Optional.of(existingInactive));
+            when(sportMetaRepo.save(any(SportsMeta.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            mockMvc.perform(post("/api/sports/meta")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "name": "Skating",
+                                      "icon": "🏆",
+                                      "iconUrl": "data:image/jpeg;base64,samplebase64",
+                                      "formats": ["SINGLES"],
+                                      "active": true
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(55))
+                    .andExpect(jsonPath("$.name").value("Skating"))
+                    .andExpect(jsonPath("$.active").value(true))
+                    .andExpect(jsonPath("$.iconUrl").value("data:image/jpeg;base64,samplebase64"));
         }
     }
 

@@ -1,22 +1,27 @@
 package com.manacommunity.api.sports.scheduler;
-import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.*;
-import com.manacommunity.api.sports.repository.*;
-import com.manacommunity.api.sports.model.*;
-import com.manacommunity.api.sports.dto.*;
-import com.manacommunity.api.sports.dto.BallEventRequest;
-import com.manacommunity.api.sports.dto.BallEventResponse;
-import com.manacommunity.api.sports.model.DismissalType;
-import com.manacommunity.api.sports.model.MatchStatus;
-import com.manacommunity.api.sports.model.SportsAuctionTeam;
 
-
-import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.sports.dto.BallEventRequest;
+import com.manacommunity.api.sports.dto.BallEventResponse;
+import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse;
+import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.BatterState;
+import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.BowlerState;
+import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse.InningsState;
+import com.manacommunity.api.sports.dto.SportsMatchResultRequest;
+import com.manacommunity.api.sports.model.DismissalType;
+import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.model.SportsAuctionPlayer;
+import com.manacommunity.api.sports.model.SportsAuctionTeam;
 import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 import com.manacommunity.api.sports.repository.SportsMatchBallEventRepository;
+import com.manacommunity.api.sports.repository.SportsScoringCommandRepository;
+import com.manacommunity.api.sports.repository.SportsScoringCorrectionRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
+import com.manacommunity.api.sports.repository.SportsScoringConfigRepository;
+import com.manacommunity.api.sports.service.SportsScoringAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,12 +41,39 @@ public class SportsLiveScoringService {
     private final SportsMatchBallEventRepository ballRepo;
     private final SportsTournamentMatchRepository matchRepo;
     private final SportsAuctionPlayerRepository playerRepo;
+    private final SportsScoringCommandRepository commandRepo;
+    private final SportsScoringCorrectionRepository correctionRepo;
+    private final SportsScoringAuthorizationService authService;
+    private final SportsScoringConfigRepository scoringConfigRepo;
+    private final SportsBracketGenerator bracketGenerator;
+    private final SportsTournamentResultNotifier resultNotifier;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public BallEventResponse recordBall(BallEventRequest req, Long userId) {
-        log.info("Recording ball event matchId={} innings={} batsmanId={} bowlerId={} userId={}", req.matchId(), req.inningsNumber(), req.batsmanId(), req.bowlerId(), userId);
+        log.info("Recording ball event matchId={} innings={} batsmanId={} bowlerId={} userId={}",
+                req.matchId(), req.inningsNumber(), req.batsmanId(), req.bowlerId(), userId);
+
+        // 1. Idempotency check: if commandId was previously processed, return snapshot
+        if (req.commandId() != null) {
+            Optional<SportsScoringCommand> existingCmd = commandRepo.findByCommandId(req.commandId());
+            if (existingCmd.isPresent() && existingCmd.get().getResponseSnapshot() != null) {
+                log.info("Idempotent hit for commandId={}", req.commandId());
+                try {
+                    return objectMapper.readValue(existingCmd.get().getResponseSnapshot(), BallEventResponse.class);
+                } catch (JsonProcessingException e) {
+                    log.warn("Failed to deserialize cached response for commandId={}", req.commandId(), e);
+                }
+            }
+        }
+
+        // 2. Validate scorer authorization
+        if (userId != null) {
+            authService.validateScorerForMatch(req.matchId(), userId);
+        }
+
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
-            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
         if (match.getStatus() != MatchStatus.LIVE) {
             match.setStatus(MatchStatus.LIVE);
@@ -50,7 +82,7 @@ public class SportsLiveScoringService {
         }
 
         List<SportsMatchBallEvent> existing = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(
-            req.matchId(), req.inningsNumber());
+                req.matchId(), req.inningsNumber());
 
         int deliveryNumber = existing.isEmpty() ? 1 : existing.get(existing.size() - 1).getDeliveryNumber() + 1;
 
@@ -71,70 +103,203 @@ public class SportsLiveScoringService {
         String totalOvers = overNumber + "." + ballInOver;
 
         SportsAuctionPlayer batsman = playerRepo.findById(req.batsmanId())
-            .orElseThrow(() -> new ResourceNotFoundException("Player", req.batsmanId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Player", req.batsmanId()));
         SportsAuctionPlayer bowler = playerRepo.findById(req.bowlerId())
-            .orElseThrow(() -> new ResourceNotFoundException("Player", req.bowlerId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Player", req.bowlerId()));
         SportsAuctionPlayer nonStriker = req.nonStrikerId() != null
-            ? playerRepo.findById(req.nonStrikerId()).orElse(null) : null;
+                ? playerRepo.findById(req.nonStrikerId()).orElse(null) : null;
         SportsAuctionPlayer dismissedPlayer = req.dismissedPlayerId() != null
-            ? playerRepo.findById(req.dismissedPlayerId()).orElse(null) : null;
+                ? playerRepo.findById(req.dismissedPlayerId()).orElse(null) : null;
         SportsAuctionPlayer fielder = req.fielderId() != null
-            ? playerRepo.findById(req.fielderId()).orElse(null) : null;
+                ? playerRepo.findById(req.fielderId()).orElse(null) : null;
 
         SportsMatchBallEvent event = SportsMatchBallEvent.builder()
-            .match(match)
-            .inningsNumber(req.inningsNumber())
-            .overNumber(overNumber)
-            .ballNumber(ballInOver)
-            .deliveryNumber(deliveryNumber)
-            .runsScored(req.runsScored() != null ? req.runsScored() : 0)
-            .isBoundary(Boolean.TRUE.equals(req.isBoundary()))
-            .isSix(Boolean.TRUE.equals(req.isSix()))
-            .extrasType(req.extrasType())
-            .extrasRuns(req.extrasRuns() != null ? req.extrasRuns() : 0)
-            .isWicket(isWicket)
-            .dismissalType(req.dismissalType() != null ? DismissalType.valueOf(req.dismissalType()) : null)
-            .dismissedPlayer(dismissedPlayer)
-            .fielder(fielder)
-            .batsman(batsman)
-            .nonStriker(nonStriker)
-            .bowler(bowler)
-            .totalRuns(newTotalRuns)
-            .totalWickets(newTotalWickets)
-            .totalOvers(totalOvers)
-            .commentary(req.commentary())
-            .isUndone(false)
-            .createdBy(userId)
-            .build();
+                .match(match)
+                .commandId(req.commandId())
+                .inningsNumber(req.inningsNumber())
+                .overNumber(overNumber)
+                .ballNumber(ballInOver)
+                .deliveryNumber(deliveryNumber)
+                .runsScored(req.runsScored() != null ? req.runsScored() : 0)
+                .isBoundary(Boolean.TRUE.equals(req.isBoundary()))
+                .isSix(Boolean.TRUE.equals(req.isSix()))
+                .extrasType(req.extrasType())
+                .extrasRuns(req.extrasRuns() != null ? req.extrasRuns() : 0)
+                .isWicket(isWicket)
+                .dismissalType(req.dismissalType() != null ? DismissalType.valueOf(req.dismissalType()) : null)
+                .dismissedPlayer(dismissedPlayer)
+                .fielder(fielder)
+                .batsman(batsman)
+                .nonStriker(nonStriker)
+                .bowler(bowler)
+                .totalRuns(newTotalRuns)
+                .totalWickets(newTotalWickets)
+                .totalOvers(totalOvers)
+                .commentary(req.commentary())
+                .isUndone(false)
+                .createdBy(userId)
+                .build();
 
         ballRepo.save(event);
 
-        match.setScoreTeamA(req.inningsNumber() == 1 ? newTotalRuns + "/" + newTotalWickets + " (" + totalOvers + " ov)" : match.getScoreTeamA());
-        match.setScoreTeamB(req.inningsNumber() == 2 ? newTotalRuns + "/" + newTotalWickets + " (" + totalOvers + " ov)" : match.getScoreTeamB());
-        matchRepo.save(match);
+        String scoreFormatted = newTotalRuns + "/" + newTotalWickets + " (" + totalOvers + " ov)";
+        if (isTeamABatting(match, req.inningsNumber())) {
+            match.setScoreTeamA(scoreFormatted);
+        } else {
+            match.setScoreTeamB(scoreFormatted);
+        }
 
-        return toBallEventResponse(event);
+        // ── Auto-completion checks for Overs Quota & Target Chase ──
+        int oversLimit = 20;
+        if (match.getConfig() != null && scoringConfigRepo != null) {
+            var scOpt = scoringConfigRepo.findByConfigId(match.getConfig().getId());
+            if (scOpt.isPresent() && scOpt.get().getOversPerInnings() != null && scOpt.get().getOversPerInnings() > 0) {
+                oversLimit = scOpt.get().getOversPerInnings();
+            }
+        }
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            try {
+                Map<?, ?> override = objectMapper.readValue(match.getMatchConfigOverrideJson(), Map.class);
+                if (override.get("oversPerInnings") != null) {
+                    oversLimit = ((Number) override.get("oversPerInnings")).intValue();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        int totalLegalDeliveries = 0;
+        for (SportsMatchBallEvent b : existing) {
+            if (b.getExtrasType() == null || (!"WIDE".equalsIgnoreCase(b.getExtrasType()) && !"NO_BALL".equalsIgnoreCase(b.getExtrasType()))) {
+                totalLegalDeliveries++;
+            }
+        }
+        if (req.extrasType() == null || (!"WIDE".equalsIgnoreCase(req.extrasType()) && !"NO_BALL".equalsIgnoreCase(req.extrasType()))) {
+            totalLegalDeliveries++;
+        }
+
+        // Target reached in Innings 2?
+        if (req.inningsNumber() == 2) {
+            List<SportsMatchBallEvent> inn1Balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(match.getId(), 1);
+            int targetRuns = inn1Balls.isEmpty() ? 0 : (inn1Balls.get(inn1Balls.size() - 1).getTotalRuns() + 1);
+            if (newTotalRuns >= targetRuns && targetRuns > 0) {
+                match.setStatus(MatchStatus.COMPLETED);
+                match.setCompletedAt(LocalDateTime.now());
+                SportsAuctionTeam chasingTeam = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
+                match.setWinner(chasingTeam);
+                match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                int remainingWickets = 10 - newTotalWickets;
+                match.setWinMargin(chasingTeam.getTeamName() + " won by " + remainingWickets + " wickets");
+            } else if (totalLegalDeliveries >= oversLimit * 6 || newTotalWickets >= 10) {
+                // Overs limit reached or all out in 2nd innings
+                match.setStatus(MatchStatus.COMPLETED);
+                match.setCompletedAt(LocalDateTime.now());
+                SportsAuctionTeam teamInn1 = isTeamABatting(match, 1) ? match.getTeamA() : match.getTeamB();
+                SportsAuctionTeam teamInn2 = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
+                int inn1Runs = inn1Balls.isEmpty() ? 0 : inn1Balls.get(inn1Balls.size() - 1).getTotalRuns();
+                if (newTotalRuns > inn1Runs) {
+                    match.setWinner(teamInn2);
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                    match.setWinMargin(teamInn2.getTeamName() + " won by " + (10 - newTotalWickets) + " wickets");
+                } else if (newTotalRuns < inn1Runs) {
+                    match.setWinner(teamInn1);
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.WIN);
+                    match.setWinMargin(teamInn1.getTeamName() + " won by " + (inn1Runs - newTotalRuns) + " runs");
+                } else {
+                    match.setResultType(com.manacommunity.api.sports.model.ResultType.DRAW);
+                    match.setWinMargin("Match Tied");
+                }
+            }
+        }
+
+        SportsTournamentMatch saved = matchRepo.save(match);
+        if (saved != null) {
+            match = saved;
+        }
+
+        if (match != null && match.getStatus() == MatchStatus.COMPLETED) {
+            try {
+                bracketGenerator.applyResult(new SportsMatchResultRequest(
+                    match.getId(),
+                    match.getWinner() != null ? match.getWinner().getId() : null,
+                    match.getScoreTeamA(),
+                    match.getScoreTeamB(),
+                    match.getWinMargin(),
+                    null, null, null, null,
+                    match.getWinner() != null ? match.getWinner().getTeamName() : match.getWinnerName(),
+                    null
+                ));
+                resultNotifier.notifyMatchResult(match.getId());
+            } catch (Exception ex) {
+                log.warn("Failed to advance bracket or notify on live match completion: {}", ex.getMessage());
+            }
+        }
+
+        BallEventResponse response = toBallEventResponse(event);
+
+        // Store command for idempotency
+        if (req.commandId() != null) {
+            String payloadJson = null;
+            String responseJson = null;
+            try {
+                payloadJson = objectMapper.writeValueAsString(req);
+                responseJson = objectMapper.writeValueAsString(response);
+            } catch (JsonProcessingException ignored) {}
+
+            SportsScoringCommand cmd = SportsScoringCommand.builder()
+                    .commandId(req.commandId())
+                    .match(match)
+                    .sequenceNo((long) deliveryNumber)
+                    .commandType("RECORD_BALL")
+                    .payload(payloadJson)
+                    .responseSnapshot(responseJson)
+                    .appliedBy(userId)
+                    .appliedAt(LocalDateTime.now())
+                    .build();
+            commandRepo.save(cmd);
+        }
+
+        return response;
     }
 
     @Transactional
     public BallEventResponse undoLastBall(Long matchId, Integer inningsNumber) {
         log.info("Undoing last ball matchId={} innings={}", matchId, inningsNumber);
         List<SportsMatchBallEvent> balls = ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(
-            matchId, inningsNumber);
+                matchId, inningsNumber);
         if (balls.isEmpty()) throw new InvalidInputException("No balls to undo for this innings.");
 
         SportsMatchBallEvent last = balls.get(balls.size() - 1);
         last.setIsUndone(true);
         ballRepo.save(last);
 
+        SportsTournamentMatch match = last.getMatch();
         if (balls.size() > 1) {
             SportsMatchBallEvent prev = balls.get(balls.size() - 2);
-            SportsTournamentMatch match = last.getMatch();
             String score = prev.getTotalRuns() + "/" + prev.getTotalWickets() + " (" + prev.getTotalOvers() + " ov)";
-            if (inningsNumber == 1) match.setScoreTeamA(score);
-            else match.setScoreTeamB(score);
-            matchRepo.save(match);
+            if (isTeamABatting(match, inningsNumber)) {
+                match.setScoreTeamA(score);
+            } else {
+                match.setScoreTeamB(score);
+            }
+        } else {
+            // Sole ball in innings was undone: reset to 0/0 (0.0 ov)
+            String resetScore = "0/0 (0.0 ov)";
+            if (isTeamABatting(match, inningsNumber)) {
+                match.setScoreTeamA(resetScore);
+            } else {
+                match.setScoreTeamB(resetScore);
+            }
         }
+        matchRepo.save(match);
+
+        // Record audit trail of correction
+        correctionRepo.save(SportsScoringCorrection.builder()
+                .match(match)
+                .originalEventId(last.getId())
+                .correctionType("UNDO_BALL")
+                .reason("Undid delivery #" + last.getDeliveryNumber() + " in innings " + inningsNumber)
+                .correctedBy(last.getCreatedBy())
+                .createdAt(LocalDateTime.now())
+                .build());
 
         return toBallEventResponse(last);
     }
@@ -143,7 +308,7 @@ public class SportsLiveScoringService {
     public void startInnings(Long matchId, Integer inningsNumber) {
         log.info("Starting innings matchId={} innings={}", matchId, inningsNumber);
         SportsTournamentMatch match = matchRepo.findById(matchId)
-            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         if (match.getStatus() != MatchStatus.LIVE) {
             match.setStatus(MatchStatus.LIVE);
             if (match.getStartedAt() == null) match.setStartedAt(LocalDateTime.now());
@@ -154,7 +319,7 @@ public class SportsLiveScoringService {
     @Transactional(readOnly = true)
     public SportsLiveMatchStateResponse getMatchState(Long matchId) {
         SportsTournamentMatch match = matchRepo.findById(matchId)
-            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
 
         List<SportsMatchBallEvent> allBalls = ballRepo.findByMatchIdAndIsUndoneFalseOrderByDeliveryNumber(matchId);
         List<SportsMatchBallEvent> inn1Balls = allBalls.stream().filter(b -> b.getInningsNumber() == 1).toList();
@@ -188,36 +353,97 @@ public class SportsLiveScoringService {
         }
 
         List<BallEventResponse> recentBalls = currentBalls.stream()
-            .skip(Math.max(0, currentBalls.size() - 12))
-            .map(this::toBallEventResponse).toList();
+                .skip(Math.max(0, currentBalls.size() - 12))
+                .map(this::toBallEventResponse).toList();
+
+        SportsAuctionTeam teamInn1 = isTeamABatting(match, 1) ? match.getTeamA() : match.getTeamB();
+        SportsAuctionTeam teamInn2 = isTeamABatting(match, 2) ? match.getTeamA() : match.getTeamB();
+
+        Integer oversLimit = 20;
+        Integer maxOversPerBowler = 4;
+        Integer ballsPerOver = 6;
+
+        if (match.getConfig() != null && scoringConfigRepo != null) {
+            Optional<SportsScoringConfig> scOpt = scoringConfigRepo.findByConfigId(match.getConfig().getId());
+            if (scOpt.isPresent()) {
+                SportsScoringConfig sc = scOpt.get();
+                if (sc.getOversPerInnings() != null && sc.getOversPerInnings() > 0) oversLimit = sc.getOversPerInnings();
+                if (sc.getMaxOversPerBowler() != null && sc.getMaxOversPerBowler() > 0) maxOversPerBowler = sc.getMaxOversPerBowler();
+                if (sc.getBallsPerOver() != null && sc.getBallsPerOver() > 0) ballsPerOver = sc.getBallsPerOver();
+            }
+        }
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            try {
+                Map<?, ?> override = objectMapper.readValue(match.getMatchConfigOverrideJson(), Map.class);
+                if (override.get("oversPerInnings") != null) {
+                    oversLimit = ((Number) override.get("oversPerInnings")).intValue();
+                }
+                if (override.get("maxOversPerBowler") != null) {
+                    maxOversPerBowler = ((Number) override.get("maxOversPerBowler")).intValue();
+                }
+            } catch (Exception ignored) {}
+        }
 
         return new SportsLiveMatchStateResponse(
-            matchId,
-            match.getStatus().name(),
-            currentInnings,
-            buildInningsState(inn1Balls, match.getTeamA()),
-            buildInningsState(inn2Balls, match.getTeamB()),
-            batsmanOnStrikeId, batsmanOnStrikeName,
-            batsmanNonStrikeId, batsmanNonStrikeName,
-            currentBowlerId, currentBowlerName,
-            recentBalls,
-            match.getTeamA() != null ? match.getTeamA().getTeamName() : "TBD",
-            match.getTeamB() != null ? match.getTeamB().getTeamName() : "TBD",
-            match.getTeamA() != null ? match.getTeamA().getColorHex() : "#555",
-            match.getTeamB() != null ? match.getTeamB().getColorHex() : "#555",
-            match.getTeamA() != null ? match.getTeamA().getId() : null,
-            match.getTeamB() != null ? match.getTeamB().getId() : null,
-            target
+                matchId,
+                match.getStatus().name(),
+                currentInnings,
+                buildInningsState(inn1Balls, teamInn1),
+                buildInningsState(inn2Balls, teamInn2),
+                batsmanOnStrikeId, batsmanOnStrikeName,
+                batsmanNonStrikeId, batsmanNonStrikeName,
+                currentBowlerId, currentBowlerName,
+                recentBalls,
+                match.getTeamA() != null ? match.getTeamA().getTeamName() : "TBD",
+                match.getTeamB() != null ? match.getTeamB().getTeamName() : "TBD",
+                match.getTeamA() != null ? match.getTeamA().getColorHex() : "#555",
+                match.getTeamB() != null ? match.getTeamB().getColorHex() : "#555",
+                match.getTeamA() != null ? match.getTeamA().getId() : null,
+                match.getTeamB() != null ? match.getTeamB().getId() : null,
+                target,
+                oversLimit,
+                maxOversPerBowler,
+                ballsPerOver
         );
     }
 
-    private InningsState buildInningsState(List<SportsMatchBallEvent> balls, com.manacommunity.api.sports.model.SportsAuctionTeam team) {
+    /**
+     * Accurately determines whether Team A or Team B is batting in a given innings
+     * based on toss winner and toss decision.
+     */
+    public boolean isTeamABatting(SportsTournamentMatch match, int inningsNumber) {
+        if (match.getTeamA() == null || match.getTeamB() == null) {
+            return inningsNumber == 1;
+        }
+
+        boolean teamAWonToss = match.getTossWinner() != null
+                && match.getTossWinner().getId().equals(match.getTeamA().getId());
+        boolean teamBWonToss = match.getTossWinner() != null
+                && match.getTossWinner().getId().equals(match.getTeamB().getId());
+
+        boolean tossWinnerChoseToBat = match.getTossDecision() == null
+                || "BAT".equalsIgnoreCase(match.getTossDecision())
+                || "BATTING".equalsIgnoreCase(match.getTossDecision());
+
+        boolean teamABattedFirst;
+        if (teamAWonToss) {
+            teamABattedFirst = tossWinnerChoseToBat;
+        } else if (teamBWonToss) {
+            teamABattedFirst = !tossWinnerChoseToBat;
+        } else {
+            teamABattedFirst = true; // default: Team A bats first
+        }
+
+        return inningsNumber == 1 ? teamABattedFirst : !teamABattedFirst;
+    }
+
+    private InningsState buildInningsState(List<SportsMatchBallEvent> balls, SportsAuctionTeam team) {
         if (balls.isEmpty()) {
             return new InningsState(
-                team != null ? team.getId() : null,
-                team != null ? team.getTeamName() : "TBD",
-                0, 0, "0.0", "0.00",
-                Collections.emptyList(), Collections.emptyList(), Collections.emptyList()
+                    team != null ? team.getId() : null,
+                    team != null ? team.getTeamName() : "TBD",
+                    0, 0, "0.0", "0.00",
+                    Collections.emptyList(), Collections.emptyList(), Collections.emptyList()
             );
         }
 
@@ -228,14 +454,11 @@ public class SportsLiveScoringService {
 
         int legalBalls = countLegalBalls(balls);
         BigDecimal oversDecimal = legalBalls > 0
-            ? new BigDecimal(legalBalls).divide(BigDecimal.valueOf(6), 4, RoundingMode.HALF_UP)
-            : BigDecimal.ZERO;
+                ? new BigDecimal(legalBalls).divide(BigDecimal.valueOf(6), 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
         String runRate = oversDecimal.compareTo(BigDecimal.ZERO) > 0
-            ? new BigDecimal(totalRuns).divide(oversDecimal, 2, RoundingMode.HALF_UP).toPlainString()
-            : "0.00";
-
-        Map<Long, BatterState> batters = new LinkedHashMap<>();
-        Map<Long, BowlerState> bowlers = new LinkedHashMap<>();
+                ? new BigDecimal(totalRuns).divide(oversDecimal, 2, RoundingMode.HALF_UP).toPlainString()
+                : "0.00";
 
         Map<Long, int[]> batterStats = new LinkedHashMap<>();
         Map<Long, String> batterNames = new LinkedHashMap<>();
@@ -290,15 +513,6 @@ public class SportsLiveScoringService {
             bowlerList.add(new BowlerState(pid, bowlerNames.get(pid), overs, s[0], s[1], 0, eco, s[3]));
         }
 
-        int currentOverStart = balls.stream()
-            .filter(b -> isLegalDelivery(b.getExtrasType()))
-            .mapToInt(SportsMatchBallEvent::getOverNumber)
-            .max().orElse(0);
-        List<String> thisOver = balls.stream()
-            .filter(b -> b.getOverNumber() >= currentOverStart || !isLegalDelivery(b.getExtrasType()))
-            .skip(Math.max(0, balls.stream().filter(b -> b.getOverNumber() < currentOverStart).count()))
-            .map(this::formatBallShort)
-            .collect(Collectors.toCollection(ArrayList::new));
         List<String> currentOverBalls = new ArrayList<>();
         for (int i = balls.size() - 1; i >= 0; i--) {
             SportsMatchBallEvent b = balls.get(i);
@@ -307,10 +521,10 @@ public class SportsLiveScoringService {
         }
 
         return new InningsState(
-            team != null ? team.getId() : null,
-            team != null ? team.getTeamName() : "TBD",
-            totalRuns, totalWickets, totalOvers, runRate,
-            batterList, bowlerList, currentOverBalls
+                team != null ? team.getId() : null,
+                team != null ? team.getTeamName() : "TBD",
+                totalRuns, totalWickets, totalOvers, runRate,
+                batterList, bowlerList, currentOverBalls
         );
     }
 
@@ -340,23 +554,23 @@ public class SportsLiveScoringService {
 
     private BallEventResponse toBallEventResponse(SportsMatchBallEvent e) {
         return new BallEventResponse(
-            e.getId(), e.getMatch().getId(),
-            e.getInningsNumber(), e.getOverNumber(), e.getBallNumber(), e.getDeliveryNumber(),
-            e.getRunsScored(), e.getIsBoundary(), e.getIsSix(),
-            e.getExtrasType(), e.getExtrasRuns(),
-            e.getIsWicket(),
-            e.getDismissalType() != null ? e.getDismissalType().name() : null,
-            e.getDismissedPlayer() != null ? e.getDismissedPlayer().getId() : null,
-            e.getDismissedPlayer() != null ? e.getDismissedPlayer().getPlayerName() : null,
-            e.getFielder() != null ? e.getFielder().getId() : null,
-            e.getFielder() != null ? e.getFielder().getPlayerName() : null,
-            e.getBatsman().getId(), e.getBatsman().getPlayerName(),
-            e.getNonStriker() != null ? e.getNonStriker().getId() : null,
-            e.getNonStriker() != null ? e.getNonStriker().getPlayerName() : null,
-            e.getBowler().getId(), e.getBowler().getPlayerName(),
-            e.getTotalRuns(), e.getTotalWickets(), e.getTotalOvers(),
-            e.getCommentary(),
-            e.getCreatedAt() != null ? e.getCreatedAt().toString() : null
+                e.getId(), e.getMatch().getId(),
+                e.getInningsNumber(), e.getOverNumber(), e.getBallNumber(), e.getDeliveryNumber(),
+                e.getRunsScored(), e.getIsBoundary(), e.getIsSix(),
+                e.getExtrasType(), e.getExtrasRuns(),
+                e.getIsWicket(),
+                e.getDismissalType() != null ? e.getDismissalType().name() : null,
+                e.getDismissedPlayer() != null ? e.getDismissedPlayer().getId() : null,
+                e.getDismissedPlayer() != null ? e.getDismissedPlayer().getPlayerName() : null,
+                e.getFielder() != null ? e.getFielder().getId() : null,
+                e.getFielder() != null ? e.getFielder().getPlayerName() : null,
+                e.getBatsman().getId(), e.getBatsman().getPlayerName(),
+                e.getNonStriker() != null ? e.getNonStriker().getId() : null,
+                e.getNonStriker() != null ? e.getNonStriker().getPlayerName() : null,
+                e.getBowler().getId(), e.getBowler().getPlayerName(),
+                e.getTotalRuns(), e.getTotalWickets(), e.getTotalOvers(),
+                e.getCommentary(),
+                e.getCreatedAt() != null ? e.getCreatedAt().toString() : null
         );
     }
 }

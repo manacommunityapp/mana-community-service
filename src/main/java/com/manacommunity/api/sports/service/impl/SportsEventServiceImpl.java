@@ -723,7 +723,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 notificationService.createNotification(
                         partner.getId(),
                         NotificationType.PARTNER_SELECTED,
-                        NotificationCategory.EVENTS,
+                        NotificationCategory.SPORTS,
                         "Doubles Partner Invitation — " + event.getName(),
                         body,
                         "/sports?tab=my-sports&confirmPartner=" + saved.getId(),
@@ -858,7 +858,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         : "Your registration for " + eventName + " was removed by an organizer"
                                 + (reason != null && !reason.isBlank() ? ": " + reason : ".");
                 notificationService.createNotification(
-                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        reg.getUser().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.SPORTS,
                         "Registration Withdrawn", msg, null, ReferenceType.SPORTS_EVENT, eventId,
                         NotificationPriority.NORMAL, null, null);
             }
@@ -866,7 +866,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             if (reg.getPartner() != null && reg.getPartner().getId() != null
                     && (reg.getUser() == null || !reg.getPartner().getId().equals(reg.getUser().getId()))) {
                 notificationService.createNotification(
-                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.EVENTS,
+                        reg.getPartner().getId(), NotificationType.REGISTRATION_WITHDRAWN, NotificationCategory.SPORTS,
                         "Partner Withdrew",
                         who + " has withdrawn from " + eventName + ". You may need to nominate a new partner.",
                         null, ReferenceType.SPORTS_EVENT, eventId,
@@ -1191,7 +1191,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                 notificationService.createNotification(
                         reg.getUser().getId(),
                         type,
-                        NotificationCategory.EVENTS,
+                        NotificationCategory.SPORTS,
                         title,
                         msg,
                         null,
@@ -1258,30 +1258,8 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEvent event = eventRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", id));
 
-        SportsTournament tournament = event.getTournament();
-        if (tournament != null) {
-            tournament.setRegistrationStatus(tournamentStatus);
-            tournamentRepo.save(tournament);
-        }
-
         boolean isClosing = tournamentStatus == SportsEventStatus.COMPLETED
                 || tournamentStatus == SportsEventStatus.CANCELLED;
-
-        if (isClosing && tournament != null && tournament.getSportsEvents() != null) {
-            for (SportsEvent sibling : tournament.getSportsEvents()) {
-                sibling.setActive(false);
-                sibling.setStatus(tournamentStatus);
-                sibling.setUpdatedAt(LocalDateTime.now());
-                eventRepo.save(sibling);
-            }
-        } else if (tournament != null && tournament.getSportsEvents() != null) {
-            for (SportsEvent sibling : tournament.getSportsEvents()) {
-                sibling.setActive(true);
-                sibling.setStatus(tournamentStatus);
-                sibling.setUpdatedAt(LocalDateTime.now());
-                eventRepo.save(sibling);
-            }
-        }
 
         event.setUpdatedAt(LocalDateTime.now());
         if (isClosing) {
@@ -1291,6 +1269,35 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
         event.setStatus(tournamentStatus);
         SportsEvent saved = eventRepo.save(event);
+
+        // Keep parent tournament registrationStatus in sync without overwriting sibling events
+        SportsTournament tournament = event.getTournament();
+        if (tournament != null) {
+            if (tournamentStatus == SportsEventStatus.REGISTRATION_OPEN || tournamentStatus == SportsEventStatus.LIVE) {
+                // If tournament was in DRAFT, opening an event activates the tournament
+                if (tournament.getRegistrationStatus() == null || tournament.getRegistrationStatus() == SportsEventStatus.DRAFT) {
+                    tournament.setRegistrationStatus(SportsEventStatus.REGISTRATION_OPEN);
+                    tournament.setUpdatedAt(LocalDateTime.now());
+                    tournamentRepo.save(tournament);
+                }
+            } else if (tournamentStatus == SportsEventStatus.REGISTRATION_CLOSED || isClosing) {
+                // Only mark tournament closed if all sibling events in this tournament are closed or completed
+                List<SportsEvent> siblings = tournament.getSportsEvents();
+                if (siblings != null && !siblings.isEmpty()) {
+                    boolean allClosedOrCompleted = siblings.stream()
+                            .allMatch(s -> s.getId().equals(id)
+                                    ? (tournamentStatus == SportsEventStatus.REGISTRATION_CLOSED || isClosing)
+                                    : (s.getStatus() == SportsEventStatus.REGISTRATION_CLOSED 
+                                       || s.getStatus() == SportsEventStatus.COMPLETED 
+                                       || s.getStatus() == SportsEventStatus.CANCELLED));
+                    if (allClosedOrCompleted) {
+                        tournament.setRegistrationStatus(tournamentStatus);
+                        tournament.setUpdatedAt(LocalDateTime.now());
+                        tournamentRepo.save(tournament);
+                    }
+                }
+            }
+        }
 
         notifyEventParticipants(saved, tournamentStatus);
 
@@ -1718,7 +1725,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
 
             notificationService.createBulkNotifications(
-                    userIds, type, NotificationCategory.EVENTS,
+                    userIds, type, NotificationCategory.SPORTS,
                     title, body, null,
                     ReferenceType.SPORTS_EVENT, event.getId(),
                     priority, null,

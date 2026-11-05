@@ -49,6 +49,7 @@ server:
 app:
   #insert-sample-data: ${APP_INSERT_SAMPLE_DATA:false}
   insert-sample-data: false
+  insert-sports-sample-data: ${APP_INSERT_SPORTS_SAMPLE_DATA:false}
   # AI/Ollama integration — temporarily OFF (no Ollama server in the dev env).
   ai:
     enabled: false
@@ -63,6 +64,11 @@ app:
     recipient-mode: NONE
   security:
     mock-auth-enabled: false
+    rate-limit:
+      enabled: ${RATE_LIMIT_ENABLED:false}
+    auth-rate-limit:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:false}
+      bypass-localhost: true
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}

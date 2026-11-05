@@ -41,11 +41,11 @@ public class RegistrationSecurityProperties {
         /** Digits in the generated code. */
         private int length = 6;
         /** Minutes a freshly issued code stays valid. */
-        private int ttlMinutes = 10;
+        private int ttlMinutes = 5;
         /** Max codes that may be sent to one email within a rolling hour. */
-        private int maxSendsPerHour = 3;
+        private int maxSendsPerHour = 10;
         /** Max verify attempts allowed per issued code before it is consumed. */
-        private int maxVerifyAttempts = 3;
+        private int maxVerifyAttempts = 5;
         /** How long (minutes) a verified email stays "unlocked" for registration. */
         private int verifiedWindowMinutes = 30;
     }
