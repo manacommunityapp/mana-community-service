@@ -103,6 +103,8 @@ public class FreshWeightAdjustmentService {
 
         String ref = "WADJ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String walletTxnRef = null;
+        boolean isSurchargePending = false;
+        BigDecimal pendingSurcharge = BigDecimal.ZERO;
 
         if (status == WeightAdjustmentStatus.REFUNDED_TO_WALLET && customer != null && refundOrCharge.compareTo(BigDecimal.ZERO) > 0 && walletService != null) {
             try {
@@ -121,7 +123,9 @@ public class FreshWeightAdjustmentService {
                 walletTxnRef = "TXN-" + ref;
                 log.info("Debited wallet ₹{} from user {} for overweight item {}", refundOrCharge, customer.getId(), item.getId());
             } catch (Exception ex) {
-                log.warn("Wallet debit skipped for weight adjustment {}: {}", ref, ex.getMessage());
+                log.warn("Wallet debit failed for weight adjustment {} (insufficient funds): {}. Flagging pending surcharge.", ref, ex.getMessage());
+                isSurchargePending = true;
+                pendingSurcharge = refundOrCharge;
             }
         }
 
@@ -142,6 +146,8 @@ public class FreshWeightAdjustmentService {
                 .reason(req.getReason())
                 .weighedByUser(weighedBy)
                 .walletTransactionRef(walletTxnRef)
+                .isSurchargePending(isSurchargePending)
+                .pendingSurchargeAmount(pendingSurcharge)
                 .build();
 
         FreshWeightAdjustmentLog saved = weightLogRepository.save(logEntry);
@@ -197,6 +203,8 @@ public class FreshWeightAdjustmentService {
                 .adjustmentStatus(entry.getAdjustmentStatus())
                 .reason(entry.getReason())
                 .walletTransactionRef(entry.getWalletTransactionRef())
+                .isSurchargePending(entry.getIsSurchargePending())
+                .pendingSurchargeAmount(entry.getPendingSurchargeAmount())
                 .weighedAt(entry.getWeighedAt())
                 .build();
     }

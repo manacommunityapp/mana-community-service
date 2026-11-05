@@ -90,6 +90,11 @@ public class FreshFulfilmentGroup {
     @Builder.Default
     private Boolean requiresColdChain = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dietary_category", nullable = false, length = 30)
+    @Builder.Default
+    private DietaryCategory dietaryCategory = DietaryCategory.VEGETARIAN;
+
     @Column(name = "failed_otp_attempts", nullable = false)
     @Builder.Default
     private Integer failedOtpAttempts = 0;

@@ -21,4 +21,13 @@ public interface VendorProductionCapacityRepository extends JpaRepository<Vendor
     List<VendorProductionCapacity> findByProductionDate(LocalDate productionDate);
 
     List<VendorProductionCapacity> findByVendorIdOrderByProductionDateDesc(String vendorId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE VendorProductionCapacity c " +
+            "SET c.reservedQuantity = c.reservedQuantity + :qty, " +
+            "    c.availableQuantity = c.availableQuantity - :qty, " +
+            "    c.isSoldOut = CASE WHEN (c.availableQuantity - :qty) <= 0 THEN true ELSE false END " +
+            "WHERE c.id = :id AND c.availableQuantity >= :qty")
+    int reserveCapacityAtomic(@org.springframework.data.repository.query.Param("id") Long id,
+                              @org.springframework.data.repository.query.Param("qty") int qty);
 }

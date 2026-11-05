@@ -22,7 +22,7 @@ public class DailyBasketScheduler {
      * Evaluates all resident daily baskets and generates authoritative CommerceOrders
      * for tomorrow morning's fresh batter and daily essentials delivery.
      */
-    @Scheduled(cron = "0 0 22 * * *")
+    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Kolkata")
     public void runNightlyDailyBasketGeneration() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         log.info("Starting Nightly Daily Basket CommerceOrder generation for {}", tomorrow);
@@ -39,7 +39,7 @@ public class DailyBasketScheduler {
      * Sends push notification reminders to residents scheduled for tomorrow morning's delivery
      * informing them to review, customize, or pause their basket before the 10:00 PM cutoff.
      */
-    @Scheduled(cron = "0 0 20 * * *")
+    @Scheduled(cron = "0 0 20 * * *", zone = "Asia/Kolkata")
     public void runEveningCutoffReminders() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         log.info("Starting evening 8:00 PM Daily Basket cutoff reminders for {}", tomorrow);
@@ -55,7 +55,7 @@ public class DailyBasketScheduler {
      * Transitions today's confirmed morning orders to OUT_FOR_DELIVERY and sends
      * push notifications containing the live 6-digit doorstep handover PIN.
      */
-    @Scheduled(cron = "0 0 6 * * *")
+    @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Kolkata")
     public void runMorningDispatchAlerts() {
         LocalDate today = LocalDate.now();
         log.info("Starting morning 6:00 AM Daily Basket dispatch notifications for {}", today);

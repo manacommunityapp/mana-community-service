@@ -79,6 +79,14 @@ public class FreshWeightAdjustmentLog {
     @Column(name = "wallet_transaction_ref", length = 100)
     private String walletTransactionRef;
 
+    @Column(name = "is_surcharge_pending", nullable = false)
+    @Builder.Default
+    private Boolean isSurchargePending = false;
+
+    @Column(name = "pending_surcharge_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal pendingSurchargeAmount = BigDecimal.ZERO;
+
     @CreationTimestamp
     @Column(name = "weighed_at", nullable = false, updatable = false)
     private Instant weighedAt;

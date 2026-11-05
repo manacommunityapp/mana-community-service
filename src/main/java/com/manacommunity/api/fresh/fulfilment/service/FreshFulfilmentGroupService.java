@@ -79,6 +79,7 @@ public class FreshFulfilmentGroupService {
             FulfilmentOwnerType ownerType = FulfilmentOwnerType.VENDOR;
             DeliveryMode deliveryMode = DeliveryMode.VENDOR_DELIVERY;
             boolean coldChain = false;
+            DietaryCategory dietaryCategory = DietaryCategory.VEGETARIAN;
 
             if (profile != null) {
                 if (profile.getFulfilmentOwnerType() != null) {
@@ -90,9 +91,12 @@ public class FreshFulfilmentGroupService {
                 if (profile.getStorageInstruction() != null && profile.getStorageInstruction().toLowerCase().contains("cold")) {
                     coldChain = true;
                 }
+                if (profile.getCapabilityType() != null) {
+                    dietaryCategory = profile.getCapabilityType().toDietaryCategory();
+                }
             }
 
-            GroupPartitionKey key = new GroupPartitionKey(vendorId, ownerType, deliveryMode, coldChain);
+            GroupPartitionKey key = new GroupPartitionKey(vendorId, ownerType, deliveryMode, coldChain, dietaryCategory);
             partitions.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
         }
 
@@ -128,6 +132,7 @@ public class FreshFulfilmentGroupService {
                     .deliveryMode(key.deliveryMode())
                     .status(FulfilmentGroupStatus.CREATED)
                     .requiresColdChain(key.requiresColdChain())
+                    .dietaryCategory(key.dietaryCategory())
                     .handoverOtp(otp)
                     .qrCodeToken(qrToken)
                     .subtotalAmount(subtotal)
@@ -307,6 +312,7 @@ public class FreshFulfilmentGroupService {
                 .subtotalAmount(group.getSubtotalAmount())
                 .totalWeightG(group.getTotalWeightG())
                 .requiresColdChain(group.getRequiresColdChain())
+                .dietaryCategory(group.getDietaryCategory())
                 .failedOtpAttempts(group.getFailedOtpAttempts())
                 .isHandoverLocked(group.getIsHandoverLocked())
                 .items(itemDtos)
@@ -339,6 +345,7 @@ public class FreshFulfilmentGroupService {
             Long vendorId,
             FulfilmentOwnerType ownerType,
             DeliveryMode deliveryMode,
-            boolean requiresColdChain
+            boolean requiresColdChain,
+            DietaryCategory dietaryCategory
     ) {}
 }

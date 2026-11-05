@@ -46,6 +46,8 @@ public class FreshRecallService {
     private final AppUserRepository userRepository;
     private final CommerceWalletService walletService;
     private final AuditService auditService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.fresh.fulfilment.repository.FreshFulfilmentGroupRepository groupRepository;
 
     @Transactional
     public ProductRecallDto initiateRecall(InitiateRecallRequest req) {
@@ -114,6 +116,24 @@ public class FreshRecallService {
                     .customerNotified(false)
                     .refundProcessed(false)
                     .build();
+            // Emergency In-Flight Recall Containment:
+            // Immediately halt and cancel any active/in-transit group containing the recalled batch
+            if (item.getFulfilmentGroup() != null) {
+                var group = item.getFulfilmentGroup();
+                if (group.getStatus() == com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus.PICKED
+                        || group.getStatus() == com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus.PACKED
+                        || group.getStatus() == com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus.DISPATCHED
+                        || group.getStatus() == com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus.CREATED) {
+                    log.warn("EMERGENCY RECALL HALT: Cancelling active group {} due to recall {}",
+                            group.getGroupReference(), ref);
+                    group.setStatus(com.manacommunity.api.fresh.fulfilment.model.FulfilmentGroupStatus.CANCELLED);
+                    group.setHandoverOtp(null);
+                    group.setQrCodeToken(null);
+                    if (groupRepository != null) {
+                        groupRepository.save(group);
+                    }
+                }
+            }
 
             recallOrders.add(ro);
         }

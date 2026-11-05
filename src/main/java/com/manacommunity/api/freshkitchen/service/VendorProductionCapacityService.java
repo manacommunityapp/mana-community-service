@@ -126,6 +126,13 @@ public class VendorProductionCapacityService {
         }
 
         VendorProductionCapacity capacity = opt.get();
+        if (capacity.getId() != null) {
+            int updated = capacityRepository.reserveCapacityAtomic(capacity.getId(), quantity);
+            if (updated > 0) {
+                return true;
+            }
+        }
+
         if (Boolean.TRUE.equals(capacity.getIsSoldOut()) || capacity.getAvailableQuantity() < quantity) {
             log.warn("Capacity exceeded for vendor {} product {} on {}. Available: {}, Requested: {}",
                     vendorId, productId, productionDate, capacity.getAvailableQuantity(), quantity);

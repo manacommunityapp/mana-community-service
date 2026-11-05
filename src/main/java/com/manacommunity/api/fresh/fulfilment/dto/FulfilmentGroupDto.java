@@ -38,6 +38,7 @@ public class FulfilmentGroupDto {
     private BigDecimal subtotalAmount;
     private BigDecimal totalWeightG;
     private Boolean requiresColdChain;
+    private com.manacommunity.api.fresh.fulfilment.model.DietaryCategory dietaryCategory;
     private Integer failedOtpAttempts;
     private Boolean isHandoverLocked;
     private List<FulfilmentItemDto> items;

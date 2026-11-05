@@ -32,5 +32,7 @@ public class WeightAdjustmentDto {
     private WeightAdjustmentStatus adjustmentStatus;
     private String reason;
     private String walletTransactionRef;
+    private Boolean isSurchargePending;
+    private BigDecimal pendingSurchargeAmount;
     private Instant weighedAt;
 }
