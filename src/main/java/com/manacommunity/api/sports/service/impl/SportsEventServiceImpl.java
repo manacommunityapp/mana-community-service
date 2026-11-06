@@ -36,6 +36,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.repository.AppUserRepository;
 
 import com.manacommunity.api.user.model.AppUser;
+import java.util.ArrayList;
 
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.dto.SportsNotificationScheduleDto;
@@ -482,6 +483,21 @@ public class SportsEventServiceImpl implements SportsEventService {
             if (memberAlreadyRegistered) {
                 throw new AlreadyRegisteredException(
                         familyMember.getName() + " (" + (familyMember.getRelation() != null ? familyMember.getRelation() : "Family Member") + ") has already been registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+            boolean memberAlreadyPartner = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), familyMember.getId(), matchFormat, activeStatuses);
+            if (memberAlreadyPartner) {
+                throw new AlreadyRegisteredException(
+                        familyMember.getName() + " is already confirmed as a doubles partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+        } else if (user != null) {
+            boolean userAlreadyPartner = regRepo.existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), user.getId(), matchFormat, activeStatuses);
+            if (userAlreadyPartner) {
+                throw new AlreadyRegisteredException(
+                        "You are already confirmed as a doubles partner for this event"
                                 + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
         }
@@ -968,10 +984,19 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     public List<SportsEventRegistration> getUserRegistrations(Long userId) {
-        List<SportsEventRegistration> regs = regRepo.findByUserId(userId);
+        List<SportsEventRegistration> regs = new ArrayList<>(regRepo.findByUserId(userId));
+        List<SportsEventRegistration> partnerRegs = regRepo.findByPartnerIdAndPartnerConfirmationStatus(
+                userId, SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+        for (SportsEventRegistration pr : partnerRegs) {
+            if (regs.stream().noneMatch(r -> r.getId().equals(pr.getId()))) {
+                regs.add(pr);
+            }
+        }
         // Hydrate each registration with its event's captaincy info
         for (SportsEventRegistration reg : regs) {
-            hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
+            if (reg.getEvent() != null && reg.getEvent().getId() != null) {
+                hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
+            }
         }
         return regs;
     }
