@@ -41,6 +41,17 @@ public class SportsScoringConfig {
 
     private Integer tiebreakPointsToWin;
 
+    private Integer oversPerInnings;
+
+    private Integer maxOversPerBowler;
+
+    @Builder.Default
+    private Integer ballsPerOver = 6;
+
+    private Integer breakDurationMinutes;
+
+    private Integer targetScore;
+
     @Column(columnDefinition = "TEXT")
     private String scoringRulesJson;
 

@@ -1,6 +1,7 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.security.JwtTokenProvider;
+import com.manacommunity.api.security.StompSubscriptionInterceptor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -40,6 +41,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final Environment environment;
+    private final StompSubscriptionInterceptor stompSubscriptionInterceptor;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private List<String> allowedOrigins;
@@ -47,9 +49,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
 
-    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment) {
+    public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment,
+                           StompSubscriptionInterceptor stompSubscriptionInterceptor) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.environment = environment;
+        this.stompSubscriptionInterceptor = stompSubscriptionInterceptor;
     }
 
     @PostConstruct
@@ -87,7 +91,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
                 return message;
             }
-        });
+        }, stompSubscriptionInterceptor);
     }
 
     /** Resolves a user id from the CONNECT Authorization header and attaches it as the session principal. */
