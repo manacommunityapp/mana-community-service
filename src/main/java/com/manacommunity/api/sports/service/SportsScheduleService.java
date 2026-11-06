@@ -80,6 +80,18 @@ public class SportsScheduleService {
         String sportName = (event != null && event.getSport() != null) ? event.getSport().getName() : null;
         String categoryName = r.getCategory() != null ? r.getCategory().getName() : null;
 
+        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId() : null;
+        Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
+        String pName = null;
+        if (r.getPartner() != null) {
+            pName = r.getPartner().getFullName();
+        } else if (r.getPartnerFamilyMember() != null) {
+            pName = r.getPartnerFamilyMember().getName();
+        }
+        String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
+        String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
+        String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
+
         return new RegistrationListItem(
                 r.getId(),
                 r.getStatus() != null ? r.getStatus().name() : null,
@@ -100,7 +112,14 @@ public class SportsScheduleService {
                 event != null ? event.getEventDateEnd() : null,
                 event != null ? event.getStartTime() : null,
                 event != null && event.getVenue() != null ? event.getVenue().getName() : null,
-                event != null && event.getVenue() != null ? event.getVenue().getCity() : null
+                event != null && event.getVenue() != null ? event.getVenue().getCity() : null,
+                partnerUserId,
+                partnerFamilyMemberId,
+                pName,
+                pPhone,
+                pFlat,
+                pStatus,
+                pStatus
         );
     }
 
