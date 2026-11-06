@@ -552,6 +552,15 @@ public class SportsLiveScoringService {
         return (int) balls.stream().filter(b -> isLegalDelivery(b.getExtrasType())).count();
     }
 
+    @Transactional(readOnly = true)
+    public List<BallEventResponse> getBallEvents(Long matchId, Integer inningsNumber) {
+        log.info("Fetching ball events matchId={} innings={}", matchId, inningsNumber);
+        List<SportsMatchBallEvent> balls = inningsNumber != null
+                ? ballRepo.findByMatchIdAndInningsNumberAndIsUndoneFalseOrderByDeliveryNumber(matchId, inningsNumber)
+                : ballRepo.findByMatchIdAndIsUndoneFalseOrderByDeliveryNumber(matchId);
+        return balls.stream().map(this::toBallEventResponse).toList();
+    }
+
     private BallEventResponse toBallEventResponse(SportsMatchBallEvent e) {
         return new BallEventResponse(
                 e.getId(), e.getMatch().getId(),

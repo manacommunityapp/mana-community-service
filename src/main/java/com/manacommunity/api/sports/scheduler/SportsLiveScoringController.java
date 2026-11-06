@@ -3,6 +3,7 @@ package com.manacommunity.api.sports.scheduler;
 import com.manacommunity.api.sports.dto.BallEventRequest;
 import com.manacommunity.api.sports.dto.BallEventResponse;
 import com.manacommunity.api.sports.dto.SportsLiveMatchStateResponse;
+import java.util.List;
 import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,20 @@ public class SportsLiveScoringController {
     @GetMapping("/api/tournament/match/{matchId}/live")
     public SportsLiveMatchStateResponse getLiveState(@PathVariable Long matchId) {
         return liveScoringService.getMatchState(matchId);
+    }
+
+    /**
+     * GET /api/sports/matches/{matchId}/balls
+     * Returns all non-undone ball events for a match, optionally filtered by innings.
+     * Used by cricket analytics charts (Wagon Wheel, Manhattan, Worm, Pitch Map).
+     */
+    @GetMapping("/api/sports/matches/{matchId}/balls")
+    @PreAuthorize("isAuthenticated()")
+    public List<BallEventResponse> getBallEvents(
+            @PathVariable Long matchId,
+            @RequestParam(required = false) Integer innings) {
+        log.info("GET ball events matchId={} innings={}", matchId, innings);
+        return liveScoringService.getBallEvents(matchId, innings);
     }
 
     @PostMapping("/api/tournament/match/{matchId}/ball")
