@@ -24,6 +24,7 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         SELECT COUNT(r) > 0 FROM SportsEventRegistration r
         WHERE r.event.id = :eventId
           AND r.user.id = :userId
+          AND r.familyMember IS NULL
           AND r.status IN :statuses
           AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
     """)

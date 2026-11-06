@@ -493,6 +493,13 @@ public class SportsEventServiceImpl implements SportsEventService {
                                 + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
         } else if (user != null) {
+            boolean userAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), user.getId(), matchFormat, activeStatuses);
+            if (userAlreadyPrimary) {
+                throw new AlreadyRegisteredException(
+                        "You have already registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
             boolean userAlreadyPartner = regRepo.existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
                     req.getEventId(), user.getId(), matchFormat, activeStatuses);
             if (userAlreadyPartner) {
