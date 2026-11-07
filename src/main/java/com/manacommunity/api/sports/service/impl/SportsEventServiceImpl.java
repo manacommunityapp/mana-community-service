@@ -1149,14 +1149,57 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    private SportsAuctionConfig getOrCreateAuctionConfig(SportsEvent event, AppUser user) {
+        if (event == null || event.getId() == null) {
+            throw new ResourceNotFoundException("SportsEvent", 0L);
+        }
+        return auctionConfigRepo.findByEventId(event.getId())
+                .orElseGet(() -> {
+                    log.info("Auto-provisioning default SportsAuctionConfig for event id={}", event.getId());
+                    String baseSeason = (event.getName() != null && !event.getName().isBlank())
+                            ? event.getName().trim()
+                            : ("Season " + event.getId());
+                    SportsMeta sport = event.getSport();
+                    if (sport == null) {
+                        sport = sportMetaRepo.findAll().stream().findFirst().orElse(null);
+                    }
+                    Long sportId = sport != null ? sport.getId() : 1L;
+                    String seasonName = baseSeason;
+                    if (auctionConfigRepo.existsBySportIdAndSeasonName(sportId, seasonName)) {
+                        seasonName = baseSeason + " (Event #" + event.getId() + ")";
+                    }
+
+                    SportsAuctionConfig newConfig = SportsAuctionConfig.builder()
+                            .sport(sport)
+                            .event(event)
+                            .community(event.getCommunity())
+                            .seasonName(seasonName)
+                            .auctionFormat(SportsAuctionConfig.AuctionFormat.OPEN_AUCTION)
+                            .totalTeams(8)
+                            .totalPlayers(80)
+                            .budgetPerTeam(100000L)
+                            .basePrice(1000)
+                            .bidIncrementDefault(500)
+                            .bidIncrementThreshold(10000L)
+                            .bidIncrementAbove(1000)
+                            .bidTimerSeconds(30)
+                            .rtmEnabled(false)
+                            .unsoldRule(SportsAuctionConfig.UnsoldRule.ROTATION_AUCTION)
+                            .status(SportsAuctionConfig.AuctionStatus.DRAFT)
+                            .createdBy(user)
+                            .build();
+
+                    return auctionConfigRepo.save(newConfig);
+                });
+    }
+
     @Override
     @Transactional
     public SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
                 .orElseGet(() -> SportsAuctionTeam.builder()
@@ -1173,11 +1216,20 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .build());
 
         team.setCaptainNomination(nominate);
-        if (nominate) {
+        if (nominate && teamName != null && !teamName.isBlank()) {
             team.setTeamName(teamName);
+        } else if (team.getTeamName() == null) {
+            team.setTeamName(reg.getUser().getFullName() + "'s Team");
         }
         
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
+
+        reg.setCaptainNomination(nominate);
+        if (nominate && teamName != null && !teamName.isBlank()) {
+            reg.setProposedTeamName(teamName);
+        }
+        regRepo.save(reg);
+
         hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
 
         auditService.record(
@@ -1198,14 +1250,36 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam for user", reg.getUser().getId()));
+                .orElseGet(() -> SportsAuctionTeam.builder()
+                        .config(config)
+                        .community(config.getCommunity() != null ? config.getCommunity() : (reg.getEvent() != null ? reg.getEvent().getCommunity() : null))
+                        .event(reg.getEvent())
+                        .ownerUser(reg.getUser())
+                        .captainUser(reg.getUser())
+                        .ownerName(reg.getUser().getFullName())
+                        .teamName(reg.getProposedTeamName() != null && !reg.getProposedTeamName().isBlank()
+                                ? reg.getProposedTeamName()
+                                : reg.getUser().getFullName() + "'s Team")
+                        .eventId(reg.getEvent().getId())
+                        .totalBudget(config.getBudgetPerTeam())
+                        .remainingBudget(config.getBudgetPerTeam())
+                        .spent(0L)
+                        .captainNomination(true)
+                        .build());
 
+        team.setCaptainNomination(true);
         team.setCaptainConfirmation(confirm);
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
+
+        reg.setCaptainNomination(true);
+        reg.setCaptainConfirmation(confirm);
+        if (team.getTeamName() != null && !team.getTeamName().isBlank()) {
+            reg.setProposedTeamName(team.getTeamName());
+        }
+        regRepo.save(reg);
         
         hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
 

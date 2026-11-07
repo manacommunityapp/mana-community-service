@@ -35,6 +35,7 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
     private final AppUserRepository userRepo;
     private final com.manacommunity.api.security.AuditService auditService;
     private final NotificationManagementService notificationService;
+    private final com.manacommunity.api.sports.repository.SportsEventRepository eventRepo;
 
     @Override
     @Transactional(readOnly = true)
@@ -143,11 +144,45 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
     @Override
     @Transactional
     public SportsAuctionTeam nominateCaptain(Long eventId, Long userId, boolean nominate, String teamName) {
-        SportsAuctionConfig config = configRepo.findByEventId(eventId)
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", eventId));
-        
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        SportsAuctionConfig config = configRepo.findByEventId(eventId)
+                .orElseGet(() -> {
+                    com.manacommunity.api.sports.model.SportsEvent event = eventRepo.findById(eventId)
+                            .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
+                    log.info("Auto-provisioning default SportsAuctionConfig for event id={}", eventId);
+                    String baseSeason = (event.getName() != null && !event.getName().isBlank())
+                            ? event.getName().trim()
+                            : ("Season " + event.getId());
+                    Long sportId = event.getSport() != null ? event.getSport().getId() : 1L;
+                    String seasonName = baseSeason;
+                    if (configRepo.existsBySportIdAndSeasonName(sportId, seasonName)) {
+                        seasonName = baseSeason + " (Event #" + event.getId() + ")";
+                    }
+
+                    SportsAuctionConfig newConfig = SportsAuctionConfig.builder()
+                            .sport(event.getSport())
+                            .event(event)
+                            .community(event.getCommunity())
+                            .seasonName(seasonName)
+                            .auctionFormat(SportsAuctionConfig.AuctionFormat.OPEN_AUCTION)
+                            .totalTeams(8)
+                            .totalPlayers(80)
+                            .budgetPerTeam(100000L)
+                            .basePrice(1000)
+                            .bidIncrementDefault(500)
+                            .bidIncrementThreshold(10000L)
+                            .bidIncrementAbove(1000)
+                            .bidTimerSeconds(30)
+                            .rtmEnabled(false)
+                            .unsoldRule(SportsAuctionConfig.UnsoldRule.ROTATION_AUCTION)
+                            .status(SportsAuctionConfig.AuctionStatus.DRAFT)
+                            .createdBy(user)
+                            .build();
+
+                    return configRepo.save(newConfig);
+                });
 
         SportsAuctionTeam team = teamRepo.findByConfigIdAndOwnerUserId(config.getId(), userId)
                 .orElseGet(() -> SportsAuctionTeam.builder()
