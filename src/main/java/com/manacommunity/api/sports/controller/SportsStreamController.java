@@ -98,7 +98,7 @@ public class SportsStreamController {
             @Valid @RequestBody SportsStreamChatRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN);
-        String authorName = principal != null ? principal.getName() : "Viewer";
+        String authorName = principal != null ? principal.getUsername() : "Viewer";
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(streamService.postMessage(matchId, request, authorName));
     }
