@@ -13,6 +13,7 @@ import com.manacommunity.api.booking.repository.ResourceRepository;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,9 +43,10 @@ public class ResourceService {
     }
 
     @Transactional(readOnly = true)
-    public ResourceResponse getResource(Long id) {
+    public ResourceResponse getResource(Long id, Long requestingCommunityId) {
         Resource resource = resourceRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + id));
+        checkCommunityAccess(resource, requestingCommunityId);
         return toResponse(resource);
     }
 
@@ -101,9 +103,10 @@ public class ResourceService {
     }
 
     @Transactional
-    public ResourceResponse updateResource(Long id, ResourceRequest req) {
+    public ResourceResponse updateResource(Long id, ResourceRequest req, Long requestingCommunityId) {
         Resource resource = resourceRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + id));
+        checkCommunityAccess(resource, requestingCommunityId);
 
         if (req.getName() != null) resource.setName(req.getName());
         if (req.getCategoryId() != null) {
@@ -153,11 +156,19 @@ public class ResourceService {
     }
 
     @Transactional
-    public void deleteResource(Long id) {
+    public void deleteResource(Long id, Long requestingCommunityId) {
         Resource resource = resourceRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + id));
+        checkCommunityAccess(resource, requestingCommunityId);
         resource.setDeleted(true);
         resourceRepo.save(resource);
+    }
+
+    private void checkCommunityAccess(Resource resource, Long requestingCommunityId) {
+        Long resourceCommunityId = resource.getCommunity() != null ? resource.getCommunity().getId() : null;
+        if (requestingCommunityId == null || !requestingCommunityId.equals(resourceCommunityId)) {
+            throw new AccessDeniedException("Access denied");
+        }
     }
 
     private ResourceResponse toResponse(Resource r) {

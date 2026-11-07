@@ -227,6 +227,21 @@ public class ResourceBookingService {
         return toResponse(booking);
     }
 
+    @Transactional(readOnly = true)
+    public ResourceBookingResponse getBooking(Long id, Long requestingUserId, Long requestingCommunityId) {
+        ResourceBooking booking = bookingRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + id));
+        Resource resource = booking.getResource();
+        Long bookingCommunityId = resource != null && resource.getCommunity() != null
+                ? resource.getCommunity().getId() : null;
+        boolean isOwner = booking.getBookedBy() != null && booking.getBookedBy().getId().equals(requestingUserId);
+        boolean isSameCommunity = requestingCommunityId != null && requestingCommunityId.equals(bookingCommunityId);
+        if (!isOwner && !isSameCommunity) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied");
+        }
+        return toResponse(booking);
+    }
+
     // ── Cancel ─────────────────────────────────────────────────────
 
     @Transactional
