@@ -128,7 +128,8 @@ public record SportsDashboardResponse(
             String partnerPhone,
             String partnerFlatNumber,
             String partnerStatus,
-            String partnerConfirmationStatus
+            String partnerConfirmationStatus,
+            String flatNumber
     ) {
         public MyRegistration(
                 Long id,
@@ -149,7 +150,7 @@ public record SportsDashboardResponse(
             this(id, eventId, eventName, eventDateStart, sportName, categoryName,
                     eventRegistrationStatus, status, matchType, captainNomination, captainConfirmation,
                     playerName, relation, familyMemberId,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
         }
 
         public MyRegistration(
@@ -168,7 +169,7 @@ public record SportsDashboardResponse(
             this(id, eventId, eventName, eventDateStart, sportName, categoryName,
                     eventRegistrationStatus, status, matchType, captainNomination, captainConfirmation,
                     null, null, null,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
         }
     }
 }

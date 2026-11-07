@@ -829,6 +829,8 @@ public class SportsController {
                     .fullName(r.getPartner().getFullName())
                     .name(r.getPartner().getFullName())
                     .email(r.getPartner().getEmail())
+                    .phone(r.getPartner().getPhone())
+                    .flatNo(r.getPartner().getFlatNo())
                     .build();
         }
 

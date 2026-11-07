@@ -234,6 +234,10 @@ public class SportsDashboardService {
         String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
         String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
         String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
+        String flatNumber = r.getFlatNumber();
+        if (flatNumber == null && r.getUser() != null) {
+            flatNumber = r.getUser().getFlatNo();
+        }
 
         return new MyRegistration(
                 r.getId(),
@@ -256,7 +260,8 @@ public class SportsDashboardService {
                 pPhone,
                 pFlat,
                 pStatus,
-                pStatus
+                pStatus,
+                flatNumber
         );
     }
 
