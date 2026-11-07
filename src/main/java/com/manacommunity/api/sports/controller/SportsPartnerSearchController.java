@@ -78,7 +78,7 @@ public class SportsPartnerSearchController {
         String eventGender = event != null ? event.getGender() : null;
 
         // ── Derive expected partner gender for MIXED_DOUBLES ───────────────
-        boolean isMixed = "MIXED_DOUBLES".equalsIgnoreCase(matchType);
+        boolean isMixed = matchType != null && matchType.toUpperCase().contains("MIXED");
         String requiredGender = null;
         if (isMixed && callerGender != null) {
             String g = callerGender.trim().toUpperCase();
