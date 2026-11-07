@@ -22,6 +22,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.manacommunity.api.sports.model.SportsEventRegistration;
+import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
+
 import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
 @Service
@@ -29,10 +32,14 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
 
     private final FamilyMemberRepository repository;
     private final CommunityRepository communityRepository;
+    private final SportsEventRegistrationRepository sportsEventRegistrationRepository;
 
-    public FamilyMemberServiceImpl(FamilyMemberRepository repository, CommunityRepository communityRepository) {
+    public FamilyMemberServiceImpl(FamilyMemberRepository repository,
+                                   CommunityRepository communityRepository,
+                                   SportsEventRegistrationRepository sportsEventRegistrationRepository) {
         this.repository = repository;
         this.communityRepository = communityRepository;
+        this.sportsEventRegistrationRepository = sportsEventRegistrationRepository;
     }
 
     private boolean isUserAuthorizedToManage(FamilyMember existing, AppUser currentUser) {
@@ -326,6 +333,24 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
 
         if (request.getDob() != null) {
             String trimmedDob = request.getDob().trim();
+            if (!trimmedDob.isEmpty() && existing.getDob() != null && !trimmedDob.equals(existing.getDob().trim())) {
+                boolean isAdmin = user != null && (user.hasRole(ROLE_SUPER_ADMIN)
+                        || user.hasRole("ROLE_COMMUNITY_ADMIN")
+                        || user.hasRole("ROLE_ADMIN")
+                        || user.hasRole("COMMUNITY_ADMIN")
+                        || user.hasRole("ADMIN"));
+                if (!isAdmin) {
+                    List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                            SportsEventRegistration.RegistrationStatus.PENDING,
+                            SportsEventRegistration.RegistrationStatus.REGISTERED,
+                            SportsEventRegistration.RegistrationStatus.CONFIRMED
+                    );
+                    if (sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(id, activeStatuses)) {
+                        throw new InvalidInputException(
+                                "Date of birth cannot be modified while this family member has active registrations in ongoing/upcoming tournaments.");
+                    }
+                }
+            }
             existing.setDob(trimmedDob.isEmpty() ? null : trimmedDob);
             if (!trimmedDob.isEmpty() && (request.getAge() == null || request.getAge() <= 0)) {
                 Integer calculatedAge = calculateAgeFromDob(trimmedDob);
@@ -334,7 +359,25 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
                 }
             }
         }
-        if (request.getAge() != null && request.getAge() > 0) {
+        if (request.getAge() != null && request.getAge() > 0 && !request.getAge().equals(existing.getAge())) {
+            if (existing.getDob() == null && existing.getAge() != null) {
+                boolean isAdmin = user != null && (user.hasRole(ROLE_SUPER_ADMIN)
+                        || user.hasRole("ROLE_COMMUNITY_ADMIN")
+                        || user.hasRole("ROLE_ADMIN")
+                        || user.hasRole("COMMUNITY_ADMIN")
+                        || user.hasRole("ADMIN"));
+                if (!isAdmin) {
+                    List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                            SportsEventRegistration.RegistrationStatus.PENDING,
+                            SportsEventRegistration.RegistrationStatus.REGISTERED,
+                            SportsEventRegistration.RegistrationStatus.CONFIRMED
+                    );
+                    if (sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(id, activeStatuses)) {
+                        throw new InvalidInputException(
+                                "Age cannot be modified while this family member has active registrations in ongoing/upcoming tournaments.");
+                    }
+                }
+            }
             existing.setAge(request.getAge());
         }
 
@@ -347,7 +390,6 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
         if (request.getAvatar() != null) existing.setAvatar(request.getAvatar());
         if (request.getNotes() != null) existing.setNotes(request.getNotes());
         if (request.getStatus() != null) existing.setStatus(request.getStatus());
-        if (request.getDob() != null) existing.setDob(request.getDob());
 
         existing.setUpdatedAt(LocalDateTime.now());
         FamilyMember saved = repository.save(existing);

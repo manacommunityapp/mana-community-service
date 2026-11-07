@@ -31,9 +31,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -183,9 +188,10 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
                 .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
         org.assertj.core.api.Assertions.assertThat(result.getStatus())
-                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REJECTED);
-        org.assertj.core.api.Assertions.assertThat(result.getRejectReason())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING);
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerDeclineReason())
                 .contains("Not available this weekend");
+        org.assertj.core.api.Assertions.assertThat(result.getPartner()).isNull();
 
         org.mockito.Mockito.verify(auditService).record(
                 org.mockito.ArgumentMatchers.eq(com.manacommunity.api.security.AuditAction.PARTNER_DECLINED),
@@ -238,11 +244,88 @@ class SportsEventServiceRegistrationTest {
     @Test
     void getPartnerInvitations_filtersByStatus() {
         com.manacommunity.api.sports.model.SportsEventRegistration reg = new com.manacommunity.api.sports.model.SportsEventRegistration();
-        when(regRepo.findByPartnerIdAndPartnerConfirmationStatus(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
+        when(regRepo.findPartnerInvitationsForUser(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
                 .thenReturn(List.of(reg));
 
         List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
         org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void withdraw_byPartner_dissolvesPartnershipAndRetainsPrimaryRegistration() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("Primary Player");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Partner Player");
+
+        com.manacommunity.api.sports.model.SportsEvent event = new com.manacommunity.api.sports.model.SportsEvent();
+        event.setId(100L);
+        event.setName("Table Tennis Doubles");
+        event.setEventDateStart(java.time.LocalDate.now().plusDays(5));
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(501L)
+                .event(event)
+                .user(primaryUser)
+                .partner(partnerUser)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED)
+                .build();
+
+        when(regRepo.findById(501L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Partner withdraws
+        service.withdraw(501L, 20L, false, "Unavailable on match day");
+
+        // Verification: partner unlinked, status declined, primary registration retains CONFIRMED
+        org.assertj.core.api.Assertions.assertThat(reg.getPartner()).isNull();
+        org.assertj.core.api.Assertions.assertThat(reg.getPartnerConfirmationStatus())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+        org.assertj.core.api.Assertions.assertThat(reg.getStatus())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        org.assertj.core.api.Assertions.assertThat(reg.getPartnerDeclineReason())
+                .isEqualTo("Unavailable on match day");
+
+        // Primary player notified
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Partner Withdrew"),
+                contains("Partner Player has withdrawn as your doubles partner"),
+                isNull(),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                isNull(),
+                isNull()
+        );
+    }
+
+    @Test
+    void withdraw_byUnauthorizedUser_throws() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(502L)
+                .user(primaryUser)
+                .partner(partnerUser)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .build();
+
+        when(regRepo.findById(502L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.withdraw(502L, 999L, false, null))
+                .isInstanceOf(com.manacommunity.api.exception.UnauthorizedActionException.class)
+                .hasMessageContaining("only withdraw your own registration");
     }
 
     @Test
@@ -1270,5 +1353,202 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
         org.assertj.core.api.Assertions.assertThat(saved.getMatchType()).isEqualTo(SportsEvent.MatchFormat.DOUBLES);
         org.assertj.core.api.Assertions.assertThat(saved.getPartner().getId()).isEqualTo(3L);
+    }
+
+    @Test
+    void registerUser_autoConfirmsSameHouseholdFamilyMemberPartner() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(6L);
+        req.setCategoryId(20L);
+        req.setMatchType("DOUBLES");
+        req.setPartnerFamilyMemberId(101L);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(6L);
+        event.setName("Badminton Doubles");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        SportsMeta sport = new SportsMeta();
+        sport.setId(2L);
+        sport.setName("Badminton");
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Parent Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.now().minusYears(35));
+
+        com.manacommunity.api.user.model.FamilyMember child = new com.manacommunity.api.user.model.FamilyMember();
+        child.setId(101L);
+        child.setUser(user); // same household
+        child.setName("Child Player");
+        child.setGender("MALE");
+        child.setRelation("Son");
+        child.setDob(LocalDate.now().minusYears(10).toString());
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(20L);
+        cat.setName("Open Doubles");
+        cat.setMinAge(5);
+        cat.setMaxAge(70);
+        cat.setGender("ALL");
+
+        when(eventRepo.findById(6L)).thenReturn(Optional.of(event));
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(20L)).thenReturn(Optional.of(cat));
+        when(familyMemberRepository.findById(101L)).thenReturn(Optional.of(child));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration saved = service.registerUser(req, 2L);
+        org.assertj.core.api.Assertions.assertThat(saved).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(saved.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+        org.assertj.core.api.Assertions.assertThat(saved.getPartnerConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    void respondToPartnerInvitation_onDecline_dissolvesPartner_andRetainsConfirmedInOpenPool() {
+        SportsEvent event = new SportsEvent();
+        event.setId(7L);
+        event.setName("Tennis Doubles");
+
+        AppUser primary = new AppUser();
+        primary.setId(10L);
+        primary.setFullName("Primary Registrant");
+
+        AppUser partner = new AppUser();
+        partner.setId(11L);
+        partner.setFullName("Partner Player");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(201L);
+        reg.setEvent(event);
+        reg.setUser(primary);
+        reg.setPartner(partner);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setMatchType(SportsEvent.MatchFormat.DOUBLES);
+
+        when(regRepo.findById(201L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(201L, 11L, false, "Busy with work");
+        org.assertj.core.api.Assertions.assertThat(result.getPartner()).isNull();
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerFamilyMember()).isNull();
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerDeclineReason()).isEqualTo("Busy with work");
+        org.assertj.core.api.Assertions.assertThat(result.getStatus())
+                .isEqualTo(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+    }
+
+    @Test
+    void respondToPartnerInvitation_onAccept_blocksIfPartnerAlreadyRegistered() {
+        SportsEvent event = new SportsEvent();
+        event.setId(8L);
+        event.setName("Table Tennis Doubles");
+
+        AppUser primary = new AppUser();
+        primary.setId(20L);
+        primary.setFullName("TT Player 1");
+
+        AppUser partner = new AppUser();
+        partner.setId(21L);
+        partner.setFullName("TT Player 2");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(301L);
+        reg.setEvent(event);
+        reg.setUser(primary);
+        reg.setPartner(partner);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setMatchType(SportsEvent.MatchFormat.DOUBLES);
+
+        when(regRepo.findById(301L)).thenReturn(Optional.of(reg));
+        when(regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(eq(8L), eq(21L), eq(SportsEvent.MatchFormat.DOUBLES), any()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.respondToPartnerInvitation(301L, 21L, true, null))
+                .isInstanceOf(com.manacommunity.api.exception.AlreadyRegisteredException.class)
+                .hasMessageContaining("already registered");
+    }
+
+    @Test
+    void nominatePartner_switchesToOpenPool_whenPartnerIsNull() {
+        SportsEvent event = new SportsEvent();
+        event.setId(9L);
+        event.setName("Badminton Doubles");
+
+        AppUser primary = new AppUser();
+        primary.setId(30L);
+        primary.setFullName("Primary User");
+
+        AppUser oldPartner = new AppUser();
+        oldPartner.setId(31L);
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(401L);
+        reg.setEvent(event);
+        reg.setUser(primary);
+        reg.setPartner(oldPartner);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setMatchType(SportsEvent.MatchFormat.DOUBLES);
+
+        when(regRepo.findById(401L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.nominatePartner(401L, 30L, null, null);
+        org.assertj.core.api.Assertions.assertThat(result.getPartner()).isNull();
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus()).isNull();
+        org.assertj.core.api.Assertions.assertThat(result.getStatus()).isEqualTo(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+    }
+
+    @Test
+    void nominatePartner_sendsInvitation_forExternalPartner() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Squash Doubles");
+
+        AppUser primary = new AppUser();
+        primary.setId(40L);
+        primary.setFullName("Primary User");
+        primary.setGender("MALE");
+
+        AppUser newPartner = new AppUser();
+        newPartner.setId(41L);
+        newPartner.setFullName("New Partner");
+        newPartner.setGender("MALE");
+        newPartner.setDateOfBirth(LocalDate.now().minusYears(25));
+
+        SportsPlayerCategory category = new SportsPlayerCategory();
+        category.setId(50L);
+        category.setName("Men Open Doubles");
+        category.setMinAge(18);
+        category.setMaxAge(60);
+        category.setGender("MALE");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(501L);
+        reg.setEvent(event);
+        reg.setCategory(category);
+        reg.setUser(primary);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setMatchType(SportsEvent.MatchFormat.DOUBLES);
+
+        when(regRepo.findById(501L)).thenReturn(Optional.of(reg));
+        when(userRepo.findById(41L)).thenReturn(Optional.of(newPartner));
+        when(regRepo.existsOtherActivePartnerByUserId(eq(10L), eq(501L), eq(41L), eq(SportsEvent.MatchFormat.DOUBLES), any()))
+                .thenReturn(false);
+        when(regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(eq(10L), eq(41L), eq(SportsEvent.MatchFormat.DOUBLES), any()))
+                .thenReturn(false);
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.nominatePartner(501L, 40L, 41L, null);
+        org.assertj.core.api.Assertions.assertThat(result.getPartner()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(result.getPartner().getId()).isEqualTo(41L);
+        org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
     }
 }

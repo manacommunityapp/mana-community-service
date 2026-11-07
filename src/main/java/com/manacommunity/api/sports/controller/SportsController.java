@@ -622,6 +622,17 @@ public class SportsController {
         return ResponseEntity.ok(toRegistrationResponse(eventService.respondToPartnerInvitation(id, ctx.userId(), accept, reason)));
     }
 
+    @PutMapping("/registrations/{id}/nominate-partner")
+    public ResponseEntity<SportsRegistrationResponse> nominatePartner(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long partnerUserId,
+            @RequestParam(required = false) Long partnerFamilyMemberId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId)));
+    }
+
     @GetMapping("/registrations/partner-invitations")
     public ResponseEntity<List<SportsRegistrationResponse>> getPartnerInvitations(
             @RequestParam(required = false) SportsEventRegistration.PartnerConfirmationStatus status,

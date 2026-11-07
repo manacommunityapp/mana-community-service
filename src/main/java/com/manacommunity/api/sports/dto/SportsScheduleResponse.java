@@ -57,6 +57,42 @@ public final class SportsScheduleResponse {
             LocalDate eventDateEnd,
             String startTime,
             String venueName,
-            String venueCity
-    ) {}
+            String venueCity,
+            Long partnerUserId,
+            Long partnerFamilyMemberId,
+            String partnerName,
+            String partnerPhone,
+            String partnerFlatNumber,
+            String partnerStatus,
+            String partnerConfirmationStatus
+    ) {
+        public RegistrationListItem(
+                Long id,
+                String status,
+                Long eventId,
+                String eventName,
+                String sportName,
+                String categoryName,
+                Integer age,
+                String flatNumber,
+                LocalDateTime registeredAt,
+                Boolean captainNomination,
+                Boolean captainConfirmation,
+                String proposedTeamName,
+                String playerName,
+                String relation,
+                Long familyMemberId,
+                LocalDate eventDateStart,
+                LocalDate eventDateEnd,
+                String startTime,
+                String venueName,
+                String venueCity
+        ) {
+            this(id, status, eventId, eventName, sportName, categoryName,
+                    age, flatNumber, registeredAt, captainNomination, captainConfirmation,
+                    proposedTeamName, playerName, relation, familyMemberId,
+                    eventDateStart, eventDateEnd, startTime, venueName, venueCity,
+                    null, null, null, null, null, null, null);
+        }
+    }
 }

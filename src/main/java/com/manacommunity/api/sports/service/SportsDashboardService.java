@@ -223,6 +223,18 @@ public class SportsDashboardService {
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
         Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
+        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId() : null;
+        Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
+        String pName = null;
+        if (r.getPartner() != null) {
+            pName = r.getPartner().getFullName();
+        } else if (r.getPartnerFamilyMember() != null) {
+            pName = r.getPartnerFamilyMember().getName();
+        }
+        String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
+        String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
+        String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
+
         return new MyRegistration(
                 r.getId(),
                 e != null ? e.getId() : null,
@@ -237,7 +249,14 @@ public class SportsDashboardService {
                 r.getCaptainConfirmation(),
                 r.getPlayerName(),
                 r.getRelation(),
-                familyMemberId
+                familyMemberId,
+                partnerUserId,
+                partnerFamilyMemberId,
+                pName,
+                pPhone,
+                pFlat,
+                pStatus,
+                pStatus
         );
     }
 

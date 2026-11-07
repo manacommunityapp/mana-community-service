@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 /**
  * Business layer for community expenses. Every operation is scoped to the
  * caller's community, so an admin can never read or mutate another community's
@@ -152,10 +154,14 @@ public class ExpenseService {
         if (receipt == null || receipt.isEmpty()) {
             return;
         }
-        expense.setReceiptFileName(receipt.getOriginalFilename());
-        // Mock — in production, upload to S3 and store the returned object URL.
-        expense.setReceiptUrl("https://mana-community-receipts.s3.ap-south-1.amazonaws.com/receipts/"
-                + receipt.getOriginalFilename());
+        String original = receipt.getOriginalFilename();
+        String extension = (original != null && original.contains("."))
+                ? original.substring(original.lastIndexOf('.'))
+                : "";
+        String safeKey = UUID.randomUUID() + extension;
+        expense.setReceiptFileName(original);
+        // Mock — in production, upload to S3 using safeKey and store the returned URL.
+        expense.setReceiptUrl("https://mana-community-receipts.s3.ap-south-1.amazonaws.com/receipts/" + safeKey);
     }
 
     private int clampSize(int size) {

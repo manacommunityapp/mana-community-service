@@ -470,14 +470,13 @@ public class UserController {
         }
 
         if (req.getDateOfBirth() != null && !req.getDateOfBirth().equals(user.getDateOfBirth())) {
-            if (isSelf && !isAdmin) {
+            if (isSelf && !isAdmin && user.getDateOfBirth() != null) {
                 java.util.List<com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus> activeStatuses = java.util.List.of(
                         com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING,
                         com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED,
                         com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED
                 );
-                if (sportsEventRegistrationRepository.existsByUserIdAndStatusIn(user.getId(), activeStatuses)
-                        || sportsEventRegistrationRepository.existsByPartnerIdAndStatusIn(user.getId(), activeStatuses)) {
+                if (sportsEventRegistrationRepository.existsActivePlayerRegistrationForUser(user.getId(), activeStatuses)) {
                     throw new InvalidInputException(
                             "Date of birth cannot be modified while you have active registrations in ongoing/upcoming tournaments. " +
                             "To register family members or kids, please use the Family Members feature.");

@@ -16,6 +16,7 @@ public class UserProfileRequest {
     private String fullName;
     private String email;
     private String phone;
+    @com.fasterxml.jackson.annotation.JsonAlias({"dateOfBirth", "date_of_birth"})
     private LocalDate dob;
     private String gender;
     private String flatNo;
