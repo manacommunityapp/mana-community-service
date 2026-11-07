@@ -201,6 +201,21 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     List<SportsEventRegistration> findByPartnerIdAndPartnerConfirmationStatus(
             Long partnerId, SportsEventRegistration.PartnerConfirmationStatus partnerConfirmationStatus);
 
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE (r.partner.id = :userId OR (r.partnerFamilyMember IS NOT NULL AND r.partnerFamilyMember.user.id = :userId))
+          AND (:status IS NULL OR r.partnerConfirmationStatus = :status)
+          AND r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          )
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findPartnerInvitationsForUser(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("status") SportsEventRegistration.PartnerConfirmationStatus status);
+
     List<SportsEventRegistration> findByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
     long countByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
 

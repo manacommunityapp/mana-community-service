@@ -828,7 +828,10 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(userId))
                 || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(userId));
-        if (!isOwner && !admin)
+        boolean isPartner = (reg.getPartner() != null && reg.getPartner().getId().equals(userId))
+                || (reg.getPartnerFamilyMember() != null && reg.getPartnerFamilyMember().getUser() != null && reg.getPartnerFamilyMember().getUser().getId().equals(userId));
+
+        if (!isOwner && !isPartner && !admin)
             throw new UnauthorizedActionException("You can only withdraw your own registration.");
 
         if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN
@@ -845,6 +848,35 @@ public class SportsEventServiceImpl implements SportsEventService {
             if (start != null && !LocalDate.now().isBefore(start)) {
                 throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
             }
+        }
+
+        // Partner withdrawal: partner dissolves their participation; primary registrant stays registered
+        if (isPartner && !isOwner) {
+            AppUser partnerUser = reg.getPartner();
+            com.manacommunity.api.user.model.FamilyMember partnerFam = reg.getPartnerFamilyMember();
+            String partnerName = partnerFam != null ? partnerFam.getName() : (partnerUser != null ? partnerUser.getFullName() : "Your partner");
+
+            reg.setPartner(null);
+            reg.setPartnerFamilyMember(null);
+            reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+            reg.setPartnerDeclineReason(reason != null && !reason.isBlank() ? reason : "Partner withdrew from doubles team");
+            regRepo.save(reg);
+
+            if (reg.getUser() != null) {
+                try {
+                    String eventName = event != null ? event.getName() : "the event";
+                    Long eventId = event != null ? event.getId() : null;
+                    notificationService.createNotification(
+                            reg.getUser().getId(), NotificationType.PARTNER_DECLINED, NotificationCategory.SPORTS,
+                            "Partner Withdrew",
+                            partnerName + " has withdrawn as your doubles partner from " + eventName + ". You may nominate a new partner or join the open pool.",
+                            null, ReferenceType.SPORTS_EVENT, eventId,
+                            NotificationPriority.NORMAL, null, null);
+                } catch (Exception e) {
+                    log.warn("Failed to persist partner withdrawal notification", e);
+                }
+            }
+            return;
         }
 
         // Auction pool: remove still-queued entry; block if the player is already in the live/sold auction.
@@ -1179,7 +1211,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
-        if (reg.getPartner() == null || !reg.getPartner().getId().equals(partnerUserId)) {
+        boolean isDesignatedPartner = (reg.getPartner() != null && reg.getPartner().getId().equals(partnerUserId))
+                || (reg.getPartnerFamilyMember() != null && reg.getPartnerFamilyMember().getUser() != null && reg.getPartnerFamilyMember().getUser().getId().equals(partnerUserId));
+
+        if (!isDesignatedPartner) {
             throw new UnauthorizedActionException("You are not the designated partner for this registration.");
         }
 
@@ -1211,7 +1246,9 @@ public class SportsEventServiceImpl implements SportsEventService {
             try {
                 NotificationType type = accept ? NotificationType.PARTNER_CONFIRMED : NotificationType.PARTNER_DECLINED;
                 String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "Tournament";
-                String partnerName = reg.getPartner() != null ? reg.getPartner().getFullName() : "Partner";
+                String partnerName = reg.getPartnerFamilyMember() != null
+                        ? reg.getPartnerFamilyMember().getName()
+                        : (reg.getPartner() != null ? reg.getPartner().getFullName() : "Partner");
                 String title = accept
                         ? "Doubles Partner Accepted — " + eventName
                         : "Doubles Partner Declined — " + eventName;
@@ -1252,10 +1289,7 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     public List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status) {
-        if (status != null) {
-            return regRepo.findByPartnerIdAndPartnerConfirmationStatus(partnerUserId, status);
-        }
-        return regRepo.findByPartnerId(partnerUserId);
+        return regRepo.findPartnerInvitationsForUser(partnerUserId, status);
     }
 
     private void hydrateCaptaincy(List<SportsEventRegistration> regs, Long eventId) {

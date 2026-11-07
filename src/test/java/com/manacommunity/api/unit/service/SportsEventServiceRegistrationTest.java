@@ -31,9 +31,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -238,11 +243,88 @@ class SportsEventServiceRegistrationTest {
     @Test
     void getPartnerInvitations_filtersByStatus() {
         com.manacommunity.api.sports.model.SportsEventRegistration reg = new com.manacommunity.api.sports.model.SportsEventRegistration();
-        when(regRepo.findByPartnerIdAndPartnerConfirmationStatus(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
+        when(regRepo.findPartnerInvitationsForUser(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
                 .thenReturn(List.of(reg));
 
         List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
         org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void withdraw_byPartner_dissolvesPartnershipAndRetainsPrimaryRegistration() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("Primary Player");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Partner Player");
+
+        com.manacommunity.api.sports.model.SportsEvent event = new com.manacommunity.api.sports.model.SportsEvent();
+        event.setId(100L);
+        event.setName("Table Tennis Doubles");
+        event.setEventDateStart(java.time.LocalDate.now().plusDays(5));
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(501L)
+                .event(event)
+                .user(primaryUser)
+                .partner(partnerUser)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .partnerConfirmationStatus(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED)
+                .build();
+
+        when(regRepo.findById(501L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Partner withdraws
+        service.withdraw(501L, 20L, false, "Unavailable on match day");
+
+        // Verification: partner unlinked, status declined, primary registration retains CONFIRMED
+        org.assertj.core.api.Assertions.assertThat(reg.getPartner()).isNull();
+        org.assertj.core.api.Assertions.assertThat(reg.getPartnerConfirmationStatus())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+        org.assertj.core.api.Assertions.assertThat(reg.getStatus())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        org.assertj.core.api.Assertions.assertThat(reg.getPartnerDeclineReason())
+                .isEqualTo("Unavailable on match day");
+
+        // Primary player notified
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Partner Withdrew"),
+                contains("Partner Player has withdrawn as your doubles partner"),
+                isNull(),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                isNull(),
+                isNull()
+        );
+    }
+
+    @Test
+    void withdraw_byUnauthorizedUser_throws() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(502L)
+                .user(primaryUser)
+                .partner(partnerUser)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .build();
+
+        when(regRepo.findById(502L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.withdraw(502L, 999L, false, null))
+                .isInstanceOf(com.manacommunity.api.exception.UnauthorizedActionException.class)
+                .hasMessageContaining("only withdraw your own registration");
     }
 
     @Test
