@@ -25,6 +25,11 @@ public class SportsTournamentMatch {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "config_id", nullable = false,
                 foreignKey = @ForeignKey(name = "fk_tournament_match_config"))
@@ -89,6 +94,12 @@ public class SportsTournamentMatch {
     @JoinColumn(name = "winner_team_id")
     private SportsAuctionTeam winner;
 
+    @Column(name = "winner_name")
+    private String winnerName;
+
+    @Column(name = "winner_side")
+    private String winnerSide;
+
     @Enumerated(EnumType.STRING)
     private ResultType resultType;
 
@@ -112,6 +123,9 @@ public class SportsTournamentMatch {
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private String  matchNotes;
+
+    @Column(columnDefinition = "TEXT")
+    private String  matchConfigOverrideJson;
 
     // ── Swiss round ───────────────────────────────────────────────
     private Integer swissRoundNumber;

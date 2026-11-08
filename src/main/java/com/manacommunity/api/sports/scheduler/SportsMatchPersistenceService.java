@@ -37,11 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -402,7 +398,11 @@ public class SportsMatchPersistenceService {
                 }
             })
             .toList();
-        matchRepo.saveAll(entities);
+        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
+        if (savedEntities == null || savedEntities.isEmpty()) {
+            savedEntities = entities;
+        }
+        wireAndSaveKnockoutLinks(savedEntities);
 
         log.info("Unified save: config {} ({}) with {} matches", configId,
             managed.getStatus(), entities.size());
@@ -432,7 +432,11 @@ public class SportsMatchPersistenceService {
             .map(m -> buildMatchEntity(config, m, groupMap))
             .toList();
 
-        matchRepo.saveAll(entities);
+        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
+        if (savedEntities == null || savedEntities.isEmpty()) {
+            savedEntities = entities;
+        }
+        wireAndSaveKnockoutLinks(savedEntities);
         log.info("Bulk-saved {} matches for config {}", entities.size(), effectiveConfigId);
         return entities.size();
     }
@@ -476,6 +480,55 @@ public class SportsMatchPersistenceService {
         return (int) count;
     }
 
+    public void wireAndSaveKnockoutLinks(List<SportsTournamentMatch> savedEntities) {
+        if (savedEntities == null || savedEntities.size() < 2) return;
+
+        // Exclude group stages and league matches from bracket advancement wiring
+        List<SportsTournamentMatch> koMatches = savedEntities.stream()
+            .filter(m -> m.getRound() != MatchRound.GROUP_STAGE && m.getRound() != MatchRound.LEAGUE_MATCH && m.getRound() != MatchRound.THIRD_PLACE)
+            .toList();
+        if (koMatches.size() < 2) return;
+
+        Map<Integer, List<SportsTournamentMatch>> byRound = koMatches.stream()
+            .sorted(Comparator.comparingInt(m -> Objects.requireNonNullElse(m.getBracketSlot(), 0)))
+            .collect(Collectors.groupingBy(m -> Objects.requireNonNullElse(m.getRoundNumber(), 1), LinkedHashMap::new, Collectors.toList()));
+
+        List<Integer> roundNums = new ArrayList<>(byRound.keySet());
+        Collections.sort(roundNums);
+
+        boolean updated = false;
+        for (int rIdx = 0; rIdx < roundNums.size() - 1; rIdx++) {
+            int currentRound = roundNums.get(rIdx);
+            int nextRound = roundNums.get(rIdx + 1);
+
+            List<SportsTournamentMatch> currentMatches = byRound.get(currentRound);
+            List<SportsTournamentMatch> nextMatches = byRound.get(nextRound);
+
+            if (currentMatches == null || nextMatches == null || nextMatches.isEmpty()) continue;
+
+            for (int i = 0; i < currentMatches.size(); i++) {
+                SportsTournamentMatch cur = currentMatches.get(i);
+                int targetIdx = Math.min(i / 2, nextMatches.size() - 1);
+                SportsTournamentMatch nxt = nextMatches.get(targetIdx);
+
+                if (nxt != null && nxt.getId() != null) {
+                    cur.setWinnerAdvancesToMatchId(nxt.getId());
+                    if (i % 2 == 0) {
+                        nxt.setWinnerFeedFromMatchA(cur.getId());
+                    } else {
+                        nxt.setWinnerFeedFromMatchB(cur.getId());
+                    }
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            matchRepo.saveAll(koMatches);
+            log.info("Wired winnerAdvancesToMatchId links for {} knockout matches", koMatches.size());
+        }
+    }
+
     private Map<String, SportsTournamentGroup> syncGroupsForConfig(SportsTournamentConfig config, List<SportsBulkMatchSaveRequest.MatchData> matches) {
         Map<String, SportsTournamentGroup> groupMap = new HashMap<>();
         List<SportsTournamentGroup> existing = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
@@ -498,6 +551,29 @@ public class SportsMatchPersistenceService {
                 }
             }
         }
+
+        // Pre-seed standings rows for teams in each group to prevent NPE on first match completion
+        for (SportsBulkMatchSaveRequest.MatchData m : matches) {
+            String gName = m.groupName();
+            if (gName != null && groupMap.containsKey(gName)) {
+                SportsTournamentGroup grp = groupMap.get(gName);
+                SportsAuctionTeam teamA = tryResolveTeam(m.homeId());
+                SportsAuctionTeam teamB = tryResolveTeam(m.awayId());
+                if (teamA != null && standingRepo.findByGroupIdAndTeamId(grp.getId(), teamA.getId()) == null) {
+                    standingRepo.save(SportsGroupTeamStanding.builder()
+                        .group(grp).team(teamA).seedRank(0)
+                        .played(0).won(0).lost(0).drawn(0).points(0).netRunRate(0.0)
+                        .build());
+                }
+                if (teamB != null && standingRepo.findByGroupIdAndTeamId(grp.getId(), teamB.getId()) == null) {
+                    standingRepo.save(SportsGroupTeamStanding.builder()
+                        .group(grp).team(teamB).seedRank(0)
+                        .played(0).won(0).lost(0).drawn(0).points(0).netRunRate(0.0)
+                        .build());
+                }
+            }
+        }
+
         return groupMap;
     }
 
@@ -518,9 +594,9 @@ public class SportsMatchPersistenceService {
 
         LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
 
-        // Store names + group context in matchNotes so they survive even without linked team entities
-        String notes = String.format("{\"homeName\":\"%s\",\"awayName\":\"%s\",\"groupName\":\"%s\"}",
-            safe(m.homeName()), safe(m.awayName()), safe(m.groupName()));
+        // Store names + flats + group context in matchNotes so they survive even without linked team entities
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(m.homeName()), safe(m.homeFlat()), safe(m.awayName()), safe(m.awayFlat()), safe(m.groupName()));
 
         SportsVenue venue = config.getVenue();
         if (m.venueId() != null) {

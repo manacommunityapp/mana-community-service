@@ -98,6 +98,9 @@ public class SportsTournamentController {
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("Creating tournament");
         AppUser loggedInUser = loggedInUserService.resolve(principal);
+        if (req.getCommunityId() == null && loggedInUser != null && loggedInUser.getCommunity() != null) {
+            req.setCommunityId(loggedInUser.getCommunity().getId());
+        }
         SportsTournament tournament = tournamentService.saveTournamentRecord(req, req.getAllowAdminChat());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(tournament));
     }

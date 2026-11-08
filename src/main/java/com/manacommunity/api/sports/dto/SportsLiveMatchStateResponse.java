@@ -26,7 +26,10 @@ public record SportsLiveMatchStateResponse(
     String teamBColor,
     Long teamAId,
     Long teamBId,
-    Integer target
+    Integer target,
+    Integer oversLimit,
+    Integer maxOversPerBowler,
+    Integer ballsPerOver
 ) {
     public record InningsState(
         Long battingTeamId,

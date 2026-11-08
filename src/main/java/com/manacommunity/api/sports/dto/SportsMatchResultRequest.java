@@ -14,5 +14,14 @@ public record SportsMatchResultRequest(
     Integer          runsTeamA,
     Integer          runsTeamB,
     Integer          oversTeamA,
-    Integer          oversTeamB
-) {}
+    Integer          oversTeamB,
+    String           winnerName,
+    String           winnerSide
+) {
+    public SportsMatchResultRequest(
+        Long matchId, Long winnerTeamId, String scoreTeamA, String scoreTeamB,
+        String matchNotes, Integer runsTeamA, Integer runsTeamB, Integer oversTeamA, Integer oversTeamB
+    ) {
+        this(matchId, winnerTeamId, scoreTeamA, scoreTeamB, matchNotes, runsTeamA, runsTeamB, oversTeamA, oversTeamB, null, null);
+    }
+}

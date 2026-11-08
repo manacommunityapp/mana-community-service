@@ -13,16 +13,12 @@ import java.util.List;
 
 @Data
 public class SportsTournamentRequest {
-    @NotBlank
     private String name;
     
-    @NotNull
     private Long communityId;
     
-    @NotNull
     private LocalDate eventDateStart;
     
-    @NotNull
     private LocalDate eventDateEnd;
     
     private LocalDate registrationDateStart;

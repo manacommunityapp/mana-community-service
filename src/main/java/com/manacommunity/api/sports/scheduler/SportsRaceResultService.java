@@ -35,6 +35,8 @@ public class SportsRaceResultService {
     private final SportsAuctionPlayerRepository playerRepo;
     private final SportsAuctionTeamRepository teamRepo;
     private final ObjectMapper objectMapper;
+    private final SportsBracketGenerator bracketGenerator;
+    private final SportsTournamentResultNotifier resultNotifier;
 
     @Transactional
     public SportsRaceResultResponse recordResult(SportsRaceResultRequest req) {
@@ -184,5 +186,43 @@ public class SportsRaceResultService {
             splits,
             r.getNotes()
         );
+    }
+
+    @Transactional
+    public SportsTournamentMatch completeRace(Long matchId) {
+        SportsTournamentMatch match = matchRepo.findById(matchId)
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+        updateRanks(matchId);
+        List<SportsRaceResult> results = raceRepo.findByMatchIdOrderByOverallRankAsc(matchId);
+        SportsRaceResult first = results.stream()
+            .filter(r -> r.getOverallRank() != null && r.getOverallRank() == 1)
+            .findFirst()
+            .orElse(null);
+
+        match.setStatus(MatchStatus.COMPLETED);
+        match.setCompletedAt(java.time.LocalDateTime.now());
+        if (first != null) {
+            if (first.getTeam() != null) match.setWinner(first.getTeam());
+            if (first.getPlayer() != null) match.setWinnerName(first.getPlayer().getPlayerName());
+            match.setWinMargin("Time: " + first.getFormattedTime());
+            match.setScoreTeamA(first.getFormattedTime());
+        }
+        SportsTournamentMatch saved = matchRepo.save(match);
+        try {
+            bracketGenerator.applyResult(new SportsMatchResultRequest(
+                saved.getId(),
+                saved.getWinner() != null ? saved.getWinner().getId() : null,
+                saved.getScoreTeamA(),
+                saved.getScoreTeamB(),
+                saved.getWinMargin(),
+                null, null, null, null,
+                saved.getWinnerName(),
+                null
+            ));
+            resultNotifier.notifyMatchResult(saved.getId());
+        } catch (Exception ex) {
+            log.warn("Failed to advance bracket or notify on race completion: {}", ex.getMessage());
+        }
+        return saved;
     }
 }
