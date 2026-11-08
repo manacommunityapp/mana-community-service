@@ -1,5 +1,6 @@
 package com.manacommunity.api.sports.controller;
 
+import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.model.SportsTournamentPlayerPayment;
 import com.manacommunity.api.sports.repository.SportsTournamentPlayerPaymentRepository;
@@ -23,6 +24,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/sports/tournaments")
@@ -33,9 +36,13 @@ public class SportsTournamentPaymentController {
     private final SportsTournamentRepository tournamentRepo;
     private final AppUserRepository userRepo;
     private final FamilyMemberRepository familyMemberRepo;
+    private final PermissionCheckService permissionCheckService;
 
     @GetMapping("/{tournamentId}/payments")
-    public ResponseEntity<List<SportsTournamentPlayerPaymentResponse>> getPayments(@PathVariable Long tournamentId) {
+    public ResponseEntity<List<SportsTournamentPlayerPaymentResponse>> getPayments(
+            @PathVariable Long tournamentId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         List<SportsTournamentPlayerPayment> payments = paymentRepo.findByTournamentId(tournamentId);
         List<SportsTournamentPlayerPaymentResponse> list = payments.stream().map(this::toResponse).toList();
         return ResponseEntity.ok(list);
@@ -47,6 +54,7 @@ public class SportsTournamentPaymentController {
             @PathVariable Long tournamentId,
             @RequestBody SportsTournamentPlayerPaymentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         SportsTournament tournament = tournamentRepo.findById(tournamentId)
                 .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
@@ -100,6 +108,7 @@ public class SportsTournamentPaymentController {
             @RequestParam(required = false) String playerKey,
             @RequestBody(required = false) SportsTournamentPlayerPaymentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         String key = playerKey != null && !playerKey.isBlank()
                 ? playerKey
@@ -120,6 +129,7 @@ public class SportsTournamentPaymentController {
             @PathVariable Long tournamentId,
             @PathVariable String playerKey,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, playerKey).ifPresent(p -> {
             paymentRepo.delete(p);
