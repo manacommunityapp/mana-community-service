@@ -25,8 +25,35 @@ public record SportsBulkMatchSaveRequest(List<MatchData> matches) {
         Integer duration,    // minutes
         Long    venueId,
         Long    courtId,
-        String  status       // "SCHEDULED", "DRAFT", "PUBLISHED", "AUTO_ADVANCED"
+        String  status,      // "SCHEDULED", "DRAFT", "PUBLISHED", "AUTO_ADVANCED"
+        String  homeFlat,
+        String  awayFlat
     ) {
+        public MatchData(
+            Long    eventId,
+            Long    configId,
+            String  groupName,
+            String  stage,
+            String  round,
+            Integer roundNumber,
+            Integer bracketSlot,
+            Integer matchNumber,
+            String  homeName,
+            String  homeId,
+            String  awayName,
+            String  awayId,
+            String  matchDate,
+            String  matchTime,
+            Integer duration,
+            Long    venueId,
+            Long    courtId,
+            String  status
+        ) {
+            this(eventId, configId, groupName, stage, round, roundNumber, bracketSlot,
+                 matchNumber, homeName, homeId, awayName, awayId,
+                 matchDate, matchTime, duration, venueId, courtId, status, null, null);
+        }
+
         public MatchData(
             Long eventId, Long configId, String groupName, String stage,
             Integer matchNumber, String homeName, String homeId,
@@ -35,7 +62,7 @@ public record SportsBulkMatchSaveRequest(List<MatchData> matches) {
         ) {
             this(eventId, configId, groupName, stage, null, null, null,
                  matchNumber, homeName, homeId, awayName, awayId,
-                 matchDate, matchTime, duration, venueId, courtId, status);
+                 matchDate, matchTime, duration, venueId, courtId, status, null, null);
         }
     }
 }

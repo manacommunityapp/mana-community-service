@@ -127,8 +127,9 @@ public class SportsTournamentSchedulerService {
 
         // Generate + persist schedule
         List<SportsTournamentMatch> matches = bracketGenerator.generate(config, teams);
-        matchRepo.saveAll(matches);
-        log.info("Generated {} matches for tournament [{}]", matches.size(), config.getTournamentName());
+        List<SportsTournamentMatch> savedMatches = matchRepo.saveAll(matches);
+        matchPersistence.wireAndSaveKnockoutLinks(savedMatches);
+        log.info("Generated {} matches for tournament [{}]", savedMatches.size(), config.getTournamentName());
         return buildResponse(config);
     }
 
@@ -321,6 +322,8 @@ public class SportsTournamentSchedulerService {
         String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : extractNote(m.getMatchNotes(), "homeName", "TBD");
         String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : extractNote(m.getMatchNotes(), "awayName", "TBD");
         String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
+        String teamAFlat = extractNote(m.getMatchNotes(), "homeFlat", null);
+        String teamBFlat = extractNote(m.getMatchNotes(), "awayFlat", null);
 
         return new SportsMatchResponse(
             m.getId(), roundName,
@@ -339,9 +342,11 @@ public class SportsTournamentSchedulerService {
             m.getCourt() != null ? m.getCourt().getName() : null,
             m.getStatus() != null ? m.getStatus().name() : "SCHEDULED",
             m.getScoreTeamA(), m.getScoreTeamB(),
-            m.getWinner() != null ? m.getWinner().getTeamName() : null,
+            m.getWinner() != null ? m.getWinner().getTeamName() : (m.getWinnerName() != null ? m.getWinnerName() : null),
             m.getWinnerAdvancesToMatchId(),
-            m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED
+            m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED,
+            teamAFlat,
+            teamBFlat
         );
     }
 
@@ -365,8 +370,10 @@ public class SportsTournamentSchedulerService {
 
     private StandingResponse toStandingResponse(SportsGroupTeamStanding s) {
         return new StandingResponse(
-            0, s.getTeam().getId(), s.getTeam().getTeamName(),
-            s.getTeam().getColorHex(),
+            0,
+            s.getTeam() != null ? s.getTeam().getId() : 0L,
+            s.getTeam() != null ? s.getTeam().getTeamName() : "TBD",
+            s.getTeam() != null ? s.getTeam().getColorHex() : "#555",
             s.getPlayed(), s.getWon(), s.getLost(), s.getDrawn(), s.getPoints(),
             Objects.requireNonNullElse(s.getNetRunRate(), 0.0), s.getQualified()
         );

@@ -149,57 +149,70 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
     private SportsTournament applyTournamentFields(SportsTournament tournament, SportsTournamentRequest req, Boolean allowAdminChat) {
         boolean isNew = tournament.getId() == null;
 
-        // Map tournament fields directly from SportsTournamentRequest DTO
-        if (isNew || (req.getName() != null && !req.getName().isBlank())) {
-            tournament.setName(req.getName());
+        if (isNew) {
+            if (req.getName() == null || req.getName().isBlank()) {
+                throw new com.manacommunity.api.exception.InvalidInputException("Tournament name is required");
+            }
+            if (req.getEventDateStart() == null || req.getEventDateEnd() == null) {
+                throw new com.manacommunity.api.exception.InvalidInputException("Tournament start and end dates are required");
+            }
         }
-        if (isNew || req.getEventDateStart() != null) {
+
+        // Map tournament fields selectively to support partial updates
+        if (req.getName() != null && !req.getName().isBlank()) {
+            tournament.setName(req.getName().trim());
+        }
+        if (req.getEventDateStart() != null) {
             tournament.setEventDateStart(req.getEventDateStart());
         }
-        if (isNew || req.getEventDateEnd() != null) {
+        if (req.getEventDateEnd() != null) {
             tournament.setEventDateEnd(req.getEventDateEnd());
         }
-        if (isNew || req.getRegistrationDateStart() != null) {
+        if (req.getRegistrationDateStart() != null) {
             tournament.setRegistrationDateStart(req.getRegistrationDateStart());
         }
-        if (isNew || req.getRegistrationDateEnd() != null) {
+        if (req.getRegistrationDateEnd() != null) {
             tournament.setRegistrationDateEnd(req.getRegistrationDateEnd());
         }
-        if (isNew || req.getMaxParticipants() != null) {
+        if (req.getMaxParticipants() != null) {
             tournament.setMaxParticipants(req.getMaxParticipants());
         }
         
-        if (isNew || req.getContactName() != null) {
+        if (req.getContactName() != null) {
             tournament.setContactName(req.getContactName());
         }
-        if (isNew || req.getContactNumber() != null) {
+        if (req.getContactNumber() != null) {
             tournament.setContactNumber(req.getContactNumber());
         }
-        if (isNew || req.getContactEmail() != null) {
+        if (req.getContactEmail() != null) {
             tournament.setContactEmail(req.getContactEmail());
         }
         if (req.getContacts() != null) {
-            tournament.getContacts().clear();
+            if (tournament.getContacts() != null) {
+                tournament.getContacts().clear();
+            } else {
+                tournament.setContacts(new ArrayList<>());
+            }
             tournament.getContacts().addAll(resolveContacts(req.getContacts()));
         }
-        if (isNew || req.getOtherContacts() != null) {
+        if (req.getOtherContacts() != null) {
             tournament.setOtherContacts(req.getOtherContacts());
         }
         
-        if (isNew || req.getBannerImage() != null) {
+        if (req.getBannerImage() != null) {
             tournament.setBannerImage(req.getBannerImage());
         }
-        if (isNew || req.getDescription() != null) {
+        if (req.getDescription() != null) {
             tournament.setDescription(req.getDescription());
         }
-        if (isNew || allowAdminChat != null) {
+        if (allowAdminChat != null) {
             tournament.setAllowAdminChat(allowAdminChat);
         }
         
-        if (isNew || req.getStartTime() != null) {
+        if (req.getStartTime() != null) {
             tournament.setStartTime(req.getStartTime());
         }
-        if (isNew || req.getDueTime() != null) {
+        if (req.getDueTime() != null) {
             tournament.setDueTime(req.getDueTime());
         }
 
@@ -207,9 +220,9 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             tournament.setCommunity(communityRepo.findById(req.getCommunityId()).orElse(null));
         }
 
-        // Only manage/synchronize sports events if sportsEventIds is explicitly provided in the request
-        List<SportsEvent> sportsEvents = new ArrayList<>();
+        // Resolve existing SportsEvents from req.getSportsEventIds() ONLY if explicitly provided
         if (req.getSportsEventIds() != null) {
+            List<SportsEvent> sportsEvents = new ArrayList<>();
             if (!req.getSportsEventIds().isEmpty()) {
                 sportsEvents = eventRepo.findAllById(req.getSportsEventIds());
             }
@@ -245,8 +258,6 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
                 tournament.getSportsEvents().add(ev);
                 eventRepo.save(ev);
             }
-        } else if (tournament.getSportsEvents() != null) {
-            sportsEvents = tournament.getSportsEvents();
         }
 
         // Only default to DRAFT for brand-new tournaments; editing must not demote
@@ -255,19 +266,17 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             tournament.setRegistrationStatus(SportsEventStatus.DRAFT);
         }
 
-        // Build mainEvent context for sponsors mapping
-        SportsEvent mainEvent = null;
-        if (!sportsEvents.isEmpty()) {
-            mainEvent = sportsEvents.get(0);
-        }
-
-        // Clear and rebuild sponsors only if explicitly provided in request DTO
+        // Clear and rebuild sponsors directly from request DTO only if provided
         if (req.getSponsors() != null) {
             if (tournament.getSponsors() != null) {
                 tournament.getSponsors().clear();
             } else {
                 tournament.setSponsors(new ArrayList<>());
             }
+
+            SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())
+                    ? tournament.getSportsEvents().get(0)
+                    : null;
             for (com.manacommunity.api.dto.SponsorDto s : req.getSponsors()) {
                 tournament.getSponsors().add(SportsEventSponsor.builder()
                         .tournament(tournament)
