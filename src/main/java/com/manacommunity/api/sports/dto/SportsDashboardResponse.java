@@ -121,8 +121,38 @@ public record SportsDashboardResponse(
             Boolean captainConfirmation,
             String playerName,
             String relation,
-            Long familyMemberId
+            Long familyMemberId,
+            Long partnerUserId,
+            Long partnerFamilyMemberId,
+            String partnerName,
+            String partnerPhone,
+            String partnerFlatNumber,
+            String partnerStatus,
+            String partnerConfirmationStatus,
+            String flatNumber
     ) {
+        public MyRegistration(
+                Long id,
+                Long eventId,
+                String eventName,
+                LocalDate eventDateStart,
+                String sportName,
+                String categoryName,
+                String eventRegistrationStatus,
+                String status,
+                String matchType,
+                Boolean captainNomination,
+                Boolean captainConfirmation,
+                String playerName,
+                String relation,
+                Long familyMemberId
+        ) {
+            this(id, eventId, eventName, eventDateStart, sportName, categoryName,
+                    eventRegistrationStatus, status, matchType, captainNomination, captainConfirmation,
+                    playerName, relation, familyMemberId,
+                    null, null, null, null, null, null, null, null);
+        }
+
         public MyRegistration(
                 Long id,
                 Long eventId,
@@ -138,7 +168,8 @@ public record SportsDashboardResponse(
         ) {
             this(id, eventId, eventName, eventDateStart, sportName, categoryName,
                     eventRegistrationStatus, status, matchType, captainNomination, captainConfirmation,
-                    null, null, null);
+                    null, null, null,
+                    null, null, null, null, null, null, null, null);
         }
     }
 }

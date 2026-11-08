@@ -36,6 +36,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.repository.AppUserRepository;
 
 import com.manacommunity.api.user.model.AppUser;
+import java.util.ArrayList;
 
 import com.manacommunity.api.sports.dto.SportsEventRequest;
 import com.manacommunity.api.sports.dto.SportsNotificationScheduleDto;
@@ -484,6 +485,28 @@ public class SportsEventServiceImpl implements SportsEventService {
                         familyMember.getName() + " (" + (familyMember.getRelation() != null ? familyMember.getRelation() : "Family Member") + ") has already been registered for this event"
                                 + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
             }
+            boolean memberAlreadyPartner = regRepo.existsByEventIdAndPartnerFamilyMemberIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), familyMember.getId(), matchFormat, activeStatuses);
+            if (memberAlreadyPartner) {
+                throw new AlreadyRegisteredException(
+                        familyMember.getName() + " is already confirmed as a doubles partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+        } else if (user != null) {
+            boolean userAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), user.getId(), matchFormat, activeStatuses);
+            if (userAlreadyPrimary) {
+                throw new AlreadyRegisteredException(
+                        "You have already registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+            boolean userAlreadyPartner = regRepo.existsByEventIdAndPartnerIdAndMatchTypeAndStatusIn(
+                    req.getEventId(), user.getId(), matchFormat, activeStatuses);
+            if (userAlreadyPartner) {
+                throw new AlreadyRegisteredException(
+                        "You are already confirmed as a doubles partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
         }
 
         String finalEmail = email;
@@ -669,6 +692,21 @@ public class SportsEventServiceImpl implements SportsEventService {
                 ? SportsEventRegistration.RegistrationStatus.PENDING
                 : SportsEventRegistration.RegistrationStatus.CONFIRMED;
 
+        boolean isSameHouseholdFamilyMember = partnerFamilyMember != null
+                && partnerFamilyMember.getUser() != null
+                && partnerFamilyMember.getUser().getId().equals(userId);
+
+        SportsEventRegistration.PartnerConfirmationStatus initialPartnerStatus = null;
+        LocalDateTime partnerConfirmedAt = null;
+        if (partner != null) {
+            if (isSameHouseholdFamilyMember) {
+                initialPartnerStatus = SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED;
+                partnerConfirmedAt = LocalDateTime.now();
+            } else {
+                initialPartnerStatus = SportsEventRegistration.PartnerConfirmationStatus.PENDING;
+            }
+        }
+
         SportsEventRegistration reg = SportsEventRegistration.builder()
                 .event(event)
                 .community(event.getCommunity())
@@ -679,7 +717,8 @@ public class SportsEventServiceImpl implements SportsEventService {
                 .eventFormat(selectedFormat)
                 .partner(partner)
                 .partnerFamilyMember(partnerFamilyMember)
-                .partnerConfirmationStatus(partner != null ? SportsEventRegistration.PartnerConfirmationStatus.PENDING : null)
+                .partnerConfirmationStatus(initialPartnerStatus)
+                .partnerConfirmedAt(partnerConfirmedAt)
                 .status(initialStatus)
                 .playerName(pName)
                 .email(email)
@@ -702,23 +741,23 @@ public class SportsEventServiceImpl implements SportsEventService {
                 ? RegistrationEmailService.Stage.RECEIVED
                 : RegistrationEmailService.Stage.CONFIRMED);
 
-        if (partner != null) {
+        if (partner != null && !isSameHouseholdFamilyMember) {
             try {
-                String dates = event.getEventDateStart() != null ? event.getEventDateStart().toString() : "TBA";
-                if (event.getEventDateEnd() != null && !event.getEventDateEnd().equals(event.getEventDateStart())) {
-                    dates += " to " + event.getEventDateEnd();
-                }
-                String body;
-                if (partnerFamilyMember != null) {
-                    body = user.getFullName() + " invited your " + (partnerFamilyMember.getRelation() != null ? partnerFamilyMember.getRelation() : "family member")
-                            + " (" + partnerFamilyMember.getName() + ") as doubles partner for " + event.getName()
-                            + " (" + category.getName() + "). Dates: " + dates + ". Please confirm participation.";
-                } else {
-                    body = user.getFullName() + " invited you as their doubles partner for " + event.getName()
-                            + " (" + category.getName() + "). Dates: " + dates + ". Please confirm your participation.";
-                }
-                String metadata = String.format("{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"PENDING\",\"primaryPlayer\":\"%s\"}",
-                        saved.getId(), event.getId(), user.getFullName().replace("\"", "\\\""));
+                String body = buildPartnerInvitationBody(
+                        user, familyMember, pName, partner, partnerFamilyMember, event, category
+                );
+                String primaryDisplayName = (familyMember != null ? familyMember.getName() : pName);
+                String primaryRel = (familyMember != null && familyMember.getRelation() != null ? familyMember.getRelation() : "Self");
+                String partnerNameJson = (partnerFamilyMember != null ? partnerFamilyMember.getName() : partner.getFullName());
+
+                String metadata = String.format(
+                        "{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"PENDING\",\"primaryPlayer\":\"%s\",\"primaryPlayerRelation\":\"%s\",\"partnerPlayer\":\"%s\",\"submittingUser\":\"%s\"}",
+                        saved.getId(), event.getId(),
+                        primaryDisplayName.replace("\"", "\\\""),
+                        primaryRel.replace("\"", "\\\""),
+                        partnerNameJson.replace("\"", "\\\""),
+                        user.getFullName().replace("\"", "\\\"")
+                );
 
                 notificationService.createNotification(
                         partner.getId(),
@@ -748,6 +787,54 @@ public class SportsEventServiceImpl implements SportsEventService {
         );
 
         return saved;
+    }
+
+    private String buildPartnerInvitationBody(
+            AppUser user,
+            com.manacommunity.api.user.model.FamilyMember familyMember,
+            String pName,
+            AppUser partner,
+            com.manacommunity.api.user.model.FamilyMember partnerFamilyMember,
+            SportsEvent event,
+            SportsPlayerCategory category
+    ) {
+        String dates = event.getEventDateStart() != null ? event.getEventDateStart().toString() : "TBA";
+        if (event.getEventDateEnd() != null && !event.getEventDateEnd().equals(event.getEventDateStart())) {
+            dates += " to " + event.getEventDateEnd();
+        }
+        String catName = category != null && category.getName() != null && !category.getName().isBlank()
+                ? " (" + category.getName() + ")" : "";
+        String eventLabel = event.getName() + catName;
+
+        String inviterName = user != null ? user.getFullName() : "A resident";
+        String flatInfo = user != null && user.getFlatNo() != null && !user.getFlatNo().isBlank() ? " (Flat " + user.getFlatNo() + ")" : "";
+
+        boolean primaryIsFamily = familyMember != null;
+        String primaryRel = familyMember != null && familyMember.getRelation() != null
+                ? familyMember.getRelation() : "family member";
+        String primDisplayName = familyMember != null
+                ? familyMember.getName()
+                : (pName != null && !pName.isBlank() ? pName : inviterName);
+
+        boolean partnerIsFamily = partnerFamilyMember != null;
+        String partnerRel = partnerFamilyMember != null && partnerFamilyMember.getRelation() != null
+                ? partnerFamilyMember.getRelation() : "family member";
+        String partnerDisplayName = partnerFamilyMember != null ? partnerFamilyMember.getName() : "you";
+
+        if (primaryIsFamily && partnerIsFamily) {
+            return inviterName + flatInfo + " invited your " + partnerRel + " (" + partnerDisplayName + ") to team up with their "
+                    + primaryRel + " (" + primDisplayName + ") as doubles partners for " + eventLabel
+                    + ". Dates: " + dates + ". Please confirm participation.";
+        } else if (primaryIsFamily) {
+            return inviterName + flatInfo + " invited you to team up with their " + primaryRel + " (" + primDisplayName + ") as doubles partners for "
+                    + eventLabel + ". Dates: " + dates + ". Please confirm your participation.";
+        } else if (partnerIsFamily) {
+            return inviterName + flatInfo + " invited your " + partnerRel + " (" + partnerDisplayName + ") as doubles partner for "
+                    + eventLabel + ". Dates: " + dates + ". Please confirm participation.";
+        } else {
+            return inviterName + flatInfo + " invited you as their doubles partner for " + eventLabel
+                    + ". Dates: " + dates + ". Please confirm your participation.";
+        }
     }
 
     @Override
@@ -805,7 +892,10 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(userId))
                 || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(userId));
-        if (!isOwner && !admin)
+        boolean isPartner = (reg.getPartner() != null && reg.getPartner().getId().equals(userId))
+                || (reg.getPartnerFamilyMember() != null && reg.getPartnerFamilyMember().getUser() != null && reg.getPartnerFamilyMember().getUser().getId().equals(userId));
+
+        if (!isOwner && !isPartner && !admin)
             throw new UnauthorizedActionException("You can only withdraw your own registration.");
 
         if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN
@@ -815,13 +905,57 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         SportsEvent event = reg.getEvent();
 
-        // Cutoff: participants cannot unregister once the event has started (admins can).
+        // Cutoff: participants cannot unregister once registration is closed or the event has started (admins can).
         if (!admin && event != null) {
+            if (event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                    || (event.getTournament() != null && event.getTournament().getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED)) {
+                throw new InvalidInputException("Registration is closed for this event. Please contact the organizers to withdraw.");
+            }
             LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
                     : (event.getTournament() != null ? event.getTournament().getEventDateStart() : null);
             if (start != null && !LocalDate.now().isBefore(start)) {
                 throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
             }
+        }
+
+        // Partner withdrawal: partner dissolves their participation; primary registrant stays registered
+        if (isPartner && !isOwner) {
+            AppUser partnerUser = reg.getPartner();
+            com.manacommunity.api.user.model.FamilyMember partnerFam = reg.getPartnerFamilyMember();
+            String partnerName = partnerFam != null ? partnerFam.getName() : (partnerUser != null ? partnerUser.getFullName() : "Your partner");
+
+            reg.setPartner(null);
+            reg.setPartnerFamilyMember(null);
+            reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+            reg.setPartnerDeclineReason(reason != null && !reason.isBlank() ? reason : "Partner withdrew from doubles team");
+            regRepo.save(reg);
+
+            if (reg.getUser() != null) {
+                try {
+                    String eventName = event != null ? event.getName() : "the event";
+                    Long eventId = event != null ? event.getId() : null;
+                    com.manacommunity.api.user.model.FamilyMember primFam = reg.getFamilyMember();
+                    boolean primIsFamily = primFam != null;
+                    String primName = primFam != null ? primFam.getName() : (reg.getPlayerName() != null ? reg.getPlayerName() : reg.getUser().getFullName());
+                    String primRel = primFam != null && primFam.getRelation() != null ? primFam.getRelation() : reg.getRelation();
+                    String primLabel = primIsFamily ? primName + (primRel != null ? " (" + primRel + ")" : "") : "you";
+                    String poolSubject = primIsFamily ? primName : "You";
+
+                    String withdrawMsg = partnerName + " has withdrawn as doubles partner for " + primLabel + " from " + eventName + ". "
+                            + poolSubject + " remains in the Open Pairing Pool and you may nominate a new partner.";
+
+                    notificationService.createNotification(
+                            reg.getUser().getId(), NotificationType.PARTNER_DECLINED, NotificationCategory.SPORTS,
+                            "Partner Withdrew — " + eventName,
+                            withdrawMsg,
+                            "/sports?tab=my-sports", ReferenceType.SPORTS_EVENT, eventId,
+                            NotificationPriority.HIGH, null,
+                            event != null && event.getCommunity() != null ? event.getCommunity().getId() : null);
+                } catch (Exception e) {
+                    log.warn("Failed to persist partner withdrawal notification", e);
+                }
+            }
+            return;
         }
 
         // Auction pool: remove still-queued entry; block if the player is already in the live/sold auction.
@@ -902,6 +1036,51 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Override
+    public List<SportsEventRegistration> getTournamentAllRegistrations(Long tournamentId) {
+        if (tournamentId == null) {
+            return java.util.Collections.emptyList();
+        }
+        List<SportsEventRegistration> regs = regRepo.findActiveByTournamentOrEventId(tournamentId);
+        if (regs == null || regs.isEmpty()) {
+            List<SportsEvent> events = eventRepo.findByTournamentId(tournamentId);
+            if (events != null && !events.isEmpty()) {
+                List<Long> eventIds = events.stream().map(SportsEvent::getId).filter(java.util.Objects::nonNull).toList();
+                if (!eventIds.isEmpty()) {
+                    regs = regRepo.findActiveByEventIdIn(eventIds);
+                }
+            }
+        }
+        if (regs != null && !regs.isEmpty()) {
+            for (SportsEventRegistration r : regs) {
+                if (r.getEvent() != null && r.getEvent().getId() != null) {
+                    hydrateCaptaincy(java.util.Collections.singletonList(r), r.getEvent().getId());
+                }
+            }
+        }
+        return regs != null ? regs : java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<SportsEventRegistration> getRegistrationsForEventIds(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> validIds = eventIds.stream().filter(java.util.Objects::nonNull).toList();
+        if (validIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<SportsEventRegistration> regs = regRepo.findActiveByEventIdIn(validIds);
+        if (regs != null && !regs.isEmpty()) {
+            for (SportsEventRegistration r : regs) {
+                if (r.getEvent() != null && r.getEvent().getId() != null) {
+                    hydrateCaptaincy(java.util.Collections.singletonList(r), r.getEvent().getId());
+                }
+            }
+        }
+        return regs != null ? regs : java.util.Collections.emptyList();
+    }
+
+    @Override
     public List<SportsEventRegistration> getRegistrationHistory(Long eventId, Long registrationId) {
         SportsEventRegistration target = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
@@ -968,10 +1147,19 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     public List<SportsEventRegistration> getUserRegistrations(Long userId) {
-        List<SportsEventRegistration> regs = regRepo.findByUserId(userId);
+        List<SportsEventRegistration> regs = new ArrayList<>(regRepo.findByUserId(userId));
+        List<SportsEventRegistration> partnerRegs = regRepo.findByPartnerIdAndPartnerConfirmationStatus(
+                userId, SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+        for (SportsEventRegistration pr : partnerRegs) {
+            if (regs.stream().noneMatch(r -> r.getId().equals(pr.getId()))) {
+                regs.add(pr);
+            }
+        }
         // Hydrate each registration with its event's captaincy info
         for (SportsEventRegistration reg : regs) {
-            hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
+            if (reg.getEvent() != null && reg.getEvent().getId() != null) {
+                hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
+            }
         }
         return regs;
     }
@@ -1069,14 +1257,57 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    private SportsAuctionConfig getOrCreateAuctionConfig(SportsEvent event, AppUser user) {
+        if (event == null || event.getId() == null) {
+            throw new ResourceNotFoundException("SportsEvent", 0L);
+        }
+        return auctionConfigRepo.findByEventId(event.getId())
+                .orElseGet(() -> {
+                    log.info("Auto-provisioning default SportsAuctionConfig for event id={}", event.getId());
+                    String baseSeason = (event.getName() != null && !event.getName().isBlank())
+                            ? event.getName().trim()
+                            : ("Season " + event.getId());
+                    SportsMeta sport = event.getSport();
+                    if (sport == null) {
+                        sport = sportMetaRepo.findAll().stream().findFirst().orElse(null);
+                    }
+                    Long sportId = sport != null ? sport.getId() : 1L;
+                    String seasonName = baseSeason;
+                    if (auctionConfigRepo.existsBySportIdAndSeasonName(sportId, seasonName)) {
+                        seasonName = baseSeason + " (Event #" + event.getId() + ")";
+                    }
+
+                    SportsAuctionConfig newConfig = SportsAuctionConfig.builder()
+                            .sport(sport)
+                            .event(event)
+                            .community(event.getCommunity())
+                            .seasonName(seasonName)
+                            .auctionFormat(SportsAuctionConfig.AuctionFormat.OPEN_AUCTION)
+                            .totalTeams(8)
+                            .totalPlayers(80)
+                            .budgetPerTeam(100000L)
+                            .basePrice(1000)
+                            .bidIncrementDefault(500)
+                            .bidIncrementThreshold(10000L)
+                            .bidIncrementAbove(1000)
+                            .bidTimerSeconds(30)
+                            .rtmEnabled(false)
+                            .unsoldRule(SportsAuctionConfig.UnsoldRule.ROTATION_AUCTION)
+                            .status(SportsAuctionConfig.AuctionStatus.DRAFT)
+                            .createdBy(user)
+                            .build();
+
+                    return auctionConfigRepo.save(newConfig);
+                });
+    }
+
     @Override
     @Transactional
     public SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
                 .orElseGet(() -> SportsAuctionTeam.builder()
@@ -1093,11 +1324,20 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .build());
 
         team.setCaptainNomination(nominate);
-        if (nominate) {
+        if (nominate && teamName != null && !teamName.isBlank()) {
             team.setTeamName(teamName);
+        } else if (team.getTeamName() == null) {
+            team.setTeamName(reg.getUser().getFullName() + "'s Team");
         }
         
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
+
+        reg.setCaptainNomination(nominate);
+        if (nominate && teamName != null && !teamName.isBlank()) {
+            reg.setProposedTeamName(teamName);
+        }
+        regRepo.save(reg);
+
         hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
 
         auditService.record(
@@ -1118,14 +1358,36 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
         
-        SportsAuctionConfig config = auctionConfigRepo.findByEventId(reg.getEvent().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionConfig for event", reg.getEvent().getId()));
+        SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam for user", reg.getUser().getId()));
+                .orElseGet(() -> SportsAuctionTeam.builder()
+                        .config(config)
+                        .community(config.getCommunity() != null ? config.getCommunity() : (reg.getEvent() != null ? reg.getEvent().getCommunity() : null))
+                        .event(reg.getEvent())
+                        .ownerUser(reg.getUser())
+                        .captainUser(reg.getUser())
+                        .ownerName(reg.getUser().getFullName())
+                        .teamName(reg.getProposedTeamName() != null && !reg.getProposedTeamName().isBlank()
+                                ? reg.getProposedTeamName()
+                                : reg.getUser().getFullName() + "'s Team")
+                        .eventId(reg.getEvent().getId())
+                        .totalBudget(config.getBudgetPerTeam())
+                        .remainingBudget(config.getBudgetPerTeam())
+                        .spent(0L)
+                        .captainNomination(true)
+                        .build());
 
+        team.setCaptainNomination(true);
         team.setCaptainConfirmation(confirm);
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
+
+        reg.setCaptainNomination(true);
+        reg.setCaptainConfirmation(confirm);
+        if (team.getTeamName() != null && !team.getTeamName().isBlank()) {
+            reg.setProposedTeamName(team.getTeamName());
+        }
+        regRepo.save(reg);
         
         hydrateCaptaincy(List.of(reg), reg.getEvent().getId());
 
@@ -1147,7 +1409,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
-        if (reg.getPartner() == null || !reg.getPartner().getId().equals(partnerUserId)) {
+        boolean isDesignatedPartner = (reg.getPartner() != null && reg.getPartner().getId().equals(partnerUserId))
+                || (reg.getPartnerFamilyMember() != null && reg.getPartnerFamilyMember().getUser() != null && reg.getPartnerFamilyMember().getUser().getId().equals(partnerUserId));
+
+        if (!isDesignatedPartner) {
             throw new UnauthorizedActionException("You are not the designated partner for this registration.");
         }
 
@@ -1160,16 +1425,57 @@ public class SportsEventServiceImpl implements SportsEventService {
             throw new InvalidInputException("Partner invitation has already been " + reg.getPartnerConfirmationStatus() + ".");
         }
 
+        List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                SportsEventRegistration.RegistrationStatus.PENDING,
+                SportsEventRegistration.RegistrationStatus.REGISTERED,
+                SportsEventRegistration.RegistrationStatus.CONFIRMED
+        );
+
+        AppUser originalPartnerUser = reg.getPartner();
+        com.manacommunity.api.user.model.FamilyMember originalPartnerFam = reg.getPartnerFamilyMember();
+        com.manacommunity.api.user.model.FamilyMember primFam = reg.getFamilyMember();
+        AppUser primUser = reg.getUser();
+        String primName = primFam != null ? primFam.getName() : (reg.getPlayerName() != null ? reg.getPlayerName() : (primUser != null ? primUser.getFullName() : "Player"));
+        boolean primIsFamily = primFam != null;
+        String primRel = primFam != null && primFam.getRelation() != null ? primFam.getRelation() : reg.getRelation();
+
+        String responderName = (originalPartnerUser != null ? originalPartnerUser.getFullName() : "Partner");
+        String partnerPlayerName = originalPartnerFam != null ? originalPartnerFam.getName() : responderName;
+        boolean partnerIsFamily = originalPartnerFam != null;
+
         if (accept) {
+            // Guard against duplicate active registration for accepting partner
+            if (reg.getPartnerFamilyMember() != null) {
+                Long pFamId = reg.getPartnerFamilyMember().getId();
+                if (regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(reg.getEvent().getId(), pFamId, reg.getMatchType(), activeStatuses)) {
+                    throw new AlreadyRegisteredException("This family member has already registered as a primary player for this event"
+                            + (reg.getMatchType() != null ? " in " + reg.getMatchType().name().replace('_', ' ') : "") + ".");
+                }
+                if (regRepo.existsOtherActivePartnerByFamilyMemberId(reg.getEvent().getId(), reg.getId(), pFamId, reg.getMatchType(), activeStatuses)) {
+                    throw new AlreadyRegisteredException("This family member is already registered as a doubles partner in another registration for this event"
+                            + (reg.getMatchType() != null ? " in " + reg.getMatchType().name().replace('_', ' ') : "") + ".");
+                }
+            } else if (reg.getPartner() != null) {
+                Long pUserId = reg.getPartner().getId();
+                if (regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(reg.getEvent().getId(), pUserId, reg.getMatchType(), activeStatuses)) {
+                    throw new AlreadyRegisteredException("You have already registered for this event"
+                            + (reg.getMatchType() != null ? " in " + reg.getMatchType().name().replace('_', ' ') : "") + ".");
+                }
+                if (regRepo.existsOtherActivePartnerByUserId(reg.getEvent().getId(), reg.getId(), pUserId, reg.getMatchType(), activeStatuses)) {
+                    throw new AlreadyRegisteredException("You are already registered as a doubles partner in another registration for this event"
+                            + (reg.getMatchType() != null ? " in " + reg.getMatchType().name().replace('_', ' ') : "") + ".");
+                }
+            }
             reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
             reg.setPartnerConfirmedAt(LocalDateTime.now());
             reg.setPartnerDeclineReason(null);
         } else {
+            reg.setPartner(null);
+            reg.setPartnerFamilyMember(null);
             reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
             reg.setPartnerConfirmedAt(LocalDateTime.now());
-            reg.setPartnerDeclineReason(declineReason);
-            reg.setStatus(SportsEventRegistration.RegistrationStatus.REJECTED);
-            reg.setRejectReason("Partner declined invitation" + (declineReason != null && !declineReason.isBlank() ? ": " + declineReason : "."));
+            reg.setPartnerDeclineReason(declineReason != null && !declineReason.isBlank() ? declineReason : "Partner declined invitation");
+            // NOTE: Do not set reg.setStatus(REJECTED). The primary player registration stays active in Open Pairing Pool.
         }
 
         SportsEventRegistration saved = regRepo.save(reg);
@@ -1179,14 +1485,46 @@ public class SportsEventServiceImpl implements SportsEventService {
             try {
                 NotificationType type = accept ? NotificationType.PARTNER_CONFIRMED : NotificationType.PARTNER_DECLINED;
                 String eventName = reg.getEvent() != null ? reg.getEvent().getName() : "Tournament";
-                String partnerName = reg.getPartner() != null ? reg.getPartner().getFullName() : "Partner";
                 String title = accept
                         ? "Doubles Partner Accepted — " + eventName
                         : "Doubles Partner Declined — " + eventName;
-                String msg = accept
-                        ? partnerName + " accepted your partner invitation for " + eventName + "."
-                        : partnerName + " declined your partner invitation for " + eventName +
-                          (declineReason != null && !declineReason.isBlank() ? ". Reason: " + declineReason : ".");
+
+                String msg;
+                if (accept) {
+                    if (primIsFamily && partnerIsFamily) {
+                        msg = responderName + " accepted the partner invitation for " + partnerPlayerName + " to team up with " + primName + " for " + eventName + ".";
+                    } else if (primIsFamily) {
+                        msg = responderName + " accepted the partner invitation to team up with " + primName + " for " + eventName + ".";
+                    } else if (partnerIsFamily) {
+                        String pRel = originalPartnerFam.getRelation() != null ? originalPartnerFam.getRelation() : "family member";
+                        msg = responderName + " accepted the partner invitation for their " + pRel + " (" + partnerPlayerName + ") to team up with you for " + eventName + ".";
+                    } else {
+                        msg = responderName + " accepted your partner invitation for " + eventName + ".";
+                    }
+                } else {
+                    String reasonStr = (declineReason != null && !declineReason.isBlank()) ? ". Reason: " + declineReason : ".";
+                    String poolTarget = primIsFamily ? primName : "You";
+                    if (primIsFamily && partnerIsFamily) {
+                        msg = responderName + " declined the partner invitation for " + partnerPlayerName + " to team up with " + primName + " for " + eventName + reasonStr + " " + poolTarget + " remains in the Open Pairing Pool and you may nominate another partner.";
+                    } else if (primIsFamily) {
+                        msg = responderName + " declined the partner invitation to team up with " + primName + " for " + eventName + reasonStr + " " + poolTarget + " remains in the Open Pairing Pool and you may nominate another partner.";
+                    } else if (partnerIsFamily) {
+                        msg = responderName + " declined the partner invitation for " + partnerPlayerName + " for " + eventName + reasonStr + " " + poolTarget + " remains in the Open Pairing Pool and you may nominate another partner.";
+                    } else {
+                        msg = responderName + " declined your partner invitation for " + eventName + reasonStr + " You remain in the Open Pairing Pool and may nominate another partner.";
+                    }
+                }
+
+                String respMetadata = String.format(
+                        "{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"%s\",\"primaryPlayer\":\"%s\",\"primaryPlayerRelation\":\"%s\",\"partnerPlayer\":\"%s\",\"submittingUser\":\"%s\"}",
+                        saved.getId(),
+                        reg.getEvent() != null ? reg.getEvent().getId() : 0L,
+                        accept ? "CONFIRMED" : "DECLINED",
+                        primName.replace("\"", "\\\""),
+                        (primRel != null ? primRel : "Self").replace("\"", "\\\""),
+                        partnerPlayerName.replace("\"", "\\\""),
+                        (primUser != null ? primUser.getFullName() : "").replace("\"", "\\\"")
+                );
 
                 notificationService.createNotification(
                         reg.getUser().getId(),
@@ -1194,12 +1532,12 @@ public class SportsEventServiceImpl implements SportsEventService {
                         NotificationCategory.SPORTS,
                         title,
                         msg,
-                        null,
+                        "/sports?tab=my-sports",
                         ReferenceType.SPORTS_EVENT,
                         reg.getEvent() != null ? reg.getEvent().getId() : null,
-                        NotificationPriority.NORMAL,
-                        null,
-                        null
+                        NotificationPriority.HIGH,
+                        respMetadata,
+                        reg.getEvent() != null && reg.getEvent().getCommunity() != null ? reg.getEvent().getCommunity().getId() : null
                 );
             } catch (Exception e) {
                 log.warn("Failed to send partner response notification", e);
@@ -1220,10 +1558,249 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     @Override
     public List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status) {
-        if (status != null) {
-            return regRepo.findByPartnerIdAndPartnerConfirmationStatus(partnerUserId, status);
+        return regRepo.findPartnerInvitationsForUser(partnerUserId, status);
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId) {
+        SportsEventRegistration reg = regRepo.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
+
+        boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(requestingUserId))
+                || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(requestingUserId));
+
+        if (!isOwner) {
+            throw new UnauthorizedActionException("You can only nominate a partner for your own registration.");
         }
-        return regRepo.findByPartnerId(partnerUserId);
+
+        if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.WITHDRAWN ||
+                reg.getStatus() == SportsEventRegistration.RegistrationStatus.REJECTED) {
+            throw new InvalidInputException("Cannot nominate a partner for a " + reg.getStatus() + " registration.");
+        }
+
+        SportsEvent.MatchFormat matchFormat = reg.getMatchType();
+        if (matchFormat != SportsEvent.MatchFormat.DOUBLES && matchFormat != SportsEvent.MatchFormat.MIXED_DOUBLES) {
+            throw new InvalidInputException("Partner nomination is only available for Doubles or Mixed Doubles events.");
+        }
+
+        SportsEvent event = reg.getEvent();
+        SportsPlayerCategory category = reg.getCategory();
+        AppUser user = reg.getUser();
+        com.manacommunity.api.user.model.FamilyMember familyMember = reg.getFamilyMember();
+        String pName = reg.getPlayerName() != null ? reg.getPlayerName() : (user != null ? user.getFullName() : "");
+        String gender = familyMember != null ? familyMember.getGender() : (user != null ? user.getGender() : "");
+
+        List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                SportsEventRegistration.RegistrationStatus.PENDING,
+                SportsEventRegistration.RegistrationStatus.REGISTERED,
+                SportsEventRegistration.RegistrationStatus.CONFIRMED
+        );
+
+        // Case 1: Switching to Open Pairing Pool (no partner specified)
+        if (partnerUserId == null && partnerFamilyMemberId == null) {
+            reg.setPartner(null);
+            reg.setPartnerFamilyMember(null);
+            reg.setPartnerConfirmationStatus(null);
+            reg.setPartnerConfirmedAt(null);
+            reg.setPartnerDeclineReason(null);
+
+            SportsEventRegistration saved = regRepo.save(reg);
+            auditService.record(
+                    AuditAction.PARTNER_NOMINATED,
+                    AuditModule.SPORTS,
+                    "SportsEventRegistration",
+                    String.valueOf(saved.getId()),
+                    null,
+                    "Switched to Open Pairing Pool"
+            );
+            return saved;
+        }
+
+        // Case 2: Partner specified
+        AppUser partner = null;
+        com.manacommunity.api.user.model.FamilyMember partnerFamilyMember = null;
+        String partnerDisplayName = null;
+        String partnerGender = "";
+        boolean isSameHouseholdFamilyMember = false;
+
+        if (partnerFamilyMemberId != null) {
+            partnerFamilyMember = familyMemberRepository.findById(partnerFamilyMemberId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Partner FamilyMember", partnerFamilyMemberId));
+
+            if (familyMember != null && familyMember.getId().equals(partnerFamilyMember.getId())) {
+                throw new InvalidInputException("You cannot select the same family member as a doubles partner.");
+            }
+
+            partner = partnerFamilyMember.getUser() != null ? partnerFamilyMember.getUser() : user;
+            partnerDisplayName = partnerFamilyMember.getName();
+            partnerGender = partnerFamilyMember.getGender() != null ? partnerFamilyMember.getGender().trim().toUpperCase() : "";
+
+            if (partnerFamilyMember.getUser() != null && partnerFamilyMember.getUser().getId().equals(user.getId())) {
+                isSameHouseholdFamilyMember = true;
+            }
+
+            // Check if partner family member is already active as partner in another registration for this event & format
+            boolean partnerFamilyAlreadySelected = regRepo.existsOtherActivePartnerByFamilyMemberId(
+                    event.getId(), reg.getId(), partnerFamilyMember.getId(), matchFormat, activeStatuses);
+            if (partnerFamilyAlreadySelected) {
+                throw new AlreadyRegisteredException(
+                        partnerDisplayName + " is already registered / pending as a partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+
+            // Check if partner family member is already a primary registrant for this format
+            boolean partnerFamilyAlreadyPrimary = regRepo.existsByEventIdAndFamilyMemberIdAndMatchTypeAndStatusIn(
+                    event.getId(), partnerFamilyMember.getId(), matchFormat, activeStatuses);
+            if (partnerFamilyAlreadyPrimary) {
+                throw new AlreadyRegisteredException(
+                        partnerDisplayName + " has already registered as a primary player for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+
+            int partnerAge = 0;
+            if (partnerFamilyMember.getDob() != null && !partnerFamilyMember.getDob().isBlank()) {
+                try {
+                    LocalDate pDob = LocalDate.parse(partnerFamilyMember.getDob().trim());
+                    partnerAge = Period.between(pDob, LocalDate.now()).getYears();
+                } catch (Exception e) {
+                    partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
+                }
+            } else {
+                partnerAge = partnerFamilyMember.getAge() != null ? partnerFamilyMember.getAge() : 0;
+            }
+            validateAgeEligibility(partnerAge, event, category, "Partner");
+            validateOptionBDuplicates(partner, partnerFamilyMember, partnerDisplayName, event, category, matchFormat, activeStatuses);
+        } else {
+            if (partnerUserId.equals(user.getId())) {
+                throw new InvalidInputException("You cannot select yourself as a doubles partner.");
+            }
+
+            partner = userRepo.findById(partnerUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", partnerUserId));
+            partnerDisplayName = partner.getFullName();
+            partnerGender = partner.getGender() != null ? partner.getGender().trim().toUpperCase() : "";
+
+            boolean partnerAlreadySelected = regRepo.existsOtherActivePartnerByUserId(
+                    event.getId(), reg.getId(), partnerUserId, matchFormat, activeStatuses);
+            if (partnerAlreadySelected) {
+                throw new AlreadyRegisteredException(
+                        partner.getFullName() + " is already registered / pending as a partner for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+
+            boolean partnerAlreadyPrimary = regRepo.existsByEventIdAndUserIdAndMatchTypeAndStatusIn(
+                    event.getId(), partnerUserId, matchFormat, activeStatuses);
+            if (partnerAlreadyPrimary) {
+                throw new AlreadyRegisteredException(
+                        partner.getFullName() + " has already registered for this event"
+                                + (matchFormat != null ? " in " + matchFormat.name().replace('_', ' ') : "") + ".");
+            }
+
+            if (partner.getDateOfBirth() == null) {
+                throw new InvalidInputException("Selected partner " + partnerDisplayName + " must update their Date of Birth in their Profile before registering for sports events.");
+            }
+            int partnerAge = Period.between(partner.getDateOfBirth(), LocalDate.now()).getYears();
+            validateAgeEligibility(partnerAge, event, category, "Partner");
+            validateOptionBDuplicates(partner, null, partnerDisplayName, event, category, matchFormat, activeStatuses);
+        }
+
+        // Gender validations for DOUBLES / MIXED_DOUBLES
+        if (partner != null) {
+            String catGender = category != null && category.getGender() != null ? category.getGender().trim().toUpperCase() : "ALL";
+            String primaryGender = gender != null ? gender.trim().toUpperCase() : (user.getGender() != null ? user.getGender().trim().toUpperCase() : "");
+
+            if (!primaryGender.isEmpty() && !partnerGender.isEmpty()) {
+                if ("MALE".equals(catGender)) {
+                    if (!"MALE".equals(primaryGender) || !"MALE".equals(partnerGender)) {
+                        throw new InvalidInputException(
+                                (category != null ? category.getName() : "Category") + " requires both players to be Male. Selected: " +
+                                pName + " (" + primaryGender + ") and " + partnerDisplayName + " (" + partnerGender + ")."
+                        );
+                    }
+                } else if ("FEMALE".equals(catGender)) {
+                    if (!"FEMALE".equals(primaryGender) || !"FEMALE".equals(partnerGender)) {
+                        throw new InvalidInputException(
+                                (category != null ? category.getName() : "Category") + " requires both players to be Female. Selected: " +
+                                pName + " (" + primaryGender + ") and " + partnerDisplayName + " (" + partnerGender + ")."
+                        );
+                    }
+                } else if ("MIXED".equals(catGender) || matchFormat == SportsEvent.MatchFormat.MIXED_DOUBLES) {
+                    boolean isMandatoryMixed = event.getMandatoryMixedDoubles() == null || event.getMandatoryMixedDoubles();
+                    if (isMandatoryMixed) {
+                        boolean isValidMixed = ("MALE".equals(primaryGender) && "FEMALE".equals(partnerGender))
+                                || ("FEMALE".equals(primaryGender) && "MALE".equals(partnerGender));
+                        if (!isValidMixed) {
+                            throw new InvalidInputException(
+                                    "Mixed Doubles requires one Male and one Female player. Selected: " +
+                                    pName + " (" + primaryGender + ") and " + partnerDisplayName + " (" + partnerGender + ")."
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        reg.setPartner(partner);
+        reg.setPartnerFamilyMember(partnerFamilyMember);
+        reg.setPartnerDeclineReason(null);
+
+        if (isSameHouseholdFamilyMember) {
+            reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+            reg.setPartnerConfirmedAt(LocalDateTime.now());
+        } else {
+            reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+            reg.setPartnerConfirmedAt(null);
+        }
+
+        SportsEventRegistration saved = regRepo.save(reg);
+
+        if (partner != null && !isSameHouseholdFamilyMember) {
+            try {
+                String body = buildPartnerInvitationBody(
+                        user, familyMember, pName, partner, partnerFamilyMember, event, category
+                );
+                String primaryDisplayName = (familyMember != null ? familyMember.getName() : pName);
+                String primaryRel = (familyMember != null && familyMember.getRelation() != null ? familyMember.getRelation() : "Self");
+                String partnerNameJson = (partnerFamilyMember != null ? partnerFamilyMember.getName() : partner.getFullName());
+
+                String metadata = String.format(
+                        "{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"PENDING\",\"primaryPlayer\":\"%s\",\"primaryPlayerRelation\":\"%s\",\"partnerPlayer\":\"%s\",\"submittingUser\":\"%s\"}",
+                        saved.getId(), event.getId(),
+                        primaryDisplayName.replace("\"", "\\\""),
+                        primaryRel.replace("\"", "\\\""),
+                        partnerNameJson.replace("\"", "\\\""),
+                        user.getFullName().replace("\"", "\\\"")
+                );
+
+                notificationService.createNotification(
+                        partner.getId(),
+                        NotificationType.PARTNER_SELECTED,
+                        NotificationCategory.SPORTS,
+                        "Doubles Partner Invitation — " + event.getName(),
+                        body,
+                        "/sports?tab=my-sports&confirmPartner=" + saved.getId(),
+                        ReferenceType.SPORTS_EVENT,
+                        event.getId(),
+                        NotificationPriority.HIGH,
+                        metadata,
+                        event.getCommunity() != null ? event.getCommunity().getId() : null
+                );
+            } catch (Exception e) {
+                log.warn("Failed to dispatch partner notification for registration {}", saved.getId(), e);
+            }
+        }
+
+        auditService.record(
+                AuditAction.PARTNER_NOMINATED,
+                AuditModule.SPORTS,
+                "SportsEventRegistration",
+                String.valueOf(saved.getId()),
+                null,
+                "partner=" + partnerDisplayName + ", status=" + saved.getPartnerConfirmationStatus()
+        );
+
+        return saved;
     }
 
     private void hydrateCaptaincy(List<SportsEventRegistration> regs, Long eventId) {
@@ -1872,3 +2449,5 @@ public class SportsEventServiceImpl implements SportsEventService {
         return !eDate1.isBefore(s2) && !s1.isAfter(eDate2);
     }
 }
+
+

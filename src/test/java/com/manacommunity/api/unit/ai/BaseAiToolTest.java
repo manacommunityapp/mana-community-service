@@ -87,8 +87,8 @@ public abstract class BaseAiToolTest {
     @SuppressWarnings("unchecked")
     protected TypedQuery<Long> mockCountQuery(Long result) {
         TypedQuery<Long> query = mock(TypedQuery.class);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
-        when(query.getSingleResult()).thenReturn(result);
+        lenient().when(query.setParameter(anyString(), any())).thenReturn(query);
+        lenient().when(query.getSingleResult()).thenReturn(result);
         return query;
     }
 
@@ -98,9 +98,9 @@ public abstract class BaseAiToolTest {
     @SuppressWarnings("unchecked")
     protected TypedQuery<Object[]> mockListQuery(java.util.List<Object[]> results) {
         TypedQuery<Object[]> query = mock(TypedQuery.class);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
-        when(query.setMaxResults(anyInt())).thenReturn(query);
-        when(query.getResultList()).thenReturn(results);
+        lenient().when(query.setParameter(anyString(), any())).thenReturn(query);
+        lenient().when(query.setMaxResults(anyInt())).thenReturn(query);
+        lenient().when(query.getResultList()).thenReturn(results);
         return query;
     }
 }

@@ -43,7 +43,10 @@ public interface SportsEventRepository extends JpaRepository<SportsEvent, Long> 
         SELECT DISTINCT e FROM SportsEvent e
         WHERE e.id IN (
             SELECT r.event.id FROM SportsEventRegistration r
-            WHERE r.user.id = :userId
+            WHERE (
+                r.user.id = :userId
+                OR (r.partner.id = :userId AND r.partnerConfirmationStatus = com.manacommunity.api.sports.model.SportsEventRegistration$PartnerConfirmationStatus.CONFIRMED)
+            )
             AND r.status NOT IN (
                 com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
                 com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED

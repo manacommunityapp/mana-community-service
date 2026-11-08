@@ -104,8 +104,9 @@ public class BookingController {
     public ResponseEntity<ResourceResponse> getResource(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(resourceService.getResource(id));
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(resourceService.getResource(id, communityId));
     }
 
     @PostMapping("/resources")
@@ -124,8 +125,9 @@ public class BookingController {
             @PathVariable Long id,
             @Valid @RequestBody ResourceRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(resourceService.updateResource(id, request));
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(resourceService.updateResource(id, request, communityId));
     }
 
     @DeleteMapping("/resources/{id}")
@@ -133,8 +135,9 @@ public class BookingController {
     public ResponseEntity<Void> deleteResource(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        resourceService.deleteResource(id);
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        resourceService.deleteResource(id, communityId);
         return ResponseEntity.noContent().build();
     }
 
@@ -214,8 +217,9 @@ public class BookingController {
     public ResponseEntity<ResourceBookingResponse> getBooking(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(bookingService.getBooking(id));
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        return ResponseEntity.ok(bookingService.getBooking(id, user.getId(), communityId));
     }
 
     @PutMapping("/bookings/{id}/cancel")

@@ -24,6 +24,7 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
         SELECT COUNT(r) > 0 FROM SportsEventRegistration r
         WHERE r.event.id = :eventId
           AND r.user.id = :userId
+          AND r.familyMember IS NULL
           AND r.status IN :statuses
           AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
     """)
@@ -73,6 +74,37 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
             @org.springframework.data.repository.query.Param("statuses") List<SportsEventRegistration.RegistrationStatus> statuses);
 
     boolean existsByUserIdAndStatusIn(Long userId, List<SportsEventRegistration.RegistrationStatus> statuses);
+
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT COUNT(r) > 0 FROM SportsEventRegistration r
+        WHERE r.event.id = :eventId
+          AND r.id != :excludeRegistrationId
+          AND r.partner.id = :partnerId
+          AND r.partnerFamilyMember IS NULL
+          AND r.status IN :statuses
+          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+    """)
+    boolean existsOtherActivePartnerByUserId(
+            @org.springframework.data.repository.query.Param("eventId") Long eventId,
+            @org.springframework.data.repository.query.Param("excludeRegistrationId") Long excludeRegistrationId,
+            @org.springframework.data.repository.query.Param("partnerId") Long partnerId,
+            @org.springframework.data.repository.query.Param("matchType") com.manacommunity.api.sports.model.SportsEvent.MatchFormat matchType,
+            @org.springframework.data.repository.query.Param("statuses") List<SportsEventRegistration.RegistrationStatus> statuses);
+
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT COUNT(r) > 0 FROM SportsEventRegistration r
+        WHERE r.event.id = :eventId
+          AND r.id != :excludeRegistrationId
+          AND r.partnerFamilyMember.id = :partnerFamilyMemberId
+          AND r.status IN :statuses
+          AND (:matchType IS NULL OR r.matchType IS NULL OR r.matchType = :matchType)
+    """)
+    boolean existsOtherActivePartnerByFamilyMemberId(
+            @org.springframework.data.repository.query.Param("eventId") Long eventId,
+            @org.springframework.data.repository.query.Param("excludeRegistrationId") Long excludeRegistrationId,
+            @org.springframework.data.repository.query.Param("partnerFamilyMemberId") Long partnerFamilyMemberId,
+            @org.springframework.data.repository.query.Param("matchType") com.manacommunity.api.sports.model.SportsEvent.MatchFormat matchType,
+            @org.springframework.data.repository.query.Param("statuses") List<SportsEventRegistration.RegistrationStatus> statuses);
 
     @org.springframework.data.jpa.repository.Query("""
         SELECT COUNT(r) > 0 FROM SportsEventRegistration r
@@ -166,7 +198,10 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     long countByEventId(Long eventId);
 
     @org.springframework.data.jpa.repository.Query("""
-        SELECT COUNT(r) FROM SportsEventRegistration r
+        SELECT COALESCE(SUM(CASE WHEN (r.partner.id IS NOT NULL OR r.partnerFamilyMember.id IS NOT NULL)
+                                   AND r.partnerConfirmationStatus = com.manacommunity.api.sports.model.SportsEventRegistration$PartnerConfirmationStatus.CONFIRMED
+                                 THEN 2L ELSE 1L END), 0L)
+        FROM SportsEventRegistration r
         WHERE r.event.id = :eventId
           AND (r.status IS NULL OR r.status NOT IN (
               com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
@@ -176,7 +211,10 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     long countActiveByEventId(@org.springframework.data.repository.query.Param("eventId") Long eventId);
 
     @org.springframework.data.jpa.repository.Query("""
-        SELECT r.event.id, COUNT(r) FROM SportsEventRegistration r
+        SELECT r.event.id, COALESCE(SUM(CASE WHEN (r.partner.id IS NOT NULL OR r.partnerFamilyMember.id IS NOT NULL)
+                                             AND r.partnerConfirmationStatus = com.manacommunity.api.sports.model.SportsEventRegistration$PartnerConfirmationStatus.CONFIRMED
+                                           THEN 2L ELSE 1L END), 0L)
+        FROM SportsEventRegistration r
         WHERE r.event.id IN :eventIds
           AND (r.status IS NULL OR r.status NOT IN (
               com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
@@ -199,6 +237,45 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
     List<SportsEventRegistration> findByPartnerIdAndPartnerConfirmationStatus(
             Long partnerId, SportsEventRegistration.PartnerConfirmationStatus partnerConfirmationStatus);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE (r.partner.id = :userId OR (r.partnerFamilyMember IS NOT NULL AND r.partnerFamilyMember.user.id = :userId))
+          AND (:status IS NULL OR r.partnerConfirmationStatus = :status)
+          AND r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          )
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findPartnerInvitationsForUser(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("status") SportsEventRegistration.PartnerConfirmationStatus status);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE (r.event.tournament.id = :tournamentId OR r.event.id = :tournamentId)
+          AND (r.status IS NULL OR r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          ))
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findActiveByTournamentOrEventId(@org.springframework.data.repository.query.Param("tournamentId") Long tournamentId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE r.event.id IN :eventIds
+          AND (r.status IS NULL OR r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          ))
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findActiveByEventIdIn(@org.springframework.data.repository.query.Param("eventIds") List<Long> eventIds);
 
     List<SportsEventRegistration> findByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
     long countByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);

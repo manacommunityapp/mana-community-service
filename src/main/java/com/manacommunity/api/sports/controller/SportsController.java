@@ -226,7 +226,7 @@ public class SportsController {
 
     @PutMapping("/tournaments/{id}")
     public ResponseEntity<SportsEventResponse> updateTournament(
-            @PathVariable Long id, @Valid @RequestBody SportsTournamentRequest req,
+            @PathVariable Long id, @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         log.info("Updating tournament id={}", id);
@@ -541,6 +541,24 @@ public class SportsController {
                 .map(this::toRegistrationResponse).toList());
     }
 
+    @GetMapping({"/tournaments/{tournamentId}/all-registrations", "/events/registrations/batch"})
+    public ResponseEntity<List<SportsRegistrationResponse>> getAllTournamentRegistrations(
+            @PathVariable(required = false) Long tournamentId,
+            @RequestParam(required = false) List<Long> eventIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        List<SportsEventRegistration> regs;
+        if (eventIds != null && !eventIds.isEmpty()) {
+            regs = eventService.getRegistrationsForEventIds(eventIds);
+        } else if (tournamentId != null) {
+            regs = eventService.getTournamentAllRegistrations(tournamentId);
+        } else {
+            regs = java.util.Collections.emptyList();
+        }
+        return ResponseEntity.ok(regs.stream()
+                .map(this::toRegistrationResponse).toList());
+    }
+
     @GetMapping({"/events/{eventId}/registrations/{registrationId}/history", "/tournaments/{eventId}/registrations/{registrationId}/history"})
     public ResponseEntity<List<SportsRegistrationResponse>> getRegistrationHistory(
             @PathVariable Long eventId,
@@ -620,6 +638,17 @@ public class SportsController {
         log.info("Responding to partner invitation registrationId={} accept={}", id, accept);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         return ResponseEntity.ok(toRegistrationResponse(eventService.respondToPartnerInvitation(id, ctx.userId(), accept, reason)));
+    }
+
+    @PutMapping("/registrations/{id}/nominate-partner")
+    public ResponseEntity<SportsRegistrationResponse> nominatePartner(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long partnerUserId,
+            @RequestParam(required = false) Long partnerFamilyMemberId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId)));
     }
 
     @GetMapping("/registrations/partner-invitations")
@@ -818,6 +847,8 @@ public class SportsController {
                     .fullName(r.getPartner().getFullName())
                     .name(r.getPartner().getFullName())
                     .email(r.getPartner().getEmail())
+                    .phone(r.getPartner().getPhone())
+                    .flatNo(r.getPartner().getFlatNo())
                     .build();
         }
 
