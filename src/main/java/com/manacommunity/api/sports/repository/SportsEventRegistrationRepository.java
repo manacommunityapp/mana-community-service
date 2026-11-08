@@ -253,6 +253,30 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
             @org.springframework.data.repository.query.Param("userId") Long userId,
             @org.springframework.data.repository.query.Param("status") SportsEventRegistration.PartnerConfirmationStatus status);
 
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE (r.event.tournament.id = :tournamentId OR r.event.id = :tournamentId)
+          AND (r.status IS NULL OR r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          ))
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findActiveByTournamentOrEventId(@org.springframework.data.repository.query.Param("tournamentId") Long tournamentId);
+
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT r FROM SportsEventRegistration r
+        WHERE r.event.id IN :eventIds
+          AND (r.status IS NULL OR r.status NOT IN (
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
+              com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.REJECTED
+          ))
+        ORDER BY r.registeredAt DESC
+    """)
+    List<SportsEventRegistration> findActiveByEventIdIn(@org.springframework.data.repository.query.Param("eventIds") List<Long> eventIds);
+
     List<SportsEventRegistration> findByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
     long countByEventIdAndStatus(Long eventId, SportsEventRegistration.RegistrationStatus status);
 

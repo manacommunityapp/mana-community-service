@@ -973,6 +973,51 @@ public class SportsEventServiceImpl implements SportsEventService {
     }
 
     @Override
+    public List<SportsEventRegistration> getTournamentAllRegistrations(Long tournamentId) {
+        if (tournamentId == null) {
+            return java.util.Collections.emptyList();
+        }
+        List<SportsEventRegistration> regs = regRepo.findActiveByTournamentOrEventId(tournamentId);
+        if (regs == null || regs.isEmpty()) {
+            List<SportsEvent> events = eventRepo.findByTournamentId(tournamentId);
+            if (events != null && !events.isEmpty()) {
+                List<Long> eventIds = events.stream().map(SportsEvent::getId).filter(java.util.Objects::nonNull).toList();
+                if (!eventIds.isEmpty()) {
+                    regs = regRepo.findActiveByEventIdIn(eventIds);
+                }
+            }
+        }
+        if (regs != null && !regs.isEmpty()) {
+            for (SportsEventRegistration r : regs) {
+                if (r.getEvent() != null && r.getEvent().getId() != null) {
+                    hydrateCaptaincy(java.util.Collections.singletonList(r), r.getEvent().getId());
+                }
+            }
+        }
+        return regs != null ? regs : java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<SportsEventRegistration> getRegistrationsForEventIds(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> validIds = eventIds.stream().filter(java.util.Objects::nonNull).toList();
+        if (validIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<SportsEventRegistration> regs = regRepo.findActiveByEventIdIn(validIds);
+        if (regs != null && !regs.isEmpty()) {
+            for (SportsEventRegistration r : regs) {
+                if (r.getEvent() != null && r.getEvent().getId() != null) {
+                    hydrateCaptaincy(java.util.Collections.singletonList(r), r.getEvent().getId());
+                }
+            }
+        }
+        return regs != null ? regs : java.util.Collections.emptyList();
+    }
+
+    @Override
     public List<SportsEventRegistration> getRegistrationHistory(Long eventId, Long registrationId) {
         SportsEventRegistration target = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));

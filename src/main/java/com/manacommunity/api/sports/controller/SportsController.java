@@ -541,6 +541,24 @@ public class SportsController {
                 .map(this::toRegistrationResponse).toList());
     }
 
+    @GetMapping({"/tournaments/{tournamentId}/all-registrations", "/events/registrations/batch"})
+    public ResponseEntity<List<SportsRegistrationResponse>> getAllTournamentRegistrations(
+            @PathVariable(required = false) Long tournamentId,
+            @RequestParam(required = false) List<Long> eventIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        List<SportsEventRegistration> regs;
+        if (eventIds != null && !eventIds.isEmpty()) {
+            regs = eventService.getRegistrationsForEventIds(eventIds);
+        } else if (tournamentId != null) {
+            regs = eventService.getTournamentAllRegistrations(tournamentId);
+        } else {
+            regs = java.util.Collections.emptyList();
+        }
+        return ResponseEntity.ok(regs.stream()
+                .map(this::toRegistrationResponse).toList());
+    }
+
     @GetMapping({"/events/{eventId}/registrations/{registrationId}/history", "/tournaments/{eventId}/registrations/{registrationId}/history"})
     public ResponseEntity<List<SportsRegistrationResponse>> getRegistrationHistory(
             @PathVariable Long eventId,
