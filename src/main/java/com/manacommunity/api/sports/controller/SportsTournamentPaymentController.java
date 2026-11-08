@@ -23,12 +23,13 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/sports/tournaments")
+@RequestMapping({"/api/sports/tournaments", "/api/tournaments"})
 @RequiredArgsConstructor
 public class SportsTournamentPaymentController {
 
@@ -37,6 +38,38 @@ public class SportsTournamentPaymentController {
     private final AppUserRepository userRepo;
     private final FamilyMemberRepository familyMemberRepo;
     private final PermissionCheckService permissionCheckService;
+
+    @GetMapping("/{tournamentId}/other-contacts")
+    public ResponseEntity<Map<String, Object>> getOtherContacts(@PathVariable Long tournamentId) {
+        SportsTournament tournament = tournamentRepo.findById(tournamentId)
+                .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
+        return ResponseEntity.ok(Map.of(
+                "tournamentId", tournamentId,
+                "otherContacts", tournament.getOtherContacts() != null ? tournament.getOtherContacts() : "[]"
+        ));
+    }
+
+    @PutMapping("/{tournamentId}/other-contacts")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateOtherContacts(
+            @PathVariable Long tournamentId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_EVENT_REGISTRATIONS);
+        SportsTournament tournament = tournamentRepo.findById(tournamentId)
+                .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
+        String otherContacts = body != null && body.get("otherContacts") != null
+                ? body.get("otherContacts").toString()
+                : "[]";
+        tournament.setOtherContacts(otherContacts);
+        tournamentRepo.save(tournament);
+        log.info("Updated otherContacts for tournamentId={} by user={}", tournamentId,
+                principal != null ? principal.getUsername() : "anonymous");
+        return ResponseEntity.ok(Map.of(
+                "tournamentId", tournamentId,
+                "otherContacts", otherContacts
+        ));
+    }
 
     @GetMapping("/{tournamentId}/payments")
     public ResponseEntity<List<SportsTournamentPlayerPaymentResponse>> getPayments(

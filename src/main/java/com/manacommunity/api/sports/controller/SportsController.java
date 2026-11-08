@@ -226,7 +226,7 @@ public class SportsController {
 
     @PutMapping("/tournaments/{id}")
     public ResponseEntity<SportsEventResponse> updateTournament(
-            @PathVariable Long id, @Valid @RequestBody SportsTournamentRequest req,
+            @PathVariable Long id, @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         log.info("Updating tournament id={}", id);
