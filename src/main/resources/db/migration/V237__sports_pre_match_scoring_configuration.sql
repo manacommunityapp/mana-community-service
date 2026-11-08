@@ -1,4 +1,4 @@
-﻿-- Flyway migration: V236__sports_pre_match_scoring_configuration.sql
+-- Flyway migration: V237__sports_pre_match_scoring_configuration.sql
 -- Adds pre-match scoring parameters (cricket overs, bowler limits, break duration, target scores, and match-level override)
 
 ALTER TABLE manacommunity.sports_scoring_config
