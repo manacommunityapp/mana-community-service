@@ -130,8 +130,8 @@ public class SportsAuctionConfig {
         private static final java.util.Map<AuctionStatus, java.util.Set<AuctionStatus>> ALLOWED =
                 java.util.Map.of(
                         DRAFT,     java.util.Set.of(ACTIVE, CANCELLED),
-                        ACTIVE,    java.util.Set.of(LIVE, CANCELLED),
-                        LIVE,      java.util.Set.of(COMPLETED, CANCELLED),
+                        ACTIVE,    java.util.Set.of(LIVE, DRAFT, COMPLETED, CANCELLED),
+                        LIVE,      java.util.Set.of(ACTIVE, COMPLETED, CANCELLED),
                         COMPLETED, java.util.Set.of(),
                         CANCELLED, java.util.Set.of()
                 );

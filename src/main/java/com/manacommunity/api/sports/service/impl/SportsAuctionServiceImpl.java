@@ -334,9 +334,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
 
         auctionWs.broadcastStatusChange(configId, oldStatus.name(), newStatus.name());
 
-        // Audit the lifecycle transitions only (start / end), not every save.
+        // Audit the lifecycle transitions only (start / end / pause), not every save.
         if (oldStatus != newStatus) {
-            if (newStatus == SportsAuctionConfig.AuctionStatus.LIVE || newStatus == SportsAuctionConfig.AuctionStatus.ACTIVE) {
+            if (newStatus == SportsAuctionConfig.AuctionStatus.LIVE && oldStatus != SportsAuctionConfig.AuctionStatus.LIVE) {
                 auditService.record(
                     com.manacommunity.api.security.AuditAction.AUCTION_STARTED,
                     com.manacommunity.api.security.AuditModule.AUCTION,
@@ -345,6 +345,10 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                 notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_STARTED,
                         "Auction Started — " + savedConfig.getSeasonName(),
                         "The auction is now live!", NotificationPriority.HIGH);
+            } else if (newStatus == SportsAuctionConfig.AuctionStatus.ACTIVE && oldStatus == SportsAuctionConfig.AuctionStatus.LIVE) {
+                notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_STARTED,
+                        "Auction Paused — " + savedConfig.getSeasonName(),
+                        "The auction has been temporarily paused by organizers.", NotificationPriority.NORMAL);
             } else if (newStatus == SportsAuctionConfig.AuctionStatus.COMPLETED) {
                 auditService.record(
                     com.manacommunity.api.security.AuditAction.AUCTION_ENDED,
