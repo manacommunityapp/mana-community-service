@@ -198,7 +198,10 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     long countByEventId(Long eventId);
 
     @org.springframework.data.jpa.repository.Query("""
-        SELECT COUNT(r) FROM SportsEventRegistration r
+        SELECT COALESCE(SUM(CASE WHEN (r.partner.id IS NOT NULL OR r.partnerFamilyMember.id IS NOT NULL)
+                                   AND r.partnerConfirmationStatus = com.manacommunity.api.sports.model.SportsEventRegistration$PartnerConfirmationStatus.CONFIRMED
+                                 THEN 2L ELSE 1L END), 0L)
+        FROM SportsEventRegistration r
         WHERE r.event.id = :eventId
           AND (r.status IS NULL OR r.status NOT IN (
               com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
@@ -208,7 +211,10 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     long countActiveByEventId(@org.springframework.data.repository.query.Param("eventId") Long eventId);
 
     @org.springframework.data.jpa.repository.Query("""
-        SELECT r.event.id, COUNT(r) FROM SportsEventRegistration r
+        SELECT r.event.id, COALESCE(SUM(CASE WHEN (r.partner.id IS NOT NULL OR r.partnerFamilyMember.id IS NOT NULL)
+                                             AND r.partnerConfirmationStatus = com.manacommunity.api.sports.model.SportsEventRegistration$PartnerConfirmationStatus.CONFIRMED
+                                           THEN 2L ELSE 1L END), 0L)
+        FROM SportsEventRegistration r
         WHERE r.event.id IN :eventIds
           AND (r.status IS NULL OR r.status NOT IN (
               com.manacommunity.api.sports.model.SportsEventRegistration$RegistrationStatus.WITHDRAWN,
