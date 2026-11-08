@@ -18,19 +18,22 @@ public interface SportsAuctionConfigRepository extends JpaRepository<SportsAucti
     @Query("SELECT c FROM SportsAuctionConfig c WHERE c.id = :id")
     Optional<SportsAuctionConfig> findByIdForUpdate(@Param("id") Long id);
     List<SportsAuctionConfig> findBySportIdOrderByCreatedAtDesc(Long sportId);
-    List<SportsAuctionConfig> findBySportIdAndCreatedByCommunityIdOrderByCreatedAtDesc(Long sportId, Long communityId);
-    List<SportsAuctionConfig> findByCreatedByCommunityIdOrderByCreatedAtDesc(Long communityId);
+    @Query("SELECT c FROM SportsAuctionConfig c WHERE c.sport.id = :sportId AND (c.community.id = :communityId OR (c.community IS NULL AND c.createdBy.community.id = :communityId)) ORDER BY c.createdAt DESC")
+    List<SportsAuctionConfig> findBySportIdAndCreatedByCommunityIdOrderByCreatedAtDesc(@Param("sportId") Long sportId, @Param("communityId") Long communityId);
+
+    @Query("SELECT c FROM SportsAuctionConfig c WHERE (c.community.id = :communityId OR (c.community IS NULL AND c.createdBy.community.id = :communityId)) ORDER BY c.createdAt DESC")
+    List<SportsAuctionConfig> findByCreatedByCommunityIdOrderByCreatedAtDesc(@Param("communityId") Long communityId);
 
     @Query("SELECT c FROM SportsAuctionConfig c LEFT JOIN FETCH c.sport LEFT JOIN FETCH c.event "
          + "WHERE c.sport.id = :sportId ORDER BY c.createdAt DESC")
     List<SportsAuctionConfig> findBySportIdWithAssociations(@Param("sportId") Long sportId);
 
     @Query("SELECT c FROM SportsAuctionConfig c LEFT JOIN FETCH c.sport LEFT JOIN FETCH c.event "
-         + "WHERE c.sport.id = :sportId AND c.createdBy.community.id = :communityId ORDER BY c.createdAt DESC")
+         + "WHERE c.sport.id = :sportId AND (c.community.id = :communityId OR (c.community IS NULL AND c.createdBy.community.id = :communityId)) ORDER BY c.createdAt DESC")
     List<SportsAuctionConfig> findBySportIdAndCommunityIdWithAssociations(@Param("sportId") Long sportId, @Param("communityId") Long communityId);
 
     @Query("SELECT c FROM SportsAuctionConfig c LEFT JOIN FETCH c.sport LEFT JOIN FETCH c.event "
-         + "WHERE c.createdBy.community.id = :communityId ORDER BY c.createdAt DESC")
+         + "WHERE (c.community.id = :communityId OR (c.community IS NULL AND c.createdBy.community.id = :communityId)) ORDER BY c.createdAt DESC")
     List<SportsAuctionConfig> findByCommunityIdWithAssociations(@Param("communityId") Long communityId);
     Optional<SportsAuctionConfig> findBySportIdAndStatus(Long sportId, SportsAuctionConfig.AuctionStatus status);
     Optional<SportsAuctionConfig> findByEventId(Long eventId);

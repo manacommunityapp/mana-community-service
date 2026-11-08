@@ -265,9 +265,24 @@ public class SportsDashboardService {
         );
     }
 
-    /** Event status lives on the linked tournament (REGISTRATION_OPEN / CLOSED / LIVE …). */
+    /** Event status lives on the event or linked tournament (REGISTRATION_OPEN / CLOSED / LIVE …). */
     private String registrationStatus(SportsEvent e) {
+        if (e.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                || e.getStatus() == SportsEventStatus.COMPLETED
+                || e.getStatus() == SportsEventStatus.CANCELLED) {
+            return e.getStatus().name();
+        }
         SportsTournament t = e.getTournament();
+        if (t != null && t.getRegistrationStatus() != null) {
+            if (t.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                    || t.getRegistrationStatus() == SportsEventStatus.COMPLETED
+                    || t.getRegistrationStatus() == SportsEventStatus.CANCELLED) {
+                return t.getRegistrationStatus().name();
+            }
+        }
+        if (e.getStatus() != null) {
+            return e.getStatus().name();
+        }
         if (t != null && t.getRegistrationStatus() != null) {
             return t.getRegistrationStatus().name();
         }

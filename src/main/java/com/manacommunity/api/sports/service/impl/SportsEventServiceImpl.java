@@ -905,8 +905,12 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         SportsEvent event = reg.getEvent();
 
-        // Cutoff: participants cannot unregister once the event has started (admins can).
+        // Cutoff: participants cannot unregister once registration is closed or the event has started (admins can).
         if (!admin && event != null) {
+            if (event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                    || (event.getTournament() != null && event.getTournament().getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED)) {
+                throw new InvalidInputException("Registration is closed for this event. Please contact the organizers to withdraw.");
+            }
             LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
                     : (event.getTournament() != null ? event.getTournament().getEventDateStart() : null);
             if (start != null && !LocalDate.now().isBefore(start)) {
