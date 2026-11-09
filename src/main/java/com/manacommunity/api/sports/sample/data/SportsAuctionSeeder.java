@@ -25,6 +25,7 @@ import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ import java.util.List;
  * SportsAuctionSeeder — Seeds tournament auction setups, categories, dispute committees, teams, and queues auction players.
  * Checks if test auction data already exists; if found, cleans and recreates it fresh.
  */
+@Profile("!prod")
 @Slf4j
 @Service
 @RequiredArgsConstructor
