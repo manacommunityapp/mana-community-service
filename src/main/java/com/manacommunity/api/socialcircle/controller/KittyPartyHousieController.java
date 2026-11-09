@@ -35,6 +35,11 @@ public class KittyPartyHousieController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/circles/{circleId}/rooms")
+    public ResponseEntity<List<GameRoomResponse>> getCircleRooms(@PathVariable Long circleId) {
+        return ResponseEntity.ok(housieEngine.getCircleRooms(circleId));
+    }
+
     @GetMapping("/rooms/{roomId}")
     public ResponseEntity<GameRoomResponse> getRoomDetails(@PathVariable Long roomId) {
         return ResponseEntity.ok(housieEngine.getRoomDetails(roomId));

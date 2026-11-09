@@ -308,6 +308,15 @@ public class KittyPartyHousieEngine {
     }
 
     @Transactional(readOnly = true)
+    public List<GameRoomResponse> getCircleRooms(Long circleId) {
+        circleRepository.findByIdAndDeletedAtIsNull(circleId)
+                .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
+
+        List<KittyPartyGameRoom> rooms = roomRepository.findByCircleIdOrderByCreatedAtDesc(circleId);
+        return rooms.stream().map(r -> getRoomDetails(r.getId())).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public GameRoomResponse getRoomDetails(Long roomId) {
         KittyPartyGameRoom room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
