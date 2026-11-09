@@ -295,12 +295,12 @@ class SportsEventServiceRegistrationTest {
                 eq(10L),
                 eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
                 eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
-                eq("Partner Withdrew"),
-                contains("Partner Player has withdrawn as your doubles partner"),
-                isNull(),
+                contains("Partner Withdrew"),
+                contains("Partner Player has withdrawn as doubles partner for you from Table Tennis Doubles"),
+                eq("/sports?tab=my-sports"),
                 eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
                 eq(100L),
-                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
                 isNull(),
                 isNull()
         );

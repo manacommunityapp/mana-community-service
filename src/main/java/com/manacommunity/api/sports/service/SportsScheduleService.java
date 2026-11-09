@@ -83,13 +83,19 @@ public class SportsScheduleService {
         Long partnerUserId = r.getPartner() != null ? r.getPartner().getId() : null;
         Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
         String pName = null;
-        if (r.getPartner() != null) {
-            pName = r.getPartner().getFullName();
-        } else if (r.getPartnerFamilyMember() != null) {
+        if (r.getPartnerFamilyMember() != null) {
             pName = r.getPartnerFamilyMember().getName();
+        } else if (r.getPartner() != null) {
+            pName = r.getPartner().getFullName();
         }
         String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
         String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
+        if (pFlat == null && r.getPartnerFamilyMember() != null && r.getPartnerFamilyMember().getUser() != null) {
+            pFlat = r.getPartnerFamilyMember().getUser().getFlatNo();
+        }
+        if (pPhone == null && r.getPartnerFamilyMember() != null && r.getPartnerFamilyMember().getUser() != null) {
+            pPhone = r.getPartnerFamilyMember().getUser().getPhone();
+        }
         String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
 
         return new RegistrationListItem(
