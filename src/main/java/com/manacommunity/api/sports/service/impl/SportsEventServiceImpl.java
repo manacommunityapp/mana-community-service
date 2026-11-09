@@ -974,10 +974,15 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         // Auction pool: remove still-queued entry; block if the player is already in the live/sold auction.
-        if (event != null && reg.getFamilyMember() == null && reg.getUser() != null) {
+        if (event != null && reg.getUser() != null) {
+            String targetPlayerName = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                    ? reg.getPlayerName().trim()
+                    : (reg.getUser().getFullName() != null ? reg.getUser().getFullName().trim() : "");
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 for (SportsAuctionPlayer p : playerRepo.findByConfigId(config.getId())) {
                     if (p.getUser() == null || !p.getUser().getId().equals(reg.getUser().getId())) continue;
+                    if (p.getPlayerName() != null && !targetPlayerName.isEmpty()
+                            && !p.getPlayerName().trim().equalsIgnoreCase(targetPlayerName)) continue;
                     if (p.getStatus() == SportsAuctionPlayer.PlayerStatus.QUEUED
                             || p.getStatus() == SportsAuctionPlayer.PlayerStatus.PASSED) {
                         playerRepo.delete(p);
@@ -1207,8 +1212,13 @@ public class SportsEventServiceImpl implements SportsEventService {
 
     private void handleConfirmationSideEffects(SportsEventRegistration saved) {
         auctionConfigRepo.findByEventId(saved.getEvent().getId()).ifPresent(config -> {
+            String resolvedPlayerName = saved.getPlayerName() != null && !saved.getPlayerName().isBlank()
+                    ? saved.getPlayerName().trim()
+                    : (saved.getUser() != null && saved.getUser().getFullName() != null ? saved.getUser().getFullName().trim() : "");
             boolean exists = playerRepo.findByConfigId(config.getId()).stream()
-                    .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(saved.getUser().getId()));
+                    .anyMatch(p -> p.getUser() != null
+                            && p.getUser().getId().equals(saved.getUser().getId())
+                            && (resolvedPlayerName.isEmpty() || p.getPlayerName() == null || p.getPlayerName().trim().equalsIgnoreCase(resolvedPlayerName)));
             if (!exists) {
                 String cat = "Batsmen";
                 if ("Bowler".equalsIgnoreCase(saved.getRole())) cat = "Bowler";
@@ -1220,7 +1230,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .config(config)
                         .community(config.getCommunity() != null ? config.getCommunity() : (saved.getEvent() != null ? saved.getEvent().getCommunity() : null))
                         .user(saved.getUser())
-                        .playerName(saved.getPlayerName() != null && !saved.getPlayerName().isEmpty() ? saved.getPlayerName() : saved.getUser().getFullName())
+                        .playerName(!resolvedPlayerName.isEmpty() ? resolvedPlayerName : "Player")
                         .category(cat)
                         .playerRole(saved.getRole() != null ? saved.getRole() : "Batsman")
                         .age(saved.getAge() != null ? saved.getAge() : 30)
@@ -1344,6 +1354,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         
         SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
+        String resolvedCaptainName = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                ? reg.getPlayerName().trim()
+                : (reg.getUser() != null && reg.getUser().getFullName() != null ? reg.getUser().getFullName().trim() : "Captain");
+
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
                 .orElseGet(() -> SportsAuctionTeam.builder()
                         .config(config)
@@ -1351,7 +1365,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .event(reg.getEvent())
                         .ownerUser(reg.getUser())
                         .captainUser(reg.getUser())
-                        .ownerName(reg.getUser().getFullName())
+                        .ownerName(resolvedCaptainName)
                         .eventId(reg.getEvent().getId())
                         .totalBudget(config.getBudgetPerTeam())
                         .remainingBudget(config.getBudgetPerTeam())
@@ -1359,10 +1373,11 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .build());
 
         team.setCaptainNomination(nominate);
+        team.setOwnerName(resolvedCaptainName);
         if (nominate && teamName != null && !teamName.isBlank()) {
             team.setTeamName(teamName);
         } else if (team.getTeamName() == null) {
-            team.setTeamName(reg.getUser().getFullName() + "'s Team");
+            team.setTeamName(resolvedCaptainName + "'s Team");
         }
         
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
@@ -1395,6 +1410,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         
         SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
+        String resolvedCaptainName = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                ? reg.getPlayerName().trim()
+                : (reg.getUser() != null && reg.getUser().getFullName() != null ? reg.getUser().getFullName().trim() : "Captain");
+
         SportsAuctionTeam team = auctionTeamRepo.findByConfigIdAndOwnerUserId(config.getId(), reg.getUser().getId())
                 .orElseGet(() -> SportsAuctionTeam.builder()
                         .config(config)
@@ -1402,10 +1421,10 @@ public class SportsEventServiceImpl implements SportsEventService {
                         .event(reg.getEvent())
                         .ownerUser(reg.getUser())
                         .captainUser(reg.getUser())
-                        .ownerName(reg.getUser().getFullName())
+                        .ownerName(resolvedCaptainName)
                         .teamName(reg.getProposedTeamName() != null && !reg.getProposedTeamName().isBlank()
                                 ? reg.getProposedTeamName()
-                                : reg.getUser().getFullName() + "'s Team")
+                                : resolvedCaptainName + "'s Team")
                         .eventId(reg.getEvent().getId())
                         .totalBudget(config.getBudgetPerTeam())
                         .remainingBudget(config.getBudgetPerTeam())
@@ -1415,6 +1434,7 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         team.setCaptainNomination(true);
         team.setCaptainConfirmation(confirm);
+        team.setOwnerName(resolvedCaptainName);
         SportsAuctionTeam savedTeam = auctionTeamRepo.save(team);
 
         reg.setCaptainNomination(true);
@@ -1913,8 +1933,13 @@ public class SportsEventServiceImpl implements SportsEventService {
         auctionConfigRepo.findByEventId(eventId).ifPresent(config -> {
             List<SportsAuctionTeam> teams = auctionTeamRepo.findByConfigIdOrderByTeamName(config.getId());
             for (SportsEventRegistration reg : regs) {
+                String regPlayerName = reg.getPlayerName() != null && !reg.getPlayerName().isBlank()
+                        ? reg.getPlayerName().trim()
+                        : (reg.getUser() != null && reg.getUser().getFullName() != null ? reg.getUser().getFullName().trim() : null);
+
                 teams.stream()
                     .filter(t -> t.getOwnerUser() != null && t.getOwnerUser().getId().equals(reg.getUser().getId()))
+                    .filter(t -> regPlayerName == null || t.getOwnerName() == null || t.getOwnerName().equalsIgnoreCase(regPlayerName))
                     .findFirst()
                     .ifPresent(t -> {
                         reg.setCaptainNomination(t.getCaptainNomination());

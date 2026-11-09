@@ -8,6 +8,7 @@ import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsMeta;
@@ -66,6 +67,7 @@ class SportsEventServiceRegistrationTest {
     @Mock private com.manacommunity.api.sports.repository.SportsEventFormatRepository formatRepo;
     @Mock private com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     @Mock private com.manacommunity.api.security.AuditService auditService;
+    @Mock private SportsPlayerRankingRepository rankingRepo;
 
     @InjectMocks
     private SportsEventServiceImpl service;
@@ -1602,5 +1604,222 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(result.getPartner().getId()).isEqualTo(41L);
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
                 .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+    }
+
+    @Test
+    void confirmRegistration_createsDistinctAuctionPlayersForUserAndFamilyMember() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .basePrice(1000)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+
+        // 1. Parent's own registration confirmation
+        SportsEventRegistration parentReg = new SportsEventRegistration();
+        parentReg.setId(201L);
+        parentReg.setEvent(event);
+        parentReg.setUser(parent);
+        parentReg.setPlayerName(null);
+        parentReg.setRole("Batsman");
+        parentReg.setStatus(SportsEventRegistration.RegistrationStatus.PENDING);
+
+        when(regRepo.findById(201L)).thenReturn(Optional.of(parentReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsAuctionPlayer parentPlayer = SportsAuctionPlayer.builder()
+                .id(1L)
+                .config(config)
+                .user(parent)
+                .playerName("Amit Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        when(playerRepo.findByConfigId(100L)).thenReturn(java.util.Collections.emptyList());
+        when(playerRepo.countByConfigId(100L)).thenReturn(0L);
+
+        service.confirmRegistration(201L);
+
+        org.mockito.ArgumentCaptor<SportsAuctionPlayer> captor = org.mockito.ArgumentCaptor.forClass(SportsAuctionPlayer.class);
+        verify(playerRepo).save(captor.capture());
+        assertThat(captor.getValue().getPlayerName()).isEqualTo("Amit Sharma");
+        assertThat(captor.getValue().getUser().getId()).isEqualTo(50L);
+
+        // 2. Family member (child) registration confirmation under same parent user
+        com.manacommunity.api.user.model.FamilyMember childMember = new com.manacommunity.api.user.model.FamilyMember();
+        childMember.setId(77L);
+        childMember.setName("Rohan Sharma");
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(202L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setFamilyMember(childMember);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setRole("Bowler");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.PENDING);
+
+        when(regRepo.findById(202L)).thenReturn(Optional.of(childReg));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(parentPlayer));
+        when(playerRepo.countByConfigId(100L)).thenReturn(1L);
+
+        service.confirmRegistration(202L);
+
+        verify(playerRepo, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getValue().getPlayerName()).isEqualTo("Rohan Sharma");
+        assertThat(captor.getValue().getUser().getId()).isEqualTo(50L);
+        assertThat(captor.getValue().getCategory()).isEqualTo("Bowler");
+    }
+
+    @Test
+    void withdrawRegistration_removesFamilyMemberAuctionPlayerWhileKeepingParent() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .build();
+
+        SportsAuctionPlayer parentPlayer = SportsAuctionPlayer.builder()
+                .id(1L)
+                .config(config)
+                .user(parent)
+                .playerName("Amit Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        SportsAuctionPlayer childPlayer = SportsAuctionPlayer.builder()
+                .id(2L)
+                .config(config)
+                .user(parent)
+                .playerName("Rohan Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(parentPlayer, childPlayer));
+
+        com.manacommunity.api.user.model.FamilyMember childMember = new com.manacommunity.api.user.model.FamilyMember();
+        childMember.setId(77L);
+        childMember.setName("Rohan Sharma");
+        childMember.setUser(parent);
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(301L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setFamilyMember(childMember);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(regRepo.findById(301L)).thenReturn(Optional.of(childReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.withdraw(301L, 50L, false, "Schedule clash");
+
+        verify(playerRepo).delete(childPlayer);
+        org.mockito.Mockito.verify(playerRepo, org.mockito.Mockito.never()).delete(parentPlayer);
+        assertThat(childReg.getStatus()).isEqualTo(SportsEventRegistration.RegistrationStatus.WITHDRAWN);
+    }
+
+    @Test
+    void withdrawRegistration_blocksWhenAuctionPlayerIsAlreadySold() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .build();
+
+        SportsAuctionPlayer childPlayer = SportsAuctionPlayer.builder()
+                .id(2L)
+                .config(config)
+                .user(parent)
+                .playerName("Rohan Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.SOLD)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(childPlayer));
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(302L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(regRepo.findById(302L)).thenReturn(Optional.of(childReg));
+
+        assertThatThrownBy(() -> service.withdraw(302L, 50L, false, "Withdrawing sold player"))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("already part of the auction (sold)");
+
+        org.mockito.Mockito.verify(playerRepo, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void nominateCaptain_setsOwnerNameAndDefaultTeamNameUsingResolvedCaptainName() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+        event.setCaptainNominationOpen(true);
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .budgetPerTeam(50000L)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(auctionTeamRepo.findByConfigIdAndOwnerUserId(100L, 50L)).thenReturn(Optional.empty());
+        when(auctionTeamRepo.save(any(SportsAuctionTeam.class))).thenAnswer(i -> {
+            SportsAuctionTeam t = i.getArgument(0);
+            t.setId(88L);
+            return t;
+        });
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(401L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setPlayerName("Rohan Sharma");
+
+        when(regRepo.findById(401L)).thenReturn(Optional.of(childReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.nominateCaptain(401L, 50L, false, true, null);
+
+        org.mockito.ArgumentCaptor<SportsAuctionTeam> teamCaptor = org.mockito.ArgumentCaptor.forClass(SportsAuctionTeam.class);
+        verify(auctionTeamRepo).save(teamCaptor.capture());
+
+        assertThat(teamCaptor.getValue().getOwnerName()).isEqualTo("Rohan Sharma");
+        assertThat(teamCaptor.getValue().getTeamName()).isEqualTo("Rohan Sharma's Team");
+        assertThat(result.getCaptainNomination()).isTrue();
     }
 }
