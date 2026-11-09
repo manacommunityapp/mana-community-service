@@ -271,7 +271,7 @@ public class SportsEventServiceImpl implements SportsEventService {
                     .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
         } else {
             req.setPlayerName(participant.getFullName());
-            req.setFlatNumber(participant.getFlatNo());
+            req.setFlatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(participant.getBlock(), participant.getFlatNo()));
             req.setGender(participant.getGender());
             if (participant.getDateOfBirth() != null) {
                 req.setDateOfBirth(participant.getDateOfBirth().toString());
@@ -822,7 +822,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         String eventLabel = event.getName() + catName;
 
         String inviterName = user != null ? user.getFullName() : "A resident";
-        String flatInfo = user != null && user.getFlatNo() != null && !user.getFlatNo().isBlank() ? " (Flat " + user.getFlatNo() + ")" : "";
+        String flatLabel = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                user != null ? user.getBlock() : null,
+                user != null ? user.getFlatNo() : null);
+        String flatInfo = flatLabel != null && !flatLabel.isBlank() ? " (" + flatLabel + ")" : "";
 
         boolean primaryIsFamily = familyMember != null;
         String primaryRel = familyMember != null && familyMember.getRelation() != null
