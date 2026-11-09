@@ -13,4 +13,6 @@ public interface KittyPartyGameRoomRepository extends JpaRepository<KittyPartyGa
     List<KittyPartyGameRoom> findByCircleIdOrderByCreatedAtDesc(Long circleId);
 
     Optional<KittyPartyGameRoom> findFirstByCircleIdAndStatusOrderByCreatedAtDesc(Long circleId, String status);
+
+    Optional<KittyPartyGameRoom> findByRoomCode(String roomCode);
 }

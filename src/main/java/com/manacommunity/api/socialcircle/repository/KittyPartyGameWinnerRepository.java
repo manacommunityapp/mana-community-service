@@ -12,6 +12,8 @@ public interface KittyPartyGameWinnerRepository extends JpaRepository<KittyParty
 
     List<KittyPartyGameWinner> findByRoomIdOrderByClaimedAtAsc(Long roomId);
 
+    List<KittyPartyGameWinner> findByRoomIdIn(List<Long> roomIds);
+
     Optional<KittyPartyGameWinner> findByRoomIdAndClaimType(Long roomId, String claimType);
 
     boolean existsByRoomIdAndClaimType(Long roomId, String claimType);

@@ -28,6 +28,8 @@ public class KittyPartyCircleDtos {
 
         private Boolean approvalRequired;
         private Integer maxMembers;
+        private Boolean allowExternalMembers;
+        private Integer maxExternalMembers;
     }
 
     @Data
@@ -41,6 +43,8 @@ public class KittyPartyCircleDtos {
         private String privacyType;
         private Boolean approvalRequired;
         private Integer maxMembers;
+        private Boolean allowExternalMembers;
+        private Integer maxExternalMembers;
         private String status;
     }
 
@@ -57,6 +61,9 @@ public class KittyPartyCircleDtos {
         private String privacyType;
         private Boolean approvalRequired;
         private Integer maxMembers;
+        private Boolean allowExternalMembers;
+        private Integer maxExternalMembers;
+        private Long externalMembersCount;
         private Long currentMembersCount;
         private String status;
         private Long createdById;
@@ -77,6 +84,11 @@ public class KittyPartyCircleDtos {
         private String roleCode;
         private String membershipStatus;
         private LocalDateTime joinedAt;
+        private String flatUnit;
+        private Boolean isExternal;
+        private Long sponsorUserId;
+        private String sponsorName;
+        private String externalSocietyName;
     }
 
     @Data
@@ -86,6 +98,9 @@ public class KittyPartyCircleDtos {
     public static class InviteRequest {
         private Long invitedUserId;
         private String invitedPhone;
+        private String invitedFullName;
+        private Boolean isExternal;
+        private String externalSocietyName;
     }
 
     @Data

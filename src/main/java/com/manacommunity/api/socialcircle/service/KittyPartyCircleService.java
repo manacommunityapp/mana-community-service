@@ -15,6 +15,10 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.manacommunity.api.resident.model.CommunityFlat;
+import com.manacommunity.api.resident.model.FlatMembership;
+import com.manacommunity.api.resident.repository.FlatMembershipRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +41,9 @@ public class KittyPartyCircleService {
     private final AppUserRepository userRepository;
     private final CommunityRepository communityRepository;
 
+    @Autowired(required = false)
+    private FlatMembershipRepository flatMembershipRepository;
+
     @Transactional
     public CircleResponse createCircle(AppUser creator, CreateCircleRequest request) {
         Community community = creator.getCommunity();
@@ -52,6 +59,8 @@ public class KittyPartyCircleService {
                 .privacyType(request.getPrivacyType() != null ? request.getPrivacyType().toUpperCase() : "PRIVATE")
                 .approvalRequired(request.getApprovalRequired() == null || request.getApprovalRequired())
                 .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 20)
+                .allowExternalMembers(request.getAllowExternalMembers() == null || request.getAllowExternalMembers())
+                .maxExternalMembers(request.getMaxExternalMembers() != null ? request.getMaxExternalMembers() : 3)
                 .status("ACTIVE")
                 .createdBy(creator)
                 .build();
@@ -109,15 +118,34 @@ public class KittyPartyCircleService {
     @Transactional(readOnly = true)
     public List<MemberResponse> getCircleMembers(Long circleId) {
         return memberRepository.findByCircleIdAndMembershipStatus(circleId, "ACTIVE").stream()
-                .map(m -> MemberResponse.builder()
-                        .memberId(m.getId())
-                        .userId(m.getUser().getId())
-                        .fullName(m.getUser().getFullName())
-                        .phone(m.getUser().getPhone())
-                        .roleCode(m.getRoleCode())
-                        .membershipStatus(m.getMembershipStatus())
-                        .joinedAt(m.getJoinedAt())
-                        .build())
+                .map(m -> {
+                    String flatInfo = null;
+                    if (flatMembershipRepository != null && m.getUser() != null) {
+                        try {
+                            List<FlatMembership> flats = flatMembershipRepository.findByUserIdWithFlatAndCommunity(m.getUser().getId());
+                            if (!flats.isEmpty() && flats.get(0).getFlat() != null) {
+                                CommunityFlat flat = flats.get(0).getFlat();
+                                flatInfo = (flat.getTowerBlock() != null ? flat.getTowerBlock() + " - " : "") + flat.getFlatNumber();
+                            }
+                        } catch (Exception e) {
+                            log.debug("Flat lookup skipped for user {}: {}", m.getUser().getId(), e.getMessage());
+                        }
+                    }
+                    return MemberResponse.builder()
+                            .memberId(m.getId())
+                            .userId(m.getUser().getId())
+                            .fullName(m.getUser().getFullName())
+                            .phone(m.getUser().getPhone())
+                            .roleCode(m.getRoleCode())
+                            .membershipStatus(m.getMembershipStatus())
+                            .joinedAt(m.getJoinedAt())
+                            .flatUnit(flatInfo)
+                            .isExternal(m.getIsExternal())
+                            .sponsorUserId(m.getSponsorUser() != null ? m.getSponsorUser().getId() : null)
+                            .sponsorName(m.getSponsorUser() != null ? m.getSponsorUser().getFullName() : null)
+                            .externalSocietyName(m.getExternalSocietyName())
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
@@ -195,9 +223,53 @@ public class KittyPartyCircleService {
         KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
 
+        boolean isExternal = Boolean.TRUE.equals(request.getIsExternal());
+        if (isExternal) {
+            if (!Boolean.TRUE.equals(circle.getAllowExternalMembers())) {
+                throw new IllegalStateException("This circle does not allow external guest members");
+            }
+            long activeExternalCount = memberRepository.countByCircleIdAndIsExternalTrueAndMembershipStatus(circleId, "ACTIVE");
+            if (circle.getMaxExternalMembers() != null && activeExternalCount >= circle.getMaxExternalMembers()) {
+                throw new IllegalStateException("Maximum external guest members (" + circle.getMaxExternalMembers() + ") reached for this circle");
+            }
+        }
+
         AppUser invitedUser = null;
         if (request.getInvitedUserId() != null) {
             invitedUser = userRepository.findById(request.getInvitedUserId()).orElse(null);
+        } else if (request.getInvitedPhone() != null && !request.getInvitedPhone().isBlank()) {
+            invitedUser = userRepository.findByPhone(request.getInvitedPhone().trim()).orElse(null);
+            if (invitedUser == null && isExternal) {
+                // Provision guest user for external friend
+                invitedUser = AppUser.builder()
+                        .fullName(request.getInvitedFullName() != null ? request.getInvitedFullName().trim() : "Guest Member")
+                        .phone(request.getInvitedPhone().trim())
+                        .community(circle.getCommunity())
+                        .residentType("GUEST")
+                        .isActive(true)
+                        .build();
+                invitedUser = userRepository.save(invitedUser);
+            }
+        }
+
+        if (invitedUser != null && isExternal) {
+            final AppUser targetUser = invitedUser;
+            KittyPartyMember externalMember = memberRepository.findByCircleIdAndUserId(circleId, targetUser.getId())
+                    .orElseGet(() -> KittyPartyMember.builder()
+                            .circle(circle)
+                            .user(targetUser)
+                            .community(circle.getCommunity())
+                            .build());
+            externalMember.setIsExternal(true);
+            externalMember.setSponsorUser(inviter);
+            externalMember.setExternalSocietyName(request.getExternalSocietyName());
+            externalMember.setMembershipStatus("ACTIVE");
+            externalMember.setRoleCode("MEMBER");
+            externalMember.setApprovedBy(inviter);
+            externalMember.setApprovedAt(LocalDateTime.now());
+            externalMember.setJoinedAt(LocalDateTime.now());
+            memberRepository.save(externalMember);
+            log.info("Directly enrolled external member {} sponsored by {} in circle {}", invitedUser.getId(), inviter.getId(), circleId);
         }
 
         String token = UUID.randomUUID().toString().replace("-", "");
@@ -257,6 +329,7 @@ public class KittyPartyCircleService {
     }
 
     private CircleResponse mapToResponse(KittyPartyCircle c, String currentUserRole, Long memberCount) {
+        long externalCount = memberRepository.countByCircleIdAndIsExternalTrueAndMembershipStatus(c.getId(), "ACTIVE");
         return CircleResponse.builder()
                 .id(c.getId())
                 .communityId(c.getCommunity().getId())
@@ -266,6 +339,9 @@ public class KittyPartyCircleService {
                 .privacyType(c.getPrivacyType())
                 .approvalRequired(c.getApprovalRequired())
                 .maxMembers(c.getMaxMembers())
+                .allowExternalMembers(c.getAllowExternalMembers())
+                .maxExternalMembers(c.getMaxExternalMembers())
+                .externalMembersCount(externalCount)
                 .currentMembersCount(memberCount)
                 .status(c.getStatus())
                 .createdById(c.getCreatedBy().getId())

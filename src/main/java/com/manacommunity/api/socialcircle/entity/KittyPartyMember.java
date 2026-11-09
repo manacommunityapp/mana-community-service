@@ -40,6 +40,17 @@ public class KittyPartyMember {
     @Builder.Default
     private String membershipStatus = "ACTIVE"; // REQUESTED, INVITED, ACTIVE, REJECTED, SUSPENDED, LEFT, REMOVED
 
+    @Column(name = "is_external", nullable = false)
+    @Builder.Default
+    private Boolean isExternal = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sponsor_user_id")
+    private AppUser sponsorUser;
+
+    @Column(name = "external_society_name", length = 150)
+    private String externalSocietyName;
+
     @Column(name = "joined_at")
     private LocalDateTime joinedAt;
 

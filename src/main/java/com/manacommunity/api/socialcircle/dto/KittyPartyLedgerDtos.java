@@ -79,6 +79,55 @@ public class KittyPartyLedgerDtos {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class SwapRotationRequest {
+        @NotNull(message = "From period is required")
+        private Integer fromPeriod;
+
+        @NotNull(message = "To period is required")
+        private Integer toPeriod;
+
+        @NotBlank(message = "Reason for swapping rotation is required")
+        private String reason;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReplaceMemberRequest {
+        @NotNull(message = "Old member user ID is required")
+        private Long oldUserId;
+
+        @NotNull(message = "New member user ID is required")
+        private Long newUserId;
+
+        @NotBlank(message = "Reason for replacement is required")
+        private String reason;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SendRemindersRequest {
+        private Integer periodNumber;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SendRemindersResponse {
+        private Integer periodNumber;
+        private Integer remindedCount;
+        private List<String> remindedMembers;
+        private String message;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class CycleSummaryResponse {
         private Long id;
         private Long circleId;
@@ -97,6 +146,8 @@ public class KittyPartyLedgerDtos {
         private BigDecimal pendingContributionsAmount;
         private Integer pendingContributionsCount;
         private Integer paidContributionsCount;
+        private Integer overdueContributionsCount;
+        private BigDecimal overdueContributionsAmount;
         private Integer currentPeriod;
         private Long currentBeneficiaryUserId;
         private String currentBeneficiaryName;
@@ -105,6 +156,8 @@ public class KittyPartyLedgerDtos {
         private Integer previousPayoutsCount;
         private BigDecimal previousPayoutsTotalAmount;
         private Double cycleProgressPercent;
+        private String beneficiaryUpiId;
+        private String upiDeeplink;
         private List<RotationEntryDto> rotations;
     }
 
@@ -119,6 +172,7 @@ public class KittyPartyLedgerDtos {
         private String rotationStatus;
         private LocalDateTime disbursedAt;
         private String externalPayoutRef;
+        private String swapReason;
     }
 
     @Data
@@ -139,6 +193,124 @@ public class KittyPartyLedgerDtos {
         private String notes;
         private String verifiedByName;
         private LocalDateTime verifiedAt;
+        private LocalDateTime updatedAt;
+        private LocalDate dueDate;
+        private Boolean isOverdue;
+        private Long daysOverdue;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AuditLogEntryDto {
+        private Long id;
+        private Long cycleId;
+        private Long circleId;
+        private String eventType;
+        private Long actorId;
+        private String actorName;
+        private String description;
+        private String metadataJson;
+        private String prevHash;
+        private String currHash;
+        private LocalDateTime createdAt;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MonthlyStatementResponse {
+        private Long cycleId;
+        private Long circleId;
+        private String circleName;
+        private String cycleName;
+        private Integer periodNumber;
+        private LocalDate periodStartDate;
+        private LocalDate periodDueDate;
+        private BigDecimal contributionAmount;
+        private BigDecimal totalExpected;
+        private BigDecimal totalCollected;
+        private BigDecimal totalPending;
+        private Long beneficiaryUserId;
+        private String beneficiaryName;
+        private String payoutStatus;
+        private String externalPayoutRef;
+        private LocalDateTime payoutDisbursedAt;
+        private String beneficiaryUpiId;
+        private String upiDeeplink;
+        private List<StatementLineItemDto> lineItems;
+        private String legalDisclaimer;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StatementLineItemDto {
+        private Long memberUserId;
+        private String memberName;
+        private BigDecimal expectedAmount;
+        private BigDecimal recordedAmount;
+        private String paymentStatus;
+        private String externalRef;
+        private String receiptUrl;
+        private String notes;
+        private String verifiedByName;
+        private LocalDateTime verifiedAt;
+        private Boolean isOverdue;
+        private Long daysOverdue;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CreateDisputeRequest {
+        private Long cycleId;
+
+        @NotBlank(message = "Dispute type is required")
+        private String disputeType; // PAYMENT_UNRECOGNIZED, PAYOUT_DELAY, AMOUNT_MISMATCH, RULE_VIOLATION, OTHER
+
+        @NotBlank(message = "Title is required")
+        private String title;
+
+        @NotBlank(message = "Description is required")
+        private String description;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResolveDisputeRequest {
+        @NotBlank(message = "Status is required (RESOLVED or DISMISSED)")
+        private String status; // RESOLVED, DISMISSED
+
+        @NotBlank(message = "Resolution notes are required")
+        private String resolutionNotes;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DisputeResponse {
+        private Long id;
+        private Long circleId;
+        private Long cycleId;
+        private Long raisedById;
+        private String raisedByName;
+        private String disputeType;
+        private String title;
+        private String description;
+        private String status;
+        private String resolutionNotes;
+        private Long resolvedById;
+        private String resolvedByName;
+        private LocalDateTime resolvedAt;
+        private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
     }
 }

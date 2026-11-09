@@ -43,6 +43,13 @@ public class KittyPartyGameRoom {
     @Builder.Default
     private Integer maxPlayers = 50;
 
+    @Column(name = "room_code", length = 10)
+    private String roomCode;
+
+    @Column(name = "allow_guest_players", nullable = false)
+    @Builder.Default
+    private Boolean allowGuestPlayers = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;

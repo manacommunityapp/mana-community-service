@@ -18,6 +18,8 @@ public class KittyPartyHousieDtos {
         private String roomName;
 
         private Integer maxPlayers;
+
+        private Boolean allowGuestPlayers;
     }
 
     @Data
@@ -30,6 +32,8 @@ public class KittyPartyHousieDtos {
         private String roomName;
         private String gameType;
         private String status;
+        private String roomCode;
+        private Boolean allowGuestPlayers;
         private Integer maxPlayers;
         private Long activePlayersCount;
         private Long createdById;
@@ -39,6 +43,15 @@ public class KittyPartyHousieDtos {
         private Integer lastCalledNumber;
         private List<Integer> calledNumbers;
         private List<WinnerClaimResponse> winners;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JoinByCodeRequest {
+        @NotBlank(message = "Room code is required")
+        private String roomCode;
     }
 
     @Data

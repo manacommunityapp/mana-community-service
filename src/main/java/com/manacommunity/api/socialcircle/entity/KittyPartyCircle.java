@@ -46,6 +46,14 @@ public class KittyPartyCircle {
     @Builder.Default
     private Integer maxMembers = 20;
 
+    @Column(name = "allow_external_members", nullable = false)
+    @Builder.Default
+    private Boolean allowExternalMembers = true;
+
+    @Column(name = "max_external_members")
+    @Builder.Default
+    private Integer maxExternalMembers = 3;
+
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "ACTIVE"; // DRAFT, PENDING_APPROVAL, ACTIVE, SUSPENDED, CLOSED

@@ -12,5 +12,7 @@ public interface KittyPartyCycleRepository extends JpaRepository<KittyPartyCycle
 
     List<KittyPartyCycle> findByCircleIdOrderByStartDateDesc(Long circleId);
 
+    List<KittyPartyCycle> findByStatus(String status);
+
     Optional<KittyPartyCycle> findFirstByCircleIdAndStatusOrderByStartDateDesc(Long circleId, String status);
 }

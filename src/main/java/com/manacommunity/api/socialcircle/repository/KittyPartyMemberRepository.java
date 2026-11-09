@@ -17,4 +17,6 @@ public interface KittyPartyMemberRepository extends JpaRepository<KittyPartyMemb
     boolean existsByCircleIdAndUserIdAndMembershipStatus(Long circleId, Long userId, String membershipStatus);
 
     long countByCircleIdAndMembershipStatus(Long circleId, String membershipStatus);
+
+    long countByCircleIdAndIsExternalTrueAndMembershipStatus(Long circleId, String membershipStatus);
 }

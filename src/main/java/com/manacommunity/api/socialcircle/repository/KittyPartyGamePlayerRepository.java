@@ -12,6 +12,8 @@ public interface KittyPartyGamePlayerRepository extends JpaRepository<KittyParty
 
     List<KittyPartyGamePlayer> findByRoomId(Long roomId);
 
+    List<KittyPartyGamePlayer> findByRoomIdIn(List<Long> roomIds);
+
     Optional<KittyPartyGamePlayer> findByRoomIdAndUserId(Long roomId, Long userId);
 
     boolean existsByRoomIdAndUserId(Long roomId, Long userId);

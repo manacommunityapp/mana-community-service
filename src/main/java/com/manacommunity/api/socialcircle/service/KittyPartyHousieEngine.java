@@ -2,12 +2,15 @@ package com.manacommunity.api.socialcircle.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.manacommunity.api.resident.repository.FlatMembershipRepository;
 import com.manacommunity.api.socialcircle.dto.KittyPartyHousieDtos.*;
+import com.manacommunity.api.socialcircle.dto.KittyPartyLeaderboardDtos.*;
 import com.manacommunity.api.socialcircle.entity.*;
 import com.manacommunity.api.socialcircle.repository.*;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,14 +37,22 @@ public class KittyPartyHousieEngine {
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired(required = false)
+    private FlatMembershipRepository flatMembershipRepository;
+
     @Transactional
     public GameRoomResponse createRoom(Long circleId, AppUser creator, CreateRoomRequest request) {
         KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
 
+        String roomCode = generateUniqueRoomCode();
+        boolean allowGuests = request.getAllowGuestPlayers() != null ? request.getAllowGuestPlayers() : true;
+
         KittyPartyGameRoom room = KittyPartyGameRoom.builder()
                 .circle(circle)
                 .roomName(request.getRoomName().trim())
+                .roomCode(roomCode)
+                .allowGuestPlayers(allowGuests)
                 .gameType("TAMBOLA_90")
                 .status("WAITING")
                 .maxPlayers(request.getMaxPlayers() != null ? request.getMaxPlayers() : 50)
@@ -71,6 +82,27 @@ public class KittyPartyHousieEngine {
                 .user(user)
                 .build();
         playerRepository.save(player);
+    }
+
+    @Transactional
+    public GameRoomResponse joinRoomByCode(AppUser user, String roomCode) {
+        if (roomCode == null || roomCode.isBlank()) {
+            throw new IllegalArgumentException("Room code is required");
+        }
+        String cleanCode = roomCode.trim().toUpperCase();
+        KittyPartyGameRoom room = roomRepository.findByRoomCode(cleanCode)
+                .orElseThrow(() -> new IllegalArgumentException("No game room found with code: " + cleanCode));
+
+        if (!Boolean.TRUE.equals(room.getAllowGuestPlayers())) {
+            boolean isMember = memberRepository.existsByCircleIdAndUserIdAndMembershipStatus(
+                    room.getCircle().getId(), user.getId(), "ACTIVE");
+            if (!isMember) {
+                throw new SecurityException("Guest players are not allowed in this game room. You must be an active circle member.");
+            }
+        }
+
+        joinRoom(room.getId(), user);
+        return getRoomDetails(room.getId());
     }
 
     @Transactional
@@ -303,6 +335,8 @@ public class KittyPartyHousieEngine {
                 .id(room.getId())
                 .circleId(room.getCircle().getId())
                 .roomName(room.getRoomName())
+                .roomCode(room.getRoomCode())
+                .allowGuestPlayers(room.getAllowGuestPlayers())
                 .gameType(room.getGameType())
                 .status(room.getStatus())
                 .maxPlayers(room.getMaxPlayers())
@@ -452,11 +486,152 @@ public class KittyPartyHousieEngine {
         }
     }
 
+    private String generateUniqueRoomCode() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        Random random = new Random();
+        for (int i = 0; i < 10; i++) {
+            StringBuilder sb = new StringBuilder(6);
+            for (int j = 0; j < 6; j++) {
+                sb.append(chars.charAt(random.nextInt(chars.length())));
+            }
+            String code = sb.toString();
+            if (roomRepository.findByRoomCode(code).isEmpty()) {
+                return code;
+            }
+        }
+        return UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
     private void assertAdminOrOwner(Long circleId, Long userId) {
         var member = memberRepository.findByCircleIdAndUserId(circleId, userId)
                 .orElseThrow(() -> new SecurityException("User is not a member of this circle"));
         if (!"OWNER".equals(member.getRoleCode()) && !"ADMIN".equals(member.getRoleCode())) {
             throw new SecurityException("Requires circle Admin or Owner role");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public CircleLeaderboardResponse getCircleLeaderboard(Long circleId) {
+        KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
+                .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
+
+        List<KittyPartyGameRoom> rooms = roomRepository.findByCircleIdOrderByCreatedAtDesc(circleId);
+        if (rooms.isEmpty()) {
+            return CircleLeaderboardResponse.builder()
+                    .circleId(circleId)
+                    .circleName(circle.getCircleName())
+                    .totalGamesInCircle(0)
+                    .entries(Collections.emptyList())
+                    .build();
+        }
+
+        List<Long> roomIds = rooms.stream().map(KittyPartyGameRoom::getId).collect(Collectors.toList());
+        List<KittyPartyGamePlayer> allPlayers = playerRepository.findByRoomIdIn(roomIds);
+        List<KittyPartyGameWinner> allWinners = winnerRepository.findByRoomIdIn(roomIds);
+
+        Map<Long, AppUser> userMap = new HashMap<>();
+        Map<Long, Set<Long>> userRoomsPlayed = new HashMap<>();
+
+        for (KittyPartyGamePlayer p : allPlayers) {
+            AppUser u = p.getUser();
+            if (u != null) {
+                userMap.put(u.getId(), u);
+                userRoomsPlayed.computeIfAbsent(u.getId(), k -> new HashSet<>()).add(p.getRoom().getId());
+            }
+        }
+
+        Map<Long, Map<String, Integer>> userWinBreakdown = new HashMap<>();
+        Map<Long, Integer> userTotalWins = new HashMap<>();
+
+        for (KittyPartyGameWinner w : allWinners) {
+            if ("VALIDATED".equalsIgnoreCase(w.getClaimStatus())) {
+                AppUser u = w.getUser();
+                if (u != null) {
+                    userMap.put(u.getId(), u);
+                    userTotalWins.merge(u.getId(), 1, Integer::sum);
+                    userWinBreakdown.computeIfAbsent(u.getId(), k -> new HashMap<>())
+                            .merge(w.getClaimType(), 1, Integer::sum);
+                }
+            }
+        }
+
+        List<LeaderboardEntry> entries = new ArrayList<>();
+
+        for (Map.Entry<Long, AppUser> entry : userMap.entrySet()) {
+            Long userId = entry.getKey();
+            AppUser user = entry.getValue();
+
+            int gamesPlayed = userRoomsPlayed.getOrDefault(userId, Collections.emptySet()).size();
+            int totalWins = userTotalWins.getOrDefault(userId, 0);
+            Map<String, Integer> breakdown = userWinBreakdown.getOrDefault(userId, Collections.emptyMap());
+
+            int fullHouseWins = breakdown.getOrDefault("FULL_HOUSE", 0);
+            int earlyFiveWins = breakdown.getOrDefault("EARLY_FIVE", 0);
+            int cornersWins = breakdown.getOrDefault("FOUR_CORNERS", 0);
+            int topLineWins = breakdown.getOrDefault("TOP_LINE", 0);
+            int midLineWins = breakdown.getOrDefault("MIDDLE_LINE", 0);
+            int btmLineWins = breakdown.getOrDefault("BOTTOM_LINE", 0);
+
+            int points = (gamesPlayed * 5)
+                    + (fullHouseWins * 50)
+                    + (earlyFiveWins * 20)
+                    + (cornersWins * 15)
+                    + (topLineWins * 15)
+                    + (midLineWins * 15)
+                    + (btmLineWins * 15);
+
+            List<String> badges = new ArrayList<>();
+            if (fullHouseWins > 0) badges.add("👑 Full House Champion");
+            if (earlyFiveWins > 0) badges.add("⚡ Early Bird");
+            if ((topLineWins + midLineWins + btmLineWins) >= 2) badges.add("📐 Line Master");
+            if (cornersWins > 0) badges.add("🎯 Corner Ace");
+            if (gamesPlayed >= 5) badges.add("🌟 Tambola Veteran");
+            if (totalWins >= 3) badges.add("🔥 Hot Streak");
+
+            String flatDetails = null;
+            if (flatMembershipRepository != null) {
+                try {
+                    var memberships = flatMembershipRepository.findByUserId(userId);
+                    if (memberships != null && !memberships.isEmpty()) {
+                        var fm = memberships.get(0);
+                        if (fm.getFlat() != null) {
+                            String fNum = fm.getFlat().getFlatNumber();
+                            String tBlock = fm.getFlat().getTowerBlock();
+                            flatDetails = (tBlock != null && !tBlock.isBlank() ? tBlock + " - " : "") + fNum;
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignore gracefully
+                }
+            }
+
+            entries.add(LeaderboardEntry.builder()
+                    .userId(userId)
+                    .userName(user.getFullName() != null ? user.getFullName() : "Resident")
+                    .avatarUrl(user.getProfilePicUrl())
+                    .flatDetails(flatDetails)
+                    .totalGamesPlayed(gamesPlayed)
+                    .totalWins(totalWins)
+                    .totalPoints(points)
+                    .winBreakdown(breakdown)
+                    .badges(badges)
+                    .build());
+        }
+
+        entries.sort(Comparator.comparingInt(LeaderboardEntry::getTotalPoints)
+                .thenComparingInt(LeaderboardEntry::getTotalWins)
+                .thenComparingInt(LeaderboardEntry::getTotalGamesPlayed)
+                .reversed());
+
+        for (int i = 0; i < entries.size(); i++) {
+            entries.get(i).setRank(i + 1);
+        }
+
+        return CircleLeaderboardResponse.builder()
+                .circleId(circleId)
+                .circleName(circle.getCircleName())
+                .totalGamesInCircle(rooms.size())
+                .entries(entries)
+                .build();
     }
 }

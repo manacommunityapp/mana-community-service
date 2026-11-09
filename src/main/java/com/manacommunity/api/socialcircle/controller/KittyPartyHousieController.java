@@ -1,6 +1,7 @@
 package com.manacommunity.api.socialcircle.controller;
 
 import com.manacommunity.api.socialcircle.dto.KittyPartyHousieDtos.*;
+import com.manacommunity.api.socialcircle.dto.KittyPartyLeaderboardDtos.CircleLeaderboardResponse;
 import com.manacommunity.api.socialcircle.service.KittyPartyHousieEngine;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -49,6 +50,16 @@ public class KittyPartyHousieController {
         return ResponseEntity.ok(Map.of("success", true, "message", "Joined game room"));
     }
 
+    @PostMapping("/rooms/join-by-code")
+    public ResponseEntity<GameRoomResponse> joinByCode(
+            @Valid @RequestBody JoinByCodeRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        AppUser user = loggedInUserService.resolve(principal);
+        GameRoomResponse response = housieEngine.joinRoomByCode(user, request.getRoomCode());
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/rooms/{roomId}/tickets")
     public ResponseEntity<TicketResponse> generateTicket(
             @PathVariable Long roomId,
@@ -95,5 +106,10 @@ public class KittyPartyHousieController {
     ) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(housieEngine.claimPrize(roomId, user, request));
+    }
+
+    @GetMapping("/circles/{circleId}/leaderboard")
+    public ResponseEntity<CircleLeaderboardResponse> getCircleLeaderboard(@PathVariable Long circleId) {
+        return ResponseEntity.ok(housieEngine.getCircleLeaderboard(circleId));
     }
 }
