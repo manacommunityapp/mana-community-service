@@ -2278,6 +2278,9 @@ public class SportsEventServiceImpl implements SportsEventService {
             Boolean isAuction = req.getAuction() != null ? req.getAuction() : req.getAuctionEnabled();
             event.setAuctionEnabled(isAuction);
         }
+        if (req.getCaptainNominationOpen() != null) {
+            event.setCaptainNominationOpen(req.getCaptainNominationOpen());
+        }
         event.setBannerImage(req.getBannerImage());
         event.setTournamentLevel(req.getTournamentLevel());
         event.setDescription(req.getDescription());
