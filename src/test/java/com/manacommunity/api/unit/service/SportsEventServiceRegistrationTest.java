@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -249,6 +250,57 @@ class SportsEventServiceRegistrationTest {
 
         List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
         org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void nominatePartner_byAdmin_autoConfirm_confirmsAndNotifiesBothPlayers() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("Primary Player");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Partner Player");
+        partnerUser.setDateOfBirth(java.time.LocalDate.now().minusYears(25));
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Table Tennis Doubles");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .user(primaryUser)
+                .status(SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .matchType(SportsEvent.MatchFormat.DOUBLES)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(userRepo.findById(20L)).thenReturn(Optional.of(partnerUser));
+        when(regRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Admin (user 999) reassigns partner with autoConfirm = true
+        SportsEventRegistration result = service.nominatePartner(500L, 999L, 20L, null, true, true);
+
+        assertThat(result.getPartner()).isEqualTo(partnerUser);
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+        assertThat(result.getPartnerConfirmedAt()).isNotNull();
+
+        // Verifies notification sent to primary player
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                contains("Doubles Partner Assigned"),
+                contains("Tournament organizers have assigned Partner Player as your doubles partner"),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                isNull(),
+                isNull()
+        );
     }
 
     @Test

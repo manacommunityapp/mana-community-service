@@ -1605,13 +1605,19 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId) {
+        return nominatePartner(registrationId, requestingUserId, partnerUserId, partnerFamilyMemberId, false, null);
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId, boolean isAdmin, Boolean autoConfirm) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsEventRegistration", registrationId));
 
         boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(requestingUserId))
                 || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(requestingUserId));
 
-        if (!isOwner) {
+        if (!isOwner && !isAdmin) {
             throw new UnauthorizedActionException("You can only nominate a partner for your own registration.");
         }
 
@@ -1786,9 +1792,14 @@ public class SportsEventServiceImpl implements SportsEventService {
         reg.setPartnerFamilyMember(partnerFamilyMember);
         reg.setPartnerDeclineReason(null);
 
-        if (isSameHouseholdFamilyMember) {
+        boolean shouldAutoConfirm = isSameHouseholdFamilyMember || (isAdmin && (autoConfirm == null || autoConfirm));
+
+        if (shouldAutoConfirm) {
             reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
             reg.setPartnerConfirmedAt(LocalDateTime.now());
+            if (reg.getStatus() == SportsEventRegistration.RegistrationStatus.PENDING) {
+                reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+            }
         } else {
             reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
             reg.setPartnerConfirmedAt(null);
@@ -1798,42 +1809,82 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (partner != null && !isSameHouseholdFamilyMember) {
             try {
-                String body = buildPartnerInvitationBody(
-                        user, familyMember, pName, partner, partnerFamilyMember, event, category
-                );
-                String primaryDisplayName = (familyMember != null ? familyMember.getName() : pName);
-                String primaryRel = (familyMember != null && familyMember.getRelation() != null ? familyMember.getRelation() : "Self");
-                String partnerNameJson = (partnerFamilyMember != null ? partnerFamilyMember.getName() : partner.getFullName());
-                Long primaryFamId = familyMember != null ? familyMember.getId() : null;
-                Long partnerFamId = partnerFamilyMember != null ? partnerFamilyMember.getId() : null;
-                String partnerRelJson = partnerFamilyMember != null && partnerFamilyMember.getRelation() != null ? partnerFamilyMember.getRelation() : "Self";
+                if (shouldAutoConfirm && isAdmin) {
+                    // Admin directly paired the players: send confirmation notifications to both participants
+                    String primaryDisplayName = (familyMember != null ? familyMember.getName() : pName);
+                    String partnerNameJson = (partnerFamilyMember != null ? partnerFamilyMember.getName() : partner.getFullName());
+                    String msgPrimary = "Tournament organizers have assigned " + partnerNameJson + " as your doubles partner for " + event.getName() + ".";
+                    String msgPartner = "Tournament organizers have assigned you as doubles partner with " + primaryDisplayName + " for " + event.getName() + ".";
 
-                String metadata = String.format(
-                        "{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"PENDING\",\"primaryPlayer\":\"%s\",\"primaryPlayerRelation\":\"%s\",\"primaryFamilyMemberId\":%s,\"partnerPlayer\":\"%s\",\"partnerPlayerRelation\":\"%s\",\"partnerFamilyMemberId\":%s,\"partnerUserId\":%d,\"submittingUser\":\"%s\"}",
-                        saved.getId(), event.getId(),
-                        primaryDisplayName.replace("\"", "\\\""),
-                        primaryRel.replace("\"", "\\\""),
-                        primaryFamId != null ? primaryFamId.toString() : "null",
-                        partnerNameJson.replace("\"", "\\\""),
-                        partnerRelJson.replace("\"", "\\\""),
-                        partnerFamId != null ? partnerFamId.toString() : "null",
-                        partner.getId(),
-                        user.getFullName().replace("\"", "\\\"")
-                );
+                    if (user != null && user.getId() != null) {
+                        notificationService.createNotification(
+                                user.getId(),
+                                NotificationType.PARTNER_CONFIRMED,
+                                NotificationCategory.SPORTS,
+                                "Doubles Partner Assigned — " + event.getName(),
+                                msgPrimary,
+                                "/sports?tab=my-sports",
+                                ReferenceType.SPORTS_EVENT,
+                                event.getId(),
+                                NotificationPriority.NORMAL,
+                                null,
+                                event.getCommunity() != null ? event.getCommunity().getId() : null
+                        );
+                    }
 
-                notificationService.createNotification(
-                        partner.getId(),
-                        NotificationType.PARTNER_SELECTED,
-                        NotificationCategory.SPORTS,
-                        "Doubles Partner Invitation — " + event.getName(),
-                        body,
-                        "/sports?tab=my-sports&confirmPartner=" + saved.getId(),
-                        ReferenceType.SPORTS_EVENT,
-                        event.getId(),
-                        NotificationPriority.HIGH,
-                        metadata,
-                        event.getCommunity() != null ? event.getCommunity().getId() : null
-                );
+                    if (partner != null && partner.getId() != null && !partner.getId().equals(user != null ? user.getId() : null)) {
+                        notificationService.createNotification(
+                                partner.getId(),
+                                NotificationType.PARTNER_CONFIRMED,
+                                NotificationCategory.SPORTS,
+                                "Doubles Partner Assigned — " + event.getName(),
+                                msgPartner,
+                                "/sports?tab=my-sports",
+                                ReferenceType.SPORTS_EVENT,
+                                event.getId(),
+                                NotificationPriority.NORMAL,
+                                null,
+                                event.getCommunity() != null ? event.getCommunity().getId() : null
+                        );
+                    }
+                } else {
+                    String body = buildPartnerInvitationBody(
+                            user, familyMember, pName, partner, partnerFamilyMember, event, category
+                    );
+                    String primaryDisplayName = (familyMember != null ? familyMember.getName() : pName);
+                    String primaryRel = (familyMember != null && familyMember.getRelation() != null ? familyMember.getRelation() : "Self");
+                    String partnerNameJson = (partnerFamilyMember != null ? partnerFamilyMember.getName() : partner.getFullName());
+                    Long primaryFamId = familyMember != null ? familyMember.getId() : null;
+                    Long partnerFamId = partnerFamilyMember != null ? partnerFamilyMember.getId() : null;
+                    String partnerRelJson = partnerFamilyMember != null && partnerFamilyMember.getRelation() != null ? partnerFamilyMember.getRelation() : "Self";
+
+                    String metadata = String.format(
+                            "{\"registrationId\":%d,\"eventId\":%d,\"partnerConfirmationStatus\":\"PENDING\",\"primaryPlayer\":\"%s\",\"primaryPlayerRelation\":\"%s\",\"primaryFamilyMemberId\":%s,\"partnerPlayer\":\"%s\",\"partnerPlayerRelation\":\"%s\",\"partnerFamilyMemberId\":%s,\"partnerUserId\":%d,\"submittingUser\":\"%s\"}",
+                            saved.getId(), event.getId(),
+                            primaryDisplayName.replace("\"", "\\\""),
+                            primaryRel.replace("\"", "\\\""),
+                            primaryFamId != null ? primaryFamId.toString() : "null",
+                            partnerNameJson.replace("\"", "\\\""),
+                            partnerRelJson.replace("\"", "\\\""),
+                            partnerFamId != null ? partnerFamId.toString() : "null",
+                            partner.getId(),
+                            user != null ? user.getFullName().replace("\"", "\\\"") : ""
+                    );
+
+                    notificationService.createNotification(
+                            partner.getId(),
+                            NotificationType.PARTNER_SELECTED,
+                            NotificationCategory.SPORTS,
+                            "Doubles Partner Invitation — " + event.getName(),
+                            body,
+                            "/sports?tab=my-sports&confirmPartner=" + saved.getId(),
+                            ReferenceType.SPORTS_EVENT,
+                            event.getId(),
+                            NotificationPriority.HIGH,
+                            metadata,
+                            event.getCommunity() != null ? event.getCommunity().getId() : null
+                    );
+                }
             } catch (Exception e) {
                 log.warn("Failed to dispatch partner notification for registration {}", saved.getId(), e);
             }
@@ -2398,6 +2449,10 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         // 2. Category age bounds
+        if (category == null) {
+            return;
+        }
+
         int catMinAge = category.getMinAge() != null ? category.getMinAge() : 0;
         int catMaxAge = category.getMaxAge() != null ? category.getMaxAge() : 100;
         boolean allowHigher = event.getAllowHigherAgeCategory() == null || event.getAllowHigherAgeCategory();

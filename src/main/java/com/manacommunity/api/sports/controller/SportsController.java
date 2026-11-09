@@ -647,10 +647,12 @@ public class SportsController {
             @PathVariable Long id,
             @RequestParam(required = false) Long partnerUserId,
             @RequestParam(required = false) Long partnerFamilyMemberId,
+            @RequestParam(required = false) Boolean autoConfirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId)));
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId, isAdmin, autoConfirm)));
     }
 
     @GetMapping("/registrations/partner-invitations")

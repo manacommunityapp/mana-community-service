@@ -54,7 +54,10 @@ public interface SportsEventService {
     SportsEventRegistration confirmCaptain(Long registrationId, boolean confirm);
     SportsEventRegistration respondToPartnerInvitation(Long registrationId, Long partnerUserId, boolean accept, String declineReason);
     List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status);
-    SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId);
+    default SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId) {
+        return nominatePartner(registrationId, requestingUserId, partnerUserId, partnerFamilyMemberId, false, null);
+    }
+    SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId, boolean isAdmin, Boolean autoConfirm);
     
     java.util.List<java.util.Map<String, Object>> getEventMap(Long communityId);
     long getConfirmedRegistrationCount(Long eventId);
