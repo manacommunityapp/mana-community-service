@@ -227,6 +227,10 @@ public class SportsEvent {
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
+    @Column(name = "captain_nomination_open", nullable = false)
+    @Builder.Default
+    private Boolean captainNominationOpen = false;
+
     @Column(columnDefinition = "TEXT")
     private String bannerImage;
 

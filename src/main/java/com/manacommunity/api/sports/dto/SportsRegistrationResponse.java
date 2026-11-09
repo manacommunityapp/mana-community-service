@@ -18,6 +18,16 @@ public class SportsRegistrationResponse {
     private UserRef partner;
     private FamilyMemberRef partnerFamilyMember;
     private FamilyMemberRef familyMember;
+    private Long familyMemberId;
+    private Long partnerUserId;
+    private Long partnerFamilyMemberId;
+    private String partnerName;
+    private String partnerPhone;
+    private String partnerFlatNumber;
+    private String partnerEmail;
+    private String partnerRelation;
+    private Integer partnerAge;
+    private String partnerGender;
     private String status;
 
     private String playerName;

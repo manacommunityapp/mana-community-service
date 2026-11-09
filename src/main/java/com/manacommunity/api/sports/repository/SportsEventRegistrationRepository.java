@@ -225,20 +225,20 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     java.util.List<Object[]> countActiveByEventIdIn(
             @org.springframework.data.repository.query.Param("eventIds") java.util.List<Long> eventIds);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     List<SportsEventRegistration> findByEventId(Long eventId);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     List<SportsEventRegistration> findByUserId(Long userId);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     List<SportsEventRegistration> findByPartnerId(Long partnerId);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     List<SportsEventRegistration> findByPartnerIdAndPartnerConfirmationStatus(
             Long partnerId, SportsEventRegistration.PartnerConfirmationStatus partnerConfirmationStatus);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     @org.springframework.data.jpa.repository.Query("""
         SELECT r FROM SportsEventRegistration r
         WHERE (r.partner.id = :userId OR (r.partnerFamilyMember IS NOT NULL AND r.partnerFamilyMember.user.id = :userId))
@@ -253,7 +253,7 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
             @org.springframework.data.repository.query.Param("userId") Long userId,
             @org.springframework.data.repository.query.Param("status") SportsEventRegistration.PartnerConfirmationStatus status);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     @org.springframework.data.jpa.repository.Query("""
         SELECT r FROM SportsEventRegistration r
         WHERE (r.event.tournament.id = :tournamentId OR r.event.id = :tournamentId)
@@ -265,7 +265,7 @@ public interface SportsEventRegistrationRepository extends JpaRepository<SportsE
     """)
     List<SportsEventRegistration> findActiveByTournamentOrEventId(@org.springframework.data.repository.query.Param("tournamentId") Long tournamentId);
 
-    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "partnerFamilyMember"})
+    @EntityGraph(attributePaths = {"event", "event.sport", "user", "category", "partner", "familyMember", "familyMember.user", "partnerFamilyMember", "partnerFamilyMember.user"})
     @org.springframework.data.jpa.repository.Query("""
         SELECT r FROM SportsEventRegistration r
         WHERE r.event.id IN :eventIds

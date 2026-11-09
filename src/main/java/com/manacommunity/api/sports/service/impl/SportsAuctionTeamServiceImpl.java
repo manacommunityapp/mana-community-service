@@ -144,13 +144,26 @@ public class SportsAuctionTeamServiceImpl implements SportsAuctionTeamService {
     @Override
     @Transactional
     public SportsAuctionTeam nominateCaptain(Long eventId, Long userId, boolean nominate, String teamName) {
+        return nominateCaptain(eventId, userId, false, nominate, teamName);
+    }
+
+    @Override
+    @Transactional
+    public SportsAuctionTeam nominateCaptain(Long eventId, Long userId, boolean isAdmin, boolean nominate, String teamName) {
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
+        com.manacommunity.api.sports.model.SportsEvent event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
+
+        if (!isAdmin && nominate) {
+            if (!Boolean.TRUE.equals(event.getCaptainNominationOpen())) {
+                throw new com.manacommunity.api.exception.InvalidInputException("Captain nominations are currently closed for this event.");
+            }
+        }
+
         SportsAuctionConfig config = configRepo.findByEventId(eventId)
                 .orElseGet(() -> {
-                    com.manacommunity.api.sports.model.SportsEvent event = eventRepo.findById(eventId)
-                            .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
                     log.info("Auto-provisioning default SportsAuctionConfig for event id={}", eventId);
                     String baseSeason = (event.getName() != null && !event.getName().isBlank())
                             ? event.getName().trim()

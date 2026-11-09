@@ -92,7 +92,8 @@ public class SportsAuctionTeamController {
         permissionCheckService.requireAnyPermission(principal, SportsPermissions.VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
         log.info("Nominating captain eventId={} nominate={}", eventId, nominate);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
+        return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), isAdmin, nominate, teamName)));
     }
 
     @DeleteMapping("/{teamId}/leave")

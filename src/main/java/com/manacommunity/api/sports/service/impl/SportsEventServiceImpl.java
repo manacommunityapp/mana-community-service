@@ -1335,6 +1335,12 @@ public class SportsEventServiceImpl implements SportsEventService {
                 throw new UnauthorizedActionException("You can only nominate a captain for your own registration.");
             }
         }
+
+        if (!isAdmin && nominate) {
+            if (reg.getEvent() != null && !Boolean.TRUE.equals(reg.getEvent().getCaptainNominationOpen())) {
+                throw new InvalidInputException("Captain nominations are currently closed for this event.");
+            }
+        }
         
         SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 
@@ -2339,6 +2345,26 @@ public class SportsEventServiceImpl implements SportsEventService {
     private java.util.Set<AppUser> resolveDisputeCommittee(List<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) return new java.util.HashSet<>();
         return new java.util.HashSet<>(userRepo.findAllById(userIds));
+    }
+
+    @Override
+    @Transactional
+    public SportsEvent setCaptainNominationOpen(Long eventId, boolean open) {
+        SportsEvent event = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsEvent", eventId));
+        event.setCaptainNominationOpen(open);
+        SportsEvent saved = eventRepo.save(event);
+
+        auditService.record(
+            AuditAction.SPORTS_EVENT_UPDATED,
+            AuditModule.SPORTS,
+            "SportsEvent",
+            String.valueOf(saved.getId()),
+            null,
+            "captainNominationOpen=" + open
+        );
+
+        return saved;
     }
 
     @Override
