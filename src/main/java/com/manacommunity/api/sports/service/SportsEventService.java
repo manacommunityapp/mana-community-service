@@ -25,6 +25,8 @@ public interface SportsEventService {
     List<SportsEvent> getAllOpenEvents();
     List<SportsEvent> getClosedEvents();
     List<SportsEvent> getClosedEvents(Long communityId);
+    List<SportsEvent> getCompletedEvents();
+    List<SportsEvent> getCompletedEvents(Long communityId);
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
     SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId);
     List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId);

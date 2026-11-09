@@ -406,6 +406,22 @@ public class SportsController {
                 .map(this::toEventResponse).toList());
     }
 
+    @GetMapping({"/events/completed", "/tournaments/completed"})
+    public ResponseEntity<List<SportsEventResponse>> getCompletedTournaments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (!ctx.superAdmin()) {
+            if (ctx.communityId() == null) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+            return ResponseEntity.ok(eventService.getCompletedEvents(ctx.communityId()).stream()
+                    .map(this::toEventResponse).toList());
+        }
+        return ResponseEntity.ok(eventService.getCompletedEvents().stream()
+                .map(this::toEventResponse).toList());
+    }
+
     @GetMapping({"/events/mine", "/tournaments/mine"})
     public ResponseEntity<List<SportsEventResponse>> getMyTournaments(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -839,7 +855,8 @@ public class SportsController {
                     .name(r.getUser().getFullName())
                     .email(r.getUser().getEmail())
                     .phone(r.getUser().getPhone())
-                    .flatNo(r.getUser().getFlatNo())
+                    .flatNo(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                            r.getUser().getBlock(), r.getUser().getFlatNo()))
                     .build();
         }
 
@@ -863,7 +880,8 @@ public class SportsController {
                     .name(r.getPartner().getFullName())
                     .email(r.getPartner().getEmail())
                     .phone(r.getPartner().getPhone())
-                    .flatNo(r.getPartner().getFlatNo())
+                    .flatNo(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                            r.getPartner().getBlock(), r.getPartner().getFlatNo()))
                     .build();
         }
 
@@ -934,23 +952,35 @@ public class SportsController {
                 if (partnerEmail == null || partnerEmail.isBlank()) {
                     partnerEmail = r.getPartnerFamilyMember().getUser().getEmail();
                 }
-                partnerFlatNumber = r.getPartnerFamilyMember().getUser().getFlatNo();
+                partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getPartnerFamilyMember().getUser().getBlock(),
+                        r.getPartnerFamilyMember().getUser().getFlatNo());
             }
         } else if (r.getPartner() != null) {
             partnerName = r.getPartner().getFullName();
             partnerPhone = r.getPartner().getPhone();
-            partnerFlatNumber = r.getPartner().getFlatNo();
+            partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
             partnerEmail = r.getPartner().getEmail();
         }
         if (partnerPhone == null && r.getPartner() != null) {
             partnerPhone = r.getPartner().getPhone();
         }
         if (partnerFlatNumber == null && r.getPartner() != null) {
-            partnerFlatNumber = r.getPartner().getFlatNo();
+            partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
         }
         if (partnerEmail == null && r.getPartner() != null) {
             partnerEmail = r.getPartner().getEmail();
         }
+
+        String formattedFlat = r.getUser() != null
+                ? com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getUser().getBlock(),
+                        r.getFlatNumber() != null && !r.getFlatNumber().isBlank() ? r.getFlatNumber() : r.getUser().getFlatNo())
+                : com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, r.getFlatNumber());
 
         return SportsRegistrationResponse.builder()
                 .id(r.getId())
@@ -977,7 +1007,7 @@ public class SportsController {
                 .playerName(resolvedPlayerName)
                 .email(r.getEmail())
                 .relation(resolvedRelation)
-                .flatNumber(r.getFlatNumber())
+                .flatNumber(formattedFlat)
                 .age(resolvedAge)
                 .role(r.getRole())
                 .captainNomination(r.getCaptainNomination())

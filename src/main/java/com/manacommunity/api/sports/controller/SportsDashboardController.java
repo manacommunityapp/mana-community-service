@@ -63,6 +63,14 @@ public class SportsDashboardController {
         return ResponseEntity.ok(dashboardService.getClosedTournaments(user));
     }
 
+    @GetMapping("/completed-tournaments")
+    public ResponseEntity<List<TournamentCard>> getCompletedTournaments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(dashboardService.getCompletedTournaments(user));
+    }
+
     @GetMapping("/my-registrations")
     public ResponseEntity<List<MyRegistration>> getMyRegistrations(
             @AuthenticationPrincipal UserPrincipal principal) {

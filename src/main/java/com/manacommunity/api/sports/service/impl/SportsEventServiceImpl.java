@@ -304,7 +304,9 @@ public class SportsEventServiceImpl implements SportsEventService {
         // Resolve participant identity (either User self, or FamilyMember)
         String pName;
         String email = req.getEmail() != null && !req.getEmail().isBlank() ? req.getEmail() : user.getEmail();
-        String flat = req.getFlatNumber() != null && !req.getFlatNumber().isBlank() ? req.getFlatNumber() : user.getFlatNo();
+        String flat = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                user.getBlock(),
+                req.getFlatNumber() != null && !req.getFlatNumber().isBlank() ? req.getFlatNumber() : user.getFlatNo());
         String relation = req.getRelation();
         int age;
         String gender = user.getGender();
@@ -2130,6 +2132,29 @@ public class SportsEventServiceImpl implements SportsEventService {
     public List<SportsEvent> getClosedEvents(Long communityId) {
         List<SportsEvent> events = eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
                 communityId, List.of(SportsEventStatus.REGISTRATION_CLOSED));
+        for (SportsEvent event : events) {
+            auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
+                event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
+            });
+        }
+        return events;
+    }
+
+    @Override
+    public List<SportsEvent> getCompletedEvents() {
+        List<SportsEvent> events = eventRepo.findByTournamentRegistrationStatusOrderByEventDateStartAsc(SportsEventStatus.COMPLETED);
+        for (SportsEvent event : events) {
+            auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
+                event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));
+            });
+        }
+        return events;
+    }
+
+    @Override
+    public List<SportsEvent> getCompletedEvents(Long communityId) {
+        List<SportsEvent> events = eventRepo.findByCommunityIdAndTournamentRegistrationStatusInOrderByEventDateStartAsc(
+                communityId, List.of(SportsEventStatus.COMPLETED));
         for (SportsEvent event : events) {
             auctionConfigRepo.findByEventId(event.getId()).ifPresent(config -> {
                 event.setAuctionStatus(SportsEvent.AuctionEventStatus.valueOf(config.getStatus().name()));

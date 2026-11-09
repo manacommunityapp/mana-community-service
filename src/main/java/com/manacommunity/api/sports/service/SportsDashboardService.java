@@ -110,11 +110,32 @@ public class SportsDashboardService {
                         (a, b) -> a)); // keep first on duplicate
 
         List<SportsTournament> closedTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.REGISTRATION_CLOSED)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.REGISTRATION_CLOSED, communityId)
+                    : List.of());
+        return buildTournamentCards(closedTournamentEntities, regByEvent);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentCard> getCompletedTournaments(AppUser user) {
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
+
+        Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
+                .collect(Collectors.toMap(
+                        r -> r.getEvent().getId(),
+                        Function.identity(),
+                        (a, b) -> a)); // keep first on duplicate
+
+        List<SportsTournament> completedTournamentEntities = isSuperAdmin
                 ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.COMPLETED)
                 : (communityId != null
                     ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.COMPLETED, communityId)
                     : List.of());
-        return buildTournamentCards(closedTournamentEntities, regByEvent);
+        return buildTournamentCards(completedTournamentEntities, regByEvent);
     }
 
     @Transactional(readOnly = true)
@@ -247,19 +268,27 @@ public class SportsDashboardService {
                 if (pPhone == null || pPhone.isBlank()) {
                     pPhone = r.getPartnerFamilyMember().getUser().getPhone();
                 }
-                pFlat = r.getPartnerFamilyMember().getUser().getFlatNo();
+                pFlat = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getPartnerFamilyMember().getUser().getBlock(),
+                        r.getPartnerFamilyMember().getUser().getFlatNo());
             }
         }
         if (pPhone == null && r.getPartner() != null) {
             pPhone = r.getPartner().getPhone();
         }
         if (pFlat == null && r.getPartner() != null) {
-            pFlat = r.getPartner().getFlatNo();
+            pFlat = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
         }
         String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
         String flatNumber = r.getFlatNumber();
-        if (flatNumber == null && r.getUser() != null) {
-            flatNumber = r.getUser().getFlatNo();
+        if (r.getUser() != null) {
+            flatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getUser().getBlock(),
+                    flatNumber != null && !flatNumber.isBlank() ? flatNumber : r.getUser().getFlatNo());
+        } else if (flatNumber != null) {
+            flatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, flatNumber);
         }
 
         String resolvedPlayerName = (r.getFamilyMember() != null && r.getFamilyMember().getName() != null && !r.getFamilyMember().getName().isBlank())
