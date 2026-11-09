@@ -245,13 +245,161 @@ class SportsEventServiceRegistrationTest {
     }
 
     @Test
-    void getPartnerInvitations_filtersByStatus() {
-        com.manacommunity.api.sports.model.SportsEventRegistration reg = new com.manacommunity.api.sports.model.SportsEventRegistration();
-        when(regRepo.findPartnerInvitationsForUser(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
-                .thenReturn(List.of(reg));
+    void respondToPartnerInvitation_accept_bothFamilyMembers_notifiesBothHeadsSeparately() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("John Smith");
+        primaryUser.setBlock("T1");
+        primaryUser.setFlatNo("101");
 
-        List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
-        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        com.manacommunity.api.user.model.FamilyMember primMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(101L)
+                .name("Alice Smith")
+                .relation("Daughter")
+                .user(primaryUser)
+                .build();
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Suresh Sharma");
+        partnerUser.setBlock("T2");
+        partnerUser.setFlatNo("402");
+
+        com.manacommunity.api.user.model.FamilyMember partnerMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(202L)
+                .name("Rohan Sharma")
+                .relation("Son")
+                .user(partnerUser)
+                .build();
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Badminton Championship");
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(1L);
+        cat.setName("Mixed Doubles");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .category(cat)
+                .user(primaryUser)
+                .familyMember(primMember)
+                .playerName("Alice Smith")
+                .relation("Daughter")
+                .partner(partnerUser)
+                .partnerFamilyMember(partnerMember)
+                .status(SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, true, null);
+
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+
+        // 1. Verify notification sent to Primary Head (John Smith)
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partner Accepted for Alice Smith — Badminton Championship (Mixed Doubles)"),
+                contains("Suresh Sharma (Block T2, Flat 402) accepted the partner invitation for their son Rohan Sharma to team up with your daughter Alice Smith for Badminton Championship (Mixed Doubles)."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
+
+        // 2. Verify symmetrical confirmation notification sent to Partner Head (Suresh Sharma)
+        verify(notificationService).createNotification(
+                eq(20L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partnership Confirmed for Rohan Sharma — Badminton Championship (Mixed Doubles)"),
+                contains("You confirmed the doubles partnership for your son Rohan Sharma to team up with John Smith (Block T1, Flat 101)'s daughter Alice Smith for Badminton Championship (Mixed Doubles)."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
+    }
+
+    @Test
+    void respondToPartnerInvitation_decline_bothFamilyMembers_notifiesPrimaryHeadWithDistinctNames() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("John Smith");
+        primaryUser.setBlock("T1");
+        primaryUser.setFlatNo("101");
+
+        com.manacommunity.api.user.model.FamilyMember primMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(101L)
+                .name("Alice Smith")
+                .relation("Daughter")
+                .user(primaryUser)
+                .build();
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Suresh Sharma");
+        partnerUser.setBlock("T2");
+        partnerUser.setFlatNo("402");
+
+        com.manacommunity.api.user.model.FamilyMember partnerMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(202L)
+                .name("Rohan Sharma")
+                .relation("Son")
+                .user(partnerUser)
+                .build();
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Badminton Championship");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .user(primaryUser)
+                .familyMember(primMember)
+                .playerName("Alice Smith")
+                .relation("Daughter")
+                .partner(partnerUser)
+                .partnerFamilyMember(partnerMember)
+                .status(SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, false, "Busy this weekend");
+
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+
+        // Verify decline notification to Primary Head
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partner Declined for Alice Smith — Badminton Championship"),
+                contains("Suresh Sharma (Block T2, Flat 402) declined the partner invitation for their son Rohan Sharma to team up with your daughter Alice Smith for Badminton Championship. Reason: Busy this weekend. Alice Smith remains in the Open Pairing Pool and you may nominate another partner."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
     }
 
     @Test

@@ -99,7 +99,7 @@ public class SportsTournamentPaymentController {
                         .build());
 
         payment.setPlayerName(req.getPlayerName());
-        payment.setFlatNumber(req.getFlatNumber());
+        payment.setFlatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, req.getFlatNumber()));
         payment.setPhone(req.getPhone());
         payment.setEmail(req.getEmail());
         payment.setAmount(req.getAmount() != null ? req.getAmount() : BigDecimal.ZERO);
@@ -197,7 +197,7 @@ public class SportsTournamentPaymentController {
                 .userId(p.getUser() != null ? p.getUser().getId() : null)
                 .familyMemberId(p.getFamilyMember() != null ? p.getFamilyMember().getId() : null)
                 .playerName(p.getPlayerName())
-                .flatNumber(p.getFlatNumber())
+                .flatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, p.getFlatNumber()))
                 .phone(p.getPhone())
                 .email(p.getEmail())
                 .paymentStatus(p.getPaymentStatus() != null ? p.getPaymentStatus().name() : "PAID")

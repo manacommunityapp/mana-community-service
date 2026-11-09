@@ -151,7 +151,7 @@ public class SportsTrainerServiceImpl implements SportsTrainerService {
                 .userId(userId)
                 .userName(req.getUserName())
                 .tower(req.getTower())
-                .flatNumber(req.getFlatNumber())
+                .flatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(req.getTower(), req.getFlatNumber()))
                 .amountPaid(slot.getPrice())
                 .communityId(slot.getCommunityId())
                 .build();
@@ -254,7 +254,7 @@ public class SportsTrainerServiceImpl implements SportsTrainerService {
                 .userId(b.getUserId())
                 .userName(b.getUserName())
                 .tower(b.getTower())
-                .flatNumber(b.getFlatNumber())
+                .flatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(b.getTower(), b.getFlatNumber()))
                 .status(b.getStatus())
                 .amountPaid(b.getAmountPaid())
                 .bookedAt(b.getBookedAt())
