@@ -777,7 +777,7 @@ public class SportsController {
                 .registeredCount(e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0)
                 .startTime(e.getStartTime() != null ? e.getStartTime() : (e.getTournament() != null ? e.getTournament().getStartTime() : null))
                 .dueTime(e.getDueTime() != null ? e.getDueTime() : (e.getTournament() != null ? e.getTournament().getDueTime() : null))
-                .status(e.getStatus() != null ? e.getStatus().name() : null)
+                .status(e.getStatus() != null ? e.getStatus().name() : (e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : null))
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : List.of())
                 .formats(e.getEventFormats() != null

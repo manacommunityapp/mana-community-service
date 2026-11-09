@@ -110,9 +110,9 @@ public class SportsDashboardService {
                         (a, b) -> a)); // keep first on duplicate
 
         List<SportsTournament> closedTournamentEntities = isSuperAdmin
-                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.REGISTRATION_CLOSED)
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.COMPLETED)
                 : (communityId != null
-                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.REGISTRATION_CLOSED, communityId)
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.COMPLETED, communityId)
                     : List.of());
         return buildTournamentCards(closedTournamentEntities, regByEvent);
     }
