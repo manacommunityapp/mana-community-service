@@ -1304,8 +1304,22 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName) {
+        return nominateCaptain(registrationId, null, true, nominate, teamName);
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration nominateCaptain(Long registrationId, Long requestingUserId, boolean isAdmin, boolean nominate, String teamName) {
         SportsEventRegistration reg = regRepo.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration", registrationId));
+
+        if (!isAdmin && requestingUserId != null) {
+            boolean isOwner = (reg.getUser() != null && reg.getUser().getId().equals(requestingUserId))
+                    || (reg.getFamilyMember() != null && reg.getFamilyMember().getUser() != null && reg.getFamilyMember().getUser().getId().equals(requestingUserId));
+            if (!isOwner) {
+                throw new UnauthorizedActionException("You can only nominate a captain for your own registration.");
+            }
+        }
         
         SportsAuctionConfig config = getOrCreateAuctionConfig(reg.getEvent(), reg.getUser());
 

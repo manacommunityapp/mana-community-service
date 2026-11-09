@@ -21,7 +21,9 @@ import org.mockito.quality.Strictness;
 
 import java.util.Optional;
 
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -109,6 +111,24 @@ class SportsCaptainAppointmentAutoProvisionTest {
             assertThat(result.getProposedTeamName()).isEqualTo("Team Bangalore");
             verify(auctionConfigRepo).save(any(SportsAuctionConfig.class));
             verify(auctionTeamRepo).save(any(SportsAuctionTeam.class));
+        }
+
+        @Test
+        @DisplayName("nominateCaptain succeeds when requesting user owns the registration")
+        void testNominateCaptainByOwner() {
+            SportsEventRegistration result = sportsEventService.nominateCaptain(904L, 50L, false, true, "Team Bangalore");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getCaptainNomination()).isTrue();
+            assertThat(result.getProposedTeamName()).isEqualTo("Team Bangalore");
+        }
+
+        @Test
+        @DisplayName("nominateCaptain throws UnauthorizedActionException when non-admin does not own registration")
+        void testNominateCaptainUnauthorized() {
+            assertThatThrownBy(() -> sportsEventService.nominateCaptain(904L, 999L, false, true, "Team Bangalore"))
+                    .isInstanceOf(UnauthorizedActionException.class)
+                    .hasMessageContaining("You can only nominate a captain for your own registration.");
         }
 
         @Test

@@ -613,9 +613,11 @@ public class SportsController {
             @RequestParam boolean nominate,
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
-        log.info("Nominating captain registrationId={} nominate={}", id, nominate);
-        return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, nominate, teamName)));
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
+        log.info("Nominating captain registrationId={} nominate={} userId={} isAdmin={}", id, nominate, ctx.userId(), isAdmin);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, ctx.userId(), isAdmin, nominate, teamName)));
     }
 
     @PutMapping("/registrations/{id}/confirm-captain")
@@ -623,7 +625,7 @@ public class SportsController {
             @PathVariable Long id,
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
         log.info("Confirming captain registrationId={} confirm={}", id, confirm);
         return ResponseEntity.ok(toRegistrationResponse(eventService.confirmCaptain(id, confirm)));
     }

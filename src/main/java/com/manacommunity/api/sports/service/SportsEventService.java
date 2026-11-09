@@ -50,6 +50,7 @@ public interface SportsEventService {
     SportsEventRegistration confirmRegistration(Long registrationId);
     SportsEventRegistration rejectRegistration(Long registrationId, String reason);
     SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName);
+    SportsEventRegistration nominateCaptain(Long registrationId, Long requestingUserId, boolean isAdmin, boolean nominate, String teamName);
     SportsEventRegistration confirmCaptain(Long registrationId, boolean confirm);
     SportsEventRegistration respondToPartnerInvitation(Long registrationId, Long partnerUserId, boolean accept, String declineReason);
     List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status);

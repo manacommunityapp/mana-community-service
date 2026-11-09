@@ -8,6 +8,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.sports.service.SportsAuctionTeamService;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
+import com.manacommunity.api.constants.permissions.SportsPermissions;
 import static com.manacommunity.api.constants.PermissionConstants.*;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_PLAYER_POOL;
@@ -88,7 +89,7 @@ public class SportsAuctionTeamController {
             @RequestParam boolean nominate,
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        permissionCheckService.requireAnyPermission(principal, SportsPermissions.VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
         log.info("Nominating captain eventId={} nominate={}", eventId, nominate);
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(toResponse(auctionTeamService.nominateCaptain(eventId, loggedInUser.getId(), nominate, teamName)));
