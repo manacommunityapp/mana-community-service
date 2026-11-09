@@ -73,7 +73,7 @@ class SportsCaptainAppointmentAutoProvisionTest {
             );
 
             SportsMeta sport = SportsMeta.builder().id(10L).name("Cricket").build();
-            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).build();
+            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).captainNominationOpen(true).build();
             user = AppUser.builder().id(50L).fullName("Rahul Dravid").build();
             registration = SportsEventRegistration.builder()
                     .id(904L)
@@ -169,7 +169,7 @@ class SportsCaptainAppointmentAutoProvisionTest {
             );
 
             SportsMeta sport = SportsMeta.builder().id(10L).name("Cricket").build();
-            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).build();
+            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).captainNominationOpen(true).build();
             user = AppUser.builder().id(50L).fullName("Rahul Dravid").build();
 
             when(userRepo.findById(50L)).thenReturn(Optional.of(user));
