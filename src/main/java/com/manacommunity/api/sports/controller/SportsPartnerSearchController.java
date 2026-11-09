@@ -231,14 +231,8 @@ public class SportsPartnerSearchController {
     }
 
     private static String buildFlatLabel(String block, String flatNo) {
-        if (block != null && !block.isBlank() && flatNo != null && !flatNo.isBlank()) {
-            return "Flat " + block + "-" + flatNo;
-        } else if (flatNo != null && !flatNo.isBlank()) {
-            return "Flat " + flatNo;
-        } else if (block != null && !block.isBlank()) {
-            return "Block " + block;
-        }
-        return "";
+        String res = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(block, flatNo);
+        return res != null ? res : "";
     }
 
     private static EligibilityResult checkEligibility(
