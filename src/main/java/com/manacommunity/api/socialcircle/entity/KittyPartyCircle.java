@@ -32,7 +32,7 @@ public class KittyPartyCircle {
 
     @Column(name = "category_code", nullable = false, length = 50)
     @Builder.Default
-    private String categoryCode = "KITTY";
+    private String categoryCode = "KITTY_PARTY";
 
     @Column(name = "privacy_type", nullable = false, length = 30)
     @Builder.Default

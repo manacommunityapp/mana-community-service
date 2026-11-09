@@ -105,11 +105,15 @@ public class KittyPartyCircleController {
 
     @PostMapping("/invitations/accept")
     public ResponseEntity<Map<String, Object>> acceptInvitation(
-            @RequestParam String token,
+            @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
+        String token = body.get("inviteToken");
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("inviteToken is required");
+        }
         AppUser user = loggedInUserService.resolve(principal);
-        circleService.acceptInvitation(token, user);
+        circleService.acceptInvitation(token.trim(), user);
         return ResponseEntity.ok(Map.of("success", true, "message", "Invitation accepted"));
     }
 }

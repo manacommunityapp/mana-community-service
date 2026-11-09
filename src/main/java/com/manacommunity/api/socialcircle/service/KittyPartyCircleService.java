@@ -55,7 +55,7 @@ public class KittyPartyCircleService {
                 .community(community)
                 .circleName(request.getCircleName().trim())
                 .description(request.getDescription())
-                .categoryCode(request.getCategoryCode() != null ? request.getCategoryCode().toUpperCase() : "KITTY")
+                .categoryCode(request.getCategoryCode() != null ? request.getCategoryCode().toUpperCase() : "KITTY_PARTY")
                 .privacyType(request.getPrivacyType() != null ? request.getPrivacyType().toUpperCase() : "PRIVATE")
                 .approvalRequired(request.getApprovalRequired() == null || request.getApprovalRequired())
                 .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 20)

@@ -21,7 +21,7 @@ public class KittyPartyCircleDtos {
         private String description;
 
         @NotBlank(message = "Category code is required")
-        private String categoryCode; // KITTY, LADIES_CLUB, FAMILY, FRIENDS, HOBBY, PROFESSIONAL
+        private String categoryCode; // KITTY_PARTY, LADIES_CLUB, BOOK_CLUB, FITNESS_SPORTS, SENIOR_CITIZENS, GENERAL_SOCIAL
 
         @NotBlank(message = "Privacy type is required")
         private String privacyType; // COMMUNITY_PUBLIC, PRIVATE, INVITE_ONLY
