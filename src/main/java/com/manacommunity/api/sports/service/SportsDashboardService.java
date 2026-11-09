@@ -201,7 +201,8 @@ public class SportsDashboardService {
                 gender,
                 minAge,
                 maxAge,
-                formats
+                formats,
+                Boolean.TRUE.equals(e.getCaptainNominationOpen())
         );
     }
 
@@ -223,21 +224,50 @@ public class SportsDashboardService {
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
         Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
-        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId() : null;
+        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId()
+                : (r.getPartnerFamilyMember() != null && r.getPartnerFamilyMember().getUser() != null ? r.getPartnerFamilyMember().getUser().getId() : null);
         Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
         String pName = null;
-        if (r.getPartner() != null) {
-            pName = r.getPartner().getFullName();
-        } else if (r.getPartnerFamilyMember() != null) {
+        String pRelation = null;
+        Integer pAge = null;
+        String pGender = null;
+        if (r.getPartnerFamilyMember() != null) {
             pName = r.getPartnerFamilyMember().getName();
+            pRelation = r.getPartnerFamilyMember().getRelation();
+            pAge = r.getPartnerFamilyMember().getAge();
+            pGender = r.getPartnerFamilyMember().getGender();
+        } else if (r.getPartner() != null) {
+            pName = r.getPartner().getFullName();
         }
-        String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
-        String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
+        String pPhone = null;
+        String pFlat = null;
+        if (r.getPartnerFamilyMember() != null) {
+            pPhone = r.getPartnerFamilyMember().getPhone();
+            if (r.getPartnerFamilyMember().getUser() != null) {
+                if (pPhone == null || pPhone.isBlank()) {
+                    pPhone = r.getPartnerFamilyMember().getUser().getPhone();
+                }
+                pFlat = r.getPartnerFamilyMember().getUser().getFlatNo();
+            }
+        }
+        if (pPhone == null && r.getPartner() != null) {
+            pPhone = r.getPartner().getPhone();
+        }
+        if (pFlat == null && r.getPartner() != null) {
+            pFlat = r.getPartner().getFlatNo();
+        }
         String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
         String flatNumber = r.getFlatNumber();
         if (flatNumber == null && r.getUser() != null) {
             flatNumber = r.getUser().getFlatNo();
         }
+
+        String resolvedPlayerName = (r.getFamilyMember() != null && r.getFamilyMember().getName() != null && !r.getFamilyMember().getName().isBlank())
+                ? r.getFamilyMember().getName()
+                : r.getPlayerName();
+        String resolvedRelation = (r.getFamilyMember() != null && r.getFamilyMember().getRelation() != null && !r.getFamilyMember().getRelation().isBlank())
+                ? r.getFamilyMember().getRelation()
+                : r.getRelation();
 
         return new MyRegistration(
                 r.getId(),
@@ -251,8 +281,8 @@ public class SportsDashboardService {
                 r.getMatchType() != null ? r.getMatchType().name() : null,
                 r.getCaptainNomination(),
                 r.getCaptainConfirmation(),
-                r.getPlayerName(),
-                r.getRelation(),
+                resolvedPlayerName,
+                resolvedRelation,
                 familyMemberId,
                 partnerUserId,
                 partnerFamilyMemberId,
@@ -261,7 +291,10 @@ public class SportsDashboardService {
                 pFlat,
                 pStatus,
                 pStatus,
-                flatNumber
+                flatNumber,
+                pRelation,
+                pAge,
+                pGender
         );
     }
 

@@ -21,7 +21,9 @@ import org.mockito.quality.Strictness;
 
 import java.util.Optional;
 
+import com.manacommunity.api.exception.UnauthorizedActionException;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -71,7 +73,7 @@ class SportsCaptainAppointmentAutoProvisionTest {
             );
 
             SportsMeta sport = SportsMeta.builder().id(10L).name("Cricket").build();
-            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).build();
+            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).captainNominationOpen(true).build();
             user = AppUser.builder().id(50L).fullName("Rahul Dravid").build();
             registration = SportsEventRegistration.builder()
                     .id(904L)
@@ -112,6 +114,24 @@ class SportsCaptainAppointmentAutoProvisionTest {
         }
 
         @Test
+        @DisplayName("nominateCaptain succeeds when requesting user owns the registration")
+        void testNominateCaptainByOwner() {
+            SportsEventRegistration result = sportsEventService.nominateCaptain(904L, 50L, false, true, "Team Bangalore");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getCaptainNomination()).isTrue();
+            assertThat(result.getProposedTeamName()).isEqualTo("Team Bangalore");
+        }
+
+        @Test
+        @DisplayName("nominateCaptain throws UnauthorizedActionException when non-admin does not own registration")
+        void testNominateCaptainUnauthorized() {
+            assertThatThrownBy(() -> sportsEventService.nominateCaptain(904L, 999L, false, true, "Team Bangalore"))
+                    .isInstanceOf(UnauthorizedActionException.class)
+                    .hasMessageContaining("You can only nominate a captain for your own registration.");
+        }
+
+        @Test
         @DisplayName("confirmCaptain auto-provisions config and team if missing")
         void testConfirmCaptainAutoProvisionsConfigAndTeam() {
             SportsEventRegistration result = sportsEventService.confirmCaptain(904L, true);
@@ -149,7 +169,7 @@ class SportsCaptainAppointmentAutoProvisionTest {
             );
 
             SportsMeta sport = SportsMeta.builder().id(10L).name("Cricket").build();
-            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).build();
+            event = SportsEvent.builder().id(771L).name("Cricket Tournament 2026").sport(sport).captainNominationOpen(true).build();
             user = AppUser.builder().id(50L).fullName("Rahul Dravid").build();
 
             when(userRepo.findById(50L)).thenReturn(Optional.of(user));
