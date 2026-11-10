@@ -188,6 +188,9 @@ public class SchemaConstraintPatcher {
                             EXECUTE format('ALTER TABLE manacommunity.sports_tournament_match DROP CONSTRAINT %I', existing_fk);
                           END LOOP;
 
+                          DELETE FROM manacommunity.sports_tournament_match
+                          WHERE config_id IS NOT NULL AND config_id NOT IN (SELECT id FROM manacommunity.sports_tournament_config);
+
                           ALTER TABLE manacommunity.sports_tournament_match
                             ADD CONSTRAINT fk_tournament_match_config
                             FOREIGN KEY (config_id)
@@ -843,6 +846,10 @@ public class SchemaConstraintPatcher {
                             END LOOP;
 
                             EXECUTE format(
+                              'DELETE FROM manacommunity.%I WHERE %I IS NOT NULL AND %I NOT IN (SELECT id FROM manacommunity.chat_conversation)',
+                              rec.child, rec.col, rec.col);
+
+                            EXECUTE format(
                               'ALTER TABLE manacommunity.%I ADD CONSTRAINT %I FOREIGN KEY (%I) '
                               || 'REFERENCES manacommunity.chat_conversation(id) ON DELETE CASCADE',
                               rec.child, rec.fkname, rec.col);
@@ -953,6 +960,10 @@ public class SchemaConstraintPatcher {
                             EXECUTE format('ALTER TABLE manacommunity.sports_event DROP CONSTRAINT %I', existing_fk);
                           END LOOP;
 
+                          UPDATE manacommunity.sports_event
+                          SET tournament_id = NULL
+                          WHERE tournament_id IS NOT NULL AND tournament_id NOT IN (SELECT id FROM manacommunity.sports_tournament);
+
                           ALTER TABLE manacommunity.sports_event
                             ADD CONSTRAINT fk_sports_event_tournament
                             FOREIGN KEY (tournament_id)
@@ -1034,41 +1045,42 @@ public class SchemaConstraintPatcher {
                           FOR rec IN
                             SELECT * FROM (VALUES
                               -- (child_table, fk_column, parent_table, action)
-                              ('sports_event_registration','event_id','sports_event','c'),
-                              ('sports_tournament_config','event_id','sports_event','c'),
-                              ('sports_auction_config','event_id','sports_event','c'),
-                              ('sports_event_sponsor','event_id','sports_event','c'),
-                              ('sports_notification_scheduler','event_id','sports_event','c'),
-                              ('sports_tournament_group','config_id','sports_tournament_config','c'),
-                              ('sports_tournament_match','config_id','sports_tournament_config','c'),
-                              ('sports_group_team_standing','group_id','sports_tournament_group','c'),
-                              ('sports_auction_team','config_id','sports_auction_config','c'),
-                              ('sports_auction_player','config_id','sports_auction_config','c'),
+                              -- Deepest leaves first (bids, session logs, standings, matches)
                               ('sports_auction_bid','config_id','sports_auction_config','c'),
-                              ('sports_auction_session_log','config_id','sports_auction_config','c'),
-                              ('sports_auction_dispute_committee','config_id','sports_auction_config','c'),
                               ('sports_auction_bid','team_id','sports_auction_team','c'),
                               ('sports_auction_bid','player_id','sports_auction_player','c'),
+                              ('sports_auction_session_log','config_id','sports_auction_config','c'),
                               ('sports_auction_session_log','team_id','sports_auction_team','c'),
                               ('sports_auction_session_log','player_id','sports_auction_player','c'),
+                              ('sports_group_team_standing','group_id','sports_tournament_group','c'),
                               ('sports_group_team_standing','team_id','sports_auction_team','c'),
-                              ('sports_auction_player','assigned_team_id','sports_auction_team','n'),
+                              ('sports_tournament_match','config_id','sports_tournament_config','c'),
                               ('sports_tournament_match','group_id','sports_tournament_group','n'),
                               ('sports_tournament_match','team_a_id','sports_auction_team','n'),
                               ('sports_tournament_match','team_b_id','sports_auction_team','n'),
                               ('sports_tournament_match','winner_team_id','sports_auction_team','n'),
                               ('sports_tournament_match','toss_winner_team_id','sports_auction_team','n'),
                               ('sports_tournament_match','man_of_match_id','sports_auction_player','n'),
-                              -- Venue delete: courts belong to the venue (removed with
-                              -- it); events/matches survive with a null (TBD) venue.
-                              ('sports_court','venue_id','sports_venue','c'),
-                              ('sports_event','venue_id','sports_venue','n'),
                               ('sports_tournament_match','venue_id','sports_venue','n'),
-                              -- Player-category delete: unlink from events (join rows)
-                              -- and null the category on registrations, which survive.
+                              ('sports_auction_player','assigned_team_id','sports_auction_team','n'),
+                              ('sports_auction_player','config_id','sports_auction_config','c'),
+                              ('sports_auction_team','config_id','sports_auction_config','c'),
+                              ('sports_auction_dispute_committee','config_id','sports_auction_config','c'),
+                              ('sports_tournament_group','config_id','sports_tournament_config','c'),
+                              ('sports_event_registration','event_id','sports_event','c'),
+                              ('sports_event_registration','category_id','sports_player_category','n'),
+                              ('sports_tournament_config','event_id','sports_event','c'),
+                              ('sports_auction_config','event_id','sports_event','c'),
+                              ('sports_event_sponsor','event_id','sports_event','c'),
+                              ('sports_notification_scheduler','event_id','sports_event','c'),
+                              ('sports_court','venue_id','sports_venue','c'),
+                              ('sports_venue_contact','venue_id','sports_venue','c'),
+                              ('sports_tournament_contact','tournament_id','sports_tournament','c'),
                               ('sports_event_category','category_id','sports_player_category','c'),
                               ('sports_event_category','event_id','sports_event','c'),
-                              ('sports_event_registration','category_id','sports_player_category','n')
+                              ('sports_event_format','event_id','sports_event','c'),
+                              ('sports_event_contact','sports_event_id','sports_event','c'),
+                              ('sports_event','venue_id','sports_venue','n')
                             ) AS t(child, col, parent, act)
                           LOOP
                             CONTINUE WHEN to_regclass('manacommunity.' || rec.child) IS NULL;
@@ -1099,24 +1111,53 @@ public class SchemaConstraintPatcher {
                               CONTINUE;
                             END IF;
 
-                            -- Drop any existing FK on this column, then re-add with the action.
-                            FOR existing_fk IN
-                              SELECT con.conname FROM pg_constraint con
-                              JOIN pg_class rel ON rel.oid = con.conrelid
-                              JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
-                              WHERE nsp.nspname = 'manacommunity'
-                                AND rel.relname = rec.child
-                                AND con.contype = 'f'
-                                AND con.conkey = ARRAY[col_attnum]
-                            LOOP
-                              EXECUTE format('ALTER TABLE manacommunity.%I DROP CONSTRAINT %I', rec.child, existing_fk);
-                            END LOOP;
+                            BEGIN
+                              -- Drop any existing FK on this column, then re-add with the action.
+                              FOR existing_fk IN
+                                SELECT con.conname FROM pg_constraint con
+                                JOIN pg_class rel ON rel.oid = con.conrelid
+                                JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                                WHERE nsp.nspname = 'manacommunity'
+                                  AND rel.relname = rec.child
+                                  AND con.contype = 'f'
+                                  AND con.conkey = ARRAY[col_attnum]
+                              LOOP
+                                EXECUTE format('ALTER TABLE manacommunity.%I DROP CONSTRAINT %I', rec.child, existing_fk);
+                              END LOOP;
 
-                            EXECUTE format(
-                              'ALTER TABLE manacommunity.%I ADD CONSTRAINT %I FOREIGN KEY (%I) '
-                              || 'REFERENCES manacommunity.%I(id) ON DELETE %s',
-                              rec.child, 'fk_' || rec.child || '_' || rec.col, rec.col, rec.parent,
-                              CASE WHEN want = 'c' THEN 'CASCADE' ELSE 'SET NULL' END);
+                              -- Clean up orphaned child rows referencing non-existent parent rows
+                              -- before applying the foreign key constraint.
+                              IF want = 'c' THEN
+                                EXECUTE format(
+                                  'DELETE FROM manacommunity.%I WHERE %I IS NOT NULL AND %I NOT IN (SELECT id FROM manacommunity.%I)',
+                                  rec.child, rec.col, rec.col, rec.parent);
+                              ELSE
+                                IF EXISTS (
+                                  SELECT 1 FROM information_schema.columns
+                                  WHERE table_schema = 'manacommunity'
+                                    AND table_name = rec.child
+                                    AND column_name = rec.col
+                                    AND is_nullable = 'YES'
+                                ) THEN
+                                  EXECUTE format(
+                                    'UPDATE manacommunity.%I SET %I = NULL WHERE %I IS NOT NULL AND %I NOT IN (SELECT id FROM manacommunity.%I)',
+                                    rec.child, rec.col, rec.col, rec.parent);
+                                ELSE
+                                  EXECUTE format(
+                                    'DELETE FROM manacommunity.%I WHERE %I IS NOT NULL AND %I NOT IN (SELECT id FROM manacommunity.%I)',
+                                    rec.child, rec.col, rec.col, rec.parent);
+                                END IF;
+                              END IF;
+
+                              EXECUTE format(
+                                'ALTER TABLE manacommunity.%I ADD CONSTRAINT %I FOREIGN KEY (%I) '
+                                || 'REFERENCES manacommunity.%I(id) ON DELETE %s',
+                                rec.child, 'fk_' || rec.child || '_' || rec.col, rec.col, rec.parent,
+                                CASE WHEN want = 'c' THEN 'CASCADE' ELSE 'SET NULL' END);
+                            EXCEPTION WHEN OTHERS THEN
+                              RAISE WARNING 'SchemaConstraintPatcher: skipping FK on %.% -> %: %',
+                                rec.child, rec.col, rec.parent, SQLERRM;
+                            END;
                           END LOOP;
                         END $$;
                         """);
@@ -2502,6 +2543,9 @@ public class SchemaConstraintPatcher {
                                 AND tc.constraint_type = 'FOREIGN KEY'
                                 AND ccu.table_name = 'event_community'
                             ) THEN
+                              DELETE FROM manacommunity.event_ticket_categories
+                              WHERE event_id IS NOT NULL AND event_id NOT IN (SELECT id FROM manacommunity.event_community);
+
                               ALTER TABLE manacommunity.event_ticket_categories
                                 ADD CONSTRAINT fk_event_ticket_categories_event
                                 FOREIGN KEY (event_id) REFERENCES manacommunity.event_community(id) ON DELETE CASCADE;
