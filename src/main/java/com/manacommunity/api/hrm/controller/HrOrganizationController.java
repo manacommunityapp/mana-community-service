@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.controller;
 
 import com.manacommunity.api.hrm.dto.*;
 import com.manacommunity.api.hrm.entity.*;
+import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.hrm.service.HrOrganizationService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -21,6 +22,7 @@ import java.util.List;
 public class HrOrganizationController {
 
     private final HrOrganizationService organizationService;
+    private final HrEmployeeService employeeService;
     private final LoggedInUserService loggedInUserService;
 
     @PostMapping
@@ -76,7 +78,11 @@ public class HrOrganizationController {
 
     @GetMapping("/{id}/branches")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<HrBranch>> listBranches(@PathVariable Long id) {
+    public ResponseEntity<List<HrBranch>> listBranches(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(id, user.getId());
         return ResponseEntity.ok(organizationService.listBranches(id));
     }
 
@@ -93,7 +99,11 @@ public class HrOrganizationController {
 
     @GetMapping("/{id}/departments")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<HrDepartment>> listDepartments(@PathVariable Long id) {
+    public ResponseEntity<List<HrDepartment>> listDepartments(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(id, user.getId());
         return ResponseEntity.ok(organizationService.listDepartments(id));
     }
 
@@ -110,7 +120,11 @@ public class HrOrganizationController {
 
     @GetMapping("/{id}/designations")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<HrDesignation>> listDesignations(@PathVariable Long id) {
+    public ResponseEntity<List<HrDesignation>> listDesignations(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(id, user.getId());
         return ResponseEntity.ok(organizationService.listDesignations(id));
     }
 }

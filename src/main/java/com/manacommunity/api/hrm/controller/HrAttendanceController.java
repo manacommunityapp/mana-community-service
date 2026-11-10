@@ -69,7 +69,10 @@ public class HrAttendanceController {
             @PathVariable Long orgId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(attendanceService.getAttendanceReport(orgId, date, PageRequest.of(page, size)));
     }
 
@@ -77,7 +80,10 @@ public class HrAttendanceController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<AttendanceSummaryResponse> getDailySummary(
             @PathVariable Long orgId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(attendanceService.getDailySummary(orgId, date));
     }
 }

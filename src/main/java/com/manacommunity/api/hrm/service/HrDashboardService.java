@@ -44,6 +44,8 @@ public class HrDashboardService {
                         .build())
                 .toList();
 
+        long newJoinersThisMonth = employeeRepository.countByOrganizationIdAndJoiningDateBetween(orgId, monthStart, monthEnd);
+
         return HrDashboardResponse.builder()
                 .totalEmployees(totalEmployees)
                 .activeEmployees(activeEmployees)
@@ -51,7 +53,7 @@ public class HrDashboardService {
                 .absentToday(absentToday)
                 .onLeaveToday(onLeaveToday)
                 .pendingLeaveApprovals(pendingLeaveApprovals)
-                .newJoinersThisMonth(0)
+                .newJoinersThisMonth(newJoinersThisMonth)
                 .upcomingHolidays(upcomingHolidays)
                 .build();
     }

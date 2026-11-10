@@ -42,7 +42,10 @@ public class HrLeaveService {
                 .findByEmployeeIdAndLeaveTypeIdAndYear(employee.getId(), request.getLeaveTypeId(), year)
                 .orElse(null);
 
-        if (balance != null && balance.getRemainingBalance() < request.getTotalDays()) {
+        if (balance == null) {
+            throw new IllegalStateException("No leave balance configured. Please contact HR to initialize your leave balance.");
+        }
+        if (balance.getRemainingBalance() < request.getTotalDays()) {
             throw new IllegalArgumentException("Insufficient leave balance");
         }
 
@@ -123,8 +126,20 @@ public class HrLeaveService {
             throw new IllegalArgumentException("You can only cancel your own leave requests");
         }
 
-        if (leaveRequest.getApprovalStatus() != LeaveApprovalStatus.PENDING) {
-            throw new IllegalStateException("Only PENDING leave requests can be cancelled");
+        if (leaveRequest.getApprovalStatus() != LeaveApprovalStatus.PENDING
+                && leaveRequest.getApprovalStatus() != LeaveApprovalStatus.APPROVED) {
+            throw new IllegalStateException("Only PENDING or APPROVED leave requests can be cancelled");
+        }
+
+        if (leaveRequest.getApprovalStatus() == LeaveApprovalStatus.APPROVED) {
+            int year = leaveRequest.getFromDate().getYear();
+            HrLeaveBalance balance = leaveBalanceRepository
+                    .findByEmployeeIdAndLeaveTypeIdAndYear(
+                            leaveRequest.getEmployee().getId(), leaveRequest.getLeaveType().getId(), year)
+                    .orElseThrow(() -> new IllegalStateException("Leave balance not found"));
+            balance.setUsedBalance(balance.getUsedBalance() - leaveRequest.getTotalDays());
+            balance.setRemainingBalance(balance.getTotalBalance() - balance.getUsedBalance());
+            leaveBalanceRepository.save(balance);
         }
 
         leaveRequest.setApprovalStatus(LeaveApprovalStatus.CANCELLED);

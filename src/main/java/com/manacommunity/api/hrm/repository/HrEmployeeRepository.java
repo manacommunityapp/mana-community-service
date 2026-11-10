@@ -28,4 +28,6 @@ public interface HrEmployeeRepository extends JpaRepository<HrEmployee, Long> {
     boolean existsByOrganizationIdAndEmployeeCode(Long organizationId, String employeeCode);
 
     boolean existsByOrganizationIdAndManaUserId(Long organizationId, Long manaUserId);
+
+    long countByOrganizationIdAndJoiningDateBetween(Long organizationId, java.time.LocalDate from, java.time.LocalDate to);
 }

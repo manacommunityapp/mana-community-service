@@ -5,8 +5,10 @@ import com.manacommunity.api.hrm.entity.*;
 import com.manacommunity.api.hrm.enums.EmploymentStatus;
 import com.manacommunity.api.hrm.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,20 +34,10 @@ public class HrEmployeeService {
             throw new IllegalArgumentException("User is already an employee in this organization");
         }
 
-        String employeeCode = request.getEmployeeCode();
-        if (employeeCode == null || employeeCode.isBlank()) {
-            long count = employeeRepository.countByOrganizationId(orgId);
-            employeeCode = "EMP-" + String.format("%04d", count + 1);
-        }
-
-        if (employeeRepository.existsByOrganizationIdAndEmployeeCode(orgId, employeeCode)) {
-            throw new IllegalArgumentException("Employee code already exists in this organization");
-        }
-
         HrEmployee employee = HrEmployee.builder()
                 .organization(org)
                 .manaUserId(request.getManaUserId())
-                .employeeCode(employeeCode)
+                .employeeCode("TBD")
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .personalEmail(request.getPersonalEmail())
@@ -61,17 +53,38 @@ public class HrEmployeeService {
                 .build();
 
         if (request.getBranchId() != null) {
-            employee.setBranch(branchRepository.findById(request.getBranchId()).orElse(null));
+            employee.setBranch(branchRepository.findByIdAndOrganizationId(request.getBranchId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Branch not found in this organization")));
         }
         if (request.getDepartmentId() != null) {
-            employee.setDepartment(departmentRepository.findById(request.getDepartmentId()).orElse(null));
+            employee.setDepartment(departmentRepository.findByIdAndOrganizationId(request.getDepartmentId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Department not found in this organization")));
         }
         if (request.getDesignationId() != null) {
-            employee.setDesignation(designationRepository.findById(request.getDesignationId()).orElse(null));
+            employee.setDesignation(designationRepository.findByIdAndOrganizationId(request.getDesignationId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Designation not found in this organization")));
         }
 
-        employee = employeeRepository.save(employee);
-        return toResponse(employee);
+        String requestedCode = request.getEmployeeCode();
+        if (requestedCode != null && !requestedCode.isBlank()) {
+            if (employeeRepository.existsByOrganizationIdAndEmployeeCode(orgId, requestedCode)) {
+                throw new IllegalArgumentException("Employee code already exists in this organization");
+            }
+            employee.setEmployeeCode(requestedCode);
+            return toResponse(employeeRepository.save(employee));
+        }
+
+        // Auto-generate with retry to handle concurrent creates
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                long count = employeeRepository.countByOrganizationId(orgId);
+                employee.setEmployeeCode("EMP-" + String.format("%04d", count + 1 + attempt));
+                return toResponse(employeeRepository.save(employee));
+            } catch (DataIntegrityViolationException e) {
+                if (attempt == 2) throw new IllegalStateException("Failed to generate unique employee code. Please try again.");
+            }
+        }
+        throw new IllegalStateException("Failed to generate unique employee code");
     }
 
     @Transactional
@@ -98,13 +111,16 @@ public class HrEmployeeService {
         if (request.getEmergencyContactPhone() != null) employee.setEmergencyContactPhone(request.getEmergencyContactPhone());
 
         if (request.getBranchId() != null) {
-            employee.setBranch(branchRepository.findById(request.getBranchId()).orElse(null));
+            employee.setBranch(branchRepository.findByIdAndOrganizationId(request.getBranchId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Branch not found in this organization")));
         }
         if (request.getDepartmentId() != null) {
-            employee.setDepartment(departmentRepository.findById(request.getDepartmentId()).orElse(null));
+            employee.setDepartment(departmentRepository.findByIdAndOrganizationId(request.getDepartmentId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Department not found in this organization")));
         }
         if (request.getDesignationId() != null) {
-            employee.setDesignation(designationRepository.findById(request.getDesignationId()).orElse(null));
+            employee.setDesignation(designationRepository.findByIdAndOrganizationId(request.getDesignationId(), orgId)
+                    .orElseThrow(() -> new IllegalArgumentException("Designation not found in this organization")));
         }
 
         employee.setUpdatedBy(updatedBy);
@@ -139,6 +155,16 @@ public class HrEmployeeService {
     public HrEmployee findByOrgAndManaUser(Long orgId, Long manaUserId) {
         return employeeRepository.findByOrganizationIdAndManaUserId(orgId, manaUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found for this user in this organization"));
+    }
+
+    @Transactional(readOnly = true)
+    public HrEmployee resolveAndVerifyMembership(Long orgId, Long manaUserId) {
+        return employeeRepository.findByOrganizationIdAndManaUserId(orgId, manaUserId)
+                .orElseThrow(() -> new AccessDeniedException("Not a member of this organization"));
+    }
+
+    public EmployeeResponse toEmployeeResponse(HrEmployee employee) {
+        return toResponse(employee);
     }
 
     @Transactional

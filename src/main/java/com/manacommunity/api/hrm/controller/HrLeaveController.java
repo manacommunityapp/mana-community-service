@@ -74,7 +74,10 @@ public class HrLeaveController {
             @PathVariable Long orgId,
             @RequestParam(required = false) LeaveApprovalStatus status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         LeaveApprovalStatus effectiveStatus = status != null ? status : LeaveApprovalStatus.PENDING;
         return ResponseEntity.ok(leaveService.getOrgLeaveRequests(orgId, effectiveStatus, PageRequest.of(page, size)));
     }

@@ -4,6 +4,7 @@ import com.manacommunity.api.hrm.dto.*;
 import com.manacommunity.api.hrm.entity.HrEmployeeShift;
 import com.manacommunity.api.hrm.entity.HrOrganization;
 import com.manacommunity.api.hrm.entity.HrShift;
+import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.hrm.service.HrOrganizationService;
 import com.manacommunity.api.hrm.service.HrShiftService;
 import com.manacommunity.api.user.model.AppUser;
@@ -29,6 +30,7 @@ public class HrShiftController {
 
     private final HrShiftService shiftService;
     private final HrOrganizationService organizationService;
+    private final HrEmployeeService employeeService;
     private final LoggedInUserService loggedInUserService;
 
     @PostMapping
@@ -45,7 +47,11 @@ public class HrShiftController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<HrShift>> listShifts(@PathVariable Long orgId) {
+    public ResponseEntity<List<HrShift>> listShifts(
+            @PathVariable Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(shiftService.listShifts(orgId));
     }
 
@@ -53,7 +59,10 @@ public class HrShiftController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HrEmployeeShift> assignShift(
             @PathVariable Long orgId,
-            @Valid @RequestBody AssignShiftRequest request) {
+            @Valid @RequestBody AssignShiftRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(shiftService.assignShift(orgId, request));
     }
 
@@ -63,7 +72,10 @@ public class HrShiftController {
             @PathVariable Long orgId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(shiftService.getOrgShiftsForDate(orgId, date, PageRequest.of(page, size)));
     }
 }

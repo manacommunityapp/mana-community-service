@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.dto;
 
 import com.manacommunity.api.hrm.enums.EmploymentStatus;
 import com.manacommunity.api.hrm.enums.EmploymentType;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -24,5 +25,7 @@ public class UpdateEmployeeRequest {
     private Long reportingManagerId;
     private String emergencyContactName;
     private String emergencyContactPhone;
+
+    @NotNull(message = "Version is required for optimistic locking")
     private Long version;
 }

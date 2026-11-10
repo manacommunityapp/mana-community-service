@@ -27,6 +27,16 @@ public class HrEmployeeController {
     private final HrEmployeeService employeeService;
     private final LoggedInUserService loggedInUserService;
 
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<EmployeeResponse> getMyProfile(
+            @PathVariable Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(employeeService.toEmployeeResponse(
+                employeeService.findByOrgAndManaUser(orgId, user.getId())));
+    }
+
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EmployeeResponse> createEmployee(
