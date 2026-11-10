@@ -224,6 +224,21 @@ class FamilyMemberIdorTest {
         }
 
         @Test
+        @DisplayName("owner cannot delete family member when active tournament registrations exist")
+        void cannotDeleteMemberWithActiveTournamentRegistration() {
+            when(repository.findById(42L)).thenReturn(Optional.of(familyMember));
+            when(sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(eq(42L), anyList()))
+                    .thenReturn(true);
+
+            assertThatThrownBy(() ->
+                    service.deleteFamilyMember(42L, ownerUser, 10L))
+                    .isInstanceOf(InvalidInputException.class)
+                    .hasMessageContaining("Cannot delete family member while they have active registrations");
+
+            verify(repository, never()).delete(any(FamilyMember.class));
+        }
+
+        @Test
         @DisplayName("deleting non-existent member throws ResourceNotFoundException")
         void deleteMissingMember() {
             when(repository.findById(999L)).thenReturn(Optional.empty());

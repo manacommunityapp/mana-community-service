@@ -428,6 +428,16 @@ public class FamilyMemberServiceImpl implements FamilyMemberService {
             throw new UnauthorizedActionException("You are not authorized to delete this family member.");
         }
 
+        List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
+                SportsEventRegistration.RegistrationStatus.PENDING,
+                SportsEventRegistration.RegistrationStatus.REGISTERED,
+                SportsEventRegistration.RegistrationStatus.CONFIRMED
+        );
+        if (sportsEventRegistrationRepository.existsActiveRegistrationForFamilyMember(id, activeStatuses)) {
+            throw new InvalidInputException(
+                    "Cannot delete family member while they have active registrations in ongoing/upcoming tournaments. Please withdraw their registrations first.");
+        }
+
         repository.delete(existing);
     }
 }

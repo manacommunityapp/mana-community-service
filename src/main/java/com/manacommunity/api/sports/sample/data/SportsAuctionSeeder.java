@@ -54,9 +54,22 @@ public class SportsAuctionSeeder {
     private final SportsMetaSeeder sportsMetaSeeder;
     private final SportsEventSeeder sportsEventSeeder;
     private final UserSeeder userSeeder;
+    private final org.springframework.core.env.Environment environment;
 
     @Transactional
     public void seed() {
+        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: SportsAuctionSeeder cannot run under 'prod' profile. Aborting.");
+            return;
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping auction data or re-creating auction configuration when user registrations exist. Skipping auction seeding.", registrationCount);
+            return;
+        }
+
         log.info("Seeding auction configurations (delete & recreate if exists)...");
 
         SportsMeta cricket = sportsMetaSeeder.getOrCreateSport("Cricket", "🏏");
@@ -124,6 +137,12 @@ public class SportsAuctionSeeder {
 
     public void deleteAuctionDataForEvent(Long eventId) {
         if (eventId == null) return;
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD: Refusing to delete auction data for eventId={}. {} user registrations exist in database.",
+                    eventId, registrationCount);
+            return;
+        }
         configRepo.findByEventId(eventId).ifPresent(config -> {
             Long configId = config.getId();
             try {

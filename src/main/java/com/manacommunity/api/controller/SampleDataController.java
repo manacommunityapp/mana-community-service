@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@Profile("!prod")
+@Profile("!prod | !dev | !uat | !test")
 @Tag(name = "Data Seeder / Feed", description = "Endpoints to seed, feed, and manage tournament, sports, and system sample data")
 @RestController
 @RequestMapping("/api/admin/seed")
