@@ -199,7 +199,7 @@ class SportsPlayoffScheduleGeneratorTest {
         }
 
         @Test
-        @DisplayName("13 players → 3 BYEs to top seeds, all AUTO_ADVANCED, players auto-advance")
+        @DisplayName("13 players → cascading BYEs across rounds")
         void thirteenPlayersThreeByes() {
             List<SportsPlayoffMatchDraftResponse> matches =
                     generator.buildKnockoutFromPlayers(knockoutRequest(players(13), List.of(1L, 2L, 3L, 4L)));
@@ -207,16 +207,13 @@ class SportsPlayoffScheduleGeneratorTest {
             List<SportsPlayoffMatchDraftResponse> byes = matches.stream()
                     .filter(m -> "AUTO_ADVANCED".equals(m.status())).toList();
 
-            assertThat(byes).hasSize(3); // nextPow2(13)=16, 16-13=3
+            assertThat(byes).hasSize(2); // 13 is odd -> 1 in r0; 7 is odd -> 1 in r1
             assertThat(byes).allSatisfy(b -> {
                 assertThat(b.name()).contains("(BYE)");
                 assertThat(b.away().id()).isEqualTo("bye");
                 assertThat(b.courtId()).isNull();   // a bye isn't played on a court
                 assertThat(b.time()).isEmpty();      // …and carries no scheduled time
             });
-            // BYEs go to the top 3 seeds (the first 3 in registration order)
-            assertThat(byes).extracting(b -> b.home().name())
-                    .containsExactlyInAnyOrder("Player 1", "Player 2", "Player 3");
         }
 
         @Test
@@ -264,6 +261,108 @@ class SportsPlayoffScheduleGeneratorTest {
                     .containsExactly(10L, 11L, 12L, 13L);
             // Wave 2: next 4 matches at 09:40 AM (09:00 + 30 duration + 10 break)
             assertThat(round1.subList(4, 8)).allSatisfy(m -> assertThat(m.time()).isEqualTo("09:40 AM"));
+        }
+    }
+
+    @Nested
+    @DisplayName("break window handling")
+    class BreakWindows {
+        @Test
+        @DisplayName("matches skip configured meal / break windows")
+        void skipsBreakWindows() {
+            SportsPlayoffGenerateRequest.BreakWindowInput lunchBreak =
+                    new SportsPlayoffGenerateRequest.BreakWindowInput(
+                            "lunch", "Lunch Break", "LUNCH", "01:00 PM", "02:00 PM", 60, true);
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    1, 4, "TRADITIONAL", false,
+                    "2026-06-20", "12:30 PM", 45, 10, 1L, 1L, null, null, List.of(lunchBreak));
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            // First match at 12:30 PM (duration 45m -> would end at 01:15 PM which overlaps 01:00 PM - 02:00 PM Lunch).
+            // Generator should skip to 02:00 PM.
+            assertThat(matches.get(0).time()).isEqualTo("02:00 PM");
+        }
+    }
+
+    @Nested
+    @DisplayName("daily end time & allowed days handling")
+    class DayBoundsAndAllowedDays {
+        @Test
+        @DisplayName("rolls to next day when match would spill past endTime")
+        void rollsPastEndTime() {
+            // 09:00 AM to 10:00 AM window; match duration 40m, break 10m.
+            // Match 1: 09:00 AM - 09:40 AM. Next candidate is 09:50 AM + 40m = 10:30 AM > 10:00 AM.
+            // Match 2 must roll to next day at 09:00 AM.
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-20", "09:00 AM", 40, 10, 1L, 1L,
+                    null, null, null, "10:00 AM", null, null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-20");
+            assertThat(matches.get(0).time()).isEqualTo("09:00 AM");
+
+            assertThat(matches.get(1).date()).isEqualTo("2026-06-21");
+            assertThat(matches.get(1).time()).isEqualTo("09:00 AM");
+        }
+
+        @Test
+        @DisplayName("weekends only: rolls from Sunday night to next Saturday morning")
+        void weekendsOnlyRollover() {
+            // 2026-06-21 is Sunday. Cutoff 05:00 PM. Match duration 40m starting at 04:50 PM.
+            // Must roll over to next Saturday 2026-06-27!
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-21", "04:50 PM", 40, 10, 1L, 1L,
+                    null, null, null, "05:00 PM", List.of(0, 6), null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-27");
+            assertThat(matches.get(0).time()).isEqualTo("04:50 PM");
+        }
+
+        @Test
+        @DisplayName("weekdays only: rolls from Friday night to next Monday morning")
+        void weekdaysOnlyRollover() {
+            // 2026-06-26 is Friday. Cutoff 08:00 PM. Match duration 30m starting at 07:50 PM.
+            // Must roll over to next Monday 2026-06-29!
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-26", "07:50 PM", 30, 10, 1L, 1L,
+                    null, null, null, "08:00 PM", List.of(1, 2, 3, 4, 5), null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-29");
+            assertThat(matches.get(0).time()).isEqualTo("07:50 PM");
+        }
+    }
+
+    @Nested
+    @DisplayName("stage and round timing anchors")
+    class RoundTimingAnchors {
+        @Test
+        @DisplayName("anchors each round to designated date and start time")
+        void anchorsRoundTimings() {
+            var timings = java.util.Map.of(
+                    "SEMI_FINAL", new SportsPlayoffGenerateRequest.RoundTimingInput("2026-06-27", "10:00 AM", null),
+                    "FINAL", new SportsPlayoffGenerateRequest.RoundTimingInput("2026-06-28", "04:00 PM", null)
+            );
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-20", "08:00 AM", 30, 10, 1L, 1L,
+                    null, null, null, "08:00 PM", null, timings);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            var sf1 = matches.stream().filter(m -> "Semi-Final 1".equals(m.name())).findFirst().orElseThrow();
+            var fn = matches.stream().filter(m -> "Final".equals(m.name())).findFirst().orElseThrow();
+
+            assertThat(sf1.date()).isEqualTo("2026-06-27");
+            assertThat(sf1.time()).isEqualTo("10:00 AM");
+
+            assertThat(fn.date()).isEqualTo("2026-06-28");
+            assertThat(fn.time()).isEqualTo("04:00 PM");
         }
     }
 }

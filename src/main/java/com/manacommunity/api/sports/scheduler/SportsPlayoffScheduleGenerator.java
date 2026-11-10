@@ -200,32 +200,103 @@ public class SportsPlayoffScheduleGenerator {
         return d.plusDays(days).toString();
     }
 
+    static String advanceDateToAllowedDay(String dateStr, List<Integer> allowedDays) {
+        if (allowedDays == null || allowedDays.isEmpty() || allowedDays.size() == 7) {
+            return dateStr;
+        }
+        LocalDate d = LocalDate.parse(dateStr);
+        int guard = 0;
+        // DayOfWeek: Monday=1..Sunday=7. Modulo 7 gives 0 for Sunday, 1 for Monday, ..., 6 for Saturday.
+        while (!allowedDays.contains(d.getDayOfWeek().getValue() % 7) && guard < 14) {
+            d = d.plusDays(1);
+            guard++;
+        }
+        return d.toString();
+    }
+
     private static String pad2(int n) {
         return n < 10 ? "0" + n : String.valueOf(n);
     }
 
-    /** Sequential time/date cursor; rolls to next day when the slot passes midnight (hour < 6). */
+    static int parseTimeToMinutes(String timeStr) {
+        if (timeStr == null || timeStr.isBlank()) return 0;
+        int[] h12 = parseTime12h(timeStr);
+        return h12[0] * 60 + h12[1];
+    }
+
+    static String skipBreaksIfOverlapping(String timeStr, int matchDurationMinutes, List<SportsPlayoffGenerateRequest.BreakWindowInput> breaks) {
+        if (breaks == null || breaks.isEmpty()) return timeStr;
+        String curTime = timeStr;
+        int guard = 0;
+        while (guard < 10) {
+            int slotStart = parseTimeToMinutes(curTime);
+            int slotEnd = slotStart + matchDurationMinutes;
+            SportsPlayoffGenerateRequest.BreakWindowInput conflict = null;
+            for (SportsPlayoffGenerateRequest.BreakWindowInput b : breaks) {
+                if (b == null || Boolean.FALSE.equals(b.enabled())) continue;
+                int bStart = parseTimeToMinutes(b.startTime());
+                int bEnd = parseTimeToMinutes(b.endTime());
+                if (Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd)) {
+                    conflict = b;
+                    break;
+                }
+            }
+            if (conflict == null) break;
+            curTime = conflict.endTime();
+            guard++;
+        }
+        return curTime;
+    }
+
+    /** Sequential time/date cursor; respects day bounds (endTime), allowed days (weekends/weekdays), and breaks. */
     private static final class ScheduleCursor {
         private String slotDate;
         private String slotTime;
         private final String dayStartTime;
         private final int step;
+        private final int matchDuration;
+        private final List<SportsPlayoffGenerateRequest.BreakWindowInput> breaks;
+        private final int dayEndMin;
+        private final List<Integer> matchDays;
 
-        ScheduleCursor(String startDate, String startTime, int matchDurationMinutes, int breakMinutes) {
-            this.slotDate = startDate;
-            this.slotTime = startTime;
+        ScheduleCursor(String startDate, String startTime, String endTime, int matchDurationMinutes, int breakMinutes,
+                       List<Integer> matchDays, List<SportsPlayoffGenerateRequest.BreakWindowInput> breaks) {
+            this.matchDuration = matchDurationMinutes;
+            this.breaks = breaks;
             this.dayStartTime = startTime;
             this.step = matchDurationMinutes + breakMinutes;
+            this.matchDays = matchDays;
+            this.dayEndMin = (endTime != null && !endTime.isBlank()) ? parseTimeToMinutes(endTime) : 1440;
+            this.slotDate = advanceDateToAllowedDay(startDate, matchDays);
+            this.slotTime = skipBreaksIfOverlapping(startTime, matchDurationMinutes, breaks);
+        }
+
+        void anchor(String newDate, String newTime) {
+            if (newDate != null && !newDate.isBlank()) {
+                this.slotDate = advanceDateToAllowedDay(newDate, matchDays);
+            }
+            if (newTime != null && !newTime.isBlank()) {
+                this.slotTime = skipBreaksIfOverlapping(newTime, matchDuration, breaks);
+            }
         }
 
         String[] next() {
+            slotTime = skipBreaksIfOverlapping(slotTime, matchDuration, breaks);
+            if (parseTimeToMinutes(slotTime) + matchDuration > dayEndMin) {
+                rollToNextDay();
+            }
             String[] current = {slotDate, slotTime};
             slotTime = addMinutesToTime(slotTime, step);
-            if (parseTime12h(slotTime)[0] < 6) {
-                slotDate = addDaysToDateString(slotDate, 1);
-                slotTime = dayStartTime;
+            slotTime = skipBreaksIfOverlapping(slotTime, matchDuration, breaks);
+            if (parseTimeToMinutes(slotTime) + matchDuration > dayEndMin || parseTime12h(slotTime)[0] < 6) {
+                rollToNextDay();
             }
             return current;
+        }
+
+        private void rollToNextDay() {
+            slotDate = advanceDateToAllowedDay(addDaysToDateString(slotDate, 1), matchDays);
+            slotTime = skipBreaksIfOverlapping(dayStartTime, matchDuration, breaks);
         }
 
         /** The day the next slot falls on, without consuming/advancing the cursor. */
@@ -234,12 +305,29 @@ public class SportsPlayoffScheduleGenerator {
         }
     }
 
+    private static void anchorRound(ScheduleCursor cursor, Map<String, SportsPlayoffGenerateRequest.RoundTimingInput> timings, String roundType) {
+        if (timings == null || roundType == null) return;
+        SportsPlayoffGenerateRequest.RoundTimingInput t = timings.get(roundType);
+        if (t != null) {
+            cursor.anchor(t.date(), t.startTime());
+        }
+    }
+
+    private static void anchorRound(WaveScheduler sched, Map<String, SportsPlayoffGenerateRequest.RoundTimingInput> timings, String roundType) {
+        if (timings == null || roundType == null) return;
+        SportsPlayoffGenerateRequest.RoundTimingInput t = timings.get(roundType);
+        if (t != null) {
+            sched.anchor(t.date(), t.startTime());
+        }
+    }
+
     // ── Bracket builders ──────────────────────────────────────────────
 
     /** Standard 2 groups × 2 proceeders → cross semi-finals + final. */
     private static List<SportsPlayoffMatchDraftResponse> buildTwoGroupTwoProceederBracket(SportsPlayoffGenerateRequest in) {
         ScheduleCursor cursor = new ScheduleCursor(
-                in.startDate(), in.startTime(), in.matchDurationMinutes(), in.breakMinutes());
+                in.startDate(), in.startTime(), in.endTime(), in.matchDurationMinutes(), in.breakMinutes(),
+                in.matchDays(), in.breaks());
 
         Slot[] sf1Pair;
         Slot[] sf2Pair;
@@ -254,8 +342,12 @@ public class SportsPlayoffScheduleGenerator {
         String sf1Id = "playoff-sf1";
         String sf2Id = "playoff-sf2";
         String finalId = "playoff-final";
+
+        anchorRound(cursor, in.roundTimings(), "SEMI_FINAL");
         String[] s1 = cursor.next();
         String[] s2 = cursor.next();
+
+        anchorRound(cursor, in.roundTimings(), "FINAL");
         String[] sFinal = cursor.next();
 
         List<SportsPlayoffMatchDraftResponse> matches = new ArrayList<>();
@@ -270,6 +362,7 @@ public class SportsPlayoffScheduleGenerator {
                 sFinal[0], sFinal[1], in.matchDurationMinutes(), in.venueId(), in.courtId(), false, null));
 
         if (in.thirdPlaceMatch()) {
+            anchorRound(cursor, in.roundTimings(), "THIRD_PLACE");
             String[] s3 = cursor.next();
             matches.add(new SportsPlayoffMatchDraftResponse("playoff-third-place", "Third Place", "THIRD_PLACE", 2,
                     loserRef(sf1Id, "Semi-Final 1"), loserRef(sf2Id, "Semi-Final 2"),
@@ -320,7 +413,8 @@ public class SportsPlayoffScheduleGenerator {
         int roundIndex = 0;
         List<ParticipantRef> roundParticipants = new ArrayList<>(current);
         ScheduleCursor cursor = new ScheduleCursor(
-                in.startDate(), in.startTime(), in.matchDurationMinutes(), in.breakMinutes());
+                in.startDate(), in.startTime(), in.endTime(), in.matchDurationMinutes(), in.breakMinutes(),
+                in.matchDays(), in.breaks());
 
         // Track who has already received a BYE so the bye rotates fairly across
         // rounds (a player should not get a bye again until everyone else has).
@@ -328,6 +422,7 @@ public class SportsPlayoffScheduleGenerator {
 
         while (roundParticipants.size() > 1) {
             String roundType = getRoundName(roundIndex, totalRounds);
+            anchorRound(cursor, in.roundTimings(), roundType);
             List<ParticipantRef> nextParticipants = new ArrayList<>();
             int len = roundParticipants.size();
 
@@ -388,6 +483,7 @@ public class SportsPlayoffScheduleGenerator {
         }
 
         if (in.thirdPlaceMatch()) {
+            anchorRound(cursor, in.roundTimings(), "THIRD_PLACE");
             List<SportsPlayoffMatchDraftResponse> semiMatches =
                     matches.stream().filter(m -> "SEMI_FINAL".equals(m.round())).toList();
             if (semiMatches.size() >= 2) {
@@ -441,7 +537,8 @@ public class SportsPlayoffScheduleGenerator {
         if (courtIds.isEmpty() && in.courtId() != null) courtIds.add(in.courtId());
 
         WaveScheduler sched = new WaveScheduler(
-                in.startDate(), in.startTime(), in.matchDurationMinutes(), in.breakMinutes(), courtIds);
+                in.startDate(), in.startTime(), in.endTime(), in.matchDurationMinutes(), in.breakMinutes(),
+                courtIds, in.matchDays(), in.breaks());
 
         List<SportsPlayoffMatchDraftResponse> matches = new ArrayList<>();
         Set<String> byeReceived = new HashSet<>();   // Rule 4 — avoid repeat byes
@@ -450,6 +547,7 @@ public class SportsPlayoffScheduleGenerator {
 
         while (roundParticipants.size() > 1) {
             String roundType = getRoundName(roundIndex, totalRounds);
+            anchorRound(sched, in.roundTimings(), roundType);
             List<ParticipantRef> active = new ArrayList<>(roundParticipants);
             List<ParticipantRef> next = new ArrayList<>();
 
@@ -497,6 +595,7 @@ public class SportsPlayoffScheduleGenerator {
 
         // Optional third-place match (losers of the two semi-finals).
         if (in.thirdPlaceMatch()) {
+            anchorRound(sched, in.roundTimings(), "THIRD_PLACE");
             List<SportsPlayoffMatchDraftResponse> semis =
                     matches.stream().filter(m -> "SEMI_FINAL".equals(m.round())).toList();
             if (semis.size() >= 2) {
@@ -581,17 +680,40 @@ public class SportsPlayoffScheduleGenerator {
         private final int step;
         private final List<Long> courtIds;
         private int courtPtr = 0;
+        private final int matchDuration;
+        private final List<SportsPlayoffGenerateRequest.BreakWindowInput> breaks;
+        private final int dayEndMin;
+        private final List<Integer> matchDays;
 
-        WaveScheduler(String startDate, String startTime, int durationMinutes, int breakMinutes,
-                      List<Long> courtIds) {
-            this.date = startDate;
-            this.time = startTime;
+        WaveScheduler(String startDate, String startTime, String endTime, int durationMinutes, int breakMinutes,
+                      List<Long> courtIds, List<Integer> matchDays, List<SportsPlayoffGenerateRequest.BreakWindowInput> breaks) {
+            this.matchDuration = durationMinutes;
+            this.breaks = breaks;
             this.dayStart = startTime;
             this.step = durationMinutes + breakMinutes;
             this.courtIds = courtIds;
+            this.matchDays = matchDays;
+            this.dayEndMin = (endTime != null && !endTime.isBlank()) ? parseTimeToMinutes(endTime) : 1440;
+            this.date = advanceDateToAllowedDay(startDate, matchDays);
+            this.time = skipBreaksIfOverlapping(startTime, durationMinutes, breaks);
+        }
+
+        void anchor(String newDate, String newTime) {
+            if (newDate != null && !newDate.isBlank()) {
+                this.date = advanceDateToAllowedDay(newDate, matchDays);
+            }
+            if (newTime != null && !newTime.isBlank()) {
+                this.time = skipBreaksIfOverlapping(newTime, matchDuration, breaks);
+            }
+            this.courtPtr = 0;
         }
 
         TimedSlot nextSlot() {
+            time = skipBreaksIfOverlapping(time, matchDuration, breaks);
+            if (parseTimeToMinutes(time) + matchDuration > dayEndMin) {
+                rollToNextDay();
+                courtPtr = 0;
+            }
             Long court = courtIds.isEmpty() ? null : courtIds.get(courtPtr % courtIds.size());
             TimedSlot slot = new TimedSlot(date, time, court);
             courtPtr++;
@@ -616,10 +738,15 @@ public class SportsPlayoffScheduleGenerator {
 
         private void advance() {
             time = addMinutesToTime(time, step);
-            if (parseTime12h(time)[0] < 6) {
-                date = addDaysToDateString(date, 1);
-                time = dayStart;
+            time = skipBreaksIfOverlapping(time, matchDuration, breaks);
+            if (parseTimeToMinutes(time) + matchDuration > dayEndMin || parseTime12h(time)[0] < 6) {
+                rollToNextDay();
             }
+        }
+
+        private void rollToNextDay() {
+            date = advanceDateToAllowedDay(addDaysToDateString(date, 1), matchDays);
+            time = skipBreaksIfOverlapping(dayStart, matchDuration, breaks);
         }
     }
 }
