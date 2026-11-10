@@ -11,4 +11,6 @@ public interface HrLeaveBalanceRepository extends JpaRepository<HrLeaveBalance, 
     List<HrLeaveBalance> findByEmployeeIdAndYear(Long employeeId, Integer year);
 
     Optional<HrLeaveBalance> findByEmployeeIdAndLeaveTypeIdAndYear(Long employeeId, Long leaveTypeId, Integer year);
+
+    List<HrLeaveBalance> findByLeaveTypeIdAndYear(Long leaveTypeId, Integer year);
 }
