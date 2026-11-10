@@ -117,8 +117,8 @@ app:
   # ── DPDP Act 2023 compliance ─────────────────────────────────────────────
 
   captcha:
-    enabled: true                             # gap #3 — enable hCaptcha in prod
-    secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
+    enabled: false                             # gap #3 — enable hCaptcha in prod
+    #secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
 
   privacy:
     dpo-email: ${APP_DPO_EMAIL:dpo@manacommunity.app}   # [REQUIRED] real monitored mailbox
