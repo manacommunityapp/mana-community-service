@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Profile("!prod")
+@Profile("local")
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,8 +37,8 @@ public class SportsTournamentSeeder {
 
     @Transactional
     public void seed() {
-        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
-            log.warn("Safety guard: SportsTournamentSeeder cannot run under 'prod' profile. Aborting.");
+        if (environment == null || !java.util.Arrays.asList(environment.getActiveProfiles()).contains("local")) {
+            log.warn("Safety guard: SportsTournamentSeeder cannot run outside 'local' profile. Aborting.");
             return;
         }
 

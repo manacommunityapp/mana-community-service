@@ -64,6 +64,15 @@ public class SchemaConstraintPatcher {
                     log.info("H2 database detected; skipping PostgreSQL constraint patching.");
                     return;
                 }
+
+                // ── CRITICAL DATABASE SECURITY GUARD ──────────────────────────────
+                // Enforce that local workstations, IDE runs, and test suites cannot
+                // connect to the live remote AWS Lightsail database.
+                DatabaseConnectionSecurityGuard.validateConnection(conn);
+
+            } catch (SecurityException se) {
+                log.error("DATABASE SECURITY ERROR: {}", se.getMessage());
+                throw se;
             } catch (Exception e) {
                 log.warn("Could not determine DB type; skipping constraint patch: {}", e.getMessage());
                 return;

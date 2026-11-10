@@ -36,7 +36,7 @@ import java.util.List;
  * SportsAuctionSeeder — Seeds tournament auction setups, categories, dispute committees, teams, and queues auction players.
  * Checks if test auction data already exists; if found, cleans and recreates it fresh.
  */
-@Profile("!prod")
+@Profile("local")
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -58,8 +58,8 @@ public class SportsAuctionSeeder {
 
     @Transactional
     public void seed() {
-        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
-            log.warn("Safety guard: SportsAuctionSeeder cannot run under 'prod' profile. Aborting.");
+        if (environment == null || !java.util.Arrays.asList(environment.getActiveProfiles()).contains("local")) {
+            log.warn("Safety guard: SportsAuctionSeeder cannot run outside 'local' profile. Aborting.");
             return;
         }
 

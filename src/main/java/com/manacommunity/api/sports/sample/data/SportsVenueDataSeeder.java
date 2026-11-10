@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
+@org.springframework.context.annotation.Profile("local")
 @RequiredArgsConstructor
 public class SportsVenueDataSeeder {
 
