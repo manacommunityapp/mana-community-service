@@ -1,0 +1,90 @@
+# ============================================================
+# Restaurant Service - Food Ordering & Delivery
+# Port: 8090
+# ============================================================
+
+server:
+  port: 8090
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_restaurant
+    username: ${DB_USERNAME:mana_restaurant}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: restaurant
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  restaurant:
+    ordering:
+      min-order-amount: 50
+      max-items-per-order: 50
+      preparation-time-default-minutes: 30
+      delivery-time-default-minutes: 15
+      order-cancellation-window-minutes: 5
+      auto-accept: false
+    menu:
+      categories:
+        - BREAKFAST
+        - LUNCH
+        - DINNER
+        - SNACKS
+        - BEVERAGES
+        - DESSERTS
+      dietary-tags:
+        - VEGETARIAN
+        - VEGAN
+        - NON_VEGETARIAN
+        - GLUTEN_FREE
+        - JAIN
+        - KETO
+        - HALAL
+      image-max-size-mb: 5
+    delivery:
+      enabled: true
+      within-community-only: true
+      delivery-fee: 0
+      free-delivery-above: 200
+      tracking-enabled: true
+    payment:
+      modes:
+        - WALLET
+        - UPI
+        - CARD
+        - CASH
+      prepaid-only: false
+    rating:
+      enabled: true
+      min-rating: 1
+      max-rating: 5
+      require-comment-below: 3
+    subscription:
+      meal-plans:
+        enabled: true
+        min-days: 7
+        discount-percentage: 10
+    operating-hours:
+      breakfast: "07:00-10:00"
+      lunch: "12:00-15:00"
+      dinner: "19:00-22:30"
+      snacks: "15:00-18:00"
+    inventory:
+      low-stock-alert: true
+      auto-menu-disable: true
+
+logging:
+  level:
+    com.manacommunity.restaurant: INFO

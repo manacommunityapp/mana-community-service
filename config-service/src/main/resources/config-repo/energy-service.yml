@@ -1,0 +1,96 @@
+# ============================================================
+# Energy Service - Energy Management & Monitoring
+# Port: 8098
+# ============================================================
+
+server:
+  port: 8098
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_energy
+    username: ${DB_USERNAME:mana_energy}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: energy
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  energy:
+    metering:
+      smart-meter-enabled: ${SMART_METER_ENABLED:false}
+      reading-interval-minutes: 15
+      protocols:
+        - MODBUS
+        - DLMS
+        - MQTT
+      mqtt:
+        broker-url: ${ENERGY_MQTT_BROKER:tcp://localhost:1883}
+        topic-prefix: mana/energy/
+    utilities:
+      electricity:
+        enabled: true
+        unit: kWh
+        tariff-slabs:
+          - range: "0-100"
+            rate: 4.50
+          - range: "101-300"
+            rate: 6.00
+          - range: "301-500"
+            rate: 8.00
+          - range: "500+"
+            rate: 10.00
+        billing-cycle: MONTHLY
+      water:
+        enabled: true
+        unit: KL
+        flat-rate: 25.00
+        billing-cycle: MONTHLY
+      gas:
+        enabled: false
+        unit: SCM
+        rate: 30.00
+    solar:
+      enabled: ${SOLAR_ENABLED:false}
+      capacity-kw: 0
+      net-metering: false
+      feed-in-tariff: 3.50
+    dg-backup:
+      enabled: true
+      rate-per-unit: 15.00
+      minimum-charge: 200
+    alerts:
+      high-consumption-threshold-percentage: 150
+      leak-detection:
+        enabled: true
+        sensitivity: MEDIUM
+      outage-notification: true
+    reports:
+      daily-summary: true
+      monthly-bill-generation: true
+      comparison:
+        peer-enabled: true
+        historical-enabled: true
+    conservation:
+      tips-enabled: true
+      gamification: true
+      leaderboard: true
+      targets:
+        energy-reduction-percentage: 10
+        water-reduction-percentage: 15
+
+logging:
+  level:
+    com.manacommunity.energy: INFO

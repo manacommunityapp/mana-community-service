@@ -1,0 +1,27 @@
+spring:
+  security:
+    user:
+      name: eureka
+      password: password
+
+eureka:
+  server:
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 10000
+    response-cache-update-interval-ms: 5000
+  instance:
+    hostname: localhost
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.manacommunity.discovery: DEBUG
+    com.netflix.eureka: DEBUG
+    com.netflix.discovery: DEBUG
+    org.springframework.cloud.netflix: DEBUG
+    org.springframework.security: DEBUG

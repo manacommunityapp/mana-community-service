@@ -1,0 +1,89 @@
+# ============================================================
+# Finance Service - Billing, Payments, Accounting
+# Port: 8083
+# ============================================================
+
+server:
+  port: 8083
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_finance
+    username: ${DB_USERNAME:mana_finance}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: finance
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  finance:
+    currency:
+      default: INR
+      supported:
+        - INR
+        - USD
+        - AED
+        - SGD
+    payment:
+      gateway:
+        provider: ${PAYMENT_GATEWAY_PROVIDER:razorpay}
+        razorpay:
+          key-id: ${RAZORPAY_KEY_ID:}
+          key-secret: ${RAZORPAY_KEY_SECRET:}
+          webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+        stripe:
+          secret-key: ${STRIPE_SECRET_KEY:}
+          publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+          webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      retry:
+        max-attempts: 3
+        delay-ms: 2000
+      auto-debit:
+        enabled: true
+        retry-days: 3
+    billing:
+      invoice:
+        prefix: MANA
+        auto-generate: true
+        due-days: 15
+        reminder-days-before-due: 5,3,1
+        late-fee:
+          enabled: true
+          percentage: 2.0
+          max-percentage: 18.0
+          grace-period-days: 5
+      gst:
+        enabled: ${GST_ENABLED:true}
+        number: ${GST_NUMBER:}
+        rate: 18.0
+      maintenance-charge:
+        calculation-basis: PER_SQFT
+        billing-cycle: MONTHLY
+    accounting:
+      fiscal-year-start-month: 4
+      chart-of-accounts:
+        auto-create: true
+      double-entry:
+        enabled: true
+    reports:
+      cache-duration-minutes: 30
+    wallet:
+      enabled: true
+      max-balance: 100000
+      min-topup: 100
+
+logging:
+  level:
+    com.manacommunity.finance: INFO

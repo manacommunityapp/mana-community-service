@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discovery-service-config
+  namespace: community
+  labels:
+    app: discovery-service
+    app.kubernetes.io/name: discovery-service
+    app.kubernetes.io/part-of: community-platform
+    app.kubernetes.io/component: infrastructure
+data:
+  eureka-service-urls: >-
+    http://${EUREKA_USERNAME}:${EUREKA_PASSWORD}@discovery-service-0.discovery-service-headless.community.svc.cluster.local:8761/eureka/,http://${EUREKA_USERNAME}:${EUREKA_PASSWORD}@discovery-service-1.discovery-service-headless.community.svc.cluster.local:8761/eureka/
+  java-opts: >-
+    -XX:+UseG1GC
+    -XX:MaxRAMPercentage=75.0
+    -XX:InitialRAMPercentage=50.0
+    -XX:+UseContainerSupport
+    -Djava.security.egd=file:/dev/./urandom
+    -Dfile.encoding=UTF-8
+  EUREKA_INSTANCE_HOSTNAME: "${HOSTNAME}.discovery-service-headless.community.svc.cluster.local"
+  EUREKA_PREFER_IP: "false"
+  EUREKA_ZONE: "default"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: discovery-service-credentials
+  namespace: community
+  labels:
+    app: discovery-service
+    app.kubernetes.io/name: discovery-service
+    app.kubernetes.io/part-of: community-platform
+type: Opaque
+stringData:
+  username: eureka
+  password: changeme-in-production

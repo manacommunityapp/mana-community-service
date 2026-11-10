@@ -1,0 +1,86 @@
+# ============================================================
+# Identity Service - Authentication, Users, Roles
+# Port: 8081
+# ============================================================
+
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_identity
+    username: ${DB_USERNAME:mana_identity}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: identity
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+# JWT configuration
+mana:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET_KEY:mana-jwt-secret-key-change-in-production-min-256-bits-long}
+      access-token-expiration: 900000
+      refresh-token-expiration: 2592000000
+      issuer: mana-community-os
+      audience: mana-services
+    password:
+      min-length: 8
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-special-char: true
+      max-failed-attempts: 5
+      lockout-duration-minutes: 30
+    oauth2:
+      enabled: ${OAUTH2_ENABLED:true}
+      providers:
+        google:
+          client-id: ${GOOGLE_CLIENT_ID:}
+          client-secret: ${GOOGLE_CLIENT_SECRET:}
+        apple:
+          client-id: ${APPLE_CLIENT_ID:}
+          team-id: ${APPLE_TEAM_ID:}
+          key-id: ${APPLE_KEY_ID:}
+    keycloak:
+      enabled: ${KEYCLOAK_ENABLED:false}
+      server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+      realm: ${KEYCLOAK_REALM:mana-community}
+      client-id: ${KEYCLOAK_CLIENT_ID:mana-backend}
+      client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+    mfa:
+      enabled: true
+      totp-issuer: ManaCommunity
+      backup-codes-count: 10
+    session:
+      max-concurrent: 5
+      timeout-minutes: 30
+
+  user:
+    default-roles:
+      - ROLE_RESIDENT
+    admin-emails: ${ADMIN_EMAILS:admin@manacommunity.com}
+    avatar:
+      max-size-mb: 5
+      allowed-types: image/jpeg,image/png,image/webp
+    registration:
+      require-email-verification: true
+      verification-token-expiry-hours: 24
+
+logging:
+  level:
+    com.manacommunity.identity: INFO
+    org.springframework.security: WARN

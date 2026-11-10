@@ -1,0 +1,102 @@
+# ============================================================
+# Communication Service - Notifications, Messaging, Email, SMS
+# Port: 8085
+# ============================================================
+
+server:
+  port: 8085
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_communication
+    username: ${DB_USERNAME:mana_communication}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: communication
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: communication-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+mana:
+  communication:
+    email:
+      provider: ${EMAIL_PROVIDER:smtp}
+      smtp:
+        host: ${SMTP_HOST:smtp.gmail.com}
+        port: ${SMTP_PORT:587}
+        username: ${SMTP_USERNAME:}
+        password: ${SMTP_PASSWORD:}
+        auth: true
+        starttls: true
+      sendgrid:
+        api-key: ${SENDGRID_API_KEY:}
+      from-address: ${EMAIL_FROM:noreply@manacommunity.com}
+      from-name: Mana Community
+      rate-limit:
+        per-minute: 100
+        per-hour: 2000
+      template:
+        base-url: ${APP_BASE_URL:https://app.manacommunity.com}
+    sms:
+      provider: ${SMS_PROVIDER:twilio}
+      twilio:
+        account-sid: ${TWILIO_ACCOUNT_SID:}
+        auth-token: ${TWILIO_AUTH_TOKEN:}
+        from-number: ${TWILIO_FROM_NUMBER:}
+      msg91:
+        auth-key: ${MSG91_AUTH_KEY:}
+        sender-id: ${MSG91_SENDER_ID:MANAOS}
+        route: transactional
+      rate-limit:
+        per-minute: 30
+        per-hour: 500
+    push:
+      firebase:
+        enabled: ${FIREBASE_ENABLED:true}
+        credentials-file: ${FIREBASE_CREDENTIALS_FILE:}
+        project-id: ${FIREBASE_PROJECT_ID:}
+      batch-size: 500
+      rate-limit:
+        per-minute: 1000
+    websocket:
+      enabled: true
+      heartbeat-interval-ms: 25000
+      max-sessions-per-user: 5
+    notification:
+      retention-days: 90
+      max-per-page: 50
+      digest:
+        enabled: true
+        schedule-cron: "0 0 8 * * *"
+    chat:
+      enabled: true
+      max-message-length: 5000
+      max-attachments: 5
+      attachment-max-size-mb: 10
+      history-retention-days: 365
+
+logging:
+  level:
+    com.manacommunity.communication: INFO

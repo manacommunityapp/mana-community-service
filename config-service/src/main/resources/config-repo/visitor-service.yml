@@ -1,0 +1,73 @@
+# ============================================================
+# Visitor Service - Visitor Management & Access Control
+# Port: 8087
+# ============================================================
+
+server:
+  port: 8087
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/mana_visitor
+    username: ${DB_USERNAME:mana_visitor}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: visitor
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mana:
+  visitor:
+    pre-approval:
+      enabled: true
+      default-validity-hours: 24
+      max-advance-days: 30
+      require-id-proof: false
+    gate-pass:
+      qr-code-enabled: true
+      otp-enabled: true
+      otp-length: 6
+      otp-expiry-minutes: 30
+      auto-expire-hours: 12
+    categories:
+      - GUEST
+      - DELIVERY
+      - CAB
+      - SERVICE_PROVIDER
+      - DOMESTIC_HELP
+      - VENDOR
+      - INTERVIEWEE
+      - EMERGENCY
+    frequent-visitors:
+      enabled: true
+      auto-approve: true
+      max-per-unit: 20
+    check-in:
+      require-photo: ${VISITOR_REQUIRE_PHOTO:false}
+      require-vehicle-number: false
+      max-simultaneous-visitors-per-unit: 20
+    notification:
+      on-arrival: true
+      on-departure: true
+      on-overstay: true
+      overstay-threshold-hours: 8
+    history:
+      retention-days: 365
+    blacklist:
+      enabled: true
+      community-wide: true
+
+logging:
+  level:
+    com.manacommunity.visitor: INFO

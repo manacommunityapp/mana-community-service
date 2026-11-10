@@ -1,0 +1,91 @@
+server:
+  port: 8888
+  shutdown: graceful
+
+spring:
+  application:
+    name: config-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:native}
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${CONFIG_REPO_URI:https://github.com/manacommunityapp/config-repo}
+          default-label: main
+          clone-on-start: true
+          search-paths: '{application}'
+          timeout: 10
+          try-master-branch: false
+          force-pull: true
+        native:
+          search-locations: classpath:/config-repo
+  security:
+    user:
+      name: ${CONFIG_SERVER_USER:configuser}
+      password: ${CONFIG_SERVER_PASSWORD:configpassword}
+
+encrypt:
+  key: ${ENCRYPT_KEY:mana-community-config-encrypt-key-change-in-production}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD:password}@${EUREKA_HOST:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 15
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+    metadata-map:
+      zone: ${AVAILABILITY_ZONE:default}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,env,refresh
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    info:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    build:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  health:
+    defaults:
+      enabled: true
+    diskspace:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.manacommunity: INFO
+    org.springframework.cloud.config: INFO
+    org.springframework.security: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Centralized Configuration Service for Mana Community OS
+    version: 1.0.0-SNAPSHOT
+    encoding: UTF-8
+    java:
+      version: ${java.version}

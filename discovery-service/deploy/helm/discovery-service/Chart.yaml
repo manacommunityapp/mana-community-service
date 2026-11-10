@@ -1,0 +1,16 @@
+apiVersion: v2
+name: discovery-service
+description: Netflix Eureka Server for Community Operating System service discovery
+type: application
+version: 1.0.0
+appVersion: "1.0.0-SNAPSHOT"
+keywords:
+  - eureka
+  - service-discovery
+  - spring-cloud
+  - community-platform
+maintainers:
+  - name: Mana Community Platform Team
+home: https://github.com/manacommunity/mana-community-service
+sources:
+  - https://github.com/manacommunity/mana-community-service/tree/main/discovery-service

@@ -1,0 +1,50 @@
+spring:
+  profiles:
+    active: git
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${CONFIG_REPO_URI}
+          default-label: ${CONFIG_REPO_BRANCH:main}
+          clone-on-start: true
+          search-paths: '{application}'
+          timeout: 15
+          force-pull: true
+          try-master-branch: false
+          username: ${CONFIG_REPO_USERNAME:}
+          password: ${CONFIG_REPO_PASSWORD:}
+          basedir: ${CONFIG_REPO_BASEDIR:/var/config-repo}
+          refresh-rate: 30
+  security:
+    user:
+      name: ${CONFIG_SERVER_USER}
+      password: ${CONFIG_SERVER_PASSWORD}
+
+encrypt:
+  key: ${ENCRYPT_KEY}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+logging:
+  level:
+    root: WARN
+    com.manacommunity: INFO
+    org.springframework.cloud.config: INFO
+    org.springframework.security: WARN
