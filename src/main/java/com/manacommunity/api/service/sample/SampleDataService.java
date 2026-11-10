@@ -25,7 +25,7 @@ import java.util.Set;
  */
 @Slf4j
 @Service
-@Profile("!prod")
+@Profile("local")
 @RequiredArgsConstructor
 public class SampleDataService implements ApplicationRunner {
 
@@ -57,8 +57,8 @@ public class SampleDataService implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
-            log.warn("Safety guard: Auto-running SampleDataService is disabled in 'prod' profile. Skipping startup seeding.");
+        if (environment == null || !Arrays.asList(environment.getActiveProfiles()).contains("local")) {
+            log.warn("Safety guard: Auto-running SampleDataService is restricted strictly to 'local' profile. Skipping startup seeding.");
             return;
         }
 

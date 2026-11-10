@@ -18,6 +18,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -75,7 +76,7 @@ class SportsSeederSafetyGuardTest {
     @Mock private SportsCourtRepository courtRepo;
 
     @Test
-    @DisplayName("Verify @Profile(\"!prod\") annotation is present on all seeders and controllers")
+    @DisplayName("Verify @Profile annotation is present on all seeders and controllers to restrict execution")
     void testProfileAnnotationPresentOnSeedersAndControllers() {
         List<Class<?>> guardedClasses = List.of(
                 SampleDataService.class,
@@ -90,9 +91,10 @@ class SportsSeederSafetyGuardTest {
                     .withFailMessage("Class %s must have @Profile annotation", clazz.getSimpleName())
                     .isTrue();
             Profile profile = clazz.getAnnotation(Profile.class);
-            assertThat(profile.value())
-                    .withFailMessage("Class %s must have @Profile(\"!prod\")", clazz.getSimpleName())
-                    .contains("!prod");
+            boolean isGuarded = Arrays.stream(profile.value()).anyMatch(v -> v.contains("local") || v.contains("!prod"));
+            assertThat(isGuarded)
+                    .withFailMessage("Class %s must be guarded with @Profile(\"local\") or @Profile(\"!prod\")", clazz.getSimpleName())
+                    .isTrue();
         }
     }
 

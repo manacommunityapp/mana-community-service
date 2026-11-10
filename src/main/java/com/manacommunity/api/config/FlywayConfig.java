@@ -8,6 +8,7 @@ import org.springframework.core.env.Environment;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,12 @@ public class FlywayConfig {
 
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource, Environment env) {
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseConnectionSecurityGuard.validateConnection(conn);
+        } catch (SQLException e) {
+            log.warn("DatabaseConnectionSecurityGuard check in Flyway: {}", e.getMessage());
+        }
+
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .schemas("manacommunity")

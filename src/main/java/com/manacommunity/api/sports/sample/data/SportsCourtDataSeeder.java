@@ -16,6 +16,7 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@org.springframework.context.annotation.Profile("local")
 @RequiredArgsConstructor
 public class SportsCourtDataSeeder {
 

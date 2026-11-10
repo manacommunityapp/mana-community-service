@@ -52,7 +52,7 @@ import java.util.Set;
  */
 @Slf4j
 @Service
-@Profile("!prod")
+@Profile("local")
 @RequiredArgsConstructor
 public class SportsEventSeeder {
 
@@ -77,8 +77,8 @@ public class SportsEventSeeder {
 
     @Transactional
     public void seed() {
-        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
-            log.warn("Safety guard: SportsEventSeeder cannot run under 'prod' profile. Aborting.");
+        if (environment == null || !java.util.Arrays.asList(environment.getActiveProfiles()).contains("local")) {
+            log.warn("Safety guard: SportsEventSeeder cannot run outside 'local' profile. Aborting.");
             return;
         }
 

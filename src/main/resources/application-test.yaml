@@ -1,3 +1,25 @@
+# Test profile - strictly isolated in-memory test database.
+# Never connects to any remote or shared database.
 spring:
   application:
     name: mana-community-service
+  flyway:
+    enabled: false
+  datasource:
+    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=VALUE"
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        default_schema: manacommunity
+
+app:
+  insert-sample-data: false
+  insert-sports-sample-data: false
+

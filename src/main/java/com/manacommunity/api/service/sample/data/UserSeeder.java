@@ -9,6 +9,7 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Slf4j
 @Service
+@Profile("local")
 @RequiredArgsConstructor
 public class UserSeeder {
 

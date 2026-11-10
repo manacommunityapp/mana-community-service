@@ -19,6 +19,7 @@ import java.util.ArrayList;
  */
 @Slf4j
 @Service
+@org.springframework.context.annotation.Profile("local")
 @RequiredArgsConstructor
 public class SportsTournamentDataSeeder {
 
