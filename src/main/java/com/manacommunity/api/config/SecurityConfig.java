@@ -126,7 +126,15 @@ public class SecurityConfig { // BUG FIX: was package-private
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(allowedOrigins);
+        List<String> origins = (allowedOrigins != null)
+                ? allowedOrigins.stream()
+                        .flatMap(o -> Arrays.stream(o.split(",")))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .toList()
+                : List.of();
+        config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         config.setExposedHeaders(Arrays.asList("Authorization"));

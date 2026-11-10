@@ -41,7 +41,7 @@ app:
   ai:
     enabled: ${AI_ENABLED:false}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com}
   security:
     mock-auth-enabled: false
     jwt:
