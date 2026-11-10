@@ -40,6 +40,7 @@ public class KittyPartyCircleService {
     private final KittyPartyJoinRequestRepository joinRequestRepository;
     private final AppUserRepository userRepository;
     private final CommunityRepository communityRepository;
+    private final KittyPartyAuthorizationService authorizationService;
 
     @Autowired(required = false)
     private FlatMembershipRepository flatMembershipRepository;
@@ -187,7 +188,7 @@ public class KittyPartyCircleService {
 
     @Transactional
     public void approveJoinRequest(Long circleId, Long joinRequestId, AppUser reviewer) {
-        assertAdminOrOwner(circleId, reviewer.getId());
+        authorizationService.assertAdminOrOwner(circleId, reviewer.getId());
 
         KittyPartyJoinRequest request = joinRequestRepository.findById(joinRequestId)
                 .orElseThrow(() -> new IllegalArgumentException("Join request not found"));
@@ -218,7 +219,7 @@ public class KittyPartyCircleService {
 
     @Transactional
     public String inviteMember(Long circleId, AppUser inviter, InviteRequest request) {
-        assertAdminOrOwner(circleId, inviter.getId());
+        authorizationService.assertAdminOrOwner(circleId, inviter.getId());
 
         KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
@@ -320,13 +321,7 @@ public class KittyPartyCircleService {
         memberRepository.save(member);
     }
 
-    private void assertAdminOrOwner(Long circleId, Long userId) {
-        KittyPartyMember member = memberRepository.findByCircleIdAndUserId(circleId, userId)
-                .orElseThrow(() -> new SecurityException("User is not a member of this circle"));
-        if (!"OWNER".equals(member.getRoleCode()) && !"ADMIN".equals(member.getRoleCode())) {
-            throw new SecurityException("Requires circle Admin or Owner role");
-        }
-    }
+    // Role assertions delegated to KittyPartyAuthorizationService
 
     private CircleResponse mapToResponse(KittyPartyCircle c, String currentUserRole, Long memberCount) {
         long externalCount = memberRepository.countByCircleIdAndIsExternalTrueAndMembershipStatus(c.getId(), "ACTIVE");

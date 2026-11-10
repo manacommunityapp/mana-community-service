@@ -30,9 +30,12 @@ public class KittyPartyPostService {
     private final KittyPartyMemberRepository memberRepository;
     private final KittyPartyPollOptionRepository pollOptionRepository;
     private final KittyPartyPollVoteRepository pollVoteRepository;
+    private final KittyPartyAuthorizationService authorizationService;
 
     @Transactional
     public PostResponse createPost(AppUser author, Long circleId, CreatePostRequest request) {
+        authorizationService.assertCircleMember(circleId, author.getId());
+
         KittyPartyCircle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found with id: " + circleId));
 
@@ -99,8 +102,16 @@ public class KittyPartyPostService {
 
     @Transactional
     public PostResponse updatePost(AppUser actor, Long postId, UpdatePostRequest request) {
+        if (actor == null) {
+            throw new SecurityException("Authentication required to update posts");
+        }
         KittyPartyPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
+
+        boolean isAuthor = post.getAuthor() != null && post.getAuthor().getId().equals(actor.getId());
+        if (!isAuthor) {
+            authorizationService.assertAdminOrOwner(post.getCircle().getId(), actor.getId());
+        }
 
         if (request.getTitle() != null) {
             post.setTitle(request.getTitle());
@@ -129,6 +140,7 @@ public class KittyPartyPostService {
     public PostResponse togglePinPost(AppUser actor, Long postId) {
         KittyPartyPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
+        authorizationService.assertAdminOrOwner(post.getCircle().getId(), actor.getId());
 
         boolean newPin = !Boolean.TRUE.equals(post.getIsPinned());
         post.setIsPinned(newPin);
@@ -142,8 +154,16 @@ public class KittyPartyPostService {
 
     @Transactional
     public void deletePost(AppUser actor, Long postId) {
+        if (actor == null) {
+            throw new SecurityException("Authentication required to delete posts");
+        }
         KittyPartyPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
+
+        boolean isAuthor = post.getAuthor() != null && post.getAuthor().getId().equals(actor.getId());
+        if (!isAuthor) {
+            authorizationService.assertAdminOrOwner(post.getCircle().getId(), actor.getId());
+        }
 
         post.setStatus("DELETED");
         post.setUpdatedAt(LocalDateTime.now());
@@ -176,17 +196,26 @@ public class KittyPartyPostService {
 
     @Transactional
     public void deleteComment(AppUser actor, Long commentId) {
+        if (actor == null) {
+            throw new SecurityException("Authentication required to delete comments");
+        }
         KittyPartyPostComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found with id: " + commentId));
 
+        boolean isAuthor = comment.getUser() != null && comment.getUser().getId().equals(actor.getId());
+        if (!isAuthor) {
+            authorizationService.assertAdminOrOwner(comment.getPost().getCircle().getId(), actor.getId());
+        }
+
         commentRepository.delete(comment);
-        log.info("Deleted comment id={} by user id={}", commentId, actor != null ? actor.getId() : null);
+        log.info("Deleted comment id={} by user id={}", commentId, actor.getId());
     }
 
     @Transactional
     public PostResponse castVote(AppUser voter, Long postId, Long optionId) {
         KittyPartyPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
+        authorizationService.assertCircleMember(post.getCircle().getId(), voter.getId());
 
         KittyPartyPollOption option = pollOptionRepository.findById(optionId)
                 .orElseThrow(() -> new IllegalArgumentException("Option not found with id: " + optionId));

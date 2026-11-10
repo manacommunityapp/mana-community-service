@@ -23,15 +23,19 @@ public class KittyPartyExpenseController {
 
     @PostMapping("/split")
     public ResponseEntity<List<ExpenseShareResponse>> splitExpense(
-            @Valid @RequestBody SplitExpenseRequest request
+            @Valid @RequestBody SplitExpenseRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(expenseSplitService.splitExpense(request.getExpenseId(), request));
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(expenseSplitService.splitExpense(request.getExpenseId(), request, user));
     }
 
     @GetMapping("/expenses/{expenseId}/shares")
     public ResponseEntity<List<ExpenseShareResponse>> getSharesForExpense(
-            @PathVariable Long expenseId
+            @PathVariable Long expenseId,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
+        loggedInUserService.resolve(principal);
         return ResponseEntity.ok(expenseSplitService.getSharesForExpense(expenseId));
     }
 

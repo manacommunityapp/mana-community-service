@@ -32,9 +32,12 @@ public class KittyPartyEventService {
     private final KittyPartyEventAttendanceRepository attendanceRepository;
     private final KittyPartyCircleRepository circleRepository;
     private final AppUserRepository userRepository;
+    private final KittyPartyAuthorizationService authorizationService;
 
     @Transactional
     public EventResponse createEvent(AppUser creator, Long circleId, CreateEventRequest request) {
+        authorizationService.assertEventManager(circleId, creator.getId());
+
         KittyPartyCircle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found with id: " + circleId));
 
@@ -86,6 +89,9 @@ public class KittyPartyEventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getEventsByCircle(Long circleId, Long currentUserId) {
+        if (currentUserId != null) {
+            authorizationService.assertCircleMember(circleId, currentUserId);
+        }
         return eventRepository.findByCircleIdOrderByStartTimeAsc(circleId).stream()
                 .map(e -> toEventResponse(e, currentUserId))
                 .collect(Collectors.toList());
@@ -93,6 +99,9 @@ public class KittyPartyEventService {
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long circleId, Long currentUserId) {
+        if (currentUserId != null) {
+            authorizationService.assertCircleMember(circleId, currentUserId);
+        }
         return eventRepository.findUpcomingEvents(circleId, LocalDateTime.now()).stream()
                 .map(e -> toEventResponse(e, currentUserId))
                 .collect(Collectors.toList());
@@ -107,8 +116,12 @@ public class KittyPartyEventService {
 
     @Transactional
     public EventResponse updateEvent(AppUser actor, Long eventId, UpdateEventRequest request) {
+        if (actor == null) {
+            throw new SecurityException("Authentication required to update events");
+        }
         KittyPartyEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found with id: " + eventId));
+        authorizationService.assertEventManager(event.getCircle().getId(), actor.getId());
 
         if (request.getEventName() != null && !request.getEventName().isBlank()) {
             event.setEventName(request.getEventName().trim());
@@ -159,6 +172,7 @@ public class KittyPartyEventService {
     public RsvpResponse submitRsvp(AppUser user, Long eventId, RsvpRequest request) {
         KittyPartyEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found with id: " + eventId));
+        authorizationService.assertCircleMember(event.getCircle().getId(), user.getId());
 
         if ("CANCELLED".equalsIgnoreCase(event.getStatus())) {
             throw new IllegalStateException("Cannot RSVP to a cancelled event");
@@ -218,6 +232,7 @@ public class KittyPartyEventService {
     public AttendanceResponse markAttendance(AppUser markedBy, Long eventId, MarkAttendanceRequest request) {
         KittyPartyEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found with id: " + eventId));
+        authorizationService.assertEventManager(event.getCircle().getId(), markedBy.getId());
 
         AppUser attendee = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Attendee user not found with id: " + request.getUserId()));
@@ -253,6 +268,9 @@ public class KittyPartyEventService {
 
     @Transactional(readOnly = true)
     public EventSummaryDto getEventSummary(Long circleId, Long currentUserId) {
+        if (currentUserId != null) {
+            authorizationService.assertCircleMember(circleId, currentUserId);
+        }
         List<KittyPartyEvent> allEvents = eventRepository.findByCircleIdOrderByStartTimeAsc(circleId);
         LocalDateTime now = LocalDateTime.now();
         long upcoming = allEvents.stream().filter(e -> !e.getEndTime().isBefore(now)).count();

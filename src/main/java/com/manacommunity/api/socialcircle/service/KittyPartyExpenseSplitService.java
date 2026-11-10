@@ -29,9 +29,17 @@ public class KittyPartyExpenseSplitService {
     private final AppUserRepository userRepository;
 
     @Transactional
-    public List<ExpenseShareResponse> splitExpense(Long expenseId, SplitExpenseRequest request) {
+    public List<ExpenseShareResponse> splitExpense(Long expenseId, SplitExpenseRequest request, AppUser actor) {
+        if (actor == null) {
+            throw new SecurityException("Authentication required to split expenses");
+        }
         EventExpense expense = eventExpenseRepository.findById(expenseId)
                 .orElseThrow(() -> new IllegalArgumentException("Expense record not found: " + expenseId));
+
+        boolean isCreator = expense.getCreatedBy() != null && expense.getCreatedBy().getId().equals(actor.getId());
+        if (!isCreator) {
+            throw new SecurityException("Only the expense creator can split this expense");
+        }
 
         BigDecimal total = BigDecimal.valueOf(expense.getAmount());
         int count = request.getParticipantUserIds().size();

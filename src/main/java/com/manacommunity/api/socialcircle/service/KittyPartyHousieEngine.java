@@ -34,6 +34,7 @@ public class KittyPartyHousieEngine {
     private final KittyPartyGameWinnerRepository winnerRepository;
     private final KittyPartyCircleRepository circleRepository;
     private final KittyPartyMemberRepository memberRepository;
+    private final KittyPartyAuthorizationService authorizationService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -42,6 +43,8 @@ public class KittyPartyHousieEngine {
 
     @Transactional
     public GameRoomResponse createRoom(Long circleId, AppUser creator, CreateRoomRequest request) {
+        authorizationService.assertGameHost(circleId, creator.getId());
+
         KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
 
@@ -172,7 +175,7 @@ public class KittyPartyHousieEngine {
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
         if (!room.getCreatedBy().getId().equals(caller.getId())) {
-            assertAdminOrOwner(room.getCircle().getId(), caller.getId());
+            authorizationService.assertGameHost(room.getCircle().getId(), caller.getId());
         }
 
         room.setStatus("IN_PROGRESS");
@@ -511,13 +514,7 @@ public class KittyPartyHousieEngine {
         return UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
-    private void assertAdminOrOwner(Long circleId, Long userId) {
-        var member = memberRepository.findByCircleIdAndUserId(circleId, userId)
-                .orElseThrow(() -> new SecurityException("User is not a member of this circle"));
-        if (!"OWNER".equals(member.getRoleCode()) && !"ADMIN".equals(member.getRoleCode())) {
-            throw new SecurityException("Requires circle Admin or Owner role");
-        }
-    }
+    // Role assertions delegated to KittyPartyAuthorizationService
 
     @Transactional(readOnly = true)
     public CircleLeaderboardResponse getCircleLeaderboard(Long circleId) {

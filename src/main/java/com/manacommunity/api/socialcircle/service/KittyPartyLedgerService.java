@@ -42,6 +42,7 @@ public class KittyPartyLedgerService {
     private final KittyPartyDisputeRepository disputeRepository;
     private final AppUserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final KittyPartyAuthorizationService authorizationService;
 
     @Autowired(required = false)
     private UnifiedNotificationService unifiedNotificationService;
@@ -61,7 +62,7 @@ public class KittyPartyLedgerService {
 
     @Transactional
     public CycleSummaryResponse createCycle(Long circleId, AppUser creator, CreateCycleRequest request) {
-        assertAdminOrOwner(circleId, creator.getId());
+        authorizationService.assertAdminOrOwner(circleId, creator.getId());
 
         KittyPartyCircle circle = circleRepository.findByIdAndDeletedAtIsNull(circleId)
                 .orElseThrow(() -> new IllegalArgumentException("Circle not found"));
@@ -136,7 +137,7 @@ public class KittyPartyLedgerService {
         KittyPartyCycle cycle = cycleRepository.findById(cycleId)
                 .orElseThrow(() -> new IllegalArgumentException("Cycle not found"));
 
-        assertAdminOrOwner(cycle.getCircle().getId(), adminUser.getId());
+        authorizationService.assertAdminOrOwner(cycle.getCircle().getId(), adminUser.getId());
 
         if (request.getFromPeriod().equals(request.getToPeriod())) {
             throw new IllegalArgumentException("Cannot swap the same period with itself");
@@ -188,7 +189,7 @@ public class KittyPartyLedgerService {
         KittyPartyCycle cycle = cycleRepository.findById(cycleId)
                 .orElseThrow(() -> new IllegalArgumentException("Cycle not found"));
 
-        assertAdminOrTreasurer(cycle.getCircle().getId(), adminUser.getId());
+        authorizationService.assertFinanceRole(cycle.getCircle().getId(), adminUser.getId());
 
         int targetPeriod = (periodNumber != null) ? periodNumber : computeCurrentPeriod(cycle);
 
@@ -488,7 +489,7 @@ public class KittyPartyLedgerService {
         KittyPartyContribution contribution = contributionRepository.findById(contributionId)
                 .orElseThrow(() -> new IllegalArgumentException("Contribution record not found"));
 
-        assertAdminOrTreasurer(contribution.getCycle().getCircle().getId(), verifier.getId());
+        authorizationService.assertFinanceRole(contribution.getCycle().getCircle().getId(), verifier.getId());
 
         String newStatus = request.getPaymentStatus() != null ? request.getPaymentStatus() : "VERIFIED";
         contribution.setPaymentStatus(newStatus);
@@ -512,7 +513,7 @@ public class KittyPartyLedgerService {
         KittyPartyCycle cycle = cycleRepository.findById(cycleId)
                 .orElseThrow(() -> new IllegalArgumentException("Cycle not found"));
 
-        assertAdminOrTreasurer(cycle.getCircle().getId(), adminUser.getId());
+        authorizationService.assertFinanceRole(cycle.getCircle().getId(), adminUser.getId());
 
         KittyPartyRotation rotation = rotationRepository.findByCycleIdAndPeriodNumber(cycleId, request.getPeriodNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Rotation not found for period " + request.getPeriodNumber()));
@@ -545,7 +546,7 @@ public class KittyPartyLedgerService {
         KittyPartyCycle cycle = cycleRepository.findById(cycleId)
                 .orElseThrow(() -> new IllegalArgumentException("Cycle not found"));
 
-        assertAdminOrOwner(cycle.getCircle().getId(), adminUser.getId());
+        authorizationService.assertAdminOrOwner(cycle.getCircle().getId(), adminUser.getId());
 
         AppUser oldUser = userRepository.findById(request.getOldUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Old user not found"));
@@ -646,7 +647,7 @@ public class KittyPartyLedgerService {
 
     @Transactional
     public DisputeResponse resolveDispute(Long circleId, Long disputeId, AppUser adminUser, ResolveDisputeRequest request) {
-        assertAdminOrOwner(circleId, adminUser.getId());
+        authorizationService.assertAdminOrOwner(circleId, adminUser.getId());
 
         KittyPartyDispute dispute = disputeRepository.findById(disputeId)
                 .orElseThrow(() -> new IllegalArgumentException("Dispute not found"));
@@ -883,23 +884,5 @@ public class KittyPartyLedgerService {
         }
     }
 
-    // =========================================================================
-    // ROLE ASSERTIONS
-    // =========================================================================
-
-    private void assertAdminOrOwner(Long circleId, Long userId) {
-        var member = memberRepository.findByCircleIdAndUserId(circleId, userId)
-                .orElseThrow(() -> new SecurityException("User is not a member of this circle"));
-        if (!"OWNER".equals(member.getRoleCode()) && !"ADMIN".equals(member.getRoleCode())) {
-            throw new SecurityException("Requires circle Admin or Owner role");
-        }
-    }
-
-    private void assertAdminOrTreasurer(Long circleId, Long userId) {
-        var member = memberRepository.findByCircleIdAndUserId(circleId, userId)
-                .orElseThrow(() -> new SecurityException("User is not a member of this circle"));
-        if (!"OWNER".equals(member.getRoleCode()) && !"ADMIN".equals(member.getRoleCode()) && !"TREASURER".equals(member.getRoleCode())) {
-            throw new SecurityException("Requires circle Admin, Owner or Treasurer role");
-        }
-    }
+    // Role assertions delegated to KittyPartyAuthorizationService
 }

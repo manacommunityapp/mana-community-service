@@ -1,6 +1,7 @@
 package com.manacommunity.api.socialcircle.controller;
 
 import com.manacommunity.api.socialcircle.dto.KittyPartyVendorPackageDtos.*;
+import com.manacommunity.api.socialcircle.service.KittyPartyAuthorizationService;
 import com.manacommunity.api.socialcircle.service.KittyPartyVendorPackageService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
@@ -21,13 +22,17 @@ import java.util.Map;
 public class KittyPartyVendorPackageController {
 
     private final KittyPartyVendorPackageService packageService;
+    private final KittyPartyAuthorizationService authorizationService;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping("/{circleId}/vendor-packages")
     public ResponseEntity<List<VendorPackageResponse>> getPackages(
             @PathVariable Long circleId,
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) String category,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
+        AppUser user = loggedInUserService.resolve(principal);
+        authorizationService.assertCircleMember(circleId, user.getId());
         return ResponseEntity.ok(packageService.getPackagesForCircle(circleId, category));
     }
 
