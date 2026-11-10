@@ -21,6 +21,8 @@ import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
+import com.manacommunity.api.sports.dto.SportsBatchStatusRequest;
+import com.manacommunity.api.sports.dto.SportsBatchDeleteRequest;
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
@@ -224,6 +226,17 @@ public class SportsController {
         return ResponseEntity.ok(toEventResponse(eventService.updateStatus(id, status)));
     }
 
+    @PutMapping("/events/batch/status")
+    @PostMapping("/events/batch/status")
+    public ResponseEntity<List<SportsEventResponse>> batchUpdateStatus(
+            @Valid @RequestBody SportsBatchStatusRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Batch updating event status count={} status={}", req.getEventIds().size(), req.getStatus());
+        List<SportsEvent> updated = eventService.batchUpdateStatus(req.getEventIds(), req.getStatus());
+        return ResponseEntity.ok(updated.stream().map(this::toEventResponse).toList());
+    }
+
     @PutMapping("/events/{id}/captain-nominations")
     public ResponseEntity<SportsEventResponse> toggleCaptainNominations(
             @PathVariable Long id,
@@ -270,6 +283,17 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
         log.info("Deleting sports event id={}", id);
         eventService.deleteEvent(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/events/batch/delete")
+    @DeleteMapping("/events/batch")
+    public ResponseEntity<Void> batchDeleteEvents(
+            @Valid @RequestBody SportsBatchDeleteRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Batch deleting events count={}", req.getEventIds().size());
+        eventService.batchDeleteEvents(req.getEventIds());
         return ResponseEntity.noContent().build();
     }
 

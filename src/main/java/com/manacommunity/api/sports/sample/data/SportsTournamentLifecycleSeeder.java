@@ -9,6 +9,8 @@ import com.manacommunity.api.sports.scheduler.*;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@Profile("!prod")
 @RequiredArgsConstructor
 public class SportsTournamentLifecycleSeeder {
 
@@ -32,6 +35,7 @@ public class SportsTournamentLifecycleSeeder {
 
     private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository sportsEventRepo;
+    private final SportsEventRegistrationRepository regRepo;
     private final SportsTournamentConfigRepository tournamentConfigRepo;
     private final SportsTournamentGroupRepository groupRepo;
     private final SportsTournamentMatchRepository matchRepo;
@@ -45,9 +49,22 @@ public class SportsTournamentLifecycleSeeder {
     private final SportsVenueSeeder venueSeeder;
     private final CommunitySeeder communitySeeder;
     private final UserSeeder userSeeder;
+    private final Environment environment;
 
     @Transactional
     public void seed() {
+        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: SportsTournamentLifecycleSeeder cannot run under 'prod' profile. Aborting.");
+            return;
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping tournament lifecycle data or existing tournaments. Skipping lifecycle seeding.", registrationCount);
+            return;
+        }
+
         log.info("Seeding complete sports tournament lifecycle (from groups to closure)...");
 
         Community leCommunity = communitySeeder.getLeCommunity();
@@ -309,6 +326,13 @@ public class SportsTournamentLifecycleSeeder {
     }
 
     private void cleanExistingTournament() {
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Refusing to wipe tournament lifecycle data for '{}'.", registrationCount, TOURNAMENT_NAME);
+            return;
+        }
+
         tournamentRepo.findAll().stream()
                 .filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(TOURNAMENT_NAME))
                 .findFirst()

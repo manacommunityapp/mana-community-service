@@ -2118,6 +2118,31 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    @Override
+    @Transactional
+    public List<SportsEvent> batchUpdateStatus(List<Long> eventIds, String status) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        try {
+            SportsEventStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new ManaCommunityException(
+                    "Invalid event status: '" + status + "'. Valid values: DRAFT, REGISTRATION_OPEN, "
+                    + "REGISTRATION_CLOSED, LIVE, COMPLETED, CANCELLED.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_STATUS");
+        }
+
+        List<SportsEvent> updatedEvents = new java.util.ArrayList<>();
+        for (Long id : eventIds) {
+            if (id != null) {
+                updatedEvents.add(updateStatus(id, status));
+            }
+        }
+        return updatedEvents;
+    }
+
     private LocalDateTime getTournamentStartDateTime(SportsEvent event) {
         if (event.getEventDateStart() == null) return null;
         java.time.LocalDate date = event.getEventDateStart();
@@ -2376,6 +2401,37 @@ public class SportsEventServiceImpl implements SportsEventService {
             "id=" + eventId,
             null
         );
+    }
+
+    @Override
+    @Transactional
+    public void batchDeleteEvents(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return;
+        }
+
+        List<String> blockedEvents = new java.util.ArrayList<>();
+        for (Long eventId : eventIds) {
+            if (eventId == null) continue;
+            long activeRegs = regRepo.countActiveByEventId(eventId);
+            if (activeRegs > 0) {
+                SportsEvent ev = eventRepo.findById(eventId).orElse(null);
+                String name = ev != null ? ev.getName() : ("ID " + eventId);
+                blockedEvents.add(name + " (" + activeRegs + " active registration(s))");
+            }
+        }
+
+        if (!blockedEvents.isEmpty()) {
+            throw new InvalidInputException(
+                    "Cannot delete selected sports event(s): " + String.join(", ", blockedEvents)
+                    + ". Please close registration instead.");
+        }
+
+        for (Long eventId : eventIds) {
+            if (eventId != null) {
+                deleteEvent(eventId);
+            }
+        }
     }
 
     @Override

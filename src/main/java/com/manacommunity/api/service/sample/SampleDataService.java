@@ -8,11 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +25,7 @@ import java.util.Set;
  */
 @Slf4j
 @Service
+@Profile("!prod")
 @RequiredArgsConstructor
 public class SampleDataService implements ApplicationRunner {
 
@@ -50,14 +53,31 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsTournamentLifecycleSeeder tournamentLifecycleSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
+    private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository regRepo;
 
     @Override
     public void run(ApplicationArguments args) {
+        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: Auto-running SampleDataService is disabled in 'prod' profile. Skipping startup seeding.");
+            return;
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping data or auto-running seeders when user registrations exist in database. Skipping startup seeding.", registrationCount);
+            return;
+        }
+
         try {
             entityManager.createNativeQuery("SELECT setval('manacommunity.roles_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.roles), false)").getSingleResult();
-            log.info("✓ Roles sequence synchronized to next available value successfully.");
+            entityManager.createNativeQuery("SELECT setval('manacommunity.app_user_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.app_user), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_event_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_event), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_tournament_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_tournament), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_event_registration_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_event_registration), false)").getSingleResult();
+            log.info("✓ Core table sequences (roles, app_user, sports_event, sports_tournament, registrations) synchronized successfully.");
         } catch (Exception e) {
-            log.warn("Could not synchronize roles sequence on startup: {}", e.getMessage());
+            log.warn("Could not synchronize core sequences on startup: {}", e.getMessage());
         }
 
         long userCount = userRepo.count();
@@ -109,6 +129,18 @@ public class SampleDataService implements ApplicationRunner {
 
     @Transactional
     public String executeSampleDataSql() {
+        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: executeSampleDataSql cannot run in 'prod' profile.");
+            return "Sample data seeding blocked in 'prod' profile.";
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping data or running sample data seeding when user registrations exist in database.", registrationCount);
+            return "Sample data seeding skipped: " + registrationCount + " user registrations exist in the database.";
+        }
+
         try {
             log.info("Starting Java-based database seeding...");
 
@@ -165,6 +197,18 @@ public class SampleDataService implements ApplicationRunner {
      */
     @Transactional
     public void seedSportsLifecycleOnly() {
+        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: seedSportsLifecycleOnly cannot run in 'prod' profile.");
+            return;
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping data or running sports lifecycle seeding when user registrations exist in database.", registrationCount);
+            return;
+        }
+
         try {
             log.info("Starting isolated sports lifecycle sample data seeding...");
 
@@ -211,6 +255,22 @@ public class SampleDataService implements ApplicationRunner {
      */
     @Transactional
     public Map<String, Object> feedSportsData(boolean includeSampleRegistrations) {
+        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: feedSportsData cannot run in 'prod' profile.");
+            return Map.of("status", "BLOCKED", "message", "Seeding blocked in 'prod' profile.");
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping data when user registrations exist in database.", registrationCount);
+            return Map.of(
+                    "status", "BLOCKED",
+                    "message", "Operation aborted by safety guard: " + registrationCount + " user registrations exist in database. Cannot wipe or overwrite data.",
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        }
+
         try {
             log.info("Starting Sports Data Feed (LE 2026 Season Fest)... includeRegistrations={}", includeSampleRegistrations);
 
@@ -286,6 +346,22 @@ public class SampleDataService implements ApplicationRunner {
      */
     @Transactional
     public Map<String, Object> feedSportsRegistrations() {
+        if (environment != null && Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: feedSportsRegistrations cannot run in 'prod' profile.");
+            return Map.of("status", "BLOCKED", "message", "Seeding blocked in 'prod' profile.");
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Refusing to overwrite existing user registrations.", registrationCount);
+            return Map.of(
+                    "status", "BLOCKED",
+                    "message", "Operation aborted by safety guard: " + registrationCount + " user registrations exist in database.",
+                    "timestamp", LocalDateTime.now().toString()
+            );
+        }
+
         try {
             int total = sportsEventRegistrationDataSeeder.seedAllSportsRegistrations();
             return Map.of(

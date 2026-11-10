@@ -36,6 +36,8 @@ import com.manacommunity.api.repository.*;
 import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,7 @@ import java.util.Set;
  */
 @Slf4j
 @Service
+@Profile("!prod")
 @RequiredArgsConstructor
 public class SportsEventSeeder {
 
@@ -64,6 +67,7 @@ public class SportsEventSeeder {
     private final SportsAuctionBidRepository auctionBidRepo;
     private final SportsAuctionSessionLogRepository auctionSessionLogRepo;
     private final SportsTournamentConfigRepository tournamentConfigRepo;
+    private final Environment environment;
 
     private final CommunitySeeder communitySeeder;
     private final SportsMetaSeeder sportsMetaSeeder;
@@ -73,6 +77,18 @@ public class SportsEventSeeder {
 
     @Transactional
     public void seed() {
+        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: SportsEventSeeder cannot run under 'prod' profile. Aborting.");
+            return;
+        }
+
+        long totalRegistrations = regRepo.count();
+        if (totalRegistrations > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping data (regRepo.deleteAll) or re-creating events when user registrations exist.", totalRegistrations);
+            return;
+        }
+
         log.info("Seeding community sports events (delete & recreate if exists)...");
         
         SportsMeta cricket = sportsMetaSeeder.getOrCreateSport("Cricket", "🏏");
@@ -430,6 +446,13 @@ public class SportsEventSeeder {
                 .orElse(null);
 
         if (existing != null) {
+            long totalRegistrations = regRepo.count();
+            if (totalRegistrations > 0) {
+                log.info("Safety guard: {} user registrations exist in database. " +
+                         "Preserving existing sports event '{}' (id={}) without wiping data or re-creating.",
+                         totalRegistrations, name, existing.getId());
+                return existing;
+            }
             cleanDependentEventData(existing.getId());
             if (existing.getTournament() != null) {
                 existing.setTournament(null);
@@ -469,6 +492,13 @@ public class SportsEventSeeder {
     private void cleanDependentEventData(Long eventId) {
         if (eventId == null) return;
         try {
+            long totalRegistrations = regRepo.count();
+            if (totalRegistrations > 0) {
+                log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                         "Never wiping data (regRepo.deleteAll aborted) for eventId={}", totalRegistrations, eventId);
+                return;
+            }
+
             // 1. Delete notifications
             notificationSchedulerRepo.findByEventId(eventId).forEach(notificationSchedulerRepo::delete);
             notificationSchedulerRepo.flush();
@@ -516,6 +546,11 @@ public class SportsEventSeeder {
             // 4. Delete event registrations
             List<SportsEventRegistration> existingRegs = regRepo.findByEventId(eventId);
             if (!existingRegs.isEmpty()) {
+                if (regRepo.count() > 0) {
+                    log.warn("SAFETY GUARD: Refusing to delete {} registrations for eventId={}. User registrations exist in database.",
+                            existingRegs.size(), eventId);
+                    return;
+                }
                 regRepo.deleteAll(existingRegs);
                 regRepo.flush();
             }

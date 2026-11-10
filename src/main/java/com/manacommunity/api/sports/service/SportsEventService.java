@@ -66,4 +66,6 @@ public interface SportsEventService {
     SportsEvent setCaptainNominationOpen(Long eventId, boolean open);
     SportsEvent updateDisputeCommittee(Long eventId, java.util.List<Long> userIds);
     SportsEventRegistration setRegistrationSeed(Long registrationId, Integer seed);
+    List<SportsEvent> batchUpdateStatus(List<Long> eventIds, String status);
+    void batchDeleteEvents(List<Long> eventIds);
 }
