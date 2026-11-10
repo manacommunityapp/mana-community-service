@@ -71,9 +71,13 @@ public class SampleDataService implements ApplicationRunner {
 
         try {
             entityManager.createNativeQuery("SELECT setval('manacommunity.roles_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.roles), false)").getSingleResult();
-            log.info("✓ Roles sequence synchronized to next available value successfully.");
+            entityManager.createNativeQuery("SELECT setval('manacommunity.app_user_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.app_user), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_event_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_event), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_tournament_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_tournament), false)").getSingleResult();
+            entityManager.createNativeQuery("SELECT setval('manacommunity.sports_event_registration_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM manacommunity.sports_event_registration), false)").getSingleResult();
+            log.info("✓ Core table sequences (roles, app_user, sports_event, sports_tournament, registrations) synchronized successfully.");
         } catch (Exception e) {
-            log.warn("Could not synchronize roles sequence on startup: {}", e.getMessage());
+            log.warn("Could not synchronize core sequences on startup: {}", e.getMessage());
         }
 
         long userCount = userRepo.count();
