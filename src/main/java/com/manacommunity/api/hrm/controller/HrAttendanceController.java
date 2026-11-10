@@ -76,6 +76,29 @@ public class HrAttendanceController {
         return ResponseEntity.ok(attendanceService.getAttendanceReport(orgId, date, PageRequest.of(page, size)));
     }
 
+    @PostMapping("/{attendanceId}/correct")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AttendanceResponse> correctAttendance(
+            @PathVariable Long attendanceId,
+            @RequestParam Long orgId,
+            @Valid @RequestBody AttendanceCorrectionRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(attendanceService.correctAttendance(orgId, attendanceId, request, user.getId()));
+    }
+
+    @PostMapping("/{attendanceId}/approve-overtime")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AttendanceResponse> approveOvertime(
+            @PathVariable Long attendanceId,
+            @RequestParam Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(attendanceService.approveOvertime(orgId, attendanceId, user.getId()));
+    }
+
     @GetMapping("/organizations/{orgId}/summary")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<AttendanceSummaryResponse> getDailySummary(

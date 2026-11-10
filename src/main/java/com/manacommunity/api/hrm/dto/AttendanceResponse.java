@@ -15,5 +15,7 @@ public class AttendanceResponse {
     private LocalTime lastCheckOut;
     private Integer totalWorkMinutes;
     private AttendanceStatus status;
+    private Integer overtimeMinutes;
+    private Boolean overtimeApproved;
     private String remarks;
 }

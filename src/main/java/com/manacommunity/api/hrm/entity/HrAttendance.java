@@ -47,6 +47,17 @@ public class HrAttendance {
     @Column(name = "attendance_status", nullable = false, length = 30)
     private AttendanceStatus attendanceStatus;
 
+    @Column(name = "overtime_minutes", nullable = false)
+    @Builder.Default
+    private Integer overtimeMinutes = 0;
+
+    @Column(name = "overtime_approved", nullable = false)
+    @Builder.Default
+    private Boolean overtimeApproved = false;
+
+    @Column(name = "overtime_approved_by")
+    private Long overtimeApprovedBy;
+
     @Column(name = "remarks")
     private String remarks;
 

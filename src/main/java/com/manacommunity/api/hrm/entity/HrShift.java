@@ -40,6 +40,14 @@ public class HrShift {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "grace_period_minutes", nullable = false)
+    @Builder.Default
+    private Integer gracePeriodMinutes = 0;
+
+    @Column(name = "late_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer lateThresholdMinutes = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

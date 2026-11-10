@@ -48,6 +48,18 @@ public class HrOrganization {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "daily_work_hours", nullable = false)
+    @Builder.Default
+    private Integer dailyWorkHours = 8;
+
+    @Column(name = "overtime_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer overtimeThresholdMinutes = 480;
+
+    @Column(name = "weekly_work_hours", nullable = false)
+    @Builder.Default
+    private Integer weeklyWorkHours = 48;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
