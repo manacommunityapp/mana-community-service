@@ -227,7 +227,6 @@ public class SportsController {
     }
 
     @PutMapping("/events/batch/status")
-    @PostMapping("/events/batch/status")
     public ResponseEntity<List<SportsEventResponse>> batchUpdateStatus(
             @Valid @RequestBody SportsBatchStatusRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -235,6 +234,13 @@ public class SportsController {
         log.info("Batch updating event status count={} status={}", req.getEventIds().size(), req.getStatus());
         List<SportsEvent> updated = eventService.batchUpdateStatus(req.getEventIds(), req.getStatus());
         return ResponseEntity.ok(updated.stream().map(this::toEventResponse).toList());
+    }
+
+    @PostMapping("/events/batch/status")
+    public ResponseEntity<List<SportsEventResponse>> batchUpdateStatusPost(
+            @Valid @RequestBody SportsBatchStatusRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return batchUpdateStatus(req, principal);
     }
 
     @PutMapping("/events/{id}/captain-nominations")
@@ -287,7 +293,6 @@ public class SportsController {
     }
 
     @PostMapping("/events/batch/delete")
-    @DeleteMapping("/events/batch")
     public ResponseEntity<Void> batchDeleteEvents(
             @Valid @RequestBody SportsBatchDeleteRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -295,6 +300,13 @@ public class SportsController {
         log.info("Batch deleting events count={}", req.getEventIds().size());
         eventService.batchDeleteEvents(req.getEventIds());
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/events/batch")
+    public ResponseEntity<Void> batchDeleteEventsDelete(
+            @Valid @RequestBody SportsBatchDeleteRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return batchDeleteEvents(req, principal);
     }
 
     @DeleteMapping("/tournaments/{id}")
