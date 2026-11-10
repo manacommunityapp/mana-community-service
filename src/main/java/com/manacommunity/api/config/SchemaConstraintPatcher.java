@@ -464,9 +464,41 @@ public class SchemaConstraintPatcher {
                             UPDATE manacommunity.sports_tournament_config SET venue_id = NULL
                             WHERE venue_id IS NOT NULL AND venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
                           END IF;
-                          IF to_regclass('manacommunity.sports_venue_contact') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
-                            DELETE FROM manacommunity.sports_venue_contact
-                            WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                          IF to_regclass('manacommunity.sports_venue_contact') IS NOT NULL THEN
+                            IF to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_venue_contact
+                              WHERE venue_id NOT IN (SELECT id FROM manacommunity.sports_venue);
+                            END IF;
+                            IF to_regclass('manacommunity.contact') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_venue_contact
+                              WHERE contact_id NOT IN (SELECT id FROM manacommunity.contact);
+                            ELSE
+                              DELETE FROM manacommunity.sports_venue_contact;
+                            END IF;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_event_contact') IS NOT NULL THEN
+                            IF to_regclass('manacommunity.sports_event') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_event_contact
+                              WHERE sports_event_id NOT IN (SELECT id FROM manacommunity.sports_event);
+                            END IF;
+                            IF to_regclass('manacommunity.contact') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_event_contact
+                              WHERE contact_id NOT IN (SELECT id FROM manacommunity.contact);
+                            ELSE
+                              DELETE FROM manacommunity.sports_event_contact;
+                            END IF;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_contact') IS NOT NULL THEN
+                            IF to_regclass('manacommunity.sports_tournament') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_tournament_contact
+                              WHERE tournament_id NOT IN (SELECT id FROM manacommunity.sports_tournament);
+                            END IF;
+                            IF to_regclass('manacommunity.contact') IS NOT NULL THEN
+                              DELETE FROM manacommunity.sports_tournament_contact
+                              WHERE contact_id NOT IN (SELECT id FROM manacommunity.contact);
+                            ELSE
+                              DELETE FROM manacommunity.sports_tournament_contact;
+                            END IF;
                           END IF;
                           IF to_regclass('manacommunity.sports_court') IS NOT NULL AND to_regclass('manacommunity.sports_venue') IS NOT NULL THEN
                             DELETE FROM manacommunity.sports_court
