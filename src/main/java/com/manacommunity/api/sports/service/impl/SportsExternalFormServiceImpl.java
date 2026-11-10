@@ -402,7 +402,8 @@ public class SportsExternalFormServiceImpl implements SportsExternalFormService 
                 .user(resolvedUser)
                 .category(category)
                 .playerName(playerName)
-                .flatNumber(flatNumber)
+                .flatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        resolvedUser != null ? resolvedUser.getBlock() : null, flatNumber))
                 .phone(phone)
                 .matchType(matchFormat)
                 .status(SportsEventRegistration.RegistrationStatus.CONFIRMED)

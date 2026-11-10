@@ -2536,6 +2536,45 @@ public class SchemaConstraintPatcher {
                         """);
 
                 log.info("event_ticket_categories, event_program, activity_reg, meal_reg, donation, gallery, event_registration, event_invoice, stored_file, event_auction_item, event_auction_bid, media_objects, media_upload_sessions, media_audit_log, sports_schedule_generation_log tables ensured.");
+
+                // ────────────────────────────────────────────────────────────────
+                // Synchronize all PostgreSQL sequences in manacommunity schema.
+                // Guarantees that if SQL seeders or raw SQL scripts inserted records
+                // with explicit IDs, subsequent JPA entity persists will never generate
+                // duplicate or conflicting IDs that overwrite existing records.
+                // ────────────────────────────────────────────────────────────────
+                try {
+                    stmt.execute("""
+                            DO $$
+                            DECLARE
+                                seq RECORD;
+                            BEGIN
+                                FOR seq IN
+                                    SELECT
+                                        s.relname AS sequence_name,
+                                        t.relname AS table_name,
+                                        a.attname AS column_name
+                                    FROM pg_class s
+                                    JOIN pg_depend d ON d.objid = s.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'a'
+                                    JOIN pg_class t ON t.oid = d.refobjid
+                                    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+                                    JOIN pg_namespace n ON n.oid = s.relnamespace
+                                    WHERE s.relkind = 'S'
+                                      AND n.nspname = 'manacommunity'
+                                LOOP
+                                    EXECUTE format(
+                                        'SELECT setval(%L, GREATEST(COALESCE((SELECT MAX(%I) FROM manacommunity.%I), 0) + 1, 1), false)',
+                                        'manacommunity.' || seq.sequence_name,
+                                        seq.column_name,
+                                        seq.table_name
+                                    );
+                                END LOOP;
+                            END $$;
+                            """);
+                    log.info("✓ All manacommunity schema sequences synchronized with table MAX(id) + 1.");
+                } catch (Exception e) {
+                    log.warn("Sequence synchronization notice: {}", e.getMessage());
+                }
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher event_ticket_categories/event_program/activity_reg/meal_reg/event_registration/event_invoice/stored_file/auction/media patch failed: {}", e.getMessage(), e);
             }

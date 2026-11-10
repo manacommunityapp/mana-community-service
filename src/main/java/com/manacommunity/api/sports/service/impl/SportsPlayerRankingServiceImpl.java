@@ -110,7 +110,7 @@ public class SportsPlayerRankingServiceImpl implements SportsPlayerRankingServic
                         .id(u.getId())
                         .fullName(u.getFullName())
                         .email(u.getEmail())
-                        .flatNo(u.getFlatNo())
+                        .flatNo(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(u.getBlock(), u.getFlatNo()))
                         .build())
                 .sport(SportsPlayerRankingResponse.SportRef.builder()
                         .id(sp.getId())

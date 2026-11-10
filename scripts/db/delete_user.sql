@@ -3,6 +3,29 @@
 -- =============================================================================
 -- NOT a Flyway migration (lives in scripts/db, not src/main/resources/db).
 -- Run it by hand with psql / pgAdmin / DBeaver against the target database.
+
+-- ============================================================================
+-- ENVIRONMENT SAFETY GUARD: STRICTLY LOCAL DATABASE ONLY
+-- Prohibits execution on AWS Lightsail, AWS RDS, Dev, UAT, and Prod databases.
+-- ============================================================================
+DO $$
+DECLARE
+    v_server_addr inet := inet_server_addr();
+    v_allow_reset text := current_setting('app.allow_local_reset', true);
+BEGIN
+    -- 1. STRICT REMOTE SERVER BLOCK:
+    -- inet_server_addr() is NULL for local unix socket, or '127.0.0.1' / '::1' for localhost loopback.
+    -- If connected over network to any non-loopback IP (e.g. AWS Lightsail 3.109.145.130 or VPC 172.x), ABORT IMMEDIATELY.
+    IF v_server_addr IS NOT NULL AND v_server_addr NOT IN ('127.0.0.1'::inet, '::1'::inet) THEN
+        RAISE EXCEPTION 'CRITICAL ENVIRONMENT SAFETY ERROR: Destructive user deletion scripts are strictly prohibited on remote/AWS servers! Detected database server IP: %. Execution ABORTED.', v_server_addr;
+    END IF;
+
+    -- 2. EXPLICIT LOCAL CONFIRMATION GUARD:
+    -- Prevent accidental execution. Must run `SET app.allow_local_reset = 'true';` first.
+    IF v_allow_reset IS DISTINCT FROM 'true' THEN
+        RAISE EXCEPTION 'SAFETY GUARD: This script will delete user data and is restricted to LOCAL environments only. To run on your LOCAL database, you must first execute in this session: SET app.allow_local_reset = ''true'';';
+    END IF;
+END $$;
 --
 -- WHY A PLAIN "DELETE FROM app_user WHERE id = ?" DOES NOT WORK
 --   More than 100 foreign keys point at app_user(id). Many are NO ACTION (no
@@ -183,6 +206,11 @@ DECLARE
     u record;
     n bigint;
 BEGIN
+    -- Strict environment guard
+    IF (inet_server_addr() IS NOT NULL AND inet_server_addr() NOT IN ('127.0.0.1'::inet, '::1'::inet)) OR current_setting('app.allow_local_reset', true) IS DISTINCT FROM 'true' THEN
+        RAISE EXCEPTION 'CRITICAL BLOCKED: delete_user can ONLY run on a LOCAL database (127.0.0.1) with SET app.allow_local_reset = ''true''; (detected server: %)', inet_server_addr();
+    END IF;
+
     SELECT id, email, role INTO u FROM manacommunity.app_user WHERE id = p_user_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'User % not found', p_user_id;

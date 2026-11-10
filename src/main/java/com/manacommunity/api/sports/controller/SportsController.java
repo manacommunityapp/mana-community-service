@@ -21,6 +21,8 @@ import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
+import com.manacommunity.api.sports.dto.SportsBatchStatusRequest;
+import com.manacommunity.api.sports.dto.SportsBatchDeleteRequest;
 import com.manacommunity.api.exception.DuplicateResourceException;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.exception.UnauthorizedActionException;
@@ -224,9 +226,30 @@ public class SportsController {
         return ResponseEntity.ok(toEventResponse(eventService.updateStatus(id, status)));
     }
 
+    @PutMapping("/events/batch/status")
+    @PostMapping("/events/batch/status")
+    public ResponseEntity<List<SportsEventResponse>> batchUpdateStatus(
+            @Valid @RequestBody SportsBatchStatusRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Batch updating event status count={} status={}", req.getEventIds().size(), req.getStatus());
+        List<SportsEvent> updated = eventService.batchUpdateStatus(req.getEventIds(), req.getStatus());
+        return ResponseEntity.ok(updated.stream().map(this::toEventResponse).toList());
+    }
+
+    @PutMapping("/events/{id}/captain-nominations")
+    public ResponseEntity<SportsEventResponse> toggleCaptainNominations(
+            @PathVariable Long id,
+            @RequestParam boolean open,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD, CREATE_EDIT_SPORTS_MAIN);
+        log.info("Updating captain nominations eventId={} open={}", id, open);
+        return ResponseEntity.ok(toEventResponse(eventService.setCaptainNominationOpen(id, open)));
+    }
+
     @PutMapping("/tournaments/{id}")
     public ResponseEntity<SportsEventResponse> updateTournament(
-            @PathVariable Long id, @Valid @RequestBody SportsTournamentRequest req,
+            @PathVariable Long id, @RequestBody SportsTournamentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         log.info("Updating tournament id={}", id);
@@ -260,6 +283,17 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
         log.info("Deleting sports event id={}", id);
         eventService.deleteEvent(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/events/batch/delete")
+    @DeleteMapping("/events/batch")
+    public ResponseEntity<Void> batchDeleteEvents(
+            @Valid @RequestBody SportsBatchDeleteRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_SPORTS_MAIN);
+        log.info("Batch deleting events count={}", req.getEventIds().size());
+        eventService.batchDeleteEvents(req.getEventIds());
         return ResponseEntity.noContent().build();
     }
 
@@ -393,6 +427,22 @@ public class SportsController {
                     .map(this::toEventResponse).toList());
         }
         return ResponseEntity.ok(eventService.getClosedEvents().stream()
+                .map(this::toEventResponse).toList());
+    }
+
+    @GetMapping({"/events/completed", "/tournaments/completed"})
+    public ResponseEntity<List<SportsEventResponse>> getCompletedTournaments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (!ctx.superAdmin()) {
+            if (ctx.communityId() == null) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+            return ResponseEntity.ok(eventService.getCompletedEvents(ctx.communityId()).stream()
+                    .map(this::toEventResponse).toList());
+        }
+        return ResponseEntity.ok(eventService.getCompletedEvents().stream()
                 .map(this::toEventResponse).toList());
     }
 
@@ -541,6 +591,24 @@ public class SportsController {
                 .map(this::toRegistrationResponse).toList());
     }
 
+    @GetMapping({"/tournaments/{tournamentId}/all-registrations", "/events/registrations/batch"})
+    public ResponseEntity<List<SportsRegistrationResponse>> getAllTournamentRegistrations(
+            @PathVariable(required = false) Long tournamentId,
+            @RequestParam(required = false) List<Long> eventIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
+        List<SportsEventRegistration> regs;
+        if (eventIds != null && !eventIds.isEmpty()) {
+            regs = eventService.getRegistrationsForEventIds(eventIds);
+        } else if (tournamentId != null) {
+            regs = eventService.getTournamentAllRegistrations(tournamentId);
+        } else {
+            regs = java.util.Collections.emptyList();
+        }
+        return ResponseEntity.ok(regs.stream()
+                .map(this::toRegistrationResponse).toList());
+    }
+
     @GetMapping({"/events/{eventId}/registrations/{registrationId}/history", "/tournaments/{eventId}/registrations/{registrationId}/history"})
     public ResponseEntity<List<SportsRegistrationResponse>> getRegistrationHistory(
             @PathVariable Long eventId,
@@ -595,9 +663,11 @@ public class SportsController {
             @RequestParam boolean nominate,
             @RequestParam(required = false) String teamName,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
-        log.info("Nominating captain registrationId={} nominate={}", id, nominate);
-        return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, nominate, teamName)));
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
+        ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
+        log.info("Nominating captain registrationId={} nominate={} userId={} isAdmin={}", id, nominate, ctx.userId(), isAdmin);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominateCaptain(id, ctx.userId(), isAdmin, nominate, teamName)));
     }
 
     @PutMapping("/registrations/{id}/confirm-captain")
@@ -605,7 +675,7 @@ public class SportsController {
             @PathVariable Long id,
             @RequestParam boolean confirm,
             @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL);
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_TEAMS_DASHBOARD);
         log.info("Confirming captain registrationId={} confirm={}", id, confirm);
         return ResponseEntity.ok(toRegistrationResponse(eventService.confirmCaptain(id, confirm)));
     }
@@ -627,10 +697,12 @@ public class SportsController {
             @PathVariable Long id,
             @RequestParam(required = false) Long partnerUserId,
             @RequestParam(required = false) Long partnerFamilyMemberId,
+            @RequestParam(required = false) Boolean autoConfirm,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId)));
+        boolean isAdmin = permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
+        return ResponseEntity.ok(toRegistrationResponse(eventService.nominatePartner(id, ctx.userId(), partnerUserId, partnerFamilyMemberId, isAdmin, autoConfirm)));
     }
 
     @GetMapping("/registrations/partner-invitations")
@@ -745,7 +817,7 @@ public class SportsController {
                 .registeredCount(e.getId() != null ? (int) registrationRepo.countActiveByEventId(e.getId()) : 0)
                 .startTime(e.getStartTime() != null ? e.getStartTime() : (e.getTournament() != null ? e.getTournament().getStartTime() : null))
                 .dueTime(e.getDueTime() != null ? e.getDueTime() : (e.getTournament() != null ? e.getTournament().getDueTime() : null))
-                .status(e.getStatus() != null ? e.getStatus().name() : null)
+                .status(e.getStatus() != null ? e.getStatus().name() : (e.getTournament() != null && e.getTournament().getRegistrationStatus() != null ? e.getTournament().getRegistrationStatus().name() : null))
                 .auctionStatus(e.getAuctionStatus() != null ? e.getAuctionStatus().name() : null)
                 .format(e.getFormat() != null ? e.getFormat().stream().map(Enum::name).toList() : List.of())
                 .formats(e.getEventFormats() != null
@@ -767,6 +839,7 @@ public class SportsController {
                         : java.util.List.of())
                 .otherContacts(e.getOtherContacts() != null ? e.getOtherContacts() : (e.getTournament() != null ? e.getTournament().getOtherContacts() : null))
                 .auctionEnabled(e.getAuctionEnabled())
+                .captainNominationOpen(Boolean.TRUE.equals(e.getCaptainNominationOpen()))
                 .bannerImage(e.getBannerImage() != null ? e.getBannerImage() : (e.getTournament() != null ? e.getTournament().getBannerImage() : null))
                 .tournamentLevel(e.getTournamentLevel())
                 .description(e.getDescription() != null ? e.getDescription() : (e.getTournament() != null ? e.getTournament().getDescription() : null))
@@ -806,7 +879,8 @@ public class SportsController {
                     .name(r.getUser().getFullName())
                     .email(r.getUser().getEmail())
                     .phone(r.getUser().getPhone())
-                    .flatNo(r.getUser().getFlatNo())
+                    .flatNo(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                            r.getUser().getBlock(), r.getUser().getFlatNo()))
                     .build();
         }
 
@@ -829,6 +903,9 @@ public class SportsController {
                     .fullName(r.getPartner().getFullName())
                     .name(r.getPartner().getFullName())
                     .email(r.getPartner().getEmail())
+                    .phone(r.getPartner().getPhone())
+                    .flatNo(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                            r.getPartner().getBlock(), r.getPartner().getFlatNo()))
                     .build();
         }
 
@@ -862,6 +939,73 @@ public class SportsController {
                     .build();
         }
 
+        Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
+        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId()
+                : (r.getPartnerFamilyMember() != null && r.getPartnerFamilyMember().getUser() != null ? r.getPartnerFamilyMember().getUser().getId() : null);
+        Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
+
+        String resolvedPlayerName = (r.getFamilyMember() != null && r.getFamilyMember().getName() != null && !r.getFamilyMember().getName().isBlank())
+                ? r.getFamilyMember().getName()
+                : r.getPlayerName();
+        String resolvedRelation = (r.getFamilyMember() != null && r.getFamilyMember().getRelation() != null && !r.getFamilyMember().getRelation().isBlank())
+                ? r.getFamilyMember().getRelation()
+                : r.getRelation();
+        Integer resolvedAge = (r.getFamilyMember() != null && r.getFamilyMember().getAge() != null)
+                ? r.getFamilyMember().getAge()
+                : r.getAge();
+
+        String partnerName = null;
+        String partnerPhone = null;
+        String partnerFlatNumber = null;
+        String partnerEmail = null;
+        String partnerRelation = null;
+        Integer partnerAge = null;
+        String partnerGender = null;
+
+        if (r.getPartnerFamilyMember() != null) {
+            partnerName = r.getPartnerFamilyMember().getName();
+            partnerRelation = r.getPartnerFamilyMember().getRelation();
+            partnerAge = r.getPartnerFamilyMember().getAge();
+            partnerGender = r.getPartnerFamilyMember().getGender();
+            partnerPhone = r.getPartnerFamilyMember().getPhone();
+            partnerEmail = r.getPartnerFamilyMember().getEmail();
+            if (r.getPartnerFamilyMember().getUser() != null) {
+                if (partnerPhone == null || partnerPhone.isBlank()) {
+                    partnerPhone = r.getPartnerFamilyMember().getUser().getPhone();
+                }
+                if (partnerEmail == null || partnerEmail.isBlank()) {
+                    partnerEmail = r.getPartnerFamilyMember().getUser().getEmail();
+                }
+                partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getPartnerFamilyMember().getUser().getBlock(),
+                        r.getPartnerFamilyMember().getUser().getFlatNo());
+            }
+        } else if (r.getPartner() != null) {
+            partnerName = r.getPartner().getFullName();
+            partnerPhone = r.getPartner().getPhone();
+            partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
+            partnerEmail = r.getPartner().getEmail();
+        }
+        if (partnerPhone == null && r.getPartner() != null) {
+            partnerPhone = r.getPartner().getPhone();
+        }
+        if (partnerFlatNumber == null && r.getPartner() != null) {
+            partnerFlatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
+        }
+        if (partnerEmail == null && r.getPartner() != null) {
+            partnerEmail = r.getPartner().getEmail();
+        }
+
+        String formattedFlat = r.getUser() != null
+                ? com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getUser().getBlock(),
+                        r.getFlatNumber() != null && !r.getFlatNumber().isBlank() ? r.getFlatNumber() : r.getUser().getFlatNo())
+                : com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, r.getFlatNumber());
+
         return SportsRegistrationResponse.builder()
                 .id(r.getId())
                 .event(eventRef)
@@ -873,12 +1017,22 @@ public class SportsController {
                 .partner(partnerRef)
                 .partnerFamilyMember(partnerFamilyMemberRef)
                 .familyMember(familyMemberRef)
+                .familyMemberId(familyMemberId)
+                .partnerUserId(partnerUserId)
+                .partnerFamilyMemberId(partnerFamilyMemberId)
+                .partnerName(partnerName)
+                .partnerPhone(partnerPhone)
+                .partnerFlatNumber(partnerFlatNumber)
+                .partnerEmail(partnerEmail)
+                .partnerRelation(partnerRelation)
+                .partnerAge(partnerAge)
+                .partnerGender(partnerGender)
                 .status(r.getStatus() != null ? r.getStatus().name() : null)
-                .playerName(r.getPlayerName())
+                .playerName(resolvedPlayerName)
                 .email(r.getEmail())
-                .relation(r.getRelation())
-                .flatNumber(r.getFlatNumber())
-                .age(r.getAge())
+                .relation(resolvedRelation)
+                .flatNumber(formattedFlat)
+                .age(resolvedAge)
                 .role(r.getRole())
                 .captainNomination(r.getCaptainNomination())
                 .captainConfirmation(r.getCaptainConfirmation())

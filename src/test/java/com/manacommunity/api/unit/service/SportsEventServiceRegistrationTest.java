@@ -8,6 +8,7 @@ import com.manacommunity.api.sports.controller.*;
 
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
+import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsMeta;
@@ -30,6 +31,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -65,6 +67,7 @@ class SportsEventServiceRegistrationTest {
     @Mock private com.manacommunity.api.sports.repository.SportsEventFormatRepository formatRepo;
     @Mock private com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     @Mock private com.manacommunity.api.security.AuditService auditService;
+    @Mock private SportsPlayerRankingRepository rankingRepo;
 
     @InjectMocks
     private SportsEventServiceImpl service;
@@ -242,13 +245,212 @@ class SportsEventServiceRegistrationTest {
     }
 
     @Test
-    void getPartnerInvitations_filtersByStatus() {
-        com.manacommunity.api.sports.model.SportsEventRegistration reg = new com.manacommunity.api.sports.model.SportsEventRegistration();
-        when(regRepo.findPartnerInvitationsForUser(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING))
-                .thenReturn(List.of(reg));
+    void respondToPartnerInvitation_accept_bothFamilyMembers_notifiesBothHeadsSeparately() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("John Smith");
+        primaryUser.setBlock("T1");
+        primaryUser.setFlatNo("101");
 
-        List<com.manacommunity.api.sports.model.SportsEventRegistration> result = service.getPartnerInvitations(20L, com.manacommunity.api.sports.model.SportsEventRegistration.PartnerConfirmationStatus.PENDING);
-        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        com.manacommunity.api.user.model.FamilyMember primMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(101L)
+                .name("Alice Smith")
+                .relation("Daughter")
+                .user(primaryUser)
+                .build();
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Suresh Sharma");
+        partnerUser.setBlock("T2");
+        partnerUser.setFlatNo("402");
+
+        com.manacommunity.api.user.model.FamilyMember partnerMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(202L)
+                .name("Rohan Sharma")
+                .relation("Son")
+                .user(partnerUser)
+                .build();
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Badminton Championship");
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(1L);
+        cat.setName("Mixed Doubles");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .category(cat)
+                .user(primaryUser)
+                .familyMember(primMember)
+                .playerName("Alice Smith")
+                .relation("Daughter")
+                .partner(partnerUser)
+                .partnerFamilyMember(partnerMember)
+                .status(SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, true, null);
+
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+
+        // 1. Verify notification sent to Primary Head (John Smith)
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partner Accepted for Alice Smith — Badminton Championship (Mixed Doubles)"),
+                contains("Suresh Sharma (Block T2, Flat 402) accepted the partner invitation for their son Rohan Sharma to team up with your daughter Alice Smith for Badminton Championship (Mixed Doubles)."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
+
+        // 2. Verify symmetrical confirmation notification sent to Partner Head (Suresh Sharma)
+        verify(notificationService).createNotification(
+                eq(20L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partnership Confirmed for Rohan Sharma — Badminton Championship (Mixed Doubles)"),
+                contains("You confirmed the doubles partnership for your son Rohan Sharma to team up with John Smith (Block T1, Flat 101)'s daughter Alice Smith for Badminton Championship (Mixed Doubles)."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
+    }
+
+    @Test
+    void respondToPartnerInvitation_decline_bothFamilyMembers_notifiesPrimaryHeadWithDistinctNames() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("John Smith");
+        primaryUser.setBlock("T1");
+        primaryUser.setFlatNo("101");
+
+        com.manacommunity.api.user.model.FamilyMember primMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(101L)
+                .name("Alice Smith")
+                .relation("Daughter")
+                .user(primaryUser)
+                .build();
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Suresh Sharma");
+        partnerUser.setBlock("T2");
+        partnerUser.setFlatNo("402");
+
+        com.manacommunity.api.user.model.FamilyMember partnerMember = com.manacommunity.api.user.model.FamilyMember.builder()
+                .id(202L)
+                .name("Rohan Sharma")
+                .relation("Son")
+                .user(partnerUser)
+                .build();
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Badminton Championship");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .user(primaryUser)
+                .familyMember(primMember)
+                .playerName("Alice Smith")
+                .relation("Daughter")
+                .partner(partnerUser)
+                .partnerFamilyMember(partnerMember)
+                .status(SportsEventRegistration.RegistrationStatus.PENDING)
+                .partnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(500L, 20L, false, "Busy this weekend");
+
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+
+        // Verify decline notification to Primary Head
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                eq("Doubles Partner Declined for Alice Smith — Badminton Championship"),
+                contains("Suresh Sharma (Block T2, Flat 402) declined the partner invitation for their son Rohan Sharma to team up with your daughter Alice Smith for Badminton Championship. Reason: Busy this weekend. Alice Smith remains in the Open Pairing Pool and you may nominate another partner."),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
+                anyString(),
+                any()
+        );
+    }
+
+    @Test
+    void nominatePartner_byAdmin_autoConfirm_confirmsAndNotifiesBothPlayers() {
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(10L);
+        primaryUser.setFullName("Primary Player");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(20L);
+        partnerUser.setFullName("Partner Player");
+        partnerUser.setDateOfBirth(java.time.LocalDate.now().minusYears(25));
+
+        SportsEvent event = new SportsEvent();
+        event.setId(100L);
+        event.setName("Table Tennis Doubles");
+
+        SportsEventRegistration reg = SportsEventRegistration.builder()
+                .id(500L)
+                .event(event)
+                .user(primaryUser)
+                .status(SportsEventRegistration.RegistrationStatus.CONFIRMED)
+                .matchType(SportsEvent.MatchFormat.DOUBLES)
+                .build();
+
+        when(regRepo.findById(500L)).thenReturn(Optional.of(reg));
+        when(userRepo.findById(20L)).thenReturn(Optional.of(partnerUser));
+        when(regRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Admin (user 999) reassigns partner with autoConfirm = true
+        SportsEventRegistration result = service.nominatePartner(500L, 999L, 20L, null, true, true);
+
+        assertThat(result.getPartner()).isEqualTo(partnerUser);
+        assertThat(result.getPartnerConfirmationStatus())
+                .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.CONFIRMED);
+        assertThat(result.getPartnerConfirmedAt()).isNotNull();
+
+        // Verifies notification sent to primary player
+        verify(notificationService).createNotification(
+                eq(10L),
+                eq(com.manacommunity.api.model.NotificationType.PARTNER_CONFIRMED),
+                eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
+                contains("Doubles Partner Assigned"),
+                contains("Tournament organizers have assigned Partner Player as your doubles partner"),
+                eq("/sports?tab=my-sports"),
+                eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
+                eq(100L),
+                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                isNull(),
+                isNull()
+        );
     }
 
     @Test
@@ -295,12 +497,12 @@ class SportsEventServiceRegistrationTest {
                 eq(10L),
                 eq(com.manacommunity.api.model.NotificationType.PARTNER_DECLINED),
                 eq(com.manacommunity.api.model.NotificationCategory.SPORTS),
-                eq("Partner Withdrew"),
-                contains("Partner Player has withdrawn as your doubles partner"),
-                isNull(),
+                contains("Partner Withdrew"),
+                contains("Partner Player has withdrawn as doubles partner for you from Table Tennis Doubles"),
+                eq("/sports?tab=my-sports"),
                 eq(com.manacommunity.api.model.ReferenceType.SPORTS_EVENT),
                 eq(100L),
-                eq(com.manacommunity.api.model.NotificationPriority.NORMAL),
+                eq(com.manacommunity.api.model.NotificationPriority.HIGH),
                 isNull(),
                 isNull()
         );
@@ -1550,5 +1752,222 @@ class SportsEventServiceRegistrationTest {
         org.assertj.core.api.Assertions.assertThat(result.getPartner().getId()).isEqualTo(41L);
         org.assertj.core.api.Assertions.assertThat(result.getPartnerConfirmationStatus())
                 .isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+    }
+
+    @Test
+    void confirmRegistration_createsDistinctAuctionPlayersForUserAndFamilyMember() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .basePrice(1000)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+
+        // 1. Parent's own registration confirmation
+        SportsEventRegistration parentReg = new SportsEventRegistration();
+        parentReg.setId(201L);
+        parentReg.setEvent(event);
+        parentReg.setUser(parent);
+        parentReg.setPlayerName(null);
+        parentReg.setRole("Batsman");
+        parentReg.setStatus(SportsEventRegistration.RegistrationStatus.PENDING);
+
+        when(regRepo.findById(201L)).thenReturn(Optional.of(parentReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsAuctionPlayer parentPlayer = SportsAuctionPlayer.builder()
+                .id(1L)
+                .config(config)
+                .user(parent)
+                .playerName("Amit Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        when(playerRepo.findByConfigId(100L)).thenReturn(java.util.Collections.emptyList());
+        when(playerRepo.countByConfigId(100L)).thenReturn(0L);
+
+        service.confirmRegistration(201L);
+
+        org.mockito.ArgumentCaptor<SportsAuctionPlayer> captor = org.mockito.ArgumentCaptor.forClass(SportsAuctionPlayer.class);
+        verify(playerRepo).save(captor.capture());
+        assertThat(captor.getValue().getPlayerName()).isEqualTo("Amit Sharma");
+        assertThat(captor.getValue().getUser().getId()).isEqualTo(50L);
+
+        // 2. Family member (child) registration confirmation under same parent user
+        com.manacommunity.api.user.model.FamilyMember childMember = new com.manacommunity.api.user.model.FamilyMember();
+        childMember.setId(77L);
+        childMember.setName("Rohan Sharma");
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(202L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setFamilyMember(childMember);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setRole("Bowler");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.PENDING);
+
+        when(regRepo.findById(202L)).thenReturn(Optional.of(childReg));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(parentPlayer));
+        when(playerRepo.countByConfigId(100L)).thenReturn(1L);
+
+        service.confirmRegistration(202L);
+
+        verify(playerRepo, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getValue().getPlayerName()).isEqualTo("Rohan Sharma");
+        assertThat(captor.getValue().getUser().getId()).isEqualTo(50L);
+        assertThat(captor.getValue().getCategory()).isEqualTo("Bowler");
+    }
+
+    @Test
+    void withdrawRegistration_removesFamilyMemberAuctionPlayerWhileKeepingParent() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .build();
+
+        SportsAuctionPlayer parentPlayer = SportsAuctionPlayer.builder()
+                .id(1L)
+                .config(config)
+                .user(parent)
+                .playerName("Amit Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        SportsAuctionPlayer childPlayer = SportsAuctionPlayer.builder()
+                .id(2L)
+                .config(config)
+                .user(parent)
+                .playerName("Rohan Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.QUEUED)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(parentPlayer, childPlayer));
+
+        com.manacommunity.api.user.model.FamilyMember childMember = new com.manacommunity.api.user.model.FamilyMember();
+        childMember.setId(77L);
+        childMember.setName("Rohan Sharma");
+        childMember.setUser(parent);
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(301L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setFamilyMember(childMember);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(regRepo.findById(301L)).thenReturn(Optional.of(childReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.withdraw(301L, 50L, false, "Schedule clash");
+
+        verify(playerRepo).delete(childPlayer);
+        org.mockito.Mockito.verify(playerRepo, org.mockito.Mockito.never()).delete(parentPlayer);
+        assertThat(childReg.getStatus()).isEqualTo(SportsEventRegistration.RegistrationStatus.WITHDRAWN);
+    }
+
+    @Test
+    void withdrawRegistration_blocksWhenAuctionPlayerIsAlreadySold() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .build();
+
+        SportsAuctionPlayer childPlayer = SportsAuctionPlayer.builder()
+                .id(2L)
+                .config(config)
+                .user(parent)
+                .playerName("Rohan Sharma")
+                .status(SportsAuctionPlayer.PlayerStatus.SOLD)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(playerRepo.findByConfigId(100L)).thenReturn(List.of(childPlayer));
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(302L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setPlayerName("Rohan Sharma");
+        childReg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+
+        when(regRepo.findById(302L)).thenReturn(Optional.of(childReg));
+
+        assertThatThrownBy(() -> service.withdraw(302L, 50L, false, "Withdrawing sold player"))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("already part of the auction (sold)");
+
+        org.mockito.Mockito.verify(playerRepo, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void nominateCaptain_setsOwnerNameAndDefaultTeamNameUsingResolvedCaptainName() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Cricket Carnival");
+        event.setCaptainNominationOpen(true);
+
+        AppUser parent = new AppUser();
+        parent.setId(50L);
+        parent.setFullName("Amit Sharma");
+
+        SportsAuctionConfig config = SportsAuctionConfig.builder()
+                .id(100L)
+                .event(event)
+                .budgetPerTeam(50000L)
+                .build();
+
+        when(auctionConfigRepo.findByEventId(10L)).thenReturn(Optional.of(config));
+        when(auctionTeamRepo.findByConfigIdAndOwnerUserId(100L, 50L)).thenReturn(Optional.empty());
+        when(auctionTeamRepo.save(any(SportsAuctionTeam.class))).thenAnswer(i -> {
+            SportsAuctionTeam t = i.getArgument(0);
+            t.setId(88L);
+            return t;
+        });
+
+        SportsEventRegistration childReg = new SportsEventRegistration();
+        childReg.setId(401L);
+        childReg.setEvent(event);
+        childReg.setUser(parent);
+        childReg.setPlayerName("Rohan Sharma");
+
+        when(regRepo.findById(401L)).thenReturn(Optional.of(childReg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.nominateCaptain(401L, 50L, false, true, null);
+
+        org.mockito.ArgumentCaptor<SportsAuctionTeam> teamCaptor = org.mockito.ArgumentCaptor.forClass(SportsAuctionTeam.class);
+        verify(auctionTeamRepo).save(teamCaptor.capture());
+
+        assertThat(teamCaptor.getValue().getOwnerName()).isEqualTo("Rohan Sharma");
+        assertThat(teamCaptor.getValue().getTeamName()).isEqualTo("Rohan Sharma's Team");
+        assertThat(result.getCaptainNomination()).isTrue();
     }
 }

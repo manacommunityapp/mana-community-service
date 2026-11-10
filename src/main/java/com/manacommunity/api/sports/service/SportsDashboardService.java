@@ -118,6 +118,27 @@ public class SportsDashboardService {
     }
 
     @Transactional(readOnly = true)
+    public List<TournamentCard> getCompletedTournaments(AppUser user) {
+        boolean isSuperAdmin = user.hasRole(ROLE_SUPER_ADMIN);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
+
+        Map<Long, SportsEventRegistration> regByEvent = myRegs.stream()
+                .filter(r -> r.getEvent() != null && r.getEvent().getId() != null && r.getFamilyMember() == null)
+                .collect(Collectors.toMap(
+                        r -> r.getEvent().getId(),
+                        Function.identity(),
+                        (a, b) -> a)); // keep first on duplicate
+
+        List<SportsTournament> completedTournamentEntities = isSuperAdmin
+                ? tournamentRepo.findByRegistrationStatusWithEvents(SportsEventStatus.COMPLETED)
+                : (communityId != null
+                    ? tournamentRepo.findByRegistrationStatusAndCommunityWithEvents(SportsEventStatus.COMPLETED, communityId)
+                    : List.of());
+        return buildTournamentCards(completedTournamentEntities, regByEvent);
+    }
+
+    @Transactional(readOnly = true)
     public List<MyRegistration> getMyRegistrations(AppUser user) {
         List<SportsEventRegistration> myRegs = eventService.getUserRegistrations(user.getId());
         return myRegs.stream()
@@ -201,7 +222,8 @@ public class SportsDashboardService {
                 gender,
                 minAge,
                 maxAge,
-                formats
+                formats,
+                Boolean.TRUE.equals(e.getCaptainNominationOpen())
         );
     }
 
@@ -223,17 +245,58 @@ public class SportsDashboardService {
     private MyRegistration toMyRegistration(SportsEventRegistration r) {
         SportsEvent e = r.getEvent();
         Long familyMemberId = r.getFamilyMember() != null ? r.getFamilyMember().getId() : null;
-        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId() : null;
+        Long partnerUserId = r.getPartner() != null ? r.getPartner().getId()
+                : (r.getPartnerFamilyMember() != null && r.getPartnerFamilyMember().getUser() != null ? r.getPartnerFamilyMember().getUser().getId() : null);
         Long partnerFamilyMemberId = r.getPartnerFamilyMember() != null ? r.getPartnerFamilyMember().getId() : null;
         String pName = null;
-        if (r.getPartner() != null) {
-            pName = r.getPartner().getFullName();
-        } else if (r.getPartnerFamilyMember() != null) {
+        String pRelation = null;
+        Integer pAge = null;
+        String pGender = null;
+        if (r.getPartnerFamilyMember() != null) {
             pName = r.getPartnerFamilyMember().getName();
+            pRelation = r.getPartnerFamilyMember().getRelation();
+            pAge = r.getPartnerFamilyMember().getAge();
+            pGender = r.getPartnerFamilyMember().getGender();
+        } else if (r.getPartner() != null) {
+            pName = r.getPartner().getFullName();
         }
-        String pPhone = r.getPartner() != null ? r.getPartner().getPhone() : null;
-        String pFlat = r.getPartner() != null ? r.getPartner().getFlatNo() : null;
+        String pPhone = null;
+        String pFlat = null;
+        if (r.getPartnerFamilyMember() != null) {
+            pPhone = r.getPartnerFamilyMember().getPhone();
+            if (r.getPartnerFamilyMember().getUser() != null) {
+                if (pPhone == null || pPhone.isBlank()) {
+                    pPhone = r.getPartnerFamilyMember().getUser().getPhone();
+                }
+                pFlat = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                        r.getPartnerFamilyMember().getUser().getBlock(),
+                        r.getPartnerFamilyMember().getUser().getFlatNo());
+            }
+        }
+        if (pPhone == null && r.getPartner() != null) {
+            pPhone = r.getPartner().getPhone();
+        }
+        if (pFlat == null && r.getPartner() != null) {
+            pFlat = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getPartner().getBlock(),
+                    r.getPartner().getFlatNo());
+        }
         String pStatus = r.getPartnerConfirmationStatus() != null ? r.getPartnerConfirmationStatus().name() : null;
+        String flatNumber = r.getFlatNumber();
+        if (r.getUser() != null) {
+            flatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(
+                    r.getUser().getBlock(),
+                    flatNumber != null && !flatNumber.isBlank() ? flatNumber : r.getUser().getFlatNo());
+        } else if (flatNumber != null) {
+            flatNumber = com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, flatNumber);
+        }
+
+        String resolvedPlayerName = (r.getFamilyMember() != null && r.getFamilyMember().getName() != null && !r.getFamilyMember().getName().isBlank())
+                ? r.getFamilyMember().getName()
+                : r.getPlayerName();
+        String resolvedRelation = (r.getFamilyMember() != null && r.getFamilyMember().getRelation() != null && !r.getFamilyMember().getRelation().isBlank())
+                ? r.getFamilyMember().getRelation()
+                : r.getRelation();
 
         return new MyRegistration(
                 r.getId(),
@@ -247,8 +310,8 @@ public class SportsDashboardService {
                 r.getMatchType() != null ? r.getMatchType().name() : null,
                 r.getCaptainNomination(),
                 r.getCaptainConfirmation(),
-                r.getPlayerName(),
-                r.getRelation(),
+                resolvedPlayerName,
+                resolvedRelation,
                 familyMemberId,
                 partnerUserId,
                 partnerFamilyMemberId,
@@ -256,13 +319,32 @@ public class SportsDashboardService {
                 pPhone,
                 pFlat,
                 pStatus,
-                pStatus
+                pStatus,
+                flatNumber,
+                pRelation,
+                pAge,
+                pGender
         );
     }
 
-    /** Event status lives on the linked tournament (REGISTRATION_OPEN / CLOSED / LIVE …). */
+    /** Event status lives on the event or linked tournament (REGISTRATION_OPEN / CLOSED / LIVE …). */
     private String registrationStatus(SportsEvent e) {
+        if (e.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                || e.getStatus() == SportsEventStatus.COMPLETED
+                || e.getStatus() == SportsEventStatus.CANCELLED) {
+            return e.getStatus().name();
+        }
         SportsTournament t = e.getTournament();
+        if (t != null && t.getRegistrationStatus() != null) {
+            if (t.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                    || t.getRegistrationStatus() == SportsEventStatus.COMPLETED
+                    || t.getRegistrationStatus() == SportsEventStatus.CANCELLED) {
+                return t.getRegistrationStatus().name();
+            }
+        }
+        if (e.getStatus() != null) {
+            return e.getStatus().name();
+        }
         if (t != null && t.getRegistrationStatus() != null) {
             return t.getRegistrationStatus().name();
         }

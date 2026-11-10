@@ -1,5 +1,6 @@
 package com.manacommunity.api.sports.controller;
 
+import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.model.SportsTournamentPlayerPayment;
 import com.manacommunity.api.sports.repository.SportsTournamentPlayerPaymentRepository;
@@ -22,10 +23,13 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+
+import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/sports/tournaments")
+@RequestMapping({"/api/sports/tournaments", "/api/tournaments"})
 @RequiredArgsConstructor
 public class SportsTournamentPaymentController {
 
@@ -33,9 +37,45 @@ public class SportsTournamentPaymentController {
     private final SportsTournamentRepository tournamentRepo;
     private final AppUserRepository userRepo;
     private final FamilyMemberRepository familyMemberRepo;
+    private final PermissionCheckService permissionCheckService;
+
+    @GetMapping("/{tournamentId}/other-contacts")
+    public ResponseEntity<Map<String, Object>> getOtherContacts(@PathVariable Long tournamentId) {
+        SportsTournament tournament = tournamentRepo.findById(tournamentId)
+                .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
+        return ResponseEntity.ok(Map.of(
+                "tournamentId", tournamentId,
+                "otherContacts", tournament.getOtherContacts() != null ? tournament.getOtherContacts() : "[]"
+        ));
+    }
+
+    @PutMapping("/{tournamentId}/other-contacts")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateOtherContacts(
+            @PathVariable Long tournamentId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_EVENT_REGISTRATIONS);
+        SportsTournament tournament = tournamentRepo.findById(tournamentId)
+                .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
+        String otherContacts = body != null && body.get("otherContacts") != null
+                ? body.get("otherContacts").toString()
+                : "[]";
+        tournament.setOtherContacts(otherContacts);
+        tournamentRepo.save(tournament);
+        log.info("Updated otherContacts for tournamentId={} by user={}", tournamentId,
+                principal != null ? principal.getUsername() : "anonymous");
+        return ResponseEntity.ok(Map.of(
+                "tournamentId", tournamentId,
+                "otherContacts", otherContacts
+        ));
+    }
 
     @GetMapping("/{tournamentId}/payments")
-    public ResponseEntity<List<SportsTournamentPlayerPaymentResponse>> getPayments(@PathVariable Long tournamentId) {
+    public ResponseEntity<List<SportsTournamentPlayerPaymentResponse>> getPayments(
+            @PathVariable Long tournamentId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         List<SportsTournamentPlayerPayment> payments = paymentRepo.findByTournamentId(tournamentId);
         List<SportsTournamentPlayerPaymentResponse> list = payments.stream().map(this::toResponse).toList();
         return ResponseEntity.ok(list);
@@ -47,6 +87,7 @@ public class SportsTournamentPaymentController {
             @PathVariable Long tournamentId,
             @RequestBody SportsTournamentPlayerPaymentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         SportsTournament tournament = tournamentRepo.findById(tournamentId)
                 .orElseThrow(() -> new IllegalArgumentException("Tournament not found: " + tournamentId));
@@ -58,7 +99,7 @@ public class SportsTournamentPaymentController {
                         .build());
 
         payment.setPlayerName(req.getPlayerName());
-        payment.setFlatNumber(req.getFlatNumber());
+        payment.setFlatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, req.getFlatNumber()));
         payment.setPhone(req.getPhone());
         payment.setEmail(req.getEmail());
         payment.setAmount(req.getAmount() != null ? req.getAmount() : BigDecimal.ZERO);
@@ -100,6 +141,7 @@ public class SportsTournamentPaymentController {
             @RequestParam(required = false) String playerKey,
             @RequestBody(required = false) SportsTournamentPlayerPaymentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         String key = playerKey != null && !playerKey.isBlank()
                 ? playerKey
@@ -120,6 +162,7 @@ public class SportsTournamentPaymentController {
             @PathVariable Long tournamentId,
             @PathVariable String playerKey,
             @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, DELETE_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, playerKey).ifPresent(p -> {
             paymentRepo.delete(p);
@@ -154,7 +197,7 @@ public class SportsTournamentPaymentController {
                 .userId(p.getUser() != null ? p.getUser().getId() : null)
                 .familyMemberId(p.getFamilyMember() != null ? p.getFamilyMember().getId() : null)
                 .playerName(p.getPlayerName())
-                .flatNumber(p.getFlatNumber())
+                .flatNumber(com.manacommunity.api.sports.util.SportsFormatUtils.formatBlockAndFlat(null, p.getFlatNumber()))
                 .phone(p.getPhone())
                 .email(p.getEmail())
                 .paymentStatus(p.getPaymentStatus() != null ? p.getPaymentStatus().name() : "PAID")

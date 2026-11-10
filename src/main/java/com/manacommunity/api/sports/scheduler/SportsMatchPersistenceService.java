@@ -594,9 +594,9 @@ public class SportsMatchPersistenceService {
 
         LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
 
-        // Store names + group context in matchNotes so they survive even without linked team entities
-        String notes = String.format("{\"homeName\":\"%s\",\"awayName\":\"%s\",\"groupName\":\"%s\"}",
-            safe(m.homeName()), safe(m.awayName()), safe(m.groupName()));
+        // Store names + flats + group context in matchNotes so they survive even without linked team entities
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(m.homeName()), safe(m.homeFlat()), safe(m.awayName()), safe(m.awayFlat()), safe(m.groupName()));
 
         SportsVenue venue = config.getVenue();
         if (m.venueId() != null) {

@@ -35,6 +35,7 @@ import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
 
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.api.user.model.AppUser;
 
 import com.manacommunity.api.dto.*;
 import com.manacommunity.api.exception.AuctionStateException;
@@ -112,28 +113,54 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
     }
 
     private SportsAuctionConfigResponse toConfigResponse(SportsAuctionConfig config) {
+        List<String> categories = auctionConfigCategoryRepo.findByConfigId(config.getId())
+                .stream()
+                .map(SportsAuctionConfigCategory::getCategoryName)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (categories.isEmpty() && config.getPlayers() != null) {
+            categories = config.getPlayers().stream()
+                    .map(SportsAuctionPlayer::getCategory)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+        }
+
+        List<String> committee = committeeRepo.findByConfigId(config.getId())
+                .stream()
+                .map(SportsAuctionDisputeCommittee::getMemberName)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        if (committee.isEmpty() && config.getCommitteeMembers() != null) {
+            committee = config.getCommitteeMembers().stream()
+                    .map(SportsAuctionDisputeCommittee::getMemberName)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toList());
+        }
+
         return new SportsAuctionConfigResponse(
                 config.getId(),
                 config.getEvent() != null ? config.getEvent().getId() : null,
                 config.getEvent() != null ? config.getEvent().getName() : null,
-                config.getSport().getName(),
-                config.getSport().getId(),
+                config.getSport() != null ? config.getSport().getName() : null,
+                config.getSport() != null ? config.getSport().getId() : null,
                 config.getCommunity() != null ? config.getCommunity().getId() : null,
                 config.getSeasonName(),
-                config.getAuctionFormat().name(),
-                config.getTotalTeams(),
-                config.getTotalPlayers(),
-                config.getBudgetPerTeam(),
-                config.getBasePrice(),
-                config.getBidIncrementDefault(),
-                config.getBidIncrementThreshold(),
-                config.getBidIncrementAbove(),
-                config.getBidTimerSeconds(),
-                config.getRtmEnabled(),
-                config.getUnsoldRule().name(),
-                config.getStatus().name(),
-                config.getPlayers().stream().map(SportsAuctionPlayer::getCategory).distinct().collect(Collectors.toList()),
-                config.getCommitteeMembers().stream().map(SportsAuctionDisputeCommittee::getMemberName).collect(Collectors.toList())
+                config.getAuctionFormat() != null ? config.getAuctionFormat().name() : null,
+                config.getTotalTeams() != null ? config.getTotalTeams() : 0,
+                config.getTotalPlayers() != null ? config.getTotalPlayers() : 0,
+                config.getBudgetPerTeam() != null ? config.getBudgetPerTeam() : 0L,
+                config.getBasePrice() != null ? config.getBasePrice() : 0,
+                config.getBidIncrementDefault() != null ? config.getBidIncrementDefault() : 0,
+                config.getBidIncrementThreshold() != null ? config.getBidIncrementThreshold() : 0L,
+                config.getBidIncrementAbove() != null ? config.getBidIncrementAbove() : 0,
+                config.getBidTimerSeconds() != null ? config.getBidTimerSeconds() : 30,
+                Boolean.TRUE.equals(config.getRtmEnabled()),
+                config.getUnsoldRule() != null ? config.getUnsoldRule().name() : null,
+                config.getStatus() != null ? config.getStatus().name() : null,
+                categories,
+                committee
         );
     }
 
@@ -144,11 +171,16 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         if (configRepo.existsBySportIdAndSeasonName(req.sportId(), req.seasonName()))
             throw new AuctionStateException("Auction already exists for this sport and season");
 
+        AppUser adminUser = userRepo.findById(adminUserId).orElse(null);
         SportsEvent sportsEvent = req.eventId() != null ? eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())) : null;
+        com.manacommunity.api.model.Community targetCommunity = sportsEvent != null && sportsEvent.getCommunity() != null
+                ? sportsEvent.getCommunity()
+                : (adminUser != null ? adminUser.getCommunity() : null);
+
         SportsAuctionConfig config = SportsAuctionConfig.builder()
             .sport(sportRepo.findById(req.sportId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", req.sportId())))
             .event(sportsEvent)
-            .community(sportsEvent != null ? sportsEvent.getCommunity() : null)
+            .community(targetCommunity)
             .seasonName(req.seasonName())
             .auctionFormat(SportsAuctionConfig.AuctionFormat.valueOf(req.auctionFormat()))
             .totalTeams(req.totalTeams())
@@ -163,7 +195,7 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             .unsoldRule(SportsAuctionConfig.UnsoldRule.valueOf(
                 req.unsoldRule() != null ? req.unsoldRule() : "ROTATION_AUCTION"))
             .status(SportsAuctionConfig.AuctionStatus.DRAFT)
-            .createdBy(userRepo.getReferenceById(adminUserId))
+            .createdBy(adminUser != null ? adminUser : userRepo.getReferenceById(adminUserId))
             .build();
 
         SportsAuctionConfig saved = configRepo.save(config);
@@ -204,8 +236,21 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             throw new AuctionStateException("Cannot update rules while auction is LIVE. Pause first.");
 
         // Apply all dynamic rule changes
+        if (req.sportId() != null && (config.getSport() == null || !req.sportId().equals(config.getSport().getId()))) {
+            config.setSport(sportRepo.findById(req.sportId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Sport", req.sportId())));
+        }
+        if (req.seasonName() != null && !req.seasonName().isBlank()) {
+            config.setSeasonName(req.seasonName());
+        }
+        if (req.auctionFormat() != null && !req.auctionFormat().isBlank()) {
+            config.setAuctionFormat(SportsAuctionConfig.AuctionFormat.valueOf(req.auctionFormat()));
+        }
         if (req.eventId() != null) {
-            config.setEvent(eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId())));
+            SportsEvent sportsEvent = eventRepo.findById(req.eventId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsEvent", req.eventId()));
+            config.setEvent(sportsEvent);
+            if (sportsEvent.getCommunity() != null) {
+                config.setCommunity(sportsEvent.getCommunity());
+            }
         } else {
             config.setEvent(null);
         }
@@ -222,6 +267,21 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             config.setUnsoldRule(SportsAuctionConfig.UnsoldRule.valueOf(req.unsoldRule()));
 
         SportsAuctionConfig saved = configRepo.save(config);
+
+        // Synchronize categories if provided
+        if (req.categories() != null) {
+            auctionConfigCategoryRepo.deleteByConfigId(saved.getId());
+            req.categories().forEach(cat ->
+                auctionConfigCategoryRepo.save(new SportsAuctionConfigCategory(saved, cat)));
+        }
+
+        // Synchronize committee members if provided
+        if (req.committeeMembers() != null) {
+            committeeRepo.deleteByConfigId(saved.getId());
+            req.committeeMembers().forEach(name ->
+                committeeRepo.save(SportsAuctionDisputeCommittee.builder()
+                    .config(saved).memberName(name).role("COMMITTEE_MEMBER").build()));
+        }
 
         auditService.record(
             com.manacommunity.api.security.AuditAction.AUCTION_CONFIG_UPDATED,
@@ -274,9 +334,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
 
         auctionWs.broadcastStatusChange(configId, oldStatus.name(), newStatus.name());
 
-        // Audit the lifecycle transitions only (start / end), not every save.
+        // Audit the lifecycle transitions only (start / end / pause), not every save.
         if (oldStatus != newStatus) {
-            if (newStatus == SportsAuctionConfig.AuctionStatus.LIVE || newStatus == SportsAuctionConfig.AuctionStatus.ACTIVE) {
+            if (newStatus == SportsAuctionConfig.AuctionStatus.LIVE && oldStatus != SportsAuctionConfig.AuctionStatus.LIVE) {
                 auditService.record(
                     com.manacommunity.api.security.AuditAction.AUCTION_STARTED,
                     com.manacommunity.api.security.AuditModule.AUCTION,
@@ -285,6 +345,10 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                 notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_STARTED,
                         "Auction Started — " + savedConfig.getSeasonName(),
                         "The auction is now live!", NotificationPriority.HIGH);
+            } else if (newStatus == SportsAuctionConfig.AuctionStatus.ACTIVE && oldStatus == SportsAuctionConfig.AuctionStatus.LIVE) {
+                notifyAuctionTeamOwners(savedConfig, NotificationType.AUCTION_STARTED,
+                        "Auction Paused — " + savedConfig.getSeasonName(),
+                        "The auction has been temporarily paused by organizers.", NotificationPriority.NORMAL);
             } else if (newStatus == SportsAuctionConfig.AuctionStatus.COMPLETED) {
                 auditService.record(
                     com.manacommunity.api.security.AuditAction.AUCTION_ENDED,

@@ -241,19 +241,19 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             tournament.setSportsEvents(new ArrayList<>());
             for (SportsEvent ev : sportsEvents) {
                 ev.setTournament(tournament);
-                if (req.getEventDateStart() != null) ev.setEventDateStart(req.getEventDateStart());
-                if (req.getEventDateEnd() != null) ev.setEventDateEnd(req.getEventDateEnd());
-                if (req.getRegistrationDateStart() != null) ev.setRegistrationDateStart(req.getRegistrationDateStart());
-                if (req.getRegistrationDateEnd() != null) ev.setRegistrationDateEnd(req.getRegistrationDateEnd());
-                if (req.getMaxParticipants() != null) ev.setMaxParticipants(req.getMaxParticipants());
-                if (req.getDescription() != null) ev.setDescription(req.getDescription());
-                if (req.getStartTime() != null) ev.setStartTime(req.getStartTime());
-                if (req.getDueTime() != null) ev.setDueTime(req.getDueTime());
-                if (req.getBannerImage() != null) ev.setBannerImage(req.getBannerImage());
-                if (req.getContactName() != null) ev.setContactName(req.getContactName());
-                if (req.getContactNumber() != null) ev.setContactNumber(req.getContactNumber());
-                if (req.getContactEmail() != null) ev.setContactEmail(req.getContactEmail());
-                if (req.getOtherContacts() != null) ev.setOtherContacts(req.getOtherContacts());
+                if (tournament.getEventDateStart() != null) ev.setEventDateStart(tournament.getEventDateStart());
+                if (tournament.getEventDateEnd() != null) ev.setEventDateEnd(tournament.getEventDateEnd());
+                if (tournament.getRegistrationDateStart() != null) ev.setRegistrationDateStart(tournament.getRegistrationDateStart());
+                if (tournament.getRegistrationDateEnd() != null) ev.setRegistrationDateEnd(tournament.getRegistrationDateEnd());
+                if (tournament.getMaxParticipants() != null) ev.setMaxParticipants(tournament.getMaxParticipants());
+                if (tournament.getDescription() != null) ev.setDescription(tournament.getDescription());
+                if (tournament.getStartTime() != null) ev.setStartTime(tournament.getStartTime());
+                if (tournament.getDueTime() != null) ev.setDueTime(tournament.getDueTime());
+                if (tournament.getBannerImage() != null) ev.setBannerImage(tournament.getBannerImage());
+                if (tournament.getContactName() != null) ev.setContactName(tournament.getContactName());
+                if (tournament.getContactNumber() != null) ev.setContactNumber(tournament.getContactNumber());
+                if (tournament.getContactEmail() != null) ev.setContactEmail(tournament.getContactEmail());
+                if (tournament.getOtherContacts() != null) ev.setOtherContacts(tournament.getOtherContacts());
                 if (req.getTournamentLevel() != null) ev.setTournamentLevel(req.getTournamentLevel());
                 tournament.getSportsEvents().add(ev);
                 eventRepo.save(ev);
@@ -277,7 +277,6 @@ public class SportsTournamentServiceImpl implements SportsTournamentService {
             SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())
                     ? tournament.getSportsEvents().get(0)
                     : null;
-
             for (com.manacommunity.api.dto.SponsorDto s : req.getSponsors()) {
                 tournament.getSponsors().add(SportsEventSponsor.builder()
                         .tournament(tournament)

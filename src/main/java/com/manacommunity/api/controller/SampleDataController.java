@@ -7,12 +7,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Profile("!prod & !dev & !uat & !test")
 @Tag(name = "Data Seeder / Feed", description = "Endpoints to seed, feed, and manage tournament, sports, and system sample data")
 @RestController
 @RequestMapping("/api/admin/seed")

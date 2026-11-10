@@ -25,6 +25,8 @@ public interface SportsEventService {
     List<SportsEvent> getAllOpenEvents();
     List<SportsEvent> getClosedEvents();
     List<SportsEvent> getClosedEvents(Long communityId);
+    List<SportsEvent> getCompletedEvents();
+    List<SportsEvent> getCompletedEvents(Long communityId);
     SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
     SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId);
     List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId);
@@ -43,18 +45,27 @@ public interface SportsEventService {
     default void withdraw(Long registrationId, Long userId) { withdraw(registrationId, userId, false, null); }
     List<SportsEventRegistration> getEventRegistrations(Long eventId);
     List<SportsEventRegistration> getEventRegistrations(Long eventId, boolean latestOnly);
+    List<SportsEventRegistration> getTournamentAllRegistrations(Long tournamentId);
+    List<SportsEventRegistration> getRegistrationsForEventIds(List<Long> eventIds);
     List<SportsEventRegistration> getRegistrationHistory(Long eventId, Long registrationId);
     List<SportsEventRegistration> getUserRegistrations(Long userId);
     SportsEventRegistration confirmRegistration(Long registrationId);
     SportsEventRegistration rejectRegistration(Long registrationId, String reason);
     SportsEventRegistration nominateCaptain(Long registrationId, boolean nominate, String teamName);
+    SportsEventRegistration nominateCaptain(Long registrationId, Long requestingUserId, boolean isAdmin, boolean nominate, String teamName);
     SportsEventRegistration confirmCaptain(Long registrationId, boolean confirm);
     SportsEventRegistration respondToPartnerInvitation(Long registrationId, Long partnerUserId, boolean accept, String declineReason);
     List<SportsEventRegistration> getPartnerInvitations(Long partnerUserId, SportsEventRegistration.PartnerConfirmationStatus status);
-    SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId);
+    default SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId) {
+        return nominatePartner(registrationId, requestingUserId, partnerUserId, partnerFamilyMemberId, false, null);
+    }
+    SportsEventRegistration nominatePartner(Long registrationId, Long requestingUserId, Long partnerUserId, Long partnerFamilyMemberId, boolean isAdmin, Boolean autoConfirm);
     
     java.util.List<java.util.Map<String, Object>> getEventMap(Long communityId);
     long getConfirmedRegistrationCount(Long eventId);
+    SportsEvent setCaptainNominationOpen(Long eventId, boolean open);
     SportsEvent updateDisputeCommittee(Long eventId, java.util.List<Long> userIds);
     SportsEventRegistration setRegistrationSeed(Long registrationId, Integer seed);
+    List<SportsEvent> batchUpdateStatus(List<Long> eventIds, String status);
+    void batchDeleteEvents(List<Long> eventIds);
 }

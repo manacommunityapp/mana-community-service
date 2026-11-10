@@ -60,6 +60,7 @@ public class SportsEventRequest {
     private String otherContacts;
     private Boolean auctionEnabled;
     private Boolean auction;
+    private Boolean captainNominationOpen;
     private String bannerImage;
     private String tournamentLevel;
     private String description;

@@ -7,9 +7,12 @@ import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.repository.SportsEventRepository;
+import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Profile("!prod")
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,10 +31,24 @@ public class SportsTournamentSeeder {
 
     private final SportsTournamentRepository tournamentRepo;
     private final SportsEventRepository sportsEventRepo;
+    private final SportsEventRegistrationRepository regRepo;
     private final CommunitySeeder communitySeeder;
+    private final Environment environment;
 
     @Transactional
     public void seed() {
+        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            log.warn("Safety guard: SportsTournamentSeeder cannot run under 'prod' profile. Aborting.");
+            return;
+        }
+
+        long registrationCount = regRepo != null ? regRepo.count() : 0;
+        if (registrationCount > 0) {
+            log.warn("SAFETY GUARD TRIGGERED: {} user registrations exist in database. " +
+                     "Never wiping tournament sample data or deleting tournaments when user registrations exist. Skipping tournament seeding.", registrationCount);
+            return;
+        }
+
         log.info("Seeding tournament sample data with all sports sub-events (delete & recreate if exists)...");
 
         Community leCommunity = communitySeeder.getLeCommunity();

@@ -322,6 +322,8 @@ public class SportsTournamentSchedulerService {
         String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : extractNote(m.getMatchNotes(), "homeName", "TBD");
         String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : extractNote(m.getMatchNotes(), "awayName", "TBD");
         String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
+        String teamAFlat = extractNote(m.getMatchNotes(), "homeFlat", null);
+        String teamBFlat = extractNote(m.getMatchNotes(), "awayFlat", null);
 
         return new SportsMatchResponse(
             m.getId(), roundName,
@@ -342,7 +344,9 @@ public class SportsTournamentSchedulerService {
             m.getScoreTeamA(), m.getScoreTeamB(),
             m.getWinner() != null ? m.getWinner().getTeamName() : (m.getWinnerName() != null ? m.getWinnerName() : null),
             m.getWinnerAdvancesToMatchId(),
-            m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED
+            m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED,
+            teamAFlat,
+            teamBFlat
         );
     }
 
