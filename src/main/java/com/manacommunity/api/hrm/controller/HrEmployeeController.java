@@ -97,4 +97,34 @@ public class HrEmployeeController {
             @PathVariable Long employeeId) {
         return ResponseEntity.ok(employeeService.listDocuments(employeeId));
     }
+
+    @PatchMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<EmployeeResponse> selfServiceUpdate(
+            @PathVariable Long orgId,
+            @Valid @RequestBody SelfServiceUpdateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long employeeId = employeeService.findByOrgAndManaUser(orgId, user.getId()).getId();
+        return ResponseEntity.ok(employeeService.selfServiceUpdate(employeeId, request));
+    }
+
+    @GetMapping("/{employeeId}/history")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<EmploymentHistoryResponse>> getEmploymentHistory(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(employeeService.getEmploymentHistory(orgId, employeeId));
+    }
+
+    @GetMapping("/hierarchy")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OrgHierarchyNode>> getOrgHierarchy(
+            @PathVariable Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(employeeService.getOrgHierarchy(orgId));
+    }
 }
