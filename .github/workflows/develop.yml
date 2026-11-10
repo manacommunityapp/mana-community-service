@@ -3,7 +3,7 @@ name: Dev Deployment
 on:
   push:
     branches:
-      - develop
+      - main
   workflow_dispatch:
 
 jobs:
@@ -26,32 +26,32 @@ jobs:
       - name: Copy JAR to Server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
+          username: ${{ secrets.DEV_LIGHTSAIL_USER }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           source: "target/*.jar"
           target: "/tmp/dev"
 
       - name: Copy Service File to Server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
+          username: ${{ secrets.DEV_LIGHTSAIL_USER }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           source: "deploy/backend-dev.service"
           target: "/tmp/dev"
 
       - name: Deploy Dev Application
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
+          username: ${{ secrets.DEV_LIGHTSAIL_USER }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           script: |
             # Create directories
             sudo mkdir -p /opt/mana-community/backend-dev
             sudo mkdir -p /var/log/mana-community-dev/archive
-            sudo mkdir -p /etc/mana-community
+            sudo mkdir -p /etc/mana-community-dev
 
             # Deploy JAR
             sudo cp /tmp/dev/target/*.jar \
