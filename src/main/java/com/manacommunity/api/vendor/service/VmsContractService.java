@@ -71,6 +71,42 @@ public class VmsContractService {
     }
 
     @Transactional
+    public ContractResponse update(Long id, ContractRequest req, Long communityId) {
+        VmsContract contract = contractRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contract", id));
+        contract.setTitle(req.getTitle());
+        contract.setDescription(req.getDescription());
+        if (req.getContractType() != null) contract.setType(VmsContract.ContractType.valueOf(req.getContractType()));
+        if (req.getStartDate() != null) contract.setStartDate(req.getStartDate());
+        if (req.getEndDate() != null) contract.setEndDate(req.getEndDate());
+        if (req.getTotalValue() != null) contract.setValue(req.getTotalValue());
+        contract.setPaymentFrequency(req.getPaymentTerms());
+        if (req.getAutoRenew() != null) contract.setAutoRenew(req.getAutoRenew());
+        if (req.getRenewalNoticeDays() != null) contract.setRenewalNoticeDays(req.getRenewalNoticeDays());
+        return toResponse(contractRepo.save(contract));
+    }
+
+    @Transactional
+    public ContractResponse renew(Long id, java.time.LocalDate newEndDate, Long communityId) {
+        VmsContract contract = contractRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contract", id));
+        if (newEndDate == null || !newEndDate.isAfter(contract.getEndDate()))
+            throw new IllegalArgumentException("Renewal end date must be after the current end date");
+        contract.setEndDate(newEndDate);
+        contract.setStatus(VmsContract.ContractStatus.ACTIVE);
+        return toResponse(contractRepo.save(contract));
+    }
+
+    @Transactional
+    public ContractResponse terminate(Long id, String reason, Long communityId) {
+        VmsContract contract = contractRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contract", id));
+        contract.setStatus(VmsContract.ContractStatus.TERMINATED);
+        contract.setTerminationReason(reason);
+        return toResponse(contractRepo.save(contract));
+    }
+
+    @Transactional
     public ContractResponse updateStatus(Long id, String status, Long communityId) {
         VmsContract contract = contractRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contract", id));

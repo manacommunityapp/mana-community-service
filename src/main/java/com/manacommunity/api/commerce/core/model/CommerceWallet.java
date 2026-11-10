@@ -42,4 +42,10 @@ public class CommerceWallet {
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    /** JPA optimistic lock — prevents concurrent wallet debit double-spend. */
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
 }

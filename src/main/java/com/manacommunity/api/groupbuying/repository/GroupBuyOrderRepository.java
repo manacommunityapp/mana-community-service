@@ -1,9 +1,11 @@
 package com.manacommunity.api.groupbuying.repository;
 
 import com.manacommunity.api.groupbuying.model.GroupBuyOrder;
+import com.manacommunity.api.groupbuying.model.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,4 +16,6 @@ public interface GroupBuyOrderRepository extends JpaRepository<GroupBuyOrder, Lo
     List<GroupBuyOrder> findByDealId(Long dealId);
     Optional<GroupBuyOrder> findByQrToken(String qrToken);
     Optional<GroupBuyOrder> findByOrderNumber(String orderNumber);
+    Optional<GroupBuyOrder> findByCommerceOrderId(Long commerceOrderId);
+    List<GroupBuyOrder> findByStatusAndReservedUntilBefore(OrderStatus status, LocalDateTime now);
 }

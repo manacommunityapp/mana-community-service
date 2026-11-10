@@ -83,6 +83,9 @@ public class VisitorPass {
     @Column(name = "visitor_photo", columnDefinition = "TEXT")
     private String visitorPhoto;
 
+    @Column(name = "photo_captured_at")
+    private LocalDateTime photoCapturedAt;
+
     @Column(name = "encrypted_token", length = 500)
     private String encryptedToken;
 

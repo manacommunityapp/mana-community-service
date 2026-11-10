@@ -218,6 +218,39 @@ public class GlobalExceptionHandler {
         return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(ToleranceExceededException.class)
+    public ResponseEntity<ErrorResponse> handleToleranceExceeded(
+            ToleranceExceededException ex, HttpServletRequest request) {
+        log.warn("Tolerance exceeded at {}: requested={}g, actual={}g, diff={}% (max={}%): {}",
+                request.getRequestURI(), ex.getRequestedWeightG(), ex.getActualWeightG(),
+                ex.getDiffPct(), ex.getMaxTolerancePct(), ex.getMessage());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(BatchQuarantinedException.class)
+    public ResponseEntity<ErrorResponse> handleBatchQuarantined(
+            BatchQuarantinedException ex, HttpServletRequest request) {
+        log.warn("Quarantined batch action rejected at {}: batch {} (ID: {}) - {}",
+                request.getRequestURI(), ex.getBatchNumber(), ex.getBatchId(), ex.getReason());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(HandoverLockoutException.class)
+    public ResponseEntity<ErrorResponse> handleHandoverLockout(
+            HandoverLockoutException ex, HttpServletRequest request) {
+        log.warn("Handover locked out at {}: group {}, failed attempts={}/{}",
+                request.getRequestURI(), ex.getGroupReference(), ex.getFailedAttempts(), ex.getMaxAttempts());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(InvalidStateTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStateTransition(
+            InvalidStateTransitionException ex, HttpServletRequest request) {
+        log.warn("Invalid state transition at {}: entity={}, current={}, attempted={}",
+                request.getRequestURI(), ex.getEntityName(), ex.getCurrentStatus(), ex.getAttemptedStatus());
+        return build(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request, null);
+    }
+
     /** Catch-all for any other ManaCommunityException subtype. */
     @ExceptionHandler(ManaCommunityException.class)
     public ResponseEntity<ErrorResponse> handleManaCommunity(

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface VmsVendorCategoryRepository extends JpaRepository<VmsVendorCategory, Long> {
+    java.util.Optional<VmsVendorCategory> findByIdAndCommunityId(Long id, Long communityId);
     List<VmsVendorCategory> findByCommunityIdAndActiveTrue(Long communityId);
     List<VmsVendorCategory> findByCommunityIdAndParentIdIsNullAndActiveTrue(Long communityId);
     List<VmsVendorCategory> findByParentIdAndActiveTrue(Long parentId);

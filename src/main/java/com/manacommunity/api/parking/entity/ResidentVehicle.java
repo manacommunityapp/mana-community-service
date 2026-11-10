@@ -51,6 +51,10 @@ public class ResidentVehicle {
     @Column(name = "sticker_number", length = 30)
     private String stickerNumber;
 
+    @Column(name = "gate_whitelisted", nullable = false)
+    @Builder.Default
+    private boolean gateWhitelisted = false;
+
     @Column(name = "is_primary", nullable = false)
     @Builder.Default
     private boolean primary = false;

@@ -78,6 +78,13 @@ public class GroupDeal extends BaseAuditEntity {
     @Builder.Default
     private Integer committedQty = 0;
 
+    @Column(name = "reserved_qty")
+    @Builder.Default
+    private Integer reservedQty = 0;
+
+    @Version
+    private Long version;
+
     @Column(name = "target_qty", nullable = false)
     private Integer targetQty;
 

@@ -198,6 +198,24 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));
     }
 
+    @GetMapping("/my-visitors")
+    @PreAuthorize("hasAuthority('View Visitors')")
+    public ResponseEntity<List<VisitorPassResponse>> getMyVisitors(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(visitorPassService.getMyPasses(user.getId()));
+    }
+
+    @PostMapping("/pre-approve")
+    @PreAuthorize("hasAuthority('Create Visitor Pass')")
+    public ResponseEntity<VisitorPassResponse> preApprove(
+            @Valid @RequestBody VisitorPassRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(visitorPassService.create(req, user, user.getCommunity()));
+    }
+
     @GetMapping("/verify")
     @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> verifyPass(
@@ -222,5 +240,13 @@ public class VisitorPassController {
     @PreAuthorize("hasAnyAuthority('View Visitors', 'Manage Gate')")
     public ResponseEntity<List<VisitorAuditLog>> getAuditLogs() {
         return ResponseEntity.ok(visitorPassService.getRecentAuditLogs());
+    }
+
+    @PutMapping("/{id}/photo")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<VisitorPassResponse> capturePhoto(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(visitorPassService.capturePhoto(id, body.get("photoUrl")));
     }
 }

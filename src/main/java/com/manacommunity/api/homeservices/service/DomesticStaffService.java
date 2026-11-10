@@ -13,4 +13,8 @@ public interface DomesticStaffService {
     DomesticStaffResponse getStaffById(Long id);
 
     DomesticStaffResponse createStaff(Long communityId, DomesticStaffRequest request);
+
+    DomesticStaffResponse updateStaff(Long id, DomesticStaffRequest request);
+
+    void removeStaff(Long id);
 }

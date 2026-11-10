@@ -644,4 +644,141 @@ public class HealthDtos {
         private UUID patientId;
         private GoldPlanTier planTier;
     }
+
+    // ── Round 6: Condition Groups, Language, Insurance Coverage ───────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ConditionGroupDto {
+        private String id;
+        private ConditionGroup group;
+        private String label;
+        private String mappedSpecialty;
+        private Integer availableDoctors;
+        private String avgWaitMin;
+        private String startingPrice;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class LanguagePreferenceRequest {
+        private UUID patientId;
+        private ConsultLanguage preferredLanguage;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class InsuranceCoverageDto {
+        private String procedureId;
+        private String procedureName;
+        private InsuranceCoverageStatus status;
+        private String policyNumber;
+        private String insurer;
+        private Long sumInsured;
+        private Long amountUsed;
+        private Long amountAvailable;
+        private Boolean cashlessEligible;
+        private String notes;
+    }
+
+    // ── Round 7 DTOs ──────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class LabCategoryDto {
+        private String id;
+        private LabCategory category;
+        private String label;
+        private String icon;
+        private Integer packageCount;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class IndividualLabTestDto {
+        private String id;
+        private String name;
+        private Long price;
+        private Long originalPrice;
+        private String reportTurnaround;
+        private List<String> availability;
+        private Boolean fastingRequired;
+        private Integer fastingHours;
+        private String sampleType;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class SurgeryConditionShortcutDto {
+        private String id;
+        private SurgeryCondition condition;
+        private String label;
+        private String mappedCategory;
+        private String icon;
+        private String color;
+        private Integer availableSurgeons;
+        private String startingCost;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ExpertOpinionRequestDto {
+        private UUID patientId;
+        private String cancerType;
+        private String reportNotes;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ExpertOpinionStatusDto {
+        private String requestId;
+        private ExpertOpinionStatus status;
+        private String assignedExperts;
+        private String expectedCompletionDate;
+        private String partnerInstitution;
+        private String notes;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DoctorAvailabilityFilterDto {
+        private Boolean walkInOnly;
+        private Boolean instantConfirmationOnly;
+        private SortOption sortBy;
+        private String specialty;
+        private String department;
+    }
+
+    // ── Round 8 DTOs ──────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DoctorDto {
+        private Long id;
+        private String name;
+        private String specialty;
+        private Integer experienceYears;
+        private BigDecimal rating;
+        private Long consultationFee;
+        private String qualifications;
+        private Boolean verifiedBadge;
+        private Integer verifiedCommunityConsultations;
+        private Boolean isOpenNow;
+        private Boolean walkInAvailable;
+        private List<String> availableSlots;
+        private String clinicName;
+        private String location;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class RadiologyCenterDto {
+        private String id;
+        private String name;
+        private String address;
+        private Double distanceKm;
+        private List<String> accreditation;
+        private List<String> availableModalities;
+        private String reportTurnaround;
+        private Double rating;
+        private Boolean homeService;
+        private Boolean openNow;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class BloodBankAvailabilityDto {
+        private String bloodType;
+        private Integer units;
+        private String status;
+        private String centerName;
+    }
 }

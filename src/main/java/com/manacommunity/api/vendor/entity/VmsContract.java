@@ -75,6 +75,9 @@ public class VmsContract {
     @Column(name = "termination_clause", length = 2000)
     private String terminationClause;
 
+    @Column(name = "termination_reason", length = 1000)
+    private String terminationReason;
+
     @Column(name = "signed_by_vendor", nullable = false)
     @Builder.Default
     private Boolean signedByVendor = false;
