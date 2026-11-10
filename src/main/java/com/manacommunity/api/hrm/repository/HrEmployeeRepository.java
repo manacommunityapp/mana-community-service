@@ -33,6 +33,8 @@ public interface HrEmployeeRepository extends JpaRepository<HrEmployee, Long> {
 
     long countByOrganizationIdAndJoiningDateBetween(Long organizationId, java.time.LocalDate from, java.time.LocalDate to);
 
+    List<HrEmployee> findByOrganizationIdAndEmploymentStatus(Long organizationId, EmploymentStatus status);
+
     @Query("SELECT e FROM HrEmployee e WHERE e.organization.id = :orgId AND e.reportingManagerId IS NULL AND e.employmentStatus = 'ACTIVE'")
     List<HrEmployee> findRootEmployeesByOrg(@Param("orgId") Long orgId);
 
