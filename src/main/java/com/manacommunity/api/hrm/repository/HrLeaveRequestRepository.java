@@ -25,4 +25,6 @@ public interface HrLeaveRequestRepository extends JpaRepository<HrLeaveRequest, 
     List<HrLeaveRequest> findOverlapping(Long employeeId, LocalDate fromDate, LocalDate toDate);
 
     long countByOrganizationIdAndApprovalStatus(Long organizationId, LeaveApprovalStatus status);
+
+    List<HrLeaveRequest> findByEmployeeIdAndOrganizationId(Long employeeId, Long organizationId);
 }

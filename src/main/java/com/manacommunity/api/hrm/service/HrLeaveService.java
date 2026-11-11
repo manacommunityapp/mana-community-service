@@ -128,8 +128,10 @@ public class HrLeaveService {
 
         int year = savedRequest.getFromDate().getYear();
         HrEmployee emp = savedRequest.getEmployee();
+
+        // P0: pessimistic lock to prevent concurrent over-draw
         HrLeaveBalance balance = leaveBalanceRepository
-                .findByEmployeeIdAndLeaveTypeIdAndYear(emp.getId(), leaveType.getId(), year)
+                .findByEmployeeAndTypeAndYearWithLock(emp.getId(), leaveType.getId(), year)
                 .orElseGet(() -> HrLeaveBalance.builder()
                         .organizationId(orgId)
                         .employee(emp)
@@ -139,6 +141,12 @@ public class HrLeaveService {
                         .usedBalance(0.0)
                         .remainingBalance((double) leaveType.getDefaultBalance())
                         .build());
+
+        // Re-validate under lock
+        if (!Boolean.TRUE.equals(leaveType.getAllowNegativeBalance())
+                && balance.getRemainingBalance() < savedRequest.getTotalDays()) {
+            throw new IllegalStateException("Insufficient leave balance after re-check under lock");
+        }
 
         balance.setUsedBalance(balance.getUsedBalance() + savedRequest.getTotalDays());
         balance.setRemainingBalance(balance.getTotalBalance() - balance.getUsedBalance());
@@ -252,6 +260,30 @@ public class HrLeaveService {
     public Page<LeaveRequestResponse> getOrgLeaveRequests(Long orgId, LeaveApprovalStatus status, Pageable pageable) {
         return leaveRequestRepository.findByOrganizationIdAndApprovalStatus(orgId, status, pageable)
                 .map(this::toResponse);
+    }
+
+    // P0: manager-authorised employee-specific endpoints
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> getLeaveRequestsByEmployee(Long orgId, Long employeeId) {
+        return leaveRequestRepository.findByEmployeeIdAndOrganizationId(employeeId, orgId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveBalanceResponse> getLeaveBalancesByEmployee(Long orgId, Long employeeId) {
+        int year = LocalDate.now().getYear();
+        return leaveBalanceRepository.findByEmployeeIdAndYear(employeeId, year)
+                .stream()
+                .map(b -> LeaveBalanceResponse.builder()
+                        .leaveTypeId(b.getLeaveType().getId())
+                        .leaveTypeName(b.getLeaveType().getLeaveTypeName())
+                        .totalBalance(b.getTotalBalance())
+                        .usedBalance(b.getUsedBalance())
+                        .remainingBalance(b.getRemainingBalance())
+                        .build())
+                .toList();
     }
 
     @Transactional

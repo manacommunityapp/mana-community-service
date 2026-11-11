@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -53,8 +55,14 @@ public class HrEmployeeController {
     public ResponseEntity<Page<EmployeeListResponse>> listEmployees(
             @PathVariable Long orgId,
             @RequestParam(required = false) EmploymentStatus status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        // P0: if search param provided, use search query
+        if (search != null && !search.isBlank()) {
+            return ResponseEntity.ok(employeeService.searchEmployees(orgId, search,
+                    PageRequest.of(page, size, Sort.by("firstName").ascending())));
+        }
         return ResponseEntity.ok(employeeService.listEmployees(orgId, status,
                 PageRequest.of(page, size, Sort.by("firstName").ascending())));
     }
@@ -126,5 +134,21 @@ public class HrEmployeeController {
             @AuthenticationPrincipal UserPrincipal principal) {
         loggedInUserService.resolve(principal);
         return ResponseEntity.ok(employeeService.getOrgHierarchy(orgId));
+    }
+
+    // P0: secure document download — verifies org+employee ownership before redirect
+    @GetMapping("/{employeeId}/documents/{docId}/download")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> downloadDocument(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @PathVariable Long docId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        String url = employeeService.getSecureDocumentUrl(orgId, employeeId, docId);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, url)
+                .build();
     }
 }

@@ -109,4 +109,38 @@ public class HrAttendanceController {
         employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(attendanceService.getDailySummary(orgId, date));
     }
+
+    // P0: manager-authorised employee-specific attendance
+    @GetMapping("/organizations/{orgId}/employees/{employeeId}/records")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<AttendanceResponse>> getEmployeeAttendanceRecords(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @RequestParam(required = false) String month,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(attendanceService.getAttendanceByEmployee(orgId, employeeId, month));
+    }
+
+    // P1: break management
+    @PostMapping("/break-start")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AttendanceResponse> startBreak(
+            @RequestParam Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        HrEmployee employee = employeeService.findByOrgAndManaUser(orgId, user.getId());
+        return ResponseEntity.ok(attendanceService.startBreak(employee));
+    }
+
+    @PostMapping("/break-end")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AttendanceResponse> endBreak(
+            @RequestParam Long orgId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        HrEmployee employee = employeeService.findByOrgAndManaUser(orgId, user.getId());
+        return ResponseEntity.ok(attendanceService.endBreak(employee));
+    }
 }

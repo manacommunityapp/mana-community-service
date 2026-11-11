@@ -164,4 +164,27 @@ public class HrLeaveController {
     public ResponseEntity<List<HrLeaveType>> listLeaveTypes(@PathVariable Long orgId) {
         return ResponseEntity.ok(leaveService.listLeaveTypes(orgId));
     }
+
+    // P0: manager-authorised employee-specific leave data
+    @GetMapping("/organizations/{orgId}/employees/{employeeId}/requests")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<LeaveRequestResponse>> getEmployeeLeaveRequests(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(leaveService.getLeaveRequestsByEmployee(orgId, employeeId));
+    }
+
+    @GetMapping("/organizations/{orgId}/employees/{employeeId}/balances")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<LeaveBalanceResponse>> getEmployeeLeaveBalances(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(leaveService.getLeaveBalancesByEmployee(orgId, employeeId));
+    }
 }

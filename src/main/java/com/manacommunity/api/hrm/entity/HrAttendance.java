@@ -58,6 +58,14 @@ public class HrAttendance {
     @Column(name = "overtime_approved_by")
     private Long overtimeApprovedBy;
 
+    @Column(name = "total_break_minutes")
+    @Builder.Default
+    private Integer totalBreakMinutes = 0;
+
+    @Column(name = "is_night_shift")
+    @Builder.Default
+    private Boolean isNightShift = false;
+
     @Column(name = "remarks")
     private String remarks;
 

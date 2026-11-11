@@ -16,4 +16,6 @@ public interface HrEmployeeShiftRepository extends JpaRepository<HrEmployeeShift
     Page<HrEmployeeShift> findByOrganizationIdAndShiftDate(Long organizationId, LocalDate date, Pageable pageable);
 
     Optional<HrEmployeeShift> findByEmployeeIdAndShiftDate(Long employeeId, LocalDate shiftDate);
+
+    boolean existsByEmployeeIdAndShiftDate(Long employeeId, LocalDate shiftDate);
 }

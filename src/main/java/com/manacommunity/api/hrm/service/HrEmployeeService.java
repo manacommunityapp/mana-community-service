@@ -309,6 +309,28 @@ public class HrEmployeeService {
         return documentRepository.findByEmployeeId(employeeId);
     }
 
+    // P0: search employees by name/email/code
+    @Transactional(readOnly = true)
+    public Page<EmployeeListResponse> searchEmployees(Long orgId, String search, Pageable pageable) {
+        if (search == null || search.isBlank()) {
+            return employeeRepository.findByOrganizationId(orgId, pageable).map(this::toListResponse);
+        }
+        return employeeRepository.searchByOrganizationId(orgId, search.toLowerCase(), pageable).map(this::toListResponse);
+    }
+
+    // P0: secure document access — verifies org ownership before returning the URL
+    @Transactional(readOnly = true)
+    public String getSecureDocumentUrl(Long orgId, Long employeeId, Long docId) {
+        HrEmployeeDocument doc = documentRepository.findByIdAndOrganizationId(docId, orgId)
+                .orElseThrow(() -> new AccessDeniedException("Document not found in this organization"));
+        if (!doc.getEmployee().getId().equals(employeeId)) {
+            throw new AccessDeniedException("Document does not belong to this employee");
+        }
+        // In production: generate a signed/expiring URL here (e.g. S3 presigned URL).
+        // For now we return the stored URL after the permission check.
+        return doc.getFileUrl();
+    }
+
     private EmployeeResponse toResponse(HrEmployee emp) {
         String reportingManagerName = null;
         if (emp.getReportingManagerId() != null) {

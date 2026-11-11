@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,21 +26,23 @@ public class HrAttendanceService {
 
     private final HrAttendanceRepository attendanceRepository;
     private final HrAttendanceLogRepository attendanceLogRepository;
+    private final HrAttendanceSessionRepository attendanceSessionRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrEmployeeShiftRepository employeeShiftRepository;
     private final HrAttendanceCorrectionRepository correctionRepository;
 
     @Transactional
     public AttendanceResponse checkIn(HrEmployee employee, CheckInRequest request) {
-        LocalDateTime now = LocalDateTime.now();
+        // P0: pessimistic lock on employee to prevent race conditions
+        employeeRepository.findByIdAndOrganizationIdWithLock(employee.getId(), employee.getOrganization().getId())
+                .orElseThrow(() -> new IllegalStateException("Employee not found"));
 
-        Optional<HrAttendanceLog> lastCheckIn = attendanceLogRepository
-                .findTopByEmployeeIdAndEventTypeOrderByEventTimeDesc(employee.getId(), AttendanceEventType.CHECK_IN);
-        if (lastCheckIn.isPresent()) {
-            Duration sinceLastCheckIn = Duration.between(lastCheckIn.get().getEventTime(), now);
-            if (sinceLastCheckIn.toMinutes() < 1) {
-                throw new IllegalStateException("Duplicate check-in detected. Please wait before trying again.");
-            }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        // P0: idempotency — reject if already checked in today
+        if (attendanceRepository.existsByEmployeeIdAndAttendanceDate(employee.getId(), today)) {
+            throw new IllegalStateException("Already checked in today");
         }
 
         HrAttendanceLog log = HrAttendanceLog.builder()
@@ -54,16 +57,6 @@ public class HrAttendanceService {
                 .build();
         attendanceLogRepository.save(log);
 
-        LocalDate today = now.toLocalDate();
-        HrAttendance attendance = attendanceRepository.findByEmployeeIdAndAttendanceDate(employee.getId(), today)
-                .orElseGet(() -> HrAttendance.builder()
-                        .organizationId(employee.getOrganization().getId())
-                        .employee(employee)
-                        .attendanceDate(today)
-                        .attendanceStatus(AttendanceStatus.PRESENT)
-                        .build());
-
-        // Determine late status based on shift
         AttendanceStatus status = AttendanceStatus.PRESENT;
         HrEmployeeShift employeeShift = employeeShiftRepository
                 .findByEmployeeIdAndShiftDate(employee.getId(), today)
@@ -79,11 +72,21 @@ public class HrAttendanceService {
             }
         }
 
-        if (attendance.getFirstCheckIn() == null) {
-            attendance.setFirstCheckIn(now.toLocalTime());
-            attendance.setAttendanceStatus(status);
-        }
+        HrAttendance attendance = HrAttendance.builder()
+                .organizationId(employee.getOrganization().getId())
+                .employee(employee)
+                .attendanceDate(today)
+                .firstCheckIn(now.toLocalTime())
+                .attendanceStatus(status)
+                .build();
         attendance = attendanceRepository.save(attendance);
+
+        // P1: create first session
+        HrAttendanceSession session = HrAttendanceSession.builder()
+                .attendance(attendance)
+                .sessionIn(now)
+                .build();
+        attendanceSessionRepository.save(session);
 
         return toResponse(attendance);
     }
@@ -108,42 +111,98 @@ public class HrAttendanceService {
                 .build();
         attendanceLogRepository.save(log);
 
+        // P1: close the open session
+        Optional<HrAttendanceSession> openSession = attendanceSessionRepository
+                .findTopByAttendanceIdAndSessionOutIsNullOrderBySessionInDesc(attendance.getId());
+        if (openSession.isPresent()) {
+            HrAttendanceSession session = openSession.get();
+            session.setSessionOut(now);
+            attendanceSessionRepository.save(session);
+        }
+
+        // P1: night shift detection
+        if (attendance.getFirstCheckIn() != null && now.toLocalDate().isAfter(attendance.getAttendanceDate())) {
+            attendance.setIsNightShift(true);
+        }
+
         attendance.setLastCheckOut(now.toLocalTime());
 
-        // Sum all check-in/check-out pairs from logs (multi-punch fix)
-        int totalWorkMinutes = calculateWorkMinutes(employee.getId(), today);
+        // P1: recalculate total work minutes from all sessions
+        int totalWorkMinutes = calculateWorkMinutesFromSessions(attendance.getId());
         attendance.setTotalWorkMinutes(totalWorkMinutes);
 
-        // Calculate overtime
-        int otThreshold = employee.getOrganization().getOvertimeThresholdMinutes() != null
-                ? employee.getOrganization().getOvertimeThresholdMinutes()
-                : 480;
-        int overtimeMinutes = Math.max(0, totalWorkMinutes - otThreshold);
-        attendance.setOvertimeMinutes(overtimeMinutes);
+        // P1: overtime calculation vs standard shift
+        int standardMinutes = getStandardShiftMinutes(employee.getOrganization().getId(), employee.getId(), today);
+        attendance.setOvertimeMinutes(Math.max(0, totalWorkMinutes - standardMinutes));
 
         attendance = attendanceRepository.save(attendance);
         return toResponse(attendance);
     }
 
-    private int calculateWorkMinutes(Long employeeId, LocalDate date) {
-        List<HrAttendanceLog> logs = attendanceLogRepository
-                .findByEmployeeIdAndEventTimeBetweenOrderByEventTimeAsc(
-                        employeeId,
-                        date.atStartOfDay(),
-                        date.plusDays(1).atStartOfDay());
+    // P1: start a break (closes current session, opens a new one on return)
+    @Transactional
+    public AttendanceResponse startBreak(HrEmployee employee) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
 
-        int totalMinutes = 0;
-        LocalDateTime lastCheckIn = null;
+        HrAttendance attendance = attendanceRepository.findByEmployeeIdAndAttendanceDate(employee.getId(), today)
+                .orElseThrow(() -> new IllegalStateException("No check-in found for today"));
 
-        for (HrAttendanceLog logEntry : logs) {
-            if (logEntry.getEventType() == AttendanceEventType.CHECK_IN) {
-                lastCheckIn = logEntry.getEventTime();
-            } else if (logEntry.getEventType() == AttendanceEventType.CHECK_OUT && lastCheckIn != null) {
-                totalMinutes += (int) Duration.between(lastCheckIn, logEntry.getEventTime()).toMinutes();
-                lastCheckIn = null;
+        // Close the open session at break start
+        attendanceSessionRepository
+                .findTopByAttendanceIdAndSessionOutIsNullOrderBySessionInDesc(attendance.getId())
+                .ifPresent(session -> {
+                    session.setSessionOut(now);
+                    attendanceSessionRepository.save(session);
+                });
+
+        return toResponse(attendance);
+    }
+
+    // P1: end a break (opens a new session)
+    @Transactional
+    public AttendanceResponse endBreak(HrEmployee employee) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        HrAttendance attendance = attendanceRepository.findByEmployeeIdAndAttendanceDate(employee.getId(), today)
+                .orElseThrow(() -> new IllegalStateException("No check-in found for today"));
+
+        HrAttendanceSession newSession = HrAttendanceSession.builder()
+                .attendance(attendance)
+                .sessionIn(now)
+                .build();
+        attendanceSessionRepository.save(newSession);
+
+        return toResponse(attendance);
+    }
+
+    private int calculateWorkMinutesFromSessions(Long attendanceId) {
+        List<HrAttendanceSession> sessions = attendanceSessionRepository
+                .findByAttendanceIdOrderBySessionInAsc(attendanceId);
+        int total = 0;
+        for (HrAttendanceSession s : sessions) {
+            if (s.getSessionOut() != null) {
+                total += (int) Duration.between(s.getSessionIn(), s.getSessionOut()).toMinutes();
             }
         }
-        return totalMinutes;
+        return total;
+    }
+
+    private int getStandardShiftMinutes(Long orgId, Long employeeId, LocalDate date) {
+        return employeeShiftRepository.findByEmployeeIdAndShiftDate(employeeId, date)
+                .map(es -> {
+                    HrShift shift = es.getShift();
+                    if (shift.getStartTime() != null && shift.getEndTime() != null) {
+                        int minutes = (int) Duration.between(shift.getStartTime(), shift.getEndTime()).toMinutes();
+                        // Handle overnight shifts
+                        if (minutes < 0) minutes += 24 * 60;
+                        int breakMins = shift.getBreakMinutes() != null ? shift.getBreakMinutes() : 0;
+                        return Math.max(0, minutes - breakMins);
+                    }
+                    return 480;
+                })
+                .orElse(480);
     }
 
     @Transactional
@@ -196,6 +255,25 @@ public class HrAttendanceService {
 
     @Transactional(readOnly = true)
     public List<AttendanceResponse> getMyAttendance(Long employeeId, LocalDate from, LocalDate to) {
+        return attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, from, to)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    // P0: manager-authorised employee-specific attendance
+    @Transactional(readOnly = true)
+    public List<AttendanceResponse> getAttendanceByEmployee(Long orgId, Long employeeId, String month) {
+        LocalDate from;
+        LocalDate to;
+        if (month != null && !month.isBlank()) {
+            YearMonth ym = YearMonth.parse(month);
+            from = ym.atDay(1);
+            to = ym.atEndOfMonth();
+        } else {
+            to = LocalDate.now();
+            from = to.minusDays(29);
+        }
         return attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, from, to)
                 .stream()
                 .map(this::toResponse)
