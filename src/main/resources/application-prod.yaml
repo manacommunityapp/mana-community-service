@@ -51,6 +51,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
 
 app:
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
@@ -69,7 +70,7 @@ app:
 
   security:
     mock-auth-enabled: false
-    require-https: true                       # DPDP Act 2023 compliance — enforce TLS in prod
+    require-https: ${APP_REQUIRE_HTTPS:false}      # TLS termination handled by Nginx; set true only if directly exposed
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
@@ -117,8 +118,8 @@ app:
   # ── DPDP Act 2023 compliance ─────────────────────────────────────────────
 
   captcha:
-    enabled: false                             # gap #3 — enable hCaptcha in prod
-    #secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
+    enabled: ${APP_CAPTCHA_ENABLED:false}      # set true in prod when APP_CAPTCHA_SECRET_KEY is configured
+    secret-key: ${APP_CAPTCHA_SECRET_KEY:}
 
   privacy:
     dpo-email: ${APP_DPO_EMAIL:dpo@manacommunity.app}   # [REQUIRED] real monitored mailbox
