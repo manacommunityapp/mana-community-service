@@ -58,6 +58,40 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.community.id = :communityId AND m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE ORDER BY m.scheduledAt")
     List<SportsTournamentMatch> findLiveByCommunityId(@Param("communityId") Long communityId);
 
+    /** Live matches, plus matches completed since {@code since}, for a community (feed candidates; flag filtered in service). */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE (m.config.community.id = :communityId OR m.community.id = :communityId)
+             AND (m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE
+                  OR (m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
+                      AND ((m.completedAt IS NOT NULL AND m.completedAt >= :since)
+                           OR (m.completedAt IS NULL AND m.scheduledAt >= :since))))
+           ORDER BY m.scheduledAt DESC
+           """)
+    List<SportsTournamentMatch> findFeedCandidatesByCommunityId(@Param("communityId") Long communityId,
+                                                                @Param("since") LocalDateTime since);
+
+    /** Live matches, plus matches completed since {@code since}, across all communities (for super-admin feed). */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE (m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE
+                  OR (m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
+                      AND ((m.completedAt IS NOT NULL AND m.completedAt >= :since)
+                           OR (m.completedAt IS NULL AND m.scheduledAt >= :since))))
+           ORDER BY m.scheduledAt DESC
+           """)
+    List<SportsTournamentMatch> findFeedCandidatesAll(@Param("since") LocalDateTime since);
+
+    /** Recently completed matches that have not had a feed result post published yet. */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
+             AND m.feedResultPostId IS NULL
+             AND m.scheduledAt >= :since
+           ORDER BY m.scheduledAt
+           """)
+    List<SportsTournamentMatch> findCompletedWithoutFeedPost(@Param("since") LocalDateTime since);
+
     @Transactional
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM SportsTournamentMatch m WHERE m.config.id = :configId")

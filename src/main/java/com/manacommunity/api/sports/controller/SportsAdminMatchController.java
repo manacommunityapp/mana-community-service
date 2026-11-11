@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+import com.manacommunity.api.user.model.AppUser;
+import static com.manacommunity.api.constants.PermissionConstants.*;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 
 @RestController
@@ -59,7 +61,18 @@ public class SportsAdminMatchController {
                     ? matchRepo.findAll(pageable)
                     : matchRepo.findPageByCommunityId(ctx.communityId(), pageable);
         }
-        return ResponseEntity.ok(PagedResponse.from(matchPage, schedulerService::toMatchResponse));
+        boolean admin = isSportsAdmin(principal);
+        List<SportsMatchResponse> filtered = matchPage.getContent().stream()
+                .filter(m -> admin || (m.getStatus() != MatchStatus.DRAFT && (m.getConfig() == null || m.getConfig().getStatus() != com.manacommunity.api.sports.scheduler.SportsTournamentConfig.TournamentStatus.DRAFT)))
+                .map(schedulerService::toMatchResponse)
+                .toList();
+        return ResponseEntity.ok(new PagedResponse<>(
+                filtered,
+                matchPage.getNumber(),
+                matchPage.getSize(),
+                admin ? matchPage.getTotalElements() : (long) filtered.size(),
+                matchPage.getTotalPages()
+        ));
     }
 
     @GetMapping("/matches/live")
@@ -92,5 +105,22 @@ public class SportsAdminMatchController {
             match = matchRepo.save(match);
         }
         return ResponseEntity.ok(schedulerService.toMatchResponse(match));
+    }
+
+    private boolean isSportsAdmin(UserPrincipal principal) {
+        if (principal == null) return false;
+        if (principal.getUser() != null) {
+            AppUser u = principal.getUser();
+            if (u.hasRole(ROLE_SUPER_ADMIN)
+                    || u.hasRole(ROLE_ADMIN)
+                    || u.hasRole(ROLE_COMMUNITY_ADMIN)
+                    || u.hasRole(ROLE_SPORTS_ADMIN)) {
+                return true;
+            }
+        }
+        return principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a -> {
+            String role = a.getAuthority().toUpperCase();
+            return role.contains("ADMIN") || role.contains("SPORTS_ADMIN");
+        });
     }
 }

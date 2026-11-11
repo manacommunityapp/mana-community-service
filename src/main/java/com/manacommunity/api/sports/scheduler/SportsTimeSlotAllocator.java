@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /**
  * Owns time-slot allocation for generated schedules: where the day starts and
@@ -17,6 +20,17 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service
 public class SportsTimeSlotAllocator {
+
+    private static final DateTimeFormatter[] TIME_FORMATTERS = new DateTimeFormatter[] {
+        DateTimeFormatter.ISO_LOCAL_TIME,
+        DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("hh:mma", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("h:mma", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("h:mm:ss a", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("H:mm", Locale.ENGLISH)
+    };
 
     /** Default start-of-play time for a generated day (09:00). */
     public LocalDateTime dayStart(LocalDate date) {
@@ -33,15 +47,45 @@ public class SportsTimeSlotAllocator {
         return new Cursor(start, durationMins + breakMins);
     }
 
-    /** Parse a UI-supplied date/time ("yyyy-MM-dd" + "HH:mm") into a timestamp. */
+    /** Parse a UI-supplied date/time ("yyyy-MM-dd" + "HH:mm" or "hh:mm a") into a timestamp. */
     public LocalDateTime parseScheduledAt(String date, String time) {
         try {
-            String t = (time != null && !time.isBlank()) ? time : "00:00";
-            return LocalDateTime.parse(date + "T" + t);
+            if (date == null || date.isBlank()) {
+                return LocalDateTime.now();
+            }
+            String trimmedDate = date.trim();
+            if (trimmedDate.contains("T")) {
+                return LocalDateTime.parse(trimmedDate);
+            }
+            LocalDate d = LocalDate.parse(trimmedDate);
+            LocalTime t = parseLocalTime(time);
+            return LocalDateTime.of(d, t);
         } catch (Exception e) {
             log.warn("Failed to parse scheduledAt date={} time={}, falling back to now", date, time, e);
             return LocalDateTime.now();
         }
+    }
+
+    public LocalTime parseLocalTime(String time) {
+        if (time == null || time.isBlank()) {
+            return LocalTime.MIDNIGHT;
+        }
+        String t = time.trim();
+        for (DateTimeFormatter formatter : TIME_FORMATTERS) {
+            try {
+                return LocalTime.parse(t, formatter);
+            } catch (Exception ignored) {
+            }
+        }
+        String upper = t.toUpperCase(Locale.ENGLISH);
+        for (DateTimeFormatter formatter : TIME_FORMATTERS) {
+            try {
+                return LocalTime.parse(upper, formatter);
+            } catch (Exception ignored) {
+            }
+        }
+        log.warn("Could not parse time string '{}', defaulting to midnight", time);
+        return LocalTime.MIDNIGHT;
     }
 
     /**

@@ -231,6 +231,25 @@ public class SportsTournamentSchedulerService {
         return matchPersistence.getConfigsByCommunity(communityId);
     }
 
+    public void deleteTournamentConfig(Long configId) {
+        matchPersistence.deleteTournamentConfig(configId);
+    }
+
+    @Transactional
+    public SportsTournamentConfigResponse publishTournamentConfig(Long configId) {
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+
+        config.setStatus(SportsTournamentConfig.TournamentStatus.ACTIVE);
+        SportsTournamentConfig saved = configRepo.save(config);
+
+        matchRepo.updateStatusByConfigId(saved.getId(), MatchStatus.PUBLISHED);
+        notificationService.notifySchedulePublished(saved.getId());
+
+        log.info("Published tournament config id={} name={}", saved.getId(), saved.getTournamentName());
+        return toConfigResponse(saved);
+    }
+
     public void assignTeamsToGroups(Long configId, List<GroupAssignmentRequest> assignments) {
         matchPersistence.assignTeamsToGroups(configId, assignments);
     }

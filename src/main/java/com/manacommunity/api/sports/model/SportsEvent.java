@@ -227,6 +227,10 @@ public class SportsEvent {
     @Column(name = "auction_enabled")
     private Boolean auctionEnabled;
 
+    /** null = inherit from tournament; true/false = explicit override for this event. */
+    @Column(name = "show_in_feed")
+    private Boolean showInFeed;
+
     @Column(name = "captain_nomination_open", nullable = false)
     @Builder.Default
     private Boolean captainNominationOpen = false;

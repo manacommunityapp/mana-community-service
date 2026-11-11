@@ -56,6 +56,10 @@ import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.sports.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_COMMUNITY_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SPORTS_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
 import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
 
@@ -528,6 +532,17 @@ public class SportsController {
         return ResponseEntity.ok(members);
     }
 
+    private boolean isSportsAdminOrAdmin(UserPrincipal principal) {
+        if (principal == null) return false;
+        AppUser user = loggedInUserService.resolve(principal);
+        if (user == null) return false;
+        return user.hasRole(ROLE_SUPER_ADMIN)
+                || user.hasRole(ROLE_ADMIN)
+                || user.hasRole(ROLE_COMMUNITY_ADMIN)
+                || user.hasRole(ROLE_SPORTS_ADMIN)
+                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
+    }
+
     @PostMapping("/register")
     public ResponseEntity<SportsRegistrationResponse> register(
             @Valid @RequestBody RegistrationRequest req,
@@ -539,8 +554,9 @@ public class SportsController {
                 .findByIdAndUserId(req.getFamilyMemberId(), ctx.userId()).isEmpty()) {
             throw new UnauthorizedActionException("Use Register Others to register a different resident's family member.");
         }
+        boolean admin = isSportsAdminOrAdmin(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
+                .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId(), admin)));
     }
 
     @PostMapping("/register-others")
@@ -549,8 +565,9 @@ public class SportsController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean admin = isSportsAdminOrAdmin(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toRegistrationResponse(eventService.registerOthers(req, ctx.userId())));
+                .body(toRegistrationResponse(eventService.registerOthers(req, ctx.userId(), admin)));
     }
 
     @PostMapping("/register-team")
@@ -561,7 +578,8 @@ public class SportsController {
         log.info("Registering team '{}' for event eventId={} with {} members",
                 teamReq.getTeamName(), teamReq.getEventId(), teamReq.getMemberUserIds().size());
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId());
+        boolean admin = isSportsAdminOrAdmin(principal);
+        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId(), admin);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(registrations.stream().map(this::toRegistrationResponse).toList());
     }
@@ -573,8 +591,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         log.info("Withdrawing registration registrationId={}", registrationId);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        boolean admin = ctx.superAdmin()
-                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        boolean admin = isSportsAdminOrAdmin(principal);
         eventService.withdraw(registrationId, ctx.userId(), admin, reason);
         return ResponseEntity.noContent().build();
     }

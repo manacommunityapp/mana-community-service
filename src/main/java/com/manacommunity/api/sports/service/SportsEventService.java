@@ -27,9 +27,20 @@ public interface SportsEventService {
     List<SportsEvent> getClosedEvents(Long communityId);
     List<SportsEvent> getCompletedEvents();
     List<SportsEvent> getCompletedEvents(Long communityId);
-    SportsEventRegistration registerUser(RegistrationRequest req, Long userId);
-    SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId);
-    List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId);
+    default SportsEventRegistration registerUser(RegistrationRequest req, Long userId) {
+        return registerUser(req, userId, false);
+    }
+    SportsEventRegistration registerUser(RegistrationRequest req, Long userId, boolean admin);
+
+    default SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId) {
+        return registerOthers(req, requesterUserId, false);
+    }
+    SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId, boolean admin);
+
+    default List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId) {
+        return registerTeam(req, captainUserId, false);
+    }
+    List<SportsEventRegistration> registerTeam(TeamRegistrationRequest req, Long captainUserId, boolean admin);
     List<SportsEvent> getAllEvents();
     Page<SportsEvent> getAllEvents(Pageable pageable);
     List<SportsEvent> getAllEventsIncludingInactive();

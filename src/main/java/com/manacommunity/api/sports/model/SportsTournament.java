@@ -93,6 +93,10 @@ public class SportsTournament {
 
     private Boolean allowAdminChat;
 
+    /** Show this tournament's live matches on the community feed (null = off). */
+    @Column(name = "show_in_feed")
+    private Boolean showInFeed;
+
     @OneToMany(mappedBy = "tournament", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"tournament"})
     @Builder.Default

@@ -159,12 +159,15 @@ class SportsPlayoffScheduleGeneratorTest {
     @DisplayName("round naming")
     class RoundNaming {
         @Test
-        @DisplayName("getRoundName maps last three rounds to FINAL/SEMI/QUARTER")
+        @DisplayName("getRoundName maps rounds backwards from FINAL down to ROUND_OF_64")
         void roundNames() {
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(2, 3)).isEqualTo("FINAL");
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(1, 3)).isEqualTo("SEMI_FINAL");
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 3)).isEqualTo("QUARTER_FINAL");
-            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 5)).isEqualTo("Round 1");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 4)).isEqualTo("ROUND_OF_16");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 5)).isEqualTo("ROUND_OF_32");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 6)).isEqualTo("ROUND_OF_64");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 7)).isEqualTo("Round 1");
         }
     }
 
