@@ -127,6 +127,15 @@ public class SportsTournamentMatch {
     @Column(columnDefinition = "TEXT")
     private String  matchConfigOverrideJson;
 
+    // ── Community feed visibility ─────────────────────────────────
+    /** null = inherit from event → tournament; true/false = explicit override. */
+    @Column(name = "show_in_feed")
+    private Boolean showInFeed;
+
+    /** Id of the feed result post once published (prevents duplicate posts). */
+    @Column(name = "feed_result_post_id")
+    private Long feedResultPostId;
+
     // ── Swiss round ───────────────────────────────────────────────
     private Integer swissRoundNumber;
 

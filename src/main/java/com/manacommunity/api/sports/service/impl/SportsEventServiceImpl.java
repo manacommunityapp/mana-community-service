@@ -245,8 +245,15 @@ public class SportsEventServiceImpl implements SportsEventService {
         return saved;
     }
 
+    @Override
     @Transactional
     public SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId) {
+        return registerOthers(req, requesterUserId, false);
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration registerOthers(RegistrationRequest req, Long requesterUserId, boolean admin) {
         if (req.getParticipantUserId() == null) {
             throw new InvalidInputException("Select a community resident before registering for someone else.");
         }
@@ -282,21 +289,50 @@ public class SportsEventServiceImpl implements SportsEventService {
             }
             req.setRelation("SELF");
         }
-        return registerUser(req, participant.getId());
+        return registerUser(req, participant.getId(), admin);
     }
 
+    @Override
     @Transactional
     public SportsEventRegistration registerUser(RegistrationRequest req, Long userId) {
+        return registerUser(req, userId, false);
+    }
+
+    @Override
+    @Transactional
+    public SportsEventRegistration registerUser(RegistrationRequest req, Long userId, boolean admin) {
         SportsEvent event = eventRepo.findById(req.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event", req.getEventId()));
 
-        if (event.getStatus() != SportsEventStatus.REGISTRATION_OPEN)
-            throw new RegistrationClosedException(event.getName(), event.getStatus().name());
+        if (!admin) {
+            SportsTournament tourney = event.getTournament();
+            LocalDate regEnd = event.getRegistrationDateEnd() != null
+                    ? event.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+
+            boolean isClosed = Boolean.FALSE.equals(event.getActive())
+                    || event.getStatus() != SportsEventStatus.REGISTRATION_OPEN
+                    || (tourney != null && tourney.getRegistrationStatus() != null && (tourney.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.COMPLETED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.CANCELLED));
+            if (!isClosed && regEnd != null && regEnd.isBefore(LocalDate.now())) {
+                isClosed = true;
+            }
+
+            if (isClosed) {
+                String statusName = event.getStatus() != SportsEventStatus.REGISTRATION_OPEN
+                        ? event.getStatus().name()
+                        : (tourney != null && tourney.getRegistrationStatus() != null ? tourney.getRegistrationStatus().name() : "REGISTRATION_CLOSED");
+                throw new RegistrationClosedException(event.getName(), statusName);
+            }
+        }
 
         // Anti-abuse gates (both no-ops unless enabled in config): bot check then
-        // proof the registrant controls the email they're submitting.
-        recaptchaService.verify(req.getRecaptchaToken(), null);
-        otpService.assertEmailVerified(req.getEmail());
+        // proof the registrant controls the email they're submitting. Admins bypass these gates.
+        if (!admin) {
+            recaptchaService.verify(req.getRecaptchaToken(), null);
+            otpService.assertEmailVerified(req.getEmail());
+        }
 
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -859,6 +895,12 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public List<SportsEventRegistration> registerTeam(TeamRegistrationRequest teamReq, Long captainUserId) {
+        return registerTeam(teamReq, captainUserId, false);
+    }
+
+    @Override
+    @Transactional
+    public List<SportsEventRegistration> registerTeam(TeamRegistrationRequest teamReq, Long captainUserId, boolean admin) {
         if (!teamReq.getMemberUserIds().contains(captainUserId)) {
             teamReq.getMemberUserIds().add(0, captainUserId);
         }
@@ -868,7 +910,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             RegistrationRequest req = new RegistrationRequest();
             req.setEventId(teamReq.getEventId());
             req.setCategoryId(teamReq.getCategoryId());
-            SportsEventRegistration reg = registerUser(req, memberId);
+            SportsEventRegistration reg = registerUser(req, memberId, admin);
             reg.setProposedTeamName(teamReq.getTeamName());
             if (memberId.equals(captainId)) {
                 reg.setCaptainNomination(true);
@@ -1495,6 +1537,35 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         if (reg.getPartnerConfirmationStatus() != SportsEventRegistration.PartnerConfirmationStatus.PENDING) {
             throw new InvalidInputException("Partner invitation has already been " + reg.getPartnerConfirmationStatus() + ".");
+        }
+
+        if (accept && reg.getEvent() != null) {
+            SportsEvent event = reg.getEvent();
+            SportsTournament tourney = event.getTournament();
+
+            boolean isClosed = Boolean.FALSE.equals(event.getActive())
+                    || (event.getStatus() != null && (event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                            || event.getStatus() == SportsEventStatus.COMPLETED
+                            || event.getStatus() == SportsEventStatus.CANCELLED))
+                    || (tourney != null && tourney.getRegistrationStatus() != null && (tourney.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.COMPLETED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.CANCELLED));
+
+            if (isClosed) {
+                throw new InvalidInputException("Registration is closed for this event. Doubles partner invitation can no longer be accepted.");
+            }
+
+            LocalDate regEnd = event.getRegistrationDateEnd() != null ? event.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+            if (regEnd != null && LocalDate.now().isAfter(regEnd)) {
+                throw new InvalidInputException("Registration deadline has passed for this event. Doubles partner invitation cannot be accepted.");
+            }
+
+            LocalDate evStart = event.getEventDateStart() != null ? event.getEventDateStart()
+                    : (tourney != null ? tourney.getEventDateStart() : null);
+            if (evStart != null && !LocalDate.now().isBefore(evStart)) {
+                throw new InvalidInputException("This event has already started. Doubles partner invitation cannot be accepted.");
+            }
         }
 
         List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(

@@ -143,14 +143,23 @@ public class SportsPlayoffScheduleGenerator {
     // ── Round naming ──────────────────────────────────────────────────
 
     public static String getRoundName(int roundIndex, int totalRounds) {
-        if (roundIndex == totalRounds - 1) return "FINAL";
-        if (roundIndex == totalRounds - 2) return "SEMI_FINAL";
-        if (roundIndex == totalRounds - 3) return "QUARTER_FINAL";
-        return "Round " + (roundIndex + 1);
+        int roundsFromFinal = totalRounds - 1 - roundIndex;
+        return switch (roundsFromFinal) {
+            case 0 -> "FINAL";
+            case 1 -> "SEMI_FINAL";
+            case 2 -> "QUARTER_FINAL";
+            case 3 -> "ROUND_OF_16";
+            case 4 -> "ROUND_OF_32";
+            case 5 -> "ROUND_OF_64";
+            default -> "Round " + (roundIndex + 1);
+        };
     }
 
     private static String roundLabel(String type, int indexInRound) {
         return switch (type) {
+            case "ROUND_OF_64"   -> "Round of 64 Match " + (indexInRound + 1);
+            case "ROUND_OF_32"   -> "Round of 32 Match " + (indexInRound + 1);
+            case "ROUND_OF_16"   -> "Round of 16 Match " + (indexInRound + 1);
             case "QUARTER_FINAL" -> "Quarter Final " + (indexInRound + 1);
             case "SEMI_FINAL"    -> "Semi-Final " + (indexInRound + 1);
             case "FINAL"         -> "Final";

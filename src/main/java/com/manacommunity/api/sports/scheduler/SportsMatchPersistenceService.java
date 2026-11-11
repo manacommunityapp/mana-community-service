@@ -63,11 +63,44 @@ public class SportsMatchPersistenceService {
     private final SportsVenueRepository             venueRepo;
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
+    private final SportsScoringConfigRepository     scoringConfigRepo;
     private final AuditService                      auditService;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD
     // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public void deleteTournamentConfig(Long configId) {
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+
+        if (config.getStatus() != SportsTournamentConfig.TournamentStatus.DRAFT) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Only tournament configurations in DRAFT status can be deleted. Current status: " + config.getStatus());
+        }
+
+        scoringConfigRepo.findByConfigId(config.getId()).ifPresent(scoringConfigRepo::delete);
+        matchRepo.deleteByConfigId(config.getId());
+
+        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+        for (SportsTournamentGroup group : groups) {
+            standingRepo.deleteAll(standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(group.getId()));
+        }
+        groupRepo.deleteAll(groups);
+
+        configRepo.delete(config);
+
+        auditService.record(
+            AuditAction.TOURNAMENT_SCHEDULE_SAVED,
+            AuditModule.TOURNAMENT,
+            "SportsTournamentConfig",
+            String.valueOf(configId),
+            null,
+            "Deleted draft tournament config: " + config.getTournamentName()
+        );
+        log.info("Deleted draft tournament config id={} name={}", configId, config.getTournamentName());
+    }
     @Transactional
     public SportsTournamentConfig saveTournamentConfig(SportsTournamentConfigRequest req, Long adminUserId) {
         SportsTournamentConfig config = buildConfig(req, adminUserId);
@@ -272,11 +305,11 @@ public class SportsMatchPersistenceService {
             try {
                 round = MatchRound.valueOf(req.stage().trim().toUpperCase());
             } catch (Exception e) {
-                log.warn("Could not parse MatchRound for stage '{}', defaulting to FINAL", req.stage());
-                round = MatchRound.FINAL;
+                log.warn("Could not parse MatchRound for stage '{}', defaulting to QUARTER_FINAL", req.stage());
+                round = MatchRound.QUARTER_FINAL;
             }
         } else {
-            round = MatchRound.FINAL;
+            round = MatchRound.QUARTER_FINAL;
         }
 
         LocalDateTime scheduledAt = parseDateTimeSafe(req.startTime());
@@ -290,6 +323,17 @@ public class SportsMatchPersistenceService {
                 ? req.durationMinutes()
                 : (config.getMatchDurationMinutes() != null ? config.getMatchDurationMinutes() : 60);
 
+        String homeName = req.homeName();
+        if (homeName == null || homeName.isBlank()) {
+            homeName = home != null ? home.getTeamName() : "TBD";
+        }
+        String awayName = req.awayName();
+        if (awayName == null || awayName.isBlank()) {
+            awayName = away != null ? away.getTeamName() : "TBD";
+        }
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(homeName), safe(req.homeFlat()), safe(awayName), safe(req.awayFlat()), safe(req.stage()));
+
         SportsTournamentMatch m = SportsTournamentMatch.builder()
             .config(config)
             .community(config.getCommunity())
@@ -302,6 +346,7 @@ public class SportsMatchPersistenceService {
             .venue(venue)
             .court(court)
             .status(MatchStatus.SCHEDULED)
+            .matchNotes(notes)
             .build();
 
         SportsTournamentMatch saved = matchRepo.save(m);
@@ -644,33 +689,56 @@ public class SportsMatchPersistenceService {
     }
 
     private MatchRound resolveMatchRound(SportsBulkMatchSaveRequest.MatchData m) {
-
         if (m.round() != null && !m.round().isBlank()) {
+            String rNorm = m.round().trim().toUpperCase().replace(" ", "_").replace("-", "_");
             try {
-                return MatchRound.valueOf(m.round().trim().toUpperCase());
+                return MatchRound.valueOf(rNorm);
             } catch (IllegalArgumentException ignored) {}
+
+            if (rNorm.contains("ROUND_OF_16") || rNorm.contains("R16") || rNorm.equals("ROUND_1")) {
+                return MatchRound.ROUND_OF_16;
+            }
+            if (rNorm.contains("ROUND_OF_32") || rNorm.contains("R32") || rNorm.equals("ROUND_2")) {
+                return MatchRound.ROUND_OF_32;
+            }
+            if (rNorm.contains("ROUND_OF_64") || rNorm.contains("R64")) {
+                return MatchRound.ROUND_OF_64;
+            }
+            if (rNorm.contains("QUARTER") || rNorm.contains("QF")) {
+                return MatchRound.QUARTER_FINAL;
+            }
+            if (rNorm.contains("SEMI") || rNorm.contains("SF")) {
+                return MatchRound.SEMI_FINAL;
+            }
+            if (rNorm.equals("FINAL") || rNorm.equals("GRAND_FINAL")) {
+                return MatchRound.FINAL;
+            }
+            if (rNorm.contains("THIRD") || rNorm.contains("3RD") || rNorm.contains("BRONZE")) {
+                return MatchRound.THIRD_PLACE;
+            }
         }
-        String name = (m.groupName() != null ? m.groupName() : "").toUpperCase();
-        if (name.contains("THIRD_PLACE") || name.contains("3RD PLACE") || name.contains("THIRD PLACE")) {
+
+        String name = (m.groupName() != null ? m.groupName() : "").trim().toUpperCase();
+        if (name.contains("THIRD_PLACE") || name.contains("3RD PLACE") || name.contains("THIRD PLACE") || name.contains("BRONZE")) {
             return MatchRound.THIRD_PLACE;
         }
-        if (name.contains("FINAL") && !name.contains("SEMI") && !name.contains("QUARTER")) {
-            return MatchRound.FINAL;
-        }
-        if (name.contains("SEMI")) {
+        if (name.contains("SEMI") || name.contains("SF")) {
             return MatchRound.SEMI_FINAL;
         }
-        if (name.contains("QUARTER")) {
+        if (name.contains("QUARTER") || name.contains("QF")) {
             return MatchRound.QUARTER_FINAL;
         }
-        if (name.contains("ROUND OF 16") || name.contains("ROUND_OF_16") || name.contains("R16")) {
+        if (name.contains("ROUND OF 16") || name.contains("ROUND_OF_16") || name.contains("R16") || name.matches(".*ROUND\\s*1(\\s+MATCH.*)?$")) {
             return MatchRound.ROUND_OF_16;
         }
-        if (name.contains("ROUND OF 32") || name.contains("ROUND_OF_32") || name.contains("R32")) {
+        if (name.contains("ROUND OF 32") || name.contains("ROUND_OF_32") || name.contains("R32") || name.matches(".*ROUND\\s*2(\\s+MATCH.*)?$")) {
             return MatchRound.ROUND_OF_32;
         }
         if (name.contains("ROUND OF 64") || name.contains("ROUND_OF_64") || name.contains("R64")) {
             return MatchRound.ROUND_OF_64;
+        }
+        if (name.equals("FINAL") || name.equals("GRAND FINAL") || name.startsWith("FINAL ") || name.endsWith(" FINAL")) {
+            return MatchRound.FINAL;
         }
 
         if (m.stage() == null) return MatchRound.LEAGUE_MATCH;
@@ -678,7 +746,8 @@ public class SportsMatchPersistenceService {
             case "GROUP"       -> MatchRound.GROUP_STAGE;
             case "ROUND_ROBIN" -> MatchRound.LEAGUE_MATCH;
             case "PLAYOFF"     -> MatchRound.SEMI_FINAL;
-            default            -> MatchRound.FINAL;
+            case "KNOCKOUT"    -> (m.roundNumber() != null && m.roundNumber() == 1) ? MatchRound.ROUND_OF_16 : MatchRound.QUARTER_FINAL;
+            default            -> MatchRound.LEAGUE_MATCH;
         };
     }
 

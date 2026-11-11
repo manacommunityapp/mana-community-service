@@ -30,6 +30,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_COMMUNITY_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SPORTS_ADMIN;
 
 @Slf4j
 @RestController
@@ -82,6 +85,29 @@ public class SportsTournamentSchedulerController {
     }
 
     /**
+     * DELETE /api/tournament/config/{id}
+     * Delete a tournament config. Only allowed if status is DRAFT.
+     */
+    @DeleteMapping("/config/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteConfig(@PathVariable Long id) {
+        log.info("Deleting draft tournament config id={}", id);
+        schedulerService.deleteTournamentConfig(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /api/tournament/config/{id}/publish
+     * Publish tournament config and all its matches.
+     */
+    @PostMapping("/config/{id}/publish")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsTournamentConfigResponse> publishConfig(@PathVariable Long id) {
+        log.info("Publishing tournament config id={}", id);
+        return ResponseEntity.ok(schedulerService.publishTournamentConfig(id));
+    }
+
+    /**
      * GET /api/tournament/config/{id}
      * Get a single tournament config by ID.
      */
@@ -121,13 +147,18 @@ public class SportsTournamentSchedulerController {
     /**
      * GET /api/tournament/configs
      * Get all tournament configs for the logged-in user's community.
+     * Draft configs are only returned to admins and sports admins.
      */
     @GetMapping("/configs")
     public ResponseEntity<List<SportsTournamentConfigResponse>> getConfigs(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
-        return ResponseEntity.ok(schedulerService.getConfigsByCommunity(communityId));
+        List<SportsTournamentConfigResponse> configs = schedulerService.getConfigsByCommunity(communityId);
+        if (!isSportsAdmin(principal)) {
+            configs = configs.stream().filter(c -> !"DRAFT".equalsIgnoreCase(c.status())).toList();
+        }
+        return ResponseEntity.ok(configs);
     }
 
     /**
@@ -306,15 +337,30 @@ public class SportsTournamentSchedulerController {
     /**
      * GET /api/tournament/{configId}/schedule
      * Returns full schedule: groups, standings, all matches by round.
+     * Draft schedules are not exposed to non-admin players.
      */
     @GetMapping("/{configId}/schedule")
-    public ResponseEntity<SportsTournamentScheduleResponse> getSchedule(@PathVariable Long configId) {
+    public ResponseEntity<SportsTournamentScheduleResponse> getSchedule(
+            @PathVariable Long configId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+            .orElse(null);
+        if (!isSportsAdmin(principal) && config != null && config.getStatus() == SportsTournamentConfig.TournamentStatus.DRAFT) {
+            return ResponseEntity.ok(new SportsTournamentScheduleResponse(
+                config.getId(), config.getTournamentName(), config.getTournamentType().name(),
+                config.getTotalTeams(), 0, 0,
+                config.getStartDate(), config.getEndDate(),
+                List.of(), List.of(), List.of()
+            ));
+        }
         return ResponseEntity.ok(schedulerService.getSchedule(configId));
     }
 
     /**
      * GET /api/tournament
      * List all tournaments for a community.
+     * Draft tournaments are filtered out for non-admin residents.
      */
     @GetMapping
     public ResponseEntity<List<SportsTournamentConfig>> list(
@@ -328,7 +374,11 @@ public class SportsTournamentSchedulerController {
         if (targetCommunityId == null) {
             return ResponseEntity.ok(Collections.emptyList());
         }
-        return ResponseEntity.ok(configRepo.findByCommunityIdOrderByCreatedAtDesc(targetCommunityId));
+        List<SportsTournamentConfig> configs = configRepo.findByCommunityIdOrderByCreatedAtDesc(targetCommunityId);
+        if (!isSportsAdmin(principal)) {
+            configs = configs.stream().filter(c -> c.getStatus() != SportsTournamentConfig.TournamentStatus.DRAFT).toList();
+        }
+        return ResponseEntity.ok(configs);
     }
 
     /**
@@ -427,15 +477,25 @@ public class SportsTournamentSchedulerController {
     /**
      * GET /api/tournament/{configId}/matches
      * Returns all saved matches for a config.
+     * Draft fixtures are hidden from non-admin players.
      */
     @GetMapping("/{configId}/matches")
-    public ResponseEntity<List<SportsMatchResponse>> getMatches(@PathVariable Long configId) {
+    public ResponseEntity<List<SportsMatchResponse>> getMatches(
+            @PathVariable Long configId,
+            @AuthenticationPrincipal UserPrincipal principal) {
         SportsTournamentConfig config = configRepo.findById(configId)
             .or(() -> configRepo.findByEventId(configId).stream().findFirst())
             .orElse(null);
+        boolean admin = isSportsAdmin(principal);
+        if (!admin && config != null && config.getStatus() == SportsTournamentConfig.TournamentStatus.DRAFT) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
         Long targetId = config != null ? config.getId() : configId;
         List<SportsMatchResponse> matches = matchRepo.findByConfigIdOrderByScheduledAt(targetId)
-            .stream().map(schedulerService::toMatchResponse).toList();
+            .stream()
+            .filter(m -> admin || (m.getStatus() != MatchStatus.DRAFT && (m.getConfig() == null || m.getConfig().getStatus() != SportsTournamentConfig.TournamentStatus.DRAFT)))
+            .map(schedulerService::toMatchResponse)
+            .toList();
         return ResponseEntity.ok(matches);
     }
 
@@ -554,6 +614,23 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<List<SportsMatchDetailResponse.PlayerStatsRow>> getPlayerStats(
             @PathVariable Long playerId) {
         return ResponseEntity.ok(matchResultService.getPlayerCareerStats(playerId));
+    }
+
+    private boolean isSportsAdmin(UserPrincipal principal) {
+        if (principal == null) return false;
+        if (principal.getUser() != null) {
+            AppUser u = principal.getUser();
+            if (u.hasRole(ROLE_SUPER_ADMIN)
+                    || u.hasRole(ROLE_ADMIN)
+                    || u.hasRole(ROLE_COMMUNITY_ADMIN)
+                    || u.hasRole(ROLE_SPORTS_ADMIN)) {
+                return true;
+            }
+        }
+        return principal.getAuthorities() != null && principal.getAuthorities().stream().anyMatch(a -> {
+            String role = a.getAuthority().toUpperCase();
+            return role.contains("ADMIN") || role.contains("SPORTS_ADMIN");
+        });
     }
 
     record TournamentTypeInfo(

@@ -9,6 +9,7 @@ import com.manacommunity.api.sports.controller.*;
 import com.manacommunity.api.dto.RegistrationRequest;
 import com.manacommunity.api.exception.EventFullException;
 import com.manacommunity.api.exception.InvalidInputException;
+import com.manacommunity.api.exception.RegistrationClosedException;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsEventStatus;
 import com.manacommunity.api.sports.model.SportsMeta;
@@ -1969,5 +1970,377 @@ class SportsEventServiceRegistrationTest {
         assertThat(teamCaptor.getValue().getOwnerName()).isEqualTo("Rohan Sharma");
         assertThat(teamCaptor.getValue().getTeamName()).isEqualTo("Rohan Sharma's Team");
         assertThat(result.getCaptainNomination()).isTrue();
+    }
+
+    @Test
+    void respondToPartnerInvitation_whenEventRegistrationClosed_throwsInvalidInputException() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(501L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(501L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.respondToPartnerInvitation(501L, 60L, true, null))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("Registration is closed for this event");
+    }
+
+    @Test
+    void respondToPartnerInvitation_whenRegistrationDeadlinePassed_throwsInvalidInputException() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setRegistrationDateEnd(LocalDate.now().minusDays(1));
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(502L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(502L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.respondToPartnerInvitation(502L, 60L, true, null))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("Registration deadline has passed");
+    }
+
+    @Test
+    void respondToPartnerInvitation_whenEventClosed_canStillDecline() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(503L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(503L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(503L, 60L, false, "Unavailable on match dates");
+
+        assertThat(result.getPartnerConfirmationStatus()).isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+        assertThat(result.getPartner()).isNull();
+        assertThat(result.getPartnerDeclineReason()).isEqualTo("Unavailable on match dates");
+    }
+
+    @Test
+    void registerUser_whenEventClosed_andNotAdmin_throwsRegistrationClosedException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("resident@example.com");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L, false))
+                .isInstanceOf(RegistrationClosedException.class)
+                .hasMessageContaining("Badminton Championship");
+    }
+
+    @Test
+    void registerUser_whenEventClosed_andAdmin_succeeds() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("admin@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Badminton");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Admin Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.of(1990, 1, 1));
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Men's Singles");
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration saved = service.registerUser(req, 2L, true);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getUser().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    void registerUser_whenTournamentClosed_andNotAdmin_throwsRegistrationClosedException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("resident@example.com");
+
+        SportsTournament tournament = new SportsTournament();
+        tournament.setId(100L);
+        tournament.setRegistrationStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Table Tennis Open");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setTournament(tournament);
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L, false))
+                .isInstanceOf(RegistrationClosedException.class)
+                .hasMessageContaining("Table Tennis Open");
+    }
+
+    @Test
+    void registerUser_whenTournamentClosed_andAdmin_succeeds() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("admin@example.com");
+
+        SportsTournament tournament = new SportsTournament();
+        tournament.setId(100L);
+        tournament.setRegistrationStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Table Tennis");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Table Tennis Open");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setTournament(tournament);
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Admin Player");
+        user.setGender("MALE");
+        user.setDateOfBirth(LocalDate.of(1992, 5, 10));
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Open TT");
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration saved = service.registerUser(req, 2L, true);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getUser().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    void registerUser_whenDeadlinePassed_andNotAdmin_throwsRegistrationClosedException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("resident@example.com");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Squash Cup");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setRegistrationDateEnd(LocalDate.now().minusDays(2));
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> service.registerUser(req, 2L, false))
+                .isInstanceOf(RegistrationClosedException.class)
+                .hasMessageContaining("Squash Cup");
+    }
+
+    @Test
+    void registerUser_whenDeadlinePassed_andAdmin_succeeds() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setEmail("admin@example.com");
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Squash");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Squash Cup");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setRegistrationDateEnd(LocalDate.now().minusDays(2));
+        event.setSport(sport);
+
+        AppUser user = new AppUser();
+        user.setId(2L);
+        user.setFullName("Admin Player");
+        user.setGender("FEMALE");
+        user.setDateOfBirth(LocalDate.of(1994, 3, 15));
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Women's Squash");
+
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        when(userRepo.findById(2L)).thenReturn(Optional.of(user));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration saved = service.registerUser(req, 2L, true);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getUser().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    void registerOthers_whenEventClosed_andNotAdmin_throwsRegistrationClosedException() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setParticipantUserId(30L);
+
+        com.manacommunity.api.model.Community comm = new com.manacommunity.api.model.Community();
+        comm.setId(5L);
+
+        AppUser requester = new AppUser();
+        requester.setId(2L);
+        requester.setCommunity(comm);
+        requester.setEmail("requester@example.com");
+
+        AppUser participant = new AppUser();
+        participant.setId(30L);
+        participant.setCommunity(comm);
+        participant.setFullName("Other Player");
+        participant.setGender("MALE");
+        participant.setDateOfBirth(LocalDate.of(1995, 2, 20));
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Tennis Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+        event.setCommunity(comm);
+
+        when(userRepo.findById(2L)).thenReturn(Optional.of(requester));
+        when(userRepo.findById(30L)).thenReturn(Optional.of(participant));
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> service.registerOthers(req, 2L, false))
+                .isInstanceOf(RegistrationClosedException.class)
+                .hasMessageContaining("Tennis Championship");
+    }
+
+    @Test
+    void registerOthers_whenEventClosed_andAdmin_succeeds() {
+        RegistrationRequest req = new RegistrationRequest();
+        req.setEventId(1L);
+        req.setCategoryId(10L);
+        req.setMatchType("SINGLES");
+        req.setParticipantUserId(30L);
+
+        com.manacommunity.api.model.Community comm = new com.manacommunity.api.model.Community();
+        comm.setId(5L);
+
+        AppUser requester = new AppUser();
+        requester.setId(2L);
+        requester.setCommunity(comm);
+        requester.setEmail("sportsadmin@example.com");
+
+        AppUser participant = new AppUser();
+        participant.setId(30L);
+        participant.setCommunity(comm);
+        participant.setFullName("Other Player");
+        participant.setGender("MALE");
+        participant.setDateOfBirth(LocalDate.of(1995, 2, 20));
+
+        SportsMeta sport = new SportsMeta();
+        sport.setName("Tennis");
+
+        SportsEvent event = new SportsEvent();
+        event.setId(1L);
+        event.setName("Tennis Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+        event.setCommunity(comm);
+        event.setSport(sport);
+
+        SportsPlayerCategory cat = new SportsPlayerCategory();
+        cat.setId(10L);
+        cat.setName("Men's Singles");
+
+        when(userRepo.findById(2L)).thenReturn(Optional.of(requester));
+        when(userRepo.findById(30L)).thenReturn(Optional.of(participant));
+        when(eventRepo.findById(1L)).thenReturn(Optional.of(event));
+        when(categoryRepo.findById(10L)).thenReturn(Optional.of(cat));
+        when(regRepo.findByEventId(1L)).thenReturn(List.of());
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration saved = service.registerOthers(req, 2L, true);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getUser().getId()).isEqualTo(30L);
+        assertThat(saved.getPlayerName()).isEqualTo("Other Player");
     }
 }
