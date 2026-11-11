@@ -50,7 +50,7 @@ spring:
     out-of-order: false
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
 
 app:
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
