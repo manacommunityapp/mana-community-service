@@ -58,7 +58,7 @@ app:
   ai:
     enabled: ${AI_ENABLED:false}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com,http://localhost:5173,http://localhost:3000}
 
   mail:
     enabled: ${APP_MAIL_ENABLED:true}
