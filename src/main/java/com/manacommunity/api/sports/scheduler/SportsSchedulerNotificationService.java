@@ -37,11 +37,16 @@ public class SportsSchedulerNotificationService {
 
     /**
      * Notify a tournament's confirmed participants that its schedule was published.
-     * Loads the config in its own read-only transaction so it is safe to call
+     * Loads the config in its own transaction so it is safe to call
      * AFTER the persistence transaction has committed (a rollback never notifies).
      * No-op when the config has no linked event or no confirmed registrants.
+     *
+     * <p><b>NOTE:</b> Do NOT annotate this {@code readOnly = true} — the notification
+     * and email-delivery-log writes inside the called services require a writable
+     * transaction. Using readOnly would mark those INSERTs as aborted and roll back
+     * the parent {@code saveSchedule} transaction with an UnexpectedRollbackException.</p>
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public void notifySchedulePublished(Long configId) {
         SportsTournamentConfig config = configRepo.findById(configId).orElse(null);
         if (config == null || config.getEvent() == null) {
@@ -68,11 +73,11 @@ public class SportsSchedulerNotificationService {
             + " is now live. Check your fixtures.";
         pushService.sendBulk(recipients, title, body);
 
-        // Email the same audience an HTML "schedule is live" notification.
-        int matchCount = (int) matchRepo.countByConfigId(configId);
-        scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);
+        // TODO: Re-enable schedule-published emails once SMTP is configured for non-OTP templates.
+        // scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);
 
         log.info("Notified {} participants that schedule for '{}' was published",
             recipients.size(), config.getTournamentName());
     }
 }
+
