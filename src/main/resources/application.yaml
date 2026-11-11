@@ -61,6 +61,7 @@ spring:
 
 # ── HTTP server limits (mitigate large-payload DoS) ─────────────────────
 server:
+  forward-headers-strategy: framework
   tomcat:
     max-http-form-post-size: 55MB
     max-swallow-size: 55MB
