@@ -16,6 +16,7 @@ public record SportsTournamentConfigResponse(
     String  communityName,
     Long    eventId,
     String  eventName,
+    Long    tournamentId,
     Integer totalTeams,
     Integer numberOfGroups,
     Integer teamsPerGroup,
@@ -35,5 +36,8 @@ public record SportsTournamentConfigResponse(
     String  status,
     int     totalMatches,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    /** Effective showInFeed for the whole schedule (null = opt-out default = shown). */
+    Boolean showInFeed
 ) {}
+
