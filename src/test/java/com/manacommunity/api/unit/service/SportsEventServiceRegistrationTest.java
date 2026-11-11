@@ -1970,4 +1970,98 @@ class SportsEventServiceRegistrationTest {
         assertThat(teamCaptor.getValue().getTeamName()).isEqualTo("Rohan Sharma's Team");
         assertThat(result.getCaptainNomination()).isTrue();
     }
+
+    @Test
+    void respondToPartnerInvitation_whenEventRegistrationClosed_throwsInvalidInputException() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(501L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(501L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.respondToPartnerInvitation(501L, 60L, true, null))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("Registration is closed for this event");
+    }
+
+    @Test
+    void respondToPartnerInvitation_whenRegistrationDeadlinePassed_throwsInvalidInputException() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_OPEN);
+        event.setRegistrationDateEnd(LocalDate.now().minusDays(1));
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(502L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(502L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.respondToPartnerInvitation(502L, 60L, true, null))
+                .isInstanceOf(InvalidInputException.class)
+                .hasMessageContaining("Registration deadline has passed");
+    }
+
+    @Test
+    void respondToPartnerInvitation_whenEventClosed_canStillDecline() {
+        SportsEvent event = new SportsEvent();
+        event.setId(10L);
+        event.setName("Emperia Badminton Championship");
+        event.setStatus(SportsEventStatus.REGISTRATION_CLOSED);
+
+        AppUser primaryUser = new AppUser();
+        primaryUser.setId(50L);
+        primaryUser.setFullName("Sunil Reddy");
+
+        AppUser partnerUser = new AppUser();
+        partnerUser.setId(60L);
+        partnerUser.setFullName("Ravi Teja");
+
+        SportsEventRegistration reg = new SportsEventRegistration();
+        reg.setId(503L);
+        reg.setEvent(event);
+        reg.setUser(primaryUser);
+        reg.setPartner(partnerUser);
+        reg.setStatus(SportsEventRegistration.RegistrationStatus.CONFIRMED);
+        reg.setPartnerConfirmationStatus(SportsEventRegistration.PartnerConfirmationStatus.PENDING);
+
+        when(regRepo.findById(503L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any(SportsEventRegistration.class))).thenAnswer(i -> i.getArgument(0));
+
+        SportsEventRegistration result = service.respondToPartnerInvitation(503L, 60L, false, "Unavailable on match dates");
+
+        assertThat(result.getPartnerConfirmationStatus()).isEqualTo(SportsEventRegistration.PartnerConfirmationStatus.DECLINED);
+        assertThat(result.getPartner()).isNull();
+        assertThat(result.getPartnerDeclineReason()).isEqualTo("Unavailable on match dates");
+    }
 }

@@ -1497,6 +1497,35 @@ public class SportsEventServiceImpl implements SportsEventService {
             throw new InvalidInputException("Partner invitation has already been " + reg.getPartnerConfirmationStatus() + ".");
         }
 
+        if (accept && reg.getEvent() != null) {
+            SportsEvent event = reg.getEvent();
+            SportsTournament tourney = event.getTournament();
+
+            boolean isClosed = Boolean.FALSE.equals(event.getActive())
+                    || (event.getStatus() != null && (event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                            || event.getStatus() == SportsEventStatus.COMPLETED
+                            || event.getStatus() == SportsEventStatus.CANCELLED))
+                    || (tourney != null && tourney.getRegistrationStatus() != null && (tourney.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.COMPLETED
+                            || tourney.getRegistrationStatus() == SportsEventStatus.CANCELLED));
+
+            if (isClosed) {
+                throw new InvalidInputException("Registration is closed for this event. Doubles partner invitation can no longer be accepted.");
+            }
+
+            LocalDate regEnd = event.getRegistrationDateEnd() != null ? event.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+            if (regEnd != null && LocalDate.now().isAfter(regEnd)) {
+                throw new InvalidInputException("Registration deadline has passed for this event. Doubles partner invitation cannot be accepted.");
+            }
+
+            LocalDate evStart = event.getEventDateStart() != null ? event.getEventDateStart()
+                    : (tourney != null ? tourney.getEventDateStart() : null);
+            if (evStart != null && !LocalDate.now().isBefore(evStart)) {
+                throw new InvalidInputException("This event has already started. Doubles partner invitation cannot be accepted.");
+            }
+        }
+
         List<SportsEventRegistration.RegistrationStatus> activeStatuses = List.of(
                 SportsEventRegistration.RegistrationStatus.PENDING,
                 SportsEventRegistration.RegistrationStatus.REGISTERED,

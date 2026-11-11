@@ -867,18 +867,42 @@ public class SportsController {
     private SportsRegistrationResponse toRegistrationResponse(SportsEventRegistration r) {
         SportsRegistrationResponse.EventRef eventRef = null;
         if (r.getEvent() != null) {
+            SportsEvent ev = r.getEvent();
+            SportsTournament tourney = ev.getTournament();
             SportsRegistrationResponse.SportRef sportRef = null;
-            if (r.getEvent().getSport() != null) {
+            if (ev.getSport() != null) {
                 sportRef = SportsRegistrationResponse.SportRef.builder()
-                        .id(r.getEvent().getSport().getId())
-                        .name(r.getEvent().getSport().getName())
+                        .id(ev.getSport().getId())
+                        .name(ev.getSport().getName())
                         .build();
             }
+
+            String evStatusStr = ev.getStatus() != null ? ev.getStatus().name() : null;
+            String tourneyStatusStr = (tourney != null && tourney.getRegistrationStatus() != null)
+                    ? tourney.getRegistrationStatus().name() : null;
+            String effectiveStatus = evStatusStr != null ? evStatusStr : tourneyStatusStr;
+
+            java.time.LocalDate regEnd = ev.getRegistrationDateEnd() != null ? ev.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+            java.time.LocalDate evStart = ev.getEventDateStart() != null ? ev.getEventDateStart()
+                    : (tourney != null ? tourney.getEventDateStart() : null);
+
+            boolean isEventOpen = (ev.getActive() == null || ev.getActive())
+                    && (ev.getStatus() == null || ev.getStatus() == com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN)
+                    && (tourney == null || tourney.getRegistrationStatus() == null || tourney.getRegistrationStatus() == com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN)
+                    && (regEnd == null || !java.time.LocalDate.now().isAfter(regEnd))
+                    && (evStart == null || java.time.LocalDate.now().isBefore(evStart));
+
             eventRef = SportsRegistrationResponse.EventRef.builder()
-                    .id(r.getEvent().getId())
-                    .name(r.getEvent().getName())
-                    .eventDateStart(r.getEvent().getEventDateStart() != null ? r.getEvent().getEventDateStart().toString() : null)
-                    .eventDateEnd(r.getEvent().getEventDateEnd() != null ? r.getEvent().getEventDateEnd().toString() : null)
+                    .id(ev.getId())
+                    .name(ev.getName())
+                    .eventDateStart(evStart != null ? evStart.toString() : null)
+                    .eventDateEnd(ev.getEventDateEnd() != null ? ev.getEventDateEnd().toString() : (tourney != null && tourney.getEventDateEnd() != null ? tourney.getEventDateEnd().toString() : null))
+                    .registrationDateEnd(regEnd != null ? regEnd.toString() : null)
+                    .status(evStatusStr)
+                    .registrationStatus(effectiveStatus)
+                    .tournamentStatus(tourneyStatusStr)
+                    .isRegistrationOpen(isEventOpen)
                     .sport(sportRef)
                     .build();
         }
