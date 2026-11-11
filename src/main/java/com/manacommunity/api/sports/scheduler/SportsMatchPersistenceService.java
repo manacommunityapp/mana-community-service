@@ -141,6 +141,16 @@ public class SportsMatchPersistenceService {
 
     public SportsTournamentConfigResponse toConfigResponse(SportsTournamentConfig c) {
         int matchCount = matchRepo.findByConfigId(c.getId()).size();
+        Long tournamentId = c.getEvent() != null && c.getEvent().getTournament() != null
+                ? c.getEvent().getTournament().getId()
+                : null;
+        Boolean showInFeed = null;
+        if (c.getEvent() != null) {
+            showInFeed = c.getEvent().getShowInFeed();
+            if (showInFeed == null && c.getEvent().getTournament() != null) {
+                showInFeed = c.getEvent().getTournament().getShowInFeed();
+            }
+        }
         return new SportsTournamentConfigResponse(
             c.getId(), c.getTournamentName(), c.getTournamentType().name(),
             c.getSport() != null ? c.getSport().getId() : null,
@@ -149,6 +159,7 @@ public class SportsMatchPersistenceService {
             c.getCommunity() != null ? c.getCommunity().getName() : null,
             c.getEvent() != null ? c.getEvent().getId() : null,
             c.getEvent() != null ? c.getEvent().getName() : null,
+            tournamentId,
             c.getTotalTeams(), c.getNumberOfGroups(), c.getTeamsPerGroup(),
             c.getTeamsAdvancingPerGroup(), c.getThirdPlaceMatch(), c.getHasSeeding(),
             c.getSwissRounds(), c.getStartDate(), c.getEndDate(),
@@ -157,7 +168,8 @@ public class SportsMatchPersistenceService {
             c.getVenue() != null ? c.getVenue().getName() : null,
             c.getPointsForWin(), c.getPointsForDraw(),
             c.getPointsForLoss(), c.getStatus().name(), matchCount,
-            c.getCreatedAt(), c.getUpdatedAt()
+            c.getCreatedAt(), c.getUpdatedAt(),
+            showInFeed
         );
     }
 
