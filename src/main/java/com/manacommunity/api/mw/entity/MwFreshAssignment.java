@@ -34,6 +34,9 @@ public class MwFreshAssignment {
     private BigDecimal kmBonus;
     private BigDecimal timeBonus;
 
+    @Column(name = "total_incentive", insertable = false, updatable = false)
+    private BigDecimal totalIncentive;
+
     private LocalDateTime createdAt;
 
     @PrePersist

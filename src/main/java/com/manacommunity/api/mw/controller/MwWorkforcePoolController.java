@@ -9,6 +9,7 @@ import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -82,10 +83,10 @@ public class MwWorkforcePoolController {
     // ── Worker: browse & apply ────────────────────────────────────────────────
 
     @GetMapping("/browse")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<List<MwPoolListing>> browseListings(
             @RequestParam(required = false) Long myOrgId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
         return ResponseEntity.ok(poolService.browseOpenListings(myOrgId));
     }
 

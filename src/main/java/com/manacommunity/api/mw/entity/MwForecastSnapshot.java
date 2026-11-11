@@ -20,6 +20,10 @@ public class MwForecastSnapshot {
     private String sourceModule;
     private Integer demandUnits;
     private Integer fulfilledUnits;
+
+    @Column(name = "gap_units", insertable = false, updatable = false)
+    private Integer gapUnits;
+
     private BigDecimal avgPayRate;
     private Integer workerCount;
 

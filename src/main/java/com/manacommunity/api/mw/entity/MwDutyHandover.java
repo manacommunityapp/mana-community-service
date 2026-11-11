@@ -16,10 +16,10 @@ public class MwDutyHandover {
     private Long organizationId;
     private Long shiftAssignmentId;
 
-    @Column(name = "handover_from_id")
+    @Column(name = "handover_from")
     private Long handoverFromId;
 
-    @Column(name = "handover_to_id")
+    @Column(name = "handover_to")
     private Long handoverToId;
 
     @Column(length = 200)
