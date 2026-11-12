@@ -569,9 +569,10 @@ public class SportsPlayoffScheduleGenerator {
                 byeReceived.add(byePlayer.id());
             }
 
-            // Pair the remaining (even) participants. Round 1 is skill-ordered, so
-            // neighbour pairing keeps ratings close; later rounds pair placeholders.
-            List<ParticipantRef[]> pairs = neighborPairs(active);
+            // Pair the remaining (even) participants. Round 0 uses standard tournament bracket
+            // seeding so Seed 1 is in Match 0 (Top Half) and Seed 2 is in the bottom Match (Bottom Half);
+            // later rounds pair bracket winners.
+            List<ParticipantRef[]> pairs = (roundIndex == 0) ? tournamentSeededPairs(active) : neighborPairs(active);
             if (roundIndex == 0) applyConstraints(pairs);   // Rules 1 & 2 (first round only)
 
             int mIdx = 0;
@@ -621,7 +622,68 @@ public class SportsPlayoffScheduleGenerator {
         return matches;
     }
 
-    /** Pair an even-sized list as neighbours: (0,1),(2,3),… (keeps Rule-6 skill order). */
+    /**
+     * Standard tournament bracket seeding for Round 1:
+     * - Top Half: Seed 1 (Match 0), Seed 4
+     * - Bottom Half: Seed 3, Seed 2 (Bottom Match)
+     * Seed 1 and Seed 2 are placed in opposite halves and can only meet in the FINAL.
+     */
+    private static List<ParticipantRef[]> tournamentSeededPairs(List<ParticipantRef> players) {
+        int total = players.size();
+        if (total <= 2) {
+            return neighborPairs(players);
+        }
+
+        // Build power-of-2 standard tournament bracket permutation
+        int powerOf2 = 1;
+        while (powerOf2 < total) {
+            powerOf2 <<= 1;
+        }
+
+        List<Integer> bracket = new ArrayList<>();
+        bracket.add(1);
+        bracket.add(2);
+
+        while (bracket.size() < powerOf2) {
+            int nextSum = bracket.size() * 2 + 1;
+            List<Integer> nextBracket = new ArrayList<>();
+            for (int i = 0; i < bracket.size(); i += 2) {
+                int a = bracket.get(i);
+                int b = bracket.get(i + 1);
+                nextBracket.add(a);
+                nextBracket.add(nextSum - a);
+                nextBracket.add(b);
+                nextBracket.add(nextSum - b);
+            }
+            bracket = nextBracket;
+        }
+
+        // Map bracket seeds (1-based) to available player indices
+        List<ParticipantRef[]> pairs = new ArrayList<>();
+        for (int i = 0; i < bracket.size(); i += 2) {
+            int idx1 = bracket.get(i) - 1;
+            int idx2 = bracket.get(i + 1) - 1;
+            if (idx1 < total && idx2 < total) {
+                pairs.add(new ParticipantRef[]{players.get(idx1), players.get(idx2)});
+            }
+        }
+
+        if (pairs.size() * 2 == total) {
+            return pairs;
+        }
+
+        // Fallback for irregular count: pair (i) with (total - 1 - i)
+        pairs.clear();
+        int half = total / 2;
+        for (int i = 0; i < half; i++) {
+            int home = (i % 2 == 0) ? (i / 2) : (half - 1 - (i / 2));
+            int away = total - 1 - home;
+            pairs.add(new ParticipantRef[]{players.get(home), players.get(away)});
+        }
+        return pairs;
+    }
+
+    /** Pair an even-sized list as neighbours: (0,1),(2,3),… (for placeholder rounds). */
     private static List<ParticipantRef[]> neighborPairs(List<ParticipantRef> players) {
         List<ParticipantRef[]> pairs = new ArrayList<>();
         for (int i = 0; i + 1 < players.size(); i += 2) {
