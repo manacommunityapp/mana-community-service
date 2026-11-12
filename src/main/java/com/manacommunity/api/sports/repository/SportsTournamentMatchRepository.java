@@ -61,8 +61,12 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     /** Live matches, plus matches completed since {@code since}, for a community (feed candidates; flag filtered in service). */
     @Query("""
            SELECT m FROM SportsTournamentMatch m
-           WHERE (m.config.community.id = :communityId OR m.community.id = :communityId)
+           WHERE (m.community.id = :communityId
+                  OR m.config.community.id = :communityId
+                  OR (m.config.event IS NOT NULL AND m.config.event.community.id = :communityId)
+                  OR (m.config.event IS NOT NULL AND m.config.event.tournament IS NOT NULL AND m.config.event.tournament.community.id = :communityId))
              AND (m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE
+                  OR m.status = com.manacommunity.api.sports.model.MatchStatus.IN_PROGRESS
                   OR (m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
                       AND ((m.completedAt IS NOT NULL AND m.completedAt >= :since)
                            OR (m.completedAt IS NULL AND m.scheduledAt >= :since))))
@@ -75,6 +79,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE (m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE
+                  OR m.status = com.manacommunity.api.sports.model.MatchStatus.IN_PROGRESS
                   OR (m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
                       AND ((m.completedAt IS NOT NULL AND m.completedAt >= :since)
                            OR (m.completedAt IS NULL AND m.scheduledAt >= :since))))
@@ -98,6 +103,14 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     void deleteByConfigId(@Param("configId") Long configId);
 
     long countByConfigId(Long configId);
+
+    List<SportsTournamentMatch> findByStageId(Long stageId);
+
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id = :configId AND m.stageId IS NULL AND m.round = :round ORDER BY m.scheduledAt")
+    List<SportsTournamentMatch> findUnassignedByConfigIdAndRound(@Param("configId") Long configId, @Param("round") com.manacommunity.api.sports.model.MatchRound round);
+
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id = :configId AND m.stageId IS NULL ORDER BY m.scheduledAt")
+    List<SportsTournamentMatch> findUnassignedByConfigId(@Param("configId") Long configId);
 
     @Transactional
     @Modifying(clearAutomatically = true)

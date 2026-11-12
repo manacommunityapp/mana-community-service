@@ -1,6 +1,7 @@
 package com.manacommunity.api.sports.scheduler;
 
 import com.manacommunity.api.exception.ResourceNotFoundException;
+import com.manacommunity.api.sports.model.MatchRound;
 import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -81,11 +82,23 @@ public class TournamentStageService {
     @Transactional
     public GenerateResult generateStageSchedule(Long stageId, GenerateRequest req) {
         SportsTournamentStage stage = findStageOrThrow(stageId);
-        if (stage.getStageStatus() != SportsTournamentStage.StageStatus.NOT_GENERATED) {
+        if (stage.getStageStatus() != SportsTournamentStage.StageStatus.NOT_GENERATED
+                && stage.getStageStatus() != SportsTournamentStage.StageStatus.DRAFT) {
             throw new IllegalStateException("Stage already has generated schedule. Status: " + stage.getStageStatus());
         }
 
-        int nextVersion = versionRepo.findMaxVersionNumber(stage.getConfig().getId()) + 1;
+        Long configId = stage.getConfig().getId();
+
+        // Find existing matches that belong to this stage's round type and are not yet assigned
+        MatchRound matchRound = mapStageTypeToMatchRound(stage.getStageType());
+        List<SportsTournamentMatch> matches;
+        if (matchRound != null) {
+            matches = matchRepo.findUnassignedByConfigIdAndRound(configId, matchRound);
+        } else {
+            matches = matchRepo.findUnassignedByConfigId(configId);
+        }
+
+        int nextVersion = versionRepo.findMaxVersionNumber(configId) + 1;
         SportsScheduleVersion version = SportsScheduleVersion.builder()
                 .config(stage.getConfig())
                 .stage(stage)
@@ -94,12 +107,50 @@ public class TournamentStageService {
                 .build();
         versionRepo.save(version);
 
+        List<String> conflicts = new ArrayList<>();
+        List<Long> linkedMatchIds = new ArrayList<>();
+
+        for (SportsTournamentMatch match : matches) {
+            match.setStageId(stage.getId());
+            match.setScheduleVersionId(version.getId());
+            linkedMatchIds.add(match.getId());
+        }
+        if (!matches.isEmpty()) {
+            matchRepo.saveAll(matches);
+        }
+
+        if (linkedMatchIds.isEmpty()) {
+            conflicts.add("No existing matches found for stage type " + stage.getStageType()
+                    + ". Matches must first be created via the tournament scheduler (Setup Schedule / Config tab).");
+        }
+
+        version.setChangedMatchIdsJson(linkedMatchIds.toString());
+        versionRepo.save(version);
+
         stage.setStageStatus(SportsTournamentStage.StageStatus.DRAFT);
         stage.setPublishedVersionId(version.getId());
         stageRepo.save(stage);
 
-        log.info("Generated schedule for stage id={} version={}", stageId, nextVersion);
-        return new GenerateResult(0, List.of());
+        log.info("Generated schedule for stage id={} version={} linkedMatches={}", stageId, nextVersion, linkedMatchIds.size());
+        return new GenerateResult(linkedMatchIds.size(), conflicts);
+    }
+
+    private MatchRound mapStageTypeToMatchRound(SportsTournamentStage.StageType stageType) {
+        return switch (stageType) {
+            case GROUP_STAGE -> MatchRound.GROUP_STAGE;
+            case ROUND_OF_64 -> MatchRound.ROUND_OF_64;
+            case ROUND_OF_32 -> MatchRound.ROUND_OF_32;
+            case ROUND_OF_16 -> MatchRound.ROUND_OF_16;
+            case QUARTER_FINAL -> MatchRound.QUARTER_FINAL;
+            case SEMI_FINAL -> MatchRound.SEMI_FINAL;
+            case THIRD_PLACE -> MatchRound.THIRD_PLACE;
+            case FINAL -> MatchRound.FINAL;
+            case LEAGUE_MATCH -> MatchRound.LEAGUE_MATCH;
+            case SWISS_ROUND -> MatchRound.SWISS_ROUND;
+            case ELIMINATOR -> MatchRound.ELIMINATOR;
+            case QUALIFIER -> null;
+            case SUPER_FINAL -> MatchRound.SUPER_FINAL;
+        };
     }
 
     @Transactional
@@ -136,21 +187,66 @@ public class TournamentStageService {
     public PublicationResult publishStage(Long stageId, String publishedBy) {
         SportsTournamentStage stage = findStageOrThrow(stageId);
         if (stage.getStageStatus() != SportsTournamentStage.StageStatus.APPROVED
-                && stage.getStageStatus() != SportsTournamentStage.StageStatus.VALIDATED) {
-            throw new IllegalStateException("Stage must be APPROVED or VALIDATED to publish");
+                && stage.getStageStatus() != SportsTournamentStage.StageStatus.VALIDATED
+                && stage.getStageStatus() != SportsTournamentStage.StageStatus.DRAFT) {
+            throw new IllegalStateException("Stage must be DRAFT, VALIDATED or APPROVED to publish");
+        }
+
+        // Update all matches linked to this stage to PUBLISHED status
+        List<SportsTournamentMatch> stageMatches = matchRepo.findByStageId(stage.getId());
+        int publishedCount = 0;
+        for (SportsTournamentMatch match : stageMatches) {
+            if (match.getStatus() == MatchStatus.SCHEDULED || match.getStatus() == MatchStatus.DRAFT) {
+                match.setStatus(MatchStatus.PUBLISHED);
+                publishedCount++;
+            }
+        }
+        if (!stageMatches.isEmpty()) {
+            matchRepo.saveAll(stageMatches);
+        }
+
+        // Update schedule version to PUBLISHED
+        if (stage.getPublishedVersionId() != null) {
+            versionRepo.findById(stage.getPublishedVersionId()).ifPresent(v -> {
+                v.setStatus(SportsScheduleVersion.VersionStatus.PUBLISHED);
+                v.setPublishedBy(publishedBy);
+                v.setPublishedAt(LocalDateTime.now());
+                versionRepo.save(v);
+            });
         }
 
         stage.setStageStatus(SportsTournamentStage.StageStatus.PUBLISHED);
         stage.setPublicationStatus(SportsTournamentStage.PublicationStatus.PUBLISHED);
         stageRepo.save(stage);
 
-        log.info("Published stage id={} by={}", stageId, publishedBy);
-        return new PublicationResult(stageId, publishedBy, LocalDateTime.now(), "SENT", 0);
+        // Promote config from DRAFT to ACTIVE so matches become visible to non-admin users
+        SportsTournamentConfig config = stage.getConfig();
+        if (config != null && config.getStatus() == SportsTournamentConfig.TournamentStatus.DRAFT) {
+            config.setStatus(SportsTournamentConfig.TournamentStatus.ACTIVE);
+            configRepo.save(config);
+            log.info("Promoted config id={} from DRAFT to ACTIVE on stage publish", config.getId());
+        }
+
+        log.info("Published stage id={} by={} matchesPublished={}", stageId, publishedBy, publishedCount);
+        return new PublicationResult(stageId, publishedBy, LocalDateTime.now(), "SENT", publishedCount);
     }
 
     @Transactional
     public StageResponse unpublishStage(Long stageId, String reason) {
         SportsTournamentStage stage = findStageOrThrow(stageId);
+
+        // Revert PUBLISHED matches back to SCHEDULED
+        List<SportsTournamentMatch> stageMatches = matchRepo.findByStageId(stage.getId());
+        for (SportsTournamentMatch match : stageMatches) {
+            if (match.getStatus() == MatchStatus.PUBLISHED) {
+                match.setStatus(MatchStatus.SCHEDULED);
+            }
+        }
+        if (!stageMatches.isEmpty()) {
+            matchRepo.saveAll(stageMatches);
+        }
+
+        stage.setStageStatus(SportsTournamentStage.StageStatus.APPROVED);
         stage.setPublicationStatus(SportsTournamentStage.PublicationStatus.WITHDRAWN);
         stageRepo.save(stage);
 
@@ -268,7 +364,7 @@ public class TournamentStageService {
         long completed = matches.stream().filter(m -> m.getStatus() == MatchStatus.COMPLETED).count();
         long upcoming = matches.stream().filter(m -> m.getStatus() == MatchStatus.SCHEDULED || m.getStatus() == MatchStatus.PUBLISHED).count();
         long postponed = matches.stream().filter(m -> m.getStatus() == MatchStatus.SUSPENDED).count();
-        long live = matches.stream().filter(m -> m.getStatus() == MatchStatus.IN_PROGRESS).count();
+        long live = matches.stream().filter(m -> m.getStatus() == MatchStatus.IN_PROGRESS || m.getStatus() == MatchStatus.LIVE).count();
         long pendingPub = stages.stream().filter(s ->
                 s.getStageStatus() == SportsTournamentStage.StageStatus.APPROVED).count();
 
