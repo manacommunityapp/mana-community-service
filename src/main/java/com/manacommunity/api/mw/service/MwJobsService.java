@@ -84,11 +84,21 @@ public class MwJobsService {
         return appRepo.findByJob_Id(jobId);
     }
 
+    private static final java.util.Set<String> ALLOWED_APP_STATUSES =
+            java.util.Set.of("SHORTLISTED", "REJECTED", "OFFERED");
+
     public MwJobApplication respondToApplication(Long orgId, Long jobId, Long appId, JobApplicationResponseRequest req) {
         getAndVerifyOwnership(orgId, jobId);
         MwJobApplication app = appRepo.findById(appId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
-        app.setStatus(req.getStatus());
+        if (!app.getJob().getOrganizationId().equals(orgId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Not your application");
+        }
+        String status = req.getStatus().toUpperCase();
+        if (!ALLOWED_APP_STATUSES.contains(status)) {
+            throw new IllegalArgumentException("Status must be one of: SHORTLISTED, REJECTED, OFFERED");
+        }
+        app.setStatus(status);
         app.setEmployerNote(req.getEmployerNote());
         app.setRespondedAt(LocalDateTime.now());
         return appRepo.save(app);

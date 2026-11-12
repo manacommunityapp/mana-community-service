@@ -129,9 +129,13 @@ public class MwWorkforcePoolService {
                     .build();
             contractRepo.save(contract);
 
-            // Auto-fill listing if max workers reached
-            MwPoolListing listing = app.getListing();
+            // Pessimistic lock to prevent concurrent over-acceptance
+            MwPoolListing listing = listingRepo.findByIdForUpdate(app.getListing().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Listing not found"));
             int acceptedCount = applicationRepo.countByListingIdAndStatus(listing.getId(), "ACCEPTED");
+            if (acceptedCount > listing.getMaxWorkers()) {
+                throw new IllegalStateException("Listing is already filled");
+            }
             listing.setAcceptedCount(acceptedCount);
             if (acceptedCount >= listing.getMaxWorkers()) {
                 listing.setStatus("FILLED");

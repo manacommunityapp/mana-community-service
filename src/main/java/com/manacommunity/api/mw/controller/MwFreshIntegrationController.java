@@ -8,6 +8,7 @@ import com.manacommunity.api.mw.service.MwFreshIntegrationService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,7 +30,7 @@ public class MwFreshIntegrationController {
     @PostMapping("/{orgId}/deliveries")
     public ResponseEntity<MwFreshAssignment> createDelivery(
             @PathVariable Long orgId,
-            @RequestBody CreateFreshDeliveryRequest req,
+            @Valid @RequestBody CreateFreshDeliveryRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         employeeService.resolveAndVerifyMembership(orgId, user.getId());
