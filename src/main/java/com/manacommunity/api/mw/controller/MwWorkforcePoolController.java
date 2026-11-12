@@ -1,5 +1,6 @@
 package com.manacommunity.api.mw.controller;
 
+import com.manacommunity.api.common.IdempotencyService;
 import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.mw.dto.*;
 import com.manacommunity.api.mw.entity.*;
@@ -25,6 +26,7 @@ public class MwWorkforcePoolController {
     private final MwWorkforcePoolService poolService;
     private final LoggedInUserService loggedInUserService;
     private final HrEmployeeService employeeService;
+    private final IdempotencyService idempotencyService;
 
     // ── Employer: listings ────────────────────────────────────────────────────
 
@@ -128,7 +130,9 @@ public class MwWorkforcePoolController {
     @PostMapping("/contracts/{contractId}/consent")
     public ResponseEntity<MwEngagementContract> consentToContract(
             @PathVariable Long contractId,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal) {
+        idempotencyService.checkAndRegister(idempotencyKey);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(poolService.consentToContract(user.getId(), contractId));
     }

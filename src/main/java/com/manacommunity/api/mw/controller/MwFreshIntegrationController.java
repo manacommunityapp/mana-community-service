@@ -1,5 +1,6 @@
 package com.manacommunity.api.mw.controller;
 
+import com.manacommunity.api.common.IdempotencyService;
 import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.mw.dto.CompleteFreshDeliveryRequest;
 import com.manacommunity.api.mw.dto.CreateFreshDeliveryRequest;
@@ -26,12 +27,15 @@ public class MwFreshIntegrationController {
     private final MwFreshIntegrationService freshService;
     private final LoggedInUserService loggedInUserService;
     private final HrEmployeeService employeeService;
+    private final IdempotencyService idempotencyService;
 
     @PostMapping("/{orgId}/deliveries")
     public ResponseEntity<MwFreshAssignment> createDelivery(
             @PathVariable Long orgId,
             @Valid @RequestBody CreateFreshDeliveryRequest req,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal) {
+        idempotencyService.checkAndRegister(idempotencyKey);
         AppUser user = loggedInUserService.resolve(principal);
         employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(freshService.createDeliveryAssignment(orgId, req));
