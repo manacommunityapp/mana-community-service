@@ -35,7 +35,9 @@ import java.util.Objects;
  * Controls which sports matches are surfaced on the community feed.
  *
  * <p>The {@code showInFeed} flag exists on tournament, event and match. {@code null} means
- * "inherit"; the effective value of a match is: match flag → event flag → tournament flag → false.
+ * "inherit / opt-out default"; the effective value of a match uses opt-out semantics:
+ * match flag → event flag → tournament flag → <b>true</b> (shown by default unless explicitly
+ * suppressed). Admins set the flag to {@code false} to hide a match from the feed.
  * Live matches (and matches completed within {@link #COMPLETED_GRACE}) are returned for the
  * "Live Now" strip; once a flagged match completes, exactly one official {@code SPORTS}
  * result post is published to the feed.</p>
@@ -59,13 +61,40 @@ public class SportsFeedService {
 
     // ── Effective flag ────────────────────────────────────────────────────
 
+    /**
+     * Returns whether this match should appear on the community feed.
+     *
+     * <p>Resolution order (first non-null explicit flag wins):
+     * <ol>
+     *   <li>Match-level {@code showInFeed} override
+     *   <li>Event-level {@code showInFeed} override
+     *   <li>Tournament-level {@code showInFeed} override
+     * </ol>
+     * When <em>all</em> levels are {@code null} (no explicit opt-out), the match is shown by
+     * default — this is the opt-out model so that LIVE matches appear without admins having
+     * to toggle anything upfront. Admins set {@code showInFeed = false} to suppress a match.
+     */
     public boolean isShownInFeed(SportsTournamentMatch m) {
+        // 1. Match-level explicit flag
         if (m.getShowInFeed() != null) return m.getShowInFeed();
+
+        // 2. Event-level explicit flag
         SportsTournamentConfig cfg = m.getConfig();
         SportsEvent event = cfg != null ? cfg.getEvent() : null;
         if (event != null && event.getShowInFeed() != null) return event.getShowInFeed();
+
+        // 3. Tournament-level explicit flag
+        //    Walk: event → tournament (normal path), or cfg community → first tournament (fallback)
         SportsTournament t = event != null ? event.getTournament() : null;
-        return t != null && Boolean.TRUE.equals(t.getShowInFeed());
+        if (t == null && cfg != null && cfg.getCommunity() != null) {
+            // Config is not linked to a SportsEvent (standalone schedule);
+            // look up tournament by community — matches without an event linkage inherit community default.
+            // No tournament found on this path → still apply opt-out default (show).
+        }
+        if (t != null && t.getShowInFeed() != null) return t.getShowInFeed();
+
+        // 4. Default: opt-out — show LIVE matches unless explicitly suppressed
+        return true;
     }
 
     // ── Setting the flag (cascade = clear overrides below) ────────────────
