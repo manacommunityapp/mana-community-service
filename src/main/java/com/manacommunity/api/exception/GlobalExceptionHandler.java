@@ -484,6 +484,16 @@ public class GlobalExceptionHandler {
         return "unknown";
     }
 
+    // ─── 3c. Kitty Party Authorization ─────────────────────────────────────
+
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ErrorResponse> handleSecurityException(
+            SecurityException ex, HttpServletRequest request) {
+        log.warn("Circle authorization denied at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.FORBIDDEN, "CIRCLE_ACCESS_DENIED",
+                "You do not have the required circle role to perform this action.", request, null);
+    }
+
     // ─── 4. Generic Fallback ─────────────────────────────────────────────────
 
     @ExceptionHandler(Exception.class)

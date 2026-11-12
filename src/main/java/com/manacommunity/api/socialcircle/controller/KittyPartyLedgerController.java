@@ -75,10 +75,11 @@ public class KittyPartyLedgerController {
     public ResponseEntity<Map<String, Object>> verifyContribution(
             @PathVariable Long contributionId,
             @RequestBody VerifyContributionRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         AppUser user = loggedInUserService.resolve(principal);
-        ledgerService.verifyContribution(contributionId, user, request);
+        ledgerService.verifyContribution(contributionId, user, request, idempotencyKey);
         return ResponseEntity.ok(Map.of("success", true, "message", "Contribution verified"));
     }
 
@@ -86,10 +87,11 @@ public class KittyPartyLedgerController {
     public ResponseEntity<Map<String, Object>> disbursePayout(
             @PathVariable Long cycleId,
             @Valid @RequestBody DisbursePayoutRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         AppUser user = loggedInUserService.resolve(principal);
-        ledgerService.recordPayoutDisbursement(cycleId, user, request);
+        ledgerService.recordPayoutDisbursement(cycleId, user, request, idempotencyKey);
         return ResponseEntity.ok(Map.of("success", true, "message", "Payout disbursement recorded"));
     }
 

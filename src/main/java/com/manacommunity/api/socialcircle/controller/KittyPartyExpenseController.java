@@ -24,10 +24,11 @@ public class KittyPartyExpenseController {
     @PostMapping("/split")
     public ResponseEntity<List<ExpenseShareResponse>> splitExpense(
             @Valid @RequestBody SplitExpenseRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(expenseSplitService.splitExpense(request.getExpenseId(), request, user));
+        return ResponseEntity.ok(expenseSplitService.splitExpense(request.getExpenseId(), request, user, idempotencyKey));
     }
 
     @GetMapping("/expenses/{expenseId}/shares")
@@ -51,9 +52,10 @@ public class KittyPartyExpenseController {
     public ResponseEntity<ExpenseShareResponse> settleShare(
             @PathVariable Long shareId,
             @Valid @RequestBody SettleShareRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(expenseSplitService.settleShare(shareId, user, request));
+        return ResponseEntity.ok(expenseSplitService.settleShare(shareId, user, request, idempotencyKey));
     }
 }

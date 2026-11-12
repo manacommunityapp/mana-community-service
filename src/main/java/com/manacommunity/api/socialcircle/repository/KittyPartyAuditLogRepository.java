@@ -15,4 +15,6 @@ public interface KittyPartyAuditLogRepository extends JpaRepository<KittyPartyAu
     Optional<KittyPartyAuditLog> findTopByCycleIdOrderByIdDesc(Long cycleId);
 
     List<KittyPartyAuditLog> findByCircleIdOrderByIdDesc(Long circleId);
+
+    Optional<KittyPartyAuditLog> findByIdempotencyKey(String idempotencyKey);
 }

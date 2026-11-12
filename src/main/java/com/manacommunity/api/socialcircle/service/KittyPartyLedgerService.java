@@ -485,7 +485,9 @@ public class KittyPartyLedgerService {
     }
 
     @Transactional
-    public void verifyContribution(Long contributionId, AppUser verifier, VerifyContributionRequest request) {
+    public void verifyContribution(Long contributionId, AppUser verifier, VerifyContributionRequest request, String idempotencyKey) {
+        assertIdempotent(idempotencyKey);
+
         KittyPartyContribution contribution = contributionRepository.findById(contributionId)
                 .orElseThrow(() -> new IllegalArgumentException("Contribution record not found"));
 
@@ -497,19 +499,20 @@ public class KittyPartyLedgerService {
         contribution.setVerifiedAt(LocalDateTime.now());
         contributionRepository.save(contribution);
 
-        // Feature 8: Record Verification in Audit Log
         recordAuditLog(
-                contribution.getCycle().getId(),
-                contribution.getCycle().getCircle().getId(),
+                contribution.getCycle(), contribution.getCycle().getCircle(),
                 "CONTRIBUTION_VERIFIED",
                 verifier,
                 "Contribution id " + contributionId + " verified by admin with status " + newStatus,
-                "{\"contributionId\":" + contributionId + ",\"status\":\"" + newStatus + "\"}"
+                "{\"contributionId\":" + contributionId + ",\"status\":\"" + newStatus + "\"}",
+                idempotencyKey
         );
     }
 
     @Transactional
-    public void recordPayoutDisbursement(Long cycleId, AppUser adminUser, DisbursePayoutRequest request) {
+    public void recordPayoutDisbursement(Long cycleId, AppUser adminUser, DisbursePayoutRequest request, String idempotencyKey) {
+        assertIdempotent(idempotencyKey);
+
         KittyPartyCycle cycle = cycleRepository.findById(cycleId)
                 .orElseThrow(() -> new IllegalArgumentException("Cycle not found"));
 
@@ -524,14 +527,13 @@ public class KittyPartyLedgerService {
         rotation.setPayoutReceiptUrl(request.getPayoutReceiptUrl());
         rotationRepository.save(rotation);
 
-        // Feature 8: Record Disbursement in Audit Log
         recordAuditLog(
-                cycleId,
-                cycle.getCircle().getId(),
+                cycle, cycle.getCircle(),
                 "PAYOUT_DISBURSED",
                 adminUser,
                 "Disbursed Period " + request.getPeriodNumber() + " payout to beneficiary " + rotation.getBeneficiaryUser().getFullName() + " with ref " + request.getExternalPayoutRef(),
-                "{\"periodNumber\":" + request.getPeriodNumber() + ",\"beneficiaryUserId\":" + rotation.getBeneficiaryUser().getId() + ",\"ref\":\"" + request.getExternalPayoutRef() + "\"}"
+                "{\"periodNumber\":" + request.getPeriodNumber() + ",\"beneficiaryUserId\":" + rotation.getBeneficiaryUser().getId() + ",\"ref\":\"" + request.getExternalPayoutRef() + "\"}",
+                idempotencyKey
         );
 
         log.info("Recorded disbursement for cycle {} period {} to user {}", cycleId, request.getPeriodNumber(), rotation.getBeneficiaryUser().getId());
@@ -807,6 +809,14 @@ public class KittyPartyLedgerService {
     // 8. IMMUTABLE FINANCIAL AUDIT HISTORY (SHA-256 HASH CHAINING)
     // =========================================================================
 
+    public void assertIdempotent(String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            auditLogRepository.findByIdempotencyKey(idempotencyKey).ifPresent(existing -> {
+                throw new IllegalStateException("Duplicate request — this operation was already processed");
+            });
+        }
+    }
+
     public synchronized KittyPartyAuditLog recordAuditLog(
             KittyPartyCycle cycle,
             KittyPartyCircle circle,
@@ -814,6 +824,18 @@ public class KittyPartyLedgerService {
             AppUser actor,
             String description,
             String metadataJson
+    ) {
+        return recordAuditLog(cycle, circle, eventType, actor, description, metadataJson, null);
+    }
+
+    public synchronized KittyPartyAuditLog recordAuditLog(
+            KittyPartyCycle cycle,
+            KittyPartyCircle circle,
+            String eventType,
+            AppUser actor,
+            String description,
+            String metadataJson,
+            String idempotencyKey
     ) {
         if (cycle == null || circle == null) return null;
 
@@ -834,6 +856,7 @@ public class KittyPartyLedgerService {
                 .metadataJson(metadataJson)
                 .prevHash(prevHash)
                 .currHash(currHash)
+                .idempotencyKey(idempotencyKey)
                 .createdAt(now)
                 .build();
 
@@ -852,7 +875,7 @@ public class KittyPartyLedgerService {
         KittyPartyCircle circle = (cycle != null && cycle.getCircle() != null)
                 ? cycle.getCircle()
                 : ((circleId != null) ? circleRepository.findById(circleId).orElse(null) : null);
-        return recordAuditLog(cycle, circle, eventType, actor, description, metadataJson);
+        return recordAuditLog(cycle, circle, eventType, actor, description, metadataJson, null);
     }
 
     @Transactional(readOnly = true)

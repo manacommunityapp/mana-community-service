@@ -29,7 +29,7 @@ public class KittyPartyExpenseSplitService {
     private final AppUserRepository userRepository;
 
     @Transactional
-    public List<ExpenseShareResponse> splitExpense(Long expenseId, SplitExpenseRequest request, AppUser actor) {
+    public List<ExpenseShareResponse> splitExpense(Long expenseId, SplitExpenseRequest request, AppUser actor, String idempotencyKey) {
         if (actor == null) {
             throw new SecurityException("Authentication required to split expenses");
         }
@@ -74,12 +74,16 @@ public class KittyPartyExpenseSplitService {
     }
 
     @Transactional
-    public ExpenseShareResponse settleShare(Long shareId, AppUser user, SettleShareRequest request) {
+    public ExpenseShareResponse settleShare(Long shareId, AppUser user, SettleShareRequest request, String idempotencyKey) {
         KittyPartyExpenseShare share = expenseShareRepository.findById(shareId)
                 .orElseThrow(() -> new IllegalArgumentException("Expense share not found"));
 
         if (!share.getUser().getId().equals(user.getId())) {
             throw new SecurityException("Cannot settle an expense share belonging to another user");
+        }
+
+        if ("SETTLED".equals(share.getSettlementStatus())) {
+            throw new IllegalStateException("This expense share has already been settled");
         }
 
         share.setSettlementStatus("SETTLED");

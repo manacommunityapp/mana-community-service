@@ -46,6 +46,9 @@ public class KittyPartyAuditLog {
     @Column(name = "curr_hash", nullable = false, length = 64)
     private String currHash;
 
+    @Column(name = "idempotency_key", length = 80)
+    private String idempotencyKey;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
