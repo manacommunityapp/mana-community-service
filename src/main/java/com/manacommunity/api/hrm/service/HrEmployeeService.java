@@ -3,6 +3,7 @@ package com.manacommunity.api.hrm.service;
 import com.manacommunity.api.hrm.dto.*;
 import com.manacommunity.api.hrm.entity.*;
 import com.manacommunity.api.hrm.enums.EmploymentStatus;
+import com.manacommunity.api.hrm.enums.HrmRole;
 import com.manacommunity.api.hrm.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,6 +32,7 @@ public class HrEmployeeService {
     private final HrEmploymentHistoryRepository historyRepository;
     private final HrOnboardingService onboardingService;
     private final HrOffboardingService offboardingService;
+    private final HrEmployeeRoleRepository employeeRoleRepository;
 
     @Transactional
     public EmployeeResponse createEmployee(Long orgId, Long communityId, CreateEmployeeRequest request, Long createdBy) {
@@ -233,6 +235,17 @@ public class HrEmployeeService {
     public HrEmployee resolveAndVerifyMembership(Long orgId, Long manaUserId) {
         return employeeRepository.findByOrganizationIdAndManaUserId(orgId, manaUserId)
                 .orElseThrow(() -> new AccessDeniedException("Not a member of this organization"));
+    }
+
+    @Transactional(readOnly = true)
+    public void verifyManagerAccess(Long orgId, Long manaUserId) {
+        HrEmployee employee = resolveAndVerifyMembership(orgId, manaUserId);
+        boolean hasRole = employeeRoleRepository.existsByOrganizationIdAndEmployeeIdAndRoleAndIsActiveTrue(orgId, employee.getId(), HrmRole.HR_ADMIN)
+                || employeeRoleRepository.existsByOrganizationIdAndEmployeeIdAndRoleAndIsActiveTrue(orgId, employee.getId(), HrmRole.HR_MANAGER)
+                || employeeRoleRepository.existsByOrganizationIdAndEmployeeIdAndRoleAndIsActiveTrue(orgId, employee.getId(), HrmRole.MANAGER);
+        if (!hasRole) {
+            throw new AccessDeniedException("Insufficient role: HR_ADMIN, HR_MANAGER or MANAGER required");
+        }
     }
 
     public EmployeeResponse toEmployeeResponse(HrEmployee employee) {

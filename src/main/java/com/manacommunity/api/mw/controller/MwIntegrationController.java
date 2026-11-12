@@ -38,7 +38,7 @@ public class MwIntegrationController {
             @RequestBody UpdateIntegrationConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(configService.updateConfig(orgId, req));
     }
 }

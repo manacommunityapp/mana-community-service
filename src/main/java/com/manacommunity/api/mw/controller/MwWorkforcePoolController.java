@@ -34,7 +34,7 @@ public class MwWorkforcePoolController {
             @Valid @RequestBody CreatePoolListingRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(poolService.createListing(orgId, user.getId(), req));
     }
 
@@ -53,7 +53,7 @@ public class MwWorkforcePoolController {
             @PathVariable Long listingId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(poolService.closeListing(orgId, listingId));
     }
 
@@ -74,7 +74,7 @@ public class MwWorkforcePoolController {
             @Valid @RequestBody RespondToApplicationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(poolService.respondToApplication(orgId, applicationId, req));
     }
 
@@ -85,7 +85,7 @@ public class MwWorkforcePoolController {
             @Valid @RequestBody CompleteEngagementRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(poolService.completeEngagement(orgId, contractId, req));
     }
 

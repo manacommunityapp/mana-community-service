@@ -31,7 +31,7 @@ public class MwHandoverController {
             @RequestBody CreateHandoverRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(handoverService.createHandover(orgId, req));
     }
 

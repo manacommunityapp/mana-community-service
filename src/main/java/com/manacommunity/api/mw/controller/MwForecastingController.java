@@ -47,7 +47,7 @@ public class MwForecastingController {
             @RequestBody UpdateForecastConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(forecastingService.updateConfig(orgId, req));
     }
 
@@ -66,7 +66,7 @@ public class MwForecastingController {
             @RequestBody CreateSnapshotRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(forecastingService.upsertSnapshot(orgId, req));
     }
 
@@ -75,7 +75,7 @@ public class MwForecastingController {
             @PathVariable Long orgId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(forecastingService.generateProjections(orgId));
     }
 

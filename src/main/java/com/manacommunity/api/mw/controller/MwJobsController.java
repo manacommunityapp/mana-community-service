@@ -50,7 +50,7 @@ public class MwJobsController {
             @Valid @RequestBody CreateJobListingRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(jobsService.createJobListing(orgId, user.getId(), req));
     }
 
@@ -60,7 +60,7 @@ public class MwJobsController {
             @PathVariable Long jobId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(jobsService.pauseListing(orgId, jobId));
     }
 
@@ -70,7 +70,7 @@ public class MwJobsController {
             @PathVariable Long jobId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(jobsService.closeListing(orgId, jobId));
     }
 
@@ -92,7 +92,7 @@ public class MwJobsController {
             @Valid @RequestBody JobApplicationResponseRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        employeeService.verifyManagerAccess(orgId, user.getId());
         return ResponseEntity.ok(jobsService.respondToApplication(orgId, jobId, appId, req));
     }
 
