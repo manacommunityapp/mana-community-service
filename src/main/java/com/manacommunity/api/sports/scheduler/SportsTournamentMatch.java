@@ -69,6 +69,19 @@ public class SportsTournamentMatch {
     private Long winnerAdvancesToMatchId;
     private Long loserSentToMatchId;     // for double elimination
 
+    // ── Stage / Version ─────────────────────────────────────────────
+    @Column(name = "stage_id")
+    private Long stageId;
+
+    @Column(name = "schedule_version_id")
+    private Long scheduleVersionId;
+
+    @Column(name = "is_reserve_day_match", nullable = false)
+    private boolean reserveDayMatch;
+
+    @Column(name = "postponed_from_match_id")
+    private Long postponedFromMatchId;
+
     // ── Schedule ──────────────────────────────────────────────────
     @Column(nullable = false)
     private LocalDateTime scheduledAt;
