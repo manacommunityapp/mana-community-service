@@ -368,4 +368,35 @@ class SportsPlayoffScheduleGeneratorTest {
             assertThat(fn.time()).isEqualTo("04:00 PM");
         }
     }
+
+    @Nested
+    @DisplayName("all byes in first knockout round only")
+    class ByesFirstRoundOnly {
+        @Test
+        @DisplayName("21/22/31/37/38 players: byes only in round 1, later rounds fully played")
+        void byesOnlyInFirstRound() {
+            for (int n : new int[]{3, 5, 6, 21, 22, 31, 37, 38}) {
+                List<SportsPlayoffGenerateRequest.ParticipantInput> players = new ArrayList<>();
+                for (int i = 1; i <= n; i++) players.add(player("P" + i, "Player " + i, null));
+                SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                        1, n, "TRADITIONAL", false, "2026-06-20", "09:00 AM", 30, 10, 1L, null,
+                        players, null, null, null, null, null, true);
+
+                List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+
+                int size = Integer.highestOneBit(n - 1) * 2;
+                int byes = size - n;
+                long byeCount = matches.stream().filter(m -> "AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(byeCount).as("byes for n=%d", n).isEqualTo(byes);
+                assertThat(matches.stream().filter(m -> "AUTO_ADVANCED".equals(m.status()))
+                        .allMatch(m -> m.roundIndex() == 0)).as("byes all in round 0 for n=%d", n).isTrue();
+                // real matches in round 0 + byes must equal size/2 advancing slots
+                long r0Real = matches.stream().filter(m -> m.roundIndex() == 0 && !"AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(r0Real + byes).as("round-0 advancers for n=%d", n).isEqualTo(size / 2);
+                // total real matches in single elimination = n - 1
+                long real = matches.stream().filter(m -> !"AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(real).as("total real matches for n=%d", n).isEqualTo(n - 1);
+            }
+        }
+    }
 }

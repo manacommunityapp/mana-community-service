@@ -183,9 +183,14 @@ public class SportsTournamentSchedulerController {
     @GetMapping("/events")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getEventsForDropdown(
+            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        if (communityId == null && principal != null) {
+            AppUser user = loggedInUserService.resolve(principal);
+            if (user != null && user.getCommunity() != null) {
+                communityId = user.getCommunity().getId();
+            }
+        }
 
         List<SportsEvent> events;
         if (communityId != null) {
@@ -195,7 +200,12 @@ public class SportsTournamentSchedulerController {
         }
 
         List<Map<String, Object>> result = events.stream().map(e -> {
-            com.manacommunity.api.sports.model.SportsAuctionConfig ac = auctionConfigRepo.findByEventId(e.getId()).orElse(null);
+            com.manacommunity.api.sports.model.SportsAuctionConfig ac = null;
+            try {
+                ac = auctionConfigRepo.findByEventId(e.getId()).orElse(null);
+            } catch (Exception ex) {
+                log.warn("Failed to fetch auction config for event {}: {}", e.getId(), ex.getMessage());
+            }
             Integer totalTeams = ac != null && ac.getTotalTeams() != null ? ac.getTotalTeams() : 0;
             String venueStr = "";
             if (e.getVenue() != null) {

@@ -34,6 +34,7 @@ public class SportsAdminMatchController {
     private final SportsTournamentSchedulerService schedulerService;
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.service.PermissionCheckService permissionCheckService;
+    private final com.manacommunity.api.sports.service.SportsFeedService feedService;
 
     @GetMapping("/matches")
     public ResponseEntity<PagedResponse<SportsMatchResponse>> getMatches(
@@ -103,6 +104,7 @@ public class SportsAdminMatchController {
         if (statusStr != null && !statusStr.isBlank()) {
             match.setStatus(MatchStatus.valueOf(statusStr.toUpperCase()));
             match = matchRepo.save(match);
+            feedService.broadcastLiveFeedUpdate();
         }
         return ResponseEntity.ok(schedulerService.toMatchResponse(match));
     }

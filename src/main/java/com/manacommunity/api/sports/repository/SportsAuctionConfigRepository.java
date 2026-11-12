@@ -36,6 +36,10 @@ public interface SportsAuctionConfigRepository extends JpaRepository<SportsAucti
          + "WHERE (c.community.id = :communityId OR (c.community IS NULL AND c.createdBy.community.id = :communityId)) ORDER BY c.createdAt DESC")
     List<SportsAuctionConfig> findByCommunityIdWithAssociations(@Param("communityId") Long communityId);
     Optional<SportsAuctionConfig> findBySportIdAndStatus(Long sportId, SportsAuctionConfig.AuctionStatus status);
-    Optional<SportsAuctionConfig> findByEventId(Long eventId);
+    Optional<SportsAuctionConfig> findFirstByEventIdOrderByIdDesc(Long eventId);
+
+    default Optional<SportsAuctionConfig> findByEventId(Long eventId) {
+        return findFirstByEventIdOrderByIdDesc(eventId);
+    }
     boolean existsBySportIdAndSeasonName(Long sportId, String seasonName);
 }

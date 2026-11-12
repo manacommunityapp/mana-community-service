@@ -31,8 +31,21 @@ public record SportsPlayoffGenerateRequest(
     List<BreakWindowInput> breaks,         // optional: scheduled break windows (lunch, dinner, drinks)
     String                 endTime,        // optional: daily end time limit (e.g. "08:00 PM")
     List<Integer>          matchDays,      // optional: allowed days of week (0=Sun, 6=Sat)
-    java.util.Map<String, RoundTimingInput> roundTimings // optional: pinned date & start time per round
+    java.util.Map<String, RoundTimingInput> roundTimings, // optional: pinned date & start time per round
+    Boolean byesFirstRoundOnly       // optional: true => all byes in the first knockout round only (later rounds power-of-2)
 ) {
+    /** Backward-compatible constructor without byesFirstRoundOnly. */
+    public SportsPlayoffGenerateRequest(
+            int numGroups, int proceedersPerGroup, String seedingOrder, boolean thirdPlaceMatch,
+            String startDate, String startTime, int matchDurationMinutes, int breakMinutes,
+            Long venueId, Long courtId, List<ParticipantInput> participants, List<Long> courtIds,
+            List<BreakWindowInput> breaks, String endTime, List<Integer> matchDays,
+            java.util.Map<String, RoundTimingInput> roundTimings) {
+        this(numGroups, proceedersPerGroup, seedingOrder, thirdPlaceMatch, startDate, startTime,
+                matchDurationMinutes, breakMinutes, venueId, courtId, participants, courtIds, breaks,
+                endTime, matchDays, roundTimings, null);
+    }
+
     /** Backward-compatible constructor without endTime, matchDays, roundTimings. */
     public SportsPlayoffGenerateRequest(
             int numGroups, int proceedersPerGroup, String seedingOrder, boolean thirdPlaceMatch,

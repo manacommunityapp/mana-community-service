@@ -429,11 +429,44 @@ public class SportsPlayoffScheduleGenerator {
         // rounds (a player should not get a bye again until everyone else has).
         Set<String> byeReceived = new HashSet<>();
 
+        final boolean byesFirstOnly = Boolean.TRUE.equals(in.byesFirstRoundOnly());
+        if (byesFirstOnly) {
+            // Seed order = slot order (rank 1 of each group first), not the paired layout.
+            roundParticipants = new ArrayList<>();
+            for (Slot slot : slots) roundParticipants.add(toSlotParticipant(slot));
+        }
+
         while (roundParticipants.size() > 1) {
             String roundType = getRoundName(roundIndex, totalRounds);
             anchorRound(cursor, in.roundTimings(), roundType);
             List<ParticipantRef> nextParticipants = new ArrayList<>();
             int len = roundParticipants.size();
+
+            if (byesFirstOnly && roundIndex == 0 && Integer.bitCount(len) != 1) {
+                List<ParticipantRef[]> entries = firstRoundWithByes(roundParticipants);
+                int mIdx = 0;
+                for (ParticipantRef[] e : entries) {
+                    if (e[1] == null) {
+                        String byeId = "playoff-r0-bye" + (nextParticipants.size() - mIdx);
+                        matches.add(new SportsPlayoffMatchDraftResponse(byeId, e[0].name() + " (BYE)", roundType, roundIndex,
+                                e[0], new ParticipantRef("bye", "BYE"), cursor.currentDate(), "",
+                                in.matchDurationMinutes(), in.venueId(), in.courtId(), false, "AUTO_ADVANCED"));
+                        nextParticipants.add(e[0]);
+                    } else {
+                        String id = "playoff-r0-m" + mIdx;
+                        String name = roundLabel(roundType, mIdx);
+                        String[] slot = cursor.next();
+                        matches.add(new SportsPlayoffMatchDraftResponse(id, name, roundType, roundIndex,
+                                e[0], e[1], slot[0], slot[1],
+                                in.matchDurationMinutes(), in.venueId(), in.courtId(), false, null));
+                        nextParticipants.add(winnerRef(id, name));
+                        mIdx++;
+                    }
+                }
+                roundParticipants = nextParticipants;
+                roundIndex++;
+                continue;
+            }
 
             if (len % 2 != 0) {
                 // Randomly pick the BYE among players who have NOT had one yet;
@@ -552,6 +585,7 @@ public class SportsPlayoffScheduleGenerator {
         List<SportsPlayoffMatchDraftResponse> matches = new ArrayList<>();
         Set<String> byeReceived = new HashSet<>();   // Rule 4 — avoid repeat byes
         List<ParticipantRef> roundParticipants = new ArrayList<>(seeds);
+        final boolean firstRoundByesOnly = Boolean.TRUE.equals(in.byesFirstRoundOnly());
         int roundIndex = 0;
 
         while (roundParticipants.size() > 1) {
@@ -559,6 +593,39 @@ public class SportsPlayoffScheduleGenerator {
             anchorRound(sched, in.roundTimings(), roundType);
             List<ParticipantRef> active = new ArrayList<>(roundParticipants);
             List<ParticipantRef> next = new ArrayList<>();
+
+            // Option: ALL byes live in round 1 only. Round 1 plays just enough matches to shrink
+            // the field to a power of 2; every later round (QF / SF / Final) is fully played.
+            if (firstRoundByesOnly && roundIndex == 0 && Integer.bitCount(active.size()) != 1) {
+                List<ParticipantRef[]> entries = firstRoundWithByes(active);
+                applyConstraints(entries.stream().filter(e -> e[1] != null).toList());   // Rules 1 & 2
+                int mIdx = 0;
+                int byeNo = 0;
+                for (ParticipantRef[] e : entries) {
+                    if (e[1] == null) {
+                        ParticipantRef bp = e[0];
+                        String byeId = "ko-r0-bye" + byeNo++;
+                        matches.add(new SportsPlayoffMatchDraftResponse(byeId, bp.name() + " (BYE)",
+                                roundType, roundIndex, bp, new ParticipantRef("bye", "BYE"),
+                                sched.currentDate(), "", in.matchDurationMinutes(),
+                                in.venueId(), null, false, "AUTO_ADVANCED"));
+                        next.add(bp);
+                    } else {
+                        String id = "ko-r0-m" + mIdx;
+                        String name = roundLabel(roundType, mIdx);
+                        TimedSlot s = sched.nextSlot();
+                        matches.add(new SportsPlayoffMatchDraftResponse(id, name, roundType, roundIndex,
+                                e[0], e[1], s.date(), s.time(), in.matchDurationMinutes(),
+                                in.venueId(), s.courtId(), false, null));
+                        next.add(winnerRef(id, name));
+                        mIdx++;
+                    }
+                }
+                sched.flushWave();
+                roundParticipants = next;
+                roundIndex++;
+                continue;
+            }
 
             // Rule 3 + 4: when the round has an odd count, pull exactly ONE bye,
             // chosen randomly and preferring players who have not had a bye yet.
@@ -620,6 +687,48 @@ public class SportsPlayoffScheduleGenerator {
         }
 
         return matches;
+    }
+
+    /**
+     * First round when ALL byes must be consumed up front. Players are given in seed order
+     * (index 0 = Seed 1). The field is laid onto a standard bracket of size P (next power of 2);
+     * any bracket slot whose opponent seed exceeds n is a bye for the better seed, so there are
+     * exactly P - n byes (top seeds) and n - P/2 real matches. Entries come back in bracket order
+     * ({player, null} = bye), so winners/bye players meeting in round 2 keep Seed 1 and Seed 2 apart.
+     */
+    private static List<ParticipantRef[]> firstRoundWithByes(List<ParticipantRef> seeded) {
+        int n = seeded.size();
+        int size = 2;
+        while (size < n) size <<= 1;
+
+        List<Integer> bracket = new ArrayList<>(List.of(1, 2));
+        while (bracket.size() < size) {
+            int nextSum = bracket.size() * 2 + 1;
+            List<Integer> nb = new ArrayList<>();
+            for (int i = 0; i < bracket.size(); i += 2) {
+                int a = bracket.get(i);
+                int b = bracket.get(i + 1);
+                nb.add(a);
+                nb.add(nextSum - a);
+                nb.add(b);
+                nb.add(nextSum - b);
+            }
+            bracket = nb;
+        }
+
+        List<ParticipantRef[]> entries = new ArrayList<>();
+        for (int i = 0; i < bracket.size(); i += 2) {
+            int x = bracket.get(i);
+            int y = bracket.get(i + 1);
+            int lo = Math.min(x, y);
+            int hi = Math.max(x, y);
+            if (hi > n) {
+                entries.add(new ParticipantRef[]{seeded.get(lo - 1), null});
+            } else {
+                entries.add(new ParticipantRef[]{seeded.get(x - 1), seeded.get(y - 1)});
+            }
+        }
+        return entries;
     }
 
     /**

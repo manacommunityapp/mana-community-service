@@ -59,6 +59,26 @@ public class SportsFeedService {
     private final SportsTournamentSchedulerService schedulerService;
     private final PostRepository postRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+
+    // ── Getters for Feed Visibility ────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Boolean getEventFlag(Long eventId) {
+        return eventRepo.findById(eventId).map(SportsEvent::getShowInFeed).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean getTournamentFlag(Long tournamentId) {
+        return tournamentRepo.findById(tournamentId).map(SportsTournament::getShowInFeed).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean getMatchFlag(Long matchId) {
+        return matchRepo.findById(matchId).map(this::isShownInFeed).orElse(null);
+    }
+
     // ── Effective flag ────────────────────────────────────────────────────
 
     /**
@@ -66,6 +86,7 @@ public class SportsFeedService {
      *
      * <p>Resolution order (first non-null explicit flag wins):
      * <ol>
+     *   <li>Draft guard: matches under DRAFT configs or in DRAFT status are hidden
      *   <li>Match-level {@code showInFeed} override
      *   <li>Event-level {@code showInFeed} override
      *   <li>Tournament-level {@code showInFeed} override
@@ -75,22 +96,26 @@ public class SportsFeedService {
      * to toggle anything upfront. Admins set {@code showInFeed = false} to suppress a match.
      */
     public boolean isShownInFeed(SportsTournamentMatch m) {
+        // Draft check: if parent config or match is DRAFT, don't show on community feed
+        if (m.getStatus() == MatchStatus.DRAFT) return false;
+        if (m.getConfig() != null && m.getConfig().getStatus() == SportsTournamentConfig.TournamentStatus.DRAFT) {
+            return false;
+        }
+
         // 1. Match-level explicit flag
         if (m.getShowInFeed() != null) return m.getShowInFeed();
 
         // 2. Event-level explicit flag
         SportsTournamentConfig cfg = m.getConfig();
         SportsEvent event = cfg != null ? cfg.getEvent() : null;
+        if (event == null && cfg != null && cfg.getId() != null) {
+            event = eventRepo.findById(cfg.getId()).orElse(null);
+        }
         if (event != null && event.getShowInFeed() != null) return event.getShowInFeed();
 
         // 3. Tournament-level explicit flag
         //    Walk: event → tournament (normal path), or cfg community → first tournament (fallback)
         SportsTournament t = event != null ? event.getTournament() : null;
-        if (t == null && cfg != null && cfg.getCommunity() != null) {
-            // Config is not linked to a SportsEvent (standalone schedule);
-            // look up tournament by community — matches without an event linkage inherit community default.
-            // No tournament found on this path → still apply opt-out default (show).
-        }
         if (t != null && t.getShowInFeed() != null) return t.getShowInFeed();
 
         // 4. Default: opt-out — show LIVE matches unless explicitly suppressed
@@ -108,51 +133,89 @@ public class SportsFeedService {
         tournamentRepo.save(t);
         if (cascade) {
             for (SportsEvent e : eventRepo.findByTournamentId(tournamentId)) {
-                e.setShowInFeed(null);
+                e.setShowInFeed(show);
                 eventRepo.save(e);
-                clearMatchOverrides(e.getId());
+                setEventFlag(e.getId(), show, true, ctx);
             }
         }
+        broadcastLiveFeedUpdate();
         log.info("Feed flag: tournament {} -> {} (cascade={}) by user {}", tournamentId, show, cascade,
-                ctx.user() != null ? ctx.user().getId() : null);
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
     }
 
     @Transactional
     public void setEventFlag(Long eventId, Boolean show, boolean cascade, ResolvedUser ctx) {
         SportsEvent e = eventRepo.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
-        assertCommunity(e.getCommunity(), ctx);
+        Community community = e.getCommunity() != null ? e.getCommunity()
+                : (e.getTournament() != null ? e.getTournament().getCommunity() : null);
+        assertCommunity(community, ctx);
         e.setShowInFeed(show);
+        if (e.getCommunity() == null && community != null) {
+            e.setCommunity(community);
+        }
         eventRepo.save(e);
-        if (cascade) clearMatchOverrides(eventId);
+        if (cascade) {
+            clearMatchOverrides(eventId, show);
+        }
+        broadcastLiveFeedUpdate();
         log.info("Feed flag: event {} -> {} (cascade={}) by user {}", eventId, show, cascade,
-                ctx.user() != null ? ctx.user().getId() : null);
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
     }
 
     @Transactional
     public void setMatchFlag(Long matchId, Boolean show, ResolvedUser ctx) {
         SportsTournamentMatch m = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Match", matchId));
-        assertCommunity(m.getConfig() != null ? m.getConfig().getCommunity() : m.getCommunity(), ctx);
+        Community community = m.getCommunity();
+        if (community == null && m.getConfig() != null) {
+            community = m.getConfig().getCommunity();
+            if (community == null && m.getConfig().getEvent() != null) {
+                community = m.getConfig().getEvent().getCommunity();
+                if (community == null && m.getConfig().getEvent().getTournament() != null) {
+                    community = m.getConfig().getEvent().getTournament().getCommunity();
+                }
+            }
+        }
+        assertCommunity(community, ctx);
         m.setShowInFeed(show);
         matchRepo.save(m);
+        broadcastLiveFeedUpdate();
         log.info("Feed flag: match {} -> {} by user {}", matchId, show,
-                ctx.user() != null ? ctx.user().getId() : null);
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
     }
 
-    private void clearMatchOverrides(Long eventId) {
-        for (SportsTournamentConfig cfg : configRepo.findByEventId(eventId)) {
+    private void clearMatchOverrides(Long eventId, Boolean show) {
+        List<SportsTournamentConfig> configs = new java.util.ArrayList<>(configRepo.findByEventId(eventId));
+        configRepo.findById(eventId).ifPresent(c -> {
+            if (!configs.contains(c)) configs.add(c);
+        });
+        for (SportsTournamentConfig cfg : configs) {
             List<SportsTournamentMatch> matches = matchRepo.findByConfigId(cfg.getId());
-            matches.forEach(mm -> mm.setShowInFeed(null));
+            matches.forEach(mm -> mm.setShowInFeed(show));
             matchRepo.saveAll(matches);
         }
     }
 
     private void assertCommunity(Community community, ResolvedUser ctx) {
-        if (ctx.superAdmin()) return;
-        if (community == null || ctx.communityId() == null
-                || !Objects.equals(community.getId(), ctx.communityId())) {
-            throw new AccessDeniedException("Not allowed to manage this community's sports feed visibility");
+        if (ctx == null || ctx.superAdmin()) return;
+        if (community == null) return;
+        if (ctx.communityId() != null && !Objects.equals(community.getId(), ctx.communityId())) {
+            if (ctx.user() == null || (!ctx.user().hasRole(com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN)
+                    && !ctx.user().hasRole(com.manacommunity.api.constants.PermissionConstants.ROLE_ADMIN)
+                    && !ctx.user().hasRole(com.manacommunity.api.constants.PermissionConstants.ROLE_SPORTS_ADMIN))) {
+                throw new AccessDeniedException("Not allowed to manage this community's sports feed visibility");
+            }
+        }
+    }
+
+    public void broadcastLiveFeedUpdate() {
+        try {
+            if (messagingTemplate != null) {
+                messagingTemplate.convertAndSend("/topic/sports/live", java.util.Map.of("type", "REFRESH"));
+            }
+        } catch (Exception ex) {
+            log.debug("Could not broadcast live feed update: {}", ex.getMessage());
         }
     }
 
@@ -168,10 +231,12 @@ public class SportsFeedService {
         List<SportsTournamentMatch> candidates;
         if (targetCommunityId != null) {
             candidates = matchRepo.findFeedCandidatesByCommunityId(targetCommunityId, since);
-        } else if (ctx != null && ctx.superAdmin()) {
-            candidates = matchRepo.findFeedCandidatesAll(since);
+            // Fallback: If community-scoped candidates are empty, load candidates across communities
+            if (candidates.isEmpty()) {
+                candidates = matchRepo.findFeedCandidatesAll(since);
+            }
         } else {
-            return List.of();
+            candidates = matchRepo.findFeedCandidatesAll(since);
         }
 
         return candidates.stream()
@@ -184,18 +249,35 @@ public class SportsFeedService {
         SportsMatchResponse r = schedulerService.toMatchResponse(m);
         SportsTournamentConfig cfg = m.getConfig();
         SportsEvent event = cfg != null ? cfg.getEvent() : null;
+        if (event == null && cfg != null && cfg.getId() != null) {
+            event = eventRepo.findById(cfg.getId()).orElse(null);
+        }
         SportsTournament t = event != null ? event.getTournament() : null;
+
+        String sportName = cfg != null && cfg.getSport() != null ? cfg.getSport().getName()
+                : (event != null && event.getSport() != null ? event.getSport().getName() : "Cricket");
+
+        String tournamentName = t != null ? t.getName()
+                : (cfg != null && cfg.getTournamentName() != null ? cfg.getTournamentName()
+                : (event != null && event.getTournament() != null ? event.getTournament().getName() : null));
+
+        String eventName = event != null ? event.getName()
+                : (cfg != null ? cfg.getTournamentName() : null);
+
+        String status = ("IN_PROGRESS".equalsIgnoreCase(r.status()) || "LIVE".equalsIgnoreCase(r.status()))
+                ? "LIVE" : r.status();
+
         return new SportsFeedMatchResponse(
                 m.getId(),
                 cfg != null ? cfg.getId() : null,
-                cfg != null && cfg.getSport() != null ? cfg.getSport().getName() : null,
-                t != null ? t.getName() : (cfg != null ? cfg.getTournamentName() : null),
-                event != null ? event.getName() : null,
+                sportName,
+                tournamentName,
+                eventName,
                 r.roundName(),
                 r.teamAName(), r.teamBName(),
                 r.teamAFlat(), r.teamBFlat(),
                 r.scoreTeamA(), r.scoreTeamB(),
-                r.status(), r.winnerName(),
+                status, r.winnerName(),
                 r.scheduledAt(),
                 m.getCompletedAt() != null ? m.getCompletedAt().toString() : null,
                 r.venueName());

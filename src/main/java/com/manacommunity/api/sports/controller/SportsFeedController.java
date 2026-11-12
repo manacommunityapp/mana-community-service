@@ -13,12 +13,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+import com.manacommunity.api.user.model.AppUser;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_COMMUNITY_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SPORTS_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.CREATE_EDIT_SPORTS_MAIN;
+import static com.manacommunity.api.constants.permissions.SportsPermissions.VIEW_SPORTS_MAIN;
 
 /**
- * Feed visibility for sports matches. Toggling is limited to users holding the
- * sports create/edit permission (sports admin / community admin) and is scoped to
- * the caller's community; reading the live strip only needs an authenticated member.
+ * Feed visibility for sports matches. Toggling is available to Sports Admins,
+ * Community Admins, Admins, Super Admins, and users with CREATE_EDIT_SPORTS_MAIN.
  */
 @RestController
 @RequestMapping("/api/sports")
@@ -29,11 +34,55 @@ public class SportsFeedController {
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.service.PermissionCheckService permissionCheckService;
 
+    private void requireSportsAdminOrPermission(UserPrincipal principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        }
+        AppUser user = loggedInUserService.resolve(principal);
+        if (user != null && (user.hasRole(ROLE_SUPER_ADMIN)
+                || user.hasRole(ROLE_ADMIN)
+                || user.hasRole(ROLE_COMMUNITY_ADMIN)
+                || user.hasRole(ROLE_SPORTS_ADMIN))) {
+            return;
+        }
+        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+    }
+
+    /** GET visibility status of an event. */
+    @GetMapping("/events/{id}/feed-visibility")
+    public ResponseEntity<Map<String, Object>> getEventVisibility(@PathVariable Long id) {
+        Boolean visible = feedService.getEventFlag(id);
+        return ResponseEntity.ok(Map.of(
+                "eventId", id,
+                "showInFeed", visible != null ? visible : true,
+                "explicit", visible != null));
+    }
+
+    /** GET visibility status of a tournament. */
+    @GetMapping("/tournaments/{id}/feed-visibility")
+    public ResponseEntity<Map<String, Object>> getTournamentVisibility(@PathVariable Long id) {
+        Boolean visible = feedService.getTournamentFlag(id);
+        return ResponseEntity.ok(Map.of(
+                "tournamentId", id,
+                "showInFeed", visible != null ? visible : true,
+                "explicit", visible != null));
+    }
+
+    /** GET visibility status of a match. */
+    @GetMapping("/matches/{id}/feed-visibility")
+    public ResponseEntity<Map<String, Object>> getMatchVisibility(@PathVariable Long id) {
+        Boolean visible = feedService.getMatchFlag(id);
+        return ResponseEntity.ok(Map.of(
+                "matchId", id,
+                "showInFeed", visible != null ? visible : true,
+                "explicit", visible != null));
+    }
+
     /** Body: {@code {"showInFeed": true|false|null, "cascade": true|false}}. */
     @PutMapping("/tournaments/{id}/feed-visibility")
     public ResponseEntity<Void> setTournament(@PathVariable Long id, @RequestBody Map<String, Object> body,
                                               @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        requireSportsAdminOrPermission(principal);
         feedService.setTournamentFlag(id, flag(body), cascade(body), loggedInUserService.resolveContext(principal));
         return ResponseEntity.noContent().build();
     }
@@ -41,7 +90,7 @@ public class SportsFeedController {
     @PutMapping("/events/{id}/feed-visibility")
     public ResponseEntity<Void> setEvent(@PathVariable Long id, @RequestBody Map<String, Object> body,
                                          @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        requireSportsAdminOrPermission(principal);
         feedService.setEventFlag(id, flag(body), cascade(body), loggedInUserService.resolveContext(principal));
         return ResponseEntity.noContent().build();
     }
@@ -49,7 +98,7 @@ public class SportsFeedController {
     @PutMapping("/matches/{id}/feed-visibility")
     public ResponseEntity<Void> setMatch(@PathVariable Long id, @RequestBody Map<String, Object> body,
                                          @AuthenticationPrincipal UserPrincipal principal) {
-        permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
+        requireSportsAdminOrPermission(principal);
         feedService.setMatchFlag(id, flag(body), loggedInUserService.resolveContext(principal));
         return ResponseEntity.noContent().build();
     }
