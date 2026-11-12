@@ -28,7 +28,9 @@ public class MwJobsController {
     @GetMapping
     @PreAuthorize("permitAll()")
     public ResponseEntity<?> getCommunityJobs(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(jobsService.getCommunityJobs(search));
+        return ResponseEntity.ok(jobsService.getCommunityJobs(search).stream()
+                .map(MwJobListingPublicResponse::from)
+                .toList());
     }
 
     // ── Employer: manage org listings ────────────────────────────────────────
@@ -108,6 +110,8 @@ public class MwJobsController {
     @GetMapping("/my-applications")
     public ResponseEntity<?> getMyApplications(@AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(jobsService.getMyApplications(user.getId()));
+        return ResponseEntity.ok(jobsService.getMyApplications(user.getId()).stream()
+                .map(MwMyApplicationResponse::from)
+                .toList());
     }
 }

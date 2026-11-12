@@ -89,7 +89,7 @@ public class MwSkillPassportController {
     @GetMapping("/{userId}")
     @PreAuthorize("permitAll()")
     public ResponseEntity<?> getPublicPassport(@PathVariable Long userId) {
-        return ResponseEntity.ok(passportService.getPublicPassport(userId));
+        return ResponseEntity.ok(MwPassportPublicResponse.from(passportService.getPublicPassport(userId)));
     }
 
     // Skills endpoint for inter-module calls (availability engine etc.)

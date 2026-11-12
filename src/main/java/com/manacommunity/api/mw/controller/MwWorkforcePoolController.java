@@ -93,10 +93,12 @@ public class MwWorkforcePoolController {
 
     @GetMapping("/browse")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<List<MwPoolListing>> browseListings(
+    public ResponseEntity<?> browseListings(
             @RequestParam(required = false) Long myOrgId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(poolService.browseOpenListings(myOrgId));
+        return ResponseEntity.ok(poolService.browseOpenListings(myOrgId).stream()
+                .map(MwPoolListingPublicResponse::from)
+                .toList());
     }
 
     @GetMapping("/listings/{listingId}")
