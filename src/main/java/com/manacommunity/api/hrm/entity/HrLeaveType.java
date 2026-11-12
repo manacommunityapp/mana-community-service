@@ -43,6 +43,30 @@ public class HrLeaveType {
     @Builder.Default
     private Boolean isActive = true;
 
+    // Multiple approval levels
+    @Column(name = "approval_levels", nullable = false)
+    @Builder.Default
+    private Integer approvalLevels = 1;
+
+    @Column(name = "requires_hr_approval", nullable = false)
+    @Builder.Default
+    private Boolean requiresHrApproval = false;
+
+    // Policy-based approval fields
+    @Column(name = "min_notice_days", nullable = false)
+    @Builder.Default
+    private Integer minNoticeDays = 0;
+
+    @Column(name = "max_consecutive_days")
+    private Integer maxConsecutiveDays;
+
+    @Column(name = "max_per_year")
+    private Integer maxPerYear;
+
+    @Column(name = "allow_negative_balance", nullable = false)
+    @Builder.Default
+    private Boolean allowNegativeBalance = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

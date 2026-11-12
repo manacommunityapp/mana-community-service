@@ -20,8 +20,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/hr/leaves")
@@ -117,6 +120,33 @@ public class HrLeaveController {
         return ResponseEntity.ok(leaveService.cancelLeave(id, employee.getId()));
     }
 
+    @PostMapping("/{id}/l2-approve")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<LeaveRequestResponse> l2ApproveLeave(
+            @PathVariable Long id,
+            @RequestParam Long orgId,
+            @RequestBody(required = false) LeaveActionRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        if (request == null) request = new LeaveActionRequest();
+        return ResponseEntity.ok(leaveService.approveLeave(id, orgId, user.getId(), request));
+    }
+
+    @PostMapping("/organizations/{orgId}/comp-off")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> grantCompOff(
+            @PathVariable Long orgId,
+            @RequestParam Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workedDate,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        leaveService.grantCompensatoryOff(orgId, employeeId, workedDate, reason);
+        return ResponseEntity.ok(Map.of("message", "Compensatory off granted successfully"));
+    }
+
     @PostMapping("/organizations/{orgId}/leave-types")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HrLeaveType> createLeaveType(
@@ -133,5 +163,28 @@ public class HrLeaveController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<HrLeaveType>> listLeaveTypes(@PathVariable Long orgId) {
         return ResponseEntity.ok(leaveService.listLeaveTypes(orgId));
+    }
+
+    // P0: manager-authorised employee-specific leave data
+    @GetMapping("/organizations/{orgId}/employees/{employeeId}/requests")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<LeaveRequestResponse>> getEmployeeLeaveRequests(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(leaveService.getLeaveRequestsByEmployee(orgId, employeeId));
+    }
+
+    @GetMapping("/organizations/{orgId}/employees/{employeeId}/balances")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<LeaveBalanceResponse>> getEmployeeLeaveBalances(
+            @PathVariable Long orgId,
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(leaveService.getLeaveBalancesByEmployee(orgId, employeeId));
     }
 }

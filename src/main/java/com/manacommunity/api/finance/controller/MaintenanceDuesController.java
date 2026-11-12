@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api/finance/maintenance")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class MaintenanceDuesController {
 
     private final InvoiceRepository invoiceRepository;

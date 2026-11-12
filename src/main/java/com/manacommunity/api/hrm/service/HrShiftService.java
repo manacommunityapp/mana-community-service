@@ -48,6 +48,11 @@ public class HrShiftService {
             throw new IllegalArgumentException("Shift does not belong to this organization");
         }
 
+        // P0: prevent duplicate shift assignment for same employee/date
+        if (employeeShiftRepository.existsByEmployeeIdAndShiftDate(request.getEmployeeId(), request.getShiftDate())) {
+            throw new IllegalStateException("Employee already has a shift assigned on " + request.getShiftDate());
+        }
+
         HrEmployeeShift assignment = HrEmployeeShift.builder()
                 .organizationId(orgId)
                 .employee(employee)

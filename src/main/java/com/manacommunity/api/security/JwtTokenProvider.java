@@ -55,6 +55,7 @@ public class JwtTokenProvider {
     private final long expirationMs;
     private final long refreshExpirationMs;
     private final String issuer;
+    private final String audience;
 
     private static final String INSECURE_DEFAULT_PREFIX = "dev-only-insecure-secret";
 
@@ -63,6 +64,7 @@ public class JwtTokenProvider {
             @Value("${app.security.jwt.expiration-ms:900000}") long expirationMs,
             @Value("${app.security.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs,
             @Value("${app.security.jwt.issuer:mana-community}") String issuer,
+            @Value("${app.security.jwt.audience:mana-api}") String audience,
             @Value("${app.security.mock-auth-enabled:false}") boolean mockAuthEnabled) {
 
         byte[] keyBytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
@@ -79,6 +81,7 @@ public class JwtTokenProvider {
         this.expirationMs = expirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
         this.issuer = issuer;
+        this.audience = audience;
     }
 
     /** Mints a signed, short-lived <b>access</b> token (the API Bearer credential). */
@@ -113,6 +116,7 @@ public class JwtTokenProvider {
         var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString()) // jti — unique token ID for blacklisting
                 .issuer(issuer)
+                .audience().add(audience).and()
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
                 .claim("role", user.getRole())   // kept for backward compatibility
@@ -251,6 +255,7 @@ public class JwtTokenProvider {
     private Jws<Claims> parse(String token) {
         return Jwts.parser()
                 .requireIssuer(issuer)
+                .requireAudience(audience)
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token);

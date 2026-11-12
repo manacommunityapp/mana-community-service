@@ -1,5 +1,6 @@
 package com.manacommunity.api.hrm.dto;
 
+import com.manacommunity.api.hrm.enums.LeaveSession;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -21,4 +22,8 @@ public class ApplyLeaveRequest {
     private Double totalDays;
 
     private String reason;
+
+    private Boolean halfDay = false;
+
+    private LeaveSession leaveSession;
 }
