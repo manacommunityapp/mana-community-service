@@ -5,6 +5,7 @@ import com.manacommunity.api.hrm.entity.HrReportConfig;
 import com.manacommunity.api.hrm.enums.EmploymentStatus;
 import com.manacommunity.api.hrm.repository.HrEmployeeRepository;
 import com.manacommunity.api.hrm.repository.HrReportConfigRepository;
+import java.util.Arrays;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,7 +67,8 @@ public class HrReportService {
             }
         } else if ("ATTRITION".equalsIgnoreCase(reportType)) {
             writer.println("Employee Code,First Name,Last Name,Department,Exit Date");
-            List<HrEmployee> exited = employeeRepository.findByOrganizationIdAndEmploymentStatus(orgId, EmploymentStatus.INACTIVE);
+            List<HrEmployee> exited = employeeRepository.findByOrganizationIdAndEmploymentStatusIn(orgId,
+                    Arrays.asList(EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED, EmploymentStatus.RETIRED));
             for (HrEmployee e : exited) {
                 writer.printf("%s,%s,%s,%s,%s%n",
                         safe(e.getEmployeeCode()),

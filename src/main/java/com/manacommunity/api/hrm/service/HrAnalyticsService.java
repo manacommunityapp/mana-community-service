@@ -58,7 +58,9 @@ public class HrAnalyticsService {
         for (int i = months - 1; i >= 0; i--) {
             LocalDate monthStart = now.minusMonths(i).withDayOfMonth(1);
             LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
-            long exits = employeeRepository.findByOrganizationIdAndEmploymentStatus(orgId, EmploymentStatus.INACTIVE)
+            List<EmploymentStatus> exitedStatuses = Arrays.asList(
+                    EmploymentStatus.TERMINATED, EmploymentStatus.RESIGNED, EmploymentStatus.RETIRED);
+            long exits = employeeRepository.findByOrganizationIdAndEmploymentStatusIn(orgId, exitedStatuses)
                     .stream()
                     .filter(e -> e.getExitDate() != null && !e.getExitDate().isBefore(monthStart) && !e.getExitDate().isAfter(monthEnd))
                     .count();

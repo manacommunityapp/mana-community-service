@@ -37,6 +37,8 @@ public interface HrEmployeeRepository extends JpaRepository<HrEmployee, Long> {
 
     List<HrEmployee> findByOrganizationIdAndEmploymentStatus(Long organizationId, EmploymentStatus status);
 
+    List<HrEmployee> findByOrganizationIdAndEmploymentStatusIn(Long organizationId, java.util.Collection<EmploymentStatus> statuses);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM HrEmployee e WHERE e.id = :id AND e.organizationId = :orgId")
     Optional<HrEmployee> findByIdAndOrganizationIdWithLock(@Param("id") Long id, @Param("orgId") Long orgId);
