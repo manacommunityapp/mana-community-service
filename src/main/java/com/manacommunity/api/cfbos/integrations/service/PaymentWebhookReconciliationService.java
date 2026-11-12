@@ -58,6 +58,11 @@ public class PaymentWebhookReconciliationService {
         }
     }
 
+    public boolean processCashfreeWebhook(Map<String, Object> payload, String signature, String timestamp) {
+        log.info("Processing Cashfree webhook: timestamp={}", timestamp);
+        return true;
+    }
+
     public boolean processRazorpayWebhook(Map<String, Object> payload, String signature) {
         String eventId = payload != null && payload.containsKey("id") ? String.valueOf(payload.get("id")) : null;
         log.info("Processing Razorpay webhook event: {}, eventId={}", payload != null ? payload.get("event") : null, eventId);

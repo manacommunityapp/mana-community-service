@@ -80,13 +80,14 @@ public class VmsBookingController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Manage Vendors')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BookingResponse> updateStatus(
             @PathVariable Long id,
             @RequestParam String status,
             @RequestParam(required = false) String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(bookingService.updateStatus(id, status, user.getCommunity().getId(), reason));
+        boolean manager = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Vendors"));
+        return ResponseEntity.ok(bookingService.updateStatusForUser(id, status, user, reason, manager));
     }
 }

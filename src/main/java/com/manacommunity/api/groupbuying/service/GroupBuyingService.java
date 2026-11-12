@@ -1,5 +1,11 @@
 package com.manacommunity.api.groupbuying.service;
 
+import com.manacommunity.api.commerce.core.model.CommerceChannel;
+import com.manacommunity.api.commerce.core.model.CommerceOrder;
+import com.manacommunity.api.commerce.core.model.CommerceOrderItem;
+import com.manacommunity.api.commerce.core.model.CommerceOrderStatus;
+import com.manacommunity.api.commerce.core.repository.CommerceOrderItemRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
 import com.manacommunity.api.groupbuying.dto.*;
 import com.manacommunity.api.transactioncore.adapter.GroupBuyingTransactionAdapter;
 import com.manacommunity.api.transactioncore.dto.PaymentIntentResponse;
@@ -9,11 +15,13 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -31,7 +39,12 @@ public class GroupBuyingService {
     private final OrderDisputeRepository disputeRepository;
     private final BuyingGroupRepository buyingGroupRepository;
     private final GroupDealSettlementRepository settlementRepository;
-    private final GroupBuyingTransactionAdapter transactionAdapter;
+    private final CommerceOrderRepository commerceOrderRepository;
+    private final CommerceOrderItemRepository commerceOrderItemRepository;
+    private final GroupBuyPaymentConfirmationService confirmationService;
+    @Autowired(required = false)
+    private GroupBuyingTransactionAdapter transactionAdapter;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public List<GroupDealResponse> getDeals(Long communityId) {
         List<GroupDeal> deals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -80,12 +93,20 @@ public class GroupBuyingService {
         if (deal.getDealEndsAt() != null && LocalDateTime.now().isAfter(deal.getDealEndsAt())) {
             throw new IllegalStateException("Deal has expired on " + deal.getDealEndsAt());
         }
+
+        int committed = deal.getCommittedQty() != null ? deal.getCommittedQty() : 0;
+        int reserved = deal.getReservedQty() != null ? deal.getReservedQty() : 0;
+        if (deal.getInventoryRemaining() != null && (committed + reserved + requestedQty) > deal.getInventoryRemaining()) {
+            throw new IllegalStateException("Insufficient inventory remaining for this deal. Available: " + 
+                    Math.max(0, deal.getInventoryRemaining() - (committed + reserved)));
+        }
     }
 
     @Transactional
     public GroupOrderResponse joinDeal(Long dealId, AppUser user, JoinDealRequest request) {
-        GroupDeal deal = dealRepository.findById(dealId)
-                .orElseThrow(() -> new IllegalArgumentException("Deal not found: " + dealId));
+        GroupDeal deal = dealRepository.findByIdForUpdate(dealId)
+                .orElseGet(() -> dealRepository.findById(dealId)
+                        .orElseThrow(() -> new IllegalArgumentException("Deal not found: " + dealId)));
 
         int qty = request.getQuantity() != null && request.getQuantity() > 0 ? request.getQuantity() : 1;
         enforceOrderFraudControls(deal, user, qty);
@@ -94,26 +115,60 @@ public class GroupBuyingService {
         BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(qty));
         BigDecimal savings = deal.getMrp() != null ? deal.getMrp().subtract(unitPrice).multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO;
 
-        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", (System.currentTimeMillis() + (long)(Math.random() * 999)) % 100000);
-        String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String deliveryOtp = String.format("%06d", (int)(Math.random() * 900000) + 100000);
+        String orderNum;
+        int attempts = 0;
+        do {
+            orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", secureRandom.nextInt(100000));
+            attempts++;
+        } while (orderRepository.findByOrderNumber(orderNum).isPresent() && attempts < 5);
 
-        String txnIntentId = null;
-        if (transactionAdapter != null) {
-            try {
-                PaymentIntentResponse intent = transactionAdapter.initiateGroupOrderPayment(
-                        orderNum, deal.getId(), user.getId(), total, 1L, deal.getCommunity() != null ? deal.getCommunity().getId() : 1L);
-                if (intent != null) {
-                    txnIntentId = intent.getIntentId();
-                }
-            } catch (Exception e) {
-                log.warn("Transaction adapter intent creation: {}", e.getMessage());
-            }
-        }
+        String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String deliveryOtp = String.format("%06d", secureRandom.nextInt(900000) + 100000);
+
+        // Atomically reserve quantity on the deal
+        deal.setReservedQty((deal.getReservedQty() != null ? deal.getReservedQty() : 0) + qty);
+        dealRepository.save(deal);
+
+        // Authoritative CommerceOrder
+        CommerceOrder commerceOrder = CommerceOrder.builder()
+                .orderNumber(orderNum)
+                .channel(CommerceChannel.GROUP_BUY)
+                .buyer(user)
+                .seller(null)
+                .vendorId(deal.getVendorId() != null ? deal.getVendorId() : "VND-LOCAL")
+                .vendorName(deal.getVendor() != null ? deal.getVendor() : "Community Vendor")
+                .community(deal.getCommunity() != null ? deal.getCommunity() : user.getCommunity())
+                .channelReferenceId(String.valueOf(deal.getId()))
+                .status(CommerceOrderStatus.PENDING)
+                .subtotalAmount(total)
+                .totalAmount(total)
+                .savingsAmount(savings)
+                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : (request.getPaymentType() != null ? request.getPaymentType() : "CASHFREE"))
+                .paymentStatus("INITIATED")
+                .fulfillmentType(deal.getPickupPoint() != null ? "CLUBHOUSE_PICKUP" : "HOME_DELIVERY")
+                .deliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : (user.getFlatNo() != null ? "Flat " + user.getFlatNo() : "Clubhouse"))
+                .pickupPoint(deal.getPickupPoint())
+                .handoverOtp(deliveryOtp)
+                .qrToken(qrToken)
+                .isEscrowLocked(true)
+                .notes(request.getSpecialNotes())
+                .build();
+        commerceOrder = commerceOrderRepository.save(commerceOrder);
+
+        CommerceOrderItem item = CommerceOrderItem.builder()
+                .order(commerceOrder)
+                .productId(String.valueOf(deal.getId()))
+                .title(deal.getTitle())
+                .unitPrice(unitPrice)
+                .quantity(qty)
+                .totalPrice(total)
+                .imageUrl(deal.getImageUrl())
+                .build();
+        commerceOrderItemRepository.save(item);
 
         GroupBuyOrder order = GroupBuyOrder.builder()
                 .orderNumber(orderNum)
-                .community(deal.getCommunity())
+                .community(deal.getCommunity() != null ? deal.getCommunity() : user.getCommunity())
                 .user(user)
                 .deal(deal)
                 .dealTitle(deal.getTitle())
@@ -121,106 +176,32 @@ public class GroupBuyingService {
                 .unitPrice(unitPrice)
                 .totalAmount(total)
                 .savingsAmount(savings)
-                .status(OrderStatus.CONFIRMED)
-                .paymentStatus("PAID")
-                .paymentMethod(request.getPaymentType() != null ? request.getPaymentType() : "UPI")
-                .transactionId(txnIntentId != null ? txnIntentId : "TXN-" + orderNum)
+                .status(OrderStatus.PENDING_PAYMENT)
+                .paymentStatus("INITIATED")
+                .paymentMethod(commerceOrder.getPaymentMethod())
                 .escrowHoldAmount(total)
                 .qrToken(qrToken)
                 .deliveryOtp(deliveryOtp)
                 .pickupPoint(deal.getPickupPoint())
                 .pickupDate(deal.getPickupDate())
-                .deliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : (user.getFlatNo() != null ? "Flat " + user.getFlatNo() : "Clubhouse"))
+                .deliveryAddress(commerceOrder.getDeliveryAddress())
                 .specialNotes(request.getSpecialNotes())
-                .paymentTimestamp(LocalDateTime.now())
+                .commerceOrder(commerceOrder)
+                .reservedUntil(LocalDateTime.now().plusMinutes(15))
                 .build();
 
         orderRepository.save(order);
-
-        BigDecimal prevTierPrice = deal.getCurrentTierPrice() != null ? deal.getCurrentTierPrice() : deal.getCurrentPrice();
-        deal.setCommittedQty(deal.getCommittedQty() + qty);
-        deal.setCurrentParticipants(deal.getCurrentParticipants() + 1);
-
-        BigDecimal newTierPrice = prevTierPrice;
-        if (deal.getPriceTiers() != null && !deal.getPriceTiers().isEmpty()) {
-            for (GroupDealTier tier : deal.getPriceTiers()) {
-                if (deal.getCommittedQty() >= tier.getMinQty()) {
-                    newTierPrice = tier.getPrice();
-                    deal.setCurrentTierPrice(tier.getPrice());
-                }
-            }
-        }
-        dealRepository.save(deal);
-
-        if (newTierPrice.compareTo(prevTierPrice) < 0) {
-            processTierPriceDropRefunds(deal, prevTierPrice, newTierPrice);
-        }
-
         return mapToOrderResponse(order);
     }
 
     @Transactional
     public GroupOrderResponse checkoutGroupBuy(Long dealId, AppUser user, GroupBuyCheckoutRequest request) {
-        GroupDeal deal = dealRepository.findById(dealId)
-                .orElseThrow(() -> new IllegalArgumentException("Deal not found: " + dealId));
-
-        int qty = request.getQuantity() != null && request.getQuantity() > 0 ? request.getQuantity() : 1;
-        enforceOrderFraudControls(deal, user, qty);
-
-        BigDecimal unitPrice = deal.getCurrentTierPrice() != null ? deal.getCurrentTierPrice() : deal.getCurrentPrice();
-        BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(qty));
-        BigDecimal savings = deal.getMrp() != null ? deal.getMrp().subtract(unitPrice).multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO;
-
-        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", (System.currentTimeMillis() + (long)(Math.random() * 999)) % 100000);
-        String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String deliveryOtp = String.format("%06d", (int)(Math.random() * 900000) + 100000);
-
-        GroupBuyOrder order = GroupBuyOrder.builder()
-                .orderNumber(orderNum)
-                .community(deal.getCommunity())
-                .user(user)
-                .deal(deal)
-                .dealTitle(deal.getTitle())
-                .quantity(qty)
-                .unitPrice(unitPrice)
-                .totalAmount(total)
-                .savingsAmount(savings)
-                .status(OrderStatus.CONFIRMED)
-                .paymentStatus("PAID")
-                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "UPI")
-                .transactionId(request.getPaymentMethod() != null ? "TXN-" + System.currentTimeMillis() : null)
-                .escrowHoldAmount(total)
-                .qrToken(qrToken)
-                .deliveryOtp(deliveryOtp)
-                .pickupPoint(deal.getPickupPoint())
-                .pickupDate(deal.getPickupDate())
-                .deliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : (user.getFlatNo() != null ? "Flat " + user.getFlatNo() : "Clubhouse"))
-                .specialNotes(request.getDeliveryNotes())
-                .paymentTimestamp(LocalDateTime.now())
-                .build();
-
-        orderRepository.save(order);
-
-        BigDecimal prevTierPrice = deal.getCurrentTierPrice() != null ? deal.getCurrentTierPrice() : deal.getCurrentPrice();
-        deal.setCommittedQty(deal.getCommittedQty() + qty);
-        deal.setCurrentParticipants(deal.getCurrentParticipants() + 1);
-
-        BigDecimal newTierPrice = prevTierPrice;
-        if (deal.getPriceTiers() != null && !deal.getPriceTiers().isEmpty()) {
-            for (GroupDealTier tier : deal.getPriceTiers()) {
-                if (deal.getCommittedQty() >= tier.getMinQty()) {
-                    newTierPrice = tier.getPrice();
-                    deal.setCurrentTierPrice(tier.getPrice());
-                }
-            }
-        }
-        dealRepository.save(deal);
-
-        if (newTierPrice.compareTo(prevTierPrice) < 0) {
-            processTierPriceDropRefunds(deal, prevTierPrice, newTierPrice);
-        }
-
-        return mapToOrderResponse(order);
+        JoinDealRequest joinReq = new JoinDealRequest();
+        joinReq.setQuantity(request.getQuantity());
+        joinReq.setPaymentMethod(request.getPaymentMethod());
+        joinReq.setDeliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : request.getDeliveryAddressOrPickup());
+        joinReq.setSpecialNotes(request.getSpecialNotes() != null ? request.getSpecialNotes() : request.getDeliveryNotes());
+        return joinDeal(dealId, user, joinReq);
     }
 
     // ── Full Payment Processing & Escrow Hold ──────────────────────────────
@@ -229,20 +210,19 @@ public class GroupBuyingService {
         GroupBuyOrder order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
 
-        order.setPaymentStatus("PAID");
-        order.setPaymentMethod(request.getPaymentMethod());
-        order.setTransactionId(request.getTransactionId() != null ? request.getTransactionId() : "TXN-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase());
-        order.setPaymentTimestamp(LocalDateTime.now());
-        order.setStatus(OrderStatus.CONFIRMED);
-        order.setEscrowHoldAmount(order.getTotalAmount());
-        orderRepository.save(order);
+        Long coId = order.getCommerceOrder() != null ? order.getCommerceOrder().getId() : null;
+        String txnId = request.getTransactionId() != null ? request.getTransactionId() : "TXN-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
+
+        confirmationService.confirmPayment(coId, orderNumber, txnId, request.getPaymentMethod(), order.getTotalAmount());
+
+        order = orderRepository.findByOrderNumber(orderNumber).orElse(order);
 
         log.info("✓ Payment processed for Group Order {}: {} via {} (Escrow Hold: ₹{})", 
                 orderNumber, order.getTotalAmount(), request.getPaymentMethod(), order.getEscrowHoldAmount());
 
         return OrderPaymentResponse.builder()
                 .orderNumber(orderNumber)
-                .paymentStatus("PAID")
+                .paymentStatus(order.getPaymentStatus())
                 .paymentMethod(order.getPaymentMethod())
                 .transactionId(order.getTransactionId())
                 .amountPaid(order.getTotalAmount())
@@ -304,23 +284,52 @@ public class GroupBuyingService {
             throw new IllegalStateException("Order is already " + order.getStatus() + " and cannot be cancelled. Please raise a dispute.");
         }
 
+        boolean wasPending = (order.getStatus() == OrderStatus.PENDING_PAYMENT);
+
         order.setStatus(OrderStatus.CANCELLED);
-        order.setRefundAmount(order.getTotalAmount());
-        order.setRefundReason(request.getReason());
-        order.setRefundTimestamp(LocalDateTime.now());
-        order.setPaymentStatus("REFUNDED");
+        if (!wasPending) {
+            order.setRefundAmount(order.getTotalAmount());
+            order.setRefundReason(request.getReason());
+            order.setRefundTimestamp(LocalDateTime.now());
+            order.setPaymentStatus("REFUNDED");
+        } else {
+            order.setPaymentStatus("CANCELLED");
+        }
         order.setEscrowHoldAmount(BigDecimal.ZERO);
         orderRepository.save(order);
 
+        if (order.getCommerceOrder() != null) {
+            CommerceOrder co = order.getCommerceOrder();
+            co.setStatus(CommerceOrderStatus.CANCELLED);
+            commerceOrderRepository.save(co);
+        }
+
         GroupDeal deal = order.getDeal();
         if (deal != null) {
-            deal.setCommittedQty(Math.max(0, deal.getCommittedQty() - order.getQuantity()));
-            deal.setCurrentParticipants(Math.max(0, deal.getCurrentParticipants() - 1));
+            if (wasPending) {
+                int newReserved = Math.max(0, (deal.getReservedQty() != null ? deal.getReservedQty() : 0) - order.getQuantity());
+                deal.setReservedQty(newReserved);
+            } else {
+                deal.setCommittedQty(Math.max(0, deal.getCommittedQty() - order.getQuantity()));
+                deal.setCurrentParticipants(Math.max(0, deal.getCurrentParticipants() - 1));
+            }
             dealRepository.save(deal);
         }
 
         log.info("✓ Order {} cancelled. Refund of ₹{} initiated.", orderNumber, order.getRefundAmount());
         return mapToOrderResponse(order);
+    }
+
+    public List<GroupDealResponse> getVendorDeals(String vendorId, Long communityId) {
+        List<GroupDeal> deals;
+        if (vendorId != null && !vendorId.isBlank()) {
+            deals = dealRepository.findByVendorIdOrderByCreatedAtDesc(vendorId);
+        } else if (communityId != null) {
+            deals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
+        } else {
+            deals = dealRepository.findAll();
+        }
+        return deals.stream().map(this::mapToDealResponse).collect(Collectors.toList());
     }
 
     // ── Vendor Fulfillment & Doorstep Delivery ─────────────────────────────
@@ -873,6 +882,7 @@ public class GroupBuyingService {
     private GroupOrderResponse mapToOrderResponse(GroupBuyOrder order) {
         return GroupOrderResponse.builder()
                 .id(order.getId())
+                .commerceOrderId(order.getCommerceOrder() != null ? order.getCommerceOrder().getId() : null)
                 .orderNumber(order.getOrderNumber())
                 .dealId(order.getDeal() != null ? order.getDeal().getId() : null)
                 .dealTitle(order.getDealTitle())

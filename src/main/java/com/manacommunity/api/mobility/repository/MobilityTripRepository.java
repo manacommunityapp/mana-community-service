@@ -22,6 +22,8 @@ public interface MobilityTripRepository extends JpaRepository<MobilityTrip, Long
 
     Page<MobilityTrip> findByCommunityIdOrderByRequestedAtDesc(Long communityId, Pageable pageable);
 
+    Page<MobilityTrip> findByStatusInOrderByRequestedAtDesc(List<MobilityTripStatus> statuses, Pageable pageable);
+
     boolean existsByPassengerIdAndIdempotencyKey(Long passengerId, String idempotencyKey);
 
     Optional<MobilityTrip> findByTripRef(String tripRef);

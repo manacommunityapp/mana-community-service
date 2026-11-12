@@ -22,6 +22,7 @@ public class VmsPaymentService {
     private final VmsPaymentRepository paymentRepo;
     private final VmsVendorRepository vendorRepo;
     private final VmsInvoiceRepository invoiceRepo;
+    private final VmsVendorWalletRepository walletRepo;
 
     @Transactional(readOnly = true)
     public Page<PaymentResponse> getCommunityPayments(Long communityId, Pageable pageable) {
@@ -32,6 +33,29 @@ public class VmsPaymentService {
     public Page<PaymentResponse> getVendorPayments(Long vendorId, Pageable pageable) {
         return paymentRepo.findByVendorId(vendorId, pageable).map(this::toResponse);
     }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentResponse> getMyPayments(AppUser user, Pageable pageable) {
+        VmsVendor vendor = vendorRepo.findByUserIdAndCommunityId(user.getId(), user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", "userId", user.getId().toString()));
+        return paymentRepo.findByVendorId(vendor.getId(), pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, java.math.BigDecimal> getMyEarningsSummary(AppUser user) {
+        VmsVendor vendor = vendorRepo.findByUserIdAndCommunityId(user.getId(), user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", "userId", user.getId().toString()));
+        java.math.BigDecimal total = paymentRepo.sumNetByVendorAndStatus(vendor.getId(), VmsPayment.PaymentProcessStatus.COMPLETED);
+        java.math.BigDecimal monthly = paymentRepo.sumNetByVendorStatusSince(vendor.getId(), VmsPayment.PaymentProcessStatus.COMPLETED,
+                java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay());
+        java.math.BigDecimal pending = paymentRepo.sumAmountByVendorAndStatuses(vendor.getId(),
+                java.util.List.of(VmsPayment.PaymentProcessStatus.PENDING, VmsPayment.PaymentProcessStatus.PROCESSING));
+        java.math.BigDecimal balance = walletRepo.findByVendorIdAndCommunityId(vendor.getId(), user.getCommunity().getId())
+                .map(VmsVendorWallet::getBalance).orElse(java.math.BigDecimal.ZERO);
+        return java.util.Map.of("totalEarnings", nz(total), "monthlyEarnings", nz(monthly), "pendingAmount", nz(pending), "walletBalance", nz(balance));
+    }
+
+    private java.math.BigDecimal nz(java.math.BigDecimal value) { return value == null ? java.math.BigDecimal.ZERO : value; }
 
     @Transactional(readOnly = true)
     public PaymentResponse getById(Long id, Long communityId) {

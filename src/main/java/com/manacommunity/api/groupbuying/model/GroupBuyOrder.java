@@ -130,4 +130,15 @@ public class GroupBuyOrder extends BaseAuditEntity {
 
     @Column(name = "collector_relation", length = 50)
     private String collectorRelation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "commerce_order_id")
+    private com.manacommunity.api.commerce.core.model.CommerceOrder commerceOrder;
+
+    @Column(name = "reserved_until")
+    private LocalDateTime reservedUntil;
+
+    @Column(name = "legacy_unverified")
+    @Builder.Default
+    private Boolean legacyUnverified = false;
 }

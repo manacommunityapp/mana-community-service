@@ -25,7 +25,7 @@ public class VmsVendorCategoryController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('View Vendor Management')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<VendorCategoryResponse>> getCategories(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);

@@ -138,6 +138,12 @@ public class ResourceBooking extends BaseAuditEntity {
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
 
+    @Column(name = "invoice_id")
+    private Long invoiceId;
+
+    @Column(name = "payment_note", length = 500)
+    private String paymentNote;
+
     @PrePersist
     protected void initDefaults() {
         if (status == null) status = BookingStatus.PENDING;

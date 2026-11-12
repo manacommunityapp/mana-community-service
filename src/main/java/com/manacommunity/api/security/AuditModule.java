@@ -29,5 +29,7 @@ public enum AuditModule {
     GROUP_BUYING,
     PAYMENTS,
     PAYMENT,
-    RESILIENCE
+    RESILIENCE,
+    FRESH_COMMERCE
 }
+

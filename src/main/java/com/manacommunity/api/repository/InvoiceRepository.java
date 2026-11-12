@@ -21,4 +21,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     long countByCommunityIdAndStatus(Long communityId, String status);
 
     java.util.Optional<Invoice> findByIdAndCommunityId(Long id, Long communityId);
+
+    long countByCommunityId(Long communityId);
+
+    java.util.List<Invoice> findByCommunityIdAndGeneratedAtBetween(
+            Long communityId,
+            java.time.LocalDateTime from,
+            java.time.LocalDateTime to);
 }

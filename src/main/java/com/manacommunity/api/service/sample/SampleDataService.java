@@ -53,7 +53,11 @@ public class SampleDataService implements ApplicationRunner {
     private final SportsTournamentLifecycleSeeder tournamentLifecycleSeeder;
     private final EmailTemplateFeeder emailTemplateFeeder;
     private final com.manacommunity.api.user.repository.AppUserRepository userRepo;
+
     private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository regRepo;
+
+    private final com.manacommunity.api.fresh.pilot.service.FreshPilotDataSeeder freshPilotDataSeeder;
+
 
     @Override
     public void run(ApplicationArguments args) {
@@ -177,7 +181,10 @@ public class SampleDataService implements ApplicationRunner {
             courtDataSeeder.seed();
             sportsEventRegistrationDataSeeder.seed();
 
-            // Layer 7 — complete tournament lifecycle (fixtures, standings, playoffs, final, closure)
+            // Layer 7 — Mana Fresh Stage 12 Pilot Operations
+            freshPilotDataSeeder.seedStage12PilotData();
+
+            // Layer 8 — complete tournament lifecycle (fixtures, standings, playoffs, final, closure)
             tournamentLifecycleSeeder.seed();
 
             log.info("═══════════════════════════════════════════════════════════");
