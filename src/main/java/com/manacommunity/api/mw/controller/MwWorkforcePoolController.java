@@ -1,5 +1,6 @@
 package com.manacommunity.api.mw.controller;
 
+import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.mw.dto.*;
 import com.manacommunity.api.mw.entity.*;
 import com.manacommunity.api.mw.service.MwWorkforcePoolService;
@@ -18,10 +19,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/mw/pool")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class MwWorkforcePoolController {
 
     private final MwWorkforcePoolService poolService;
     private final LoggedInUserService loggedInUserService;
+    private final HrEmployeeService employeeService;
 
     // ── Employer: listings ────────────────────────────────────────────────────
 
@@ -31,6 +34,7 @@ public class MwWorkforcePoolController {
             @Valid @RequestBody CreatePoolListingRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.createListing(orgId, user.getId(), req));
     }
 
@@ -38,7 +42,8 @@ public class MwWorkforcePoolController {
     public ResponseEntity<List<MwPoolListing>> getOrgListings(
             @PathVariable Long orgId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.getOrgListings(orgId));
     }
 
@@ -47,7 +52,8 @@ public class MwWorkforcePoolController {
             @PathVariable Long orgId,
             @PathVariable Long listingId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.closeListing(orgId, listingId));
     }
 
@@ -56,7 +62,8 @@ public class MwWorkforcePoolController {
             @PathVariable Long orgId,
             @PathVariable Long listingId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.getListingApplications(orgId, listingId));
     }
 
@@ -66,7 +73,8 @@ public class MwWorkforcePoolController {
             @PathVariable Long applicationId,
             @Valid @RequestBody RespondToApplicationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.respondToApplication(orgId, applicationId, req));
     }
 
@@ -76,7 +84,8 @@ public class MwWorkforcePoolController {
             @PathVariable Long contractId,
             @Valid @RequestBody CompleteEngagementRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(poolService.completeEngagement(orgId, contractId, req));
     }
 
@@ -126,7 +135,7 @@ public class MwWorkforcePoolController {
     public ResponseEntity<MwEngagementContract> getContractByApplication(
             @PathVariable Long applicationId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(poolService.getContractByApplication(applicationId));
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(poolService.getContractByApplication(user.getId(), applicationId));
     }
 }

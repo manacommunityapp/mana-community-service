@@ -51,7 +51,7 @@ public class MwHandoverService {
         return handoverRepo.findByOrganizationIdOrderByCreatedAtDesc(orgId);
     }
 
-    public List<MwDutyHandover> getPendingAcknowledgements(Long handoverToId) {
-        return handoverRepo.findByHandoverToIdAndAcknowledgedFalse(handoverToId);
+    public List<MwDutyHandover> getPendingAcknowledgements(Long orgId, Long handoverToId) {
+        return handoverRepo.findByOrganizationIdAndHandoverToIdAndAcknowledgedFalse(orgId, handoverToId);
     }
 }

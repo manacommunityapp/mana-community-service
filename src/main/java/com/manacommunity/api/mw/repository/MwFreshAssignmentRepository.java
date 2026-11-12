@@ -19,4 +19,7 @@ public interface MwFreshAssignmentRepository extends JpaRepository<MwFreshAssign
 
     @Query("SELECT fa FROM MwFreshAssignment fa WHERE fa.operationalAssignment.employeeId = :employeeId ORDER BY fa.createdAt DESC")
     List<MwFreshAssignment> findByEmployeeId(@Param("employeeId") Long employeeId);
+
+    @Query("SELECT fa FROM MwFreshAssignment fa WHERE fa.operationalAssignment.organizationId = :orgId AND fa.operationalAssignment.employeeId = :employeeId ORDER BY fa.createdAt DESC")
+    List<MwFreshAssignment> findByOrganizationIdAndEmployeeId(@Param("orgId") Long orgId, @Param("employeeId") Long employeeId);
 }

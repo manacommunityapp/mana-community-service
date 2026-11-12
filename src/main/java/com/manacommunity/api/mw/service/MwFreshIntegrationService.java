@@ -104,7 +104,7 @@ public class MwFreshIntegrationService {
     }
 
     @Transactional(readOnly = true)
-    public List<MwFreshAssignment> getEmployeeDeliveries(Long employeeId) {
-        return freshRepo.findByEmployeeId(employeeId);
+    public List<MwFreshAssignment> getEmployeeDeliveries(Long orgId, Long employeeId) {
+        return freshRepo.findByOrganizationIdAndEmployeeId(orgId, employeeId);
     }
 }

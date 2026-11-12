@@ -1,8 +1,10 @@
 package com.manacommunity.api.mw.controller;
 
+import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.mw.dto.CompleteAssignmentRequest;
 import com.manacommunity.api.mw.dto.CreateOperationalAssignmentRequest;
 import com.manacommunity.api.mw.service.MwOperationalAssignmentService;
+import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import jakarta.validation.Valid;
@@ -20,13 +22,15 @@ public class MwOperationalController {
 
     private final MwOperationalAssignmentService assignmentService;
     private final LoggedInUserService loggedInUserService;
+    private final HrEmployeeService employeeService;
 
     @PostMapping("/orgs/{orgId}/assignments")
     public ResponseEntity<?> createAssignment(
             @PathVariable Long orgId,
             @Valid @RequestBody CreateOperationalAssignmentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(assignmentService.createAssignment(orgId, req));
     }
 
@@ -35,7 +39,8 @@ public class MwOperationalController {
             @PathVariable Long orgId,
             @PathVariable Long assignmentId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(assignmentService.startAssignment(orgId, assignmentId));
     }
 
@@ -45,7 +50,8 @@ public class MwOperationalController {
             @PathVariable Long assignmentId,
             @RequestBody CompleteAssignmentRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(assignmentService.completeAssignment(orgId, assignmentId, req));
     }
 
@@ -55,7 +61,8 @@ public class MwOperationalController {
             @RequestParam(required = false) String module,
             @RequestParam(required = false) String status,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(assignmentService.getAssignments(orgId, module, status));
     }
 
@@ -64,7 +71,8 @@ public class MwOperationalController {
             @PathVariable Long orgId,
             @PathVariable Long employeeId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(assignmentService.getEmployeeAssignments(employeeId));
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(assignmentService.getEmployeeAssignments(orgId, employeeId));
     }
 }

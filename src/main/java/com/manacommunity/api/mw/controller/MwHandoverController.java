@@ -1,5 +1,6 @@
 package com.manacommunity.api.mw.controller;
 
+import com.manacommunity.api.hrm.service.HrEmployeeService;
 import com.manacommunity.api.mw.dto.CreateHandoverRequest;
 import com.manacommunity.api.mw.service.MwHandoverService;
 import com.manacommunity.api.user.model.AppUser;
@@ -22,13 +23,15 @@ public class MwHandoverController {
 
     private final MwHandoverService handoverService;
     private final LoggedInUserService loggedInUserService;
+    private final HrEmployeeService employeeService;
 
     @PostMapping("/orgs/{orgId}/handovers")
     public ResponseEntity<?> createHandover(
             @PathVariable Long orgId,
             @RequestBody CreateHandoverRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(handoverService.createHandover(orgId, req));
     }
 
@@ -37,7 +40,8 @@ public class MwHandoverController {
             @PathVariable Long orgId,
             @PathVariable Long handoverId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(handoverService.acknowledgeHandover(orgId, handoverId));
     }
 
@@ -46,7 +50,8 @@ public class MwHandoverController {
             @PathVariable Long orgId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
         return ResponseEntity.ok(handoverService.getHandovers(orgId, date));
     }
 
@@ -55,7 +60,8 @@ public class MwHandoverController {
             @PathVariable Long orgId,
             @RequestParam Long employeeId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(handoverService.getPendingAcknowledgements(employeeId));
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(handoverService.getPendingAcknowledgements(orgId, employeeId));
     }
 }

@@ -18,6 +18,8 @@ public interface MwDutyHandoverRepository extends JpaRepository<MwDutyHandover, 
 
     List<MwDutyHandover> findByHandoverToIdAndAcknowledgedFalse(Long handoverToId);
 
+    List<MwDutyHandover> findByOrganizationIdAndHandoverToIdAndAcknowledgedFalse(Long orgId, Long handoverToId);
+
     @Query("SELECT h FROM MwDutyHandover h WHERE h.acknowledged = false AND h.createdAt < :cutoff")
     List<MwDutyHandover> findUnacknowledgedBefore(@Param("cutoff") LocalDateTime cutoff);
 }

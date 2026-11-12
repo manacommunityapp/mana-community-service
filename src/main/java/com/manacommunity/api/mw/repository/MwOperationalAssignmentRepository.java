@@ -16,5 +16,7 @@ public interface MwOperationalAssignmentRepository extends JpaRepository<MwOpera
 
     List<MwOperationalAssignment> findByEmployeeIdOrderByAssignedAtDesc(Long employeeId);
 
+    List<MwOperationalAssignment> findByOrganizationIdAndEmployeeIdOrderByAssignedAtDesc(Long orgId, Long employeeId);
+
     Optional<MwOperationalAssignment> findBySourceModuleAndSourceRefId(String sourceModule, Long sourceRefId);
 }

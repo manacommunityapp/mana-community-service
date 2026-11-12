@@ -179,9 +179,13 @@ public class MwWorkforcePoolService {
         return contractRepo.save(contract);
     }
 
-    public MwEngagementContract getContractByApplication(Long applicationId) {
-        return contractRepo.findByApplicationId(applicationId)
+    public MwEngagementContract getContractByApplication(Long manaUserId, Long applicationId) {
+        MwEngagementContract contract = contractRepo.findByApplicationId(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contract not found for application: " + applicationId));
+        if (!contract.getApplication().getManaUserId().equals(manaUserId)) {
+            throw new AccessDeniedException("Not your contract");
+        }
+        return contract;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

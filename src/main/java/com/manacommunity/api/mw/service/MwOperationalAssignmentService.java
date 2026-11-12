@@ -56,8 +56,8 @@ public class MwOperationalAssignmentService {
         return assignmentRepo.findByOrganizationIdOrderByAssignedAtDesc(orgId);
     }
 
-    public List<MwOperationalAssignment> getEmployeeAssignments(Long employeeId) {
-        return assignmentRepo.findByEmployeeIdOrderByAssignedAtDesc(employeeId);
+    public List<MwOperationalAssignment> getEmployeeAssignments(Long orgId, Long employeeId) {
+        return assignmentRepo.findByOrganizationIdAndEmployeeIdOrderByAssignedAtDesc(orgId, employeeId);
     }
 
     private MwOperationalAssignment getAndVerify(Long orgId, Long assignmentId) {
