@@ -39,10 +39,10 @@ spring:
   # AWS SES SMTP via IAM user 'mailuser'. Real delivery only happens when
   # app.mail.enabled=true AND credentials are set via env vars.
   mail:
-    host: ${MAIL_HOST:email-smtp.ap-south-1.amazonaws.com}
+    host: ${MAIL_HOST:smtp-relay.brevo.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:YOUR_AWS_SMTP_USERNAME}
-    password: ${MAIL_PASSWORD:YOUR_AWS_SMTP_PASSWORD}
+    username: ${MAIL_USERNAME:b5c45c001@smtp-brevo.com}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
