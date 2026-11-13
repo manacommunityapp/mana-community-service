@@ -61,6 +61,12 @@ public class SportsTournamentMatch {
     @JoinColumn(name = "team_b_id")
     private SportsAuctionTeam teamB;
 
+    @Column(name = "placeholder_team_a")
+    private String placeholderTeamA;
+
+    @Column(name = "placeholder_team_b")
+    private String placeholderTeamB;
+
     // For bracket: which match does the winner come from?
     private Long winnerFeedFromMatchA;   // match id
     private Long winnerFeedFromMatchB;   // match id

@@ -51,6 +51,7 @@ public class SportsTournamentSchedulerService {
     private final SportsTournamentMatchRepository   matchRepo;
     private final SportsGroupTeamStandingRepository standingRepo;
     private final SportsVenueRepository             venueRepo;
+    private final SportsCourtRepository             courtRepo;
     private final SportsAuctionTeamRepository       teamRepo;
     private final com.manacommunity.api.sports.repository.SportsAuctionConfigRepository auctionConfigRepo;
     private final SportsEventRepository             eventRepo;
@@ -173,16 +174,40 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsTournamentMatch rescheduleMatch(Long matchId, String scheduledAtStr, String venue) {
+        return rescheduleMatch(matchId, scheduledAtStr, venue, null);
+    }
+
+    public SportsTournamentMatch rescheduleMatch(Long matchId, String scheduledAtStr, String venue, String court) {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
-        LocalDateTime scheduledAt = LocalDateTime.parse(scheduledAtStr);
+        LocalDateTime scheduledAt;
+        try {
+            if (scheduledAtStr.endsWith("Z")) {
+                scheduledAt = java.time.Instant.parse(scheduledAtStr).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+            } else if (scheduledAtStr.contains("+") || (scheduledAtStr.lastIndexOf('-') > 10)) {
+                scheduledAt = java.time.OffsetDateTime.parse(scheduledAtStr).toLocalDateTime();
+            } else {
+                scheduledAt = LocalDateTime.parse(scheduledAtStr);
+            }
+        } catch (Exception e) {
+            log.debug("Fallback parsing for scheduledAt '{}': {}", scheduledAtStr, e.getMessage());
+            scheduledAt = LocalDateTime.parse(scheduledAtStr);
+        }
         match.setScheduledAt(scheduledAt);
-        if (venue != null) {
+        if (venue != null && !venue.isBlank()) {
             try {
                 Long venueId = Long.parseLong(venue);
                 match.setVenue(venueRepo.findById(venueId).orElseThrow(() -> new ResourceNotFoundException("Venue", venueId)));
             } catch (NumberFormatException e) {
                 log.debug("Non-numeric venue value '{}', treating as legacy string venue", venue);
+            }
+        }
+        if (court != null && !court.isBlank()) {
+            try {
+                Long courtId = Long.parseLong(court);
+                match.setCourt(courtRepo.findById(courtId).orElse(null));
+            } catch (NumberFormatException e) {
+                log.debug("Non-numeric court value '{}', ignored", court);
             }
         }
         return matchRepo.save(match);
@@ -338,8 +363,8 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsMatchResponse toMatchResponse(SportsTournamentMatch m) {
-        String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : extractNote(m.getMatchNotes(), "homeName", "TBD");
-        String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : extractNote(m.getMatchNotes(), "awayName", "TBD");
+        String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : (m.getPlaceholderTeamA() != null && !m.getPlaceholderTeamA().isBlank() ? m.getPlaceholderTeamA() : extractNote(m.getMatchNotes(), "homeName", "TBD"));
+        String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : (m.getPlaceholderTeamB() != null && !m.getPlaceholderTeamB().isBlank() ? m.getPlaceholderTeamB() : extractNote(m.getMatchNotes(), "awayName", "TBD"));
         String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
         String teamAFlat = extractNote(m.getMatchNotes(), "homeFlat", null);
         String teamBFlat = extractNote(m.getMatchNotes(), "awayFlat", null);
@@ -365,7 +390,9 @@ public class SportsTournamentSchedulerService {
             m.getWinnerAdvancesToMatchId(),
             m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED,
             teamAFlat,
-            teamBFlat
+            teamBFlat,
+            m.getPlaceholderTeamA(),
+            m.getPlaceholderTeamB()
         );
     }
 

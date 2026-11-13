@@ -438,7 +438,7 @@ public class SportsTournamentSchedulerController {
             @PathVariable Long matchId,
             @Valid @RequestBody SportsRescheduleRequest req) {
         log.info("Rescheduling match matchId={}", matchId);
-        SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue());
+        SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue(), req.court());
         return ResponseEntity.ok(schedulerService.toMatchResponse(updated));
     }
 
