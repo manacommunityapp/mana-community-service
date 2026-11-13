@@ -265,6 +265,28 @@ class SportsPlayoffScheduleGeneratorTest {
             // Wave 2: next 4 matches at 09:40 AM (09:00 + 30 duration + 10 break)
             assertThat(round1.subList(4, 8)).allSatisfy(m -> assertThat(m.time()).isEqualTo("09:40 AM"));
         }
+
+        @Test
+        @DisplayName("SEQUENTIAL seeding pairs adjacent neighbors P1 vs P2, P3 vs P4...")
+        void sequentialSeedingPairsNeighbors() {
+            List<SportsPlayoffGenerateRequest.ParticipantInput> ps = List.of(
+                    player("p1", "P1", "A101"),
+                    player("p2", "P2", "B101"),
+                    player("p3", "P3", "C101"),
+                    player("p4", "P4", "D101"));
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    1, 4, "SEQUENTIAL", false,
+                    "2026-06-20", "09:00 AM", 30, 10, 1L, null, ps, List.of(1L));
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildKnockoutFromPlayers(req);
+            List<SportsPlayoffMatchDraftResponse> round0 = matches.stream().filter(m -> m.roundIndex() == 0).toList();
+            assertThat(round0).hasSize(2);
+            assertThat(round0.get(0).home().id()).isEqualTo("p1");
+            assertThat(round0.get(0).away().id()).isEqualTo("p2");
+            assertThat(round0.get(1).home().id()).isEqualTo("p3");
+            assertThat(round0.get(1).away().id()).isEqualTo("p4");
+        }
     }
 
     @Nested

@@ -1,6 +1,5 @@
 package com.manacommunity.api.sports.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.sports.model.SportsEvent;

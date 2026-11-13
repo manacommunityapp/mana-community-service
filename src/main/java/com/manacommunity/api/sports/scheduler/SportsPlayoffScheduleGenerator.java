@@ -562,11 +562,15 @@ public class SportsPlayoffScheduleGenerator {
             }
         }
 
-        // Rule 6 — balance skill levels: order round-1 players by rating so that
-        // similar ratings meet (5 vs 4, not 5 vs 1); neighbours are then paired.
-        if (haveRatings) {
-            seeds.sort(Comparator.comparingInt(
-                    (ParticipantRef r) -> ratingById.getOrDefault(r.id(), Integer.MIN_VALUE)).reversed());
+        String seedingOrder = in.seedingOrder() != null ? in.seedingOrder() : "TRADITIONAL";
+
+        if ("RANDOM".equalsIgnoreCase(seedingOrder)) {
+            Collections.shuffle(seeds, new java.util.Random());
+        } else if ("RANKING".equalsIgnoreCase(seedingOrder)) {
+            if (haveRatings) {
+                seeds.sort(Comparator.comparingInt(
+                        (ParticipantRef r) -> ratingById.getOrDefault(r.id(), Integer.MIN_VALUE)).reversed());
+            }
         }
 
         // Rule 3 — total rounds = ceil(log2(n)); exactly ONE bye is injected on
@@ -597,8 +601,13 @@ public class SportsPlayoffScheduleGenerator {
             // Option: ALL byes live in round 1 only. Round 1 plays just enough matches to shrink
             // the field to a power of 2; every later round (QF / SF / Final) is fully played.
             if (firstRoundByesOnly && roundIndex == 0 && Integer.bitCount(active.size()) != 1) {
-                List<ParticipantRef[]> entries = firstRoundWithByes(active);
-                applyConstraints(entries.stream().filter(e -> e[1] != null).toList());   // Rules 1 & 2
+                List<ParticipantRef[]> entries;
+                if ("SEQUENTIAL".equalsIgnoreCase(seedingOrder)) {
+                    entries = firstRoundSequentialWithByes(active);
+                } else {
+                    entries = firstRoundWithByes(active);
+                    applyConstraints(entries.stream().filter(e -> e[1] != null).toList());   // Rules 1 & 2
+                }
                 int mIdx = 0;
                 int byeNo = 0;
                 for (ParticipantRef[] e : entries) {
@@ -637,10 +646,18 @@ public class SportsPlayoffScheduleGenerator {
             }
 
             // Pair the remaining (even) participants. Round 0 uses standard tournament bracket
-            // seeding so Seed 1 is in Match 0 (Top Half) and Seed 2 is in the bottom Match (Bottom Half);
-            // later rounds pair bracket winners.
-            List<ParticipantRef[]> pairs = (roundIndex == 0) ? tournamentSeededPairs(active) : neighborPairs(active);
-            if (roundIndex == 0) applyConstraints(pairs);   // Rules 1 & 2 (first round only)
+            // seeding for TRADITIONAL/RANKING/RANDOM, or neighbor pairing for SEQUENTIAL.
+            List<ParticipantRef[]> pairs;
+            if (roundIndex == 0) {
+                if ("SEQUENTIAL".equalsIgnoreCase(seedingOrder)) {
+                    pairs = neighborPairs(active);
+                } else {
+                    pairs = tournamentSeededPairs(active);
+                    applyConstraints(pairs);   // Rules 1 & 2 (first round only)
+                }
+            } else {
+                pairs = neighborPairs(active);
+            }
 
             int mIdx = 0;
             for (ParticipantRef[] pr : pairs) {
@@ -696,6 +713,21 @@ public class SportsPlayoffScheduleGenerator {
      * exactly P - n byes (top seeds) and n - P/2 real matches. Entries come back in bracket order
      * ({player, null} = bye), so winners/bye players meeting in round 2 keep Seed 1 and Seed 2 apart.
      */
+    private static List<ParticipantRef[]> firstRoundSequentialWithByes(List<ParticipantRef> seeded) {
+        int n = seeded.size();
+        int size = 2;
+        while (size < n) size <<= 1;
+        int numByes = size - n;
+        List<ParticipantRef[]> entries = new ArrayList<>();
+        for (int i = 0; i < numByes; i++) {
+            entries.add(new ParticipantRef[]{seeded.get(i), null});
+        }
+        for (int i = numByes; i + 1 < n; i += 2) {
+            entries.add(new ParticipantRef[]{seeded.get(i), seeded.get(i + 1)});
+        }
+        return entries;
+    }
+
     private static List<ParticipantRef[]> firstRoundWithByes(List<ParticipantRef> seeded) {
         int n = seeded.size();
         int size = 2;

@@ -1,10 +1,13 @@
 package com.manacommunity.api.sports.dto;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.manacommunity.api.dto.ContactDto;
 import com.manacommunity.api.dto.SponsorDto;
 
-
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,6 +15,9 @@ import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SportsTournamentResponse {
     private Long id;
     private String name;
@@ -39,4 +45,40 @@ public class SportsTournamentResponse {
     private List<SportsEventResponse> sportsEvents;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @JsonProperty("events")
+    public List<SportsEventResponse> getEvents() {
+        return sportsEvents;
+    }
+
+    @JsonProperty("events")
+    public void setEvents(List<SportsEventResponse> events) {
+        if (this.sportsEvents == null) {
+            this.sportsEvents = events;
+        }
+    }
+
+    @JsonProperty("childEvents")
+    public List<SportsEventResponse> getChildEvents() {
+        return sportsEvents;
+    }
+
+    @JsonProperty("childEvents")
+    public void setChildEvents(List<SportsEventResponse> childEvents) {
+        if (this.sportsEvents == null) {
+            this.sportsEvents = childEvents;
+        }
+    }
+
+    @JsonProperty("status")
+    public String getStatus() {
+        return registrationStatus;
+    }
+
+    @JsonProperty("status")
+    public void setStatus(String status) {
+        if (this.registrationStatus == null) {
+            this.registrationStatus = status;
+        }
+    }
 }

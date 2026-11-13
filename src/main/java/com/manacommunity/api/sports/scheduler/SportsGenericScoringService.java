@@ -213,14 +213,19 @@ public class SportsGenericScoringService {
         int periodsWonA = 0;
         int periodsWonB = 0;
 
+        SportsScoringConfig config = resolveConfig(match, sportType);
+        ScoringEngine engine = engineRegistry.getEngine(sportType);
+
         List<SportsPeriodScoreResponse> periodResponses = new ArrayList<>();
         for (SportsMatchPeriodScore ps : periods) {
             periodResponses.add(new SportsPeriodScoreResponse(
                     ps.getPeriodNumber(), ps.getPeriodLabel(), ps.getScoreTeamA(), ps.getScoreTeamB()
             ));
             if (POINT_BASED_SPORTS.contains(sportType)) {
-                if (ps.getScoreTeamA() > ps.getScoreTeamB()) periodsWonA++;
-                else if (ps.getScoreTeamB() > ps.getScoreTeamA()) periodsWonB++;
+                if (engine.checkPeriodWon(match, ps, config)) {
+                    if (ps.getScoreTeamA() > ps.getScoreTeamB()) periodsWonA++;
+                    else if (ps.getScoreTeamB() > ps.getScoreTeamA()) periodsWonB++;
+                }
                 totalScoreA += ps.getScoreTeamA();
                 totalScoreB += ps.getScoreTeamB();
             } else {
@@ -243,7 +248,9 @@ public class SportsGenericScoringService {
         if (match.getConfig() != null) {
             configResponse = scoringConfigRepo.findByConfigId(match.getConfig().getId())
                     .map(this::toConfigResponse)
-                    .orElse(null);
+                    .orElseGet(() -> toConfigResponse(config));
+        } else if (config != null) {
+            configResponse = toConfigResponse(config);
         }
 
         String teamAName = match.getTeamA() != null ? match.getTeamA().getTeamName() : extractCompetitorName(match, true);
@@ -596,8 +603,10 @@ public class SportsGenericScoringService {
                 int wonA = 0;
                 int wonB = 0;
                 for (SportsMatchPeriodScore ps : allPeriods) {
-                    if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
-                    else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                    if (engine.checkPeriodWon(match, ps, config)) {
+                        if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
+                        else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                    }
                 }
                 match.setWinner(wonA > wonB ? match.getTeamA() : match.getTeamB());
                 matchRepo.save(match);
