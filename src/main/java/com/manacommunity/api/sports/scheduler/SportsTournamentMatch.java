@@ -151,6 +151,10 @@ public class SportsTournamentMatch {
     @Column(name = "show_in_feed")
     private Boolean showInFeed;
 
+    /** null = inherit from policy; true/false = explicit override to post result to feed upon completion. */
+    @Column(name = "post_to_feed")
+    private Boolean postToFeed;
+
     /** Id of the feed result post once published (prevents duplicate posts). */
     @Column(name = "feed_result_post_id")
     private Long feedResultPostId;

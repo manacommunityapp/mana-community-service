@@ -97,6 +97,15 @@ public class SportsTournament {
     @Column(name = "show_in_feed")
     private Boolean showInFeed;
 
+    /** Which completed stages auto-post to the feed (default: FINALS_ONLY). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "feed_post_policy", length = 30)
+    private FeedPostPolicy feedPostPolicy;
+
+    /** Comma-separated stages if feedPostPolicy is CUSTOM. */
+    @Column(name = "feed_post_stages", length = 255)
+    private String feedPostStages;
+
     @OneToMany(mappedBy = "tournament", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"tournament"})
     @Builder.Default

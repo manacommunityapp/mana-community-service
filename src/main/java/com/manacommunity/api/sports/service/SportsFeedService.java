@@ -6,6 +6,8 @@ import com.manacommunity.api.model.PostType;
 import com.manacommunity.api.repository.PostRepository;
 import com.manacommunity.api.sports.dto.SportsFeedMatchResponse;
 import com.manacommunity.api.sports.dto.SportsMatchResponse;
+import com.manacommunity.api.sports.model.FeedPostPolicy;
+import com.manacommunity.api.sports.model.MatchRound;
 import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsTournament;
@@ -62,11 +64,21 @@ public class SportsFeedService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    // ── Getters for Feed Visibility ────────────────────────────────────────
+    // ── Getters for Feed Visibility & Policy ───────────────────────────────
 
     @Transactional(readOnly = true)
     public Boolean getEventFlag(Long eventId) {
         return eventRepo.findById(eventId).map(SportsEvent::getShowInFeed).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public FeedPostPolicy getEventPolicy(Long eventId) {
+        return eventRepo.findById(eventId).map(SportsEvent::getFeedPostPolicy).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public String getEventStages(Long eventId) {
+        return eventRepo.findById(eventId).map(SportsEvent::getFeedPostStages).orElse(null);
     }
 
     @Transactional(readOnly = true)
@@ -75,8 +87,58 @@ public class SportsFeedService {
     }
 
     @Transactional(readOnly = true)
+    public FeedPostPolicy getTournamentPolicy(Long tournamentId) {
+        return tournamentRepo.findById(tournamentId).map(SportsTournament::getFeedPostPolicy).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public String getTournamentStages(Long tournamentId) {
+        return tournamentRepo.findById(tournamentId).map(SportsTournament::getFeedPostStages).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
     public Boolean getMatchFlag(Long matchId) {
         return matchRepo.findById(matchId).map(this::isShownInFeed).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean getMatchPostToFeed(Long matchId) {
+        return matchRepo.findById(matchId).map(SportsTournamentMatch::getPostToFeed).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public FeedPostPolicy resolveFeedPostPolicy(SportsTournamentMatch m) {
+        SportsTournamentConfig cfg = m.getConfig();
+        SportsEvent event = cfg != null ? cfg.getEvent() : null;
+        if (event == null && cfg != null && cfg.getId() != null) {
+            event = eventRepo.findById(cfg.getId()).orElse(null);
+        }
+        if (event != null && event.getFeedPostPolicy() != null) {
+            return event.getFeedPostPolicy();
+        }
+        SportsTournament t = event != null ? event.getTournament() : null;
+        if (t != null && t.getFeedPostPolicy() != null) {
+            return t.getFeedPostPolicy();
+        }
+        // Default policy: FINALS_ONLY (prevents preliminary feed flooding)
+        return FeedPostPolicy.FINALS_ONLY;
+    }
+
+    @Transactional(readOnly = true)
+    public String resolveFeedPostStages(SportsTournamentMatch m) {
+        SportsTournamentConfig cfg = m.getConfig();
+        SportsEvent event = cfg != null ? cfg.getEvent() : null;
+        if (event == null && cfg != null && cfg.getId() != null) {
+            event = eventRepo.findById(cfg.getId()).orElse(null);
+        }
+        if (event != null && event.getFeedPostStages() != null && !event.getFeedPostStages().isBlank()) {
+            return event.getFeedPostStages();
+        }
+        SportsTournament t = event != null ? event.getTournament() : null;
+        if (t != null && t.getFeedPostStages() != null && !t.getFeedPostStages().isBlank()) {
+            return t.getFeedPostStages();
+        }
+        return null;
     }
 
     // ── Effective flag ────────────────────────────────────────────────────
@@ -185,6 +247,77 @@ public class SportsFeedService {
                 ctx != null && ctx.user() != null ? ctx.user().getId() : null);
     }
 
+    @Transactional
+    public void setTournamentSettings(Long tournamentId, Boolean showInLiveStrip, FeedPostPolicy policy, String stages, boolean cascade, ResolvedUser ctx) {
+        SportsTournament t = tournamentRepo.findById(tournamentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tournament", tournamentId));
+        assertCommunity(t.getCommunity(), ctx);
+        if (showInLiveStrip != null) t.setShowInFeed(showInLiveStrip);
+        if (policy != null) t.setFeedPostPolicy(policy);
+        if (stages != null) t.setFeedPostStages(stages);
+        tournamentRepo.save(t);
+        if (cascade) {
+            for (SportsEvent e : eventRepo.findByTournamentId(tournamentId)) {
+                if (showInLiveStrip != null) e.setShowInFeed(showInLiveStrip);
+                if (policy != null) e.setFeedPostPolicy(policy);
+                if (stages != null) e.setFeedPostStages(stages);
+                eventRepo.save(e);
+                setEventSettings(e.getId(), showInLiveStrip, policy, stages, true, ctx);
+            }
+        }
+        broadcastLiveFeedUpdate();
+        log.info("Feed settings: tournament {} -> live={}, policy={}, stages={} (cascade={}) by user {}",
+                tournamentId, showInLiveStrip, policy, stages, cascade,
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
+    }
+
+    @Transactional
+    public void setEventSettings(Long eventId, Boolean showInLiveStrip, FeedPostPolicy policy, String stages, boolean cascade, ResolvedUser ctx) {
+        SportsEvent e = eventRepo.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event", eventId));
+        Community community = e.getCommunity() != null ? e.getCommunity()
+                : (e.getTournament() != null ? e.getTournament().getCommunity() : null);
+        assertCommunity(community, ctx);
+        if (showInLiveStrip != null) e.setShowInFeed(showInLiveStrip);
+        if (policy != null) e.setFeedPostPolicy(policy);
+        if (stages != null) e.setFeedPostStages(stages);
+        if (e.getCommunity() == null && community != null) {
+            e.setCommunity(community);
+        }
+        eventRepo.save(e);
+        if (cascade && showInLiveStrip != null) {
+            clearMatchOverrides(eventId, showInLiveStrip);
+        }
+        broadcastLiveFeedUpdate();
+        log.info("Feed settings: event {} -> live={}, policy={}, stages={} (cascade={}) by user {}",
+                eventId, showInLiveStrip, policy, stages, cascade,
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
+    }
+
+    @Transactional
+    public void setMatchSettings(Long matchId, Boolean showInLiveStrip, Boolean postToFeed, ResolvedUser ctx) {
+        SportsTournamentMatch m = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Match", matchId));
+        Community community = m.getCommunity();
+        if (community == null && m.getConfig() != null) {
+            community = m.getConfig().getCommunity();
+            if (community == null && m.getConfig().getEvent() != null) {
+                community = m.getConfig().getEvent().getCommunity();
+                if (community == null && m.getConfig().getEvent().getTournament() != null) {
+                    community = m.getConfig().getEvent().getTournament().getCommunity();
+                }
+            }
+        }
+        assertCommunity(community, ctx);
+        if (showInLiveStrip != null) m.setShowInFeed(showInLiveStrip);
+        if (postToFeed != null) m.setPostToFeed(postToFeed);
+        matchRepo.save(m);
+        broadcastLiveFeedUpdate();
+        log.info("Feed settings: match {} -> live={}, postToFeed={} by user {}",
+                matchId, showInLiveStrip, postToFeed,
+                ctx != null && ctx.user() != null ? ctx.user().getId() : null);
+    }
+
     private void clearMatchOverrides(Long eventId, Boolean show) {
         List<SportsTournamentConfig> configs = new java.util.ArrayList<>(configRepo.findByEventId(eventId));
         configRepo.findById(eventId).ifPresent(c -> {
@@ -286,9 +419,77 @@ public class SportsFeedService {
     // ── Result post on completion ─────────────────────────────────────────
 
     /**
-     * Publishes one official SPORTS result post for each completed, feed-enabled match.
-     * Polling (rather than hooking each completion path) keeps this independent of the
-     * several services that can complete a match, and {@code feedResultPostId} guarantees idempotence.
+     * Determines whether a completed match should automatically publish an official
+     * result post into the community feed based on its stage and configured policy.
+     */
+    public boolean shouldPublishResultPost(SportsTournamentMatch m) {
+        if (m == null || m.getStatus() != MatchStatus.COMPLETED) return false;
+
+        // 1. Explicit match override wins if present
+        if (Boolean.FALSE.equals(m.getPostToFeed())) return false;
+        if (Boolean.TRUE.equals(m.getPostToFeed())) return true;
+
+        // 2. Draft configs or matches should never publish to feed
+        if (m.getConfig() != null && m.getConfig().getStatus() == SportsTournamentConfig.TournamentStatus.DRAFT) {
+            return false;
+        }
+
+        // 3. Resolve policy from Event -> Tournament -> Default (FINALS_ONLY)
+        FeedPostPolicy policy = resolveFeedPostPolicy(m);
+        if (policy == FeedPostPolicy.NONE) return false;
+        if (policy == FeedPostPolicy.ALL_MATCHES) return true;
+
+        MatchRound r = m.getRound();
+        String round = (r != null ? r.name() : "").toUpperCase().trim();
+
+        boolean isFinal = (r == MatchRound.FINAL || r == MatchRound.GRAND_FINAL || r == MatchRound.SUPER_FINAL
+                || round.contains("FINAL"))
+                && !round.contains("SEMI")
+                && !round.contains("QUARTER")
+                && !round.contains("1/8")
+                && !round.contains("ROUND_OF");
+
+        if (policy == FeedPostPolicy.FINALS_ONLY) {
+            return isFinal;
+        }
+
+        if (policy == FeedPostPolicy.KNOCKOUTS_ONLY) {
+            boolean isKnockout = isFinal
+                    || r == MatchRound.SEMI_FINAL
+                    || r == MatchRound.QUARTER_FINAL
+                    || r == MatchRound.THIRD_PLACE
+                    || r == MatchRound.ROUND_OF_16
+                    || r == MatchRound.ROUND_OF_32
+                    || r == MatchRound.ROUND_OF_64
+                    || r == MatchRound.ELIMINATOR
+                    || r == MatchRound.QUALIFIER_1
+                    || r == MatchRound.QUALIFIER_2
+                    || round.contains("SEMI") || round.contains("QUARTER")
+                    || round.contains("THIRD") || round.contains("3RD")
+                    || round.contains("KNOCKOUT") || round.contains("PLAYOFF");
+            return isKnockout;
+        }
+
+        if (policy == FeedPostPolicy.CUSTOM) {
+            String stagesConfig = resolveFeedPostStages(m);
+            if (stagesConfig == null || stagesConfig.isBlank()) return false;
+            for (String allowed : stagesConfig.split(",")) {
+                String a = allowed.trim().toUpperCase();
+                if (!a.isEmpty() && round.contains(a)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * Publishes one official SPORTS result post for each completed match that satisfies
+     * the feed post policy (or has explicit postToFeed=true).
+     * Polling keeps this decoupled from various score-recording flows, while feedResultPostId
+     * guarantees exactly-once publication.
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -296,7 +497,7 @@ public class SportsFeedService {
         LocalDateTime since = LocalDateTime.now().minus(RESULT_POST_WINDOW);
         for (SportsTournamentMatch m : matchRepo.findCompletedWithoutFeedPost(since)) {
             try {
-                if (m.getStatus() != MatchStatus.COMPLETED || !isShownInFeed(m)) continue;
+                if (!shouldPublishResultPost(m)) continue;
                 Long postId = createResultPost(m);
                 if (postId != null) {
                     m.setFeedResultPostId(postId);
@@ -306,6 +507,31 @@ public class SportsFeedService {
                 log.error("Failed to publish feed result post for match {}", m.getId(), e);
             }
         }
+    }
+
+    /**
+     * Allows tournament organizers and admins to manually publish a completed match result
+     * to the community feed on-demand (e.g. for exciting group matches or special highlights).
+     */
+    @Transactional
+    public Long publishMatchResultPost(Long matchId, ResolvedUser ctx) {
+        SportsTournamentMatch m = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Match", matchId));
+        if (m.getStatus() != MatchStatus.COMPLETED) {
+            throw new IllegalStateException("Match #" + matchId + " is not completed yet");
+        }
+        if (m.getFeedResultPostId() != null) {
+            return m.getFeedResultPostId();
+        }
+        Long postId = createResultPost(m);
+        if (postId != null) {
+            m.setFeedResultPostId(postId);
+            m.setPostToFeed(true);
+            matchRepo.save(m);
+            log.info("Manually published feed result post {} for match {} by user {}",
+                    postId, matchId, ctx != null && ctx.user() != null ? ctx.user().getId() : null);
+        }
+        return postId;
     }
 
     private Long createResultPost(SportsTournamentMatch m) {

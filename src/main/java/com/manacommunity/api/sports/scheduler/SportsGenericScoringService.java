@@ -895,8 +895,8 @@ public class SportsGenericScoringService {
         if (match.getTeamB() != null && match.getTeamB().getId().equals(requestedTeamId)) {
             return match.getTeamB().getId();
         }
-        // Fallback for side-based IDs (1 = side A, 2 = side B)
-        if (requestedTeamId == 1L && match.getTeamA() != null) {
+        // Fallback for side-based IDs (0 or 1 = side A, 2 = side B)
+        if ((requestedTeamId == 0L || requestedTeamId == 1L) && match.getTeamA() != null) {
             return match.getTeamA().getId();
         }
         if (requestedTeamId == 2L && match.getTeamB() != null) {
