@@ -53,6 +53,11 @@ public class SportsGenericScoringService {
             "FOOTBALL", "SOCCER", "BASKETBALL", "KABADDI"
     );
 
+    private static final Set<String> INDIVIDUAL_SPORTS = Set.of(
+            "BADMINTON", "TABLE_TENNIS", "TENNIS", "PICKLEBALL",
+            "SQUASH", "CARROM", "POOL", "BILLIARDS", "SNOOKER", "CHESS"
+    );
+
     @Transactional
     public SportsGenericScoreResponse recordEvent(SportsGenericScoreRequest req, Long userId) {
         log.info("Recording generic score event matchId={} teamId={} eventType={} userId={}",
@@ -79,21 +84,27 @@ public class SportsGenericScoringService {
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
+        ensureTeamsForMatch(match);
+
         // 3. Validate team membership in match
-        boolean isTeamA = match.getTeamA() != null && match.getTeamA().getId().equals(req.teamId());
-        boolean isTeamB = match.getTeamB() != null && match.getTeamB().getId().equals(req.teamId());
+        String sportType = resolveSportType(match);
+        boolean isIndiv = sportType != null && INDIVIDUAL_SPORTS.contains(sportType.toUpperCase());
+
+        Long resolvedTeamId = resolveRequestedTeamId(match, req.teamId());
+        boolean isTeamA = match.getTeamA() != null && match.getTeamA().getId().equals(resolvedTeamId);
+        boolean isTeamB = match.getTeamB() != null && match.getTeamB().getId().equals(resolvedTeamId);
         if (!isTeamA && !isTeamB) {
-            throw new InvalidInputException("Team " + req.teamId() + " does not belong to match " + match.getId());
+            String label = isIndiv ? "Participant " : "Team ";
+            throw new InvalidInputException(label + req.teamId() + " does not belong to match " + match.getId());
         }
 
-        SportsAuctionTeam team = teamRepo.findById(req.teamId())
-                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam", req.teamId()));
+        SportsAuctionTeam team = teamRepo.findById(resolvedTeamId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam", resolvedTeamId));
 
         SportsAuctionPlayer player = req.playerId() != null
                 ? playerRepo.findById(req.playerId()).orElse(null) : null;
 
         // 4. Sport engine specific validation
-        String sportType = resolveSportType(match);
         ScoringEngine engine = engineRegistry.getEngine(sportType);
         engine.validateScoreEvent(match, req);
 
@@ -121,7 +132,7 @@ public class SportsGenericScoringService {
         eventRepo.save(event);
 
         if (POINT_BASED_SPORTS.contains(sportType) && req.pointsAwarded() > 0) {
-            updatePeriodScore(match, req.periodNumber(), req.teamId(), req.pointsAwarded(), sportType);
+            updatePeriodScore(match, req.periodNumber(), resolvedTeamId, req.pointsAwarded(), sportType);
         }
 
         updateMatchScore(match, sportType);
@@ -185,10 +196,12 @@ public class SportsGenericScoringService {
         return toResponse(last);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public SportsGenericMatchStateResponse getMatchState(Long matchId) {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+
+        ensureTeamsForMatch(match);
 
         String sportType = resolveSportType(match);
         List<SportsMatchPeriodScore> periods = periodScoreRepo.findByMatchIdOrderByPeriodNumber(matchId);
@@ -233,16 +246,19 @@ public class SportsGenericScoringService {
                     .orElse(null);
         }
 
+        String teamAName = match.getTeamA() != null ? match.getTeamA().getTeamName() : extractCompetitorName(match, true);
+        String teamBName = match.getTeamB() != null ? match.getTeamB().getTeamName() : extractCompetitorName(match, false);
+
         return new SportsGenericMatchStateResponse(
                 matchId,
                 match.getStatus().name(),
                 sportType,
                 match.getTeamA() != null ? match.getTeamA().getId() : null,
-                match.getTeamA() != null ? match.getTeamA().getTeamName() : "TBD",
-                match.getTeamA() != null ? match.getTeamA().getColorHex() : "#555",
+                teamAName,
+                match.getTeamA() != null ? match.getTeamA().getColorHex() : "#6366f1",
                 match.getTeamB() != null ? match.getTeamB().getId() : null,
-                match.getTeamB() != null ? match.getTeamB().getTeamName() : "TBD",
-                match.getTeamB() != null ? match.getTeamB().getColorHex() : "#555",
+                teamBName,
+                match.getTeamB() != null ? match.getTeamB().getColorHex() : "#f97316",
                 currentPeriod,
                 totalScoreA,
                 totalScoreB,
@@ -259,6 +275,8 @@ public class SportsGenericScoringService {
         log.info("Recording period result matchId={} period={} scoreA={} scoreB={}", matchId, periodNumber, scoreA, scoreB);
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+
+        ensureTeamsForMatch(match);
 
         String sportType = resolveSportType(match);
         String label = buildPeriodLabel(sportType, periodNumber);
@@ -302,6 +320,8 @@ public class SportsGenericScoringService {
         log.info("Completing period matchId={} period={}", matchId, periodNumber);
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+
+        ensureTeamsForMatch(match);
 
         String sportType = resolveSportType(match);
         SportsScoringConfig config = resolveConfig(match, sportType);
@@ -762,9 +782,11 @@ public class SportsGenericScoringService {
         if (m == null) return isHome ? "Competitor A" : "Competitor B";
         if (isHome) {
             if (m.getTeamA() != null) return m.getTeamA().getTeamName();
+            if (m.getPlaceholderTeamA() != null && !m.getPlaceholderTeamA().isBlank()) return m.getPlaceholderTeamA();
             return extractNote(m.getMatchNotes(), "homeName", "Competitor A");
         } else {
             if (m.getTeamB() != null) return m.getTeamB().getTeamName();
+            if (m.getPlaceholderTeamB() != null && !m.getPlaceholderTeamB().isBlank()) return m.getPlaceholderTeamB();
             return extractNote(m.getMatchNotes(), "awayName", "Competitor B");
         }
     }
@@ -782,5 +804,104 @@ public class SportsGenericScoringService {
             }
         } catch (Exception ignored) {}
         return fallback;
+    }
+
+    @Transactional
+    public void ensureTeamsForMatch(SportsTournamentMatch match) {
+        if (match == null) return;
+        boolean modified = false;
+
+        String homeName = match.getTeamA() != null ? match.getTeamA().getTeamName() : (
+                match.getPlaceholderTeamA() != null && !match.getPlaceholderTeamA().isBlank()
+                        ? match.getPlaceholderTeamA()
+                        : extractNote(match.getMatchNotes(), "homeName", null)
+        );
+
+        String awayName = match.getTeamB() != null ? match.getTeamB().getTeamName() : (
+                match.getPlaceholderTeamB() != null && !match.getPlaceholderTeamB().isBlank()
+                        ? match.getPlaceholderTeamB()
+                        : extractNote(match.getMatchNotes(), "awayName", null)
+        );
+
+        if (match.getTeamA() == null && isRealParticipantName(homeName)) {
+            SportsAuctionTeam teamA = resolveOrCreateTeam(match, homeName, "#6366f1");
+            if (teamA != null) {
+                match.setTeamA(teamA);
+                modified = true;
+            }
+        }
+
+        if (match.getTeamB() == null && isRealParticipantName(awayName)) {
+            SportsAuctionTeam teamB = resolveOrCreateTeam(match, awayName, "#f97316");
+            if (teamB != null) {
+                match.setTeamB(teamB);
+                modified = true;
+            }
+        }
+
+        if (modified) {
+            matchRepo.save(match);
+        }
+    }
+
+    private boolean isRealParticipantName(String name) {
+        return name != null && !name.isBlank() && !"TBD".equalsIgnoreCase(name)
+                && !"BYE".equalsIgnoreCase(name) && !"dummy".equalsIgnoreCase(name);
+    }
+
+    private SportsAuctionTeam resolveOrCreateTeam(SportsTournamentMatch match, String teamName, String defaultColor) {
+        if (!isRealParticipantName(teamName)) return null;
+        String cleanName = teamName.trim();
+
+        Long eventId = (match.getConfig() != null && match.getConfig().getEvent() != null)
+                ? match.getConfig().getEvent().getId()
+                : null;
+
+        if (eventId != null) {
+            List<SportsAuctionTeam> existing = teamRepo.findByEventIdOrderByTeamName(eventId);
+            for (SportsAuctionTeam t : existing) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        if (match.getConfig() != null && match.getConfig().getId() != null) {
+            List<SportsAuctionTeam> existingCfg = teamRepo.findByConfigIdOrderByTeamName(match.getConfig().getId());
+            for (SportsAuctionTeam t : existingCfg) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        SportsAuctionTeam newTeam = SportsAuctionTeam.builder()
+                .community(match.getCommunity() != null ? match.getCommunity() : (match.getConfig() != null ? match.getConfig().getCommunity() : null))
+                .event(match.getConfig() != null ? match.getConfig().getEvent() : null)
+                .teamName(cleanName)
+                .totalBudget(0L)
+                .remainingBudget(0L)
+                .spent(0L)
+                .colorHex(defaultColor)
+                .build();
+        return teamRepo.save(newTeam);
+    }
+
+    private Long resolveRequestedTeamId(SportsTournamentMatch match, Long requestedTeamId) {
+        if (requestedTeamId == null) return null;
+        if (match.getTeamA() != null && match.getTeamA().getId().equals(requestedTeamId)) {
+            return match.getTeamA().getId();
+        }
+        if (match.getTeamB() != null && match.getTeamB().getId().equals(requestedTeamId)) {
+            return match.getTeamB().getId();
+        }
+        // Fallback for side-based IDs (0 or 1 = side A, 2 = side B)
+        if ((requestedTeamId == 0L || requestedTeamId == 1L) && match.getTeamA() != null) {
+            return match.getTeamA().getId();
+        }
+        if (requestedTeamId == 2L && match.getTeamB() != null) {
+            return match.getTeamB().getId();
+        }
+        return requestedTeamId;
     }
 }

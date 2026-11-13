@@ -127,6 +127,8 @@ public class SportsBracketGenerator {
                     .bracketSlot(i)
                     .teamA(null)   // TBD — winner of earlier match
                     .teamB(null)
+                    .placeholderTeamA("Winner M" + (2 * i + 1))
+                    .placeholderTeamB("Winner M" + (2 * i + 2))
                     .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
@@ -143,6 +145,8 @@ public class SportsBracketGenerator {
                     .round(MatchRound.THIRD_PLACE)
                     .roundNumber(round)
                     .matchNumber(99)
+                    .placeholderTeamA("Loser SF 1")
+                    .placeholderTeamB("Loser SF 2")
                     .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
@@ -331,9 +335,33 @@ public class SportsBracketGenerator {
 
         List<SportsTournamentMatch> koMatches = generateKnockout(koConfig,
             new ArrayList<>(Collections.nCopies(advancing, null))); // TBD teams
-        // Adjust cursor for knockout
+        // Adjust cursor and assign group-stage placeholders to knockout Round 1
+        int r1Matches = advancing / 2;
+        char[] letters = new char[]{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
         for (int i = 0; i < koMatches.size(); i++) {
-            koMatches.get(i).setScheduledAt(cursor.plusMinutes((long) (dur + brk) * i));
+            SportsTournamentMatch km = koMatches.get(i);
+            if (km.getRoundNumber() != null && km.getRoundNumber() == 1 && i < r1Matches) {
+                if (nGroups == 2 && advPer == 2) {
+                    if (i == 0) {
+                        km.setPlaceholderTeamA("1st Group A");
+                        km.setPlaceholderTeamB("2nd Group B");
+                    } else {
+                        km.setPlaceholderTeamA("1st Group B");
+                        km.setPlaceholderTeamB("2nd Group A");
+                    }
+                } else if (nGroups == 4 && advPer == 2) {
+                    if (i == 0) { km.setPlaceholderTeamA("1st Group A"); km.setPlaceholderTeamB("2nd Group B"); }
+                    else if (i == 1) { km.setPlaceholderTeamA("1st Group C"); km.setPlaceholderTeamB("2nd Group D"); }
+                    else if (i == 2) { km.setPlaceholderTeamA("1st Group B"); km.setPlaceholderTeamB("2nd Group A"); }
+                    else if (i == 3) { km.setPlaceholderTeamA("1st Group D"); km.setPlaceholderTeamB("2nd Group C"); }
+                } else {
+                    int gA = (i * 2) % nGroups;
+                    int gB = (i * 2 + 1) % nGroups;
+                    km.setPlaceholderTeamA("Top Group " + letters[gA]);
+                    km.setPlaceholderTeamB("Top Group " + letters[gB]);
+                }
+            }
+            km.setScheduledAt(cursor.plusMinutes((long) (dur + brk) * i));
         }
         matches.addAll(koMatches);
 

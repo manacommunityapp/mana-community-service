@@ -438,8 +438,21 @@ public class SportsTournamentSchedulerController {
             @PathVariable Long matchId,
             @Valid @RequestBody SportsRescheduleRequest req) {
         log.info("Rescheduling match matchId={}", matchId);
-        SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue());
+        SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue(), req.court());
         return ResponseEntity.ok(schedulerService.toMatchResponse(updated));
+    }
+
+    /**
+     * POST /api/tournament/{configId}/matches/batch-reschedule
+     * Batch reschedules remaining uncompleted matches (e.g. rain delay or postponement to new date).
+     */
+    @PostMapping("/{configId}/matches/batch-reschedule")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<SportsBatchRescheduleResponse> batchReschedule(
+            @PathVariable Long configId,
+            @Valid @RequestBody SportsBatchRescheduleRequest req) {
+        log.info("Batch rescheduling matches configId={} mode={}", configId, req.mode());
+        return ResponseEntity.ok(schedulerService.batchReschedule(configId, req));
     }
 
     // ═══════════════════════════════════════════════════════════════

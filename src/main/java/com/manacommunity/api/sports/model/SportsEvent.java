@@ -231,6 +231,15 @@ public class SportsEvent {
     @Column(name = "show_in_feed")
     private Boolean showInFeed;
 
+    /** null = inherit from tournament; explicit override for this event. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "feed_post_policy", length = 30)
+    private FeedPostPolicy feedPostPolicy;
+
+    /** Comma-separated stages if feedPostPolicy is CUSTOM. */
+    @Column(name = "feed_post_stages", length = 255)
+    private String feedPostStages;
+
     @Column(name = "captain_nomination_open", nullable = false)
     @Builder.Default
     private Boolean captainNominationOpen = false;

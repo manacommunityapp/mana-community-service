@@ -346,6 +346,13 @@ public class SportsMatchPersistenceService {
         String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
             safe(homeName), safe(req.homeFlat()), safe(awayName), safe(req.awayFlat()), safe(req.stage()));
 
+        if (home == null && isRealParticipantName(homeName)) {
+            home = resolveOrCreateTeam(config, homeName, "#6366f1");
+        }
+        if (away == null && isRealParticipantName(awayName)) {
+            away = resolveOrCreateTeam(config, awayName, "#f97316");
+        }
+
         SportsTournamentMatch m = SportsTournamentMatch.builder()
             .config(config)
             .community(config.getCommunity())
@@ -648,6 +655,12 @@ public class SportsMatchPersistenceService {
 
         SportsAuctionTeam teamA = tryResolveTeam(m.homeId());
         SportsAuctionTeam teamB = tryResolveTeam(m.awayId());
+        if (teamA == null && isRealParticipantName(m.homeName())) {
+            teamA = resolveOrCreateTeam(config, m.homeName(), "#6366f1");
+        }
+        if (teamB == null && isRealParticipantName(m.awayName())) {
+            teamB = resolveOrCreateTeam(config, m.awayName(), "#f97316");
+        }
 
         LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
 
@@ -793,5 +806,48 @@ public class SportsMatchPersistenceService {
 
     private String safe(String s) {
         return s == null ? "" : s.replace("\"", "'");
+    }
+
+    private boolean isRealParticipantName(String name) {
+        return name != null && !name.isBlank() && !"TBD".equalsIgnoreCase(name)
+                && !"BYE".equalsIgnoreCase(name) && !"dummy".equalsIgnoreCase(name);
+    }
+
+    private SportsAuctionTeam resolveOrCreateTeam(SportsTournamentConfig config, String teamName, String defaultColor) {
+        if (!isRealParticipantName(teamName)) return null;
+        String cleanName = teamName.trim();
+
+        Long eventId = (config != null && config.getEvent() != null)
+                ? config.getEvent().getId()
+                : null;
+
+        if (eventId != null) {
+            List<SportsAuctionTeam> existing = teamRepo.findByEventIdOrderByTeamName(eventId);
+            for (SportsAuctionTeam t : existing) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        if (config != null && config.getId() != null) {
+            List<SportsAuctionTeam> existingCfg = teamRepo.findByConfigIdOrderByTeamName(config.getId());
+            for (SportsAuctionTeam t : existingCfg) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        SportsAuctionTeam newTeam = SportsAuctionTeam.builder()
+                .community(config != null ? config.getCommunity() : null)
+                .event(config != null ? config.getEvent() : null)
+                .teamName(cleanName)
+                .totalBudget(0L)
+                .remainingBudget(0L)
+                .spent(0L)
+                .colorHex(defaultColor)
+                .build();
+        return teamRepo.save(newTeam);
     }
 }

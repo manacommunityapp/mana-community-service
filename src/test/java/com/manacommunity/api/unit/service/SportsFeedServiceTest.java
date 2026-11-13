@@ -178,4 +178,105 @@ class SportsFeedServiceTest {
 
         assertThat(feedService.isShownInFeed(matchInDraft)).isFalse();
     }
+
+    @Test
+    void testShouldPublishResultPost_finalsOnlySkipsRoundOf16() {
+        SportsEvent event = SportsEvent.builder()
+                .name("Badminton")
+                .feedPostPolicy(com.manacommunity.api.sports.model.FeedPostPolicy.FINALS_ONLY)
+                .build();
+        SportsTournamentConfig config = SportsTournamentConfig.builder()
+                .id(200L)
+                .event(event)
+                .status(SportsTournamentConfig.TournamentStatus.ACTIVE)
+                .build();
+
+        SportsTournamentMatch r16Match = SportsTournamentMatch.builder()
+                .id(901L)
+                .config(config)
+                .status(MatchStatus.COMPLETED)
+                .round(MatchRound.ROUND_OF_16)
+                .build();
+
+        assertThat(feedService.shouldPublishResultPost(r16Match)).isFalse();
+    }
+
+    @Test
+    void testShouldPublishResultPost_finalsOnlyPublishesFinal() {
+        SportsEvent event = SportsEvent.builder()
+                .name("Badminton")
+                .feedPostPolicy(com.manacommunity.api.sports.model.FeedPostPolicy.FINALS_ONLY)
+                .build();
+        SportsTournamentConfig config = SportsTournamentConfig.builder()
+                .id(200L)
+                .event(event)
+                .status(SportsTournamentConfig.TournamentStatus.ACTIVE)
+                .build();
+
+        SportsTournamentMatch finalMatch = SportsTournamentMatch.builder()
+                .id(902L)
+                .config(config)
+                .status(MatchStatus.COMPLETED)
+                .round(MatchRound.FINAL)
+                .build();
+
+        assertThat(feedService.shouldPublishResultPost(finalMatch)).isTrue();
+    }
+
+    @Test
+    void testShouldPublishResultPost_knockoutsOnlyPublishesQuarterFinal() {
+        SportsEvent event = SportsEvent.builder()
+                .name("Cricket")
+                .feedPostPolicy(com.manacommunity.api.sports.model.FeedPostPolicy.KNOCKOUTS_ONLY)
+                .build();
+        SportsTournamentConfig config = SportsTournamentConfig.builder()
+                .id(200L)
+                .event(event)
+                .status(SportsTournamentConfig.TournamentStatus.ACTIVE)
+                .build();
+
+        SportsTournamentMatch qfMatch = SportsTournamentMatch.builder()
+                .id(903L)
+                .config(config)
+                .status(MatchStatus.COMPLETED)
+                .round(MatchRound.QUARTER_FINAL)
+                .build();
+
+        assertThat(feedService.shouldPublishResultPost(qfMatch)).isTrue();
+    }
+
+    @Test
+    void testShouldPublishResultPost_explicitMatchOverrideTakesPrecedence() {
+        SportsEvent event = SportsEvent.builder()
+                .name("Cricket")
+                .feedPostPolicy(com.manacommunity.api.sports.model.FeedPostPolicy.NONE)
+                .build();
+        SportsTournamentConfig config = SportsTournamentConfig.builder()
+                .id(200L)
+                .event(event)
+                .status(SportsTournamentConfig.TournamentStatus.ACTIVE)
+                .build();
+
+        // Even if policy is NONE, postToFeed=true forces publish
+        SportsTournamentMatch forcedMatch = SportsTournamentMatch.builder()
+                .id(904L)
+                .config(config)
+                .status(MatchStatus.COMPLETED)
+                .round(MatchRound.GROUP_STAGE)
+                .postToFeed(true)
+                .build();
+
+        assertThat(feedService.shouldPublishResultPost(forcedMatch)).isTrue();
+
+        // If postToFeed=false, forces skip even on final
+        SportsTournamentMatch suppressedFinal = SportsTournamentMatch.builder()
+                .id(905L)
+                .config(config)
+                .status(MatchStatus.COMPLETED)
+                .round(MatchRound.FINAL)
+                .postToFeed(false)
+                .build();
+
+        assertThat(feedService.shouldPublishResultPost(suppressedFinal)).isFalse();
+    }
 }

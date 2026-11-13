@@ -24,6 +24,7 @@ public class TournamentStageService {
     private final SportsTournamentReserveDayRepository reserveDayRepo;
     private final SportsTournamentConfigRepository configRepo;
     private final SportsTournamentMatchRepository matchRepo;
+    private final SportsBracketGenerator bracketGenerator;
 
     // ─── Stage CRUD ──────────────────────────────────────────────────────────
 
