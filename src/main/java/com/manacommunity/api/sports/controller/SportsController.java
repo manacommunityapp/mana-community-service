@@ -20,6 +20,7 @@ import com.manacommunity.api.sports.dto.SportsCommunityFamilyMemberResponse;
 import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
+import com.manacommunity.api.sports.dto.SportsTournamentResponse;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
 import com.manacommunity.api.sports.dto.SportsBatchStatusRequest;
 import com.manacommunity.api.sports.dto.SportsBatchDeleteRequest;
@@ -323,12 +324,39 @@ public class SportsController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping({"/events/{id}", "/tournaments/{id}"})
-    public ResponseEntity<SportsEventResponse> getTournamentById(
+    @GetMapping("/events/{id}")
+    public ResponseEntity<SportsEventResponse> getEventById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
-        return ResponseEntity.ok(toEventResponse(eventService.getEventById(id)));
+        try {
+            return ResponseEntity.ok(toEventResponse(eventService.getEventById(id)));
+        } catch (ResourceNotFoundException e) {
+            // Fallback: check if id is a tournament ID
+            SportsTournament tournament = tournamentService.getTournamentById(id);
+            SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())
+                    ? tournament.getSportsEvents().get(0)
+                    : null;
+            if (mainEvent != null) {
+                return ResponseEntity.ok(toEventResponse(mainEvent));
+            }
+            throw e;
+        }
+    }
+
+    @GetMapping("/tournaments/{id}")
+    public ResponseEntity<?> getTournamentById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        try {
+            SportsTournament tournament = tournamentService.getTournamentById(id);
+            return ResponseEntity.ok(toTournamentResponse(tournament));
+        } catch (ResourceNotFoundException e) {
+            // Fallback for legacy calls that pass eventId to /tournaments/{id}
+            SportsEvent event = eventService.getEventById(id);
+            return ResponseEntity.ok(toEventResponse(event));
+        }
     }
 
     @GetMapping("/events/by-uuid/{uuid}")
@@ -745,6 +773,53 @@ public class SportsController {
     }
 
     // ── Mappers ──────────────────────────────────────────────────────────────
+
+    private SportsTournamentResponse toTournamentResponse(SportsTournament t) {
+        List<SponsorDto> sponsorDtos = t.getSponsors() != null
+                ? t.getSponsors().stream().map(s -> {
+                    SponsorDto dto = new SponsorDto();
+                    dto.setCategory(s.getCategory());
+                    dto.setName(s.getName());
+                    dto.setUrl(s.getUrl());
+                    return dto;
+                }).toList()
+                : List.of();
+
+        List<SportsEventResponse> eventResponses = t.getSportsEvents() != null
+                ? t.getSportsEvents().stream().map(this::toEventResponse).toList()
+                : List.of();
+
+        return SportsTournamentResponse.builder()
+                .id(t.getId())
+                .name(t.getName())
+                .communityId(t.getCommunity() != null ? t.getCommunity().getId() : null)
+                .communityName(t.getCommunity() != null ? t.getCommunity().getName() : null)
+                .maxParticipants(t.getMaxParticipants())
+                .description(t.getDescription())
+                .eventDateStart(t.getEventDateStart())
+                .eventDateEnd(t.getEventDateEnd())
+                .registrationDateStart(t.getRegistrationDateStart())
+                .registrationDateEnd(t.getRegistrationDateEnd())
+                .startTime(t.getStartTime())
+                .dueTime(t.getDueTime())
+                .bannerImage(t.getBannerImage())
+                .contactName(t.getContactName())
+                .contactNumber(t.getContactNumber())
+                .contactEmail(t.getContactEmail())
+                .contacts(t.getContacts() != null
+                        ? t.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
+                            .id(c.getId()).name(c.getName()).title(c.getTitle())
+                            .number(c.getNumber()).email(c.getEmail()).build()).toList()
+                        : java.util.List.of())
+                .otherContacts(t.getOtherContacts())
+                .allowAdminChat(t.getAllowAdminChat())
+                .registrationStatus(t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null)
+                .sponsors(sponsorDtos)
+                .sportsEvents(eventResponses)
+                .createdAt(t.getCreatedAt())
+                .updatedAt(t.getUpdatedAt())
+                .build();
+    }
 
     private SportsEventResponse toEventResponse(SportsEvent e) {
         SportsEventResponse.SportRef sportRef = null;
