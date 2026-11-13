@@ -157,6 +157,16 @@ public class SportsFeedController {
         return ResponseEntity.ok(feedService.getLiveFeed(communityId, ctx));
     }
 
+    /** Recently completed matches with winner details and scores for the results modal. */
+    @GetMapping("/recent-completed")
+    public ResponseEntity<List<SportsFeedMatchResponse>> recentCompleted(
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(defaultValue = "30") int limit,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        ResolvedUser ctx = principal != null ? loggedInUserService.resolveContext(principal) : null;
+        return ResponseEntity.ok(feedService.getRecentCompletedMatches(communityId, limit, ctx));
+    }
+
     private static Boolean flag(Map<String, Object> body, String key) {
         if (!body.containsKey(key)) return null;
         Object v = body.get(key);
