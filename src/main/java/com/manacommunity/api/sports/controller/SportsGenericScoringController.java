@@ -24,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class SportsGenericScoringController {
     private final SportsGenericScoringService scoringService;
     private final LoggedInUserService loggedInUserService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/score")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
@@ -116,15 +118,30 @@ public class SportsGenericScoringController {
         return ResponseEntity.ok(scoringService.getDefaultScoringConfig(sportType));
     }
 
+    @GetMapping("/match/{matchId}/config")
+    public ResponseEntity<SportsScoringConfigResponse> getMatchConfig(@PathVariable Long matchId) {
+        return ResponseEntity.ok(scoringService.getEffectiveMatchConfig(matchId));
+    }
+
     @PutMapping("/match/{matchId}/config-override")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
-    public ResponseEntity<Void> updateMatchConfigOverride(
+    public ResponseEntity<SportsScoringConfigResponse> updateMatchConfigOverride(
             @PathVariable Long matchId,
-            @RequestBody Map<String, String> body) {
-        String overrideJson = body.get("overrideJson");
-        log.info("Updating config override for matchId={}", matchId);
+            @RequestBody Map<String, Object> body) {
+        String overrideJson;
+        if (body.containsKey("overrideJson") && body.get("overrideJson") instanceof String s) {
+            overrideJson = s;
+        } else {
+            try {
+                overrideJson = objectMapper.writeValueAsString(body);
+            } catch (Exception e) {
+                overrideJson = "{}";
+            }
+        }
+        log.info("Updating config override for matchId={}: {}", matchId, overrideJson);
         scoringService.updateMatchConfigOverride(matchId, overrideJson);
-        return ResponseEntity.ok().build();
+        broadcastState(matchId);
+        return ResponseEntity.ok(scoringService.getEffectiveMatchConfig(matchId));
     }
 
     @MessageMapping("/generic-match/{matchId}/score")

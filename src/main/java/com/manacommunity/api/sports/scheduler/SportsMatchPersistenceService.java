@@ -31,6 +31,8 @@ import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.util.HtmlSanitizer;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -65,6 +67,7 @@ public class SportsMatchPersistenceService {
     private final SportsTimeSlotAllocator           timeSlots;
     private final SportsScoringConfigRepository     scoringConfigRepo;
     private final AuditService                      auditService;
+    private final ObjectMapper                      objectMapper;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD
@@ -134,6 +137,23 @@ public class SportsMatchPersistenceService {
         config.setPointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2));
         config.setPointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1));
         config.setPointsForLoss(Objects.requireNonNullElse(req.pointsForLoss(), 0));
+
+        // Advanced Scheduling & Bracket Settings
+        if (req.seedingOrder() != null) config.setSeedingOrder(req.seedingOrder());
+        if (req.byesFirstRoundOnly() != null) config.setByesFirstRoundOnly(req.byesFirstRoundOnly());
+        if (req.showByesInBracket() != null) config.setShowByesInBracket(req.showByesInBracket());
+        if (req.limitMatchesPerDay() != null) config.setLimitMatchesPerDay(req.limitMatchesPerDay());
+        if (req.maxMatchesPerDay() != null) config.setMaxMatchesPerDay(req.maxMatchesPerDay());
+        if (req.usePlayoffDays() != null) config.setUsePlayoffDays(req.usePlayoffDays());
+        if (req.playoffDays() != null) {
+            config.setPlayoffDays(req.playoffDays().stream().map(String::valueOf).collect(Collectors.joining(",")));
+        }
+        if (req.venueAssignType() != null) config.setVenueAssignType(req.venueAssignType());
+        if (req.playoffRoundDates() != null || req.playoffRoundTimes() != null ||
+            req.playoffRoundDurations() != null || req.playoffRoundModes() != null) {
+            config.setPlayoffRoundTimingsJson(serializePlayoffRoundTimings(req));
+        }
+
         config = configRepo.save(config);
         log.info("SportsTournament config updated: [{}]", config.getTournamentName());
         return config;
@@ -151,6 +171,39 @@ public class SportsMatchPersistenceService {
                 showInFeed = c.getEvent().getTournament().getShowInFeed();
             }
         }
+
+        List<Integer> parsedPlayoffDays = null;
+        if (c.getPlayoffDays() != null && !c.getPlayoffDays().isBlank()) {
+            try {
+                parsedPlayoffDays = Arrays.stream(c.getPlayoffDays().split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Integer::parseInt)
+                    .toList();
+            } catch (Exception ignored) {}
+        }
+
+        Map<String, String> roundDates = null;
+        Map<String, String> roundTimes = null;
+        Map<String, String> roundDurations = null;
+        Map<String, String> roundModes = null;
+        if (c.getPlayoffRoundTimingsJson() != null && !c.getPlayoffRoundTimingsJson().isBlank()) {
+            try {
+                Map<String, Map<String, String>> parsed = objectMapper.readValue(
+                    c.getPlayoffRoundTimingsJson(),
+                    new TypeReference<Map<String, Map<String, String>>>() {}
+                );
+                if (parsed != null) {
+                    roundDates = parsed.get("dates");
+                    roundTimes = parsed.get("times");
+                    roundDurations = parsed.get("durations");
+                    roundModes = parsed.get("modes");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to deserialize playoff round timings for config {}: {}", c.getId(), e.getMessage());
+            }
+        }
+
         return new SportsTournamentConfigResponse(
             c.getId(), c.getTournamentName(), c.getTournamentType().name(),
             c.getSport() != null ? c.getSport().getId() : null,
@@ -169,7 +222,19 @@ public class SportsMatchPersistenceService {
             c.getPointsForWin(), c.getPointsForDraw(),
             c.getPointsForLoss(), c.getStatus().name(), matchCount,
             c.getCreatedAt(), c.getUpdatedAt(),
-            showInFeed
+            showInFeed,
+            c.getSeedingOrder(),
+            c.getByesFirstRoundOnly(),
+            c.getShowByesInBracket(),
+            c.getLimitMatchesPerDay(),
+            c.getMaxMatchesPerDay(),
+            c.getUsePlayoffDays(),
+            parsedPlayoffDays,
+            c.getVenueAssignType(),
+            roundDates,
+            roundTimes,
+            roundDurations,
+            roundModes
         );
     }
 
@@ -179,6 +244,10 @@ public class SportsMatchPersistenceService {
     }
 
     private SportsTournamentConfig buildConfig(SportsTournamentConfigRequest req, Long adminUserId) {
+        String playoffDaysStr = (req.playoffDays() != null && !req.playoffDays().isEmpty())
+            ? req.playoffDays().stream().map(String::valueOf).collect(Collectors.joining(","))
+            : null;
+
         SportsTournamentConfig.SportsTournamentConfigBuilder builder = SportsTournamentConfig.builder()
             .tournamentName(HtmlSanitizer.sanitizePlainText(req.tournamentName()))
             .sport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())))
@@ -198,6 +267,15 @@ public class SportsMatchPersistenceService {
             .pointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2))
             .pointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1))
             .pointsForLoss(Objects.requireNonNullElse(req.pointsForLoss(), 0))
+            .seedingOrder(Objects.requireNonNullElse(req.seedingOrder(), "RANDOM"))
+            .byesFirstRoundOnly(Objects.requireNonNullElse(req.byesFirstRoundOnly(), true))
+            .showByesInBracket(Objects.requireNonNullElse(req.showByesInBracket(), true))
+            .limitMatchesPerDay(Objects.requireNonNullElse(req.limitMatchesPerDay(), false))
+            .maxMatchesPerDay(Objects.requireNonNullElse(req.maxMatchesPerDay(), 2))
+            .usePlayoffDays(Objects.requireNonNullElse(req.usePlayoffDays(), false))
+            .playoffDays(playoffDaysStr)
+            .venueAssignType(Objects.requireNonNullElse(req.venueAssignType(), "Random"))
+            .playoffRoundTimingsJson(serializePlayoffRoundTimings(req))
             .status(SportsTournamentConfig.TournamentStatus.DRAFT)
             .createdBy(userRepo.findById(adminUserId).orElseThrow(() -> new ResourceNotFoundException("AppUser", adminUserId)));
 
@@ -205,6 +283,25 @@ public class SportsMatchPersistenceService {
             builder.event(eventRepo.findById(req.eventId()).orElseThrow(() -> new ResourceNotFoundException("SportsEvent", req.eventId())));
         }
         return builder.build();
+    }
+
+    private String serializePlayoffRoundTimings(SportsTournamentConfigRequest req) {
+        if (req == null) return null;
+        if (req.playoffRoundDates() == null && req.playoffRoundTimes() == null &&
+            req.playoffRoundDurations() == null && req.playoffRoundModes() == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> map = new LinkedHashMap<>();
+            if (req.playoffRoundDates() != null) map.put("dates", req.playoffRoundDates());
+            if (req.playoffRoundTimes() != null) map.put("times", req.playoffRoundTimes());
+            if (req.playoffRoundDurations() != null) map.put("durations", req.playoffRoundDurations());
+            if (req.playoffRoundModes() != null) map.put("modes", req.playoffRoundModes());
+            return objectMapper.writeValueAsString(map);
+        } catch (Exception e) {
+            log.warn("Failed to serialize playoff round timings: {}", e.getMessage());
+            return null;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════

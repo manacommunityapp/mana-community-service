@@ -244,14 +244,7 @@ public class SportsGenericScoringService {
                 .map(this::toResponse)
                 .toList();
 
-        SportsScoringConfigResponse configResponse = null;
-        if (match.getConfig() != null) {
-            configResponse = scoringConfigRepo.findByConfigId(match.getConfig().getId())
-                    .map(this::toConfigResponse)
-                    .orElseGet(() -> toConfigResponse(config));
-        } else if (config != null) {
-            configResponse = toConfigResponse(config);
-        }
+        SportsScoringConfigResponse configResponse = config != null ? toConfigResponse(config) : null;
 
         String teamAName = match.getTeamA() != null ? match.getTeamA().getTeamName() : extractCompetitorName(match, true);
         String teamBName = match.getTeamB() != null ? match.getTeamB().getTeamName() : extractCompetitorName(match, false);
@@ -650,11 +643,88 @@ public class SportsGenericScoringService {
     }
 
     private SportsScoringConfig resolveConfig(SportsTournamentMatch match, String sportType) {
+        SportsScoringConfig config;
         if (match.getConfig() != null) {
             Optional<SportsScoringConfig> cfg = scoringConfigRepo.findByConfigId(match.getConfig().getId());
-            if (cfg.isPresent()) return cfg.get();
+            config = cfg.map(this::copyConfig).orElseGet(() -> buildDefaultConfig(sportType));
+        } else {
+            config = buildDefaultConfig(sportType);
         }
-        return buildDefaultConfig(sportType);
+
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            applyConfigOverride(config, match.getMatchConfigOverrideJson());
+        }
+
+        return config;
+    }
+
+    private SportsScoringConfig copyConfig(SportsScoringConfig src) {
+        return SportsScoringConfig.builder()
+                .id(src.getId())
+                .config(src.getConfig())
+                .sportType(src.getSportType())
+                .periodsCount(src.getPeriodsCount())
+                .pointsToWinPeriod(src.getPointsToWinPeriod())
+                .mustWinByTwo(src.getMustWinByTwo())
+                .periodsToWin(src.getPeriodsToWin())
+                .periodDurationMinutes(src.getPeriodDurationMinutes())
+                .hasOvertime(src.getHasOvertime())
+                .hasPenaltyShootout(src.getHasPenaltyShootout())
+                .tiebreakPointsToWin(src.getTiebreakPointsToWin())
+                .oversPerInnings(src.getOversPerInnings())
+                .maxOversPerBowler(src.getMaxOversPerBowler())
+                .ballsPerOver(src.getBallsPerOver())
+                .breakDurationMinutes(src.getBreakDurationMinutes())
+                .targetScore(src.getTargetScore())
+                .scoringRulesJson(src.getScoringRulesJson())
+                .build();
+    }
+
+    private void applyConfigOverride(SportsScoringConfig config, String overrideJson) {
+        try {
+            Map<String, Object> map = objectMapper.readValue(overrideJson, new TypeReference<Map<String, Object>>() {});
+            if (map.containsKey("periodsCount") && map.get("periodsCount") != null) {
+                config.setPeriodsCount(Integer.parseInt(map.get("periodsCount").toString()));
+            }
+            if (map.containsKey("periodsToWin") && map.get("periodsToWin") != null) {
+                config.setPeriodsToWin(Integer.parseInt(map.get("periodsToWin").toString()));
+            }
+            if (map.containsKey("pointsToWinPeriod") && map.get("pointsToWinPeriod") != null) {
+                config.setPointsToWinPeriod(Integer.parseInt(map.get("pointsToWinPeriod").toString()));
+            }
+            if (map.containsKey("mustWinByTwo") && map.get("mustWinByTwo") != null) {
+                config.setMustWinByTwo(Boolean.parseBoolean(map.get("mustWinByTwo").toString()));
+            }
+            if (map.containsKey("tiebreakPointsToWin") && map.get("tiebreakPointsToWin") != null) {
+                config.setTiebreakPointsToWin(Integer.parseInt(map.get("tiebreakPointsToWin").toString()));
+            }
+            if (map.containsKey("periodDurationMinutes") && map.get("periodDurationMinutes") != null) {
+                config.setPeriodDurationMinutes(Integer.parseInt(map.get("periodDurationMinutes").toString()));
+            }
+            if (map.containsKey("hasOvertime") && map.get("hasOvertime") != null) {
+                config.setHasOvertime(Boolean.parseBoolean(map.get("hasOvertime").toString()));
+            }
+            if (map.containsKey("hasPenaltyShootout") && map.get("hasPenaltyShootout") != null) {
+                config.setHasPenaltyShootout(Boolean.parseBoolean(map.get("hasPenaltyShootout").toString()));
+            }
+            if (map.containsKey("oversPerInnings") && map.get("oversPerInnings") != null) {
+                config.setOversPerInnings(Integer.parseInt(map.get("oversPerInnings").toString()));
+            }
+            if (map.containsKey("maxOversPerBowler") && map.get("maxOversPerBowler") != null) {
+                config.setMaxOversPerBowler(Integer.parseInt(map.get("maxOversPerBowler").toString()));
+            }
+            if (map.containsKey("ballsPerOver") && map.get("ballsPerOver") != null) {
+                config.setBallsPerOver(Integer.parseInt(map.get("ballsPerOver").toString()));
+            }
+            if (map.containsKey("targetScore") && map.get("targetScore") != null) {
+                config.setTargetScore(Integer.parseInt(map.get("targetScore").toString()));
+            }
+            if (map.containsKey("breakDurationMinutes") && map.get("breakDurationMinutes") != null) {
+                config.setBreakDurationMinutes(Integer.parseInt(map.get("breakDurationMinutes").toString()));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse matchConfigOverrideJson: {}", overrideJson, e);
+        }
     }
 
     private SportsScoringConfig buildDefaultConfig(String sportType) {
@@ -784,7 +854,30 @@ public class SportsGenericScoringService {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         match.setMatchConfigOverrideJson(overrideJson);
-        return matchRepo.save(match);
+        match = matchRepo.save(match);
+
+        String sportType = resolveSportType(match);
+        SportsScoringConfig effectiveConfig = resolveConfig(match, sportType);
+
+        List<SportsMatchPeriodScore> allPeriods = periodScoreRepo.findByMatchIdOrderByPeriodNumber(match.getId());
+        if (!allPeriods.isEmpty()) {
+            ScoringEngine engine = engineRegistry.getEngine(sportType);
+            for (SportsMatchPeriodScore ps : allPeriods) {
+                checkPeriodWon(match, ps, effectiveConfig, sportType);
+            }
+            updateMatchScore(match, sportType);
+        }
+
+        return match;
+    }
+
+    @Transactional(readOnly = true)
+    public SportsScoringConfigResponse getEffectiveMatchConfig(Long matchId) {
+        SportsTournamentMatch match = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+        String sportType = resolveSportType(match);
+        SportsScoringConfig config = resolveConfig(match, sportType);
+        return toConfigResponse(config);
     }
 
     private String extractCompetitorName(SportsTournamentMatch m, boolean isHome) {

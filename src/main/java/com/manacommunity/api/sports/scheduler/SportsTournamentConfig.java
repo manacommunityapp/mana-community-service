@@ -57,6 +57,16 @@ public class SportsTournamentConfig {
     // ── Knockout config ───────────────────────────────────────────
     private Boolean thirdPlaceMatch;       // play 3rd place match?
     private Boolean hasSeeding;            // seed teams 1..N before draw
+    private String seedingOrder;           // RANDOM | TRADITIONAL | SEQUENTIAL | RANKING
+    private Boolean byesFirstRoundOnly;    // Give all BYEs in 1st knockout round only
+    private Boolean showByesInBracket;     // Show BYE match slots in bracket draw (16/32/64/128)
+    private Boolean limitMatchesPerDay;    // Enforce maximum matches per participant per day
+    private Integer maxMatchesPerDay;      // Maximum matches per participant per day limit
+    private Boolean usePlayoffDays;        // Use separate custom days for playoffs / knockout rounds
+    private String playoffDays;            // Comma-separated day-of-week indexes (e.g. "0,6")
+    private String venueAssignType;        // Random | Snake | Sequential | Parallel
+    @Column(columnDefinition = "TEXT")
+    private String playoffRoundTimingsJson; // JSON string of per-round dates, times, durations, and modes
 
     // ── Swiss config ──────────────────────────────────────────────
     private Integer swissRounds;           // usually ceil(log2(teams))
