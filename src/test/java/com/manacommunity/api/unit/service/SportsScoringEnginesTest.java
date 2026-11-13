@@ -24,6 +24,7 @@ class SportsScoringEnginesTest {
     private BadmintonScoringEngine badmintonEngine;
     private TennisScoringEngine tennisEngine;
     private FootballScoringEngine footballEngine;
+    private com.manacommunity.api.sports.engine.CarromScoringEngine carromEngine;
 
     private SportsTournamentMatch match;
 
@@ -32,6 +33,7 @@ class SportsScoringEnginesTest {
         badmintonEngine = new BadmintonScoringEngine();
         tennisEngine = new TennisScoringEngine();
         footballEngine = new FootballScoringEngine();
+        carromEngine = new com.manacommunity.api.sports.engine.CarromScoringEngine();
 
         match = SportsTournamentMatch.builder()
                 .id(1L)
@@ -143,22 +145,66 @@ class SportsScoringEnginesTest {
     }
 
     @Test
+    @DisplayName("Carrom: Cumulative board scoring, reaches target score (25 pts) or max boards (8 boards)")
+    void carromScoringRules() {
+        SportsScoringConfig config = SportsScoringConfig.builder()
+                .periodsCount(8)
+                .targetScore(25)
+                .build();
+
+        // Single board check
+        SportsMatchPeriodScore b1 = SportsMatchPeriodScore.builder().scoreTeamA(5).scoreTeamB(0).build();
+        assertThat(carromEngine.checkPeriodWon(match, b1, config)).isTrue();
+
+        // Empty board
+        SportsMatchPeriodScore bEmpty = SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(0).build();
+        assertThat(carromEngine.checkPeriodWon(match, bEmpty, config)).isFalse();
+
+        // Total score < 25 and boards < 8 -> match not won yet
+        SportsMatchPeriodScore b2 = SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(6).build();
+        assertThat(carromEngine.checkMatchWon(match, List.of(b1, b2), config)).isFalse();
+
+        // Total score reaches 25 -> Team A wins
+        SportsMatchPeriodScore b3 = SportsMatchPeriodScore.builder().scoreTeamA(20).scoreTeamB(0).build();
+        assertThat(carromEngine.checkMatchWon(match, List.of(b1, b2, b3), config)).isTrue();
+        assertThat(carromEngine.formatScoreTeamA(List.of(b1, b2, b3))).isEqualTo("25");
+        assertThat(carromEngine.formatScoreTeamB(List.of(b1, b2, b3))).isEqualTo("6");
+
+        // 8 boards limit reached with lead -> match won
+        List<SportsMatchPeriodScore> eightBoards = List.of(
+                SportsMatchPeriodScore.builder().scoreTeamA(2).scoreTeamB(0).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(1).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(3).scoreTeamB(0).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(2).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(2).scoreTeamB(0).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(1).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(2).scoreTeamB(0).build(),
+                SportsMatchPeriodScore.builder().scoreTeamA(0).scoreTeamB(1).build()
+        );
+        assertThat(carromEngine.checkMatchWon(match, eightBoards, config)).isTrue();
+        assertThat(carromEngine.formatScoreTeamA(eightBoards)).isEqualTo("9");
+        assertThat(carromEngine.formatScoreTeamB(eightBoards)).isEqualTo("5");
+    }
+
+    @Test
     @DisplayName("ScoringEngineRegistry: Looks up registered engines and falls back to default")
     void registryLookupAndFallback() {
         com.manacommunity.api.sports.engine.DefaultScoringEngine defaultEngine =
                 new com.manacommunity.api.sports.engine.DefaultScoringEngine();
         com.manacommunity.api.sports.engine.ScoringEngineRegistry registry =
                 new com.manacommunity.api.sports.engine.ScoringEngineRegistry(
-                        List.of(badmintonEngine, tennisEngine, footballEngine), defaultEngine
+                        List.of(badmintonEngine, tennisEngine, footballEngine, carromEngine), defaultEngine
                 );
 
         assertThat(registry.getEngine("BADMINTON")).isInstanceOf(BadmintonScoringEngine.class);
         assertThat(registry.getEngine("TENNIS")).isInstanceOf(TennisScoringEngine.class);
         assertThat(registry.getEngine("FOOTBALL")).isInstanceOf(FootballScoringEngine.class);
+        assertThat(registry.getEngine("CARROM")).isInstanceOf(com.manacommunity.api.sports.engine.CarromScoringEngine.class);
         // Case-insensitive & space normalization
         assertThat(registry.getEngine("football")).isInstanceOf(FootballScoringEngine.class);
+        assertThat(registry.getEngine("carrom")).isInstanceOf(com.manacommunity.api.sports.engine.CarromScoringEngine.class);
         // Fallback for unmapped sport
-        assertThat(registry.getEngine("CARROM")).isInstanceOf(com.manacommunity.api.sports.engine.DefaultScoringEngine.class);
+        assertThat(registry.getEngine("UNKNOWN_SPORT")).isInstanceOf(com.manacommunity.api.sports.engine.DefaultScoringEngine.class);
         assertThat(registry.getEngine(null)).isInstanceOf(com.manacommunity.api.sports.engine.DefaultScoringEngine.class);
     }
 }

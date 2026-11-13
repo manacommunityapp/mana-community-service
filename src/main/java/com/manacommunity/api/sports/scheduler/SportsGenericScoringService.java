@@ -297,6 +297,9 @@ public class SportsGenericScoringService {
 
         updateMatchScore(match, sportType);
 
+        SportsScoringConfig config = resolveConfig(match, sportType);
+        checkPeriodWon(match, period, config, sportType);
+
         return new SportsPeriodScoreResponse(periodNumber, label, scoreA, scoreB);
     }
 
@@ -491,7 +494,7 @@ public class SportsGenericScoringService {
                     null, null, null, 5, null, null
             );
             case "CARROM" -> new SportsScoringConfigResponse(
-                    null, null, "CARROM", 8, 25, false, null, null, false, false, null,
+                    null, null, "CARROM", 8, null, false, null, null, false, false, null,
                     null, null, null, 5, 25, null
             );
             case "CHESS" -> new SportsScoringConfigResponse(
@@ -586,22 +589,30 @@ public class SportsGenericScoringService {
         ScoringEngine engine = engineRegistry.getEngine(sportType);
         boolean periodWon = engine.checkPeriodWon(match, period, config);
 
-        if (periodWon && config != null && config.getPeriodsToWin() != null) {
+        if (periodWon && config != null) {
             List<SportsMatchPeriodScore> allPeriods = periodScoreRepo.findByMatchIdOrderByPeriodNumber(match.getId());
             if (engine.checkMatchWon(match, allPeriods, config)) {
                 match.setStatus(MatchStatus.COMPLETED);
                 match.setCompletedAt(LocalDateTime.now());
                 match.setResultType(ResultType.WIN);
 
-                int wonA = 0;
-                int wonB = 0;
-                for (SportsMatchPeriodScore ps : allPeriods) {
-                    if (engine.checkPeriodWon(match, ps, config)) {
-                        if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
-                        else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                if (config.getPeriodsToWin() != null) {
+                    int wonA = 0;
+                    int wonB = 0;
+                    for (SportsMatchPeriodScore ps : allPeriods) {
+                        if (engine.checkPeriodWon(match, ps, config)) {
+                            if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
+                            else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                        }
+                    }
+                    match.setWinner(wonA > wonB ? match.getTeamA() : match.getTeamB());
+                } else {
+                    int totalA = allPeriods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamA).sum();
+                    int totalB = allPeriods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamB).sum();
+                    if (totalA != totalB) {
+                        match.setWinner(totalA > totalB ? match.getTeamA() : match.getTeamB());
                     }
                 }
-                match.setWinner(wonA > wonB ? match.getTeamA() : match.getTeamB());
                 matchRepo.save(match);
             }
         }
@@ -757,7 +768,7 @@ public class SportsGenericScoringService {
                     .sportType("KABADDI").periodsCount(2).periodDurationMinutes(20)
                     .hasOvertime(true).build();
             case "CARROM" -> SportsScoringConfig.builder()
-                    .sportType("CARROM").periodsCount(8).pointsToWinPeriod(25).build();
+                    .sportType("CARROM").periodsCount(8).targetScore(25).breakDurationMinutes(5).build();
             case "CHESS" -> SportsScoringConfig.builder()
                     .sportType("CHESS").periodsCount(1).build();
             case "FOOSBALL" -> SportsScoringConfig.builder()
