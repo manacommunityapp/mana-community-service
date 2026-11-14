@@ -12,6 +12,7 @@ public enum MatchStatus {
     RESUMED,        // match restarted after suspension
     COMPLETED,
     POSTPONED,      // moved to another date before match started
+    RESCHEDULED,    // match date/time updated and confirmed
     ABANDONED,      // match stopped without completion after start
     NO_RESULT,      // no valid result possible
     CANCELLED,
