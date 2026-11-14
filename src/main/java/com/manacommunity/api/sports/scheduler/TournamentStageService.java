@@ -567,21 +567,49 @@ public class TournamentStageService {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Match not found: " + matchId));
 
+        LocalDateTime originalStartAt = match.getScheduledAt();
+        LocalDateTime newScheduledAt = req.proposedStartAt();
+
         SportsMatchPostponement postponement = SportsMatchPostponement.builder()
                 .match(match)
-                .originalStartAt(match.getScheduledAt())
-                .proposedStartAt(req.proposedStartAt())
-                .reasonCode(req.reasonCode())
+                .originalStartAt(originalStartAt)
+                .proposedStartAt(newScheduledAt)
+                .newStartAt(newScheduledAt)
+                .reasonCode(req.reasonCode() != null ? req.reasonCode() : SportsMatchPostponement.PostponementReason.OTHER)
                 .reasonDescription(req.reasonDescription())
                 .requestedBy(requestedBy)
+                .approvedBy(requestedBy)
+                .approvalStatus(newScheduledAt != null ? SportsMatchPostponement.ApprovalStatus.APPROVED : SportsMatchPostponement.ApprovalStatus.PENDING)
                 .reserveDayId(req.reserveDayId())
                 .build();
 
         SportsMatchPostponement saved = postponementRepo.save(postponement);
-        match.setStatus(MatchStatus.SUSPENDED);
-        matchRepo.save(match);
 
-        log.info("Postponed match id={} reason={}", matchId, req.reasonCode());
+        if (newScheduledAt != null) {
+            match.setScheduledAt(newScheduledAt);
+            match.setStatus(MatchStatus.RESCHEDULED);
+        } else {
+            match.setStatus(MatchStatus.POSTPONED);
+        }
+
+        // Increment schedule version and audit change
+        SportsTournamentConfig config = match.getConfig();
+        if (config != null) {
+            int nextVersion = versionRepo.findMaxVersionNumber(config.getId()) + 1;
+            SportsScheduleVersion version = SportsScheduleVersion.builder()
+                    .config(config)
+                    .versionNumber(nextVersion)
+                    .changeReason("Match #" + match.getMatchNumber() + " Postponed/Rescheduled: " + req.reasonCode() + (req.reasonDescription() != null ? " (" + req.reasonDescription() + ")" : ""))
+                    .changedMatchIdsJson("[" + matchId + "]")
+                    .publishedBy(requestedBy)
+                    .status(SportsScheduleVersion.VersionStatus.PUBLISHED)
+                    .build();
+            versionRepo.save(version);
+            match.setScheduleVersionId(version.getId());
+        }
+
+        matchRepo.save(match);
+        log.info("Postponed/Rescheduled match id={} reason={} newStartAt={}", matchId, req.reasonCode(), newScheduledAt);
         return toPostponementResponse(saved);
     }
 
@@ -594,15 +622,19 @@ public class TournamentStageService {
     // ─── Reserve Days ────────────────────────────────────────────────────────
 
     public List<ReserveDayResponse> getReserveDays(Long configId) {
-        return reserveDayRepo.findByConfigIdOrderByReserveDate(configId).stream()
+        SportsTournamentConfig config = resolveConfig(configId);
+        Long effectiveConfigId = config != null ? config.getId() : configId;
+        return reserveDayRepo.findByConfigIdOrderByReserveDate(effectiveConfigId).stream()
                 .map(this::toReserveDayResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public ReserveDayResponse createReserveDay(Long configId, ReserveDayCreateRequest req) {
-        SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tournament config not found: " + configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        if (config == null) {
+            throw new ResourceNotFoundException("Tournament config not found: " + configId);
+        }
 
         SportsTournamentReserveDay rd = SportsTournamentReserveDay.builder()
                 .config(config)
@@ -625,14 +657,132 @@ public class TournamentStageService {
     // ─── Impact Analysis ─────────────────────────────────────────────────────
 
     public ImpactResult getScheduleImpact(Long matchId, ImpactRequest req) {
-        matchRepo.findById(matchId)
+        SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Match not found: " + matchId));
+
+        LocalDateTime currentStart = match.getScheduledAt();
+        LocalDateTime newStart = req.newStartAt() != null ? req.newStartAt() : currentStart;
+        int duration = Objects.requireNonNullElse(match.getDurationMinutes(), 90);
+        LocalDateTime newEnd = newStart.plusMinutes(duration);
+
+        List<ImpactResult.AffectedItem> affectedItems = new ArrayList<>();
+        List<ImpactResult.Conflict> conflicts = new ArrayList<>();
+
+        Long configId = match.getConfig().getId();
+        List<SportsTournamentMatch> allMatches = matchRepo.findByConfigId(configId);
+
+        // 1. Check Court / Venue Double Booking
+        Long targetCourtId = req.newCourtId() != null ? req.newCourtId() : (match.getCourt() != null ? match.getCourt().getId() : null);
+        if (targetCourtId != null) {
+            for (SportsTournamentMatch other : allMatches) {
+                if (other.getId().equals(match.getId()) || other.getCourt() == null || !targetCourtId.equals(other.getCourt().getId())) {
+                    continue;
+                }
+                int otherDur = Objects.requireNonNullElse(other.getDurationMinutes(), 90);
+                LocalDateTime otherStart = other.getScheduledAt();
+                if (otherStart == null) continue;
+                LocalDateTime otherEnd = otherStart.plusMinutes(otherDur);
+
+                boolean overlaps = !newStart.isAfter(otherEnd) && !newEnd.isBefore(otherStart);
+                if (overlaps) {
+                    conflicts.add(new ImpactResult.Conflict(
+                        "COURT_COLLISION",
+                        "Court double-booking with Match #" + other.getMatchNumber() + " (" + other.getRound() + ") scheduled from " + otherStart.toLocalTime() + " to " + otherEnd.toLocalTime(),
+                        "CRITICAL"
+                    ));
+                    affectedItems.add(new ImpactResult.AffectedItem(
+                        other.getId(),
+                        "Match #" + other.getMatchNumber() + " (" + other.getRound() + ")",
+                        "Overlaps on court " + (other.getCourt() != null ? other.getCourt().getName() : ""),
+                        "REQUIRES_REVIEW"
+                    ));
+                }
+            }
+        }
+
+        // 2. Check Downstream Dependent Matches (Winner advances to match)
+        if (match.getWinnerAdvancesToMatchId() != null) {
+            matchRepo.findById(match.getWinnerAdvancesToMatchId()).ifPresent(downstream -> {
+                LocalDateTime downstreamStart = downstream.getScheduledAt();
+                if (downstreamStart != null) {
+                    LocalDateTime minDownstreamStart = newEnd.plusMinutes(90);
+                    if (downstreamStart.isBefore(minDownstreamStart)) {
+                        conflicts.add(new ImpactResult.Conflict(
+                            "DOWNSTREAM_CONFLICT",
+                            "Downstream match #" + downstream.getMatchNumber() + " (" + downstream.getRound() + ") starts at " + downstreamStart + ", violating the minimum 90-minute rest window for the advancing winner.",
+                            "CRITICAL"
+                        ));
+                        affectedItems.add(new ImpactResult.AffectedItem(
+                            downstream.getId(),
+                            "Match #" + downstream.getMatchNumber() + " (" + downstream.getRound() + ")",
+                            "Cascading delay required: needs start after " + minDownstreamStart.toLocalTime(),
+                            "REQUIRES_REVIEW"
+                        ));
+                    }
+                }
+            });
+        }
+
+        // 3. Check Team Fatigue / Rest Interval
+        if (match.getTeamA() != null || match.getTeamB() != null) {
+            for (SportsTournamentMatch other : allMatches) {
+                if (other.getId().equals(match.getId()) || other.getScheduledAt() == null) continue;
+                boolean sharesTeam = (match.getTeamA() != null && (match.getTeamA().equals(other.getTeamA()) || match.getTeamA().equals(other.getTeamB())))
+                        || (match.getTeamB() != null && (match.getTeamB().equals(other.getTeamA()) || match.getTeamB().equals(other.getTeamB())));
+                if (sharesTeam) {
+                    LocalDateTime otherStart = other.getScheduledAt();
+                    int otherDur = Objects.requireNonNullElse(other.getDurationMinutes(), 90);
+                    LocalDateTime otherEnd = otherStart.plusMinutes(otherDur);
+                    long restBefore = java.time.Duration.between(otherEnd, newStart).toMinutes();
+                    long restAfter = java.time.Duration.between(newEnd, otherStart).toMinutes();
+                    if ((restBefore >= 0 && restBefore < 90) || (restAfter >= 0 && restAfter < 90)) {
+                        conflicts.add(new ImpactResult.Conflict(
+                            "TEAM_FATIGUE",
+                            "A participating team has another match (" + other.getRound() + " #" + other.getMatchNumber() + ") with less than 90 minutes rest interval.",
+                            "WARNING"
+                        ));
+                    }
+                }
+            }
+        }
+
+        boolean canAutoApply = conflicts.stream().noneMatch(c -> "CRITICAL".equalsIgnoreCase(c.severity()));
+
         return new ImpactResult(
-                new ImpactResult.ProposedChange(matchId, "scheduledAt", "current", req.newStartAt() != null ? req.newStartAt().toString() : ""),
-                List.of(),
-                List.of(),
-                true
+                new ImpactResult.ProposedChange(matchId, "scheduledAt", currentStart != null ? currentStart.toString() : "", newStart.toString()),
+                affectedItems,
+                conflicts,
+                canAutoApply
         );
+    }
+
+    // ─── Automatic Qualification Progression ──────────────────────────────────
+
+    @Transactional
+    public QualificationResult advanceQualification(Long configId) {
+        SportsTournamentConfig config = resolveConfig(configId);
+        if (config == null) {
+            throw new ResourceNotFoundException("Tournament config not found: " + configId);
+        }
+
+        bracketGenerator.seedKnockoutFromGroups(config.getId());
+
+        List<SportsTournamentMatch> seededMatches = matchRepo.findByConfigId(config.getId()).stream()
+                .filter(m -> m.getRound() != MatchRound.GROUP_STAGE && m.getRound() != MatchRound.LEAGUE_MATCH && m.getTeamA() != null && m.getTeamB() != null)
+                .collect(Collectors.toList());
+
+        List<SportsTournamentStage> stages = stageRepo.findByConfigIdOrderByStageOrder(config.getId());
+        for (SportsTournamentStage stage : stages) {
+            if (stage.getStageType() != SportsTournamentStage.StageType.GROUP_STAGE && stage.getStageType() != SportsTournamentStage.StageType.LEAGUE_MATCH) {
+                if (stage.getStageStatus() == SportsTournamentStage.StageStatus.NOT_GENERATED) {
+                    stage.setStageStatus(SportsTournamentStage.StageStatus.DRAFT);
+                    stageRepo.save(stage);
+                }
+            }
+        }
+
+        log.info("Advanced qualification for config id={}, seeded {} knockout matches", config.getId(), seededMatches.size());
+        return new QualificationResult(config.getId(), seededMatches.size(), "Successfully seeded group winners into knockout brackets");
     }
 
     // ─── Dashboard ───────────────────────────────────────────────────────────
@@ -892,4 +1042,6 @@ public class TournamentStageService {
     public record NotificationResult(int sent, int failed) {}
 
     public record PublishMultipleRequest(List<Long> stageIds) {}
+
+    public record QualificationResult(Long configId, int seededMatchCount, String message) {}
 }

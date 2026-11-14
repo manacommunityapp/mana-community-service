@@ -185,4 +185,12 @@ public class TournamentStageController {
             @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(stageService.sendStageNotification(stageId, body.getOrDefault("type", "SCHEDULE_PUBLISHED")));
     }
+
+    // ─── Automatic Qualification Progression ──────────────────────────────────
+
+    @PostMapping("/{configId}/advance-qualification")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<QualificationResult> advanceQualification(@PathVariable Long configId) {
+        return ResponseEntity.ok(stageService.advanceQualification(configId));
+    }
 }
