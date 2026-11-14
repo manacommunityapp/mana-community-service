@@ -87,6 +87,26 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
            """)
     List<SportsTournamentMatch> findFeedCandidatesAll(@Param("since") LocalDateTime since);
 
+    /** Recently completed matches for a community, ordered newest completed first. */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE (m.community.id = :communityId
+                  OR m.config.community.id = :communityId
+                  OR (m.config.event IS NOT NULL AND m.config.event.community.id = :communityId)
+                  OR (m.config.event IS NOT NULL AND m.config.event.tournament IS NOT NULL AND m.config.event.tournament.community.id = :communityId))
+             AND m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
+           ORDER BY COALESCE(m.completedAt, m.scheduledAt) DESC
+           """)
+    List<SportsTournamentMatch> findRecentCompletedByCommunityId(@Param("communityId") Long communityId, Pageable pageable);
+
+    /** Recently completed matches across all communities, ordered newest completed first. */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
+           ORDER BY COALESCE(m.completedAt, m.scheduledAt) DESC
+           """)
+    List<SportsTournamentMatch> findRecentCompletedAll(Pageable pageable);
+
     /** Recently completed matches that have not had a feed result post published yet. */
     @Query("""
            SELECT m FROM SportsTournamentMatch m
@@ -113,7 +133,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     List<SportsTournamentMatch> findUnassignedByConfigId(@Param("configId") Long configId);
 
     @Transactional
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = false)
     @Query("UPDATE SportsTournamentMatch m SET m.status = :status WHERE m.config.id = :configId")
     int updateStatusByConfigId(@Param("configId") Long configId, @Param("status") MatchStatus status);
 

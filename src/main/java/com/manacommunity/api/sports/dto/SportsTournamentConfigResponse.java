@@ -38,6 +38,18 @@ public record SportsTournamentConfigResponse(
     LocalDateTime createdAt,
     LocalDateTime updatedAt,
     /** Effective showInFeed for the whole schedule (null = opt-out default = shown). */
-    Boolean showInFeed
+    Boolean showInFeed,
+    String  seedingOrder,
+    Boolean byesFirstRoundOnly,
+    Boolean showByesInBracket,
+    Boolean limitMatchesPerDay,
+    Integer maxMatchesPerDay,
+    Boolean usePlayoffDays,
+    java.util.List<Integer> playoffDays,
+    String  venueAssignType,
+    java.util.Map<String, String> playoffRoundDates,
+    java.util.Map<String, String> playoffRoundTimes,
+    java.util.Map<String, String> playoffRoundDurations,
+    java.util.Map<String, String> playoffRoundModes
 ) {}
 

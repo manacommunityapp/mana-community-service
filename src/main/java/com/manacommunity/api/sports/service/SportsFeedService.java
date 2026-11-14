@@ -23,6 +23,8 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.service.LoggedInUserService.ResolvedUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -373,6 +375,33 @@ public class SportsFeedService {
         }
 
         return candidates.stream()
+                .filter(this::isShownInFeed)
+                .map(this::toFeedResponse)
+                .toList();
+    }
+
+    /**
+     * Recently completed matches for the results modal, ordered newest completed first.
+     */
+    @Transactional(readOnly = true)
+    public List<SportsFeedMatchResponse> getRecentCompletedMatches(Long communityIdParam, int limit, ResolvedUser ctx) {
+        Long targetCommunityId = communityIdParam != null
+                ? communityIdParam
+                : (ctx != null ? ctx.communityId() : null);
+        int maxLimit = Math.min(Math.max(limit, 1), 100);
+        Pageable pageable = PageRequest.of(0, maxLimit);
+
+        List<SportsTournamentMatch> matches;
+        if (targetCommunityId != null) {
+            matches = matchRepo.findRecentCompletedByCommunityId(targetCommunityId, pageable);
+            if (matches.isEmpty()) {
+                matches = matchRepo.findRecentCompletedAll(pageable);
+            }
+        } else {
+            matches = matchRepo.findRecentCompletedAll(pageable);
+        }
+
+        return matches.stream()
                 .filter(this::isShownInFeed)
                 .map(this::toFeedResponse)
                 .toList();

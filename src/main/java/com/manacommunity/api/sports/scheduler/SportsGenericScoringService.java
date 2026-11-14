@@ -244,14 +244,7 @@ public class SportsGenericScoringService {
                 .map(this::toResponse)
                 .toList();
 
-        SportsScoringConfigResponse configResponse = null;
-        if (match.getConfig() != null) {
-            configResponse = scoringConfigRepo.findByConfigId(match.getConfig().getId())
-                    .map(this::toConfigResponse)
-                    .orElseGet(() -> toConfigResponse(config));
-        } else if (config != null) {
-            configResponse = toConfigResponse(config);
-        }
+        SportsScoringConfigResponse configResponse = config != null ? toConfigResponse(config) : null;
 
         String teamAName = match.getTeamA() != null ? match.getTeamA().getTeamName() : extractCompetitorName(match, true);
         String teamBName = match.getTeamB() != null ? match.getTeamB().getTeamName() : extractCompetitorName(match, false);
@@ -303,6 +296,9 @@ public class SportsGenericScoringService {
         periodScoreRepo.save(period);
 
         updateMatchScore(match, sportType);
+
+        SportsScoringConfig config = resolveConfig(match, sportType);
+        checkPeriodWon(match, period, config, sportType);
 
         return new SportsPeriodScoreResponse(periodNumber, label, scoreA, scoreB);
     }
@@ -498,7 +494,7 @@ public class SportsGenericScoringService {
                     null, null, null, 5, null, null
             );
             case "CARROM" -> new SportsScoringConfigResponse(
-                    null, null, "CARROM", 8, 25, false, null, null, false, false, null,
+                    null, null, "CARROM", 8, null, false, null, null, false, false, null,
                     null, null, null, 5, 25, null
             );
             case "CHESS" -> new SportsScoringConfigResponse(
@@ -593,22 +589,30 @@ public class SportsGenericScoringService {
         ScoringEngine engine = engineRegistry.getEngine(sportType);
         boolean periodWon = engine.checkPeriodWon(match, period, config);
 
-        if (periodWon && config != null && config.getPeriodsToWin() != null) {
+        if (periodWon && config != null) {
             List<SportsMatchPeriodScore> allPeriods = periodScoreRepo.findByMatchIdOrderByPeriodNumber(match.getId());
             if (engine.checkMatchWon(match, allPeriods, config)) {
                 match.setStatus(MatchStatus.COMPLETED);
                 match.setCompletedAt(LocalDateTime.now());
                 match.setResultType(ResultType.WIN);
 
-                int wonA = 0;
-                int wonB = 0;
-                for (SportsMatchPeriodScore ps : allPeriods) {
-                    if (engine.checkPeriodWon(match, ps, config)) {
-                        if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
-                        else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                if (config.getPeriodsToWin() != null) {
+                    int wonA = 0;
+                    int wonB = 0;
+                    for (SportsMatchPeriodScore ps : allPeriods) {
+                        if (engine.checkPeriodWon(match, ps, config)) {
+                            if (ps.getScoreTeamA() > ps.getScoreTeamB()) wonA++;
+                            else if (ps.getScoreTeamB() > ps.getScoreTeamA()) wonB++;
+                        }
+                    }
+                    match.setWinner(wonA > wonB ? match.getTeamA() : match.getTeamB());
+                } else {
+                    int totalA = allPeriods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamA).sum();
+                    int totalB = allPeriods.stream().mapToInt(SportsMatchPeriodScore::getScoreTeamB).sum();
+                    if (totalA != totalB) {
+                        match.setWinner(totalA > totalB ? match.getTeamA() : match.getTeamB());
                     }
                 }
-                match.setWinner(wonA > wonB ? match.getTeamA() : match.getTeamB());
                 matchRepo.save(match);
             }
         }
@@ -650,11 +654,88 @@ public class SportsGenericScoringService {
     }
 
     private SportsScoringConfig resolveConfig(SportsTournamentMatch match, String sportType) {
+        SportsScoringConfig config;
         if (match.getConfig() != null) {
             Optional<SportsScoringConfig> cfg = scoringConfigRepo.findByConfigId(match.getConfig().getId());
-            if (cfg.isPresent()) return cfg.get();
+            config = cfg.map(this::copyConfig).orElseGet(() -> buildDefaultConfig(sportType));
+        } else {
+            config = buildDefaultConfig(sportType);
         }
-        return buildDefaultConfig(sportType);
+
+        if (match.getMatchConfigOverrideJson() != null && !match.getMatchConfigOverrideJson().isBlank()) {
+            applyConfigOverride(config, match.getMatchConfigOverrideJson());
+        }
+
+        return config;
+    }
+
+    private SportsScoringConfig copyConfig(SportsScoringConfig src) {
+        return SportsScoringConfig.builder()
+                .id(src.getId())
+                .config(src.getConfig())
+                .sportType(src.getSportType())
+                .periodsCount(src.getPeriodsCount())
+                .pointsToWinPeriod(src.getPointsToWinPeriod())
+                .mustWinByTwo(src.getMustWinByTwo())
+                .periodsToWin(src.getPeriodsToWin())
+                .periodDurationMinutes(src.getPeriodDurationMinutes())
+                .hasOvertime(src.getHasOvertime())
+                .hasPenaltyShootout(src.getHasPenaltyShootout())
+                .tiebreakPointsToWin(src.getTiebreakPointsToWin())
+                .oversPerInnings(src.getOversPerInnings())
+                .maxOversPerBowler(src.getMaxOversPerBowler())
+                .ballsPerOver(src.getBallsPerOver())
+                .breakDurationMinutes(src.getBreakDurationMinutes())
+                .targetScore(src.getTargetScore())
+                .scoringRulesJson(src.getScoringRulesJson())
+                .build();
+    }
+
+    private void applyConfigOverride(SportsScoringConfig config, String overrideJson) {
+        try {
+            Map<String, Object> map = objectMapper.readValue(overrideJson, new TypeReference<Map<String, Object>>() {});
+            if (map.containsKey("periodsCount") && map.get("periodsCount") != null) {
+                config.setPeriodsCount(Integer.parseInt(map.get("periodsCount").toString()));
+            }
+            if (map.containsKey("periodsToWin") && map.get("periodsToWin") != null) {
+                config.setPeriodsToWin(Integer.parseInt(map.get("periodsToWin").toString()));
+            }
+            if (map.containsKey("pointsToWinPeriod") && map.get("pointsToWinPeriod") != null) {
+                config.setPointsToWinPeriod(Integer.parseInt(map.get("pointsToWinPeriod").toString()));
+            }
+            if (map.containsKey("mustWinByTwo") && map.get("mustWinByTwo") != null) {
+                config.setMustWinByTwo(Boolean.parseBoolean(map.get("mustWinByTwo").toString()));
+            }
+            if (map.containsKey("tiebreakPointsToWin") && map.get("tiebreakPointsToWin") != null) {
+                config.setTiebreakPointsToWin(Integer.parseInt(map.get("tiebreakPointsToWin").toString()));
+            }
+            if (map.containsKey("periodDurationMinutes") && map.get("periodDurationMinutes") != null) {
+                config.setPeriodDurationMinutes(Integer.parseInt(map.get("periodDurationMinutes").toString()));
+            }
+            if (map.containsKey("hasOvertime") && map.get("hasOvertime") != null) {
+                config.setHasOvertime(Boolean.parseBoolean(map.get("hasOvertime").toString()));
+            }
+            if (map.containsKey("hasPenaltyShootout") && map.get("hasPenaltyShootout") != null) {
+                config.setHasPenaltyShootout(Boolean.parseBoolean(map.get("hasPenaltyShootout").toString()));
+            }
+            if (map.containsKey("oversPerInnings") && map.get("oversPerInnings") != null) {
+                config.setOversPerInnings(Integer.parseInt(map.get("oversPerInnings").toString()));
+            }
+            if (map.containsKey("maxOversPerBowler") && map.get("maxOversPerBowler") != null) {
+                config.setMaxOversPerBowler(Integer.parseInt(map.get("maxOversPerBowler").toString()));
+            }
+            if (map.containsKey("ballsPerOver") && map.get("ballsPerOver") != null) {
+                config.setBallsPerOver(Integer.parseInt(map.get("ballsPerOver").toString()));
+            }
+            if (map.containsKey("targetScore") && map.get("targetScore") != null) {
+                config.setTargetScore(Integer.parseInt(map.get("targetScore").toString()));
+            }
+            if (map.containsKey("breakDurationMinutes") && map.get("breakDurationMinutes") != null) {
+                config.setBreakDurationMinutes(Integer.parseInt(map.get("breakDurationMinutes").toString()));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse matchConfigOverrideJson: {}", overrideJson, e);
+        }
     }
 
     private SportsScoringConfig buildDefaultConfig(String sportType) {
@@ -687,7 +768,7 @@ public class SportsGenericScoringService {
                     .sportType("KABADDI").periodsCount(2).periodDurationMinutes(20)
                     .hasOvertime(true).build();
             case "CARROM" -> SportsScoringConfig.builder()
-                    .sportType("CARROM").periodsCount(8).pointsToWinPeriod(25).build();
+                    .sportType("CARROM").periodsCount(8).targetScore(25).breakDurationMinutes(5).build();
             case "CHESS" -> SportsScoringConfig.builder()
                     .sportType("CHESS").periodsCount(1).build();
             case "FOOSBALL" -> SportsScoringConfig.builder()
@@ -784,7 +865,30 @@ public class SportsGenericScoringService {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
         match.setMatchConfigOverrideJson(overrideJson);
-        return matchRepo.save(match);
+        match = matchRepo.save(match);
+
+        String sportType = resolveSportType(match);
+        SportsScoringConfig effectiveConfig = resolveConfig(match, sportType);
+
+        List<SportsMatchPeriodScore> allPeriods = periodScoreRepo.findByMatchIdOrderByPeriodNumber(match.getId());
+        if (!allPeriods.isEmpty()) {
+            ScoringEngine engine = engineRegistry.getEngine(sportType);
+            for (SportsMatchPeriodScore ps : allPeriods) {
+                checkPeriodWon(match, ps, effectiveConfig, sportType);
+            }
+            updateMatchScore(match, sportType);
+        }
+
+        return match;
+    }
+
+    @Transactional(readOnly = true)
+    public SportsScoringConfigResponse getEffectiveMatchConfig(Long matchId) {
+        SportsTournamentMatch match = matchRepo.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+        String sportType = resolveSportType(match);
+        SportsScoringConfig config = resolveConfig(match, sportType);
+        return toConfigResponse(config);
     }
 
     private String extractCompetitorName(SportsTournamentMatch m, boolean isHome) {

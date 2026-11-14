@@ -41,5 +41,19 @@ public record SportsTournamentConfigRequest(
     // Points
     Integer  pointsForWin,
     Integer  pointsForDraw,
-    Integer  pointsForLoss
+    Integer  pointsForLoss,
+
+    // Advanced Scheduling & Bracket Settings
+    String   seedingOrder,
+    Boolean  byesFirstRoundOnly,
+    Boolean  showByesInBracket,
+    Boolean  limitMatchesPerDay,
+    Integer  maxMatchesPerDay,
+    Boolean  usePlayoffDays,
+    List<Integer> playoffDays,
+    String   venueAssignType,
+    java.util.Map<String, String> playoffRoundDates,
+    java.util.Map<String, String> playoffRoundTimes,
+    java.util.Map<String, String> playoffRoundDurations,
+    java.util.Map<String, String> playoffRoundModes
 ) {}

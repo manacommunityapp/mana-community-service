@@ -112,6 +112,7 @@ public class SportsTournamentSchedulerController {
      * Get a single tournament config by ID.
      */
     @GetMapping("/config/{id}")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<SportsTournamentConfigResponse> getConfig(@PathVariable Long id) {
         SportsTournamentConfig config = configRepo.findById(id)
                 .or(() -> configRepo.findByEventId(id).stream().findFirst())
