@@ -129,6 +129,9 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id = :configId AND m.stageId IS NULL AND m.round = :round ORDER BY m.scheduledAt")
     List<SportsTournamentMatch> findUnassignedByConfigIdAndRound(@Param("configId") Long configId, @Param("round") com.manacommunity.api.sports.model.MatchRound round);
 
+    @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id = :configId AND m.stageId IS NULL AND m.round IN :rounds ORDER BY m.roundNumber, m.matchNumber")
+    List<SportsTournamentMatch> findUnassignedByConfigIdAndRounds(@Param("configId") Long configId, @Param("rounds") java.util.Collection<com.manacommunity.api.sports.model.MatchRound> rounds);
+
     @Query("SELECT m FROM SportsTournamentMatch m WHERE m.config.id = :configId AND m.stageId IS NULL ORDER BY m.scheduledAt")
     List<SportsTournamentMatch> findUnassignedByConfigId(@Param("configId") Long configId);
 
