@@ -633,38 +633,21 @@ public class SportsMatchPersistenceService {
         config = configRepo.save(config);
         Long configId = config.getId();
 
-        // 3. Replace any existing preview/draft matches for this config.
-        //    NOTE: deleteByConfigId is @Modifying(clearAutomatically=true), which clears
-        //    the persistence context and detaches `config` (and its lazy associations).
-        matchRepo.deleteByConfigId(configId);
-
-        // 4. Re-load the config as a managed entity so building matches and the
+        // 3. Re-load the config as a managed entity so building matches and the
         //    response can read lazy fields (sport/community/event) within this session.
         SportsTournamentConfig managed = configRepo.findById(configId).orElseThrow(
             () -> new IllegalArgumentException("SportsTournament config not found: " + configId));
 
-        // 5. Sync groups and build + persist the new matches. The global DRAFT/PUBLISHED lifecycle status is
-        //    applied to ordinary matches, but match-type markers (auto-advanced BYEs) are
-        //    preserved so they aren't overwritten to DRAFT/PUBLISHED.
+        // 4. Sync groups and build/upsert the matches (in place, avoiding foreign key violations).
         List<SportsBulkMatchSaveRequest.MatchData> matches =
             req.matches() != null ? req.matches() : List.of();
         Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(managed, matches);
-        List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(managed, m, groupMap))
-            .peek(e -> {
-                if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
-                    e.setStatus(matchStatus);
-                }
-            })
-            .toList();
-        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
-        if (savedEntities == null || savedEntities.isEmpty()) {
-            savedEntities = entities;
-        }
+
+        List<SportsTournamentMatch> savedEntities = upsertMatches(managed, matches, matchStatus, groupMap);
         wireAndSaveKnockoutLinks(savedEntities);
 
         log.info("Unified save: config {} ({}) with {} matches", configId,
-            managed.getStatus(), entities.size());
+            managed.getStatus(), savedEntities.size());
 
         auditService.record(
             AuditAction.TOURNAMENT_SCHEDULE_SAVED,
@@ -672,10 +655,10 @@ public class SportsMatchPersistenceService {
             "SportsTournamentConfig",
             String.valueOf(configId),
             null,
-            "name=" + managed.getTournamentName() + ", status=" + managed.getStatus() + ", matches=" + entities.size()
+            "name=" + managed.getTournamentName() + ", status=" + managed.getStatus() + ", matches=" + savedEntities.size()
         );
 
-        return new SportsScheduleSaveResponse(toConfigResponse(managed), entities.size());
+        return new SportsScheduleSaveResponse(toConfigResponse(managed), savedEntities.size());
     }
 
     @Transactional
@@ -683,23 +666,184 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig config = resolveConfig(configId);
         Long effectiveConfigId = config.getId();
 
-        // Replace all existing matches for this config
-        matchRepo.deleteByConfigId(effectiveConfigId);
-
         Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(config, matches);
-        List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(config, m, groupMap))
-            .toList();
-
-        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
-        if (savedEntities == null || savedEntities.isEmpty()) {
-            savedEntities = entities;
-        }
+        List<SportsTournamentMatch> savedEntities = upsertMatches(config, matches, MatchStatus.SCHEDULED, groupMap);
         wireAndSaveKnockoutLinks(savedEntities);
-        log.info("Bulk-saved {} matches for config {}", entities.size(), effectiveConfigId);
-        return entities.size();
+        log.info("Bulk-saved {} matches for config {}", savedEntities.size(), effectiveConfigId);
+        return savedEntities.size();
     }
 
+    private List<SportsTournamentMatch> upsertMatches(
+            SportsTournamentConfig config,
+            List<SportsBulkMatchSaveRequest.MatchData> incomingMatches,
+            MatchStatus defaultStatus,
+            Map<String, SportsTournamentGroup> groupMap) {
+
+        List<SportsTournamentMatch> existing = new ArrayList<>(matchRepo.findByConfigId(config.getId()));
+        if (existing.isEmpty()) {
+            List<SportsTournamentMatch> newEntities = incomingMatches.stream()
+                .map(m -> buildMatchEntity(config, m, groupMap))
+                .peek(e -> {
+                    if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
+                        e.setStatus(defaultStatus);
+                    }
+                })
+                .toList();
+            List<SportsTournamentMatch> saved = matchRepo.saveAll(newEntities);
+            return (saved != null && !saved.isEmpty()) ? saved : newEntities;
+        }
+
+        List<SportsTournamentMatch> toSave = new ArrayList<>();
+        List<SportsTournamentMatch> pool = new ArrayList<>(existing);
+
+        for (SportsBulkMatchSaveRequest.MatchData m : incomingMatches) {
+            MatchRound round = resolveMatchRound(m);
+            int roundNum = resolveRoundNumber(m, round);
+            Integer matchNum = m.matchNumber() != null ? m.matchNumber() : 0;
+            Integer bracketSlot = m.bracketSlot();
+
+            SportsTournamentMatch matchEntity = null;
+
+            // 1. Match by bracketSlot + round
+            if (bracketSlot != null) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getBracketSlot(), bracketSlot) && e.getRound() == round)
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 2. Match by round + matchNumber (+ group if specified)
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> e.getRound() == round && Objects.equals(e.getMatchNumber(), matchNum)
+                        && (m.groupName() == null || e.getGroup() == null || m.groupName().equalsIgnoreCase(e.getGroup().getGroupName())))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 3. Match by roundNumber + matchNumber
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getRoundNumber(), roundNum) && Objects.equals(e.getMatchNumber(), matchNum))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 4. Match by teams if real participant names are present
+            if (matchEntity == null && isRealParticipantName(m.homeName()) && isRealParticipantName(m.awayName())) {
+                matchEntity = pool.stream()
+                    .filter(e -> {
+                        String eHome = e.getTeamA() != null ? e.getTeamA().getTeamName() : "";
+                        String eAway = e.getTeamB() != null ? e.getTeamB().getTeamName() : "";
+                        return (eHome.equalsIgnoreCase(m.homeName()) && eAway.equalsIgnoreCase(m.awayName()))
+                            || (eHome.equalsIgnoreCase(m.awayName()) && eAway.equalsIgnoreCase(m.homeName()));
+                    })
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 5. Fallback: match by matchNumber alone
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getMatchNumber(), matchNum))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            if (matchEntity != null) {
+                pool.remove(matchEntity);
+                updateMatchEntity(matchEntity, config, m, groupMap, defaultStatus);
+                toSave.add(matchEntity);
+            } else {
+                SportsTournamentMatch newMatch = buildMatchEntity(config, m, groupMap);
+                if (newMatch.getStatus() != MatchStatus.AUTO_ADVANCED && newMatch.getStatus() != MatchStatus.BYE) {
+                    newMatch.setStatus(defaultStatus);
+                }
+                toSave.add(newMatch);
+            }
+        }
+
+        // Retain any remaining existing matches that are completed, live, in-progress or have results
+        for (SportsTournamentMatch remaining : pool) {
+            if (remaining.getStatus() == MatchStatus.COMPLETED
+                    || remaining.getStatus() == MatchStatus.LIVE
+                    || remaining.getStatus() == MatchStatus.IN_PROGRESS
+                    || remaining.getWinner() != null) {
+                toSave.add(remaining);
+            } else {
+                try {
+                    matchRepo.delete(remaining);
+                } catch (Exception ex) {
+                    log.warn("Could not delete remaining match id={}: {}. Retaining it.", remaining.getId(), ex.getMessage());
+                    toSave.add(remaining);
+                }
+            }
+        }
+
+        List<SportsTournamentMatch> saved = matchRepo.saveAll(toSave);
+        return (saved != null && !saved.isEmpty()) ? saved : toSave;
+    }
+
+    private void updateMatchEntity(
+            SportsTournamentMatch match,
+            SportsTournamentConfig config,
+            SportsBulkMatchSaveRequest.MatchData m,
+            Map<String, SportsTournamentGroup> groupMap,
+            MatchStatus defaultStatus) {
+
+        // 1. Timings
+        LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
+        if (scheduledAt != null) {
+            match.setScheduledAt(scheduledAt);
+        }
+        if (m.duration() != null && m.duration() > 0) {
+            match.setDurationMinutes(m.duration());
+        }
+
+        // 2. Venue & Court
+        if (m.venueId() != null) {
+            venueRepo.findById(m.venueId()).ifPresent(match::setVenue);
+        } else if (config.getVenue() != null && match.getVenue() == null) {
+            match.setVenue(config.getVenue());
+        }
+
+        if (m.courtId() != null) {
+            match.setCourt(courtRepo.findById(m.courtId()).orElse(null));
+        }
+
+        // 3. Group
+        if (groupMap != null && m.groupName() != null && groupMap.containsKey(m.groupName())) {
+            match.setGroup(groupMap.get(m.groupName()));
+        }
+
+        // 4. Teams - update if existing are null or TBD and incoming provides real teams
+        if (match.getTeamA() == null && isRealParticipantName(m.homeName())) {
+            SportsAuctionTeam teamA = resolveOrCreateTeam(config, m.homeName(), "#6366f1");
+            if (teamA != null) match.setTeamA(teamA);
+        }
+        if (match.getTeamB() == null && isRealParticipantName(m.awayName())) {
+            SportsAuctionTeam teamB = resolveOrCreateTeam(config, m.awayName(), "#f97316");
+            if (teamB != null) match.setTeamB(teamB);
+        }
+
+        // 5. Notes
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(m.homeName()), safe(m.homeFlat()), safe(m.awayName()), safe(m.awayFlat()), safe(m.groupName()));
+        match.setMatchNotes(notes);
+
+        // 6. Status: never regress terminal or live statuses
+        if (match.getStatus() != MatchStatus.COMPLETED
+                && match.getStatus() != MatchStatus.LIVE
+                && match.getStatus() != MatchStatus.IN_PROGRESS
+                && match.getStatus() != MatchStatus.AUTO_ADVANCED
+                && match.getStatus() != MatchStatus.BYE) {
+            if (defaultStatus != null && defaultStatus != MatchStatus.SCHEDULED) {
+                match.setStatus(defaultStatus);
+            } else if (m.status() != null && !m.status().isBlank()) {
+                match.setStatus(parseStatus(m.status(), MatchStatus.SCHEDULED));
+            }
+        }
+    }
 
     /**
      * Updates the status of every match for a config.
@@ -733,7 +877,17 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig config = resolveConfig(configId);
         Long effectiveConfigId = config.getId();
 
-        long count = matchRepo.countByConfigId(effectiveConfigId);
+        List<SportsTournamentMatch> matches = matchRepo.findByConfigId(effectiveConfigId);
+        boolean hasCompletedOrLive = matches.stream().anyMatch(m ->
+            m.getStatus() == MatchStatus.COMPLETED || m.getStatus() == MatchStatus.LIVE || m.getStatus() == MatchStatus.IN_PROGRESS);
+        if (hasCompletedOrLive) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "Cannot clear tournament matches because some matches are already live, completed, or have recorded results."
+            );
+        }
+
+        long count = matches.size();
         matchRepo.deleteByConfigId(effectiveConfigId);
         log.info("Deleted {} matches for config {}", count, effectiveConfigId);
         return (int) count;

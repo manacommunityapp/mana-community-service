@@ -16,12 +16,22 @@ public record SportsMatchResultRequest(
     Integer          oversTeamA,
     Integer          oversTeamB,
     String           winnerName,
-    String           winnerSide
+    String           winnerSide,
+    Long             tossWinnerTeamId,
+    String           tossDecision
 ) {
     public SportsMatchResultRequest(
         Long matchId, Long winnerTeamId, String scoreTeamA, String scoreTeamB,
         String matchNotes, Integer runsTeamA, Integer runsTeamB, Integer oversTeamA, Integer oversTeamB
     ) {
-        this(matchId, winnerTeamId, scoreTeamA, scoreTeamB, matchNotes, runsTeamA, runsTeamB, oversTeamA, oversTeamB, null, null);
+        this(matchId, winnerTeamId, scoreTeamA, scoreTeamB, matchNotes, runsTeamA, runsTeamB, oversTeamA, oversTeamB, null, null, null, null);
+    }
+
+    public SportsMatchResultRequest(
+        Long matchId, Long winnerTeamId, String scoreTeamA, String scoreTeamB,
+        String matchNotes, Integer runsTeamA, Integer runsTeamB, Integer oversTeamA, Integer oversTeamB,
+        String winnerName, String winnerSide
+    ) {
+        this(matchId, winnerTeamId, scoreTeamA, scoreTeamB, matchNotes, runsTeamA, runsTeamB, oversTeamA, oversTeamB, winnerName, winnerSide, null, null);
     }
 }

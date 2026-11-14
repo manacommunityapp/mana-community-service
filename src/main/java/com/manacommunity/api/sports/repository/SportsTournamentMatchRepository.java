@@ -87,6 +87,32 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
            """)
     List<SportsTournamentMatch> findFeedCandidatesAll(@Param("since") LocalDateTime since);
 
+    /** Upcoming scheduled matches for a community, ordered earliest scheduled first. */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE (m.community.id = :communityId
+                  OR m.config.community.id = :communityId
+                  OR (m.config.event IS NOT NULL AND m.config.event.community.id = :communityId)
+                  OR (m.config.event IS NOT NULL AND m.config.event.tournament IS NOT NULL AND m.config.event.tournament.community.id = :communityId))
+             AND (m.status = com.manacommunity.api.sports.model.MatchStatus.SCHEDULED
+                  OR m.status = com.manacommunity.api.sports.model.MatchStatus.PUBLISHED)
+             AND m.scheduledAt >= :since
+           ORDER BY m.scheduledAt ASC
+           """)
+    List<SportsTournamentMatch> findUpcomingCandidatesByCommunityId(@Param("communityId") Long communityId,
+                                                                   @Param("since") LocalDateTime since,
+                                                                   Pageable pageable);
+
+    /** Upcoming scheduled matches across all communities, ordered earliest scheduled first. */
+    @Query("""
+           SELECT m FROM SportsTournamentMatch m
+           WHERE (m.status = com.manacommunity.api.sports.model.MatchStatus.SCHEDULED
+                  OR m.status = com.manacommunity.api.sports.model.MatchStatus.PUBLISHED)
+             AND m.scheduledAt >= :since
+           ORDER BY m.scheduledAt ASC
+           """)
+    List<SportsTournamentMatch> findUpcomingCandidatesAll(@Param("since") LocalDateTime since, Pageable pageable);
+
     /** Recently completed matches for a community, ordered newest completed first. */
     @Query("""
            SELECT m FROM SportsTournamentMatch m

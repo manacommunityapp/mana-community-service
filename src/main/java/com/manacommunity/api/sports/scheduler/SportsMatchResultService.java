@@ -43,6 +43,32 @@ public class SportsMatchResultService {
     private final SportsTournamentConfigRepository configRepo;
 
     @Transactional
+    public SportsMatchDetailResponse recordToss(Long matchId, SportsMatchTossRequest req) {
+        SportsTournamentMatch match = matchRepo.findById(matchId)
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
+        SportsAuctionTeam tossWinner = teamRepo.findById(req.tossWinnerTeamId())
+            .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam", req.tossWinnerTeamId()));
+        boolean isParticipant = (match.getTeamA() != null && match.getTeamA().getId().equals(tossWinner.getId()))
+            || (match.getTeamB() != null && match.getTeamB().getId().equals(tossWinner.getId()));
+        if (!isParticipant) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Toss winner must be one of the match teams");
+        }
+
+        String decision = req.tossDecision().toUpperCase(Locale.ROOT);
+        match.setTossWinner(tossWinner);
+        match.setTossDecision(decision);
+        matchRepo.save(match);
+
+        SportsMatchResult result = resultRepo.findByMatchId(matchId)
+            .orElseGet(() -> SportsMatchResult.builder().match(match).build());
+        result.setTossWinner(tossWinner);
+        result.setTossDecision(decision);
+        resultRepo.save(result);
+        return getMatchDetail(matchId);
+    }
+
+    @Transactional
     public SportsMatchDetailResponse recordDetailedResult(SportsMatchResultDetailRequest req) {
         log.info("Recording detailed match result matchId={} winnerTeamId={}", req.matchId(), req.winnerTeamId());
         SportsTournamentMatch match = matchRepo.findById(req.matchId())
