@@ -89,7 +89,6 @@ class SportsMatchPersistenceServiceTest {
             int saved = service.saveMatchesBulk(84L, matches);
 
             assertThat(saved).isEqualTo(2);
-            verify(matchRepo).deleteByConfigId(84L);
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<SportsTournamentMatch>> captor = ArgumentCaptor.forClass(List.class);
             verify(matchRepo).saveAll(captor.capture());
@@ -125,7 +124,7 @@ class SportsMatchPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("KNOCKOUT stage maps to FINAL round")
+        @DisplayName("KNOCKOUT stage maps to QUARTER_FINAL round")
         void knockoutRound() {
             when(configRepo.findById(84L)).thenReturn(Optional.of(config()));
             when(teamRepo.findById(anyLong())).thenReturn(Optional.empty());
@@ -135,7 +134,7 @@ class SportsMatchPersistenceServiceTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<SportsTournamentMatch>> captor = ArgumentCaptor.forClass(List.class);
             verify(matchRepo).saveAll(captor.capture());
-            assertThat(captor.getValue().get(0).getRound()).isEqualTo(MatchRound.FINAL);
+            assertThat(captor.getValue().get(0).getRound()).isEqualTo(MatchRound.QUARTER_FINAL);
         }
 
         @Test

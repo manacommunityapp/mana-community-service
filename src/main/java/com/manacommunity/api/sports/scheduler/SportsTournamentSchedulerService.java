@@ -49,6 +49,7 @@ public class SportsTournamentSchedulerService {
     private final SportsTournamentConfigRepository  configRepo;
     private final SportsTournamentGroupRepository   groupRepo;
     private final SportsTournamentMatchRepository   matchRepo;
+    private final SportsMatchResultRepository       matchResultRepo;
     private final SportsGroupTeamStandingRepository standingRepo;
     private final SportsVenueRepository             venueRepo;
     private final SportsCourtRepository             courtRepo;
@@ -348,6 +349,30 @@ public class SportsTournamentSchedulerService {
     @Transactional
     public SportsTournamentScheduleResponse advanceBracket(SportsMatchResultRequest req) {
         SportsTournamentConfig config = bracketGenerator.applyResult(req);
+        if (req.tossWinnerTeamId() != null || req.tossDecision() != null) {
+            SportsTournamentMatch match = matchRepo.findById(req.matchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
+            SportsAuctionTeam tossWinner = null;
+            if (req.tossWinnerTeamId() != null) {
+                tossWinner = teamRepo.findById(req.tossWinnerTeamId())
+                        .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam", req.tossWinnerTeamId()));
+                match.setTossWinner(tossWinner);
+            }
+            if (req.tossDecision() != null) {
+                match.setTossDecision(req.tossDecision());
+            }
+            matchRepo.save(match);
+
+            SportsMatchResult matchResult = matchResultRepo.findByMatchId(match.getId())
+                    .orElseGet(() -> SportsMatchResult.builder().match(match).build());
+            if (tossWinner != null) {
+                matchResult.setTossWinner(tossWinner);
+            }
+            if (req.tossDecision() != null) {
+                matchResult.setTossDecision(req.tossDecision());
+            }
+            matchResultRepo.save(matchResult);
+        }
         // Winner notification (every result) + tournament-completion email (on the FINAL).
         resultNotifier.notifyMatchResult(req.matchId());
         return buildResponse(config);

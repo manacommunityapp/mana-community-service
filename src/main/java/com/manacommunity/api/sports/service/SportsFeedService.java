@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -375,6 +376,34 @@ public class SportsFeedService {
         }
 
         return candidates.stream()
+                .filter(this::isShownInFeed)
+                .map(this::toFeedResponse)
+                .toList();
+    }
+
+    /**
+     * Upcoming scheduled matches for the live strip / widget when live matches are fewer or none.
+     */
+    @Transactional(readOnly = true)
+    public List<SportsFeedMatchResponse> getUpcomingFeed(Long communityIdParam, int limit, ResolvedUser ctx) {
+        Long targetCommunityId = communityIdParam != null
+                ? communityIdParam
+                : (ctx != null ? ctx.communityId() : null);
+        LocalDateTime since = LocalDate.now().atStartOfDay();
+        int maxLimit = Math.min(Math.max(limit, 1), 50);
+        Pageable pageable = PageRequest.of(0, maxLimit);
+
+        List<SportsTournamentMatch> matches;
+        if (targetCommunityId != null) {
+            matches = matchRepo.findUpcomingCandidatesByCommunityId(targetCommunityId, since, pageable);
+            if (matches.isEmpty()) {
+                matches = matchRepo.findUpcomingCandidatesAll(since, pageable);
+            }
+        } else {
+            matches = matchRepo.findUpcomingCandidatesAll(since, pageable);
+        }
+
+        return matches.stream()
                 .filter(this::isShownInFeed)
                 .map(this::toFeedResponse)
                 .toList();

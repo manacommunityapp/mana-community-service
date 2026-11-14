@@ -610,6 +610,14 @@ public class SportsTournamentSchedulerController {
         return ResponseEntity.ok(matchResultService.recordDetailedResult(req));
     }
 
+    @PutMapping("/match/{matchId}/toss")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
+    public ResponseEntity<SportsMatchDetailResponse> recordMatchToss(
+            @PathVariable Long matchId,
+            @Valid @RequestBody SportsMatchTossRequest req) {
+        return ResponseEntity.ok(matchResultService.recordToss(matchId, req));
+    }
+
     /**
      * GET /api/tournament/match/{matchId}/detail
      * Returns full match detail including scorecard and leaderboard snippet.
