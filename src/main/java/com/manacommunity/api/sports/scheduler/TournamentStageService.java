@@ -3,6 +3,8 @@ package com.manacommunity.api.sports.scheduler;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.sports.model.MatchRound;
 import com.manacommunity.api.sports.model.MatchStatus;
+import com.manacommunity.api.sports.model.SportsAuctionTeam;
+import com.manacommunity.api.sports.model.TournamentType;
 import com.manacommunity.api.sports.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,18 +27,39 @@ public class TournamentStageService {
     private final SportsTournamentConfigRepository configRepo;
     private final SportsTournamentMatchRepository matchRepo;
     private final SportsBracketGenerator bracketGenerator;
+    private final SportsAuctionTeamRepository teamRepo;
+    private final SportsAuctionConfigRepository auctionConfigRepo;
+    private final SportsMatchPersistenceService matchPersistence;
+
+    public SportsTournamentConfig resolveConfig(Long configId) {
+        if (configId == null) return null;
+        return configRepo.findById(configId)
+                .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+                .orElse(null);
+    }
 
     // ─── Stage CRUD ──────────────────────────────────────────────────────────
 
+    @Transactional
     public List<StageResponse> getStages(Long configId) {
-        List<SportsTournamentStage> stages = stageRepo.findByConfigIdOrderByStageOrder(configId);
-        return stages.stream().map(s -> toStageResponse(s, configId)).collect(Collectors.toList());
+        SportsTournamentConfig config = resolveConfig(configId);
+        if (config == null) {
+            return Collections.emptyList();
+        }
+        Long effectiveConfigId = config.getId();
+        List<SportsTournamentStage> stages = stageRepo.findByConfigIdOrderByStageOrder(effectiveConfigId);
+        if (stages.isEmpty()) {
+            stages = autoDetectOrCreateStages(config);
+        }
+        return stages.stream().map(s -> toStageResponse(s, effectiveConfigId)).collect(Collectors.toList());
     }
 
     @Transactional
     public StageResponse createStage(Long configId, StageCreateRequest req) {
-        SportsTournamentConfig config = configRepo.findById(configId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tournament config not found: " + configId));
+        SportsTournamentConfig config = resolveConfig(configId);
+        if (config == null) {
+            throw new ResourceNotFoundException("Tournament config not found: " + configId);
+        }
 
         SportsTournamentStage stage = SportsTournamentStage.builder()
                 .config(config)
@@ -49,8 +72,8 @@ public class TournamentStageService {
                 .build();
 
         SportsTournamentStage saved = stageRepo.save(stage);
-        log.info("Created stage id={} name={} for config={}", saved.getId(), saved.getStageName(), configId);
-        return toStageResponse(saved, configId);
+        log.info("Created stage id={} name={} for config={}", saved.getId(), saved.getStageName(), config.getId());
+        return toStageResponse(saved, config.getId());
     }
 
     @Transactional
@@ -90,21 +113,15 @@ public class TournamentStageService {
 
         Long configId = stage.getConfig().getId();
 
-        // Find existing matches that belong to this stage's round type and are not yet assigned
-        MatchRound matchRound = mapStageTypeToMatchRound(stage.getStageType());
-        List<SportsTournamentMatch> matches;
-        if (matchRound != null) {
-            matches = matchRepo.findUnassignedByConfigIdAndRound(configId, matchRound);
-        } else {
-            matches = matchRepo.findUnassignedByConfigId(configId);
-        }
+        // Multi-level resolution to find matches belonging to this stage
+        List<SportsTournamentMatch> matches = findMatchesForStage(stage);
 
         int nextVersion = versionRepo.findMaxVersionNumber(configId) + 1;
         SportsScheduleVersion version = SportsScheduleVersion.builder()
                 .config(stage.getConfig())
                 .stage(stage)
                 .versionNumber(nextVersion)
-                .changeReason("Initial generation")
+                .changeReason(matches.isEmpty() ? "Stage generation (no matches found)" : "Stage fixture generation")
                 .build();
         versionRepo.save(version);
 
@@ -121,8 +138,8 @@ public class TournamentStageService {
         }
 
         if (linkedMatchIds.isEmpty()) {
-            conflicts.add("No existing matches found for stage type " + stage.getStageType()
-                    + ". Matches must first be created via the tournament scheduler (Setup Schedule / Config tab).");
+            conflicts.add("No matches found for stage '" + stage.getStageName() + "' (Type: " + stage.getStageType()
+                    + "). Matches must first be created via Setup Schedule or auto-generated.");
         }
 
         version.setChangedMatchIdsJson(linkedMatchIds.toString());
@@ -130,28 +147,291 @@ public class TournamentStageService {
 
         stage.setStageStatus(SportsTournamentStage.StageStatus.DRAFT);
         stage.setPublishedVersionId(version.getId());
+        if (req != null && req.schedulingMode() != null) {
+            stage.setSchedulingMode(req.schedulingMode());
+        }
         stageRepo.save(stage);
 
-        log.info("Generated schedule for stage id={} version={} linkedMatches={}", stageId, nextVersion, linkedMatchIds.size());
+        log.info("Generated schedule for stage id={} name='{}' version={} linkedMatches={}", stageId, stage.getStageName(), nextVersion, linkedMatchIds.size());
         return new GenerateResult(linkedMatchIds.size(), conflicts);
     }
 
-    private MatchRound mapStageTypeToMatchRound(SportsTournamentStage.StageType stageType) {
+    private List<SportsTournamentMatch> findMatchesForStage(SportsTournamentStage stage) {
+        Long configId = stage.getConfig().getId();
+
+        // 1. Matches already assigned to this stage
+        List<SportsTournamentMatch> alreadyAssigned = matchRepo.findByStageId(stage.getId());
+        if (!alreadyAssigned.isEmpty()) {
+            return alreadyAssigned;
+        }
+
+        // 2. If no matches exist at all for this config, auto-generate them
+        if (matchRepo.countByConfigId(configId) == 0) {
+            autoGenerateTournamentMatches(stage.getConfig());
+        }
+
+        // 3. Match by candidate rounds
+        List<MatchRound> candidateRounds = getCandidateRounds(stage.getStageType());
+        if (!candidateRounds.isEmpty()) {
+            List<SportsTournamentMatch> matches = matchRepo.findUnassignedByConfigIdAndRounds(configId, candidateRounds);
+            if (!matches.isEmpty()) {
+                return matches;
+            }
+        }
+
+        // 4. Match by stage name heuristics
+        String name = stage.getStageName() != null ? stage.getStageName().toLowerCase() : "";
+        List<MatchRound> heuristicRounds = new ArrayList<>();
+        if (name.contains("round of 64") || name.contains("round 64") || name.contains("r64")) {
+            heuristicRounds.add(MatchRound.ROUND_OF_64);
+        } else if (name.contains("round of 32") || name.contains("round 32") || name.contains("r32")) {
+            heuristicRounds.add(MatchRound.ROUND_OF_32);
+        } else if (name.contains("round of 16") || name.contains("round 16") || name.contains("r16") || name.contains("pre-quarter")) {
+            heuristicRounds.add(MatchRound.ROUND_OF_16);
+        } else if (name.contains("quarter")) {
+            heuristicRounds.add(MatchRound.QUARTER_FINAL);
+        } else if (name.contains("semi")) {
+            heuristicRounds.add(MatchRound.SEMI_FINAL);
+        } else if (name.contains("third") || name.contains("3rd")) {
+            heuristicRounds.add(MatchRound.THIRD_PLACE);
+        } else if (name.contains("super final")) {
+            heuristicRounds.add(MatchRound.SUPER_FINAL);
+            heuristicRounds.add(MatchRound.FINAL);
+        } else if (name.contains("final")) {
+            heuristicRounds.add(MatchRound.FINAL);
+        } else if (name.contains("group") || name.contains("league") || name.contains("pool")) {
+            heuristicRounds.add(MatchRound.GROUP_STAGE);
+            heuristicRounds.add(MatchRound.LEAGUE_MATCH);
+        }
+
+        if (!heuristicRounds.isEmpty()) {
+            List<SportsTournamentMatch> matches = matchRepo.findUnassignedByConfigIdAndRounds(configId, heuristicRounds);
+            if (!matches.isEmpty()) {
+                return matches;
+            }
+        }
+
+        // 5. Match by stageOrder == roundNumber
+        List<SportsTournamentMatch> roundMatches = matchRepo.findByConfigIdAndRoundNumberOrderByMatchNumber(configId, stage.getStageOrder());
+        List<SportsTournamentMatch> unassignedRoundMatches = roundMatches.stream()
+                .filter(m -> m.getStageId() == null)
+                .collect(Collectors.toList());
+        if (!unassignedRoundMatches.isEmpty()) {
+            return unassignedRoundMatches;
+        }
+
+        // 6. If stage is GROUP_STAGE, check unassigned matches with group != null
+        if (stage.getStageType() == SportsTournamentStage.StageType.GROUP_STAGE) {
+            List<SportsTournamentMatch> groupMatches = matchRepo.findUnassignedByConfigId(configId).stream()
+                    .filter(m -> m.getGroup() != null)
+                    .collect(Collectors.toList());
+            if (!groupMatches.isEmpty()) {
+                return groupMatches;
+            }
+        }
+
+        // 7. If single stage configured for this tournament, link all unassigned
+        List<SportsTournamentStage> allStages = stageRepo.findByConfigIdOrderByStageOrder(configId);
+        if (allStages.size() == 1) {
+            return matchRepo.findUnassignedByConfigId(configId);
+        }
+
+        // 8. If multiple stages, and this is the only unassigned stage left
+        long unassignedStagesCount = allStages.stream()
+                .filter(s -> s.getStageStatus() == SportsTournamentStage.StageStatus.NOT_GENERATED)
+                .count();
+        if (unassignedStagesCount == 1) {
+            return matchRepo.findUnassignedByConfigId(configId);
+        }
+
+        // 9. Fallback: unassigned matches for config
+        return matchRepo.findUnassignedByConfigId(configId);
+    }
+
+    public List<MatchRound> getCandidateRounds(SportsTournamentStage.StageType stageType) {
+        if (stageType == null) return List.of();
         return switch (stageType) {
-            case GROUP_STAGE -> MatchRound.GROUP_STAGE;
-            case ROUND_OF_64 -> MatchRound.ROUND_OF_64;
-            case ROUND_OF_32 -> MatchRound.ROUND_OF_32;
-            case ROUND_OF_16 -> MatchRound.ROUND_OF_16;
-            case QUARTER_FINAL -> MatchRound.QUARTER_FINAL;
-            case SEMI_FINAL -> MatchRound.SEMI_FINAL;
-            case THIRD_PLACE -> MatchRound.THIRD_PLACE;
-            case FINAL -> MatchRound.FINAL;
-            case LEAGUE_MATCH -> MatchRound.LEAGUE_MATCH;
-            case SWISS_ROUND -> MatchRound.SWISS_ROUND;
-            case ELIMINATOR -> MatchRound.ELIMINATOR;
-            case QUALIFIER -> null;
-            case SUPER_FINAL -> MatchRound.SUPER_FINAL;
+            case GROUP_STAGE -> List.of(MatchRound.GROUP_STAGE, MatchRound.LEAGUE_MATCH);
+            case ROUND_OF_64 -> List.of(MatchRound.ROUND_OF_64);
+            case ROUND_OF_32 -> List.of(MatchRound.ROUND_OF_32);
+            case ROUND_OF_16 -> List.of(MatchRound.ROUND_OF_16);
+            case QUARTER_FINAL -> List.of(MatchRound.QUARTER_FINAL);
+            case SEMI_FINAL -> List.of(MatchRound.SEMI_FINAL);
+            case THIRD_PLACE -> List.of(MatchRound.THIRD_PLACE);
+            case FINAL -> List.of(MatchRound.FINAL, MatchRound.SUPER_FINAL);
+            case LEAGUE_MATCH -> List.of(MatchRound.LEAGUE_MATCH, MatchRound.GROUP_STAGE);
+            case SWISS_ROUND -> List.of(MatchRound.SWISS_ROUND);
+            case ELIMINATOR -> List.of(MatchRound.ELIMINATOR);
+            case QUALIFIER -> List.of(MatchRound.QUALIFIER_1, MatchRound.QUALIFIER_2);
+            case SUPER_FINAL -> List.of(MatchRound.SUPER_FINAL, MatchRound.FINAL);
         };
+    }
+
+    private MatchRound mapStageTypeToMatchRound(SportsTournamentStage.StageType stageType) {
+        if (stageType == null) return null;
+        List<MatchRound> candidates = getCandidateRounds(stageType);
+        return candidates.isEmpty() ? null : candidates.get(0);
+    }
+
+    @Transactional
+    public void autoGenerateTournamentMatches(SportsTournamentConfig config) {
+        List<SportsAuctionTeam> teams = teamRepo.findByConfigIdOrderByTeamName(config.getId());
+        if (teams.isEmpty()) {
+            Long eventId = (config.getEvent() != null) ? config.getEvent().getId() : null;
+            if (eventId != null) {
+                teams = teamRepo.findByEventIdOrderByTeamName(eventId);
+                if (teams.isEmpty()) {
+                    var ac = auctionConfigRepo.findByEventId(eventId).orElse(null);
+                    if (ac != null) {
+                        teams = teamRepo.findByConfigIdOrderByTeamName(ac.getId());
+                    }
+                }
+            }
+        }
+
+        int requiredTeams = config.getTotalTeams() != null && config.getTotalTeams() > 0 ? config.getTotalTeams() : Math.max(teams.size(), 2);
+        List<SportsAuctionTeam> effectiveTeams = new ArrayList<>(teams);
+        while (effectiveTeams.size() < requiredTeams) {
+            SportsAuctionTeam placeholder = SportsAuctionTeam.builder()
+                    .teamName("Team " + (effectiveTeams.size() + 1))
+                    .community(config.getCommunity())
+                    .event(config.getEvent())
+                    .build();
+            placeholder = teamRepo.save(placeholder);
+            effectiveTeams.add(placeholder);
+        }
+
+        List<SportsTournamentMatch> matches = bracketGenerator.generate(config, effectiveTeams);
+        List<SportsTournamentMatch> saved = matchRepo.saveAll(matches);
+        matchPersistence.wireAndSaveKnockoutLinks(saved);
+        log.info("Auto-generated {} matches for tournament config id={}", saved.size(), config.getId());
+    }
+
+    @Transactional
+    public List<SportsTournamentStage> autoDetectOrCreateStages(SportsTournamentConfig config) {
+        List<SportsTournamentStage> stages = new ArrayList<>();
+        List<SportsTournamentMatch> matches = matchRepo.findByConfigId(config.getId());
+
+        if (!matches.isEmpty()) {
+            // Group matches by round and create stages corresponding to distinct rounds
+            Map<MatchRound, List<SportsTournamentMatch>> byRound = matches.stream()
+                    .filter(m -> m.getRound() != null)
+                    .collect(Collectors.groupingBy(SportsTournamentMatch::getRound, LinkedHashMap::new, Collectors.toList()));
+
+            // Sort rounds by earliest roundNumber
+            List<Map.Entry<MatchRound, List<SportsTournamentMatch>>> sortedEntries = new ArrayList<>(byRound.entrySet());
+            sortedEntries.sort(Comparator.comparingInt(e -> e.getValue().stream().mapToInt(SportsTournamentMatch::getRoundNumber).min().orElse(1)));
+
+            int order = 1;
+            for (Map.Entry<MatchRound, List<SportsTournamentMatch>> entry : sortedEntries) {
+                MatchRound r = entry.getKey();
+                SportsTournamentStage.StageType sType = switch (r) {
+                    case GROUP_STAGE -> SportsTournamentStage.StageType.GROUP_STAGE;
+                    case ROUND_OF_64 -> SportsTournamentStage.StageType.ROUND_OF_64;
+                    case ROUND_OF_32 -> SportsTournamentStage.StageType.ROUND_OF_32;
+                    case ROUND_OF_16 -> SportsTournamentStage.StageType.ROUND_OF_16;
+                    case QUARTER_FINAL -> SportsTournamentStage.StageType.QUARTER_FINAL;
+                    case SEMI_FINAL -> SportsTournamentStage.StageType.SEMI_FINAL;
+                    case THIRD_PLACE -> SportsTournamentStage.StageType.THIRD_PLACE;
+                    case FINAL, GRAND_FINAL -> SportsTournamentStage.StageType.FINAL;
+                    case SUPER_FINAL -> SportsTournamentStage.StageType.SUPER_FINAL;
+                    case LEAGUE_MATCH -> SportsTournamentStage.StageType.LEAGUE_MATCH;
+                    case SWISS_ROUND -> SportsTournamentStage.StageType.SWISS_ROUND;
+                    case ELIMINATOR, LOSERS_BRACKET -> SportsTournamentStage.StageType.ELIMINATOR;
+                    case QUALIFIER_1, QUALIFIER_2 -> SportsTournamentStage.StageType.QUALIFIER;
+                    case WINNERS_BRACKET -> SportsTournamentStage.StageType.QUARTER_FINAL;
+                };
+
+                String sName = switch (r) {
+                    case GROUP_STAGE -> "Group Stage";
+                    case ROUND_OF_64 -> "Round of 64";
+                    case ROUND_OF_32 -> "Round of 32";
+                    case ROUND_OF_16 -> "Round of 16";
+                    case QUARTER_FINAL -> "Quarter-finals";
+                    case SEMI_FINAL -> "Semi-finals";
+                    case THIRD_PLACE -> "Third-place Match";
+                    case FINAL -> "Final";
+                    case GRAND_FINAL -> "Grand Final";
+                    case SUPER_FINAL -> "Super Final";
+                    case LEAGUE_MATCH -> "League Stage";
+                    case SWISS_ROUND -> "Swiss Round";
+                    case ELIMINATOR -> "Eliminator";
+                    case LOSERS_BRACKET -> "Elimination Bracket";
+                    case QUALIFIER_1, QUALIFIER_2 -> "Qualifier";
+                    case WINNERS_BRACKET -> "Winners Bracket";
+                };
+
+                stages.add(SportsTournamentStage.builder()
+                        .config(config)
+                        .stageName(sName)
+                        .stageType(sType)
+                        .stageOrder(order++)
+                        .schedulingMode(SportsTournamentStage.SchedulingMode.HYBRID)
+                        .stageStatus(SportsTournamentStage.StageStatus.NOT_GENERATED)
+                        .publicationStatus(SportsTournamentStage.PublicationStatus.UNPUBLISHED)
+                        .build());
+            }
+        }
+
+        if (stages.isEmpty()) {
+            TournamentType tType = config.getTournamentType() != null ? config.getTournamentType() : TournamentType.KNOCKOUT_SINGLE;
+            int total = config.getTotalTeams() != null && config.getTotalTeams() > 0 ? config.getTotalTeams() : 8;
+
+            int order = 1;
+            switch (tType) {
+                case KNOCKOUT_SINGLE, KNOCKOUT, CUSTOM -> {
+                    if (total > 32) stages.add(createDefaultStage(config, "Round of 64", SportsTournamentStage.StageType.ROUND_OF_64, order++));
+                    if (total > 16) stages.add(createDefaultStage(config, "Round of 32", SportsTournamentStage.StageType.ROUND_OF_32, order++));
+                    if (total > 8)  stages.add(createDefaultStage(config, "Round of 16", SportsTournamentStage.StageType.ROUND_OF_16, order++));
+                    if (total > 4)  stages.add(createDefaultStage(config, "Quarter-finals", SportsTournamentStage.StageType.QUARTER_FINAL, order++));
+                    if (total > 2)  stages.add(createDefaultStage(config, "Semi-finals", SportsTournamentStage.StageType.SEMI_FINAL, order++));
+                    if (Boolean.TRUE.equals(config.getThirdPlaceMatch())) {
+                        stages.add(createDefaultStage(config, "Third-place Match", SportsTournamentStage.StageType.THIRD_PLACE, order++));
+                    }
+                    stages.add(createDefaultStage(config, "Final", SportsTournamentStage.StageType.FINAL, order++));
+                }
+                case GROUP_KNOCKOUT, GROUP_PLAYOFF -> {
+                    stages.add(createDefaultStage(config, "Group Stage", SportsTournamentStage.StageType.GROUP_STAGE, order++));
+                    if (total > 4) stages.add(createDefaultStage(config, "Quarter-finals", SportsTournamentStage.StageType.QUARTER_FINAL, order++));
+                    stages.add(createDefaultStage(config, "Semi-finals", SportsTournamentStage.StageType.SEMI_FINAL, order++));
+                    stages.add(createDefaultStage(config, "Final", SportsTournamentStage.StageType.FINAL, order++));
+                }
+                case ROUND_ROBIN, LEAGUE -> {
+                    stages.add(createDefaultStage(config, "League Stage", SportsTournamentStage.StageType.LEAGUE_MATCH, order++));
+                }
+                case DOUBLE_ELIMINATION, KNOCKOUT_DOUBLE -> {
+                    stages.add(createDefaultStage(config, "Winners Bracket", SportsTournamentStage.StageType.QUARTER_FINAL, order++));
+                    stages.add(createDefaultStage(config, "Elimination Bracket", SportsTournamentStage.StageType.ELIMINATOR, order++));
+                    stages.add(createDefaultStage(config, "Grand Final", SportsTournamentStage.StageType.FINAL, order++));
+                }
+                case SWISS -> {
+                    stages.add(createDefaultStage(config, "Swiss Rounds", SportsTournamentStage.StageType.SWISS_ROUND, order++));
+                }
+                case SUPER_LEAGUE -> {
+                    stages.add(createDefaultStage(config, "Group Stage", SportsTournamentStage.StageType.GROUP_STAGE, order++));
+                    stages.add(createDefaultStage(config, "Super League", SportsTournamentStage.StageType.LEAGUE_MATCH, order++));
+                    stages.add(createDefaultStage(config, "Final", SportsTournamentStage.StageType.FINAL, order++));
+                }
+            }
+        }
+
+        if (!stages.isEmpty()) {
+            stages = stageRepo.saveAll(stages);
+            log.info("Auto-created {} stages for tournament config id={}", stages.size(), config.getId());
+        }
+        return stages;
+    }
+
+    private SportsTournamentStage createDefaultStage(SportsTournamentConfig config, String name, SportsTournamentStage.StageType type, int order) {
+        return SportsTournamentStage.builder()
+                .config(config)
+                .stageName(name)
+                .stageType(type)
+                .stageOrder(order)
+                .schedulingMode(SportsTournamentStage.SchedulingMode.HYBRID)
+                .stageStatus(SportsTournamentStage.StageStatus.NOT_GENERATED)
+                .publicationStatus(SportsTournamentStage.PublicationStatus.UNPUBLISHED)
+                .build();
     }
 
     @Transactional
@@ -408,6 +688,17 @@ public class TournamentStageService {
         long stageMatches = matches.stream().filter(m -> s.getId().equals(m.getStageId())).count();
         long stageCompleted = matches.stream()
                 .filter(m -> s.getId().equals(m.getStageId()) && m.getStatus() == MatchStatus.COMPLETED).count();
+
+        // If stage is NOT_GENERATED, preview candidate matches count
+        if (stageMatches == 0 && s.getStageStatus() == SportsTournamentStage.StageStatus.NOT_GENERATED) {
+            List<MatchRound> candidateRounds = getCandidateRounds(s.getStageType());
+            long candidateCount = matches.stream()
+                    .filter(m -> m.getStageId() == null && (candidateRounds.contains(m.getRound()) || (s.getStageOrder() != null && s.getStageOrder().equals(m.getRoundNumber()))))
+                    .count();
+            if (candidateCount > 0) {
+                stageMatches = candidateCount;
+            }
+        }
 
         return new StageResponse(
                 s.getId(), configId, s.getStageName(),
