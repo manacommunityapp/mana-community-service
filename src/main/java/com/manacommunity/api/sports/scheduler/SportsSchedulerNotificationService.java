@@ -48,13 +48,32 @@ public class SportsSchedulerNotificationService {
      */
     @Transactional
     public void notifySchedulePublished(Long configId) {
-        SportsTournamentConfig config = configRepo.findById(configId).orElse(null);
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+            .orElse(null);
         if (config == null || config.getEvent() == null) {
             log.debug("Skipping publish notification — config {} missing or has no linked event", configId);
             return;
         }
 
-        Long eventId = config.getEvent().getId();
+        Long eventId = null;
+        try {
+            if (config.getEvent() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                if (idObj instanceof Number num) eventId = num.longValue();
+            }
+            if (eventId == null) {
+                eventId = config.getEvent().getId();
+            }
+        } catch (Exception e) {
+            log.warn("Could not extract eventId for notification on config {}: {}", configId, e.getMessage());
+        }
+
+        if (eventId == null) {
+            log.debug("Skipping publish notification — config {} missing or has no linked event", configId);
+            return;
+        }
+
         List<AppUser> recipients = registrationRepo
             .findByEventIdAndStatus(eventId, SportsEventRegistration.RegistrationStatus.CONFIRMED)
             .stream()
@@ -71,7 +90,11 @@ public class SportsSchedulerNotificationService {
         String title = "Schedule published: " + config.getTournamentName();
         String body  = "The match schedule for " + config.getTournamentName()
             + " is now live. Check your fixtures.";
-        pushService.sendBulk(recipients, title, body);
+        try {
+            pushService.sendBulk(recipients, title, body);
+        } catch (Exception e) {
+            log.warn("Push notification delivery failed for tournament '{}': {}", config.getTournamentName(), e.getMessage());
+        }
 
         // TODO: Re-enable schedule-published emails once SMTP is configured for non-OTP templates.
         // scheduleEmailService.sendSchedulePublished(config, recipients, matchCount);

@@ -133,7 +133,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     List<SportsTournamentMatch> findUnassignedByConfigId(@Param("configId") Long configId);
 
     @Transactional
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = false)
     @Query("UPDATE SportsTournamentMatch m SET m.status = :status WHERE m.config.id = :configId")
     int updateStatusByConfigId(@Param("configId") Long configId, @Param("status") MatchStatus status);
 

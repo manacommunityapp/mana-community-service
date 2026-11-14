@@ -387,13 +387,19 @@ public class SportsTournamentSchedulerService {
     @Transactional
     public SportsTournamentConfigResponse publishTournamentConfig(Long configId) {
         SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
             .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
 
         config.setStatus(SportsTournamentConfig.TournamentStatus.ACTIVE);
         SportsTournamentConfig saved = configRepo.save(config);
 
         matchRepo.updateStatusByConfigId(saved.getId(), MatchStatus.PUBLISHED);
-        notificationService.notifySchedulePublished(saved.getId());
+
+        try {
+            notificationService.notifySchedulePublished(saved.getId());
+        } catch (Exception ex) {
+            log.error("Failed to send schedule published notifications for config id={}: {}", saved.getId(), ex.getMessage(), ex);
+        }
 
         log.info("Published tournament config id={} name={}", saved.getId(), saved.getTournamentName());
         return toConfigResponse(saved);
@@ -418,7 +424,11 @@ public class SportsTournamentSchedulerService {
     public SportsScheduleSaveResponse saveSchedule(SportsScheduleSaveRequest req, Long adminUserId) {
         SportsScheduleSaveResponse resp = matchPersistence.saveSchedule(req, adminUserId);
         if (isPublished(req.status()) && resp.config() != null) {
-            notificationService.notifySchedulePublished(resp.config().id());
+            try {
+                notificationService.notifySchedulePublished(resp.config().id());
+            } catch (Exception ex) {
+                log.error("Failed to send schedule published notifications for config id={}: {}", resp.config().id(), ex.getMessage(), ex);
+            }
         }
         return resp;
     }
@@ -430,7 +440,11 @@ public class SportsTournamentSchedulerService {
     public int updateMatchesStatus(Long configId, String statusStr) {
         int updated = matchPersistence.updateMatchesStatus(configId, statusStr);
         if (isPublished(statusStr)) {
-            notificationService.notifySchedulePublished(configId);
+            try {
+                notificationService.notifySchedulePublished(configId);
+            } catch (Exception ex) {
+                log.error("Failed to send schedule published notifications for config id={}: {}", configId, ex.getMessage(), ex);
+            }
         }
         return updated;
     }

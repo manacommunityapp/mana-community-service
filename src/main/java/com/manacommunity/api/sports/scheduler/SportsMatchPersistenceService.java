@@ -160,17 +160,115 @@ public class SportsMatchPersistenceService {
     }
 
     public SportsTournamentConfigResponse toConfigResponse(SportsTournamentConfig c) {
-        int matchCount = matchRepo.findByConfigId(c.getId()).size();
-        Long tournamentId = c.getEvent() != null && c.getEvent().getTournament() != null
-                ? c.getEvent().getTournament().getId()
-                : null;
-        Boolean showInFeed = null;
-        if (c.getEvent() != null) {
-            showInFeed = c.getEvent().getShowInFeed();
-            if (showInFeed == null && c.getEvent().getTournament() != null) {
-                showInFeed = c.getEvent().getTournament().getShowInFeed();
+        int matchCount = 0;
+        try {
+            if (c.getId() != null) {
+                matchCount = matchRepo.findByConfigId(c.getId()).size();
+            }
+        } catch (Exception e) {
+            log.debug("Could not count matches for config {}: {}", c.getId(), e.getMessage());
+        }
+
+        Long sportId = null;
+        String sportName = null;
+        if (c.getSport() != null) {
+            try {
+                sportId = c.getSport().getId();
+                sportName = c.getSport().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load sport for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getSport() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) sportId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
             }
         }
+
+        Long communityId = null;
+        String communityName = null;
+        if (c.getCommunity() != null) {
+            try {
+                communityId = c.getCommunity().getId();
+                communityName = c.getCommunity().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load community for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getCommunity() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) communityId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        Long eventId = null;
+        String eventName = null;
+        Long tournamentId = null;
+        Boolean showInFeed = null;
+        if (c.getEvent() != null) {
+            try {
+                eventId = c.getEvent().getId();
+                eventName = c.getEvent().getName();
+                showInFeed = c.getEvent().getShowInFeed();
+                try {
+                    if (c.getEvent().getTournament() != null) {
+                        tournamentId = c.getEvent().getTournament().getId();
+                        if (showInFeed == null) {
+                            showInFeed = c.getEvent().getTournament().getShowInFeed();
+                        }
+                    }
+                } catch (Exception te) {
+                    log.debug("Could not read tournament for event in config {}: {}", c.getId(), te.getMessage());
+                }
+            } catch (Exception e) {
+                log.warn("Lazy load failed on event for config {}, resolving via eventRepo: {}", c.getId(), e.getMessage());
+                try {
+                    Long rawEventId = null;
+                    if (c.getEvent() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) rawEventId = num.longValue();
+                    }
+                    if (rawEventId != null) {
+                        eventId = rawEventId;
+                        SportsEvent dbEvent = eventRepo.findById(rawEventId).orElse(null);
+                        if (dbEvent != null) {
+                            eventName = dbEvent.getName();
+                            showInFeed = dbEvent.getShowInFeed();
+                            if (dbEvent.getTournament() != null) {
+                                tournamentId = dbEvent.getTournament().getId();
+                                if (showInFeed == null) {
+                                    showInFeed = dbEvent.getTournament().getShowInFeed();
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Fallback event lookup also failed for config {}: {}", c.getId(), ex.getMessage());
+                }
+            }
+        }
+
+        Long venueId = null;
+        String venueName = null;
+        if (c.getVenue() != null) {
+            try {
+                venueId = c.getVenue().getId();
+                venueName = c.getVenue().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load venue for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getVenue() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) venueId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        String tournamentType = c.getTournamentType() != null ? c.getTournamentType().name() : "ROUND_ROBIN";
+        String status = c.getStatus() != null ? c.getStatus().name() : "DRAFT";
 
         List<Integer> parsedPlayoffDays = null;
         if (c.getPlayoffDays() != null && !c.getPlayoffDays().isBlank()) {
@@ -205,22 +303,22 @@ public class SportsMatchPersistenceService {
         }
 
         return new SportsTournamentConfigResponse(
-            c.getId(), c.getTournamentName(), c.getTournamentType().name(),
-            c.getSport() != null ? c.getSport().getId() : null,
-            c.getSport() != null ? c.getSport().getName() : null,
-            c.getCommunity() != null ? c.getCommunity().getId() : null,
-            c.getCommunity() != null ? c.getCommunity().getName() : null,
-            c.getEvent() != null ? c.getEvent().getId() : null,
-            c.getEvent() != null ? c.getEvent().getName() : null,
+            c.getId(), c.getTournamentName(), tournamentType,
+            sportId,
+            sportName,
+            communityId,
+            communityName,
+            eventId,
+            eventName,
             tournamentId,
             c.getTotalTeams(), c.getNumberOfGroups(), c.getTeamsPerGroup(),
             c.getTeamsAdvancingPerGroup(), c.getThirdPlaceMatch(), c.getHasSeeding(),
             c.getSwissRounds(), c.getStartDate(), c.getEndDate(),
             c.getMatchDurationMinutes(), c.getBreakBetweenMatchesMinutes(),
-            c.getVenue() != null ? c.getVenue().getId() : null,
-            c.getVenue() != null ? c.getVenue().getName() : null,
+            venueId,
+            venueName,
             c.getPointsForWin(), c.getPointsForDraw(),
-            c.getPointsForLoss(), c.getStatus().name(), matchCount,
+            c.getPointsForLoss(), status, matchCount,
             c.getCreatedAt(), c.getUpdatedAt(),
             showInFeed,
             c.getSeedingOrder(),
