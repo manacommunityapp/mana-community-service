@@ -32,7 +32,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.storage.type", havingValue = "postgres", matchIfMissing = false)
+@ConditionalOnProperty(name = "app.storage.type", havingValue = "postgres", matchIfMissing = true)
 @RequiredArgsConstructor
 public class PostgresFileStorageService implements FileStorageService {
 

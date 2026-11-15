@@ -49,6 +49,7 @@ public class SportsTournamentSchedulerController {
     private final SportsTournamentRepository tournamentRepo;
     private final com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator playoffGenerator;
     private final com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
+    private final com.manacommunity.api.sports.service.SportsFeedService feedService;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD — save / update (without schedule generation)
@@ -402,7 +403,11 @@ public class SportsTournamentSchedulerController {
             @Valid @RequestBody SportsMatchResultRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("Recording match result matchId={}", req.matchId());
-        return ResponseEntity.ok(schedulerService.advanceBracket(req));
+        SportsTournamentScheduleResponse response = schedulerService.advanceBracket(req);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -440,6 +445,9 @@ public class SportsTournamentSchedulerController {
             @Valid @RequestBody SportsRescheduleRequest req) {
         log.info("Rescheduling match matchId={}", matchId);
         SportsTournamentMatch updated = schedulerService.rescheduleMatch(matchId, req.scheduledAt(), req.venue(), req.court());
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
         return ResponseEntity.ok(schedulerService.toMatchResponse(updated));
     }
 
@@ -453,7 +461,11 @@ public class SportsTournamentSchedulerController {
             @PathVariable Long configId,
             @Valid @RequestBody SportsBatchRescheduleRequest req) {
         log.info("Batch rescheduling matches configId={} mode={}", configId, req.mode());
-        return ResponseEntity.ok(schedulerService.batchReschedule(configId, req));
+        SportsBatchRescheduleResponse response = schedulerService.batchReschedule(configId, req);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
+        return ResponseEntity.ok(response);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -607,7 +619,11 @@ public class SportsTournamentSchedulerController {
             @Valid @RequestBody SportsMatchResultDetailRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("Recording detailed match result");
-        return ResponseEntity.ok(matchResultService.recordDetailedResult(req));
+        SportsMatchDetailResponse response = matchResultService.recordDetailedResult(req);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/match/{matchId}/toss")
