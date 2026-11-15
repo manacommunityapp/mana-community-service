@@ -28,7 +28,11 @@ public class ExpenseController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ExpenseResponse>> getAll() {
+    public ResponseEntity<List<ExpenseResponse>> getAll(
+            @RequestParam(required = false) Long communityId) {
+        if (communityId != null) {
+            return ResponseEntity.ok(expenseService.getExpensesByCommunity(communityId));
+        }
         return ResponseEntity.ok(expenseService.getAllExpenses());
     }
 

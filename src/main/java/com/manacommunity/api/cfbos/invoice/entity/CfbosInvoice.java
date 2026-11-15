@@ -26,11 +26,23 @@ public class CfbosInvoice {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
-    @Column(name = "property_id", nullable = false)
+    @Column(name = "community_id")
+    private Long communityId;
+
+    @Column(name = "property_id")
     private Long propertyId;
 
-    @Column(name = "resident_id", nullable = false)
+    @Column(name = "resident_id")
     private Long residentId;
+
+    @Column(name = "source_module", length = 30)
+    private String sourceModule;
+
+    @Column(name = "source_reference_type", length = 50)
+    private String sourceReferenceType;
+
+    @Column(name = "source_reference_id")
+    private Long sourceReferenceId;
 
     @Column(name = "billing_run_id")
     private Long billingRunId;
