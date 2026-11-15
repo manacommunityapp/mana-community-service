@@ -20,12 +20,17 @@ import java.util.List;
 public class SportsRaceResultController {
 
     private final SportsRaceResultService raceService;
+    private final com.manacommunity.api.sports.service.SportsFeedService feedService;
 
     @PostMapping("/result")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<SportsRaceResultResponse> recordResult(@Valid @RequestBody SportsRaceResultRequest request) {
         log.info("Recording race result matchId={}", request.matchId());
-        return ResponseEntity.ok(raceService.recordResult(request));
+        SportsRaceResultResponse response = raceService.recordResult(request);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{matchId}/results")
@@ -57,6 +62,9 @@ public class SportsRaceResultController {
     public ResponseEntity<Void> completeRace(@PathVariable Long matchId) {
         log.info("Completing race matchId={}", matchId);
         raceService.completeRace(matchId);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
         return ResponseEntity.ok().build();
     }
 }

@@ -159,12 +159,15 @@ class SportsPlayoffScheduleGeneratorTest {
     @DisplayName("round naming")
     class RoundNaming {
         @Test
-        @DisplayName("getRoundName maps last three rounds to FINAL/SEMI/QUARTER")
+        @DisplayName("getRoundName maps rounds backwards from FINAL down to ROUND_OF_64")
         void roundNames() {
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(2, 3)).isEqualTo("FINAL");
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(1, 3)).isEqualTo("SEMI_FINAL");
             assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 3)).isEqualTo("QUARTER_FINAL");
-            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 5)).isEqualTo("Round 1");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 4)).isEqualTo("ROUND_OF_16");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 5)).isEqualTo("ROUND_OF_32");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 6)).isEqualTo("ROUND_OF_64");
+            assertThat(SportsPlayoffScheduleGenerator.getRoundName(0, 7)).isEqualTo("Round 1");
         }
     }
 
@@ -199,7 +202,7 @@ class SportsPlayoffScheduleGeneratorTest {
         }
 
         @Test
-        @DisplayName("13 players → 3 BYEs to top seeds, all AUTO_ADVANCED, players auto-advance")
+        @DisplayName("13 players → cascading BYEs across rounds")
         void thirteenPlayersThreeByes() {
             List<SportsPlayoffMatchDraftResponse> matches =
                     generator.buildKnockoutFromPlayers(knockoutRequest(players(13), List.of(1L, 2L, 3L, 4L)));
@@ -207,16 +210,13 @@ class SportsPlayoffScheduleGeneratorTest {
             List<SportsPlayoffMatchDraftResponse> byes = matches.stream()
                     .filter(m -> "AUTO_ADVANCED".equals(m.status())).toList();
 
-            assertThat(byes).hasSize(3); // nextPow2(13)=16, 16-13=3
+            assertThat(byes).hasSize(2); // 13 is odd -> 1 in r0; 7 is odd -> 1 in r1
             assertThat(byes).allSatisfy(b -> {
                 assertThat(b.name()).contains("(BYE)");
                 assertThat(b.away().id()).isEqualTo("bye");
                 assertThat(b.courtId()).isNull();   // a bye isn't played on a court
                 assertThat(b.time()).isEmpty();      // …and carries no scheduled time
             });
-            // BYEs go to the top 3 seeds (the first 3 in registration order)
-            assertThat(byes).extracting(b -> b.home().name())
-                    .containsExactlyInAnyOrder("Player 1", "Player 2", "Player 3");
         }
 
         @Test
@@ -264,6 +264,161 @@ class SportsPlayoffScheduleGeneratorTest {
                     .containsExactly(10L, 11L, 12L, 13L);
             // Wave 2: next 4 matches at 09:40 AM (09:00 + 30 duration + 10 break)
             assertThat(round1.subList(4, 8)).allSatisfy(m -> assertThat(m.time()).isEqualTo("09:40 AM"));
+        }
+
+        @Test
+        @DisplayName("SEQUENTIAL seeding pairs adjacent neighbors P1 vs P2, P3 vs P4...")
+        void sequentialSeedingPairsNeighbors() {
+            List<SportsPlayoffGenerateRequest.ParticipantInput> ps = List.of(
+                    player("p1", "P1", "A101"),
+                    player("p2", "P2", "B101"),
+                    player("p3", "P3", "C101"),
+                    player("p4", "P4", "D101"));
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    1, 4, "SEQUENTIAL", false,
+                    "2026-06-20", "09:00 AM", 30, 10, 1L, null, ps, List.of(1L));
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildKnockoutFromPlayers(req);
+            List<SportsPlayoffMatchDraftResponse> round0 = matches.stream().filter(m -> m.roundIndex() == 0).toList();
+            assertThat(round0).hasSize(2);
+            assertThat(round0.get(0).home().id()).isEqualTo("p1");
+            assertThat(round0.get(0).away().id()).isEqualTo("p2");
+            assertThat(round0.get(1).home().id()).isEqualTo("p3");
+            assertThat(round0.get(1).away().id()).isEqualTo("p4");
+        }
+    }
+
+    @Nested
+    @DisplayName("break window handling")
+    class BreakWindows {
+        @Test
+        @DisplayName("matches skip configured meal / break windows")
+        void skipsBreakWindows() {
+            SportsPlayoffGenerateRequest.BreakWindowInput lunchBreak =
+                    new SportsPlayoffGenerateRequest.BreakWindowInput(
+                            "lunch", "Lunch Break", "LUNCH", "01:00 PM", "02:00 PM", 60, true);
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    1, 4, "TRADITIONAL", false,
+                    "2026-06-20", "12:30 PM", 45, 10, 1L, 1L, null, null, List.of(lunchBreak));
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            // First match at 12:30 PM (duration 45m -> would end at 01:15 PM which overlaps 01:00 PM - 02:00 PM Lunch).
+            // Generator should skip to 02:00 PM.
+            assertThat(matches.get(0).time()).isEqualTo("02:00 PM");
+        }
+    }
+
+    @Nested
+    @DisplayName("daily end time & allowed days handling")
+    class DayBoundsAndAllowedDays {
+        @Test
+        @DisplayName("rolls to next day when match would spill past endTime")
+        void rollsPastEndTime() {
+            // 09:00 AM to 10:00 AM window; match duration 40m, break 10m.
+            // Match 1: 09:00 AM - 09:40 AM. Next candidate is 09:50 AM + 40m = 10:30 AM > 10:00 AM.
+            // Match 2 must roll to next day at 09:00 AM.
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-20", "09:00 AM", 40, 10, 1L, 1L,
+                    null, null, null, "10:00 AM", null, null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-20");
+            assertThat(matches.get(0).time()).isEqualTo("09:00 AM");
+
+            assertThat(matches.get(1).date()).isEqualTo("2026-06-21");
+            assertThat(matches.get(1).time()).isEqualTo("09:00 AM");
+        }
+
+        @Test
+        @DisplayName("weekends only: rolls from Sunday night to next Saturday morning")
+        void weekendsOnlyRollover() {
+            // 2026-06-21 is Sunday. Cutoff 05:00 PM. Match duration 40m starting at 04:50 PM.
+            // Must roll over to next Saturday 2026-06-27!
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-21", "04:50 PM", 40, 10, 1L, 1L,
+                    null, null, null, "05:00 PM", List.of(0, 6), null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-27");
+            assertThat(matches.get(0).time()).isEqualTo("04:50 PM");
+        }
+
+        @Test
+        @DisplayName("weekdays only: rolls from Friday night to next Monday morning")
+        void weekdaysOnlyRollover() {
+            // 2026-06-26 is Friday. Cutoff 08:00 PM. Match duration 30m starting at 07:50 PM.
+            // Must roll over to next Monday 2026-06-29!
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-26", "07:50 PM", 30, 10, 1L, 1L,
+                    null, null, null, "08:00 PM", List.of(1, 2, 3, 4, 5), null);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            assertThat(matches.get(0).date()).isEqualTo("2026-06-29");
+            assertThat(matches.get(0).time()).isEqualTo("07:50 PM");
+        }
+    }
+
+    @Nested
+    @DisplayName("stage and round timing anchors")
+    class RoundTimingAnchors {
+        @Test
+        @DisplayName("anchors each round to designated date and start time")
+        void anchorsRoundTimings() {
+            var timings = java.util.Map.of(
+                    "SEMI_FINAL", new SportsPlayoffGenerateRequest.RoundTimingInput("2026-06-27", "10:00 AM", null),
+                    "FINAL", new SportsPlayoffGenerateRequest.RoundTimingInput("2026-06-28", "04:00 PM", null)
+            );
+
+            SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                    2, 2, "TRADITIONAL", false,
+                    "2026-06-20", "08:00 AM", 30, 10, 1L, 1L,
+                    null, null, null, "08:00 PM", null, timings);
+
+            List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+            var sf1 = matches.stream().filter(m -> "Semi-Final 1".equals(m.name())).findFirst().orElseThrow();
+            var fn = matches.stream().filter(m -> "Final".equals(m.name())).findFirst().orElseThrow();
+
+            assertThat(sf1.date()).isEqualTo("2026-06-27");
+            assertThat(sf1.time()).isEqualTo("10:00 AM");
+
+            assertThat(fn.date()).isEqualTo("2026-06-28");
+            assertThat(fn.time()).isEqualTo("04:00 PM");
+        }
+    }
+
+    @Nested
+    @DisplayName("all byes in first knockout round only")
+    class ByesFirstRoundOnly {
+        @Test
+        @DisplayName("21/22/31/37/38 players: byes only in round 1, later rounds fully played")
+        void byesOnlyInFirstRound() {
+            for (int n : new int[]{3, 5, 6, 21, 22, 31, 37, 38}) {
+                List<SportsPlayoffGenerateRequest.ParticipantInput> players = new ArrayList<>();
+                for (int i = 1; i <= n; i++) players.add(player("P" + i, "Player " + i, null));
+                SportsPlayoffGenerateRequest req = new SportsPlayoffGenerateRequest(
+                        1, n, "TRADITIONAL", false, "2026-06-20", "09:00 AM", 30, 10, 1L, null,
+                        players, null, null, null, null, null, true);
+
+                List<SportsPlayoffMatchDraftResponse> matches = generator.buildPlayoffBracket(req);
+
+                int size = Integer.highestOneBit(n - 1) * 2;
+                int byes = size - n;
+                long byeCount = matches.stream().filter(m -> "AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(byeCount).as("byes for n=%d", n).isEqualTo(byes);
+                assertThat(matches.stream().filter(m -> "AUTO_ADVANCED".equals(m.status()))
+                        .allMatch(m -> m.roundIndex() == 0)).as("byes all in round 0 for n=%d", n).isTrue();
+                // real matches in round 0 + byes must equal size/2 advancing slots
+                long r0Real = matches.stream().filter(m -> m.roundIndex() == 0 && !"AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(r0Real + byes).as("round-0 advancers for n=%d", n).isEqualTo(size / 2);
+                // total real matches in single elimination = n - 1
+                long real = matches.stream().filter(m -> !"AUTO_ADVANCED".equals(m.status())).count();
+                assertThat(real).as("total real matches for n=%d", n).isEqualTo(n - 1);
+            }
         }
     }
 }

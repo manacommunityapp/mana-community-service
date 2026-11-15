@@ -49,8 +49,10 @@ public class SportsTournamentSchedulerService {
     private final SportsTournamentConfigRepository  configRepo;
     private final SportsTournamentGroupRepository   groupRepo;
     private final SportsTournamentMatchRepository   matchRepo;
+    private final SportsMatchResultRepository       matchResultRepo;
     private final SportsGroupTeamStandingRepository standingRepo;
     private final SportsVenueRepository             venueRepo;
+    private final SportsCourtRepository             courtRepo;
     private final SportsAuctionTeamRepository       teamRepo;
     private final com.manacommunity.api.sports.repository.SportsAuctionConfigRepository auctionConfigRepo;
     private final SportsEventRepository             eventRepo;
@@ -173,11 +175,27 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsTournamentMatch rescheduleMatch(Long matchId, String scheduledAtStr, String venue) {
+        return rescheduleMatch(matchId, scheduledAtStr, venue, null);
+    }
+
+    public SportsTournamentMatch rescheduleMatch(Long matchId, String scheduledAtStr, String venue, String court) {
         SportsTournamentMatch match = matchRepo.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", matchId));
-        LocalDateTime scheduledAt = LocalDateTime.parse(scheduledAtStr);
+        LocalDateTime scheduledAt;
+        try {
+            if (scheduledAtStr.endsWith("Z")) {
+                scheduledAt = java.time.Instant.parse(scheduledAtStr).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+            } else if (scheduledAtStr.contains("+") || (scheduledAtStr.lastIndexOf('-') > 10)) {
+                scheduledAt = java.time.OffsetDateTime.parse(scheduledAtStr).toLocalDateTime();
+            } else {
+                scheduledAt = LocalDateTime.parse(scheduledAtStr);
+            }
+        } catch (Exception e) {
+            log.debug("Fallback parsing for scheduledAt '{}': {}", scheduledAtStr, e.getMessage());
+            scheduledAt = LocalDateTime.parse(scheduledAtStr);
+        }
         match.setScheduledAt(scheduledAt);
-        if (venue != null) {
+        if (venue != null && !venue.isBlank()) {
             try {
                 Long venueId = Long.parseLong(venue);
                 match.setVenue(venueRepo.findById(venueId).orElseThrow(() -> new ResourceNotFoundException("Venue", venueId)));
@@ -185,7 +203,139 @@ public class SportsTournamentSchedulerService {
                 log.debug("Non-numeric venue value '{}', treating as legacy string venue", venue);
             }
         }
+        if (court != null && !court.isBlank()) {
+            try {
+                Long courtId = Long.parseLong(court);
+                match.setCourt(courtRepo.findById(courtId).orElse(null));
+            } catch (NumberFormatException e) {
+                log.debug("Non-numeric court value '{}', ignored", court);
+            }
+        }
         return matchRepo.save(match);
+    }
+
+    @Transactional
+    public SportsBatchRescheduleResponse batchReschedule(Long configId, SportsBatchRescheduleRequest req) {
+        Long targetConfigId = configId != null ? configId : req.configId();
+        List<SportsTournamentMatch> matches;
+        if (req.matchIds() != null && !req.matchIds().isEmpty()) {
+            matches = matchRepo.findAllById(req.matchIds());
+        } else if (targetConfigId != null) {
+            matches = matchRepo.findByConfigIdOrderByScheduledAt(targetConfigId);
+        } else {
+            return new SportsBatchRescheduleResponse(0, "No tournament or matches specified", List.of());
+        }
+
+        // Filter: NEVER touch completed, cancelled or bye matches
+        LocalDateTime cutoff = null;
+        if (req.fromDateTime() != null && !req.fromDateTime().isBlank()) {
+            try {
+                cutoff = parseDateTime(req.fromDateTime());
+            } catch (Exception e) {
+                log.warn("Failed to parse fromDateTime '{}': {}", req.fromDateTime(), e.getMessage());
+            }
+        }
+        final LocalDateTime finalCutoff = cutoff;
+
+        List<SportsTournamentMatch> eligible = matches.stream()
+                .filter(m -> m.getStatus() != MatchStatus.COMPLETED && m.getStatus() != MatchStatus.CANCELLED)
+                .filter(m -> m.getStatus() != MatchStatus.BYE && m.getStatus() != MatchStatus.AUTO_ADVANCED)
+                .filter(m -> finalCutoff == null || (m.getScheduledAt() != null && !m.getScheduledAt().isBefore(finalCutoff)))
+                .sorted(java.util.Comparator.comparing(SportsTournamentMatch::getScheduledAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                        .thenComparing(m -> Objects.requireNonNullElse(m.getMatchNumber(), 0)))
+                .toList();
+
+        if (eligible.isEmpty()) {
+            return new SportsBatchRescheduleResponse(0, "No eligible uncompleted matches found to reschedule", List.of());
+        }
+
+        String mode = req.mode() != null ? req.mode().trim().toUpperCase() : "TIME_SHIFT";
+
+        if ("TIME_SHIFT".equals(mode)) {
+            int delayMinutes = req.delayMinutes() != null ? req.delayMinutes() : 0;
+            for (SportsTournamentMatch m : eligible) {
+                if (m.getScheduledAt() != null) {
+                    m.setScheduledAt(m.getScheduledAt().plusMinutes(delayMinutes));
+                }
+            }
+        } else if ("NEW_DATE".equals(mode)) {
+            if (req.newDate() == null || req.newDate().isBlank()) {
+                throw new IllegalArgumentException("newDate must be provided for NEW_DATE mode");
+            }
+            java.time.LocalDate targetDate = java.time.LocalDate.parse(req.newDate().trim());
+            java.time.LocalTime targetStartTime = parseLocalTime(req.startTime());
+
+            if (req.intervalMinutes() != null && req.intervalMinutes() > 0) {
+                // Group by Court (or null for unassigned) to prevent court double-booking
+                Map<Long, List<SportsTournamentMatch>> byCourt = new java.util.LinkedHashMap<>();
+                for (SportsTournamentMatch m : eligible) {
+                    Long cId = m.getCourt() != null ? m.getCourt().getId() : -1L;
+                    byCourt.computeIfAbsent(cId, k -> new java.util.ArrayList<>()).add(m);
+                }
+                for (List<SportsTournamentMatch> courtMatches : byCourt.values()) {
+                    for (int i = 0; i < courtMatches.size(); i++) {
+                        LocalDateTime newDt = LocalDateTime.of(targetDate, targetStartTime).plusMinutes((long) i * req.intervalMinutes());
+                        courtMatches.get(i).setScheduledAt(newDt);
+                    }
+                }
+            } else {
+                // Preserve relative offsets between matches from the first match
+                LocalDateTime baseOriginal = eligible.stream()
+                        .map(SportsTournamentMatch::getScheduledAt)
+                        .filter(Objects::nonNull)
+                        .min(java.util.Comparator.naturalOrder())
+                        .orElse(LocalDateTime.now());
+
+                LocalDateTime targetBase = LocalDateTime.of(targetDate, targetStartTime);
+                for (SportsTournamentMatch m : eligible) {
+                    if (m.getScheduledAt() != null) {
+                        long diff = java.time.Duration.between(baseOriginal, m.getScheduledAt()).toMinutes();
+                        m.setScheduledAt(targetBase.plusMinutes(Math.max(0, diff)));
+                    } else {
+                        m.setScheduledAt(targetBase);
+                    }
+                }
+            }
+        }
+
+        List<SportsTournamentMatch> saved = matchRepo.saveAll(eligible);
+        log.info("Batch rescheduled {} matches for configId={} in mode={}", saved.size(), targetConfigId, mode);
+        return new SportsBatchRescheduleResponse(
+                saved.size(),
+                "Successfully rescheduled " + saved.size() + " matches",
+                saved.stream().map(this::toMatchResponse).toList()
+        );
+    }
+
+    private LocalDateTime parseDateTime(String dtStr) {
+        if (dtStr == null || dtStr.isBlank()) return null;
+        if (dtStr.endsWith("Z")) {
+            return java.time.Instant.parse(dtStr).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        } else if (dtStr.contains("+") || (dtStr.lastIndexOf('-') > 10)) {
+            return java.time.OffsetDateTime.parse(dtStr).toLocalDateTime();
+        }
+        return LocalDateTime.parse(dtStr);
+    }
+
+    private java.time.LocalTime parseLocalTime(String timeStr) {
+        if (timeStr == null || timeStr.isBlank()) {
+            return java.time.LocalTime.of(9, 0);
+        }
+        String t = timeStr.trim().toUpperCase();
+        var m12 = java.util.regex.Pattern.compile("^(\\d{1,2}):(\\d{2})\\s*(AM|PM)?$").matcher(t);
+        if (m12.find()) {
+            int h = Integer.parseInt(m12.group(1));
+            int m = Integer.parseInt(m12.group(2));
+            String meridiem = m12.group(3);
+            if ("PM".equalsIgnoreCase(meridiem) && h < 12) h += 12;
+            if ("AM".equalsIgnoreCase(meridiem) && h == 12) h = 0;
+            return java.time.LocalTime.of(h, m);
+        }
+        var m24 = java.util.regex.Pattern.compile("^(\\d{1,2}):(\\d{2})$").matcher(t);
+        if (m24.find()) {
+            return java.time.LocalTime.of(Integer.parseInt(m24.group(1)), Integer.parseInt(m24.group(2)));
+        }
+        return java.time.LocalTime.of(9, 0);
     }
 
     public List<SportsMatchResponse> getUpcomingMatchesForTeam(Long teamId) {
@@ -199,6 +349,30 @@ public class SportsTournamentSchedulerService {
     @Transactional
     public SportsTournamentScheduleResponse advanceBracket(SportsMatchResultRequest req) {
         SportsTournamentConfig config = bracketGenerator.applyResult(req);
+        if (req.tossWinnerTeamId() != null || req.tossDecision() != null) {
+            SportsTournamentMatch match = matchRepo.findById(req.matchId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
+            SportsAuctionTeam tossWinner = null;
+            if (req.tossWinnerTeamId() != null) {
+                tossWinner = teamRepo.findById(req.tossWinnerTeamId())
+                        .orElseThrow(() -> new ResourceNotFoundException("SportsAuctionTeam", req.tossWinnerTeamId()));
+                match.setTossWinner(tossWinner);
+            }
+            if (req.tossDecision() != null) {
+                match.setTossDecision(req.tossDecision());
+            }
+            matchRepo.save(match);
+
+            SportsMatchResult matchResult = matchResultRepo.findByMatchId(match.getId())
+                    .orElseGet(() -> SportsMatchResult.builder().match(match).build());
+            if (tossWinner != null) {
+                matchResult.setTossWinner(tossWinner);
+            }
+            if (req.tossDecision() != null) {
+                matchResult.setTossDecision(req.tossDecision());
+            }
+            matchResultRepo.save(matchResult);
+        }
         // Winner notification (every result) + tournament-completion email (on the FINAL).
         resultNotifier.notifyMatchResult(req.matchId());
         return buildResponse(config);
@@ -231,6 +405,31 @@ public class SportsTournamentSchedulerService {
         return matchPersistence.getConfigsByCommunity(communityId);
     }
 
+    public void deleteTournamentConfig(Long configId) {
+        matchPersistence.deleteTournamentConfig(configId);
+    }
+
+    @Transactional
+    public SportsTournamentConfigResponse publishTournamentConfig(Long configId) {
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .or(() -> configRepo.findByEventId(configId).stream().findFirst())
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+
+        config.setStatus(SportsTournamentConfig.TournamentStatus.ACTIVE);
+        SportsTournamentConfig saved = configRepo.save(config);
+
+        matchRepo.updateStatusByConfigId(saved.getId(), MatchStatus.PUBLISHED);
+
+        try {
+            notificationService.notifySchedulePublished(saved.getId());
+        } catch (Exception ex) {
+            log.error("Failed to send schedule published notifications for config id={}: {}", saved.getId(), ex.getMessage(), ex);
+        }
+
+        log.info("Published tournament config id={} name={}", saved.getId(), saved.getTournamentName());
+        return toConfigResponse(saved);
+    }
+
     public void assignTeamsToGroups(Long configId, List<GroupAssignmentRequest> assignments) {
         matchPersistence.assignTeamsToGroups(configId, assignments);
     }
@@ -250,7 +449,11 @@ public class SportsTournamentSchedulerService {
     public SportsScheduleSaveResponse saveSchedule(SportsScheduleSaveRequest req, Long adminUserId) {
         SportsScheduleSaveResponse resp = matchPersistence.saveSchedule(req, adminUserId);
         if (isPublished(req.status()) && resp.config() != null) {
-            notificationService.notifySchedulePublished(resp.config().id());
+            try {
+                notificationService.notifySchedulePublished(resp.config().id());
+            } catch (Exception ex) {
+                log.error("Failed to send schedule published notifications for config id={}: {}", resp.config().id(), ex.getMessage(), ex);
+            }
         }
         return resp;
     }
@@ -262,7 +465,11 @@ public class SportsTournamentSchedulerService {
     public int updateMatchesStatus(Long configId, String statusStr) {
         int updated = matchPersistence.updateMatchesStatus(configId, statusStr);
         if (isPublished(statusStr)) {
-            notificationService.notifySchedulePublished(configId);
+            try {
+                notificationService.notifySchedulePublished(configId);
+            } catch (Exception ex) {
+                log.error("Failed to send schedule published notifications for config id={}: {}", configId, ex.getMessage(), ex);
+            }
         }
         return updated;
     }
@@ -319,8 +526,8 @@ public class SportsTournamentSchedulerService {
     }
 
     public SportsMatchResponse toMatchResponse(SportsTournamentMatch m) {
-        String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : extractNote(m.getMatchNotes(), "homeName", "TBD");
-        String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : extractNote(m.getMatchNotes(), "awayName", "TBD");
+        String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : (m.getPlaceholderTeamA() != null && !m.getPlaceholderTeamA().isBlank() ? m.getPlaceholderTeamA() : extractNote(m.getMatchNotes(), "homeName", "TBD"));
+        String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : (m.getPlaceholderTeamB() != null && !m.getPlaceholderTeamB().isBlank() ? m.getPlaceholderTeamB() : extractNote(m.getMatchNotes(), "awayName", "TBD"));
         String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
         String teamAFlat = extractNote(m.getMatchNotes(), "homeFlat", null);
         String teamBFlat = extractNote(m.getMatchNotes(), "awayFlat", null);
@@ -346,7 +553,9 @@ public class SportsTournamentSchedulerService {
             m.getWinnerAdvancesToMatchId(),
             m.getStatus() == MatchStatus.BYE || m.getStatus() == MatchStatus.AUTO_ADVANCED,
             teamAFlat,
-            teamBFlat
+            teamBFlat,
+            m.getPlaceholderTeamA(),
+            m.getPlaceholderTeamB()
         );
     }
 

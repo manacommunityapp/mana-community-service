@@ -16,6 +16,7 @@ public record SportsTournamentConfigResponse(
     String  communityName,
     Long    eventId,
     String  eventName,
+    Long    tournamentId,
     Integer totalTeams,
     Integer numberOfGroups,
     Integer teamsPerGroup,
@@ -35,5 +36,20 @@ public record SportsTournamentConfigResponse(
     String  status,
     int     totalMatches,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    /** Effective showInFeed for the whole schedule (null = opt-out default = shown). */
+    Boolean showInFeed,
+    String  seedingOrder,
+    Boolean byesFirstRoundOnly,
+    Boolean showByesInBracket,
+    Boolean limitMatchesPerDay,
+    Integer maxMatchesPerDay,
+    Boolean usePlayoffDays,
+    java.util.List<Integer> playoffDays,
+    String  venueAssignType,
+    java.util.Map<String, String> playoffRoundDates,
+    java.util.Map<String, String> playoffRoundTimes,
+    java.util.Map<String, String> playoffRoundDurations,
+    java.util.Map<String, String> playoffRoundModes
 ) {}
+

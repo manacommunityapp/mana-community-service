@@ -403,7 +403,9 @@ public class SportsLiveScoringService {
                 target,
                 oversLimit,
                 maxOversPerBowler,
-                ballsPerOver
+                ballsPerOver,
+                match.getTossWinner() != null ? match.getTossWinner().getId() : null,
+                match.getTossDecision()
         );
     }
 

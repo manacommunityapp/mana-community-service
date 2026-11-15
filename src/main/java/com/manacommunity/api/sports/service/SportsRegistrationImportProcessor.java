@@ -1,6 +1,5 @@
 package com.manacommunity.api.sports.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.email.RegistrationEmailService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
@@ -343,12 +342,10 @@ public class SportsRegistrationImportProcessor {
                         || m.getMappingType() == SportsExternalFormFieldMapping.MappingType.FORMAT_LOOKUP) {
                     if (m.getMappingRulesJson() != null && !m.getMappingRulesJson().isBlank()) {
                         try {
-                            Map<String, String> ruleMap = objectMapper.readValue(
-                                    m.getMappingRulesJson(),
-                                    new TypeReference<Map<String, String>>() {}
-                            );
-                            if (ruleMap.containsKey(strVal)) {
-                                strVal = ruleMap.get(strVal);
+                            Map<?, ?> ruleMap = objectMapper.readValue(m.getMappingRulesJson(), Map.class);
+                            Object mapped = ruleMap != null ? ruleMap.get(strVal) : null;
+                            if (mapped != null) {
+                                strVal = String.valueOf(mapped).trim();
                             }
                         } catch (Exception ignored) {}
                     }

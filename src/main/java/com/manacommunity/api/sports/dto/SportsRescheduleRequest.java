@@ -7,5 +7,10 @@ import jakarta.validation.constraints.NotBlank;
 
 public record SportsRescheduleRequest(
     @NotBlank String scheduledAt,
-    String venue
-) {}
+    String venue,
+    String court
+) {
+    public SportsRescheduleRequest(String scheduledAt, String venue) {
+        this(scheduledAt, venue, null);
+    }
+}

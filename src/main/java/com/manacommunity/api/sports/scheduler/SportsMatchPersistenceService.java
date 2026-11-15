@@ -31,6 +31,8 @@ import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.util.HtmlSanitizer;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,11 +65,45 @@ public class SportsMatchPersistenceService {
     private final SportsVenueRepository             venueRepo;
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
+    private final SportsScoringConfigRepository     scoringConfigRepo;
     private final AuditService                      auditService;
+    private final ObjectMapper                      objectMapper;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD
     // ═══════════════════════════════════════════════════════════════
+    @Transactional
+    public void deleteTournamentConfig(Long configId) {
+        SportsTournamentConfig config = configRepo.findById(configId)
+            .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentConfig", configId));
+
+        if (config.getStatus() != SportsTournamentConfig.TournamentStatus.DRAFT) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Only tournament configurations in DRAFT status can be deleted. Current status: " + config.getStatus());
+        }
+
+        scoringConfigRepo.findByConfigId(config.getId()).ifPresent(scoringConfigRepo::delete);
+        matchRepo.deleteByConfigId(config.getId());
+
+        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+        for (SportsTournamentGroup group : groups) {
+            standingRepo.deleteAll(standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(group.getId()));
+        }
+        groupRepo.deleteAll(groups);
+
+        configRepo.delete(config);
+
+        auditService.record(
+            AuditAction.TOURNAMENT_SCHEDULE_SAVED,
+            AuditModule.TOURNAMENT,
+            "SportsTournamentConfig",
+            String.valueOf(configId),
+            null,
+            "Deleted draft tournament config: " + config.getTournamentName()
+        );
+        log.info("Deleted draft tournament config id={} name={}", configId, config.getTournamentName());
+    }
     @Transactional
     public SportsTournamentConfig saveTournamentConfig(SportsTournamentConfigRequest req, Long adminUserId) {
         SportsTournamentConfig config = buildConfig(req, adminUserId);
@@ -101,30 +137,202 @@ public class SportsMatchPersistenceService {
         config.setPointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2));
         config.setPointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1));
         config.setPointsForLoss(Objects.requireNonNullElse(req.pointsForLoss(), 0));
+
+        // Advanced Scheduling & Bracket Settings
+        if (req.seedingOrder() != null) config.setSeedingOrder(req.seedingOrder());
+        if (req.byesFirstRoundOnly() != null) config.setByesFirstRoundOnly(req.byesFirstRoundOnly());
+        if (req.showByesInBracket() != null) config.setShowByesInBracket(req.showByesInBracket());
+        if (req.limitMatchesPerDay() != null) config.setLimitMatchesPerDay(req.limitMatchesPerDay());
+        if (req.maxMatchesPerDay() != null) config.setMaxMatchesPerDay(req.maxMatchesPerDay());
+        if (req.usePlayoffDays() != null) config.setUsePlayoffDays(req.usePlayoffDays());
+        if (req.playoffDays() != null) {
+            config.setPlayoffDays(req.playoffDays().stream().map(String::valueOf).collect(Collectors.joining(",")));
+        }
+        if (req.venueAssignType() != null) config.setVenueAssignType(req.venueAssignType());
+        if (req.playoffRoundDates() != null || req.playoffRoundTimes() != null ||
+            req.playoffRoundDurations() != null || req.playoffRoundModes() != null) {
+            config.setPlayoffRoundTimingsJson(serializePlayoffRoundTimings(req));
+        }
+
         config = configRepo.save(config);
         log.info("SportsTournament config updated: [{}]", config.getTournamentName());
         return config;
     }
 
     public SportsTournamentConfigResponse toConfigResponse(SportsTournamentConfig c) {
-        int matchCount = matchRepo.findByConfigId(c.getId()).size();
+        int matchCount = 0;
+        try {
+            if (c.getId() != null) {
+                matchCount = matchRepo.findByConfigId(c.getId()).size();
+            }
+        } catch (Exception e) {
+            log.debug("Could not count matches for config {}: {}", c.getId(), e.getMessage());
+        }
+
+        Long sportId = null;
+        String sportName = null;
+        if (c.getSport() != null) {
+            try {
+                sportId = c.getSport().getId();
+                sportName = c.getSport().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load sport for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getSport() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) sportId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        Long communityId = null;
+        String communityName = null;
+        if (c.getCommunity() != null) {
+            try {
+                communityId = c.getCommunity().getId();
+                communityName = c.getCommunity().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load community for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getCommunity() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) communityId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        Long eventId = null;
+        String eventName = null;
+        Long tournamentId = null;
+        Boolean showInFeed = null;
+        if (c.getEvent() != null) {
+            try {
+                eventId = c.getEvent().getId();
+                eventName = c.getEvent().getName();
+                showInFeed = c.getEvent().getShowInFeed();
+                try {
+                    if (c.getEvent().getTournament() != null) {
+                        tournamentId = c.getEvent().getTournament().getId();
+                        if (showInFeed == null) {
+                            showInFeed = c.getEvent().getTournament().getShowInFeed();
+                        }
+                    }
+                } catch (Exception te) {
+                    log.debug("Could not read tournament for event in config {}: {}", c.getId(), te.getMessage());
+                }
+            } catch (Exception e) {
+                log.warn("Lazy load failed on event for config {}, resolving via eventRepo: {}", c.getId(), e.getMessage());
+                try {
+                    Long rawEventId = null;
+                    if (c.getEvent() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) rawEventId = num.longValue();
+                    }
+                    if (rawEventId != null) {
+                        eventId = rawEventId;
+                        SportsEvent dbEvent = eventRepo.findById(rawEventId).orElse(null);
+                        if (dbEvent != null) {
+                            eventName = dbEvent.getName();
+                            showInFeed = dbEvent.getShowInFeed();
+                            if (dbEvent.getTournament() != null) {
+                                tournamentId = dbEvent.getTournament().getId();
+                                if (showInFeed == null) {
+                                    showInFeed = dbEvent.getTournament().getShowInFeed();
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Fallback event lookup also failed for config {}: {}", c.getId(), ex.getMessage());
+                }
+            }
+        }
+
+        Long venueId = null;
+        String venueName = null;
+        if (c.getVenue() != null) {
+            try {
+                venueId = c.getVenue().getId();
+                venueName = c.getVenue().getName();
+            } catch (Exception e) {
+                log.debug("Lazy load venue for config {}: {}", c.getId(), e.getMessage());
+                try {
+                    if (c.getVenue() instanceof org.hibernate.proxy.HibernateProxy hp) {
+                        Object idObj = hp.getHibernateLazyInitializer().getIdentifier();
+                        if (idObj instanceof Number num) venueId = num.longValue();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        String tournamentType = c.getTournamentType() != null ? c.getTournamentType().name() : "ROUND_ROBIN";
+        String status = c.getStatus() != null ? c.getStatus().name() : "DRAFT";
+
+        List<Integer> parsedPlayoffDays = null;
+        if (c.getPlayoffDays() != null && !c.getPlayoffDays().isBlank()) {
+            try {
+                parsedPlayoffDays = Arrays.stream(c.getPlayoffDays().split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Integer::parseInt)
+                    .toList();
+            } catch (Exception ignored) {}
+        }
+
+        Map<String, String> roundDates = null;
+        Map<String, String> roundTimes = null;
+        Map<String, String> roundDurations = null;
+        Map<String, String> roundModes = null;
+        if (c.getPlayoffRoundTimingsJson() != null && !c.getPlayoffRoundTimingsJson().isBlank()) {
+            try {
+                Map<String, Map<String, String>> parsed = objectMapper.readValue(
+                    c.getPlayoffRoundTimingsJson(),
+                    new TypeReference<Map<String, Map<String, String>>>() {}
+                );
+                if (parsed != null) {
+                    roundDates = parsed.get("dates");
+                    roundTimes = parsed.get("times");
+                    roundDurations = parsed.get("durations");
+                    roundModes = parsed.get("modes");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to deserialize playoff round timings for config {}: {}", c.getId(), e.getMessage());
+            }
+        }
+
         return new SportsTournamentConfigResponse(
-            c.getId(), c.getTournamentName(), c.getTournamentType().name(),
-            c.getSport() != null ? c.getSport().getId() : null,
-            c.getSport() != null ? c.getSport().getName() : null,
-            c.getCommunity() != null ? c.getCommunity().getId() : null,
-            c.getCommunity() != null ? c.getCommunity().getName() : null,
-            c.getEvent() != null ? c.getEvent().getId() : null,
-            c.getEvent() != null ? c.getEvent().getName() : null,
+            c.getId(), c.getTournamentName(), tournamentType,
+            sportId,
+            sportName,
+            communityId,
+            communityName,
+            eventId,
+            eventName,
+            tournamentId,
             c.getTotalTeams(), c.getNumberOfGroups(), c.getTeamsPerGroup(),
             c.getTeamsAdvancingPerGroup(), c.getThirdPlaceMatch(), c.getHasSeeding(),
             c.getSwissRounds(), c.getStartDate(), c.getEndDate(),
             c.getMatchDurationMinutes(), c.getBreakBetweenMatchesMinutes(),
-            c.getVenue() != null ? c.getVenue().getId() : null,
-            c.getVenue() != null ? c.getVenue().getName() : null,
+            venueId,
+            venueName,
             c.getPointsForWin(), c.getPointsForDraw(),
-            c.getPointsForLoss(), c.getStatus().name(), matchCount,
-            c.getCreatedAt(), c.getUpdatedAt()
+            c.getPointsForLoss(), status, matchCount,
+            c.getCreatedAt(), c.getUpdatedAt(),
+            showInFeed,
+            c.getSeedingOrder(),
+            c.getByesFirstRoundOnly(),
+            c.getShowByesInBracket(),
+            c.getLimitMatchesPerDay(),
+            c.getMaxMatchesPerDay(),
+            c.getUsePlayoffDays(),
+            parsedPlayoffDays,
+            c.getVenueAssignType(),
+            roundDates,
+            roundTimes,
+            roundDurations,
+            roundModes
         );
     }
 
@@ -134,6 +342,10 @@ public class SportsMatchPersistenceService {
     }
 
     private SportsTournamentConfig buildConfig(SportsTournamentConfigRequest req, Long adminUserId) {
+        String playoffDaysStr = (req.playoffDays() != null && !req.playoffDays().isEmpty())
+            ? req.playoffDays().stream().map(String::valueOf).collect(Collectors.joining(","))
+            : null;
+
         SportsTournamentConfig.SportsTournamentConfigBuilder builder = SportsTournamentConfig.builder()
             .tournamentName(HtmlSanitizer.sanitizePlainText(req.tournamentName()))
             .sport(sportMetaRepo.findById(req.sportId()).orElseThrow(() -> new ResourceNotFoundException("Sport", req.sportId())))
@@ -153,6 +365,15 @@ public class SportsMatchPersistenceService {
             .pointsForWin(Objects.requireNonNullElse(req.pointsForWin(), 2))
             .pointsForDraw(Objects.requireNonNullElse(req.pointsForDraw(), 1))
             .pointsForLoss(Objects.requireNonNullElse(req.pointsForLoss(), 0))
+            .seedingOrder(Objects.requireNonNullElse(req.seedingOrder(), "RANDOM"))
+            .byesFirstRoundOnly(Objects.requireNonNullElse(req.byesFirstRoundOnly(), true))
+            .showByesInBracket(Objects.requireNonNullElse(req.showByesInBracket(), true))
+            .limitMatchesPerDay(Objects.requireNonNullElse(req.limitMatchesPerDay(), false))
+            .maxMatchesPerDay(Objects.requireNonNullElse(req.maxMatchesPerDay(), 2))
+            .usePlayoffDays(Objects.requireNonNullElse(req.usePlayoffDays(), false))
+            .playoffDays(playoffDaysStr)
+            .venueAssignType(Objects.requireNonNullElse(req.venueAssignType(), "Random"))
+            .playoffRoundTimingsJson(serializePlayoffRoundTimings(req))
             .status(SportsTournamentConfig.TournamentStatus.DRAFT)
             .createdBy(userRepo.findById(adminUserId).orElseThrow(() -> new ResourceNotFoundException("AppUser", adminUserId)));
 
@@ -160,6 +381,25 @@ public class SportsMatchPersistenceService {
             builder.event(eventRepo.findById(req.eventId()).orElseThrow(() -> new ResourceNotFoundException("SportsEvent", req.eventId())));
         }
         return builder.build();
+    }
+
+    private String serializePlayoffRoundTimings(SportsTournamentConfigRequest req) {
+        if (req == null) return null;
+        if (req.playoffRoundDates() == null && req.playoffRoundTimes() == null &&
+            req.playoffRoundDurations() == null && req.playoffRoundModes() == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> map = new LinkedHashMap<>();
+            if (req.playoffRoundDates() != null) map.put("dates", req.playoffRoundDates());
+            if (req.playoffRoundTimes() != null) map.put("times", req.playoffRoundTimes());
+            if (req.playoffRoundDurations() != null) map.put("durations", req.playoffRoundDurations());
+            if (req.playoffRoundModes() != null) map.put("modes", req.playoffRoundModes());
+            return objectMapper.writeValueAsString(map);
+        } catch (Exception e) {
+            log.warn("Failed to serialize playoff round timings: {}", e.getMessage());
+            return null;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -272,11 +512,11 @@ public class SportsMatchPersistenceService {
             try {
                 round = MatchRound.valueOf(req.stage().trim().toUpperCase());
             } catch (Exception e) {
-                log.warn("Could not parse MatchRound for stage '{}', defaulting to FINAL", req.stage());
-                round = MatchRound.FINAL;
+                log.warn("Could not parse MatchRound for stage '{}', defaulting to QUARTER_FINAL", req.stage());
+                round = MatchRound.QUARTER_FINAL;
             }
         } else {
-            round = MatchRound.FINAL;
+            round = MatchRound.QUARTER_FINAL;
         }
 
         LocalDateTime scheduledAt = parseDateTimeSafe(req.startTime());
@@ -290,6 +530,24 @@ public class SportsMatchPersistenceService {
                 ? req.durationMinutes()
                 : (config.getMatchDurationMinutes() != null ? config.getMatchDurationMinutes() : 60);
 
+        String homeName = req.homeName();
+        if (homeName == null || homeName.isBlank()) {
+            homeName = home != null ? home.getTeamName() : "TBD";
+        }
+        String awayName = req.awayName();
+        if (awayName == null || awayName.isBlank()) {
+            awayName = away != null ? away.getTeamName() : "TBD";
+        }
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(homeName), safe(req.homeFlat()), safe(awayName), safe(req.awayFlat()), safe(req.stage()));
+
+        if (home == null && isRealParticipantName(homeName)) {
+            home = resolveOrCreateTeam(config, homeName, "#6366f1");
+        }
+        if (away == null && isRealParticipantName(awayName)) {
+            away = resolveOrCreateTeam(config, awayName, "#f97316");
+        }
+
         SportsTournamentMatch m = SportsTournamentMatch.builder()
             .config(config)
             .community(config.getCommunity())
@@ -302,6 +560,7 @@ public class SportsMatchPersistenceService {
             .venue(venue)
             .court(court)
             .status(MatchStatus.SCHEDULED)
+            .matchNotes(notes)
             .build();
 
         SportsTournamentMatch saved = matchRepo.save(m);
@@ -374,38 +633,21 @@ public class SportsMatchPersistenceService {
         config = configRepo.save(config);
         Long configId = config.getId();
 
-        // 3. Replace any existing preview/draft matches for this config.
-        //    NOTE: deleteByConfigId is @Modifying(clearAutomatically=true), which clears
-        //    the persistence context and detaches `config` (and its lazy associations).
-        matchRepo.deleteByConfigId(configId);
-
-        // 4. Re-load the config as a managed entity so building matches and the
+        // 3. Re-load the config as a managed entity so building matches and the
         //    response can read lazy fields (sport/community/event) within this session.
         SportsTournamentConfig managed = configRepo.findById(configId).orElseThrow(
             () -> new IllegalArgumentException("SportsTournament config not found: " + configId));
 
-        // 5. Sync groups and build + persist the new matches. The global DRAFT/PUBLISHED lifecycle status is
-        //    applied to ordinary matches, but match-type markers (auto-advanced BYEs) are
-        //    preserved so they aren't overwritten to DRAFT/PUBLISHED.
+        // 4. Sync groups and build/upsert the matches (in place, avoiding foreign key violations).
         List<SportsBulkMatchSaveRequest.MatchData> matches =
             req.matches() != null ? req.matches() : List.of();
         Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(managed, matches);
-        List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(managed, m, groupMap))
-            .peek(e -> {
-                if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
-                    e.setStatus(matchStatus);
-                }
-            })
-            .toList();
-        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
-        if (savedEntities == null || savedEntities.isEmpty()) {
-            savedEntities = entities;
-        }
+
+        List<SportsTournamentMatch> savedEntities = upsertMatches(managed, matches, matchStatus, groupMap);
         wireAndSaveKnockoutLinks(savedEntities);
 
         log.info("Unified save: config {} ({}) with {} matches", configId,
-            managed.getStatus(), entities.size());
+            managed.getStatus(), savedEntities.size());
 
         auditService.record(
             AuditAction.TOURNAMENT_SCHEDULE_SAVED,
@@ -413,10 +655,10 @@ public class SportsMatchPersistenceService {
             "SportsTournamentConfig",
             String.valueOf(configId),
             null,
-            "name=" + managed.getTournamentName() + ", status=" + managed.getStatus() + ", matches=" + entities.size()
+            "name=" + managed.getTournamentName() + ", status=" + managed.getStatus() + ", matches=" + savedEntities.size()
         );
 
-        return new SportsScheduleSaveResponse(toConfigResponse(managed), entities.size());
+        return new SportsScheduleSaveResponse(toConfigResponse(managed), savedEntities.size());
     }
 
     @Transactional
@@ -424,23 +666,184 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig config = resolveConfig(configId);
         Long effectiveConfigId = config.getId();
 
-        // Replace all existing matches for this config
-        matchRepo.deleteByConfigId(effectiveConfigId);
-
         Map<String, SportsTournamentGroup> groupMap = syncGroupsForConfig(config, matches);
-        List<SportsTournamentMatch> entities = matches.stream()
-            .map(m -> buildMatchEntity(config, m, groupMap))
-            .toList();
-
-        List<SportsTournamentMatch> savedEntities = matchRepo.saveAll(entities);
-        if (savedEntities == null || savedEntities.isEmpty()) {
-            savedEntities = entities;
-        }
+        List<SportsTournamentMatch> savedEntities = upsertMatches(config, matches, MatchStatus.SCHEDULED, groupMap);
         wireAndSaveKnockoutLinks(savedEntities);
-        log.info("Bulk-saved {} matches for config {}", entities.size(), effectiveConfigId);
-        return entities.size();
+        log.info("Bulk-saved {} matches for config {}", savedEntities.size(), effectiveConfigId);
+        return savedEntities.size();
     }
 
+    private List<SportsTournamentMatch> upsertMatches(
+            SportsTournamentConfig config,
+            List<SportsBulkMatchSaveRequest.MatchData> incomingMatches,
+            MatchStatus defaultStatus,
+            Map<String, SportsTournamentGroup> groupMap) {
+
+        List<SportsTournamentMatch> existing = new ArrayList<>(matchRepo.findByConfigId(config.getId()));
+        if (existing.isEmpty()) {
+            List<SportsTournamentMatch> newEntities = incomingMatches.stream()
+                .map(m -> buildMatchEntity(config, m, groupMap))
+                .peek(e -> {
+                    if (e.getStatus() != MatchStatus.AUTO_ADVANCED && e.getStatus() != MatchStatus.BYE) {
+                        e.setStatus(defaultStatus);
+                    }
+                })
+                .toList();
+            List<SportsTournamentMatch> saved = matchRepo.saveAll(newEntities);
+            return (saved != null && !saved.isEmpty()) ? saved : newEntities;
+        }
+
+        List<SportsTournamentMatch> toSave = new ArrayList<>();
+        List<SportsTournamentMatch> pool = new ArrayList<>(existing);
+
+        for (SportsBulkMatchSaveRequest.MatchData m : incomingMatches) {
+            MatchRound round = resolveMatchRound(m);
+            int roundNum = resolveRoundNumber(m, round);
+            Integer matchNum = m.matchNumber() != null ? m.matchNumber() : 0;
+            Integer bracketSlot = m.bracketSlot();
+
+            SportsTournamentMatch matchEntity = null;
+
+            // 1. Match by bracketSlot + round
+            if (bracketSlot != null) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getBracketSlot(), bracketSlot) && e.getRound() == round)
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 2. Match by round + matchNumber (+ group if specified)
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> e.getRound() == round && Objects.equals(e.getMatchNumber(), matchNum)
+                        && (m.groupName() == null || e.getGroup() == null || m.groupName().equalsIgnoreCase(e.getGroup().getGroupName())))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 3. Match by roundNumber + matchNumber
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getRoundNumber(), roundNum) && Objects.equals(e.getMatchNumber(), matchNum))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 4. Match by teams if real participant names are present
+            if (matchEntity == null && isRealParticipantName(m.homeName()) && isRealParticipantName(m.awayName())) {
+                matchEntity = pool.stream()
+                    .filter(e -> {
+                        String eHome = e.getTeamA() != null ? e.getTeamA().getTeamName() : "";
+                        String eAway = e.getTeamB() != null ? e.getTeamB().getTeamName() : "";
+                        return (eHome.equalsIgnoreCase(m.homeName()) && eAway.equalsIgnoreCase(m.awayName()))
+                            || (eHome.equalsIgnoreCase(m.awayName()) && eAway.equalsIgnoreCase(m.homeName()));
+                    })
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            // 5. Fallback: match by matchNumber alone
+            if (matchEntity == null && matchNum > 0) {
+                matchEntity = pool.stream()
+                    .filter(e -> Objects.equals(e.getMatchNumber(), matchNum))
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            if (matchEntity != null) {
+                pool.remove(matchEntity);
+                updateMatchEntity(matchEntity, config, m, groupMap, defaultStatus);
+                toSave.add(matchEntity);
+            } else {
+                SportsTournamentMatch newMatch = buildMatchEntity(config, m, groupMap);
+                if (newMatch.getStatus() != MatchStatus.AUTO_ADVANCED && newMatch.getStatus() != MatchStatus.BYE) {
+                    newMatch.setStatus(defaultStatus);
+                }
+                toSave.add(newMatch);
+            }
+        }
+
+        // Retain any remaining existing matches that are completed, live, in-progress or have results
+        for (SportsTournamentMatch remaining : pool) {
+            if (remaining.getStatus() == MatchStatus.COMPLETED
+                    || remaining.getStatus() == MatchStatus.LIVE
+                    || remaining.getStatus() == MatchStatus.IN_PROGRESS
+                    || remaining.getWinner() != null) {
+                toSave.add(remaining);
+            } else {
+                try {
+                    matchRepo.delete(remaining);
+                } catch (Exception ex) {
+                    log.warn("Could not delete remaining match id={}: {}. Retaining it.", remaining.getId(), ex.getMessage());
+                    toSave.add(remaining);
+                }
+            }
+        }
+
+        List<SportsTournamentMatch> saved = matchRepo.saveAll(toSave);
+        return (saved != null && !saved.isEmpty()) ? saved : toSave;
+    }
+
+    private void updateMatchEntity(
+            SportsTournamentMatch match,
+            SportsTournamentConfig config,
+            SportsBulkMatchSaveRequest.MatchData m,
+            Map<String, SportsTournamentGroup> groupMap,
+            MatchStatus defaultStatus) {
+
+        // 1. Timings
+        LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
+        if (scheduledAt != null) {
+            match.setScheduledAt(scheduledAt);
+        }
+        if (m.duration() != null && m.duration() > 0) {
+            match.setDurationMinutes(m.duration());
+        }
+
+        // 2. Venue & Court
+        if (m.venueId() != null) {
+            venueRepo.findById(m.venueId()).ifPresent(match::setVenue);
+        } else if (config.getVenue() != null && match.getVenue() == null) {
+            match.setVenue(config.getVenue());
+        }
+
+        if (m.courtId() != null) {
+            match.setCourt(courtRepo.findById(m.courtId()).orElse(null));
+        }
+
+        // 3. Group
+        if (groupMap != null && m.groupName() != null && groupMap.containsKey(m.groupName())) {
+            match.setGroup(groupMap.get(m.groupName()));
+        }
+
+        // 4. Teams - update if existing are null or TBD and incoming provides real teams
+        if (match.getTeamA() == null && isRealParticipantName(m.homeName())) {
+            SportsAuctionTeam teamA = resolveOrCreateTeam(config, m.homeName(), "#6366f1");
+            if (teamA != null) match.setTeamA(teamA);
+        }
+        if (match.getTeamB() == null && isRealParticipantName(m.awayName())) {
+            SportsAuctionTeam teamB = resolveOrCreateTeam(config, m.awayName(), "#f97316");
+            if (teamB != null) match.setTeamB(teamB);
+        }
+
+        // 5. Notes
+        String notes = String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            safe(m.homeName()), safe(m.homeFlat()), safe(m.awayName()), safe(m.awayFlat()), safe(m.groupName()));
+        match.setMatchNotes(notes);
+
+        // 6. Status: never regress terminal or live statuses
+        if (match.getStatus() != MatchStatus.COMPLETED
+                && match.getStatus() != MatchStatus.LIVE
+                && match.getStatus() != MatchStatus.IN_PROGRESS
+                && match.getStatus() != MatchStatus.AUTO_ADVANCED
+                && match.getStatus() != MatchStatus.BYE) {
+            if (defaultStatus != null && defaultStatus != MatchStatus.SCHEDULED) {
+                match.setStatus(defaultStatus);
+            } else if (m.status() != null && !m.status().isBlank()) {
+                match.setStatus(parseStatus(m.status(), MatchStatus.SCHEDULED));
+            }
+        }
+    }
 
     /**
      * Updates the status of every match for a config.
@@ -474,7 +877,17 @@ public class SportsMatchPersistenceService {
         SportsTournamentConfig config = resolveConfig(configId);
         Long effectiveConfigId = config.getId();
 
-        long count = matchRepo.countByConfigId(effectiveConfigId);
+        List<SportsTournamentMatch> matches = matchRepo.findByConfigId(effectiveConfigId);
+        boolean hasCompletedOrLive = matches.stream().anyMatch(m ->
+            m.getStatus() == MatchStatus.COMPLETED || m.getStatus() == MatchStatus.LIVE || m.getStatus() == MatchStatus.IN_PROGRESS);
+        if (hasCompletedOrLive) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "Cannot clear tournament matches because some matches are already live, completed, or have recorded results."
+            );
+        }
+
+        long count = matches.size();
         matchRepo.deleteByConfigId(effectiveConfigId);
         log.info("Deleted {} matches for config {}", count, effectiveConfigId);
         return (int) count;
@@ -591,6 +1004,12 @@ public class SportsMatchPersistenceService {
 
         SportsAuctionTeam teamA = tryResolveTeam(m.homeId());
         SportsAuctionTeam teamB = tryResolveTeam(m.awayId());
+        if (teamA == null && isRealParticipantName(m.homeName())) {
+            teamA = resolveOrCreateTeam(config, m.homeName(), "#6366f1");
+        }
+        if (teamB == null && isRealParticipantName(m.awayName())) {
+            teamB = resolveOrCreateTeam(config, m.awayName(), "#f97316");
+        }
 
         LocalDateTime scheduledAt = timeSlots.parseScheduledAt(m.matchDate(), m.matchTime());
 
@@ -644,33 +1063,56 @@ public class SportsMatchPersistenceService {
     }
 
     private MatchRound resolveMatchRound(SportsBulkMatchSaveRequest.MatchData m) {
-
         if (m.round() != null && !m.round().isBlank()) {
+            String rNorm = m.round().trim().toUpperCase().replace(" ", "_").replace("-", "_");
             try {
-                return MatchRound.valueOf(m.round().trim().toUpperCase());
+                return MatchRound.valueOf(rNorm);
             } catch (IllegalArgumentException ignored) {}
+
+            if (rNorm.contains("ROUND_OF_16") || rNorm.contains("R16") || rNorm.equals("ROUND_1")) {
+                return MatchRound.ROUND_OF_16;
+            }
+            if (rNorm.contains("ROUND_OF_32") || rNorm.contains("R32") || rNorm.equals("ROUND_2")) {
+                return MatchRound.ROUND_OF_32;
+            }
+            if (rNorm.contains("ROUND_OF_64") || rNorm.contains("R64")) {
+                return MatchRound.ROUND_OF_64;
+            }
+            if (rNorm.contains("QUARTER") || rNorm.contains("QF")) {
+                return MatchRound.QUARTER_FINAL;
+            }
+            if (rNorm.contains("SEMI") || rNorm.contains("SF")) {
+                return MatchRound.SEMI_FINAL;
+            }
+            if (rNorm.equals("FINAL") || rNorm.equals("GRAND_FINAL")) {
+                return MatchRound.FINAL;
+            }
+            if (rNorm.contains("THIRD") || rNorm.contains("3RD") || rNorm.contains("BRONZE")) {
+                return MatchRound.THIRD_PLACE;
+            }
         }
-        String name = (m.groupName() != null ? m.groupName() : "").toUpperCase();
-        if (name.contains("THIRD_PLACE") || name.contains("3RD PLACE") || name.contains("THIRD PLACE")) {
+
+        String name = (m.groupName() != null ? m.groupName() : "").trim().toUpperCase();
+        if (name.contains("THIRD_PLACE") || name.contains("3RD PLACE") || name.contains("THIRD PLACE") || name.contains("BRONZE")) {
             return MatchRound.THIRD_PLACE;
         }
-        if (name.contains("FINAL") && !name.contains("SEMI") && !name.contains("QUARTER")) {
-            return MatchRound.FINAL;
-        }
-        if (name.contains("SEMI")) {
+        if (name.contains("SEMI") || name.contains("SF")) {
             return MatchRound.SEMI_FINAL;
         }
-        if (name.contains("QUARTER")) {
+        if (name.contains("QUARTER") || name.contains("QF")) {
             return MatchRound.QUARTER_FINAL;
         }
-        if (name.contains("ROUND OF 16") || name.contains("ROUND_OF_16") || name.contains("R16")) {
+        if (name.contains("ROUND OF 16") || name.contains("ROUND_OF_16") || name.contains("R16") || name.matches(".*ROUND\\s*1(\\s+MATCH.*)?$")) {
             return MatchRound.ROUND_OF_16;
         }
-        if (name.contains("ROUND OF 32") || name.contains("ROUND_OF_32") || name.contains("R32")) {
+        if (name.contains("ROUND OF 32") || name.contains("ROUND_OF_32") || name.contains("R32") || name.matches(".*ROUND\\s*2(\\s+MATCH.*)?$")) {
             return MatchRound.ROUND_OF_32;
         }
         if (name.contains("ROUND OF 64") || name.contains("ROUND_OF_64") || name.contains("R64")) {
             return MatchRound.ROUND_OF_64;
+        }
+        if (name.equals("FINAL") || name.equals("GRAND FINAL") || name.startsWith("FINAL ") || name.endsWith(" FINAL")) {
+            return MatchRound.FINAL;
         }
 
         if (m.stage() == null) return MatchRound.LEAGUE_MATCH;
@@ -678,7 +1120,8 @@ public class SportsMatchPersistenceService {
             case "GROUP"       -> MatchRound.GROUP_STAGE;
             case "ROUND_ROBIN" -> MatchRound.LEAGUE_MATCH;
             case "PLAYOFF"     -> MatchRound.SEMI_FINAL;
-            default            -> MatchRound.FINAL;
+            case "KNOCKOUT"    -> (m.roundNumber() != null && m.roundNumber() == 1) ? MatchRound.ROUND_OF_16 : MatchRound.QUARTER_FINAL;
+            default            -> MatchRound.LEAGUE_MATCH;
         };
     }
 
@@ -712,5 +1155,48 @@ public class SportsMatchPersistenceService {
 
     private String safe(String s) {
         return s == null ? "" : s.replace("\"", "'");
+    }
+
+    private boolean isRealParticipantName(String name) {
+        return name != null && !name.isBlank() && !"TBD".equalsIgnoreCase(name)
+                && !"BYE".equalsIgnoreCase(name) && !"dummy".equalsIgnoreCase(name);
+    }
+
+    private SportsAuctionTeam resolveOrCreateTeam(SportsTournamentConfig config, String teamName, String defaultColor) {
+        if (!isRealParticipantName(teamName)) return null;
+        String cleanName = teamName.trim();
+
+        Long eventId = (config != null && config.getEvent() != null)
+                ? config.getEvent().getId()
+                : null;
+
+        if (eventId != null) {
+            List<SportsAuctionTeam> existing = teamRepo.findByEventIdOrderByTeamName(eventId);
+            for (SportsAuctionTeam t : existing) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        if (config != null && config.getId() != null) {
+            List<SportsAuctionTeam> existingCfg = teamRepo.findByConfigIdOrderByTeamName(config.getId());
+            for (SportsAuctionTeam t : existingCfg) {
+                if (t.getTeamName() != null && t.getTeamName().equalsIgnoreCase(cleanName)) {
+                    return t;
+                }
+            }
+        }
+
+        SportsAuctionTeam newTeam = SportsAuctionTeam.builder()
+                .community(config != null ? config.getCommunity() : null)
+                .event(config != null ? config.getEvent() : null)
+                .teamName(cleanName)
+                .totalBudget(0L)
+                .remainingBudget(0L)
+                .spent(0L)
+                .colorHex(defaultColor)
+                .build();
+        return teamRepo.save(newTeam);
     }
 }

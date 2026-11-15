@@ -11,14 +11,14 @@ spring:
   application:
     name: mana-community-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/manacommunity
-    username: ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)
-    password: ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:manacommunity}
+    username: ${DB_USERNAME:ENC(w7xhx3G74k7XQS/femg1JAqFNPid82G7EDgHPgNKAnXD84eDjo0FuY1ARHxWZmKRxsWKcg==)}
+    password: ${DB_PASSWORD:ENC(Tr9sRxR/C/HdqotCyVnS+Mbf/4d5V/gcZacjzmj/CrQGp3sAiazk5ZHqH2FLV4znHRATSWvfqqp4)}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -27,13 +27,31 @@ spring:
         format_sql: false
         use_sql_comments: false
 
+
+  # ── SMTP transport (Brevo relay for Dev) ────────────────────────────────
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME:b5c45c001@smtp-brevo.com}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            protocols: TLSv1.2
+
   flyway:
     enabled: true
     clean-disabled: true
     out-of-order: false
 
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
 
 app:
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
@@ -41,9 +59,18 @@ app:
   ai:
     enabled: ${AI_ENABLED:false}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com,http://localhost:5173,http://localhost:3000}
+
+  mail:
+    enabled: ${APP_MAIL_ENABLED:true}
+    from: ${APP_MAIL_FROM:b5c45c001@smtp-brevo.com}
+    from-name: Mana Community
+    base-url: ${APP_MAIL_BASE_URL:https://manacommunityhub.com}
+    recipient-mode: NONE
+
   security:
     mock-auth-enabled: false
+    require-https: ${APP_REQUIRE_HTTPS:false}      # TLS termination handled by Nginx; set true only if directly exposed
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
@@ -89,12 +116,10 @@ app:
       max-document-size-mb: ${MEDIA_MAX_DOC_MB:50}
 
   # ── DPDP Act 2023 compliance ─────────────────────────────────────────────
-  security:
-    require-https: true                       # gap #2 — enforce TLS in prod
 
   captcha:
-    enabled: true                             # gap #3 — enable hCaptcha in prod
-    secret-key: ${APP_CAPTCHA_SECRET_KEY}     # set this env var on the server
+    enabled: ${APP_CAPTCHA_ENABLED:false}      # set true in prod when APP_CAPTCHA_SECRET_KEY is configured
+    secret-key: ${APP_CAPTCHA_SECRET_KEY:}
 
   privacy:
     dpo-email: ${APP_DPO_EMAIL:dpo@manacommunity.app}   # [REQUIRED] real monitored mailbox

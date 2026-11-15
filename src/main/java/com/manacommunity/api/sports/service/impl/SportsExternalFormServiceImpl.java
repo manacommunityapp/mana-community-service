@@ -1,6 +1,5 @@
 package com.manacommunity.api.sports.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.sports.dto.*;
@@ -370,7 +369,11 @@ public class SportsExternalFormServiceImpl implements SportsExternalFormService 
 
         Map<String, Object> rawMap = new HashMap<>();
         try {
-            rawMap = objectMapper.readValue(resp.getRawPayloadJson(), new TypeReference<Map<String, Object>>() {});
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = objectMapper.readValue(resp.getRawPayloadJson(), Map.class);
+            if (parsed != null) {
+                rawMap = parsed;
+            }
         } catch (Exception ignored) {}
 
         SportsPlayerCategory category = null;

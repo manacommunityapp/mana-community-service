@@ -1,7 +1,6 @@
 package com.manacommunity.api.sports.dto;
 
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -59,12 +58,18 @@ public class SportsRegistrationResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class EventRef {
         private Long id;
         private String name;
         private String eventDateStart;
         private String eventDateEnd;
+        private String registrationDateEnd;
+        private String status;
         private String registrationStatus;
+        private String tournamentStatus;
+        private Boolean isRegistrationOpen;
         private SportRef sport;
     }
 

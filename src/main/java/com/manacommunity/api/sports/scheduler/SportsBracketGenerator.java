@@ -77,9 +77,8 @@ public class SportsBracketGenerator {
         List<SportsCourt> venueCourts = courts.courtsFor(config);
         int courtIdx = 0;
 
-        // ── Pad with nulls for byes ─────────────────────────────
-        List<SportsAuctionTeam> slotTeams = new ArrayList<>(teams);
-        for (int i = 0; i < byes; i++) slotTeams.add(null);  // null = bye
+        // ── Seeded bracket arrangement: Top half Seed 1, Bottom half Seed 2 ──
+        List<SportsAuctionTeam> slotTeams = arrangeBracketSeeds(teams, slotCount);
 
         // ── Round 1 ─────────────────────────────────────────────
         int matchNum = 1;
@@ -128,6 +127,8 @@ public class SportsBracketGenerator {
                     .bracketSlot(i)
                     .teamA(null)   // TBD — winner of earlier match
                     .teamB(null)
+                    .placeholderTeamA("Winner M" + (2 * i + 1))
+                    .placeholderTeamB("Winner M" + (2 * i + 2))
                     .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
@@ -144,6 +145,8 @@ public class SportsBracketGenerator {
                     .round(MatchRound.THIRD_PLACE)
                     .roundNumber(round)
                     .matchNumber(99)
+                    .placeholderTeamA("Loser SF 1")
+                    .placeholderTeamB("Loser SF 2")
                     .scheduledAt(slots.next())
                     .durationMinutes(matchDur)
                     .venue(config.getVenue())
@@ -332,9 +335,33 @@ public class SportsBracketGenerator {
 
         List<SportsTournamentMatch> koMatches = generateKnockout(koConfig,
             new ArrayList<>(Collections.nCopies(advancing, null))); // TBD teams
-        // Adjust cursor for knockout
+        // Adjust cursor and assign group-stage placeholders to knockout Round 1
+        int r1Matches = advancing / 2;
+        char[] letters = new char[]{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
         for (int i = 0; i < koMatches.size(); i++) {
-            koMatches.get(i).setScheduledAt(cursor.plusMinutes((long) (dur + brk) * i));
+            SportsTournamentMatch km = koMatches.get(i);
+            if (km.getRoundNumber() != null && km.getRoundNumber() == 1 && i < r1Matches) {
+                if (nGroups == 2 && advPer == 2) {
+                    if (i == 0) {
+                        km.setPlaceholderTeamA("1st Group A");
+                        km.setPlaceholderTeamB("2nd Group B");
+                    } else {
+                        km.setPlaceholderTeamA("1st Group B");
+                        km.setPlaceholderTeamB("2nd Group A");
+                    }
+                } else if (nGroups == 4 && advPer == 2) {
+                    if (i == 0) { km.setPlaceholderTeamA("1st Group A"); km.setPlaceholderTeamB("2nd Group B"); }
+                    else if (i == 1) { km.setPlaceholderTeamA("1st Group C"); km.setPlaceholderTeamB("2nd Group D"); }
+                    else if (i == 2) { km.setPlaceholderTeamA("1st Group B"); km.setPlaceholderTeamB("2nd Group A"); }
+                    else if (i == 3) { km.setPlaceholderTeamA("1st Group D"); km.setPlaceholderTeamB("2nd Group C"); }
+                } else {
+                    int gA = (i * 2) % nGroups;
+                    int gB = (i * 2 + 1) % nGroups;
+                    km.setPlaceholderTeamA("Top Group " + letters[gA]);
+                    km.setPlaceholderTeamB("Top Group " + letters[gB]);
+                }
+            }
+            km.setScheduledAt(cursor.plusMinutes((long) (dur + brk) * i));
         }
         matches.addAll(koMatches);
 
@@ -784,24 +811,111 @@ public class SportsBracketGenerator {
             SportsTournamentConfig config, LocalDateTime start, int dur, int brk) {
 
         List<SportsTournamentMatch> matches = new ArrayList<>();
-        int matchNum = 1;
+        if (teams == null || teams.size() < 2) return matches;
+
         SportsTimeSlotAllocator.Cursor slots = timeSlots.cursor(start, dur, brk);
         List<SportsCourt> venueCourts = courts.courtsFor(config);
         int courtIdx = 0;
+        int matchNum = 1;
 
-        for (int i = 0; i < teams.size(); i++) {
-            for (int j = i + 1; j < teams.size(); j++) {
-                matches.add(SportsTournamentMatch.builder()
+        // Berger Round-Robin algorithm (Circle Method):
+        List<SportsAuctionTeam> pool = new ArrayList<>(teams);
+        if (pool.size() % 2 != 0) {
+            pool.add(null); // BYE
+        }
+        int totalSlots = pool.size();
+        int rounds = totalSlots - 1;
+
+        for (int round = 0; round < rounds; round++) {
+            List<SportsTournamentMatch> roundMatches = new ArrayList<>();
+            for (int i = 0; i < totalSlots / 2; i++) {
+                SportsAuctionTeam teamA = pool.get(i);
+                SportsAuctionTeam teamB = pool.get(totalSlots - 1 - i);
+
+                if (teamA == null || teamB == null) continue; // BYE match skipped
+
+                if (round % 2 != 0) {
+                    SportsAuctionTeam tmp = teamA;
+                    teamA = teamB;
+                    teamB = tmp;
+                }
+
+                roundMatches.add(SportsTournamentMatch.builder()
                     .config(config).community(config.getCommunity()).group(grp)
-                    .round(MatchRound.GROUP_STAGE).roundNumber(matchNum).matchNumber(matchNum)
-                    .teamA(teams.get(i)).teamB(teams.get(j))
-                    .scheduledAt(slots.next()).durationMinutes(dur).venue(config.getVenue())
-                    .court(courts.pick(venueCourts, courtIdx++))
+                    .round(MatchRound.GROUP_STAGE).roundNumber(round + 1)
+                    .teamA(teamA).teamB(teamB)
+                    .durationMinutes(dur).venue(config.getVenue())
                     .status(MatchStatus.SCHEDULED).build());
-                matchNum++;
+            }
+
+            // In the final round, make sure Seed 1 vs Seed 2 is the last match of the round (the climax)
+            if (round == rounds - 1 && roundMatches.size() > 1) {
+                SportsTournamentMatch decider = null;
+                for (int m = 0; m < roundMatches.size(); m++) {
+                    SportsTournamentMatch mch = roundMatches.get(m);
+                    boolean hasSeed1 = (mch.getTeamA() == teams.get(0) || mch.getTeamB() == teams.get(0));
+                    boolean hasSeed2 = (teams.size() > 1 && (mch.getTeamA() == teams.get(1) || mch.getTeamB() == teams.get(1)));
+                    if (hasSeed1 && hasSeed2) {
+                        decider = roundMatches.remove(m);
+                        break;
+                    }
+                }
+                if (decider != null) {
+                    roundMatches.add(decider); // Add decider at the very end of final round
+                }
+            }
+
+            for (SportsTournamentMatch m : roundMatches) {
+                m.setMatchNumber(matchNum++);
+                m.setScheduledAt(slots.next());
+                m.setCourt(courts.pick(venueCourts, courtIdx++));
+                matches.add(m);
+            }
+
+            // Rotate: keep pool[0] fixed, rotate the rest clockwise
+            SportsAuctionTeam last = pool.remove(totalSlots - 1);
+            pool.add(1, last);
+        }
+
+        return matches;
+    }
+
+    private static List<SportsAuctionTeam> arrangeBracketSeeds(List<SportsAuctionTeam> teams, int slotCount) {
+        if (teams == null || teams.isEmpty()) {
+            return new ArrayList<>(Collections.nCopies(slotCount, null));
+        }
+        if (slotCount <= 2) {
+            List<SportsAuctionTeam> list = new ArrayList<>(teams);
+            while (list.size() < slotCount) list.add(null);
+            return list;
+        }
+
+        List<Integer> bracket = new ArrayList<>();
+        bracket.add(1);
+        bracket.add(2);
+
+        while (bracket.size() < slotCount) {
+            int nextSum = bracket.size() * 2 + 1;
+            List<Integer> nextBracket = new ArrayList<>();
+            for (int i = 0; i < bracket.size(); i += 2) {
+                int a = bracket.get(i);
+                int b = bracket.get(i + 1);
+                nextBracket.add(a);
+                nextBracket.add(nextSum - a);
+                nextBracket.add(b);
+                nextBracket.add(nextSum - b);
+            }
+            bracket = nextBracket;
+        }
+
+        List<SportsAuctionTeam> ordered = new ArrayList<>(Collections.nCopies(slotCount, null));
+        for (int slot = 0; slot < slotCount; slot++) {
+            int seed = bracket.get(slot);
+            if (seed <= teams.size()) {
+                ordered.set(slot, teams.get(seed - 1));
             }
         }
-        return matches;
+        return ordered;
     }
 
     private List<SportsTournamentMatch> pairSwissRound(

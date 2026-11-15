@@ -50,3 +50,4 @@ src/main/resources/application-local.properties
 **/application-local.properties
 
 /.mvn/jvm.config
+scripts/db/restore_users_from_audit.sql

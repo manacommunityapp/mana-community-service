@@ -18,6 +18,8 @@ import java.security.spec.KeySpec;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Decrypts any property value wrapped in {@code ENC(...)} at startup.
@@ -45,6 +47,7 @@ public class EncryptablePropertyProcessor implements EnvironmentPostProcessor {
 
     private static final String ENC_PREFIX = "ENC(";
     private static final String ENC_SUFFIX = ")";
+    private static final Pattern ENC_PATTERN = Pattern.compile("ENC\\(([^)]+)\\)");
     private static final int SALT_LENGTH = 16;
     private static final int IV_LENGTH = 12;
     private static final int GCM_TAG_BITS = 128;
@@ -62,19 +65,29 @@ public class EncryptablePropertyProcessor implements EnvironmentPostProcessor {
             if (ps instanceof EnumerablePropertySource<?> eps) {
                 for (String name : eps.getPropertyNames()) {
                     Object raw = eps.getProperty(name);
-                    if (raw instanceof String s && s.startsWith(ENC_PREFIX) && s.endsWith(ENC_SUFFIX)) {
-                        encryptedPropNames.add(name);
-                        if (masterPassword != null && !masterPassword.isBlank()) {
-                            String cipher = s.substring(ENC_PREFIX.length(), s.length() - ENC_SUFFIX.length());
-                            try {
-                                decrypted.put(name, decrypt(cipher, masterPassword));
-                            } catch (Exception e) {
-                                printFatalErrorBanner(
-                                        "FAILED TO DECRYPT PROPERTY '" + name + "'",
-                                        "Property '" + name + "' contains an ENC(...) encrypted value, but decryption failed: " + e.getMessage() + "\n\n" +
-                                        "Please verify that JASYPT_ENCRYPTOR_PASSWORD (or jasypt.encryptor.password) matches the secret key used during encryption."
-                                );
-                                throw new IllegalStateException("[EncryptableProperty] Failed to decrypt property '" + name + "': " + e.getMessage(), e);
+                    if (raw instanceof String s && s.contains(ENC_PREFIX)) {
+                        Matcher matcher = ENC_PATTERN.matcher(s);
+                        if (matcher.find()) {
+                            encryptedPropNames.add(name);
+                            if (masterPassword != null && !masterPassword.isBlank()) {
+                                try {
+                                    matcher.reset();
+                                    StringBuilder sb = new StringBuilder();
+                                    while (matcher.find()) {
+                                        String cipher = matcher.group(1);
+                                        String plain = decrypt(cipher, masterPassword);
+                                        matcher.appendReplacement(sb, Matcher.quoteReplacement(plain));
+                                    }
+                                    matcher.appendTail(sb);
+                                    decrypted.put(name, sb.toString());
+                                } catch (Exception e) {
+                                    printFatalErrorBanner(
+                                            "FAILED TO DECRYPT PROPERTY '" + name + "'",
+                                            "Property '" + name + "' contains an ENC(...) encrypted value, but decryption failed: " + e.getMessage() + "\n\n" +
+                                            "Please verify that JASYPT_ENCRYPTOR_PASSWORD (or jasypt.encryptor.password) matches the secret key used during encryption."
+                                    );
+                                    throw new IllegalStateException("[EncryptableProperty] Failed to decrypt property '" + name + "': " + e.getMessage(), e);
+                                }
                             }
                         }
                     }

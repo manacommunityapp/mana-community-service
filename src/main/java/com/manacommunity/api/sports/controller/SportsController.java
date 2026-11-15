@@ -20,6 +20,7 @@ import com.manacommunity.api.sports.dto.SportsCommunityFamilyMemberResponse;
 import com.manacommunity.api.sports.dto.SportsMetaRequest;
 import com.manacommunity.api.sports.dto.SportsMetaResponse;
 import com.manacommunity.api.sports.dto.SportsTournamentRequest;
+import com.manacommunity.api.sports.dto.SportsTournamentResponse;
 import com.manacommunity.api.sports.dto.SportsEventRegistrationDetailsResponse;
 import com.manacommunity.api.sports.dto.SportsBatchStatusRequest;
 import com.manacommunity.api.sports.dto.SportsBatchDeleteRequest;
@@ -56,6 +57,10 @@ import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.sports.service.SportsEventCsvImportService;
 import org.springframework.web.multipart.MultipartFile;
 import static com.manacommunity.api.constants.permissions.SportsPermissions.*;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_COMMUNITY_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SPORTS_ADMIN;
+import static com.manacommunity.api.constants.PermissionConstants.ROLE_SUPER_ADMIN;
 
 import com.manacommunity.api.sports.repository.SportsEventRegistrationRepository;
 
@@ -227,7 +232,6 @@ public class SportsController {
     }
 
     @PutMapping("/events/batch/status")
-    @PostMapping("/events/batch/status")
     public ResponseEntity<List<SportsEventResponse>> batchUpdateStatus(
             @Valid @RequestBody SportsBatchStatusRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -235,6 +239,13 @@ public class SportsController {
         log.info("Batch updating event status count={} status={}", req.getEventIds().size(), req.getStatus());
         List<SportsEvent> updated = eventService.batchUpdateStatus(req.getEventIds(), req.getStatus());
         return ResponseEntity.ok(updated.stream().map(this::toEventResponse).toList());
+    }
+
+    @PostMapping("/events/batch/status")
+    public ResponseEntity<List<SportsEventResponse>> batchUpdateStatusPost(
+            @Valid @RequestBody SportsBatchStatusRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return batchUpdateStatus(req, principal);
     }
 
     @PutMapping("/events/{id}/captain-nominations")
@@ -287,7 +298,6 @@ public class SportsController {
     }
 
     @PostMapping("/events/batch/delete")
-    @DeleteMapping("/events/batch")
     public ResponseEntity<Void> batchDeleteEvents(
             @Valid @RequestBody SportsBatchDeleteRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -295,6 +305,13 @@ public class SportsController {
         log.info("Batch deleting events count={}", req.getEventIds().size());
         eventService.batchDeleteEvents(req.getEventIds());
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/events/batch")
+    public ResponseEntity<Void> batchDeleteEventsDelete(
+            @Valid @RequestBody SportsBatchDeleteRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return batchDeleteEvents(req, principal);
     }
 
     @DeleteMapping("/tournaments/{id}")
@@ -307,12 +324,39 @@ public class SportsController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping({"/events/{id}", "/tournaments/{id}"})
-    public ResponseEntity<SportsEventResponse> getTournamentById(
+    @GetMapping("/events/{id}")
+    public ResponseEntity<SportsEventResponse> getEventById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
-        return ResponseEntity.ok(toEventResponse(eventService.getEventById(id)));
+        try {
+            return ResponseEntity.ok(toEventResponse(eventService.getEventById(id)));
+        } catch (ResourceNotFoundException e) {
+            // Fallback: check if id is a tournament ID
+            SportsTournament tournament = tournamentService.getTournamentById(id);
+            SportsEvent mainEvent = (tournament.getSportsEvents() != null && !tournament.getSportsEvents().isEmpty())
+                    ? tournament.getSportsEvents().get(0)
+                    : null;
+            if (mainEvent != null) {
+                return ResponseEntity.ok(toEventResponse(mainEvent));
+            }
+            throw e;
+        }
+    }
+
+    @GetMapping("/tournaments/{id}")
+    public ResponseEntity<?> getTournamentById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
+        try {
+            SportsTournament tournament = tournamentService.getTournamentById(id);
+            return ResponseEntity.ok(toTournamentResponse(tournament));
+        } catch (ResourceNotFoundException e) {
+            // Fallback for legacy calls that pass eventId to /tournaments/{id}
+            SportsEvent event = eventService.getEventById(id);
+            return ResponseEntity.ok(toEventResponse(event));
+        }
     }
 
     @GetMapping("/events/by-uuid/{uuid}")
@@ -516,6 +560,17 @@ public class SportsController {
         return ResponseEntity.ok(members);
     }
 
+    private boolean isSportsAdminOrAdmin(UserPrincipal principal) {
+        if (principal == null) return false;
+        AppUser user = loggedInUserService.resolve(principal);
+        if (user == null) return false;
+        return user.hasRole(ROLE_SUPER_ADMIN)
+                || user.hasRole(ROLE_ADMIN)
+                || user.hasRole(ROLE_COMMUNITY_ADMIN)
+                || user.hasRole(ROLE_SPORTS_ADMIN)
+                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
+    }
+
     @PostMapping("/register")
     public ResponseEntity<SportsRegistrationResponse> register(
             @Valid @RequestBody RegistrationRequest req,
@@ -527,8 +582,9 @@ public class SportsController {
                 .findByIdAndUserId(req.getFamilyMemberId(), ctx.userId()).isEmpty()) {
             throw new UnauthorizedActionException("Use Register Others to register a different resident's family member.");
         }
+        boolean admin = isSportsAdminOrAdmin(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId())));
+                .body(toRegistrationResponse(eventService.registerUser(req, ctx.userId(), admin)));
     }
 
     @PostMapping("/register-others")
@@ -537,8 +593,9 @@ public class SportsController {
             @AuthenticationPrincipal UserPrincipal principal) {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        boolean admin = isSportsAdminOrAdmin(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toRegistrationResponse(eventService.registerOthers(req, ctx.userId())));
+                .body(toRegistrationResponse(eventService.registerOthers(req, ctx.userId(), admin)));
     }
 
     @PostMapping("/register-team")
@@ -549,7 +606,8 @@ public class SportsController {
         log.info("Registering team '{}' for event eventId={} with {} members",
                 teamReq.getTeamName(), teamReq.getEventId(), teamReq.getMemberUserIds().size());
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId());
+        boolean admin = isSportsAdminOrAdmin(principal);
+        List<SportsEventRegistration> registrations = eventService.registerTeam(teamReq, ctx.userId(), admin);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(registrations.stream().map(this::toRegistrationResponse).toList());
     }
@@ -561,8 +619,7 @@ public class SportsController {
         permissionCheckService.requireAnyPermission(principal, VIEW_EVENT_REGISTRATIONS);
         log.info("Withdrawing registration registrationId={}", registrationId);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
-        boolean admin = ctx.superAdmin()
-                || permissionCheckService.hasAnyPermission(principal, CREATE_EDIT_EVENT_REGISTRATIONS);
+        boolean admin = isSportsAdminOrAdmin(principal);
         eventService.withdraw(registrationId, ctx.userId(), admin, reason);
         return ResponseEntity.noContent().build();
     }
@@ -717,6 +774,53 @@ public class SportsController {
 
     // ── Mappers ──────────────────────────────────────────────────────────────
 
+    private SportsTournamentResponse toTournamentResponse(SportsTournament t) {
+        List<SponsorDto> sponsorDtos = t.getSponsors() != null
+                ? t.getSponsors().stream().map(s -> {
+                    SponsorDto dto = new SponsorDto();
+                    dto.setCategory(s.getCategory());
+                    dto.setName(s.getName());
+                    dto.setUrl(s.getUrl());
+                    return dto;
+                }).toList()
+                : List.of();
+
+        List<SportsEventResponse> eventResponses = t.getSportsEvents() != null
+                ? t.getSportsEvents().stream().map(this::toEventResponse).toList()
+                : List.of();
+
+        return SportsTournamentResponse.builder()
+                .id(t.getId())
+                .name(t.getName())
+                .communityId(t.getCommunity() != null ? t.getCommunity().getId() : null)
+                .communityName(t.getCommunity() != null ? t.getCommunity().getName() : null)
+                .maxParticipants(t.getMaxParticipants())
+                .description(t.getDescription())
+                .eventDateStart(t.getEventDateStart())
+                .eventDateEnd(t.getEventDateEnd())
+                .registrationDateStart(t.getRegistrationDateStart())
+                .registrationDateEnd(t.getRegistrationDateEnd())
+                .startTime(t.getStartTime())
+                .dueTime(t.getDueTime())
+                .bannerImage(t.getBannerImage())
+                .contactName(t.getContactName())
+                .contactNumber(t.getContactNumber())
+                .contactEmail(t.getContactEmail())
+                .contacts(t.getContacts() != null
+                        ? t.getContacts().stream().map(c -> com.manacommunity.api.dto.ContactDto.builder()
+                            .id(c.getId()).name(c.getName()).title(c.getTitle())
+                            .number(c.getNumber()).email(c.getEmail()).build()).toList()
+                        : java.util.List.of())
+                .otherContacts(t.getOtherContacts())
+                .allowAdminChat(t.getAllowAdminChat())
+                .registrationStatus(t.getRegistrationStatus() != null ? t.getRegistrationStatus().name() : null)
+                .sponsors(sponsorDtos)
+                .sportsEvents(eventResponses)
+                .createdAt(t.getCreatedAt())
+                .updatedAt(t.getUpdatedAt())
+                .build();
+    }
+
     private SportsEventResponse toEventResponse(SportsEvent e) {
         SportsEventResponse.SportRef sportRef = null;
         if (e.getSport() != null) {
@@ -855,18 +959,42 @@ public class SportsController {
     private SportsRegistrationResponse toRegistrationResponse(SportsEventRegistration r) {
         SportsRegistrationResponse.EventRef eventRef = null;
         if (r.getEvent() != null) {
+            SportsEvent ev = r.getEvent();
+            SportsTournament tourney = ev.getTournament();
             SportsRegistrationResponse.SportRef sportRef = null;
-            if (r.getEvent().getSport() != null) {
+            if (ev.getSport() != null) {
                 sportRef = SportsRegistrationResponse.SportRef.builder()
-                        .id(r.getEvent().getSport().getId())
-                        .name(r.getEvent().getSport().getName())
+                        .id(ev.getSport().getId())
+                        .name(ev.getSport().getName())
                         .build();
             }
+
+            String evStatusStr = ev.getStatus() != null ? ev.getStatus().name() : null;
+            String tourneyStatusStr = (tourney != null && tourney.getRegistrationStatus() != null)
+                    ? tourney.getRegistrationStatus().name() : null;
+            String effectiveStatus = evStatusStr != null ? evStatusStr : tourneyStatusStr;
+
+            java.time.LocalDate regEnd = ev.getRegistrationDateEnd() != null ? ev.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+            java.time.LocalDate evStart = ev.getEventDateStart() != null ? ev.getEventDateStart()
+                    : (tourney != null ? tourney.getEventDateStart() : null);
+
+            boolean isEventOpen = (ev.getActive() == null || ev.getActive())
+                    && (ev.getStatus() == null || ev.getStatus() == com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN)
+                    && (tourney == null || tourney.getRegistrationStatus() == null || tourney.getRegistrationStatus() == com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN)
+                    && (regEnd == null || !java.time.LocalDate.now().isAfter(regEnd))
+                    && (evStart == null || java.time.LocalDate.now().isBefore(evStart));
+
             eventRef = SportsRegistrationResponse.EventRef.builder()
-                    .id(r.getEvent().getId())
-                    .name(r.getEvent().getName())
-                    .eventDateStart(r.getEvent().getEventDateStart() != null ? r.getEvent().getEventDateStart().toString() : null)
-                    .eventDateEnd(r.getEvent().getEventDateEnd() != null ? r.getEvent().getEventDateEnd().toString() : null)
+                    .id(ev.getId())
+                    .name(ev.getName())
+                    .eventDateStart(evStart != null ? evStart.toString() : null)
+                    .eventDateEnd(ev.getEventDateEnd() != null ? ev.getEventDateEnd().toString() : (tourney != null && tourney.getEventDateEnd() != null ? tourney.getEventDateEnd().toString() : null))
+                    .registrationDateEnd(regEnd != null ? regEnd.toString() : null)
+                    .status(evStatusStr)
+                    .registrationStatus(effectiveStatus)
+                    .tournamentStatus(tourneyStatusStr)
+                    .isRegistrationOpen(isEventOpen)
                     .sport(sportRef)
                     .build();
         }

@@ -26,7 +26,11 @@ public class PresignedUrlRefreshService {
 
     private final S3FileStorageService s3Storage;
 
-    @Autowired(required = false)
+    public PresignedUrlRefreshService() {
+        this.s3Storage = null;
+    }
+
+    @Autowired
     public PresignedUrlRefreshService(@Autowired(required = false) S3FileStorageService s3Storage) {
         this.s3Storage = s3Storage;
     }

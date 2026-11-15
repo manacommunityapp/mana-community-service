@@ -61,6 +61,12 @@ public class SportsTournamentMatch {
     @JoinColumn(name = "team_b_id")
     private SportsAuctionTeam teamB;
 
+    @Column(name = "placeholder_team_a")
+    private String placeholderTeamA;
+
+    @Column(name = "placeholder_team_b")
+    private String placeholderTeamB;
+
     // For bracket: which match does the winner come from?
     private Long winnerFeedFromMatchA;   // match id
     private Long winnerFeedFromMatchB;   // match id
@@ -68,6 +74,19 @@ public class SportsTournamentMatch {
     // Where does the winner/loser of THIS match go?
     private Long winnerAdvancesToMatchId;
     private Long loserSentToMatchId;     // for double elimination
+
+    // ── Stage / Version ─────────────────────────────────────────────
+    @Column(name = "stage_id")
+    private Long stageId;
+
+    @Column(name = "schedule_version_id")
+    private Long scheduleVersionId;
+
+    @Column(name = "is_reserve_day_match", nullable = false)
+    private boolean reserveDayMatch;
+
+    @Column(name = "postponed_from_match_id")
+    private Long postponedFromMatchId;
 
     // ── Schedule ──────────────────────────────────────────────────
     @Column(nullable = false)
@@ -126,6 +145,19 @@ public class SportsTournamentMatch {
 
     @Column(columnDefinition = "TEXT")
     private String  matchConfigOverrideJson;
+
+    // ── Community feed visibility ─────────────────────────────────
+    /** null = inherit from event → tournament; true/false = explicit override. */
+    @Column(name = "show_in_feed")
+    private Boolean showInFeed;
+
+    /** null = inherit from policy; true/false = explicit override to post result to feed upon completion. */
+    @Column(name = "post_to_feed")
+    private Boolean postToFeed;
+
+    /** Id of the feed result post once published (prevents duplicate posts). */
+    @Column(name = "feed_result_post_id")
+    private Long feedResultPostId;
 
     // ── Swiss round ───────────────────────────────────────────────
     private Integer swissRoundNumber;
