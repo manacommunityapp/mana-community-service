@@ -58,6 +58,10 @@ public class SportsMatchResultService {
         String decision = req.tossDecision().toUpperCase(Locale.ROOT);
         match.setTossWinner(tossWinner);
         match.setTossDecision(decision);
+        if (match.getStatus() == MatchStatus.SCHEDULED) {
+            match.setStatus(MatchStatus.LIVE);
+            if (match.getStartedAt() == null) match.setStartedAt(java.time.LocalDateTime.now());
+        }
         matchRepo.save(match);
 
         SportsMatchResult result = resultRepo.findByMatchId(matchId)
