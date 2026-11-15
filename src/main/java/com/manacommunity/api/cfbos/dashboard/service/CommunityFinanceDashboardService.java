@@ -79,7 +79,7 @@ public class CommunityFinanceDashboardService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal pendingExpenses = expenses.stream()
-                .filter(e -> e.getStatus() == ExpenseStatus.DRAFT || e.getStatus() == ExpenseStatus.SUBMITTED)
+                .filter(e -> e.getStatus() == ExpenseStatus.DRAFT || e.getStatus() == ExpenseStatus.PENDING_APPROVAL)
                 .map(CfbosExpense::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
