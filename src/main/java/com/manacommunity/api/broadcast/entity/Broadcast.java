@@ -1,4 +1,4 @@
-package com.manacommunity.api.broadcast.entity;
+﻿package com.manacommunity.api.broadcast.entity;
 
 import com.manacommunity.api.model.common.BaseAuditEntity;
 import com.manacommunity.api.model.Community;
@@ -15,6 +15,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class Broadcast extends BaseAuditEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
