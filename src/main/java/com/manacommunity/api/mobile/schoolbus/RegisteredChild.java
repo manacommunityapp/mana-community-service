@@ -7,7 +7,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "MobileRegisteredChild")
 @Table(name = "school_bus_registered_child")
 @Data
 @Builder
