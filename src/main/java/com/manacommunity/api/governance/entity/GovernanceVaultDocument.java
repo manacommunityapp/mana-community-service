@@ -1,4 +1,4 @@
-ackage com.manacommunity.api.governance.entity;
+package com.manacommunity.api.governance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,7 +20,7 @@ public class GovernanceVaultDocument {
     private String title;
 
     @Column(nullable = false, length = 50)
-    private String category; // BYLAW, AUDIT, MINUTES, POLICY, CERTIFICATE, OTHER
+    private String category;
 
     @Column(name = "document_url", nullable = false, length = 500)
     private String documentUrl;
@@ -29,7 +29,7 @@ public class GovernanceVaultDocument {
     private Long fileSizeKb;
 
     @Column(length = 10)
-    private String fileType; // PDF, DOCX, XLSX
+    private String fileType;
 
     @Column(name = "community_id", nullable = false)
     private Long communityId;
