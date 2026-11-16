@@ -1,8 +1,6 @@
--- V284__mw_skill_passport.sql
--- Skill Passport: reusable, shareable skills tied to a Mana user account
-
+﻿-- V284: Skill Passport
 CREATE TABLE mw_skill_passports (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   mana_user_id      BIGINT NOT NULL UNIQUE,
   is_public         BOOLEAN DEFAULT FALSE,
   bio               TEXT,
@@ -10,12 +8,12 @@ CREATE TABLE mw_skill_passports (
   preferred_roles   VARCHAR(500),
   availability      VARCHAR(30) DEFAULT 'UNAVAILABLE',
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_passport_user (mana_user_id)
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_passport_user ON mw_skill_passports(mana_user_id);
 
 CREATE TABLE mw_passport_skills (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   passport_id       BIGINT NOT NULL,
   skill_name        VARCHAR(100) NOT NULL,
   category          VARCHAR(100),
@@ -28,7 +26,7 @@ CREATE TABLE mw_passport_skills (
 );
 
 CREATE TABLE mw_passport_certifications (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   passport_id       BIGINT NOT NULL,
   name              VARCHAR(200) NOT NULL,
   issuing_body      VARCHAR(200),
@@ -41,7 +39,7 @@ CREATE TABLE mw_passport_certifications (
 );
 
 CREATE TABLE mw_passport_work_history (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   passport_id       BIGINT NOT NULL,
   employer_name     VARCHAR(200) NOT NULL,
   role              VARCHAR(200),

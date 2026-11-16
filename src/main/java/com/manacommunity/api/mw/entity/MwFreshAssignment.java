@@ -27,12 +27,12 @@ public class MwFreshAssignment {
     @Column(length = 300)
     private String dropLocation;
 
-    private BigDecimal estimatedKm;
-    private BigDecimal actualKm;
+    @Column(name = "estimated_km", precision = 6, scale = 2) private BigDecimal estimatedKm;
+    @Column(name = "actual_km", precision = 6, scale = 2) private BigDecimal actualKm;
     private Boolean onTime;
-    private BigDecimal basePay;
-    private BigDecimal kmBonus;
-    private BigDecimal timeBonus;
+    @Column(precision = 8, scale = 2) private BigDecimal basePay;
+    @Column(name = "km_bonus", precision = 8, scale = 2) private BigDecimal kmBonus;
+    @Column(name = "time_bonus", precision = 8, scale = 2) private BigDecimal timeBonus;
 
     @Column(name = "total_incentive", insertable = false, updatable = false)
     private BigDecimal totalIncentive;

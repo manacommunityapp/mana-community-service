@@ -66,6 +66,9 @@ public class SecurityConfig { // BUG FIX: was package-private
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
+    private com.manacommunity.api.config.tenant.TenantFilter tenantFilter;
+
+    @Autowired
     private com.manacommunity.api.security.RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     @Autowired
@@ -99,6 +102,20 @@ public class SecurityConfig { // BUG FIX: was package-private
     public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterAutoRegistrationDisabler(
             JwtAuthenticationFilter filter) {
         FilterRegistrationBean<JwtAuthenticationFilter> registration =
+                new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * Disable auto-registration of TenantFilter as a raw servlet filter so that it
+     * executes strictly inside the security filter chains AFTER JwtAuthenticationFilter,
+     * ensuring that tenant authorization is anchored to the authenticated user identity.
+     */
+    @Bean
+    public FilterRegistrationBean<com.manacommunity.api.config.tenant.TenantFilter> tenantFilterAutoRegistrationDisabler(
+            com.manacommunity.api.config.tenant.TenantFilter filter) {
+        FilterRegistrationBean<com.manacommunity.api.config.tenant.TenantFilter> registration =
                 new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
@@ -175,6 +192,7 @@ public class SecurityConfig { // BUG FIX: was package-private
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // Bearer JWT path (super-admin token) — same filter as the main chain.
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(tenantFilter, JwtAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(ROLE_SUPER_ADMIN))
             // Browser path — prompts for the super-admin's app credentials.
             .httpBasic(basic -> basic.authenticationEntryPoint(docsAuthEntryPoint()))
@@ -223,6 +241,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // (X-Content-Type-Options: nosniff is on by default.)
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(tenantFilter, JwtAuthenticationFilter.class)
             // Render filter-level auth failures (missing/invalid token, forbidden)
             // in the same ErrorResponse envelope as @RestControllerAdvice, instead
             // of Spring's default BasicErrorController body (no errorCode/message/

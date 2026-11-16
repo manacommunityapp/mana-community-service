@@ -40,7 +40,7 @@ public class HrAnalyticsService {
             long count = activeEmployees.stream()
                     .filter(e -> e.getDepartment() != null && e.getDepartment().getId().equals(dept.getId()))
                     .count();
-            if (count > 0) deptBreakdown.put(dept.getName(), count);
+            if (count > 0) deptBreakdown.put(dept.getDepartmentName(), count);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -104,7 +104,7 @@ public class HrAnalyticsService {
             if (!deptEmps.isEmpty()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("departmentId", dept.getId());
-                row.put("departmentName", dept.getName());
+                row.put("departmentName", dept.getDepartmentName());
                 row.put("employeeCount", deptEmps.size());
                 result.add(row);
             }

@@ -170,18 +170,39 @@ class HierarchicalMultiTenancyTest {
         }
 
         @Test
-        @DisplayName("@PrePersist preserves explicitly assigned IDs")
-        void prePersistPreservesExplicitIds() {
+        @DisplayName("@PrePersist preserves explicitly assigned matching IDs")
+        void prePersistPreservesMatchingExplicitIds() {
             TenantContext.setTenant(55L, 77L);
 
             SampleEntity entity = new SampleEntity();
-            entity.setOrganizationId(999L);
-            entity.setCommunityId(888L);
+            entity.setOrganizationId(55L);
+            entity.setCommunityId(77L);
 
             entity.populateTenantContext();
 
-            assertThat(entity.getOrganizationId()).isEqualTo(999L);
-            assertThat(entity.getCommunityId()).isEqualTo(888L);
+            assertThat(entity.getOrganizationId()).isEqualTo(55L);
+            assertThat(entity.getCommunityId()).isEqualTo(77L);
+        }
+
+        @Test
+        @DisplayName("@PrePersist rejects cross-tenant write when entity communityId does not match context")
+        void prePersistRejectsCrossTenantWrite() {
+            TenantContext.setTenant(55L, 77L);
+
+            SampleEntity entity = new SampleEntity();
+            entity.setCommunityId(999L);
+
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, entity::populateTenantContext);
+        }
+
+        @Test
+        @DisplayName("@PrePersist rejects write when communityId is missing and context is null")
+        void prePersistRejectsMissingTenantContext() {
+            TenantContext.clear();
+
+            SampleEntity entity = new SampleEntity();
+
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, entity::populateTenantContext);
         }
     }
 

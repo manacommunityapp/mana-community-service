@@ -1,11 +1,11 @@
--- Phase 5: Unified Vendor Master
+﻿-- Phase 5: Unified Vendor Master
 -- Merges `vendors` (procurement) and `finance_vendors` (finance module) into
 -- a single community-scoped `mana_vendor` table.
 -- Legacy tables are kept intact; mana_vendor_id columns link back once assigned.
 
 -- ── 1. Create the canonical vendor master ────────────────────────────────────
 
-CREATE TABLE mana_vendor (
+CREATE TABLE IF NOT EXISTS mana_vendor (
     id                       BIGSERIAL     PRIMARY KEY,
 
     -- Community scoping (nullable for migrated legacy rows; required for new rows via API)
@@ -39,10 +39,10 @@ CREATE TABLE mana_vendor (
     updated_at               TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_mana_vendor_community    ON mana_vendor(community_id);
-CREATE INDEX idx_mana_vendor_name         ON mana_vendor(community_id, name);
-CREATE INDEX idx_mana_vendor_legacy_v     ON mana_vendor(legacy_vendor_id);
-CREATE INDEX idx_mana_vendor_legacy_fv    ON mana_vendor(legacy_finance_vendor_id);
+CREATE INDEX IF NOT EXISTS idx_mana_vendor_community    ON mana_vendor(community_id);
+CREATE INDEX IF NOT EXISTS idx_mana_vendor_name         ON mana_vendor(community_id, name);
+CREATE INDEX IF NOT EXISTS idx_mana_vendor_legacy_v     ON mana_vendor(legacy_vendor_id);
+CREATE INDEX IF NOT EXISTS idx_mana_vendor_legacy_fv    ON mana_vendor(legacy_finance_vendor_id);
 
 -- ── 2. Migrate existing `finance_vendors` rows ───────────────────────────────
 

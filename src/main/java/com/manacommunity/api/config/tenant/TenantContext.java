@@ -19,10 +19,22 @@ public class TenantContext implements AutoCloseable {
     private Long propertyId;
     private Long userId;
 
-    private static final InheritableThreadLocal<TenantContext> CURRENT_CONTEXT = new InheritableThreadLocal<>();
+    private static final ThreadLocal<TenantContext> CURRENT_CONTEXT = new ThreadLocal<>();
 
     public static void setContext(TenantContext context) {
-        CURRENT_CONTEXT.set(context);
+        if (context == null) {
+            clear();
+        } else {
+            CURRENT_CONTEXT.set(context);
+        }
+    }
+
+    public static TenantContext getRawContext() {
+        return CURRENT_CONTEXT.get();
+    }
+
+    public static boolean isSet() {
+        return CURRENT_CONTEXT.get() != null;
     }
 
     public static TenantContext getContext() {
@@ -46,6 +58,22 @@ public class TenantContext implements AutoCloseable {
         return ctx != null ? ctx.communityId : null;
     }
 
+    public static Long requireCommunityId() {
+        Long cId = getCommunityId();
+        if (cId == null) {
+            throw new IllegalStateException("Active community tenant context is required but none was resolved");
+        }
+        return cId;
+    }
+
+    public static Long requireOrganizationId() {
+        Long orgId = getOrganizationId();
+        if (orgId == null) {
+            throw new IllegalStateException("Active organization tenant context is required but none was resolved");
+        }
+        return orgId;
+    }
+
     public static void setTenant(Long organizationId, Long communityId) {
         TenantContext ctx = getContext();
         ctx.setOrganizationId(organizationId != null ? organizationId : DEFAULT_ORG_ID);
@@ -63,6 +91,43 @@ public class TenantContext implements AutoCloseable {
                 Long id = Long.parseLong(tenantId.substring(10));
                 getContext().setCommunityId(id);
             } catch (NumberFormatException ignored) {}
+        }
+    }
+
+    public TenantContext copy() {
+        return TenantContext.builder()
+                .organizationId(this.organizationId)
+                .communityId(this.communityId)
+                .propertyId(this.propertyId)
+                .userId(this.userId)
+                .build();
+    }
+
+    public static void runWith(TenantContext context, Runnable task) {
+        TenantContext previous = CURRENT_CONTEXT.get();
+        try {
+            setContext(context);
+            task.run();
+        } finally {
+            if (previous != null) {
+                setContext(previous);
+            } else {
+                clear();
+            }
+        }
+    }
+
+    public static <T> T callWith(TenantContext context, java.util.concurrent.Callable<T> task) throws Exception {
+        TenantContext previous = CURRENT_CONTEXT.get();
+        try {
+            setContext(context);
+            return task.call();
+        } finally {
+            if (previous != null) {
+                setContext(previous);
+            } else {
+                clear();
+            }
         }
     }
 

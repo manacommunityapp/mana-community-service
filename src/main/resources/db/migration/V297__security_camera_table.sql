@@ -1,6 +1,6 @@
--- CCTV / security camera registry
+﻿-- CCTV / security camera registry
 
-CREATE TABLE security_camera (
+CREATE TABLE IF NOT EXISTS security_camera (
     id               BIGSERIAL    PRIMARY KEY,
     community_id     BIGINT       NOT NULL,
     name             VARCHAR(100),
@@ -15,4 +15,4 @@ CREATE TABLE security_camera (
     is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at       TIMESTAMP    DEFAULT NOW()
 );
-CREATE INDEX idx_security_camera_community ON security_camera(community_id);
+CREATE INDEX IF NOT EXISTS idx_security_camera_community ON security_camera(community_id);

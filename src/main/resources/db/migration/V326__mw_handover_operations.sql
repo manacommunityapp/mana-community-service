@@ -1,7 +1,6 @@
--- V287: Duty Handover records and Operational Assignment tracking
-
-CREATE TABLE mw_duty_handovers (
-    id                   BIGINT PRIMARY KEY AUTO_INCREMENT,
+﻿-- V326: Duty Handover records and Operational Assignment tracking
+CREATE TABLE IF NOT EXISTS mw_duty_handovers (
+    id                   BIGSERIAL PRIMARY KEY,
     organization_id      BIGINT NOT NULL,
     shift_assignment_id  BIGINT,
     handover_from_id     BIGINT,
@@ -15,14 +14,14 @@ CREATE TABLE mw_duty_handovers (
     acknowledged         BOOLEAN DEFAULT FALSE,
     acknowledged_at      TIMESTAMP,
     created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_handover_org (organization_id),
-    INDEX idx_handover_to (handover_to_id),
     FOREIGN KEY (handover_from_id) REFERENCES hr_employees(id),
     FOREIGN KEY (handover_to_id)   REFERENCES hr_employees(id)
 );
+CREATE INDEX IF NOT EXISTS idx_handover_org ON mw_duty_handovers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_handover_to ON mw_duty_handovers(handover_to_id);
 
-CREATE TABLE mw_operational_assignments (
-    id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS mw_operational_assignments (
+    id                BIGSERIAL PRIMARY KEY,
     organization_id   BIGINT NOT NULL,
     source_module     VARCHAR(50) NOT NULL,
     source_ref_id     BIGINT NOT NULL,
@@ -35,8 +34,8 @@ CREATE TABLE mw_operational_assignments (
     incentive_amount  DECIMAL(10,2),
     performance_score INT,
     notes             TEXT,
-    INDEX idx_op_assign_org (organization_id),
-    INDEX idx_op_assign_employee (employee_id),
-    INDEX idx_op_assign_source (source_module, source_ref_id),
     FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
 );
+CREATE INDEX IF NOT EXISTS idx_op_assign_org ON mw_operational_assignments(organization_id);
+CREATE INDEX IF NOT EXISTS idx_op_assign_employee ON mw_operational_assignments(employee_id);
+CREATE INDEX IF NOT EXISTS idx_op_assign_source ON mw_operational_assignments(source_module, source_ref_id);

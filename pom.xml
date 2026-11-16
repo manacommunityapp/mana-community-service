@@ -360,6 +360,10 @@
                         <exclude>**/karate/KarateRunner.java</exclude>
                     </excludes>
                     <includes>
+                        <!-- 0. Database Migration & Configuration Discipline tests -->
+                        <include>**/config/FlywayMigrationValidationTest.java</include>
+                        <include>**/config/EncryptablePropertyProcessorTest.java</include>
+
                         <!-- 1. User & Auth related tests -->
                         <include>**/unit/service/AuthServiceTest.java</include>
                         <include>**/unit/service/PermissionCheckServiceTest.java</include>

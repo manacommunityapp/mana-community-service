@@ -3,6 +3,8 @@ package com.manacommunity.api.service.impl;
 import com.manacommunity.api.dto.*;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.governance.entity.GovernanceVaultDocument;
+import com.manacommunity.api.governance.repository.GovernanceVaultDocumentRepository;
 import com.manacommunity.api.service.GovernanceService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;

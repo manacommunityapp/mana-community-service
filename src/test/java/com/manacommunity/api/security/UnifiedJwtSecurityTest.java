@@ -19,9 +19,10 @@ class UnifiedJwtSecurityTest {
     void setUp() {
         jwtTokenProvider = new JwtTokenProvider(
                 TEST_SECRET,
-                900000,
-                604800000,
+                900000L,
+                604800000L,
                 "mana-community",
+                "mana-api",
                 true
         );
     }

@@ -16,6 +16,10 @@ import java.math.BigDecimal;
 @EqualsAndHashCode(callSuper = true)
 public class BankMandate extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private AppUser user;

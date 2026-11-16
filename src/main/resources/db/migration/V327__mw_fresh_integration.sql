@@ -1,6 +1,6 @@
--- Integration config per org (which Mana modules are linked)
-CREATE TABLE mw_integration_configs (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+﻿-- V288: Mana Fresh integration config and delivery assignments
+CREATE TABLE IF NOT EXISTS mw_integration_configs (
+  id                BIGSERIAL PRIMARY KEY,
   organization_id   BIGINT NOT NULL UNIQUE,
   fresh_enabled     BOOLEAN DEFAULT FALSE,
   homes_enabled     BOOLEAN DEFAULT FALSE,
@@ -9,12 +9,11 @@ CREATE TABLE mw_integration_configs (
   per_km_rate       DECIMAL(6,2) DEFAULT 0.00,
   on_time_bonus     DECIMAL(6,2) DEFAULT 0.00,
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Mana Fresh delivery assignments (linked to mw_operational_assignments)
-CREATE TABLE mw_fresh_assignments (
-  id                        BIGINT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS mw_fresh_assignments (
+  id                        BIGSERIAL PRIMARY KEY,
   operational_assignment_id BIGINT NOT NULL UNIQUE,
   fresh_order_id            VARCHAR(100) NOT NULL,
   pickup_location           VARCHAR(300),
@@ -27,6 +26,6 @@ CREATE TABLE mw_fresh_assignments (
   time_bonus                DECIMAL(8,2) DEFAULT 0.00,
   total_incentive           DECIMAL(8,2) GENERATED ALWAYS AS (base_pay + km_bonus + time_bonus) STORED,
   created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (operational_assignment_id) REFERENCES mw_operational_assignments(id),
-  INDEX idx_fresh_order (fresh_order_id)
+  FOREIGN KEY (operational_assignment_id) REFERENCES mw_operational_assignments(id)
 );
+CREATE INDEX IF NOT EXISTS idx_fresh_order ON mw_fresh_assignments(fresh_order_id);

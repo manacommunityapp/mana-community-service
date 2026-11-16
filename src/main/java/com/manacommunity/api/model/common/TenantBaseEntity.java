@@ -4,6 +4,7 @@ import com.manacommunity.api.config.tenant.TenantContext;
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,11 +21,42 @@ public abstract class TenantBaseEntity extends BaseAuditEntity {
 
     @PrePersist
     public void populateTenantContext() {
-        if (this.organizationId == null) {
-            this.organizationId = TenantContext.getOrganizationId();
-        }
+        Long currentCommunityId = TenantContext.getCommunityId();
+
         if (this.communityId == null) {
-            this.communityId = TenantContext.getCommunityId();
+            if (currentCommunityId == null) {
+                throw new IllegalStateException(
+                        "Tenant identity (communityId) is mandatory for tenant-owned write on "
+                                + getClass().getSimpleName());
+            }
+            this.communityId = currentCommunityId;
+        } else {
+            // Cross-tenant write prevention: if communityId is explicitly specified,
+            // it MUST match the active tenant context to prevent IDOR injection
+            if (currentCommunityId != null && !this.communityId.equals(currentCommunityId)) {
+                throw new IllegalStateException(
+                        "Cross-tenant write rejected: entity community (" + this.communityId
+                                + ") does not match active tenant context (" + currentCommunityId + ")");
+            }
+        }
+
+        Long currentOrgId = TenantContext.getOrganizationId();
+        if (this.organizationId == null) {
+            this.organizationId = (currentOrgId != null) ? currentOrgId : TenantContext.DEFAULT_ORG_ID;
+        } else if (currentOrgId != null && !this.organizationId.equals(currentOrgId)) {
+            throw new IllegalStateException(
+                    "Cross-tenant write rejected: entity organization (" + this.organizationId
+                            + ") does not match active tenant context (" + currentOrgId + ")");
+        }
+    }
+
+    @PreUpdate
+    public void validateTenantContextOnUpdate() {
+        Long currentCommunityId = TenantContext.getCommunityId();
+        if (currentCommunityId != null && this.communityId != null && !this.communityId.equals(currentCommunityId)) {
+            throw new IllegalStateException(
+                    "Cross-tenant update rejected: cannot mutate entity community (" + this.communityId
+                            + ") across tenant boundary (" + currentCommunityId + ")");
         }
     }
 }
