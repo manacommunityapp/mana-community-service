@@ -11,4 +11,6 @@ public interface HrEmployeeDocumentRepository extends JpaRepository<HrEmployeeDo
     List<HrEmployeeDocument> findByEmployeeId(Long employeeId);
 
     List<HrEmployeeDocument> findByOrganizationIdAndExpiryDateBefore(Long organizationId, LocalDate date);
+
+    java.util.Optional<HrEmployeeDocument> findByIdAndOrganizationId(Long id, Long organizationId);
 }

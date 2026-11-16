@@ -15,7 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping({"/api/trips", "/trips", "/api/api/trips", "/api/v1/trips", "/v1/trips"})
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class TripController {
 
     private final TripService tripService;
