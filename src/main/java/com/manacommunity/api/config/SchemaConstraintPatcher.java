@@ -131,6 +131,21 @@ public class SchemaConstraintPatcher {
                         END $$;
                         """);
                 log.info("sports_player_category column lengths widened successfully.");
+
+                // Ensure workout_log columns exist for Hibernate validation
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.workout_log') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.workout_log
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+                                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+                          END IF;
+                        END $$;
+                        """);
+                log.info("workout_log columns verified successfully.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }

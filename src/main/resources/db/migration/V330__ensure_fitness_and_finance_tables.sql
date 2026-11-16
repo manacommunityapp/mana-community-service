@@ -1,4 +1,4 @@
-﻿-- V330: Ensure fitness step_log and finance ERP tables exist
+-- V330: Ensure fitness step_log and finance ERP tables exist
 -- Guarantees tables exist on environments where earlier migrations (V233, V240)
 -- were skipped due to historical Flyway duplicate version collisions.
 
@@ -108,3 +108,11 @@ CREATE TABLE IF NOT EXISTS manacommunity.pg_settlement (
 );
 CREATE INDEX IF NOT EXISTS idx_pg_settlement_community ON manacommunity.pg_settlement(community_id);
 CREATE INDEX IF NOT EXISTS idx_pg_settlement_date      ON manacommunity.pg_settlement(settlement_date);
+
+-- 3. Ensure workout_log audit columns exist
+ALTER TABLE manacommunity.workout_log
+    ADD COLUMN IF NOT EXISTS created_by BIGINT,
+    ADD COLUMN IF NOT EXISTS updated_by BIGINT,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
