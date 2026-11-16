@@ -59,8 +59,8 @@ public class HrReportService {
                         safe(e.getFirstName()),
                         safe(e.getLastName()),
                         safe(e.getWorkEmail()),
-                        e.getDepartment() != null ? safe(e.getDepartment().getName()) : "",
-                        e.getDesignation() != null ? safe(e.getDesignation().getName()) : "",
+                        e.getDepartment() != null ? safe(e.getDepartment().getDepartmentName()) : "",
+                        e.getDesignation() != null ? safe(e.getDesignation().getDesignationName()) : "",
                         safe(e.getEmploymentType() != null ? e.getEmploymentType().name() : ""),
                         safe(e.getEmploymentStatus() != null ? e.getEmploymentStatus().name() : ""),
                         e.getJoiningDate() != null ? e.getJoiningDate().toString() : "");
@@ -74,7 +74,7 @@ public class HrReportService {
                         safe(e.getEmployeeCode()),
                         safe(e.getFirstName()),
                         safe(e.getLastName()),
-                        e.getDepartment() != null ? safe(e.getDepartment().getName()) : "",
+                        e.getDepartment() != null ? safe(e.getDepartment().getDepartmentName()) : "",
                         e.getExitDate() != null ? e.getExitDate().toString() : "");
             }
         } else {
