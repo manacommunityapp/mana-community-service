@@ -94,6 +94,9 @@ public class SportsTournamentPlayerPayment {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -115,7 +118,7 @@ public class SportsTournamentPlayerPayment {
     }
 
     public enum PaymentStatus {
-        PAID, UNPAID, WAIVED, REFUNDED
+        PAID, UNPAID, WAIVED, REFUNDED, VOIDED
     }
 
     public enum PaymentMode {

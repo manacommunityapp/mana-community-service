@@ -30,6 +30,8 @@ public class PaymentWebhookReconciliationService {
     private final TransactionIntentRepository intentRepository;
     private final ManaTransactionCoreService transactionCoreService;
 
+    // WARNING: in-memory idempotency — entries are lost on restart, risking duplicate processing
+    // after a crash. Migrate to a durable store (e.g. database table or Redis) before production.
     private final Set<String> processedEventIds = ConcurrentHashMap.newKeySet();
     private final Map<String, Object> inFlightLocks = new ConcurrentHashMap<>();
 
