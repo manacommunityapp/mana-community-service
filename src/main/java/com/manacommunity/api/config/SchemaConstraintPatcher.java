@@ -146,6 +146,97 @@ public class SchemaConstraintPatcher {
                         END $$;
                         """);
                 log.info("workout_log columns verified successfully.");
+
+                // Ensure CFBOS expense and invoice columns exist for Hibernate validation
+                stmt.execute("""
+                        DO $$
+                        BEGIN
+                          IF to_regclass('manacommunity.cfbos_expense') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.cfbos_expense
+                                ADD COLUMN IF NOT EXISTS community_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS mana_vendor_id BIGINT;
+                            UPDATE manacommunity.cfbos_expense SET community_id = 1 WHERE community_id IS NULL;
+                            ALTER TABLE manacommunity.cfbos_expense ALTER COLUMN community_id SET NOT NULL;
+                            CREATE INDEX IF NOT EXISTS idx_cfbos_expense_community_id ON manacommunity.cfbos_expense (community_id);
+                          END IF;
+                          IF to_regclass('manacommunity.cfbos_invoice') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.cfbos_invoice ALTER COLUMN property_id DROP NOT NULL;
+                            ALTER TABLE manacommunity.cfbos_invoice ALTER COLUMN resident_id DROP NOT NULL;
+                            ALTER TABLE manacommunity.cfbos_invoice
+                                ADD COLUMN IF NOT EXISTS community_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS source_module VARCHAR(30),
+                                ADD COLUMN IF NOT EXISTS source_reference_type VARCHAR(50),
+                                ADD COLUMN IF NOT EXISTS source_reference_id BIGINT;
+                            UPDATE manacommunity.cfbos_invoice SET community_id = 1 WHERE community_id IS NULL;
+                            CREATE INDEX IF NOT EXISTS idx_cfbos_invoice_community_id ON manacommunity.cfbos_invoice (community_id);
+                            CREATE INDEX IF NOT EXISTS idx_cfbos_invoice_source ON manacommunity.cfbos_invoice (source_module, source_reference_type, source_reference_id);
+                          END IF;
+                          IF to_regclass('manacommunity.cfbos_account_group') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.cfbos_account_group
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+                                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+                          END IF;
+                          IF to_regclass('manacommunity.community_settings') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.community_settings
+                                ADD COLUMN IF NOT EXISTS accounting_freeze_date DATE,
+                                ADD COLUMN IF NOT EXISTS accounting_freeze_note TEXT;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_config') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_tournament_config
+                                ADD COLUMN IF NOT EXISTS seeding_order VARCHAR(30) DEFAULT 'RANDOM',
+                                ADD COLUMN IF NOT EXISTS byes_first_round_only BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS show_byes_in_bracket BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS limit_matches_per_day BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS max_matches_per_day INT DEFAULT 2,
+                                ADD COLUMN IF NOT EXISTS use_playoff_days BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS playoff_days VARCHAR(50),
+                                ADD COLUMN IF NOT EXISTS venue_assign_type VARCHAR(30) DEFAULT 'Random',
+                                ADD COLUMN IF NOT EXISTS playoff_round_timings_json TEXT,
+                                ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament_match') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_tournament_match
+                                ADD COLUMN IF NOT EXISTS match_config_override_json TEXT,
+                                ADD COLUMN IF NOT EXISTS winner_name VARCHAR(150),
+                                ADD COLUMN IF NOT EXISTS winner_side VARCHAR(20),
+                                ADD COLUMN IF NOT EXISTS show_in_feed BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS feed_result_post_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS post_to_feed BOOLEAN,
+                                ADD COLUMN IF NOT EXISTS stage_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS schedule_version_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS is_reserve_day_match BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS postponed_from_match_id BIGINT,
+                                ADD COLUMN IF NOT EXISTS version BIGINT DEFAULT 0;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_event') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_event
+                                ADD COLUMN IF NOT EXISTS captain_nomination_open BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS show_in_feed BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS feed_post_policy VARCHAR(50),
+                                ADD COLUMN IF NOT EXISTS feed_post_stages TEXT,
+                                ADD COLUMN IF NOT EXISTS auction BOOLEAN DEFAULT FALSE,
+                                ADD COLUMN IF NOT EXISTS allow_higher_age_category BOOLEAN DEFAULT TRUE;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_tournament') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_tournament
+                                ADD COLUMN IF NOT EXISTS show_in_feed BOOLEAN DEFAULT TRUE,
+                                ADD COLUMN IF NOT EXISTS feed_post_policy VARCHAR(50),
+                                ADD COLUMN IF NOT EXISTS feed_post_stages TEXT,
+                                ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_scoring_config') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_scoring_config
+                                ADD COLUMN IF NOT EXISTS overs_per_innings INT;
+                          END IF;
+                          IF to_regclass('manacommunity.sports_meta') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.sports_meta
+                                ADD COLUMN IF NOT EXISTS icon_url VARCHAR(500);
+                          END IF;
+                        END $$;
+                        """);
+                log.info("CFBOS and sports domain columns verified successfully.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }
