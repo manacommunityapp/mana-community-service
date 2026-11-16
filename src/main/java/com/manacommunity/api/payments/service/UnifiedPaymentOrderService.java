@@ -257,7 +257,7 @@ public class UnifiedPaymentOrderService {
 
         // Fire event so ModulePaymentConfirmationListener marks the module entity PAID
         eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
-            GatewayPaymentCapturedEvent.Gateway.CASHFREE, // gateway enum has no MANUAL — using CASHFREE as stand-in
+            GatewayPaymentCapturedEvent.Gateway.MANUAL,
             idempotencyKey,
             receiptNumber,
             req.getAmount(),
