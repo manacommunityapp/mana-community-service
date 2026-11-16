@@ -1,4 +1,4 @@
-ackage com.manacommunity.api.governance.repository;
+package com.manacommunity.api.governance.repository;
 
 import com.manacommunity.api.governance.entity.GovernanceVaultDocument;
 import org.springframework.data.jpa.repository.JpaRepository;
