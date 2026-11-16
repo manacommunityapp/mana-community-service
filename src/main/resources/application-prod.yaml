@@ -55,6 +55,9 @@ server:
   forward-headers-strategy: framework
 
 app:
+  flyway:
+    repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
+    out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
   # Set AI_ENABLED=true only once a reachable Ollama endpoint is configured.
   ai:

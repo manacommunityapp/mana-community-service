@@ -107,6 +107,9 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  flyway:
+    repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
+    out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}
   insert-sample-data: ${INSERT_SAMPLE_DATA:false}
   insert-sports-sample-data: ${INSERT_SPORTS_SAMPLE_DATA:false}
   delete-sports-sample-data: ${DELETE_SPORTS_SAMPLE_DATA:false}

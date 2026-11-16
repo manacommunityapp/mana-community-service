@@ -90,6 +90,8 @@ public class AuthServiceImpl implements AuthService {
     private com.manacommunity.api.email.EmailTemplateRenderer emailRenderer;
     @Autowired
     private com.manacommunity.api.email.EmailSupport emailSupport;
+    @Autowired
+    private com.manacommunity.api.security.RsaKeyService rsaKeyService;
 
     @Override
     public void sendSignupOtp(String rawEmail, String phone) {
@@ -347,7 +349,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 2. Wrong password → count the failure and possibly lock.
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        String plainPassword = resolvePassword(request);
+        if (!passwordEncoder.matches(plainPassword, user.getPasswordHash())) {
             registerFailedAttempt(user);
             String wrongPwMsg = isMobile
                     ? "Incorrect password for this mobile number."
@@ -364,6 +367,21 @@ public class AuthServiceImpl implements AuthService {
         auditLog.record(AuditLogService.Action.LOGIN_SUCCESS, user.getId(), user.getEmail());
         sessionService.startSession(user.getId(), user.getEmail());
         return buildAuthResponse(user, "Login successful!");
+    }
+
+    /**
+     * Resolves the plaintext password for verification.
+     * Prioritizes client-side encrypted password via RSA-OAEP; falls back to raw password
+     * to ensure automated tests and legacy clients continue to work seamlessly.
+     */
+    private String resolvePassword(LoginRequest request) {
+        if (request.getEncryptedPassword() != null && !request.getEncryptedPassword().isBlank()) {
+            return rsaKeyService.decryptPassword(request.getEncryptedPassword());
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            return request.getPassword();
+        }
+        throw new ManaCommunityException("Password is required.", HttpStatus.BAD_REQUEST, "INVALID_CREDENTIALS");
     }
 
     /** Increments the failure counter and locks the account once the role's threshold is hit. */

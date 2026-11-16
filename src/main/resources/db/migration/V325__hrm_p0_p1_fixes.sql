@@ -1,4 +1,5 @@
-﻿-- P0: Unique shift assignment per employee per date
+-- P0: Unique shift assignment per employee per date
+ALTER TABLE hr_employee_shifts DROP CONSTRAINT IF EXISTS uq_emp_shift_date;
 ALTER TABLE hr_employee_shifts
     ADD CONSTRAINT uq_emp_shift_date UNIQUE (employee_id, shift_date);
 

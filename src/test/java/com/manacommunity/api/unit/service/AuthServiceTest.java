@@ -54,8 +54,12 @@ class AuthServiceTest {
     @Mock com.manacommunity.api.service.OtpService otpService;
     @Mock com.manacommunity.api.service.CommunityBlockConfigService blockConfigService;
     @Mock com.manacommunity.api.service.NotificationManagementService notificationService;
+    @Mock com.manacommunity.api.security.RsaKeyService rsaKeyService;
+    @Mock com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
 
     @InjectMocks AuthServiceImpl authService;
+
+
 
     // ── register ──────────────────────────────────────────────────────
 
@@ -76,7 +80,7 @@ class AuthServiceTest {
             when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
-            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-123");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);
@@ -185,7 +189,7 @@ class AuthServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong()))
                     .thenReturn(Optional.of(TestDataBuilder.memberRole()));
-            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-123");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);
@@ -217,7 +221,7 @@ class AuthServiceTest {
 
             when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
-            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-123");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
 
             AuthResponse response = authService.loginUser(req);
@@ -225,6 +229,30 @@ class AuthServiceTest {
             assertThat(response.getEmail()).isEqualTo(user.getEmail());
             assertThat(response.getRole()).isEqualTo("ADMIN");
         }
+
+        @Test
+        @DisplayName("correct credentials with encryptedPassword decrypts and returns AuthResponse")
+        void correctCredentialsWithEncryptedPassword() {
+            AppUser user = TestDataBuilder.adminUser();
+            user.setPasswordHash("hashed");
+
+            LoginRequest req = new LoginRequest();
+            req.setIdentifier(user.getEmail());
+            req.setEncryptedPassword("mock-rsa-ciphertext");
+
+            when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
+            when(rsaKeyService.decryptPassword("mock-rsa-ciphertext")).thenReturn("password123");
+            when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-123");
+            when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-123");
+
+            AuthResponse response = authService.loginUser(req);
+
+            assertThat(response.getEmail()).isEqualTo(user.getEmail());
+            assertThat(response.getRole()).isEqualTo("ADMIN");
+            verify(rsaKeyService).decryptPassword("mock-rsa-ciphertext");
+        }
+
 
         @Test
         @DisplayName("wrong password throws ManaCommunityException with 401")
