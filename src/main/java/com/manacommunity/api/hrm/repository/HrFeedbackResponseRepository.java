@@ -4,5 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 public interface HrFeedbackResponseRepository extends JpaRepository<HrFeedbackResponse, Long> {
     List<HrFeedbackResponse> findByFeedbackRequestId(Long requestId);
-    boolean existsByFeedbackRequestIdAndReviewerEmployeeId(Long requestId, Long reviewerId);
+    boolean existsByFeedbackRequestIdAndReviewerId(Long requestId, Long reviewerId);
 }

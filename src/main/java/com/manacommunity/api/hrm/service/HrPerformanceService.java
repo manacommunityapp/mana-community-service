@@ -107,7 +107,7 @@ public class HrPerformanceService {
     }
 
     public List<HrAppraisalForm> getPendingReviews(Long reviewerEmployeeId) {
-        return formRepository.findByReviewerEmployeeIdAndStatus(reviewerEmployeeId, "PENDING_MANAGER");
+        return formRepository.findByReviewerIdAndStatus(reviewerEmployeeId, "PENDING_MANAGER");
     }
 
     @Transactional
@@ -176,7 +176,7 @@ public class HrPerformanceService {
     public HrFeedbackResponse submitFeedback(Long requestId, Long reviewerEmployeeId, HrFeedbackResponse response) {
         HrFeedbackRequest request = feedbackRequestRepository.findById(requestId)
             .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Feedback request not found"));
-        if (feedbackResponseRepository.existsByFeedbackRequestIdAndReviewerEmployeeId(requestId, reviewerEmployeeId)) {
+        if (feedbackResponseRepository.existsByFeedbackRequestIdAndReviewerId(requestId, reviewerEmployeeId)) {
             throw new IllegalStateException("You have already submitted feedback for this request");
         }
         HrEmployee reviewer = employeeRepository.findById(reviewerEmployeeId)

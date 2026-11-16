@@ -40,10 +40,10 @@ public interface HrEmployeeRepository extends JpaRepository<HrEmployee, Long> {
     List<HrEmployee> findByOrganizationIdAndEmploymentStatusIn(Long organizationId, java.util.Collection<EmploymentStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT e FROM HrEmployee e WHERE e.id = :id AND e.organizationId = :orgId")
+    @Query("SELECT e FROM HrEmployee e WHERE e.id = :id AND e.organization.id = :orgId")
     Optional<HrEmployee> findByIdAndOrganizationIdWithLock(@Param("id") Long id, @Param("orgId") Long orgId);
 
-    @Query("SELECT e FROM HrEmployee e WHERE e.organizationId = :orgId AND " +
+    @Query("SELECT e FROM HrEmployee e WHERE e.organization.id = :orgId AND " +
            "(LOWER(e.firstName) LIKE %:search% OR LOWER(e.lastName) LIKE %:search% OR " +
            "LOWER(e.workEmail) LIKE %:search% OR LOWER(e.employeeCode) LIKE %:search%)")
     Page<HrEmployee> searchByOrganizationId(@Param("orgId") Long orgId, @Param("search") String search, Pageable pageable);
