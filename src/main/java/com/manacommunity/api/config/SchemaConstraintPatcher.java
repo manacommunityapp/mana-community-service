@@ -3807,6 +3807,39 @@ END $$;
                     log.error("SchemaConstraintPatcher V337 table creation patch failed: {}", e.getMessage(), e);
                 }
 
+                // ── V338: Align Hibernate Envers audit schema ──
+                try {
+                    stmt.execute("""
+                        ALTER TABLE IF EXISTS manacommunity.vms_contracts
+                            ADD COLUMN IF NOT EXISTS termination_reason VARCHAR(1000);
+
+                        ALTER TABLE IF EXISTS manacommunity.vms_contracts_aud
+                            ADD COLUMN IF NOT EXISTS termination_reason VARCHAR(1000);
+
+                        ALTER TABLE IF EXISTS manacommunity.app_user_aud
+                            ADD COLUMN IF NOT EXISTS organization_id BIGINT;
+
+                        CREATE TABLE IF NOT EXISTS manacommunity.consent_records_aud (
+                            id                   BIGINT    NOT NULL,
+                            rev                  INT       NOT NULL REFERENCES manacommunity.revinfo(rev),
+                            revtype              SMALLINT  NOT NULL,
+                            user_id              BIGINT,
+                            consent_purpose      VARCHAR(50),
+                            granted              BOOLEAN,
+                            source_ip            VARCHAR(50),
+                            collection_point     VARCHAR(30),
+                            notice_version       VARCHAR(20),
+                            created_at           TIMESTAMP,
+                            PRIMARY KEY (id, rev)
+                        );
+                        CREATE INDEX IF NOT EXISTS idx_consent_records_aud_rev ON manacommunity.consent_records_aud (rev);
+                        """);
+                    log.info("✓ V338 vms_contracts_aud, app_user_aud, and consent_records_aud aligned.");
+                } catch (Exception e) {
+                    log.error("SchemaConstraintPatcher V338 Envers audit schema patch failed: {}", e.getMessage(), e);
+                }
+
+
 
                 // Synchronize all PostgreSQL sequences in manacommunity schema.
                 // Guarantees that if SQL seeders or raw SQL scripts inserted records
