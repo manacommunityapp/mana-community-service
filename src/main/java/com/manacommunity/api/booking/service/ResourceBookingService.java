@@ -740,6 +740,10 @@ public class ResourceBookingService {
         ResourceBooking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
 
+        // TODO: Wire to UnifiedPaymentOrderService — create a payment_order with INITIATED status,
+        //  return the idempotencyKey/gatewayOrderId to the caller, and advance to PAID only
+        //  after the gateway webhook confirms capture. Direct PAID assignment here is an
+        //  admin/offline fallback until gateway wiring is complete.
         booking.setTotalAmount(fee);
         booking.setPaymentStatus(PaymentStatus.PAID);
         booking.setPaymentNote(paymentNote);

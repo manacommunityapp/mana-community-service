@@ -81,6 +81,8 @@ public class SportsTournamentPaymentController {
         return ResponseEntity.ok(list);
     }
 
+    // Admin manual override — bypasses gateway lifecycle.
+    // For gateway-initiated payments use POST /api/payments/orders (UnifiedPaymentOrderController).
     @PostMapping("/{tournamentId}/payments/mark-paid")
     @Transactional
     public ResponseEntity<SportsTournamentPlayerPaymentResponse> markPaid(

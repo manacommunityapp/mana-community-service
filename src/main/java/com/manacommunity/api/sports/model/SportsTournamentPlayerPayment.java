@@ -118,7 +118,24 @@ public class SportsTournamentPlayerPayment {
     }
 
     public enum PaymentStatus {
-        PAID, UNPAID, WAIVED, REFUNDED, VOIDED
+        /** Payment order created, PG not yet launched. */
+        INITIATED,
+        /** PG launched, awaiting webhook confirmation. */
+        PENDING,
+        /** Gateway confirmed payment capture. */
+        PAID,
+        /** Gateway returned a failure response. */
+        FAILED,
+        /** No payment collected (free slot, scholarship, etc.). */
+        UNPAID,
+        /** Manually waived by admin. */
+        WAIVED,
+        /** Refund initiated, awaiting gateway confirmation. */
+        REFUND_PENDING,
+        /** Gateway confirmed full or partial refund. */
+        REFUNDED,
+        /** Admin voided the payment record — not physically deleted. */
+        VOIDED
     }
 
     public enum PaymentMode {
