@@ -286,9 +286,41 @@ public class SchemaConstraintPatcher {
                           CREATE INDEX IF NOT EXISTS idx_forum_post_category  ON manacommunity.forum_posts(community_id, category);
                           CREATE INDEX IF NOT EXISTS idx_forum_comment_post   ON manacommunity.forum_comments(post_id);
                           CREATE INDEX IF NOT EXISTS idx_forum_comment_author ON manacommunity.forum_comments(author_id);
+
+                          -- Ensure fresh vendor audit columns
+                          IF to_regclass('manacommunity.fresh_vendor_capability') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.fresh_vendor_capability
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                          END IF;
+
+                          IF to_regclass('manacommunity.fresh_vendor_staff') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.fresh_vendor_staff
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+                          END IF;
+
+                          IF to_regclass('manacommunity.fresh_vendor_service_area') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.fresh_vendor_service_area
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+                          END IF;
+
+                          -- Ensure school bus trip log audit and operational columns
+                          IF to_regclass('manacommunity.school_bus_trip_log') IS NOT NULL THEN
+                            ALTER TABLE manacommunity.school_bus_trip_log
+                                ADD COLUMN IF NOT EXISTS pickup_time TIMESTAMP,
+                                ADD COLUMN IF NOT EXISTS drop_time TIMESTAMP,
+                                ADD COLUMN IF NOT EXISTS attendance VARCHAR(20) DEFAULT 'PRESENT',
+                                ADD COLUMN IF NOT EXISTS driver_name VARCHAR(100),
+                                ADD COLUMN IF NOT EXISTS created_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_by BIGINT,
+                                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+                          END IF;
                         END $$;
                         """);
-                log.info("CFBOS, sports domain, and forum tables verified successfully.");
+                log.info("CFBOS, sports domain, forum, fresh vendor, and school bus tables verified successfully.");
             } catch (Exception e) {
                 log.error("SchemaConstraintPatcher failed: {}", e.getMessage(), e);
             }
