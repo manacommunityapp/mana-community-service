@@ -120,131 +120,141 @@ BEGIN
   END IF;
 END $$;
 
--- 9. Sports Tournament Player Payment table
-CREATE TABLE IF NOT EXISTS manacommunity.sports_tournament_player_payment (
-    id BIGSERIAL PRIMARY KEY,
-    tournament_id BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
-    player_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
-    amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    payment_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
-    payment_method VARCHAR(50),
-    transaction_id VARCHAR(100),
-    collected_by_name VARCHAR(150),
-    collected_by_user_id BIGINT REFERENCES manacommunity.app_user(id),
-    notes TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_stpp_tournament ON manacommunity.sports_tournament_player_payment(tournament_id);
-CREATE INDEX IF NOT EXISTS idx_stpp_player ON manacommunity.sports_tournament_player_payment(player_id);
+-- 9. Sports Tournament Player Payment collector columns
+DO $$
+BEGIN
+  IF to_regclass('manacommunity.sports_tournament_player_payment') IS NOT NULL THEN
+    ALTER TABLE manacommunity.sports_tournament_player_payment
+        ADD COLUMN IF NOT EXISTS collected_by_name VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS collected_by_contact VARCHAR(150);
+  END IF;
+END $$;
 
--- 10. Community Market Bazaar tables
-CREATE TABLE IF NOT EXISTS manacommunity.market_event_bazaar (
-    id BIGINT PRIMARY KEY REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
-    status VARCHAR(24) NOT NULL DEFAULT 'PUBLISHED',
-    banner_url VARCHAR(1000),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_market_event_bazaar_status ON manacommunity.market_event_bazaar(status);
+-- 10. Community Market Bazaar and Budget tables (guarded creation)
+DO $$
+BEGIN
+  IF to_regclass('manacommunity.market_event_bazaar') IS NULL AND to_regclass('manacommunity.event_community') IS NOT NULL THEN
+    CREATE TABLE manacommunity.market_event_bazaar (
+        id BIGINT PRIMARY KEY REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
+        status VARCHAR(24) NOT NULL DEFAULT 'PUBLISHED',
+        banner_url VARCHAR(1000),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_market_event_bazaar_status ON manacommunity.market_event_bazaar(status);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.market_stall (
-    id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL REFERENCES manacommunity.market_event_bazaar(id) ON DELETE CASCADE,
-    stall_number VARCHAR(40) NOT NULL,
-    zone VARCHAR(100),
-    package_name VARCHAR(100) NOT NULL,
-    description TEXT,
-    size VARCHAR(100),
-    price NUMERIC(12,2) NOT NULL CHECK (price >= 1.00),
-    currency VARCHAR(5) NOT NULL DEFAULT 'INR',
-    facilities TEXT,
-    allowed_categories TEXT,
-    floor_row INTEGER CHECK (floor_row IS NULL OR floor_row > 0),
-    floor_column INTEGER CHECK (floor_column IS NULL OR floor_column > 0),
-    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_market_stall_number UNIQUE(event_id, stall_number)
-);
-CREATE INDEX IF NOT EXISTS idx_market_stall_event_status ON manacommunity.market_stall(event_id, status);
+  IF to_regclass('manacommunity.market_stall') IS NULL AND to_regclass('manacommunity.market_event_bazaar') IS NOT NULL THEN
+    CREATE TABLE manacommunity.market_stall (
+        id BIGSERIAL PRIMARY KEY,
+        event_id BIGINT NOT NULL REFERENCES manacommunity.market_event_bazaar(id) ON DELETE CASCADE,
+        stall_number VARCHAR(40) NOT NULL,
+        zone VARCHAR(100),
+        package_name VARCHAR(100) NOT NULL,
+        description TEXT,
+        size VARCHAR(100),
+        price NUMERIC(12,2) NOT NULL CHECK (price >= 1.00),
+        currency VARCHAR(5) NOT NULL DEFAULT 'INR',
+        facilities TEXT,
+        allowed_categories TEXT,
+        floor_row INTEGER CHECK (floor_row IS NULL OR floor_row > 0),
+        floor_column INTEGER CHECK (floor_column IS NULL OR floor_column > 0),
+        status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT uq_market_stall_number UNIQUE(event_id, stall_number)
+    );
+    CREATE INDEX IF NOT EXISTS idx_market_stall_event_status ON manacommunity.market_stall(event_id, status);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.market_application (
-    id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL REFERENCES manacommunity.market_event_bazaar(id) ON DELETE CASCADE,
-    stall_id BIGINT NOT NULL REFERENCES manacommunity.market_stall(id) ON DELETE CASCADE,
-    applicant_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
-    vendor_name VARCHAR(150) NOT NULL,
-    business_name VARCHAR(150) NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    phone VARCHAR(30) NOT NULL,
-    products TEXT NOT NULL,
-    compliance_documents TEXT,
-    status VARCHAR(24) NOT NULL DEFAULT 'SUBMITTED',
-    rejection_reason VARCHAR(1000),
-    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_market_application_vendor ON manacommunity.market_application(applicant_id, requested_at DESC);
-CREATE INDEX IF NOT EXISTS idx_market_application_event_status ON manacommunity.market_application(event_id, status);
+  IF to_regclass('manacommunity.market_application') IS NULL AND to_regclass('manacommunity.market_stall') IS NOT NULL THEN
+    CREATE TABLE manacommunity.market_application (
+        id BIGSERIAL PRIMARY KEY,
+        event_id BIGINT NOT NULL REFERENCES manacommunity.market_event_bazaar(id) ON DELETE CASCADE,
+        stall_id BIGINT NOT NULL REFERENCES manacommunity.market_stall(id) ON DELETE CASCADE,
+        applicant_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
+        vendor_name VARCHAR(150) NOT NULL,
+        business_name VARCHAR(150) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        products TEXT NOT NULL,
+        compliance_documents TEXT,
+        status VARCHAR(24) NOT NULL DEFAULT 'SUBMITTED',
+        rejection_reason VARCHAR(1000),
+        requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_market_application_vendor ON manacommunity.market_application(applicant_id, requested_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_market_application_event_status ON manacommunity.market_application(event_id, status);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.market_booking (
-    id BIGSERIAL PRIMARY KEY,
-    application_id BIGINT NOT NULL UNIQUE REFERENCES manacommunity.market_application(id) ON DELETE CASCADE,
-    stall_id BIGINT NOT NULL REFERENCES manacommunity.market_stall(id) ON DELETE CASCADE,
-    applicant_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
-    amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-    currency VARCHAR(5) NOT NULL DEFAULT 'INR',
-    status VARCHAR(24) NOT NULL DEFAULT 'PAYMENT_PENDING',
-    hold_expires_at TIMESTAMP NOT NULL,
-    payment_order_id VARCHAR(50),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_market_booking_status_expiry ON manacommunity.market_booking(status, hold_expires_at);
-CREATE INDEX IF NOT EXISTS idx_market_booking_stall_status ON manacommunity.market_booking(stall_id, status);
+  IF to_regclass('manacommunity.market_booking') IS NULL AND to_regclass('manacommunity.market_application') IS NOT NULL THEN
+    CREATE TABLE manacommunity.market_booking (
+        id BIGSERIAL PRIMARY KEY,
+        application_id BIGINT NOT NULL UNIQUE REFERENCES manacommunity.market_application(id) ON DELETE CASCADE,
+        stall_id BIGINT NOT NULL REFERENCES manacommunity.market_stall(id) ON DELETE CASCADE,
+        applicant_id BIGINT NOT NULL REFERENCES manacommunity.app_user(id),
+        amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+        currency VARCHAR(5) NOT NULL DEFAULT 'INR',
+        status VARCHAR(24) NOT NULL DEFAULT 'PAYMENT_PENDING',
+        hold_expires_at TIMESTAMP NOT NULL,
+        payment_order_id VARCHAR(50),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_market_booking_status_expiry ON manacommunity.market_booking(status, hold_expires_at);
+    CREATE INDEX IF NOT EXISTS idx_market_booking_stall_status ON manacommunity.market_booking(stall_id, status);
+  END IF;
 
--- 11. Event and Tournament Budgets
-CREATE TABLE IF NOT EXISTS manacommunity.event_budget (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_id    BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
-    community_id BIGINT NOT NULL,
-    total_planned_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-    currency    VARCHAR(3) NOT NULL DEFAULT 'INR',
-    notes       VARCHAR(1000),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_event_budget_event UNIQUE (event_id)
-);
-CREATE INDEX IF NOT EXISTS idx_event_budget_community ON manacommunity.event_budget(community_id);
+  IF to_regclass('manacommunity.event_budget') IS NULL AND to_regclass('manacommunity.event_community') IS NOT NULL THEN
+    CREATE TABLE manacommunity.event_budget (
+        id          BIGSERIAL PRIMARY KEY,
+        event_id    BIGINT NOT NULL REFERENCES manacommunity.event_community(id) ON DELETE CASCADE,
+        community_id BIGINT NOT NULL,
+        total_planned_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        currency    VARCHAR(3) NOT NULL DEFAULT 'INR',
+        notes       VARCHAR(1000),
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_event_budget_event UNIQUE (event_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_event_budget_community ON manacommunity.event_budget(community_id);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.event_budget_line_item (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    budget_id   BIGINT NOT NULL REFERENCES manacommunity.event_budget(id) ON DELETE CASCADE,
-    category    VARCHAR(100) NOT NULL,
-    description VARCHAR(500),
-    planned_amount NUMERIC(14,2) NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_event_budget_line_budget ON manacommunity.event_budget_line_item(budget_id);
+  IF to_regclass('manacommunity.event_budget_line_item') IS NULL AND to_regclass('manacommunity.event_budget') IS NOT NULL THEN
+    CREATE TABLE manacommunity.event_budget_line_item (
+        id          BIGSERIAL PRIMARY KEY,
+        budget_id   BIGINT NOT NULL REFERENCES manacommunity.event_budget(id) ON DELETE CASCADE,
+        category    VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        planned_amount NUMERIC(14,2) NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_event_budget_line_budget ON manacommunity.event_budget_line_item(budget_id);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.tournament_budget (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tournament_id   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
-    community_id    BIGINT NOT NULL,
-    total_planned_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-    currency        VARCHAR(3) NOT NULL DEFAULT 'INR',
-    notes           VARCHAR(1000),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_tournament_budget_tournament UNIQUE (tournament_id)
-);
-CREATE INDEX IF NOT EXISTS idx_tournament_budget_community ON manacommunity.tournament_budget(community_id);
+  IF to_regclass('manacommunity.tournament_budget') IS NULL AND to_regclass('manacommunity.sports_tournament') IS NOT NULL THEN
+    CREATE TABLE manacommunity.tournament_budget (
+        id              BIGSERIAL PRIMARY KEY,
+        tournament_id   BIGINT NOT NULL REFERENCES manacommunity.sports_tournament(id) ON DELETE CASCADE,
+        community_id    BIGINT NOT NULL,
+        total_planned_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        currency        VARCHAR(3) NOT NULL DEFAULT 'INR',
+        notes           VARCHAR(1000),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_tournament_budget_tournament UNIQUE (tournament_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tournament_budget_community ON manacommunity.tournament_budget(community_id);
+  END IF;
 
-CREATE TABLE IF NOT EXISTS manacommunity.tournament_budget_line_item (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    budget_id   BIGINT NOT NULL REFERENCES manacommunity.tournament_budget(id) ON DELETE CASCADE,
-    category    VARCHAR(100) NOT NULL,
-    description VARCHAR(500),
-    planned_amount NUMERIC(14,2) NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_tournament_budget_line_budget ON manacommunity.tournament_budget_line_item(budget_id);
+  IF to_regclass('manacommunity.tournament_budget_line_item') IS NULL AND to_regclass('manacommunity.tournament_budget') IS NOT NULL THEN
+    CREATE TABLE manacommunity.tournament_budget_line_item (
+        id          BIGSERIAL PRIMARY KEY,
+        budget_id   BIGINT NOT NULL REFERENCES manacommunity.tournament_budget(id) ON DELETE CASCADE,
+        category    VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        planned_amount NUMERIC(14,2) NOT NULL,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_tournament_budget_line_budget ON manacommunity.tournament_budget_line_item(budget_id);
+  END IF;
+END $$;
