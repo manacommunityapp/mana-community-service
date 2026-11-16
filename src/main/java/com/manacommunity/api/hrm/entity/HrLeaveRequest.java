@@ -1,6 +1,7 @@
 package com.manacommunity.api.hrm.entity;
 
 import com.manacommunity.api.hrm.enums.LeaveApprovalStatus;
+import com.manacommunity.api.hrm.enums.LeaveSession;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -47,6 +48,29 @@ public class HrLeaveRequest {
     @Column(name = "approval_status", nullable = false, length = 30)
     @Builder.Default
     private LeaveApprovalStatus approvalStatus = LeaveApprovalStatus.PENDING;
+
+    // Half-day leave support
+    @Column(name = "is_half_day", nullable = false)
+    @Builder.Default
+    private Boolean isHalfDay = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "leave_session", length = 20)
+    private LeaveSession leaveSession;
+
+    // Multi-level approval tracking
+    @Column(name = "approval_level", nullable = false)
+    @Builder.Default
+    private Integer approvalLevel = 1;
+
+    @Column(name = "l1_approved_by")
+    private Long l1ApprovedBy;
+
+    @Column(name = "l1_approved_at")
+    private LocalDateTime l1ApprovedAt;
+
+    @Column(name = "l1_remarks", length = 500)
+    private String l1Remarks;
 
     @Column(name = "approved_by")
     private Long approvedBy;

@@ -136,7 +136,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 : List.of();
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "X-Idempotency-Key"));
         config.setExposedHeaders(Arrays.asList("Authorization"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
