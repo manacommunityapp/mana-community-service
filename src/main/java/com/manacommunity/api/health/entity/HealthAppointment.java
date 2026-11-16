@@ -73,6 +73,10 @@ public class HealthAppointment extends BaseAuditEntity {
     @Column(name = "payment_reference_id", length = 100)
     private String paymentReferenceId;
 
+    /** FK to unified payment_order table — null for free consultations. */
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 

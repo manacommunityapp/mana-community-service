@@ -97,6 +97,10 @@ public class EventBookingRegistration {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    /** FK to unified payment_order table — null for free/waived registrations. */
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @Column(name = "status", length = 30)
     @Builder.Default
     private String status = "CONFIRMED";
