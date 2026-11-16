@@ -280,8 +280,10 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Health Directory & Public Camps / Triage
                 .requestMatchers(HttpMethod.GET, "/api/health/providers/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/health/camps/upcoming").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/health/triage").permitAll()
+                // Mana Fresh & Kitchen: Public GET endpoints for city serviceability and catalog browsing
+                .requestMatchers(HttpMethod.GET, "/api/v1/fresh/cities", "/api/v1/fresh/service-zones", "/api/v1/fresh/serviceability").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/fresh-kitchen/products/**", "/api/v1/fresh-kitchen/batters", "/api/v1/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/fresh-kitchen/products/**", "/fresh-kitchen/batters", "/fresh-kitchen/combos/**").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

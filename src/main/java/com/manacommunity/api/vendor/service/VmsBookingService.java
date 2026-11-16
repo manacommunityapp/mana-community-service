@@ -96,6 +96,32 @@ public class VmsBookingService {
         return toResponse(bookingRepo.save(booking));
     }
 
+    @Transactional
+    public BookingResponse updateStatusForUser(Long id, String status, AppUser user, String reason, boolean manager) {
+        Long communityId = user.getCommunity().getId();
+        VmsBooking booking = bookingRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", id));
+        boolean vendorOwner = booking.getVendor().getUser() != null && booking.getVendor().getUser().getId().equals(user.getId());
+        boolean residentOwner = booking.getResident() != null && booking.getResident().getId().equals(user.getId());
+        if (!manager && !vendorOwner && !residentOwner)
+            throw new org.springframework.security.access.AccessDeniedException("You cannot update this booking");
+        VmsBooking.BookingStatus next = VmsBooking.BookingStatus.valueOf(status.toUpperCase());
+        if (!manager) {
+            boolean allowed = residentOwner
+                    ? next == VmsBooking.BookingStatus.CANCELLED
+                    : switch (booking.getStatus()) {
+                        case PENDING -> next == VmsBooking.BookingStatus.CONFIRMED || next == VmsBooking.BookingStatus.CANCELLED;
+                        case CONFIRMED -> next == VmsBooking.BookingStatus.IN_PROGRESS || next == VmsBooking.BookingStatus.CANCELLED;
+                        case IN_PROGRESS -> next == VmsBooking.BookingStatus.COMPLETED;
+                        default -> false;
+                    };
+            if (!allowed) throw new IllegalStateException("The booking cannot transition from " + booking.getStatus() + " to " + next);
+        }
+        booking.setStatus(next);
+        if (next == VmsBooking.BookingStatus.CANCELLED && reason != null) booking.setCancellationReason(reason);
+        return toResponse(bookingRepo.save(booking));
+    }
+
     private BookingResponse toResponse(VmsBooking b) {
         VmsVendor v = b.getVendor();
         AppUser u = b.getResident();

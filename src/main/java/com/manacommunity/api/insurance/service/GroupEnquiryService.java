@@ -3,8 +3,10 @@ package com.manacommunity.api.insurance.service;
 import com.manacommunity.api.exception.ManaCommunityException;
 import com.manacommunity.api.insurance.dto.InsuranceDtos.GroupEnquiryRequest;
 import com.manacommunity.api.insurance.dto.InsuranceDtos.GroupEnquiryView;
+import com.manacommunity.api.insurance.dto.InsuranceDtos.SportsGroupPolicyRequest;
 import com.manacommunity.api.insurance.entity.GroupEnquiry;
 import com.manacommunity.api.insurance.entity.InsuranceEnums.ConsentPurpose;
+import com.manacommunity.api.insurance.entity.InsuranceEnums.CoverageScope;
 import com.manacommunity.api.insurance.repository.GroupEnquiryRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,26 @@ public class GroupEnquiryService {
                 .contactMethod(r.contactMethod()).consentId(r.consentId()).build());
         audit.record(user.getId(), "GROUP_ENQUIRY_CREATED", "GROUP_ENQUIRY", String.valueOf(e.getId()),
                 "scope=" + e.getCoverageScope());
+        return view(e);
+    }
+
+    @Transactional
+    public GroupEnquiryView createSportsGroupPolicy(AppUser user, SportsGroupPolicyRequest r) {
+        consents.requireActive(user.getId(), r.consentId(), ConsentPurpose.GROUP_ENQUIRY);
+        StringBuilder ref = new StringBuilder("MGE-");
+        for (int i = 0; i < 8; i++) ref.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
+        String requirements = String.format("Sport: %s | Team: %s | Members: %d%s",
+                r.sport(), r.teamName(), r.memberCount(),
+                r.tournamentId() != null ? " | Tournament ID: " + r.tournamentId() : "");
+        GroupEnquiry e = enquiries.save(GroupEnquiry.builder()
+                .enquiryRef(ref.toString()).userId(user.getId())
+                .communityId(user.getCommunity() == null ? null : user.getCommunity().getId())
+                .organisationName(r.teamName().trim()).organisationType("SPORTS_TEAM")
+                .coverageScope(CoverageScope.GROUP_POLICY).coverageSought("SPORTS_TEAM_GROUP")
+                .approxMembers(r.memberCount()).requirements(requirements)
+                .contactMethod("EMAIL").consentId(r.consentId()).build());
+        audit.record(user.getId(), "SPORTS_GROUP_POLICY_CREATED", "GROUP_ENQUIRY", String.valueOf(e.getId()),
+                "sport=" + r.sport() + ",members=" + r.memberCount());
         return view(e);
     }
 

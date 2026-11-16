@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/group-buying")
+@RequestMapping({"/api/group-buying", "/api/v1/group-buying"})
 @RequiredArgsConstructor
 public class GroupBuyingController {
 
@@ -171,6 +171,13 @@ public class GroupBuyingController {
     public ResponseEntity<PickupVerificationResponse> verifyPickup(
             @Valid @RequestBody PickupVerificationRequest request) {
         return ResponseEntity.ok(groupBuyingService.verifyPickupPass(request));
+    }
+
+    @GetMapping("/vendor/deals")
+    public ResponseEntity<List<GroupDealResponse>> getVendorDeals(@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String vendorId = user.getId() != null ? "VND-" + user.getId() : null;
+        return ResponseEntity.ok(groupBuyingService.getVendorDeals(vendorId, user.getCommunity().getId()));
     }
 
     @PostMapping("/vendor/deals")

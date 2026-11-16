@@ -25,7 +25,9 @@ public class VmsRatingService {
     private final VmsVendorPerformanceRepository performanceRepo;
 
     @Transactional(readOnly = true)
-    public Page<RatingResponse> getVendorRatings(Long vendorId, Pageable pageable) {
+    public Page<RatingResponse> getVendorRatings(Long vendorId, Long communityId, Pageable pageable) {
+        vendorRepo.findByIdAndCommunityId(vendorId, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", vendorId));
         return ratingRepo.findByVendorIdAndStatus(vendorId, "PUBLISHED", pageable)
                 .map(this::toResponse);
     }
@@ -54,6 +56,44 @@ public class VmsRatingService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public RatingResponse replyToRating(Long ratingId, String reply, AppUser user) {
+        VmsVendor vendor = vendorRepo.findByUserIdAndCommunityId(user.getId(), user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", "userId", user.getId().toString()));
+        VmsRating rating = ratingRepo.findByIdAndVendorId(ratingId, vendor.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor rating", ratingId));
+        rating.setVendorReply(reply);
+        rating.setVendorRepliedAt(java.time.LocalDateTime.now());
+        return toResponse(ratingRepo.save(rating));
+    }
+
+    @Transactional
+    public RatingResponse moderate(Long ratingId, String moderationStatus, Long communityId) {
+        VmsRating rating = ratingRepo.findById(ratingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor rating", ratingId));
+        if (!rating.getCommunity().getId().equals(communityId)) throw new ResourceNotFoundException("Vendor rating", ratingId);
+        String normalized = moderationStatus == null ? "" : moderationStatus.toUpperCase();
+        rating.setStatus(switch (normalized) {
+            case "APPROVED", "PUBLISHED" -> "PUBLISHED";
+            case "REJECTED", "HIDDEN" -> "HIDDEN";
+            case "FLAGGED" -> "FLAGGED";
+            default -> throw new IllegalArgumentException("Unsupported moderation status: " + moderationStatus);
+        });
+        VmsRating saved = ratingRepo.save(rating);
+        updateVendorRatingStats(saved.getVendor());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public void report(Long ratingId, String reason, AppUser user) {
+        VmsRating rating = ratingRepo.findById(ratingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor rating", ratingId));
+        if (!rating.getCommunity().getId().equals(user.getCommunity().getId())) throw new ResourceNotFoundException("Vendor rating", ratingId);
+        rating.setReported(true);
+        rating.setReportReason(reason);
+        ratingRepo.save(rating);
+    }
+
     private void updateVendorRatingStats(VmsVendor vendor) {
         BigDecimal avgRating = ratingRepo.findAverageRatingByVendorId(vendor.getId());
         long totalRatings = ratingRepo.countByVendorIdAndStatus(vendor.getId(), "PUBLISHED");
@@ -73,6 +113,10 @@ public class VmsRatingService {
                 .bookingId(r.getBooking() != null ? r.getBooking().getId() : null)
                 .overallRating(r.getOverallRating())
                 .comment(r.getComment())
+                .reply(r.getVendorReply())
+                .repliedAt(r.getVendorRepliedAt())
+                .reported(r.getReported())
+                .reportReason(r.getReportReason())
                 .isAnonymous(r.getIsAnonymous())
                 .status(r.getStatus())
                 .createdAt(r.getCreatedAt())

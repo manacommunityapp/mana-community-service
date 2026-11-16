@@ -9,8 +9,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -83,9 +86,8 @@ public class MobilityController {
     }
 
     @GetMapping("/service-zones")
-    public ResponseEntity<List<Map<String, Object>>> getServiceZones(@AuthenticationPrincipal UserPrincipal p) {
-        // Placeholder — return empty list until zone seeding is done
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<List<MobilityServiceZoneDto>> getServiceZones(@AuthenticationPrincipal UserPrincipal p) {
+        return ResponseEntity.ok(mobilityService.getServiceZones(user(p)));
     }
 
     @GetMapping("/trips/{id}/location")
@@ -95,7 +97,14 @@ public class MobilityController {
         // Returns driver's current lat/lng from the driver entity
         MobilityTripDto trip = mobilityService.getTrip(user(p), id);
         if (trip.getDriver() == null) return ResponseEntity.ok(Map.of());
-        return ResponseEntity.ok(Map.of("driverId", trip.getDriver().getDriverId()));
+        MobilityTripDriverDto driver = trip.getDriver();
+        Map<String, Object> location = new java.util.HashMap<>();
+        location.put("tripId", trip.getId());
+        location.put("driverId", driver.getDriverId());
+        location.put("driverLat", driver.getCurrentLat());
+        location.put("driverLng", driver.getCurrentLng());
+        location.put("updatedAt", driver.getLocationUpdatedAt());
+        return ResponseEntity.ok(location);
     }
 
     // ── Driver ─────────────────────────────────────────────────────────────
@@ -117,6 +126,13 @@ public class MobilityController {
             @AuthenticationPrincipal UserPrincipal p,
             @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(mobilityService.setAvailability(user(p), body.getOrDefault("availability", "OFFLINE")));
+    }
+
+    @PatchMapping("/driver/location")
+    public ResponseEntity<MobilityDriverDto> updateDriverLocation(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody UpdateDriverLocationRequest req) {
+        return ResponseEntity.ok(mobilityService.updateDriverLocation(user(p), req.getLatitude(), req.getLongitude()));
     }
 
     @GetMapping("/driver/documents")
@@ -212,9 +228,249 @@ public class MobilityController {
         return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
     }
 
+    @GetMapping("/journeys/config")
+    public ResponseEntity<List<JourneyTypeConfigDto>> getJourneyTypeConfigs() {
+        return ResponseEntity.ok(mobilityService.getJourneyTypeConfigs());
+    }
+
+    @GetMapping("/journeys/search")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> searchJourneyOffers(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam String journeyType,
+            @RequestParam String hubCode,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) String travelAt,
+            @RequestParam(defaultValue = "30") int timeWindowMinutes,
+            @RequestParam(defaultValue = "1") int seats,
+            @RequestParam(defaultValue = "0") int luggageCount,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.searchJourneyOffers(user(p), journeyType, hubCode, direction, area,
+                travelAt, timeWindowMinutes, seats, luggageCount, page, size));
+    }
+
+    @PostMapping("/journeys/offers")
+    public ResponseEntity<MobilityCarpoolOfferDto> createJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateCarpoolOfferRequest req) {
+        return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
+    }
+
+    @GetMapping("/journeys/offers/{id}")
+    public ResponseEntity<MobilityCarpoolOfferDto> getJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getCarpoolOffer(user(p), id));
+    }
+
+    @PostMapping("/journeys/offers/{id}/join")
+    public ResponseEntity<Void> joinJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolOffer(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/journeys/requests")
+    public ResponseEntity<AirportRideRequestDto> createJourneyRequest(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateJourneyRequest req) {
+        return ResponseEntity.ok(mobilityService.createJourneyRequest(user(p), req));
+    }
+
+    @GetMapping("/journeys/requests/mine")
+    public ResponseEntity<Page<AirportRideRequestDto>> getMyJourneyRequests(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyRequests(user(p), page, size));
+    }
+
+    @GetMapping("/journeys/requests/{requestId}/matches")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getJourneyMatches(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long requestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getJourneyMatches(user(p), requestId, page, size));
+    }
+
+    @PostMapping("/journeys/offers/{id}/leave")
+    public ResponseEntity<Void> leaveJourney(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelCarpoolBooking(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/journeys/offers/{id}/waitlist")
+    public ResponseEntity<Void> waitlistJourney(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolWaitlist(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/journeys/slots")
+    public ResponseEntity<List<JourneySlotDto>> getJourneySlots(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(required = false) String journeyType,
+            @RequestParam(required = false) String hubCode) {
+        return ResponseEntity.ok(mobilityService.getJourneySlots(user(p), journeyType, hubCode));
+    }
+
+    @PostMapping("/journeys/slots")
+    public ResponseEntity<JourneySlotDto> createJourneySlot(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateJourneySlotRequest req) {
+        return ResponseEntity.ok(mobilityService.createJourneySlot(user(p), req));
+    }
+
+    @PatchMapping("/journeys/slots/{id}/status")
+    public ResponseEntity<JourneySlotDto> updateJourneySlotStatus(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(mobilityService.updateJourneySlotStatus(user(p), id, body.get("status")));
+    }
+
+    @GetMapping("/journeys/proposals")
+    public ResponseEntity<Page<JourneyMatchProposalDto>> getJourneyProposals(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getJourneyProposals(user(p), page, size));
+    }
+
+    @PostMapping("/journeys/proposals/{id}/respond")
+    public ResponseEntity<Void> respondToJourneyProposal(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+        mobilityService.respondToJourneyProposal(user(p), id, Boolean.TRUE.equals(body.get("accept")));
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/journeys/bookings/mine")
+    public ResponseEntity<Page<JourneyBookingDto>> getMyJourneyBookings(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyBookings(user(p), page, size));
+    }
+
+    @GetMapping("/journeys/offers/mine")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getMyJourneyOffers(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyJourneyOffers(user(p), page, size));
+    }
+
+    @GetMapping("/journeys/offers/{id}/passengers")
+    public ResponseEntity<List<JourneyBookingDto>> getJourneyPassengers(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getJourneyPassengers(user(p), id));
+    }
+
+    @PostMapping("/journeys/offers/{id}/cancel")
+    public ResponseEntity<Void> cancelJourneyOffer(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelJourneyOffer(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/journeys/requests/{id}/cancel")
+    public ResponseEntity<Void> cancelJourneyRequest(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        mobilityService.cancelJourneyRequest(user(p), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/airport-rides/airports")
+    public ResponseEntity<List<Map<String, String>>> getAirportRidesAirports() {
+        return ResponseEntity.ok(List.of(
+                Map.of("code", "HYD", "name", "Rajiv Gandhi International Airport", "city", "Hyderabad"),
+                Map.of("code", "BLR", "name", "Kempegowda International Airport", "city", "Bengaluru"),
+                Map.of("code", "DEL", "name", "Indira Gandhi International Airport", "city", "Delhi"),
+                Map.of("code", "BOM", "name", "Chhatrapati Shivaji Maharaj International Airport", "city", "Mumbai")
+        ));
+    }
+
+    @GetMapping("/airport-rides/search")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> searchAirportRides(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam String airportCode,
+            @RequestParam String direction,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) String travelDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getAirportRides(user(p), airportCode, direction, area, travelDate, page, size));
+    }
+
+    @PostMapping("/airport-rides")
+    public ResponseEntity<MobilityCarpoolOfferDto> createAirportRide(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateCarpoolOfferRequest req) {
+        if (req.getAirportCode() == null || req.getAirportDirection() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "airportCode and airportDirection are required");
+        }
+        return ResponseEntity.ok(mobilityService.createCarpoolOffer(user(p), req));
+    }
+
+    @GetMapping("/airport-rides/{id}")
+    public ResponseEntity<MobilityCarpoolOfferDto> getAirportRide(
+            @AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
+        return ResponseEntity.ok(mobilityService.getCarpoolOffer(user(p), id));
+    }
+
+    @PostMapping("/airport-rides/{id}/join")
+    public ResponseEntity<Void> joinAirportRide(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long id,
+            @RequestBody(required = false) JoinCarpoolRequest req) {
+        mobilityService.joinCarpoolOffer(user(p), id, req != null ? req : new JoinCarpoolRequest());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/airport-rides/my-trips")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getMyAirportTrips(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyAirportRides(user(p), page, size));
+    }
+
+    @PostMapping("/airport-rides/requests")
+    public ResponseEntity<AirportRideRequestDto> createAirportRideRequest(
+            @AuthenticationPrincipal UserPrincipal p,
+            @Valid @RequestBody CreateAirportRideRequest req) {
+        return ResponseEntity.ok(mobilityService.createAirportRideRequest(user(p), req));
+    }
+
+    @GetMapping("/airport-rides/requests/mine")
+    public ResponseEntity<Page<AirportRideRequestDto>> getMyAirportRideRequests(
+            @AuthenticationPrincipal UserPrincipal p,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getMyAirportRideRequests(user(p), page, size));
+    }
+
+    @GetMapping("/airport-rides/requests/{requestId}/matches")
+    public ResponseEntity<Page<MobilityCarpoolOfferDto>> getAirportRideMatches(
+            @AuthenticationPrincipal UserPrincipal p,
+            @PathVariable Long requestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(mobilityService.getAirportRideMatches(user(p), requestId, page, size));
+    }
+
     // ── Ops / Admin ────────────────────────────────────────────────────────
 
     @GetMapping("/ops/documents/pending")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Page<PendingDocumentReviewDto>> getPendingDocuments(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -222,6 +478,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/documents/{documentId}/review")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> reviewDocument(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId,
@@ -232,6 +489,7 @@ public class MobilityController {
     }
 
     @GetMapping("/ops/trips/active")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Page<MobilityTripDto>> getActiveTrips(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -239,6 +497,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/suspend")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> suspendDriver(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId,
@@ -248,6 +507,7 @@ public class MobilityController {
     }
 
     @PostMapping("/ops/drivers/{driverId}/reinstate")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> reinstateDriver(
             @AuthenticationPrincipal UserPrincipal p,
             @PathVariable Long driverId) {

@@ -16,6 +16,10 @@ public class RatingResponse {
     private Long bookingId;
     private BigDecimal overallRating;
     private String comment;
+    private String reply;
+    private LocalDateTime repliedAt;
+    private Boolean reported;
+    private String reportReason;
     private Boolean isAnonymous;
     private String status;
     private List<CriteriaResponse> criteria;

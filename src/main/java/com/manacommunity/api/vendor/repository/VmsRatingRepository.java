@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface VmsRatingRepository extends JpaRepository<VmsRating, Long> {
     Page<VmsRating> findByVendorIdAndStatus(Long vendorId, String status, Pageable pageable);
     Optional<VmsRating> findByVendorIdAndUserIdAndBookingId(Long vendorId, Long userId, Long bookingId);
+    Optional<VmsRating> findByIdAndVendorId(Long id, Long vendorId);
 
     @Query("SELECT AVG(r.overallRating) FROM VmsRating r WHERE r.vendor.id = :vendorId AND r.status = 'PUBLISHED'")
     BigDecimal findAverageRatingByVendorId(@Param("vendorId") Long vendorId);

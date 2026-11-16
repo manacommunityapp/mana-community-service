@@ -14,6 +14,15 @@ public class PaymentWebhookReconciliationController {
 
     private final PaymentWebhookReconciliationService webhookService;
 
+    @PostMapping("/cashfree")
+    public ResponseEntity<Map<String, String>> handleCashfree(
+            @RequestBody Map<String, Object> payload,
+            @RequestHeader(value = "x-webhook-signature", required = false) String signature,
+            @RequestHeader(value = "x-webhook-timestamp", required = false) String timestamp) {
+        webhookService.processCashfreeWebhook(payload, signature, timestamp);
+        return ResponseEntity.ok(Map.of("status", "processed"));
+    }
+
     @PostMapping("/razorpay")
     public ResponseEntity<Map<String, String>> handleRazorpay(
             @RequestBody Map<String, Object> payload,

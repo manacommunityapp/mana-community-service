@@ -85,6 +85,13 @@ public final class InsuranceDtos {
                                    String coverageScope, String coverageSought, Integer approxMembers,
                                    String status, LocalDateTime createdAt, String notice) {}
 
+    // ---- Sports group policy
+    public record SportsGroupPolicyRequest(@NotBlank @Size(max = 200) String teamName,
+                                            @NotBlank @Size(max = 60) String sport,
+                                            @NotNull @Min(2) @Max(500) Integer memberCount,
+                                            Long tournamentId,
+                                            @NotNull Long consentId) {}
+
     // ---- Admin
     public record PartnerCreateRequest(@NotBlank @Pattern(regexp = "[A-Z0-9_]{2,40}") String code,
                                        @NotBlank @Size(max = 200) String legalName,

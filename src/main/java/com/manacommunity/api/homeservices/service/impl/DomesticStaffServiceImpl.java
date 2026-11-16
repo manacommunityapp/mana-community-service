@@ -62,6 +62,33 @@ public class DomesticStaffServiceImpl implements DomesticStaffService {
         return toResponse(staffRepository.save(staff));
     }
 
+    @Override
+    @Transactional
+    public DomesticStaffResponse updateStaff(Long id, DomesticStaffRequest request) {
+        DomesticStaff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found with id: " + id));
+        if (request.getName() != null) staff.setName(request.getName());
+        if (request.getPhone() != null) staff.setPhone(request.getPhone());
+        if (request.getRole() != null) staff.setRole(request.getRole());
+        if (request.getShiftTime() != null) staff.setShiftTime(request.getShiftTime());
+        if (request.getWorkingTowers() != null) staff.setWorkingTowers(request.getWorkingTowers());
+        if (request.getMonthlySalary() != null) staff.setMonthlySalary(request.getMonthlySalary());
+        if (request.getVerified() != null) staff.setVerified(request.getVerified());
+        if (request.getPoliceVerified() != null) staff.setPoliceVerified(request.getPoliceVerified());
+        if (request.getAadhaarOnFile() != null) staff.setAadhaarOnFile(request.getAadhaarOnFile());
+        if (request.getExperience() != null) staff.setExperience(request.getExperience());
+        if (request.getPhotoUrl() != null) staff.setPhotoUrl(request.getPhotoUrl());
+        return toResponse(staffRepository.save(staff));
+    }
+
+    @Override
+    @Transactional
+    public void removeStaff(Long id) {
+        DomesticStaff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found with id: " + id));
+        staffRepository.delete(staff);
+    }
+
     private DomesticStaffResponse toResponse(DomesticStaff staff) {
         DomesticStaffResponse response = new DomesticStaffResponse();
         response.setId(staff.getId());

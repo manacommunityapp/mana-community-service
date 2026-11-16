@@ -3,6 +3,8 @@ package com.manacommunity.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 /**
  * Additional per-community configuration not stored in the base Community
  * entity (which has minimal fields in the original schema).
@@ -56,4 +58,11 @@ public class CommunitySettings {
     @Column(name = "feature_polls")
     @Builder.Default
     private Boolean featurePolls = true;
+
+    // ── Accounting freeze ────────────────────────────────────────────────
+    @Column(name = "accounting_freeze_date")
+    private LocalDate accountingFreezeDate;
+
+    @Column(name = "accounting_freeze_note", length = 500)
+    private String accountingFreezeNote;
 }

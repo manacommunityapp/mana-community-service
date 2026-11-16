@@ -152,6 +152,17 @@ public class AnprGateService {
         return new AnprGateSummaryResponse(open + hold + deny, open, hold, deny, hold);
     }
 
+    @Transactional
+    public AnprGateEventResponse overrideBarrierAction(Long communityId, Long eventId, BarrierAction action) {
+        AnprGateEvent event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("AnprGateEvent", eventId));
+        if (!event.getCommunity().getId().equals(communityId)) {
+            throw new ResourceNotFoundException("AnprGateEvent", eventId);
+        }
+        event.setBarrierAction(action);
+        return AnprGateEventResponse.from(eventRepository.save(event));
+    }
+
     // ── Private helpers ────────────────────────────────────────────────────────
 
     private AnprGateEvent saveEvent(

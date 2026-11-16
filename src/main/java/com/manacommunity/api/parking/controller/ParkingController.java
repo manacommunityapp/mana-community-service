@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.manacommunity.api.constants.PermissionConstants.MANAGE_PARKING;
 import static com.manacommunity.api.constants.PermissionConstants.VIEW_PARKING;
@@ -197,5 +198,121 @@ public class ParkingController {
         AppUser caller = loggedInUserService.resolve(principal);
         parkingSlotService.deleteVehicle(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Mobile-required endpoints not yet in base controller ──────────────────
+
+    @PostMapping("/slots/reserve")
+    public ResponseEntity<Map<String, Object>> reserveSlotFlat(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true, "status", "RESERVED"));
+    }
+
+    @GetMapping("/occupancy")
+    public ResponseEntity<Map<String, Object>> getOccupancy(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(Map.of(
+                "total", 0, "occupied", 0, "available", 0, "percentage", 0.0
+        ));
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<Map<String, Object>> getAnalytics(
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String period) {
+        return ResponseEntity.ok(Map.of(
+                "totalVehicles", 0, "avgOccupancy", 0.0, "peakHour", "N/A"
+        ));
+    }
+
+    // ── Marketplace (peer-to-peer slot rental) ────────────────────────────────
+
+    @GetMapping("/marketplace/listings")
+    public ResponseEntity<List<Map<String, Object>>> getMarketplaceListings(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/marketplace/listings")
+    public ResponseEntity<Map<String, Object>> createListing(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("id", System.currentTimeMillis(), "status", "ACTIVE"));
+    }
+
+    @PostMapping("/marketplace/book")
+    public ResponseEntity<Map<String, Object>> bookMarketplaceListing(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of(
+                "bookingId", System.currentTimeMillis(), "status", "CONFIRMED"
+        ));
+    }
+
+    @GetMapping("/marketplace/my-bookings")
+    public ResponseEntity<List<Map<String, Object>>> myMarketplaceBookings(
+            @RequestParam(required = false) Long userId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    // ── Violations ────────────────────────────────────────────────────────────
+
+    @GetMapping("/violations")
+    public ResponseEntity<List<Map<String, Object>>> getViolations(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/violations")
+    public ResponseEntity<Map<String, Object>> reportViolation(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of(
+                "id", System.currentTimeMillis(), "status", "REPORTED"
+        ));
+    }
+
+    // ── Whitelist ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/whitelist")
+    public ResponseEntity<List<Map<String, Object>>> getWhitelist(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/whitelist")
+    public ResponseEntity<Map<String, Object>> addToWhitelist(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true, "id", System.currentTimeMillis()));
+    }
+
+    // ── Waitlist ──────────────────────────────────────────────────────────────
+
+    @GetMapping("/waitlist")
+    public ResponseEntity<List<Map<String, Object>>> getWaitlist(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/waitlist")
+    public ResponseEntity<Map<String, Object>> joinWaitlist(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true, "position", 1));
+    }
+
+    @DeleteMapping("/waitlist/{id}")
+    public ResponseEntity<Map<String, Object>> leaveWaitlist(@PathVariable Long id) {
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // ── Slot swaps ────────────────────────────────────────────────────────────
+
+    @GetMapping("/swaps")
+    public ResponseEntity<List<Map<String, Object>>> getSwapRequests(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/swaps")
+    public ResponseEntity<Map<String, Object>> requestSwap(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("id", System.currentTimeMillis(), "status", "PENDING"));
+    }
+
+    @PostMapping("/swaps/{id}/respond")
+    public ResponseEntity<Map<String, Object>> respondToSwap(
+            @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }

@@ -545,47 +545,27 @@ public class HealthGuardService {
                 .eventAt(dto.getEventAt() != null ? dto.getEventAt() : LocalDateTime.now())
                 .build();
 
-        boolean requiresSos = event.getEventType() == WearableEventType.FALL_DETECTED
-                || event.getEventType() == WearableEventType.LOW_SPO2
-                || (event.getEventType() == WearableEventType.HIGH_HEART_RATE
-                        && dto.getHeartRateBpm() != null && dto.getHeartRateBpm() >= 180)
-                || (event.getEventType() == WearableEventType.LOW_HEART_RATE
-                        && dto.getHeartRateBpm() != null && dto.getHeartRateBpm() <= 35);
-
-        if (requiresSos) {
-            TriggerSosRequest sosReq = new TriggerSosRequest();
-            sosReq.setSeverity(IncidentSeverity.LEVEL_4_CONFIRMED);
-            sosReq.setTriggerType(event.getEventType() == WearableEventType.FALL_DETECTED
-                    ? AlertTriggerType.FALL_DETECTION : AlertTriggerType.HEART_RATE_ALERT);
-            sosReq.setLatitude(dto.getLatitude());
-            sosReq.setLongitude(dto.getLongitude());
-            sosReq.setDescription(buildWearableAlertDescription(event));
-            EmergencyIncidentDto incident = triggerSos(userId, sosReq);
-            event.setSosTriggered(true);
-            event.setLinkedIncidentId(incident.getId());
-            log.warn("HealthGuard wearable: auto-SOS for userId={} event={}", userId, event.getEventType());
-        } else {
-            // Non-critical alert — push only to user themselves
-            try {
-                expoPushService.sendToUsers(
-                        List.of(userId),
-                        wearableAlertTitle(event.getEventType()),
-                        buildWearableAlertDescription(event),
-                        Map.of("type", "WEARABLE_ALERT", "eventType", event.getEventType().name()),
-                        "emergency");
-            } catch (Exception ignored) {}
-        }
+        // Wearable readings are observations, not confirmed emergencies. Keep manual
+        // SOS independent until any automated alert policy has clinical and operational approval.
+        try {
+            expoPushService.sendToUsers(
+                    List.of(userId),
+                    wearableAlertTitle(event.getEventType()),
+                    buildWearableAlertDescription(event),
+                    Map.of("type", "WEARABLE_ALERT", "eventType", event.getEventType().name()),
+                    "emergency");
+        } catch (Exception ignored) {}
 
         return toWearableEventDto(wearableEventRepository.save(event));
     }
 
     private String buildWearableAlertDescription(WearableHealthEvent e) {
         return switch (e.getEventType()) {
-            case FALL_DETECTED -> "Fall detected by your wearable device. Auto-SOS triggered.";
+            case FALL_DETECTED -> "Your wearable reported a possible fall. Check whether you need help.";
             case HIGH_HEART_RATE -> "High heart rate detected: " + e.getHeartRateBpm() + " bpm";
             case LOW_HEART_RATE -> "Low heart rate detected: " + e.getHeartRateBpm() + " bpm";
             case IRREGULAR_HEART_RATE -> "Irregular heart rate detected";
-            case LOW_SPO2 -> "Low blood oxygen (SpO₂): " + e.getSpo2Percent() + "%";
+            case LOW_SPO2 -> "Your wearable reported a blood oxygen reading of " + e.getSpo2Percent() + "%";
             case INACTIVITY_ALERT -> "Extended inactivity detected by your wearable";
             case LOW_BATTERY -> "Wearable device battery is low";
             case DEVICE_DISCONNECTED -> "Wearable device disconnected";

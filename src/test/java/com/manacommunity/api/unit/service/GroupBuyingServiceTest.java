@@ -1,12 +1,19 @@
 package com.manacommunity.api.unit.service;
 
+import com.manacommunity.api.commerce.core.model.CommerceChannel;
+import com.manacommunity.api.commerce.core.model.CommerceOrder;
+import com.manacommunity.api.commerce.core.model.CommerceOrderItem;
+import com.manacommunity.api.commerce.core.model.CommerceOrderStatus;
+import com.manacommunity.api.commerce.core.repository.CommerceOrderItemRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
 import com.manacommunity.api.groupbuying.dto.*;
-import com.manacommunity.api.transactioncore.adapter.GroupBuyingTransactionAdapter;
-import com.manacommunity.api.transactioncore.dto.PaymentIntentResponse;
 import com.manacommunity.api.groupbuying.model.*;
 import com.manacommunity.api.groupbuying.repository.*;
+import com.manacommunity.api.groupbuying.service.GroupBuyPaymentConfirmationService;
 import com.manacommunity.api.groupbuying.service.GroupBuyingService;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.transactioncore.adapter.GroupBuyingTransactionAdapter;
+import com.manacommunity.api.transactioncore.dto.PaymentIntentResponse;
 import com.manacommunity.api.user.model.AppUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +28,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +48,12 @@ class GroupBuyingServiceTest {
     private BuyingGroupRepository buyingGroupRepository;
     @Mock
     private GroupDealSettlementRepository settlementRepository;
+    @Mock
+    private CommerceOrderRepository commerceOrderRepository;
+    @Mock
+    private CommerceOrderItemRepository commerceOrderItemRepository;
+    @Mock
+    private GroupBuyPaymentConfirmationService confirmationService;
     @Mock
     private GroupBuyingTransactionAdapter transactionAdapter;
 
@@ -99,7 +113,13 @@ class GroupBuyingServiceTest {
 
     @Test
     void testJoinDealSuccess() {
-        when(dealRepository.findById(1L)).thenReturn(Optional.of(testDeal));
+        when(dealRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testDeal));
+        when(commerceOrderRepository.save(any(CommerceOrder.class))).thenAnswer(invocation -> {
+            CommerceOrder co = invocation.getArgument(0);
+            co.setId(999L);
+            return co;
+        });
+        when(commerceOrderItemRepository.save(any(CommerceOrderItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.save(any(GroupBuyOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         JoinDealRequest request = new JoinDealRequest();
@@ -110,9 +130,80 @@ class GroupBuyingServiceTest {
         assertNotNull(order);
         assertEquals(2, order.getQuantity());
         assertEquals(new BigDecimal("1170.00"), order.getTotalAmount());
-        assertEquals(OrderStatus.CONFIRMED.name(), order.getStatus());
-        assertNotNull(order.getQrToken());
-        assertEquals(75, testDeal.getCommittedQty());
+        assertEquals(OrderStatus.PENDING_PAYMENT.name(), order.getStatus());
+        assertEquals("INITIATED", order.getPaymentStatus());
+        assertEquals(Long.valueOf(999L), order.getCommerceOrderId());
+        assertEquals(2, testDeal.getReservedQty());
+        assertEquals(73, testDeal.getCommittedQty());
+    }
+
+    @Test
+    void testCancelPendingOrderReleasesReservation() {
+        testDeal.setReservedQty(2);
+        CommerceOrder co = CommerceOrder.builder()
+                .id(999L)
+                .orderNumber("GBO-TEST-1")
+                .status(CommerceOrderStatus.PENDING)
+                .build();
+
+        GroupBuyOrder order = GroupBuyOrder.builder()
+                .orderNumber("GBO-TEST-1")
+                .user(testUser)
+                .deal(testDeal)
+                .quantity(2)
+                .totalAmount(new BigDecimal("1170.00"))
+                .status(OrderStatus.PENDING_PAYMENT)
+                .commerceOrder(co)
+                .build();
+
+        when(orderRepository.findByOrderNumber("GBO-TEST-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(GroupBuyOrder.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderCancellationRequest cancelReq = new OrderCancellationRequest();
+        cancelReq.setReason("Changed my mind before payment");
+
+        GroupOrderResponse response = groupBuyingService.cancelOrder("GBO-TEST-1", testUser, cancelReq);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED.name(), response.getStatus());
+        assertEquals(0, testDeal.getReservedQty());
+        assertEquals(CommerceOrderStatus.CANCELLED, co.getStatus());
+    }
+
+    @Test
+    void testProcessOrderPayment() {
+        CommerceOrder co = CommerceOrder.builder().id(999L).build();
+        GroupBuyOrder order = GroupBuyOrder.builder()
+                .orderNumber("GBO-TEST-1")
+                .user(testUser)
+                .deal(testDeal)
+                .quantity(2)
+                .totalAmount(new BigDecimal("1170.00"))
+                .status(OrderStatus.PENDING_PAYMENT)
+                .commerceOrder(co)
+                .build();
+
+        when(orderRepository.findByOrderNumber("GBO-TEST-1")).thenReturn(Optional.of(order));
+
+        OrderPaymentRequest payReq = new OrderPaymentRequest();
+        payReq.setPaymentMethod("CASHFREE");
+        payReq.setTransactionId("CF-TXN-123");
+
+        OrderPaymentResponse response = groupBuyingService.processOrderPayment("GBO-TEST-1", testUser, payReq);
+
+        assertNotNull(response);
+        verify(confirmationService).confirmPayment(eq(999L), eq("GBO-TEST-1"), eq("CF-TXN-123"), eq("CASHFREE"), eq(new BigDecimal("1170.00")));
+    }
+
+    @Test
+    void testGetVendorDeals() {
+        when(dealRepository.findByVendorIdOrderByCreatedAtDesc("VND-101")).thenReturn(List.of(testDeal));
+
+        List<GroupDealResponse> deals = groupBuyingService.getVendorDeals("VND-101", 1L);
+
+        assertNotNull(deals);
+        assertEquals(1, deals.size());
+        assertEquals("Aashirvaad Atta 10 KG", deals.get(0).getTitle());
     }
 
     @Test

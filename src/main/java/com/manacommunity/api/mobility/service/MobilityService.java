@@ -18,11 +18,13 @@ public interface MobilityService {
     MobilityTripDto cancelTrip(AppUser user, Long tripId, CancelTripRequest req);
     void rateTrip(AppUser user, Long tripId, RateTripRequest req);
     MobilityStatsDto getPassengerStats(AppUser user);
+    List<MobilityServiceZoneDto> getServiceZones(AppUser user);
 
     // ── Driver ─────────────────────────────────────────────────────
     MobilityDriverDto getMyDriverProfile(AppUser user);
     MobilityDriverDto registerDriver(AppUser user, RegisterDriverRequest req);
     MobilityDriverDto setAvailability(AppUser user, String availability);
+    MobilityDriverDto updateDriverLocation(AppUser user, double latitude, double longitude);
     List<MobilityDriverDocumentDto> getMyDocuments(AppUser user);
     MobilityDriverDocumentDto uploadDocument(AppUser user, String docType, MultipartFile file);
     List<MobilityVehicleDto> getMyVehicles(AppUser user);
@@ -38,6 +40,30 @@ public interface MobilityService {
     MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId);
     void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req);
     MobilityCarpoolOfferDto createCarpoolOffer(AppUser user, CreateCarpoolOfferRequest req);
+    Page<MobilityCarpoolOfferDto> getAirportRides(AppUser user, String airportCode, String direction, String area, String travelDate, int page, int size);
+    Page<MobilityCarpoolOfferDto> getMyAirportRides(AppUser user, int page, int size);
+    AirportRideRequestDto createAirportRideRequest(AppUser user, CreateAirportRideRequest req);
+    Page<AirportRideRequestDto> getMyAirportRideRequests(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getAirportRideMatches(AppUser user, Long requestId, int page, int size);
+    List<JourneyTypeConfigDto> getJourneyTypeConfigs();
+    Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
+                                                      String travelAt, int timeWindowMinutes, int seats,
+                                                       int luggageCount, int page, int size);
+    AirportRideRequestDto createJourneyRequest(AppUser user, CreateJourneyRequest req);
+    Page<AirportRideRequestDto> getMyJourneyRequests(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getJourneyMatches(AppUser user, Long requestId, int page, int size);
+    void cancelCarpoolBooking(AppUser user, Long offerId);
+    void joinCarpoolWaitlist(AppUser user, Long offerId, JoinCarpoolRequest req);
+    List<JourneySlotDto> getJourneySlots(AppUser user, String journeyType, String hubCode);
+    JourneySlotDto createJourneySlot(AppUser user, CreateJourneySlotRequest req);
+    JourneySlotDto updateJourneySlotStatus(AppUser user, Long slotId, String status);
+    Page<JourneyMatchProposalDto> getJourneyProposals(AppUser user, int page, int size);
+    void respondToJourneyProposal(AppUser user, Long proposalId, boolean accept);
+    Page<JourneyBookingDto> getMyJourneyBookings(AppUser user, int page, int size);
+    Page<MobilityCarpoolOfferDto> getMyJourneyOffers(AppUser user, int page, int size);
+    List<JourneyBookingDto> getJourneyPassengers(AppUser user, Long offerId);
+    void cancelJourneyOffer(AppUser user, Long offerId);
+    void cancelJourneyRequest(AppUser user, Long requestId);
 
     // ── Ops / Admin ────────────────────────────────────────────────
     Page<PendingDocumentReviewDto> getPendingDocuments(int page, int size);

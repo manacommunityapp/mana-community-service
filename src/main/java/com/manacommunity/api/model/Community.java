@@ -58,6 +58,10 @@ public class Community extends BaseAuditEntity {
     @Column(name = "invite_code", unique = true, length = 20)
     private String inviteCode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_zone_id")
+    private com.manacommunity.api.fresh.city.model.FreshServiceZone serviceZone;
+
     /**
      * Soft-delete flag. "Deleting" a community sets this to false instead of
      * removing the row, so historical references (users, events) stay intact.

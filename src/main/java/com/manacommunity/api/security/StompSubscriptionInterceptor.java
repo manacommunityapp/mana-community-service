@@ -38,6 +38,7 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
     private static final Pattern NOTIFICATION_TOPIC  = Pattern.compile("^/topic/notifications/(\\d+)$");
     private static final Pattern AUCTION_TOPIC       = Pattern.compile("^/topic/auction/(\\d+)$");
     private static final Pattern MATCH_TOPIC         = Pattern.compile("^/topic/match/(\\d+)(?:/.*)?$");
+    private static final Pattern KITTY_GAME_TOPIC     = Pattern.compile("^/topic/kitty-games/(\\d+)$");
 
     private final AppUserRepository userRepository;
     private final ConversationParticipantRepository participantRepository;

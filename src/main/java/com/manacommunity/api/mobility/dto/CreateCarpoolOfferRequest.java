@@ -12,4 +12,14 @@ public class CreateCarpoolOfferRequest {
     @DecimalMin("0") private java.math.BigDecimal pricePerSeat;
     private String vehicleModel;
     private String vehicleNumber;
+    private String journeyType;
+    private String direction;
+    private String hubCode;
+    private String contextName;
+    private String airportDirection;
+    private String airportCode;
+    private String airportName;
+    private String flightNumber;
+    private String terminal;
+    @Min(0) private int luggageCapacity;
 }

@@ -319,6 +319,15 @@ public class VisitorPassService {
         rejectPass(id, "Guard");
     }
 
+    @Transactional
+    public VisitorPassResponse capturePhoto(Long id, String photoUrl) {
+        VisitorPass pass = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+        pass.setVisitorPhoto(photoUrl);
+        pass.setPhotoCapturedAt(LocalDateTime.now());
+        return toResponse(repo.save(pass));
+    }
+
     @Transactional(readOnly = true)
     public VisitorPassResponse verifyPassCodeOrOtpOrPhone(String codeOrOtpOrPhone, Long communityId) {
         if (codeOrOtpOrPhone == null || codeOrOtpOrPhone.isBlank()) {

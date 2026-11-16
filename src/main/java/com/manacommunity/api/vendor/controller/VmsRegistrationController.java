@@ -37,6 +37,14 @@ public class VmsRegistrationController {
         return ResponseEntity.ok(registrationService.getRegistrations(user.getCommunity().getId(), status, pageable));
     }
 
+    @GetMapping("/mine")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<java.util.List<VendorRegistrationResponse>> getMyRegistrations(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(registrationService.getMyRegistrations(user.getCommunity().getId(), user.getId()));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('Manage Vendors')")
     public ResponseEntity<VendorRegistrationResponse> getById(
@@ -47,6 +55,7 @@ public class VmsRegistrationController {
     }
 
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<VendorRegistrationResponse> submit(
             @Valid @RequestBody VendorRegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {

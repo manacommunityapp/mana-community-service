@@ -65,6 +65,37 @@ public class SportsVenue {
     @Column(name = "contact_title", length = 100)
     private String contactTitle;
 
+    @Column(columnDefinition = "TEXT")
+    private String sports;
+
+    @Column(columnDefinition = "TEXT")
+    private String amenities;
+
+    @Column(columnDefinition = "TEXT")
+    private String images;
+
+    @Column(name = "is_federated")
+    @Builder.Default
+    private Boolean isFederated = false;
+
+    @Column(name = "partner_communities", columnDefinition = "TEXT")
+    private String partnerCommunities;
+
+    @Column(precision = 3, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal rating = new java.math.BigDecimal("5.00");
+
+    @Column(name = "review_count")
+    @Builder.Default
+    private Integer reviewCount = 0;
+
+    @Column(name = "is_active")
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @Column(name = "vendor_id")
+    private Long vendorId;
+
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "sports_venue_contact",

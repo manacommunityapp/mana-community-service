@@ -66,6 +66,30 @@ public class VmsContractController {
                 .body(contractService.create(req, user, user.getCommunity()));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('Manage Contracts')")
+    public ResponseEntity<ContractResponse> update(@PathVariable Long id, @Valid @RequestBody ContractRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(contractService.update(id, req, user.getCommunity().getId()));
+    }
+
+    @PutMapping("/{id}/renew")
+    @PreAuthorize("hasAuthority('Manage Contracts')")
+    public ResponseEntity<ContractResponse> renew(@PathVariable Long id, @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(contractService.renew(id, java.time.LocalDate.parse(body.get("newEndDate")), user.getCommunity().getId()));
+    }
+
+    @PutMapping("/{id}/terminate")
+    @PreAuthorize("hasAuthority('Manage Contracts')")
+    public ResponseEntity<ContractResponse> terminate(@PathVariable Long id, @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(contractService.terminate(id, body.getOrDefault("reason", ""), user.getCommunity().getId()));
+    }
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAuthority('Manage Contracts')")
     public ResponseEntity<ContractResponse> updateStatus(
