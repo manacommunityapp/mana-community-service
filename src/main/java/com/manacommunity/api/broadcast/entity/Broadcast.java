@@ -1,4 +1,4 @@
-﻿package com.manacommunity.api.broadcast.entity;
+package com.manacommunity.api.broadcast.entity;
 
 import com.manacommunity.api.model.common.BaseAuditEntity;
 import com.manacommunity.api.model.Community;
