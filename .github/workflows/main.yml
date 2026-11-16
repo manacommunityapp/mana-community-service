@@ -73,9 +73,11 @@ jobs:
 
             # Wait for backend service to become healthy or stabilize
             echo "Waiting for backend service to initialize..."
-            for i in $(seq 1 25); do
+            HEALTHY=false
+            for i in $(seq 1 30); do
               if curl -s -f http://localhost:8081/api/actuator/health >/dev/null 2>&1; then
                 echo "Backend is HEALTHY after ${i} checks!"
+                HEALTHY=true
                 break
               fi
               sleep 3
@@ -95,3 +97,8 @@ jobs:
 
             # Cleanup temp files
             rm -rf /tmp/target /tmp/deploy
+
+            if [ "$HEALTHY" != "true" ]; then
+              echo "ERROR: Backend failed to respond healthy at http://localhost:8081/api/actuator/health within timeout!"
+              exit 1
+            fi
