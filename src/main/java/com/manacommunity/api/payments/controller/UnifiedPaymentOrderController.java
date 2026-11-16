@@ -1,5 +1,6 @@
 package com.manacommunity.api.payments.controller;
 
+import com.manacommunity.api.payments.config.dto.RecordManualPaymentRequest;
 import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
 import com.manacommunity.api.payments.dto.UnifiedPaymentOrderResponse;
 import com.manacommunity.api.payments.dto.VerifyPaymentRequest;
@@ -215,5 +216,30 @@ public class UnifiedPaymentOrderController {
                 orderService.markFailed(order.getIdempotencyKey(), pgStatus);
             }
         }
+    }
+
+    // ─── Manual payment ──────────────────────────────────────────────────────────
+
+    /**
+     * Records an offline payment (cash/cheque/UPI) made directly to the community.
+     * Only community admins, finance admins, and cashiers may call this.
+     */
+    @Operation(summary = "Record a manual (offline) payment for a community order")
+    @PostMapping("/manual")
+    @PreAuthorize("hasAnyRole('COMMUNITY_ADMIN','FINANCE_MGMT_ADMIN','CASHIER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<UnifiedPaymentOrderResponse> recordManualPayment(
+            @RequestBody RecordManualPaymentRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        // Community isolation
+        Long principalCommunityId = principal.getCommunityId();
+        if (principalCommunityId == null || !principalCommunityId.equals(req.getCommunityId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "communityId in request does not match authenticated user's community");
+        }
+
+        PaymentOrder recorded = orderService.recordManualPayment(req, principal.getId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(UnifiedPaymentOrderResponse.from(recorded));
     }
 }

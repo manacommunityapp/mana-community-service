@@ -1,18 +1,24 @@
 package com.manacommunity.api.payments.service;
 
+import com.manacommunity.api.payments.config.dto.RecordManualPaymentRequest;
+import com.manacommunity.api.payments.config.service.PaymentConfigService;
 import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
 import com.manacommunity.api.payments.entity.PaymentOrder;
 import com.manacommunity.api.payments.model.PaymentGateway;
 import com.manacommunity.api.payments.model.PaymentOrderStatus;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
+import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Single entry point for all payment order lifecycle operations.
@@ -33,11 +39,23 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UnifiedPaymentOrderService {
 
     private final PaymentOrderRepository      repository;
     private final PaymentLifecycleStateMachine stateMachine;
+    private final ApplicationEventPublisher   eventPublisher;
+    private final PaymentConfigService        paymentConfigService;
+
+    public UnifiedPaymentOrderService(
+            PaymentOrderRepository repository,
+            PaymentLifecycleStateMachine stateMachine,
+            ApplicationEventPublisher eventPublisher,
+            @Lazy PaymentConfigService paymentConfigService) {
+        this.repository           = repository;
+        this.stateMachine         = stateMachine;
+        this.eventPublisher       = eventPublisher;
+        this.paymentConfigService = paymentConfigService;
+    }
 
     // ─── Create ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +68,10 @@ public class UnifiedPaymentOrderService {
      */
     @Transactional
     public PaymentOrder createOrder(CreatePaymentOrderRequest req) {
+        // Guard: gateway must be enabled for this community
+        if (req.getGateway() != null && req.getCommunityId() != null) {
+            paymentConfigService.assertGatewayAllowed(req.getCommunityId(), req.getGateway().name());
+        }
         return repository.findByIdempotencyKey(req.getIdempotencyKey())
             .orElseGet(() -> {
                 PaymentOrder order = PaymentOrder.builder()
@@ -193,6 +215,59 @@ public class UnifiedPaymentOrderService {
             order.setReceiptNumber(receiptNumber);
             repository.save(order);
         });
+    }
+
+    // ─── Manual payment ───────────────────────────────────────────────────────────
+
+    /**
+     * Records an offline payment (cash/cheque/UPI) made directly to the community.
+     * Creates a PaymentOrder with gateway=MANUAL and status=SUCCESS immediately,
+     * then fires GatewayPaymentCapturedEvent so ModulePaymentConfirmationListener
+     * updates the originating module entity.
+     *
+     * <p>Financial rule: amount is taken from the request but must be validated
+     * against the expected amount of the referenced entity by the caller service.
+     */
+    @Transactional
+    public PaymentOrder recordManualPayment(RecordManualPaymentRequest req, Long adminUserId) {
+        String idempotencyKey = "MANUAL-" + req.getReferenceType()
+            + "-" + req.getReferenceId() + "-" + UUID.randomUUID();
+
+        String receiptNumber = "RCPT-MNL-" + System.currentTimeMillis();
+
+        PaymentOrder order = PaymentOrder.builder()
+            .communityId(req.getCommunityId())
+            .idempotencyKey(idempotencyKey)
+            .gateway(PaymentGateway.MANUAL)
+            .referenceType(req.getReferenceType())
+            .referenceId(req.getReferenceId())
+            .payerUserId(adminUserId)
+            .amount(req.getAmount())
+            .currency("INR")
+            .status(PaymentOrderStatus.SUCCESS)
+            .refundedAmount(BigDecimal.ZERO)
+            .receiptNumber(receiptNumber)
+            .webhookReceivedAt(OffsetDateTime.now())
+            .build();
+
+        PaymentOrder saved = repository.save(order);
+        log.info("[PaymentOrder] MANUAL recorded id={} ref={}/{} by adminId={} mode={}",
+            saved.getId(), req.getReferenceType(), req.getReferenceId(),
+            adminUserId, req.getPaymentMode());
+
+        // Fire event so ModulePaymentConfirmationListener marks the module entity PAID
+        eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+            GatewayPaymentCapturedEvent.Gateway.CASHFREE, // gateway enum has no MANUAL — using CASHFREE as stand-in
+            idempotencyKey,
+            receiptNumber,
+            req.getAmount(),
+            "INR",
+            "Manual payment: " + req.getPaymentMode()
+                + (req.getReferenceNumber() != null ? " ref=" + req.getReferenceNumber() : ""),
+            saved.getId()
+        ));
+
+        return saved;
     }
 
     // ─── Query ───────────────────────────────────────────────────────────────────
