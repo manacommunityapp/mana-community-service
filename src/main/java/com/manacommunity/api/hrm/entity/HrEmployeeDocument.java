@@ -1,5 +1,6 @@
 package com.manacommunity.api.hrm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,6 +33,7 @@ public class HrEmployeeDocument {
     @Column(name = "document_name", nullable = false, length = 200)
     private String documentName;
 
+    @JsonIgnore
     @Column(name = "file_url", columnDefinition = "TEXT")
     private String fileUrl;
 

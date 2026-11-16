@@ -16,4 +16,10 @@ public class CreateLeaveTypeRequest {
     private Boolean isPaid;
     private Boolean isCarryForward;
     private Integer maxCarryForward;
+    private Integer approvalLevels;
+    private Boolean requiresHrApproval;
+    private Integer minNoticeDays;
+    private Integer maxConsecutiveDays;
+    private Integer maxPerYear;
+    private Boolean allowNegativeBalance;
 }

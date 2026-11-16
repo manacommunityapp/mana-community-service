@@ -12,5 +12,7 @@ public interface HrAttendanceLogRepository extends JpaRepository<HrAttendanceLog
 
     List<HrAttendanceLog> findByEmployeeIdAndEventTimeBetween(Long employeeId, LocalDateTime from, LocalDateTime to);
 
+    List<HrAttendanceLog> findByEmployeeIdAndEventTimeBetweenOrderByEventTimeAsc(Long employeeId, LocalDateTime from, LocalDateTime to);
+
     Optional<HrAttendanceLog> findTopByEmployeeIdAndEventTypeOrderByEventTimeDesc(Long employeeId, AttendanceEventType eventType);
 }
