@@ -1,4 +1,4 @@
-package com.manacommunity.api.governance.entity;
+ackage com.manacommunity.api.governance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,4 +44,21 @@ public class GovernanceVaultDocument {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "file_size")
+    private String fileSize;
+
+    @Column(name = "file_format")
+    private String fileFormat;
+
+    @Column(name = "is_confidential")
+    @Builder.Default
+    private Boolean isConfidential = false;
+
+    @Column(name = "resolution_ref")
+    private String resolutionRef;
+
+    @Column(name = "digital_seal_verified")
+    @Builder.Default
+    private Boolean digitalSealVerified = false;
 }

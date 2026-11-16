@@ -1,4 +1,4 @@
-package com.manacommunity.api.governance.repository;
+ackage com.manacommunity.api.governance.repository;
 
 import com.manacommunity.api.governance.entity.GovernanceVaultDocument;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,4 +10,5 @@ import java.util.List;
 public interface GovernanceVaultDocumentRepository extends JpaRepository<GovernanceVaultDocument, Long> {
     List<GovernanceVaultDocument> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
     List<GovernanceVaultDocument> findByCommunityIdAndCategoryOrderByCreatedAtDesc(Long communityId, String category);
+    List<GovernanceVaultDocument> findByCommunityIdAndTitleContainingIgnoreCaseOrderByCreatedAtDesc(Long communityId, String title);
 }
