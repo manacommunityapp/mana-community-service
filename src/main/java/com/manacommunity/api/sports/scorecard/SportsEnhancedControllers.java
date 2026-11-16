@@ -1,5 +1,6 @@
 package com.manacommunity.api.sports.scorecard;
 
+import com.manacommunity.api.sports.dto.CricketCareerStatsResponse;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.*;
 
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -557,5 +559,142 @@ class SportsBadgeController {
     private static Map<String, Object> badge(String id, String name, String emoji, String desc, String cat, String rarity) {
         return Map.of("id",id,"name",name,"emoji",emoji,"description",desc,
             "category",cat,"rarity",rarity,"isEarned",false);
+    }
+}
+
+// ── Cricket Career Stats Controller ──────────────────────────
+@Slf4j
+@RestController
+@RequestMapping("/api/sports/players")
+@RequiredArgsConstructor
+class CricketCareerStatsController {
+
+    @PersistenceContext private final EntityManager em;
+
+    /**
+     * GET /api/sports/players/{userId}/cricket-stats
+     *
+     * Aggregates batting and bowling career statistics for a player across all
+     * completed innings stored in SportsBattingPerformance / SportsBowlingPerformance.
+     * Uses JPQL scalar projections to avoid lazy-loading the full entity graph.
+     */
+    @GetMapping("/{userId}/cricket-stats")
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public ResponseEntity<CricketCareerStatsResponse> getCricketStats(@PathVariable Long userId) {
+        log.info("Fetching cricket career stats for userId={}", userId);
+
+        // Resolve player name from AppUser
+        @SuppressWarnings("unchecked")
+        List<String> names = em.createQuery(
+                "SELECT u.fullName FROM AppUser u WHERE u.id = :id")
+                .setParameter("id", userId).getResultList();
+        if (names.isEmpty()) return ResponseEntity.notFound().build();
+        String playerName = names.get(0);
+
+        CricketCareerStatsResponse.BattingStats batting = aggregateBatting(userId);
+        CricketCareerStatsResponse.BowlingStats bowling = aggregateBowling(userId);
+
+        return ResponseEntity.ok(new CricketCareerStatsResponse(userId, playerName, batting, bowling));
+    }
+
+    @SuppressWarnings("unchecked")
+    private CricketCareerStatsResponse.BattingStats aggregateBatting(Long userId) {
+        // Scalar projection: runsScored, ballsFaced, fours, sixes, dismissalType(null=notOut), matchId
+        List<Object[]> rows = em.createQuery(
+                "SELECT b.runsScored, b.ballsFaced, b.fours, b.sixes, b.dismissalType, " +
+                "b.innings.matchResult.match.id " +
+                "FROM SportsBattingPerformance b WHERE b.player.user.id = :userId")
+                .setParameter("userId", userId).getResultList();
+
+        if (rows.isEmpty()) {
+            return new CricketCareerStatsResponse.BattingStats(0, 0, 0, 0, "-", 0.0, 0.0, 0, 0, 0, 0);
+        }
+
+        int innings    = rows.size();
+        int notOuts    = (int) rows.stream().filter(r -> r[4] == null).count();
+        int runs       = rows.stream().mapToInt(r -> toInt(r[0])).sum();
+        int ballsFaced = rows.stream().mapToInt(r -> toInt(r[1])).sum();
+        int fours      = rows.stream().mapToInt(r -> toInt(r[2])).sum();
+        int sixes      = rows.stream().mapToInt(r -> toInt(r[3])).sum();
+        int centuries  = (int) rows.stream().filter(r -> toInt(r[0]) >= 100).count();
+        int fifties    = (int) rows.stream().filter(r -> toInt(r[0]) >= 50 && toInt(r[0]) < 100).count();
+        long matches   = rows.stream().map(r -> r[5]).filter(Objects::nonNull).distinct().count();
+
+        int maxRuns    = rows.stream().mapToInt(r -> toInt(r[0])).max().orElse(0);
+        boolean maxWasNotOut = rows.stream()
+                .filter(r -> toInt(r[0]) == maxRuns)
+                .anyMatch(r -> r[4] == null);
+        String highScore = maxRuns + (maxWasNotOut ? "*" : "");
+
+        int dismissals = innings - notOuts;
+        double avg = dismissals > 0 ? round2((double) runs / dismissals) : (runs > 0 ? 999.0 : 0.0);
+        double sr  = ballsFaced > 0 ? round2(runs * 100.0 / ballsFaced) : 0.0;
+
+        return new CricketCareerStatsResponse.BattingStats(
+                (int) matches, innings, notOuts, runs, highScore, avg, sr, centuries, fifties, fours, sixes);
+    }
+
+    @SuppressWarnings("unchecked")
+    private CricketCareerStatsResponse.BowlingStats aggregateBowling(Long userId) {
+        // Scalar projection: oversBowled(BigDecimal), runsConceded, wicketsTaken, matchId
+        List<Object[]> rows = em.createQuery(
+                "SELECT b.oversBowled, b.runsConceded, b.wicketsTaken, " +
+                "b.innings.matchResult.match.id " +
+                "FROM SportsBowlingPerformance b WHERE b.player.user.id = :userId")
+                .setParameter("userId", userId).getResultList();
+
+        if (rows.isEmpty()) {
+            return new CricketCareerStatsResponse.BowlingStats(0, 0, 0, 0, "0.0", null, 0.0, null, 0, "-");
+        }
+
+        int bowlingInnings = rows.size();
+        int wickets        = rows.stream().mapToInt(r -> toInt(r[2])).sum();
+        int runsConceded   = rows.stream().mapToInt(r -> toInt(r[1])).sum();
+        int fiveWickets    = (int) rows.stream().filter(r -> toInt(r[2]) >= 5).count();
+        long matches       = rows.stream().map(r -> r[3]).filter(Objects::nonNull).distinct().count();
+
+        int totalBalls = rows.stream().mapToInt(r -> oversToLegalBalls((BigDecimal) r[0])).sum();
+        String oversFormatted = formatOvers(totalBalls);
+
+        Double average    = wickets > 0 ? round2((double) runsConceded / wickets) : null;
+        double economy    = totalBalls > 0 ? round2(runsConceded * 6.0 / totalBalls) : 0.0;
+        Double strikeRate = wickets > 0 ? round2((double) totalBalls / wickets) : null;
+
+        // Best bowling: highest wickets, then fewest runs
+        String bestBowling = rows.stream()
+                .filter(r -> toInt(r[2]) > 0)
+                .max(Comparator.comparingInt((Object[] r) -> toInt(r[2]))
+                        .thenComparingInt(r -> -toInt(r[1])))
+                .map(r -> toInt(r[2]) + "/" + toInt(r[1]))
+                .orElse("-");
+
+        return new CricketCareerStatsResponse.BowlingStats(
+                (int) matches, bowlingInnings, wickets, runsConceded,
+                oversFormatted, average, economy, strikeRate, fiveWickets, bestBowling);
+    }
+
+    /** Converts a BigDecimal overs field (e.g. 4.3 = 4 overs 3 balls) to total legal balls. */
+    private static int oversToLegalBalls(BigDecimal ov) {
+        if (ov == null) return 0;
+        int fullOvers = ov.intValue();
+        // Extract the fractional digit: 4.3 → 3
+        int balls = ov.subtract(BigDecimal.valueOf(fullOvers))
+                      .multiply(BigDecimal.TEN).abs().intValue();
+        return fullOvers * 6 + balls;
+    }
+
+    private static String formatOvers(int totalBalls) {
+        return (totalBalls / 6) + "." + (totalBalls % 6);
+    }
+
+    private static int toInt(Object o) {
+        if (o == null) return 0;
+        if (o instanceof Number n) return n.intValue();
+        return 0;
+    }
+
+    private static double round2(double v) {
+        return Math.round(v * 100.0) / 100.0;
     }
 }

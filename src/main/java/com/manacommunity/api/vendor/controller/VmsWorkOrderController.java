@@ -68,13 +68,14 @@ public class VmsWorkOrderController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('Manage Work Orders')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<WorkOrderResponse> updateStatus(
             @PathVariable Long id,
             @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(workOrderService.updateStatus(id, status, user.getCommunity().getId()));
+        boolean manager = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Work Orders"));
+        return ResponseEntity.ok(workOrderService.updateStatusForUser(id, status, user, manager));
     }
 
     @PutMapping("/{id}/assign")

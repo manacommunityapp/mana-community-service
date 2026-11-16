@@ -521,6 +521,33 @@ public class HealthDirectoryApiController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── Round 6: Condition Groups, Language Preference, Insurance Coverage ────
+
+    @GetMapping("/specialties/condition-groups")
+    public ResponseEntity<List<ConditionGroupDto>> getConditionGroups(
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        return ResponseEntity.ok(healthDomainService.getConditionGroups(tenantId));
+    }
+
+    @PostMapping("/appointments/language-preference")
+    public ResponseEntity<Void> setLanguagePreference(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody LanguagePreferenceRequest req,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        healthDomainService.setLanguagePreference(tenantId, userId, req);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/surgery/insurance-coverage/{procedureId}")
+    public ResponseEntity<InsuranceCoverageDto> getSurgeryInsuranceCoverage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String procedureId,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getSurgeryInsuranceCoverage(tenantId, userId, procedureId));
+    }
+
     @PostMapping("/triage")
     public ResponseEntity<Map<String, Object>> triageSymptom(@RequestBody Map<String, String> body) {
         String query = body.getOrDefault("query", "").toLowerCase();
@@ -536,5 +563,75 @@ public class HealthDirectoryApiController {
                         : "Book a consultation with a registered community general practitioner.",
                 "disclaimer", "This triage is for informational guidance only and is not an automated medical diagnosis."
         ));
+    }
+
+    // ── Round 7 Endpoints ─────────────────────────────────────────────────────
+
+    @GetMapping("/labs/categories")
+    public ResponseEntity<List<LabCategoryDto>> getLabCategories(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getLabCategories(tenantId, userId));
+    }
+
+    @GetMapping("/labs/individual-tests")
+    public ResponseEntity<List<IndividualLabTestDto>> getIndividualLabTests(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String category) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getIndividualLabTests(tenantId, userId, category));
+    }
+
+    @GetMapping("/surgery/condition-shortcuts")
+    public ResponseEntity<List<SurgeryConditionShortcutDto>> getSurgeryConditionShortcuts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getSurgeryConditionShortcuts(tenantId, userId));
+    }
+
+    @PostMapping("/cancer/expert-opinion")
+    public ResponseEntity<ExpertOpinionStatusDto> submitExpertOpinionRequest(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody ExpertOpinionRequestDto req,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.submitExpertOpinionRequest(tenantId, userId, req));
+    }
+
+    @GetMapping("/doctors/walk-in")
+    public ResponseEntity<List<DoctorDto>> getWalkInDoctors(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String specialty) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getWalkInDoctors(tenantId, userId, specialty));
+    }
+
+    // ── Round 8 Endpoints ─────────────────────────────────────────────────────
+
+    @GetMapping("/doctors")
+    public ResponseEntity<List<DoctorDto>> getDoctors(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        Long userId = (principal != null) ? principal.getId() : 1L;
+        return ResponseEntity.ok(healthDomainService.getDoctors(tenantId, userId));
+    }
+
+    @GetMapping("/radiology/centers")
+    public ResponseEntity<List<RadiologyCenterDto>> getRadiologyCenters(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId,
+            @RequestParam(required = false) String modality) {
+        return ResponseEntity.ok(healthDomainService.getRadiologyCenters(tenantId, modality));
+    }
+
+    @GetMapping("/blood-bank/availability")
+    public ResponseEntity<List<BloodBankAvailabilityDto>> getBloodBankAvailability(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false, defaultValue = "1") Long tenantId) {
+        return ResponseEntity.ok(healthDomainService.getBloodBankAvailability(tenantId));
     }
 }

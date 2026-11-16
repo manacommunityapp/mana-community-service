@@ -4,7 +4,12 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.wellness.dto.*;
 import com.manacommunity.api.wellness.entity.FoodCatalog;
 import com.manacommunity.api.wellness.enums.WellnessEnums.*;
+import com.manacommunity.api.wellness.service.FitnessGoalService;
+import com.manacommunity.api.wellness.service.FitnessSummaryService;
+import com.manacommunity.api.wellness.service.StepService;
+import com.manacommunity.api.wellness.service.TrainerProgramService;
 import com.manacommunity.api.wellness.service.WellnessService;
+import com.manacommunity.api.wellness.service.WorkoutService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,9 +23,22 @@ import java.util.List;
 public class WellnessApiController {
 
     private final WellnessService wellnessService;
+    private final WorkoutService workoutService;
+    private final FitnessGoalService fitnessGoalService;
+    private final StepService stepService;
+    private final FitnessSummaryService fitnessSummaryService;
+    private final TrainerProgramService trainerProgramService;
 
-    public WellnessApiController(WellnessService wellnessService) {
+    public WellnessApiController(WellnessService wellnessService, WorkoutService workoutService,
+                                  FitnessGoalService fitnessGoalService, StepService stepService,
+                                  FitnessSummaryService fitnessSummaryService,
+                                  TrainerProgramService trainerProgramService) {
         this.wellnessService = wellnessService;
+        this.workoutService = workoutService;
+        this.fitnessGoalService = fitnessGoalService;
+        this.stepService = stepService;
+        this.fitnessSummaryService = fitnessSummaryService;
+        this.trainerProgramService = trainerProgramService;
     }
 
     // ── Profile ──
@@ -146,5 +164,218 @@ public class WellnessApiController {
             @PathVariable Long id) {
         wellnessService.markAlertRead(principal.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Workouts ──
+
+    @GetMapping("/workouts")
+    public ResponseEntity<List<WorkoutLogDto>> getWorkouts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(workoutService.getWorkoutsForDate(principal.getId(), date));
+    }
+
+    @GetMapping("/workouts/range")
+    public ResponseEntity<List<WorkoutLogDto>> getWorkoutsRange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(workoutService.getWorkoutsForRange(principal.getId(), start, end));
+    }
+
+    @PostMapping("/workouts")
+    public ResponseEntity<WorkoutLogDto> logWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody WorkoutLogDto dto) {
+        return ResponseEntity.ok(workoutService.logWorkout(principal.getId(), dto));
+    }
+
+    @DeleteMapping("/workouts/{id}")
+    public ResponseEntity<Void> deleteWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        workoutService.deleteWorkout(principal.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Exercise Catalog ──
+
+    @GetMapping("/exercise/search")
+    public ResponseEntity<List<ExerciseCatalogDto>> searchExercises(
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(workoutService.searchExercises(query));
+    }
+
+    @GetMapping("/exercise/category/{category}")
+    public ResponseEntity<List<ExerciseCatalogDto>> getExercisesByCategory(
+            @PathVariable String category) {
+        return ResponseEntity.ok(workoutService.getExercisesByCategory(category));
+    }
+
+    // ── Body Metrics ──
+
+    @GetMapping("/body-metrics")
+    public ResponseEntity<List<BodyMetricLogDto>> getBodyMetrics(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "90") int days) {
+        return ResponseEntity.ok(fitnessGoalService.getBodyMetrics(principal.getId(), days));
+    }
+
+    @GetMapping("/body-metrics/latest")
+    public ResponseEntity<BodyMetricLogDto> getLatestBodyMetric(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getLatestBodyMetric(principal.getId()));
+    }
+
+    @PostMapping("/body-metrics")
+    public ResponseEntity<BodyMetricLogDto> logBodyMetric(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody BodyMetricLogDto dto) {
+        return ResponseEntity.ok(fitnessGoalService.logBodyMetric(principal.getId(), dto));
+    }
+
+    // ── Activity Goals ──
+
+    @GetMapping("/activity-goal")
+    public ResponseEntity<ActivityGoalDto> getActivityGoal(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getActivityGoal(principal.getId()));
+    }
+
+    @PutMapping("/activity-goal")
+    public ResponseEntity<ActivityGoalDto> saveActivityGoal(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody ActivityGoalDto dto) {
+        return ResponseEntity.ok(fitnessGoalService.saveActivityGoal(principal.getId(), dto));
+    }
+
+    // ── Streak ──
+
+    @GetMapping("/streak")
+    public ResponseEntity<FitnessStreakDto> getStreak(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(fitnessGoalService.getStreak(principal.getId()));
+    }
+
+    // ── Steps ──
+
+    @GetMapping("/steps")
+    public ResponseEntity<StepLogDto> getSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(stepService.getStepsForDate(principal.getId(), date != null ? date : LocalDate.now()));
+    }
+
+    @GetMapping("/steps/range")
+    public ResponseEntity<List<StepLogDto>> getStepsRange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(stepService.getStepsForRange(principal.getId(), start, end));
+    }
+
+    @PostMapping("/steps")
+    public ResponseEntity<StepLogDto> logSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody StepLogDto dto) {
+        return ResponseEntity.ok(stepService.logSteps(principal.getId(), dto));
+    }
+
+    @PostMapping("/steps/sync")
+    public ResponseEntity<List<StepLogDto>> syncSteps(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody List<StepLogDto> batch) {
+        return ResponseEntity.ok(stepService.syncFromHealthConnect(principal.getId(), batch));
+    }
+
+    // ── Fitness Summary (unified aggregation) ──
+
+    @GetMapping("/fitness-summary")
+    public ResponseEntity<DailyFitnessSummaryDto> getFitnessSummary(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(fitnessSummaryService.getDailySummary(
+                principal.getId(), date != null ? date : LocalDate.now()));
+    }
+
+    @GetMapping("/fitness-summary/week")
+    public ResponseEntity<List<WeeklyFitnessPointDto>> getWeeklyFitnessTrend(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(fitnessSummaryService.getWeeklyTrend(
+                principal.getId(), end != null ? end : LocalDate.now()));
+    }
+
+    // ── Trainer Programs ──
+
+    @GetMapping("/programs")
+    public ResponseEntity<List<TrainerProgramDto>> listPrograms(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String difficulty) {
+        return ResponseEntity.ok(trainerProgramService.listPrograms(principal.getId(), difficulty));
+    }
+
+    @GetMapping("/programs/{id}")
+    public ResponseEntity<TrainerProgramDto> getProgram(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(trainerProgramService.getProgram(id, principal.getId()));
+    }
+
+    @PostMapping("/programs")
+    public ResponseEntity<TrainerProgramDto> createProgram(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody TrainerProgramDto dto) {
+        return ResponseEntity.ok(trainerProgramService.createProgram(principal.getId(), dto));
+    }
+
+    @PostMapping("/programs/{id}/enroll")
+    public ResponseEntity<UserProgramEnrollmentDto> enroll(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate) {
+        return ResponseEntity.ok(trainerProgramService.enroll(principal.getId(), id, startDate));
+    }
+
+    @GetMapping("/programs/my")
+    public ResponseEntity<List<UserProgramEnrollmentDto>> getMyEnrollments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(trainerProgramService.getMyEnrollments(principal.getId()));
+    }
+
+    @GetMapping("/programs/today")
+    public ResponseEntity<UserProgramEnrollmentDto> getTodaysProgram(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(trainerProgramService.getTodaysEnrollment(principal.getId()));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/complete-day")
+    public ResponseEntity<UserProgramEnrollmentDto> completeDay(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.completeDay(principal.getId(), enrollmentId));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/pause")
+    public ResponseEntity<UserProgramEnrollmentDto> pauseEnrollment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.pauseEnrollment(principal.getId(), enrollmentId));
+    }
+
+    @PostMapping("/programs/enrollment/{enrollmentId}/resume")
+    public ResponseEntity<UserProgramEnrollmentDto> resumeEnrollment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long enrollmentId) {
+        return ResponseEntity.ok(trainerProgramService.resumeEnrollment(principal.getId(), enrollmentId));
+    }
+
+    // ── Sports–Workout bridge ──
+
+    @PostMapping("/sports-workout")
+    public ResponseEntity<WorkoutLogDto> logSportsWorkout(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody SportsWorkoutRequest req) {
+        return ResponseEntity.ok(trainerProgramService.logSportsWorkout(principal.getId(), req));
     }
 }

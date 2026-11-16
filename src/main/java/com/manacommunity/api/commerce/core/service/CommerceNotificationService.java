@@ -161,4 +161,68 @@ public class CommerceNotificationService {
             log.warn("Push failed for vendor new order {}: {}", order.getOrderNumber(), e.getMessage());
         }
     }
+
+    /** Morning dispatch alert with live 6-digit doorstep handover PIN. */
+    @Async
+    public void notifyMorningOutForDeliveryWithPin(CommerceOrder order) {
+        if (order.getBuyer() == null) return;
+        try {
+            String otp = order.getHandoverOtp() != null ? order.getHandoverOtp() : "";
+            String body = "Your morning basket is out for delivery! Handover PIN: " + otp;
+            pushService.sendToUser(
+                    order.getBuyer().getId(),
+                    "🌅 Fresh Morning Basket On The Way! 🚚",
+                    body,
+                    Map.of(
+                            "type", "DAILY_BASKET_DELIVERY",
+                            "orderNumber", order.getOrderNumber(),
+                            "handoverOtp", otp,
+                            "url", "/daily-basket"
+                    ),
+                    CHANNEL);
+        } catch (Exception e) {
+            log.warn("Push failed for morning delivery alert {}: {}", order.getOrderNumber(), e.getMessage());
+        }
+    }
+
+    /** Handover verification confirmation: items delivered & escrow settled. */
+    @Async
+    public void notifyMorningHandoverVerified(CommerceOrder order) {
+        if (order.getBuyer() == null) return;
+        try {
+            pushService.sendToUser(
+                    order.getBuyer().getId(),
+                    "🎉 Morning Basket Delivered!",
+                    "Order " + order.getOrderNumber() + " delivered at your doorstep. Enjoy your fresh breakfast!",
+                    Map.of(
+                            "type", "DAILY_BASKET_DELIVERY",
+                            "orderNumber", order.getOrderNumber(),
+                            "status", "DELIVERED",
+                            "url", "/daily-basket"
+                    ),
+                    CHANNEL);
+        } catch (Exception e) {
+            log.warn("Push failed for handover verified notification {}: {}", order.getOrderNumber(), e.getMessage());
+        }
+    }
+
+    /** Nightly 8:00 PM cutoff reminder for next morning's delivery. */
+    @Async
+    public void notifyNightlyBasketCutoffReminder(Long userId, String deliverySlot) {
+        try {
+            String slotText = deliverySlot != null ? " (" + deliverySlot + ")" : "";
+            pushService.sendToUser(
+                    userId,
+                    "⏰ 8 PM Daily Basket Reminder",
+                    "Your morning fresh delivery is scheduled for tomorrow" + slotText + ". Pause or customize before 10 PM tonight!",
+                    Map.of(
+                            "type", "DAILY_BASKET_REMINDER",
+                            "url", "/daily-basket"
+                    ),
+                    CHANNEL);
+        } catch (Exception e) {
+            log.warn("Push failed for nightly cutoff reminder to user {}: {}", userId, e.getMessage());
+        }
+    }
 }
+

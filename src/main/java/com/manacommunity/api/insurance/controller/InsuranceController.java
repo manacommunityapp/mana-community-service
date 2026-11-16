@@ -128,4 +128,11 @@ public class InsuranceController {
     public GroupEnquiryView enquiry(@AuthenticationPrincipal UserPrincipal p, @PathVariable Long id) {
         return groupEnquiries.get(p.getId(), id);
     }
+
+    // ---- sports group policy
+    @PostMapping("/sports-group-policy")
+    public GroupEnquiryView sportsGroupPolicy(@AuthenticationPrincipal UserPrincipal p,
+                                               @Valid @RequestBody SportsGroupPolicyRequest r) {
+        return groupEnquiries.createSportsGroupPolicy(users.resolve(p), r);
+    }
 }

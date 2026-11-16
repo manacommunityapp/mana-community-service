@@ -46,6 +46,7 @@ public class SecurityIncidentController {
     }
 
     @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     public ResponseEntity<SecurityIncidentResponse> updateStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,

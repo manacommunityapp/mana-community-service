@@ -51,6 +51,15 @@ public class WellnessEnums {
     }
 
     public enum AlertType {
-        CALORIE_OVERAGE, MISSED_DAY, JUNK_FOOD, BUDDY_CHANGES
+        CALORIE_OVERAGE, MISSED_DAY, JUNK_FOOD, BUDDY_CHANGES,
+        WORKOUT_MISSED, STREAK_BROKEN, GOAL_ACHIEVED, STEP_GOAL_MET
+    }
+
+    public enum ExerciseCategory {
+        CARDIO, STRENGTH, FLEXIBILITY, YOGA, SPORTS, HIIT, BALANCE
+    }
+
+    public enum WorkoutSource {
+        MANUAL, WEARABLE, AI_TEXT, SPORTS_BOOKING
     }
 }

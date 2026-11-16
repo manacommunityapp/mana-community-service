@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -68,6 +69,49 @@ public class GuardStatsController {
                 "raisedBy",  user.getFullName(),
                 "raisedAt",  LocalDateTime.now().toString()
         ));
+    }
+
+    @GetMapping("/alerts")
+    public ResponseEntity<List<Map<String, Object>>> getAlerts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/visitors")
+    public ResponseEntity<List<Map<String, Object>>> getVisitors(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PutMapping("/visitors/{id}/check-in")
+    public ResponseEntity<Map<String, Object>> checkInVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "CHECKED_IN",
+                "checkedInAt", LocalDateTime.now().toString()));
+    }
+
+    @PutMapping("/visitors/{id}/check-out")
+    public ResponseEntity<Map<String, Object>> checkOutVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "CHECKED_OUT",
+                "checkedOutAt", LocalDateTime.now().toString()));
+    }
+
+    @PutMapping("/visitors/{id}/deny")
+    public ResponseEntity<Map<String, Object>> denyVisitor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(Map.of("id", id, "status", "DENIED",
+                "deniedAt", LocalDateTime.now().toString()));
     }
 
     private Map<String, Object> emptyStats() {

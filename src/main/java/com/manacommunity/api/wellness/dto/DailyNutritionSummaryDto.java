@@ -22,4 +22,8 @@ public class DailyNutritionSummaryDto {
     private Integer waterTargetMl;
     private Integer mealCount;
     private List<MealLogDto> meals;
+    // Fitness additions
+    private Integer caloriesBurned;
+    private Integer netCalories;
+    private Integer workoutCount;
 }

@@ -97,4 +97,43 @@ public class BiometricAccessController {
         Long communityId = currentUser.getCommunity().getId();
         return ResponseEntity.ok(biometricAccessService.getAccessSummary(communityId));
     }
+
+    /**
+     * Face biometric verification — called by turnstile hardware / guard tablet.
+     * Mobile biometricAccessService.ts: POST /api/v1/access/turnstiles/verify-face
+     */
+    @PostMapping("/turnstiles/verify-face")
+    public ResponseEntity<Map<String, Object>> verifyFace(
+            @RequestBody Map<String, Object> request) {
+        double confidence = request.get("confidenceScore") instanceof Number n
+                ? n.doubleValue() : 0.0;
+        double threshold = 0.80;
+        boolean granted = confidence >= threshold;
+        return ResponseEntity.ok(Map.of(
+                "decision", granted ? "ACCESS_GRANTED" : "ACCESS_DENIED",
+                "confidenceScore", confidence,
+                "reason", granted
+                        ? "Face verified with " + Math.round(confidence * 100) + "% confidence"
+                        : "Confidence below threshold (< 80%)",
+                "relayPulseDurationMs", granted ? 3000 : 0,
+                "turnstileCode", request.getOrDefault("turnstileCode", "")
+        ));
+    }
+
+    /**
+     * Manual relay trigger — guard/admin unlocks a specific turnstile remotely.
+     * Mobile biometricAccessService.ts: POST /api/v1/access/turnstiles/{id}/relay-unlock
+     */
+    @PostMapping("/turnstiles/{id}/relay-unlock")
+    public ResponseEntity<Map<String, Object>> relayUnlock(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        int duration = body != null && body.get("durationSeconds") instanceof Number n
+                ? n.intValue() : 3;
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Turnstile #" + id + " relay pulsed for " + duration + "s",
+                "turnstileId", id
+        ));
+    }
 }

@@ -11,6 +11,7 @@ public interface VmsInvoiceRepository extends JpaRepository<VmsInvoice, Long> {
     Page<VmsInvoice> findByCommunityId(Long communityId, Pageable pageable);
     Page<VmsInvoice> findByCommunityIdAndStatus(Long communityId, VmsInvoice.InvoiceStatus status, Pageable pageable);
     Page<VmsInvoice> findByVendorId(Long vendorId, Pageable pageable);
+    Page<VmsInvoice> findByVendorIdAndCommunityId(Long vendorId, Long communityId, Pageable pageable);
     Optional<VmsInvoice> findByIdAndCommunityId(Long id, Long communityId);
     Optional<VmsInvoice> findByInvoiceNumberAndCommunityId(String invoiceNumber, Long communityId);
 }

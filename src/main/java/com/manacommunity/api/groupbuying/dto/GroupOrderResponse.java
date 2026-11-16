@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class GroupOrderResponse {
     private Long id;
+    private Long commerceOrderId;
     private String orderNumber;
     private Long dealId;
     private String dealTitle;

@@ -51,9 +51,11 @@ public class VmsServiceCatalogService {
     }
 
     @Transactional
-    public VendorServiceResponse create(VendorServiceRequest req, Long vendorId, Community community) {
-        VmsVendor vendor = vendorRepo.findById(vendorId)
+    public VendorServiceResponse create(VendorServiceRequest req, Long vendorId, Community community, com.manacommunity.api.user.model.AppUser user, boolean manager) {
+        VmsVendor vendor = vendorRepo.findByIdAndCommunityId(vendorId, community.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor", vendorId));
+        if (!manager && (vendor.getUser() == null || !vendor.getUser().getId().equals(user.getId())))
+            throw new org.springframework.security.access.AccessDeniedException("You may only create services for your vendor account");
         VmsVendorCategory category = categoryRepo.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category", req.getCategoryId()));
 
@@ -74,9 +76,13 @@ public class VmsServiceCatalogService {
     }
 
     @Transactional
-    public VendorServiceResponse update(Long id, VendorServiceRequest req) {
+    public VendorServiceResponse update(Long id, VendorServiceRequest req, Long communityId, com.manacommunity.api.user.model.AppUser user, boolean manager) {
         VmsVendorService svc = serviceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service", id));
+        if (svc.getVendor().getCommunity() == null || !svc.getVendor().getCommunity().getId().equals(communityId))
+            throw new ResourceNotFoundException("Service", id);
+        if (!manager && (svc.getVendor().getUser() == null || !svc.getVendor().getUser().getId().equals(user.getId())))
+            throw new org.springframework.security.access.AccessDeniedException("You may only update your own services");
         svc.setName(req.getName());
         svc.setDescription(req.getDescription());
         svc.setBasePrice(req.getBasePrice());
@@ -90,9 +96,13 @@ public class VmsServiceCatalogService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, Long communityId, com.manacommunity.api.user.model.AppUser user, boolean manager) {
         VmsVendorService svc = serviceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service", id));
+        if (svc.getVendor().getCommunity() == null || !svc.getVendor().getCommunity().getId().equals(communityId))
+            throw new ResourceNotFoundException("Service", id);
+        if (!manager && (svc.getVendor().getUser() == null || !svc.getVendor().getUser().getId().equals(user.getId())))
+            throw new org.springframework.security.access.AccessDeniedException("You may only delete your own services");
         svc.setStatus(VmsVendorService.ServiceStatus.DELETED);
         serviceRepo.save(svc);
     }

@@ -5,8 +5,11 @@ import com.manacommunity.api.booking.entity.enums.BookingStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -22,6 +25,7 @@ public interface ResourceBookingRepository extends JpaRepository<ResourceBooking
 
     List<ResourceBooking> findByBookedByIdAndStatusOrderByBookingDateDesc(Long userId, BookingStatus status);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT b FROM ResourceBooking b WHERE b.resource.id = :resourceId " +
            "AND b.bookingDate = :date " +
            "AND b.status IN ('CONFIRMED', 'CHECKED_IN') " +

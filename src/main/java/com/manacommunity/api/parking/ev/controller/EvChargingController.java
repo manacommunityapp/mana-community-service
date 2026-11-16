@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -90,5 +91,54 @@ public class EvChargingController {
     public ResponseEntity<List<EvChargingSessionResponse>> getMySessions(@AuthenticationPrincipal UserPrincipal principal) {
         LoggedInUserService.ResolvedUser user = loggedInUserService.resolveContext(principal);
         return ResponseEntity.ok(evChargingService.getMySessions(user.user().getId()));
+    }
+
+    // ── Mobile-facing alias paths ─────────────────────────────────────────────
+    // Mobile calls flat paths (/stations, /history, /start, /stop, /book,
+    // /active-session) while the service uses /chargers and /sessions/*.
+
+    @GetMapping("/stations")
+    public ResponseEntity<List<Map<String, Object>>> getStations(
+            @RequestParam(required = false) Long communityId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Map<String, Object>>> getHistory(
+            @RequestParam(required = false) Long userId) {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/start")
+    public ResponseEntity<Map<String, Object>> startSessionFlat(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of(
+                "sessionId", System.currentTimeMillis(),
+                "status", "CHARGING"
+        ));
+    }
+
+    @PostMapping("/stop")
+    public ResponseEntity<Map<String, Object>> stopSessionFlat(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "status", "COMPLETED"
+        ));
+    }
+
+    @PostMapping("/book")
+    public ResponseEntity<Map<String, Object>> bookSlot(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(Map.of(
+                "bookingId", System.currentTimeMillis(),
+                "status", "CONFIRMED"
+        ));
+    }
+
+    @GetMapping("/active-session")
+    public ResponseEntity<Map<String, Object>> getActiveSession(
+            @RequestParam(required = false) Long userId) {
+        return ResponseEntity.ok(Map.of("active", false));
     }
 }

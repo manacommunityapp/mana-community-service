@@ -245,7 +245,8 @@ class FamilyMemberIdorTest {
 
             assertThatThrownBy(() ->
                     service.deleteFamilyMember(999L, ownerUser, 10L))
-                    .isInstanceOf(ResourceNotFoundException.class);
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("not found");
         }
     }
 }

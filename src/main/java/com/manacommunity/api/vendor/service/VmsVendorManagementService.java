@@ -55,7 +55,7 @@ public class VmsVendorManagementService {
 
     @Transactional
     public VendorResponse createVendor(VendorRequest req, AppUser user, Community community) {
-        VmsVendorCategory category = categoryRepo.findById(req.getCategoryId())
+        VmsVendorCategory category = categoryRepo.findByIdAndCommunityId(req.getCategoryId(), community.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category", req.getCategoryId()));
 
         VmsVendor vendor = VmsVendor.builder()
@@ -93,6 +93,12 @@ public class VmsVendorManagementService {
     }
 
     @Transactional
+    public VendorResponse updateMyVendorProfile(VendorRequest req, AppUser user) {
+        VmsVendor vendor = vendorRepo.findByUserIdAndCommunityId(user.getId(), user.getCommunity().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", "userId", user.getId().toString()));
+        return updateVendor(vendor.getId(), req, user.getCommunity().getId());
+    }
+
     public VendorResponse updateVendor(Long id, VendorRequest req, Long communityId) {
         VmsVendor vendor = vendorRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor", id));
@@ -104,9 +110,27 @@ public class VmsVendorManagementService {
         vendor.setPan(req.getPanNumber());
         vendor.setLogoUrl(req.getLogoUrl());
         vendor.setCoverImageUrl(req.getBannerUrl());
+        if (req.getBusinessType() != null && !req.getBusinessType().isBlank()) {
+            vendor.setBusinessType(VmsVendor.BusinessType.valueOf(req.getBusinessType().toUpperCase(java.util.Locale.ROOT)));
+        }
+        VmsVendorBranch primaryBranch = branchRepo.findByVendorIdAndActiveTrue(vendor.getId()).stream()
+                .filter(branch -> Boolean.TRUE.equals(branch.getIsHeadOffice())).findFirst()
+                .orElseGet(() -> VmsVendorBranch.builder().vendor(vendor).isHeadOffice(true).active(true)
+                        .name(req.getTradeName() != null && !req.getTradeName().isBlank() ? req.getTradeName() : req.getBusinessName()).build());
+        if (req.getTradeName() != null && !req.getTradeName().isBlank()) primaryBranch.setName(req.getTradeName());
+        else if (primaryBranch.getName() == null || primaryBranch.getName().isBlank()) primaryBranch.setName(req.getBusinessName());
+        if (req.getAddress() != null) primaryBranch.setAddress(req.getAddress());
+        if (req.getCity() != null) primaryBranch.setCity(req.getCity());
+        if (req.getState() != null) primaryBranch.setState(req.getState());
+        if (req.getPincode() != null) primaryBranch.setPincode(req.getPincode());
+        if (req.getLatitude() != null) primaryBranch.setLatitude(req.getLatitude());
+        if (req.getLongitude() != null) primaryBranch.setLongitude(req.getLongitude());
+        if (req.getPhone() != null) primaryBranch.setPhone(req.getPhone());
+        if (req.getEmail() != null) primaryBranch.setEmail(req.getEmail());
+        branchRepo.save(primaryBranch);
         if (req.getCommissionRate() != null) vendor.setCommissionRate(req.getCommissionRate());
         if (req.getCategoryId() != null) {
-            VmsVendorCategory category = categoryRepo.findById(req.getCategoryId())
+            VmsVendorCategory category = categoryRepo.findByIdAndCommunityId(req.getCategoryId(), communityId)
                     .orElseThrow(() -> new ResourceNotFoundException("Category", req.getCategoryId()));
             vendor.setCategory(category);
         }
@@ -152,6 +176,16 @@ public class VmsVendorManagementService {
 
         VendorResponse resp = toResponse(v);
         resp.setWebsite(v.getWebsite());
+        branches.stream().filter(b -> Boolean.TRUE.equals(b.getIsHeadOffice())).findFirst().ifPresent(branch -> {
+            resp.setAddress(branch.getAddress());
+            resp.setCity(branch.getCity());
+            resp.setState(branch.getState());
+            resp.setPincode(branch.getPincode());
+            resp.setLatitude(branch.getLatitude());
+            resp.setLongitude(branch.getLongitude());
+            if (branch.getPhone() != null && !branch.getPhone().isBlank()) resp.setPhone(branch.getPhone());
+            if (branch.getEmail() != null && !branch.getEmail().isBlank()) resp.setEmail(branch.getEmail());
+        });
         resp.setGstNumber(v.getGstNumber());
         resp.setPanNumber(v.getPan());
         resp.setBannerUrl(v.getCoverImageUrl());
