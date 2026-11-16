@@ -1,4 +1,4 @@
-CREATE TABLE manacommunity.health_data_consent (
+﻿CREATE TABLE IF NOT EXISTS manacommunity.health_data_consent (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     provider VARCHAR(40) NOT NULL,
@@ -11,10 +11,10 @@ CREATE TABLE manacommunity.health_data_consent (
     CONSTRAINT uq_health_data_consent UNIQUE (user_id, provider, data_scope, consent_version)
 );
 
-CREATE INDEX idx_health_data_consent_user_active
+CREATE INDEX IF NOT EXISTS idx_health_data_consent_user_active
     ON manacommunity.health_data_consent (user_id, provider, revoked_at);
 
-CREATE TABLE manacommunity.health_observation (
+CREATE TABLE IF NOT EXISTS manacommunity.health_observation (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     provider VARCHAR(40) NOT NULL,
@@ -31,8 +31,8 @@ CREATE TABLE manacommunity.health_observation (
     CONSTRAINT ck_health_observation_range CHECK (ended_at >= started_at)
 );
 
-CREATE INDEX idx_health_observation_user_time
+CREATE INDEX IF NOT EXISTS idx_health_observation_user_time
     ON manacommunity.health_observation (user_id, started_at DESC);
 
-CREATE INDEX idx_health_observation_user_type_time
+CREATE INDEX IF NOT EXISTS idx_health_observation_user_type_time
     ON manacommunity.health_observation (user_id, observation_type, started_at DESC);
