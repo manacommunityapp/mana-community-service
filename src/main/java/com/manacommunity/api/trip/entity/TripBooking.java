@@ -68,4 +68,7 @@ public class TripBooking {
 
     @Column(name = "checked_in_at")
     private LocalDateTime checkedInAt;
+
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
 }

@@ -2,11 +2,17 @@ package com.manacommunity.api.transactioncore.listener;
 
 import com.manacommunity.api.booking.entity.enums.PaymentStatus;
 import com.manacommunity.api.booking.repository.ResourceBookingRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
+import com.manacommunity.api.food.entity.FoodGroceryOrder;
+import com.manacommunity.api.food.entity.FoodOrder;
+import com.manacommunity.api.food.repository.FoodGroceryOrderRepository;
+import com.manacommunity.api.food.repository.FoodOrderRepository;
 import com.manacommunity.api.health.repository.HealthAppointmentRepository;
 import com.manacommunity.api.payments.entity.PaymentOrder;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
+import com.manacommunity.api.trip.repository.TripBookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +35,10 @@ public class ModulePaymentConfirmationListener {
     private final EventBookingRegistrationRepository  eventRegistrationRepo;
     private final ResourceBookingRepository           resourceBookingRepo;
     private final HealthAppointmentRepository         healthAppointmentRepo;
+    private final FoodOrderRepository                 foodOrderRepo;
+    private final FoodGroceryOrderRepository          foodGroceryOrderRepo;
+    private final CommerceOrderRepository             commerceOrderRepo;
+    private final TripBookingRepository               tripBookingRepo;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentCaptured(GatewayPaymentCapturedEvent event) {
@@ -62,6 +72,39 @@ public class ModulePaymentConfirmationListener {
                         healthAppointmentRepo.save(appt);
                         log.info("[ModuleConfirm] Health appointment {} payment ref updated", order.getReferenceId());
                     });
+
+                case FOOD_ORDER ->
+                    foodOrderRepo.findById(order.getReferenceId()).ifPresent(fo -> {
+                        fo.setPaymentStatus(FoodOrder.PaymentStatus.PAID);
+                        foodOrderRepo.save(fo);
+                        log.info("[ModuleConfirm] Food order {} marked PAID", order.getReferenceId());
+                    });
+
+                case FOOD_GROCERY_ORDER ->
+                    foodGroceryOrderRepo.findById(order.getReferenceId()).ifPresent(go -> {
+                        go.setPaymentStatus(FoodGroceryOrder.PaymentStatus.PAID);
+                        foodGroceryOrderRepo.save(go);
+                        log.info("[ModuleConfirm] Food grocery order {} marked PAID", order.getReferenceId());
+                    });
+
+                case MARKETPLACE_ORDER ->
+                    commerceOrderRepo.findById(order.getReferenceId()).ifPresent(co -> {
+                        co.setPaymentStatus("PAID");
+                        commerceOrderRepo.save(co);
+                        log.info("[ModuleConfirm] Commerce order {} marked PAID", order.getReferenceId());
+                    });
+
+                case TRIP_SETTLEMENT ->
+                    tripBookingRepo.findById(String.valueOf(order.getReferenceId())).ifPresent(tb -> {
+                        tb.setPaymentOrderId(order.getId());
+                        tripBookingRepo.save(tb);
+                        log.info("[ModuleConfirm] Trip booking {} payment order {} linked",
+                                order.getReferenceId(), order.getId());
+                    });
+
+                case BBPS_BILL ->
+                    log.info("[ModuleConfirm] BBPS bill {} payment captured — bbps_bill_fetch updated via BbpsController callback",
+                            order.getReferenceId());
 
                 default ->
                     log.debug("[ModuleConfirm] No module update needed for referenceType={}", order.getReferenceType());

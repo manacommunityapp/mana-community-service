@@ -1,14 +1,29 @@
 package com.manacommunity.api.finance.controller;
 
+import com.manacommunity.api.finance.entity.BbpsBillFetch;
+import com.manacommunity.api.finance.repository.BbpsBillFetchRepository;
+import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
+import com.manacommunity.api.payments.entity.PaymentOrder;
+import com.manacommunity.api.payments.model.PaymentGateway;
+import com.manacommunity.api.payments.model.PaymentOrderStatus;
+import com.manacommunity.api.payments.model.PaymentReferenceType;
+import com.manacommunity.api.payments.service.UnifiedPaymentOrderService;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.security.UserPrincipal;
+import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +44,12 @@ import java.util.concurrent.ThreadLocalRandom;
 @RestController
 @RequestMapping("/api/v1/bbps")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class BbpsController {
+
+    private final LoggedInUserService          loggedInUserService;
+    private final UnifiedPaymentOrderService   paymentOrderService;
+    private final BbpsBillFetchRepository      billFetchRepository;
 
     // ── Inner DTOs ────────────────────────────────────────────────
 
@@ -61,8 +81,8 @@ public class BbpsController {
         private String billNumber;
         private String billDate;
         private String dueDate;
-        private Double amount;
-        private Double overdueAmount;
+        private BigDecimal amount;
+        private BigDecimal overdueAmount;
         private Integer units;
         private String periodFrom;
         private String periodTo;
@@ -73,7 +93,7 @@ public class BbpsController {
     public static class BillPayRequest {
         private String billNumber;
         private String billerId;
-        private Double amount;
+        private BigDecimal amount;
         private String method; // UPI | WALLET
     }
 
@@ -82,7 +102,8 @@ public class BbpsController {
         private String upiIntentUrl;
         private String phonePeUrl;
         private String transactionRef;
-        private Double amount;
+        private Long paymentOrderId;
+        private BigDecimal amount;
     }
 
     // ── Static biller catalogue ───────────────────────────────────
@@ -221,7 +242,9 @@ public class BbpsController {
     }
 
     @PostMapping("/bill/fetch")
-    public ResponseEntity<FetchedBillDto> fetchBill(@RequestBody BillFetchRequest request) {
+    public ResponseEntity<FetchedBillDto> fetchBillAndTrack(
+            @RequestBody BillFetchRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         log.info("[BBPS] fetchBill billerId={} consumerId={}", request.getBillerId(), request.getConsumerId());
 
         BillerDto biller = BILLER_CATALOGUE.values().stream()
@@ -240,23 +263,39 @@ public class BbpsController {
 
         String category = biller != null ? biller.getCategory() : "ELECTRICITY";
         int units = "ELECTRICITY".equals(category) ? 150 + ThreadLocalRandom.current().nextInt(80) : 0;
-        double amount = switch (category) {
-            case "ELECTRICITY"   -> Math.round((units * 6.50 + 180.0) * 100.0) / 100.0;
-            case "GAS"           -> 680.0 + ThreadLocalRandom.current().nextInt(400);
-            case "WATER"         -> 320.0 + ThreadLocalRandom.current().nextInt(200);
-            case "BROADBAND"     -> 699.0 + ThreadLocalRandom.current().nextInt(400);
-            case "DTH"           -> 299.0 + ThreadLocalRandom.current().nextInt(300);
-            case "FASTAG"        -> 200.0 + ThreadLocalRandom.current().nextInt(300);
-            case "MUNICIPAL_TAX" -> 4500.0 + ThreadLocalRandom.current().nextInt(6000);
-            case "CREDIT_CARD"   -> 3200.0 + ThreadLocalRandom.current().nextInt(12000);
-            case "EDUCATION"     -> 15000.0 + ThreadLocalRandom.current().nextInt(25000);
-            case "LPG"           -> 850.0 + ThreadLocalRandom.current().nextInt(200);
-            case "LANDLINE"      -> 320.0 + ThreadLocalRandom.current().nextInt(300);
-            default              -> 999.0;
+        BigDecimal amount = switch (category) {
+            case "ELECTRICITY"   -> BigDecimal.valueOf(Math.round(units * 6.50 + 180.0)).setScale(2);
+            case "GAS"           -> BigDecimal.valueOf(680 + ThreadLocalRandom.current().nextInt(400)).setScale(2);
+            case "WATER"         -> BigDecimal.valueOf(320 + ThreadLocalRandom.current().nextInt(200)).setScale(2);
+            case "BROADBAND"     -> BigDecimal.valueOf(699 + ThreadLocalRandom.current().nextInt(400)).setScale(2);
+            case "DTH"           -> BigDecimal.valueOf(299 + ThreadLocalRandom.current().nextInt(300)).setScale(2);
+            case "FASTAG"        -> BigDecimal.valueOf(200 + ThreadLocalRandom.current().nextInt(300)).setScale(2);
+            case "MUNICIPAL_TAX" -> BigDecimal.valueOf(4500 + ThreadLocalRandom.current().nextInt(6000)).setScale(2);
+            case "CREDIT_CARD"   -> BigDecimal.valueOf(3200 + ThreadLocalRandom.current().nextInt(12000)).setScale(2);
+            case "EDUCATION"     -> BigDecimal.valueOf(15000 + ThreadLocalRandom.current().nextInt(25000)).setScale(2);
+            case "LPG"           -> BigDecimal.valueOf(850 + ThreadLocalRandom.current().nextInt(200)).setScale(2);
+            case "LANDLINE"      -> BigDecimal.valueOf(320 + ThreadLocalRandom.current().nextInt(300)).setScale(2);
+            default              -> BigDecimal.valueOf(999).setScale(2);
         };
 
         String billNumber = "BBPS-" + request.getBillerId().substring(0, Math.min(4, request.getBillerId().length()))
             + "-" + (System.currentTimeMillis() % 1_000_000L);
+
+        // Track the fetch so we can correlate with payment later
+        if (principal != null) {
+            AppUser user = loggedInUserService.resolve(principal);
+            billFetchRepository.save(BbpsBillFetch.builder()
+                .communityId(user.getCommunity().getId())
+                .userId(user.getId())
+                .billerId(request.getBillerId())
+                .billerName(billerName)
+                .consumerId(request.getConsumerId())
+                .billNumber(billNumber)
+                .billAmount(amount)
+                .dueDate(dueDate)
+                .status("FETCHED")
+                .build());
+        }
 
         FetchedBillDto bill = FetchedBillDto.builder()
             .billerId(request.getBillerId())
@@ -277,30 +316,102 @@ public class BbpsController {
     }
 
     @PostMapping("/bill/pay")
-    public ResponseEntity<BillPaymentResponse> payBill(@RequestBody BillPayRequest request) {
+    public ResponseEntity<BillPaymentResponse> payBill(
+            @RequestBody BillPayRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         log.info("[BBPS] payBill billNumber={} billerId={} amount={} method={}",
             request.getBillNumber(), request.getBillerId(), request.getAmount(), request.getMethod());
 
+        BigDecimal amount = request.getAmount() != null ? request.getAmount() : BigDecimal.ZERO;
+
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+
+        // Create a tracked payment_order — referenced in webhook/callback to mark PAID
+        String idempotencyKey = "BBPS-" + request.getBillNumber() + "-" + user.getId();
+        PaymentOrder paymentOrder = paymentOrderService.createOrder(
+            CreatePaymentOrderRequest.builder()
+                .communityId(communityId)
+                .idempotencyKey(idempotencyKey)
+                .gateway(PaymentGateway.UPI_DIRECT)
+                .referenceType(PaymentReferenceType.BBPS_BILL)
+                .referenceId(0L)      // BBPS bills have no internal row ID; callback identifies by billNumber
+                .payerUserId(user.getId())
+                .amount(amount)
+                .build()
+        );
+
+        // Update the bill fetch record with this payment order
+        billFetchRepository.findAll().stream()
+            .filter(f -> request.getBillNumber().equals(f.getBillNumber())
+                      && f.getPaymentOrderId() == null
+                      && communityId.equals(f.getCommunityId()))
+            .findFirst()
+            .ifPresent(f -> {
+                f.setPaymentOrderId(paymentOrder.getId());
+                f.setStatus("PAYMENT_INITIATED");
+                billFetchRepository.save(f);
+            });
+
         String pa = "bbps@setu";
         String pn = "Mana+Pay+BBPS";
-        String tr = "MANA" + System.currentTimeMillis();
-        String tn = "Electricity+Bill";
-        double amount = request.getAmount() != null ? request.getAmount() : 0.0;
+        String tr = paymentOrder.getIdempotencyKey();
+        String tn = "Bill+Payment";
 
         String upiUrl = String.format(
-            "upi://pay?pa=%s&pn=%s&am=%.2f&cu=INR&tr=%s&tn=%s",
-            pa, pn, amount, tr, tn);
+            "upi://pay?pa=%s&pn=%s&am=%s&cu=INR&tr=%s&tn=%s",
+            pa, pn, amount.toPlainString(), tr, tn);
         String phonePeUrl = String.format(
-            "phonepe://pay?pa=%s&pn=%s&am=%.2f&cu=INR&tr=%s",
-            pa, pn, amount, tr);
+            "phonepe://pay?pa=%s&pn=%s&am=%s&cu=INR&tr=%s",
+            pa, pn, amount.toPlainString(), tr);
 
-        BillPaymentResponse resp = BillPaymentResponse.builder()
+        return ResponseEntity.ok(BillPaymentResponse.builder()
             .upiIntentUrl(upiUrl)
             .phonePeUrl(phonePeUrl)
             .transactionRef(tr)
+            .paymentOrderId(paymentOrder.getId())
             .amount(amount)
-            .build();
+            .build());
+    }
 
-        return ResponseEntity.ok(resp);
+    /**
+     * UPI intent callback — called by the mobile app after UPI app returns.
+     * Marks the payment_order SUCCESS and the bill fetch record PAID.
+     * NOTE: Real BBPS aggregator (Setu/Razorpay BillPay) will call a separate
+     * webhook instead. Wire that webhook once credentials are provisioned.
+     */
+    @PostMapping("/payment/callback")
+    public ResponseEntity<Map<String, Object>> paymentCallback(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String idempotencyKey = body.get("transactionRef");
+        String upiTxnId       = body.getOrDefault("upiTransactionId", "UNKNOWN");
+        log.info("[BBPS] payment callback transactionRef={} upiTxnId={}", idempotencyKey, upiTxnId);
+
+        try {
+            paymentOrderService.markSuccess(idempotencyKey, upiTxnId, null);
+
+            billFetchRepository.findAll().stream()
+                .filter(f -> idempotencyKey != null && idempotencyKey.startsWith("BBPS-")
+                          && f.getPaymentOrderId() != null
+                          && "PAYMENT_INITIATED".equals(f.getStatus()))
+                .filter(f -> {
+                    // key format: BBPS-<billNumber>-<userId>
+                    String suffix = idempotencyKey.substring(5);
+                    int lastDash = suffix.lastIndexOf('-');
+                    return lastDash > 0 && suffix.substring(0, lastDash).equals(f.getBillNumber());
+                })
+                .findFirst()
+                .ifPresent(f -> {
+                    f.setStatus("PAID");
+                    f.setPaidAt(LocalDateTime.now());
+                    billFetchRepository.save(f);
+                });
+
+            return ResponseEntity.ok(Map.of("status", "SUCCESS", "transactionRef", idempotencyKey));
+        } catch (Exception e) {
+            log.error("[BBPS] callback failed for transactionRef={}: {}", idempotencyKey, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("status", "FAILED", "error", e.getMessage()));
+        }
     }
 }
