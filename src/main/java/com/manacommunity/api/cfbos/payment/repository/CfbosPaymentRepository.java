@@ -10,4 +10,5 @@ public interface CfbosPaymentRepository extends JpaRepository<CfbosPayment, Long
     Optional<CfbosPayment> findByGatewayReference(String gatewayReference);
     List<CfbosPayment> findByResidentId(Long residentId);
     List<CfbosPayment> findByPropertyId(Long propertyId);
+    List<CfbosPayment> findByPropertyIdIn(List<Long> propertyIds);
 }

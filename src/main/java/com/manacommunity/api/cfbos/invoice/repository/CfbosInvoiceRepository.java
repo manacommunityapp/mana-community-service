@@ -6,4 +6,11 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 @Repository
-public interface CfbosInvoiceRepository extends JpaRepository<CfbosInvoice, Long> { Optional<CfbosInvoice> findByInvoiceNumber(String invoiceNumber); List<CfbosInvoice> findByResidentId(Long residentId); List<CfbosInvoice> findByPropertyId(Long propertyId); List<CfbosInvoice> findByStatus(InvoiceStatus status); }
+public interface CfbosInvoiceRepository extends JpaRepository<CfbosInvoice, Long> {
+    Optional<CfbosInvoice> findByInvoiceNumber(String invoiceNumber);
+    List<CfbosInvoice> findByResidentId(Long residentId);
+    List<CfbosInvoice> findByPropertyId(Long propertyId);
+    List<CfbosInvoice> findByStatus(InvoiceStatus status);
+    List<CfbosInvoice> findByCommunityId(Long communityId);
+    List<CfbosInvoice> findByCommunityIdAndStatus(Long communityId, InvoiceStatus status);
+}

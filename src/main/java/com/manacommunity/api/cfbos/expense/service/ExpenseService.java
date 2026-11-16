@@ -42,6 +42,11 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
+    public List<ExpenseResponse> getExpensesByCommunity(Long communityId) {
+        return expenseRepository.findByCommunityId(communityId).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<ExpenseCategory> getCategories() {
         return categoryRepository.findAll();
     }

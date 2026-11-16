@@ -16,6 +16,9 @@ public class CfbosExpense {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "community_id", nullable = false)
+    private Long communityId;
+
     @Column(name = "expense_number", nullable = false, unique = true, length = 30)
     private String expenseNumber;
 
