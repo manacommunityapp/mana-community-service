@@ -118,6 +118,16 @@ public class PaymentOrder {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    /** Platform convenience fee applied to this order. Never float. */
+    @Column(name = "convenience_fee_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal convenienceFeeAmount = BigDecimal.ZERO;
+
+    /** Gross amount = amount + convenienceFeeAmount; what the payer actually pays. */
+    @Column(name = "gross_amount", nullable = false, precision = 14, scale = 2)
+    @Builder.Default
+    private BigDecimal grossAmount = BigDecimal.ZERO;
+
     /** Optimistic locking — prevents concurrent status overwrites. */
     @Version
     private Long version;

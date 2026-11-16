@@ -30,6 +30,8 @@ public class UnifiedPaymentOrderResponse {
     private String            receiptNumber;
     private String            failureReason;
     private BigDecimal        refundedAmount;
+    private BigDecimal        convenienceFeeAmount;
+    private BigDecimal        grossAmount;
     private OffsetDateTime    createdAt;
 
     public static UnifiedPaymentOrderResponse from(PaymentOrder o) {
@@ -46,6 +48,8 @@ public class UnifiedPaymentOrderResponse {
             .receiptNumber(o.getReceiptNumber())
             .failureReason(o.getFailureReason())
             .refundedAmount(o.getRefundedAmount())
+            .convenienceFeeAmount(o.getConvenienceFeeAmount())
+            .grossAmount(o.getGrossAmount())
             .createdAt(o.getCreatedAt())
             .build();
     }

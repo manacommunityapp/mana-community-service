@@ -1,15 +1,18 @@
 package com.manacommunity.api.payments.service;
 
+import com.manacommunity.api.model.CommunitySettings;
+import com.manacommunity.api.payments.config.dto.CheckoutOptionsResponse;
 import com.manacommunity.api.payments.config.dto.RecordManualPaymentRequest;
 import com.manacommunity.api.payments.config.service.PaymentConfigService;
 import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
 import com.manacommunity.api.payments.entity.PaymentOrder;
+import com.manacommunity.api.payments.exception.TransactionLimitExceededException;
 import com.manacommunity.api.payments.gateway.ManaPayGatewayService;
 import com.manacommunity.api.payments.model.PaymentGateway;
 import com.manacommunity.api.payments.model.PaymentOrderStatus;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
+import com.manacommunity.api.repository.CommunitySettingsRepository;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
@@ -17,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -42,23 +47,30 @@ import java.util.UUID;
 @Service
 public class UnifiedPaymentOrderService {
 
+    // Gateways that must never be used as automatic failover targets
+    private static final Set<PaymentGateway> NO_FAILOVER_TARGETS =
+            Set.of(PaymentGateway.MANUAL, PaymentGateway.MANA_PAY);
+
     private final PaymentOrderRepository      repository;
     private final PaymentLifecycleStateMachine stateMachine;
     private final ApplicationEventPublisher   eventPublisher;
     private final PaymentConfigService        paymentConfigService;
     private final ManaPayGatewayService       manaPayGatewayService;
+    private final CommunitySettingsRepository communitySettingsRepo;
 
     public UnifiedPaymentOrderService(
             PaymentOrderRepository repository,
             PaymentLifecycleStateMachine stateMachine,
             ApplicationEventPublisher eventPublisher,
             @Lazy PaymentConfigService paymentConfigService,
-            ManaPayGatewayService manaPayGatewayService) {
+            ManaPayGatewayService manaPayGatewayService,
+            CommunitySettingsRepository communitySettingsRepo) {
         this.repository             = repository;
         this.stateMachine           = stateMachine;
         this.eventPublisher         = eventPublisher;
         this.paymentConfigService   = paymentConfigService;
         this.manaPayGatewayService  = manaPayGatewayService;
+        this.communitySettingsRepo  = communitySettingsRepo;
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────────
@@ -76,6 +88,25 @@ public class UnifiedPaymentOrderService {
         if (req.getGateway() != null && req.getCommunityId() != null) {
             paymentConfigService.assertGatewayAllowed(req.getCommunityId(), req.getGateway().name());
         }
+
+        // Server-side transaction limits and convenience fee (never trust frontend values)
+        CheckoutOptionsResponse opts = (req.getCommunityId() != null)
+                ? paymentConfigService.getCheckoutOptions(req.getCommunityId()) : null;
+
+        if (opts != null && opts.getMaxTransactionAmount() != null
+                && req.getAmount().compareTo(opts.getMaxTransactionAmount()) > 0) {
+            throw new TransactionLimitExceededException(
+                "Transaction amount " + req.getAmount() +
+                " exceeds the maximum allowed " + opts.getMaxTransactionAmount());
+        }
+
+        BigDecimal feePercent = (opts != null && opts.getConvenienceFeePercent() != null)
+                ? opts.getConvenienceFeePercent() : BigDecimal.ZERO;
+        BigDecimal convenienceFee = req.getAmount()
+                .multiply(feePercent)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal grossAmount = req.getAmount().add(convenienceFee);
+
         return repository.findByIdempotencyKey(req.getIdempotencyKey())
             .orElseGet(() -> {
                 PaymentOrder order = PaymentOrder.builder()
@@ -89,13 +120,58 @@ public class UnifiedPaymentOrderService {
                     .currency(req.getCurrency() != null ? req.getCurrency() : "INR")
                     .status(PaymentOrderStatus.INITIATED)
                     .refundedAmount(BigDecimal.ZERO)
+                    .convenienceFeeAmount(convenienceFee)
+                    .grossAmount(grossAmount)
                     .build();
                 PaymentOrder saved = repository.save(order);
-                log.info("[PaymentOrder] Created id={} key={} gateway={} ref={}/{}",
+                log.info("[PaymentOrder] Created id={} key={} gateway={} ref={}/{} fee={} gross={}",
                     saved.getId(), saved.getIdempotencyKey(),
-                    saved.getGateway(), saved.getReferenceType(), saved.getReferenceId());
+                    saved.getGateway(), saved.getReferenceType(), saved.getReferenceId(),
+                    convenienceFee, grossAmount);
                 return saved;
             });
+    }
+
+    /**
+     * Wraps a gateway initiation call with automatic failover.
+     * If the primary gateway throws and the community has a fallback configured,
+     * the order's gateway is updated and the call is retried once.
+     * MANUAL and MANA_PAY are never used as failover targets.
+     */
+    public PaymentOrder initiateWithFailover(PaymentOrder order,
+                                              java.util.function.Function<PaymentOrder, PaymentOrder> initiator) {
+        try {
+            return initiator.apply(order);
+        } catch (RuntimeException primaryEx) {
+            log.warn("[PaymentFailover] primary gateway {} failed for order {}: {}",
+                order.getGateway(), order.getId(), primaryEx.getMessage());
+
+            String fallback = communitySettingsRepo
+                    .findByCommunityId(order.getCommunityId())
+                    .map(CommunitySettings::getFallbackGateway)
+                    .orElse(null);
+
+            if (fallback == null || fallback.equalsIgnoreCase(order.getGateway().name())) {
+                throw primaryEx;
+            }
+
+            PaymentGateway fallbackGateway;
+            try {
+                fallbackGateway = PaymentGateway.valueOf(fallback);
+            } catch (IllegalArgumentException e) {
+                log.warn("[PaymentFailover] unknown fallback gateway '{}' — aborting", fallback);
+                throw primaryEx;
+            }
+
+            if (NO_FAILOVER_TARGETS.contains(fallbackGateway)) {
+                log.warn("[PaymentFailover] fallback gateway {} is not allowed as failover — aborting", fallbackGateway);
+                throw primaryEx;
+            }
+
+            log.info("[PaymentFailover] retrying with fallback gateway {} for order {}", fallbackGateway, order.getId());
+            order.setGateway(fallbackGateway);
+            return initiator.apply(order);
+        }
     }
 
     // ─── Gateway order ID bind ───────────────────────────────────────────────────
