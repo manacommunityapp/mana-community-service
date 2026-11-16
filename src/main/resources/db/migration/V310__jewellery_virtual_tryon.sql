@@ -1,7 +1,7 @@
--- Jewellery Virtual Try-On module
+﻿-- Jewellery Virtual Try-On module
 -- V241
 
-CREATE TABLE jewellery_vendor_profile (
+CREATE TABLE IF NOT EXISTS jewellery_vendor_profile (
     id                   BIGSERIAL PRIMARY KEY,
     user_id              BIGINT NOT NULL REFERENCES app_user(id),
     shop_name            VARCHAR(255) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE jewellery_vendor_profile (
     UNIQUE (user_id)
 );
 
-CREATE TABLE jewellery_product (
+CREATE TABLE IF NOT EXISTS jewellery_product (
     id                BIGSERIAL PRIMARY KEY,
     vendor_id         BIGINT NOT NULL REFERENCES jewellery_vendor_profile(id),
     sku               VARCHAR(100),
@@ -55,7 +55,7 @@ CREATE TABLE jewellery_product (
     updated_by        VARCHAR(255)
 );
 
-CREATE TABLE jewellery_product_asset (
+CREATE TABLE IF NOT EXISTS jewellery_product_asset (
     id                  BIGSERIAL PRIMARY KEY,
     product_id          BIGINT NOT NULL REFERENCES jewellery_product(id),
     asset_type          VARCHAR(30) NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE jewellery_product_asset (
     updated_by          VARCHAR(255)
 );
 
-CREATE TABLE jewellery_tryon_session (
+CREATE TABLE IF NOT EXISTS jewellery_tryon_session (
     id         BIGSERIAL PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES app_user(id),
     product_id BIGINT REFERENCES jewellery_product(id),
@@ -87,7 +87,7 @@ CREATE TABLE jewellery_tryon_session (
     updated_by VARCHAR(255)
 );
 
-CREATE TABLE jewellery_photo_job (
+CREATE TABLE IF NOT EXISTS jewellery_photo_job (
     id                BIGSERIAL PRIMARY KEY,
     user_id           BIGINT NOT NULL REFERENCES app_user(id),
     product_id        BIGINT REFERENCES jewellery_product(id),
@@ -105,7 +105,7 @@ CREATE TABLE jewellery_photo_job (
     updated_by        VARCHAR(255)
 );
 
-CREATE TABLE jewellery_wishlist (
+CREATE TABLE IF NOT EXISTS jewellery_wishlist (
     id         BIGSERIAL PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES app_user(id),
     product_id BIGINT NOT NULL REFERENCES jewellery_product(id),
@@ -117,7 +117,7 @@ CREATE TABLE jewellery_wishlist (
     UNIQUE (user_id, product_id)
 );
 
-CREATE TABLE jewellery_appointment (
+CREATE TABLE IF NOT EXISTS jewellery_appointment (
     id                  BIGSERIAL PRIMARY KEY,
     user_id             BIGINT NOT NULL REFERENCES app_user(id),
     vendor_id           BIGINT NOT NULL REFERENCES jewellery_vendor_profile(id),
@@ -134,16 +134,16 @@ CREATE TABLE jewellery_appointment (
 );
 
 -- Indexes
-CREATE INDEX idx_jvp_user         ON jewellery_vendor_profile(user_id);
-CREATE INDEX idx_jvp_active       ON jewellery_vendor_profile(is_active, rating DESC);
-CREATE INDEX idx_jp_vendor        ON jewellery_product(vendor_id);
-CREATE INDEX idx_jp_status        ON jewellery_product(status);
-CREATE INDEX idx_jp_category      ON jewellery_product(category, status);
-CREATE INDEX idx_jp_material      ON jewellery_product(material, status);
-CREATE INDEX idx_jpa_product      ON jewellery_product_asset(product_id, asset_type, approval_status);
-CREATE INDEX idx_jts_user         ON jewellery_tryon_session(user_id);
-CREATE INDEX idx_jpj_user         ON jewellery_photo_job(user_id);
-CREATE INDEX idx_jpj_expires      ON jewellery_photo_job(expires_at) WHERE status NOT IN ('DELETION_PENDING','EXPIRED');
-CREATE INDEX idx_jw_user          ON jewellery_wishlist(user_id);
-CREATE INDEX idx_ja_user          ON jewellery_appointment(user_id, appointment_date DESC);
-CREATE INDEX idx_ja_vendor_status ON jewellery_appointment(vendor_id, status);
+CREATE INDEX IF NOT EXISTS idx_jvp_user         ON jewellery_vendor_profile(user_id);
+CREATE INDEX IF NOT EXISTS idx_jvp_active       ON jewellery_vendor_profile(is_active, rating DESC);
+CREATE INDEX IF NOT EXISTS idx_jp_vendor        ON jewellery_product(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_jp_status        ON jewellery_product(status);
+CREATE INDEX IF NOT EXISTS idx_jp_category      ON jewellery_product(category, status);
+CREATE INDEX IF NOT EXISTS idx_jp_material      ON jewellery_product(material, status);
+CREATE INDEX IF NOT EXISTS idx_jpa_product      ON jewellery_product_asset(product_id, asset_type, approval_status);
+CREATE INDEX IF NOT EXISTS idx_jts_user         ON jewellery_tryon_session(user_id);
+CREATE INDEX IF NOT EXISTS idx_jpj_user         ON jewellery_photo_job(user_id);
+CREATE INDEX IF NOT EXISTS idx_jpj_expires      ON jewellery_photo_job(expires_at) WHERE status NOT IN ('DELETION_PENDING','EXPIRED');
+CREATE INDEX IF NOT EXISTS idx_jw_user          ON jewellery_wishlist(user_id);
+CREATE INDEX IF NOT EXISTS idx_ja_user          ON jewellery_appointment(user_id, appointment_date DESC);
+CREATE INDEX IF NOT EXISTS idx_ja_vendor_status ON jewellery_appointment(vendor_id, status);

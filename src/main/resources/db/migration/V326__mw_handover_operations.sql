@@ -1,5 +1,5 @@
 ﻿-- V326: Duty Handover records and Operational Assignment tracking
-CREATE TABLE mw_duty_handovers (
+CREATE TABLE IF NOT EXISTS mw_duty_handovers (
     id                   BIGSERIAL PRIMARY KEY,
     organization_id      BIGINT NOT NULL,
     shift_assignment_id  BIGINT,
@@ -17,10 +17,10 @@ CREATE TABLE mw_duty_handovers (
     FOREIGN KEY (handover_from_id) REFERENCES hr_employees(id),
     FOREIGN KEY (handover_to_id)   REFERENCES hr_employees(id)
 );
-CREATE INDEX idx_handover_org ON mw_duty_handovers(organization_id);
-CREATE INDEX idx_handover_to ON mw_duty_handovers(handover_to_id);
+CREATE INDEX IF NOT EXISTS idx_handover_org ON mw_duty_handovers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_handover_to ON mw_duty_handovers(handover_to_id);
 
-CREATE TABLE mw_operational_assignments (
+CREATE TABLE IF NOT EXISTS mw_operational_assignments (
     id                BIGSERIAL PRIMARY KEY,
     organization_id   BIGINT NOT NULL,
     source_module     VARCHAR(50) NOT NULL,
@@ -36,6 +36,6 @@ CREATE TABLE mw_operational_assignments (
     notes             TEXT,
     FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
 );
-CREATE INDEX idx_op_assign_org ON mw_operational_assignments(organization_id);
-CREATE INDEX idx_op_assign_employee ON mw_operational_assignments(employee_id);
-CREATE INDEX idx_op_assign_source ON mw_operational_assignments(source_module, source_ref_id);
+CREATE INDEX IF NOT EXISTS idx_op_assign_org ON mw_operational_assignments(organization_id);
+CREATE INDEX IF NOT EXISTS idx_op_assign_employee ON mw_operational_assignments(employee_id);
+CREATE INDEX IF NOT EXISTS idx_op_assign_source ON mw_operational_assignments(source_module, source_ref_id);

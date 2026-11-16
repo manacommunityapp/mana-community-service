@@ -1,6 +1,6 @@
 ﻿-- HRM Security, Compliance and Analytics tables
 
-CREATE TABLE hr_employee_roles (
+CREATE TABLE IF NOT EXISTS hr_employee_roles (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL,
     employee_id BIGINT NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE hr_employee_roles (
     FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
 );
 
-CREATE TABLE hr_audit_logs (
+CREATE TABLE IF NOT EXISTS hr_audit_logs (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL,
     actor_user_id BIGINT NOT NULL,
@@ -26,11 +26,11 @@ CREATE TABLE hr_audit_logs (
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_audit_org ON hr_audit_logs(organization_id);
-CREATE INDEX idx_audit_entity ON hr_audit_logs(entity_type, entity_id);
-CREATE INDEX idx_audit_actor ON hr_audit_logs(actor_user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_org ON hr_audit_logs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON hr_audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON hr_audit_logs(actor_user_id);
 
-CREATE TABLE hr_compliance_alerts (
+CREATE TABLE IF NOT EXISTS hr_compliance_alerts (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL,
     employee_id BIGINT,
@@ -45,10 +45,10 @@ CREATE TABLE hr_compliance_alerts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (employee_id) REFERENCES hr_employees(id)
 );
-CREATE INDEX idx_compliance_org ON hr_compliance_alerts(organization_id);
-CREATE INDEX idx_compliance_due ON hr_compliance_alerts(due_date);
+CREATE INDEX IF NOT EXISTS idx_compliance_org ON hr_compliance_alerts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_due ON hr_compliance_alerts(due_date);
 
-CREATE TABLE hr_report_configs (
+CREATE TABLE IF NOT EXISTS hr_report_configs (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL,
     name VARCHAR(200) NOT NULL,

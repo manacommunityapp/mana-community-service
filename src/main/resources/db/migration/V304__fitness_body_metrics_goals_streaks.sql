@@ -1,31 +1,26 @@
--- ══════════════════════════════════════════════════════════════
--- V239  Fitness Phase 2 — body_metric_log, activity_goal, fitness_streak
--- ══════════════════════════════════════════════════════════════
-
+﻿-- V239 Fitness Phase 2 - body_metric_log, activity_goal, fitness_streak (renamed; may already exist)
 SET search_path = manacommunity;
 
--- ── Body metric history (one row per weigh-in / measurement) ─
-CREATE TABLE body_metric_log (
+CREATE TABLE IF NOT EXISTS body_metric_log (
     id                BIGSERIAL PRIMARY KEY,
     user_id           BIGINT NOT NULL,
     logged_date       DATE NOT NULL DEFAULT CURRENT_DATE,
     weight_kg         NUMERIC(5,1),
     body_fat_pct      NUMERIC(4,1),
     muscle_mass_kg    NUMERIC(5,1),
-    bmi               NUMERIC(4,1),         -- computed from weight / height²
+    bmi               NUMERIC(4,1),
     waist_cm          NUMERIC(5,1),
     chest_cm          NUMERIC(5,1),
     hip_cm            NUMERIC(5,1),
-    source            VARCHAR(20) NOT NULL DEFAULT 'MANUAL',  -- MANUAL / SMART_SCALE / WEARABLE
+    source            VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
     notes             VARCHAR(300),
     created_at        TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_body_metric_user_date ON body_metric_log(user_id, logged_date DESC);
-CREATE UNIQUE INDEX idx_body_metric_user_date_unique ON body_metric_log(user_id, logged_date);
+CREATE INDEX IF NOT EXISTS idx_body_metric_user_date ON body_metric_log(user_id, logged_date DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_body_metric_user_date_unique ON body_metric_log(user_id, logged_date);
 
--- ── Activity goal (one record per user, upserted) ─────────────
-CREATE TABLE activity_goal (
+CREATE TABLE IF NOT EXISTS activity_goal (
     id                          BIGSERIAL PRIMARY KEY,
     user_id                     BIGINT NOT NULL UNIQUE,
     daily_steps_target          INTEGER NOT NULL DEFAULT 8000,
@@ -35,8 +30,7 @@ CREATE TABLE activity_goal (
     updated_at                  TIMESTAMP DEFAULT NOW()
 );
 
--- ── Fitness streak (one record per user, updated on each workout log) ─
-CREATE TABLE fitness_streak (
+CREATE TABLE IF NOT EXISTS fitness_streak (
     id                      BIGSERIAL PRIMARY KEY,
     user_id                 BIGINT NOT NULL UNIQUE,
     current_streak_days     INTEGER NOT NULL DEFAULT 0,

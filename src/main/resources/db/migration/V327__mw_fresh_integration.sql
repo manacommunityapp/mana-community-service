@@ -1,5 +1,5 @@
 ﻿-- V288: Mana Fresh integration config and delivery assignments
-CREATE TABLE mw_integration_configs (
+CREATE TABLE IF NOT EXISTS mw_integration_configs (
   id                BIGSERIAL PRIMARY KEY,
   organization_id   BIGINT NOT NULL UNIQUE,
   fresh_enabled     BOOLEAN DEFAULT FALSE,
@@ -12,7 +12,7 @@ CREATE TABLE mw_integration_configs (
   updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE mw_fresh_assignments (
+CREATE TABLE IF NOT EXISTS mw_fresh_assignments (
   id                        BIGSERIAL PRIMARY KEY,
   operational_assignment_id BIGINT NOT NULL UNIQUE,
   fresh_order_id            VARCHAR(100) NOT NULL,
@@ -28,4 +28,4 @@ CREATE TABLE mw_fresh_assignments (
   created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (operational_assignment_id) REFERENCES mw_operational_assignments(id)
 );
-CREATE INDEX idx_fresh_order ON mw_fresh_assignments(fresh_order_id);
+CREATE INDEX IF NOT EXISTS idx_fresh_order ON mw_fresh_assignments(fresh_order_id);

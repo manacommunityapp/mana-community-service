@@ -1,6 +1,6 @@
--- Governance module: meetings, proposals, ballots, resolutions, vault
+﻿-- Governance module: meetings, proposals, ballots, resolutions, vault
 
-CREATE TABLE community_meeting (
+CREATE TABLE IF NOT EXISTS community_meeting (
     id                  BIGSERIAL PRIMARY KEY,
     community_id        BIGINT       NOT NULL REFERENCES community(id),
     type                VARCHAR(20)  NOT NULL,
@@ -19,9 +19,9 @@ CREATE TABLE community_meeting (
     created_by          BIGINT,
     updated_by          BIGINT
 );
-CREATE INDEX idx_community_meeting_community ON community_meeting(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_meeting_community ON community_meeting(community_id);
 
-CREATE TABLE meeting_agenda_item (
+CREATE TABLE IF NOT EXISTS meeting_agenda_item (
     id              BIGSERIAL PRIMARY KEY,
     meeting_id      BIGINT       NOT NULL REFERENCES community_meeting(id) ON DELETE CASCADE,
     item_order      INT          DEFAULT 1,
@@ -33,9 +33,9 @@ CREATE TABLE meeting_agenda_item (
     notes           TEXT,
     attachment_name TEXT
 );
-CREATE INDEX idx_meeting_agenda_item_meeting ON meeting_agenda_item(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_agenda_item_meeting ON meeting_agenda_item(meeting_id);
 
-CREATE TABLE meeting_rsvp (
+CREATE TABLE IF NOT EXISTS meeting_rsvp (
     id              BIGSERIAL PRIMARY KEY,
     meeting_id      BIGINT      NOT NULL REFERENCES community_meeting(id) ON DELETE CASCADE,
     user_id         BIGINT      NOT NULL,
@@ -44,9 +44,9 @@ CREATE TABLE meeting_rsvp (
     confirmed_at    TIMESTAMP   DEFAULT NOW(),
     UNIQUE (meeting_id, user_id)
 );
-CREATE INDEX idx_meeting_rsvp_meeting ON meeting_rsvp(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_rsvp_meeting ON meeting_rsvp(meeting_id);
 
-CREATE TABLE community_proposal (
+CREATE TABLE IF NOT EXISTS community_proposal (
     id                    BIGSERIAL PRIMARY KEY,
     community_id          BIGINT       NOT NULL REFERENCES community(id),
     submitted_by_user_id  BIGINT       NOT NULL,
@@ -63,30 +63,30 @@ CREATE TABLE community_proposal (
     created_by            BIGINT,
     updated_by            BIGINT
 );
-CREATE INDEX idx_community_proposal_community ON community_proposal(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_proposal_community ON community_proposal(community_id);
 
-CREATE TABLE community_proposal_pros (
+CREATE TABLE IF NOT EXISTS community_proposal_pros (
     proposal_id BIGINT NOT NULL REFERENCES community_proposal(id) ON DELETE CASCADE,
     pro_text    TEXT
 );
-CREATE INDEX idx_proposal_pros_proposal ON community_proposal_pros(proposal_id);
+CREATE INDEX IF NOT EXISTS idx_proposal_pros_proposal ON community_proposal_pros(proposal_id);
 
-CREATE TABLE community_proposal_cons (
+CREATE TABLE IF NOT EXISTS community_proposal_cons (
     proposal_id BIGINT NOT NULL REFERENCES community_proposal(id) ON DELETE CASCADE,
     con_text    TEXT
 );
-CREATE INDEX idx_proposal_cons_proposal ON community_proposal_cons(proposal_id);
+CREATE INDEX IF NOT EXISTS idx_proposal_cons_proposal ON community_proposal_cons(proposal_id);
 
-CREATE TABLE proposal_support (
+CREATE TABLE IF NOT EXISTS proposal_support (
     id           BIGSERIAL PRIMARY KEY,
     proposal_id  BIGINT    NOT NULL REFERENCES community_proposal(id) ON DELETE CASCADE,
     user_id      BIGINT    NOT NULL,
     supported_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (proposal_id, user_id)
 );
-CREATE INDEX idx_proposal_support_proposal ON proposal_support(proposal_id);
+CREATE INDEX IF NOT EXISTS idx_proposal_support_proposal ON proposal_support(proposal_id);
 
-CREATE TABLE community_ballot (
+CREATE TABLE IF NOT EXISTS community_ballot (
     id                       BIGSERIAL PRIMARY KEY,
     community_id             BIGINT       NOT NULL REFERENCES community(id),
     title                    TEXT         NOT NULL,
@@ -103,17 +103,17 @@ CREATE TABLE community_ballot (
     created_by               BIGINT,
     updated_by               BIGINT
 );
-CREATE INDEX idx_community_ballot_community ON community_ballot(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_ballot_community ON community_ballot(community_id);
 
-CREATE TABLE ballot_option (
+CREATE TABLE IF NOT EXISTS ballot_option (
     id          BIGSERIAL PRIMARY KEY,
     ballot_id   BIGINT NOT NULL REFERENCES community_ballot(id) ON DELETE CASCADE,
     text        TEXT   NOT NULL,
     description TEXT
 );
-CREATE INDEX idx_ballot_option_ballot ON ballot_option(ballot_id);
+CREATE INDEX IF NOT EXISTS idx_ballot_option_ballot ON ballot_option(ballot_id);
 
-CREATE TABLE ballot_vote (
+CREATE TABLE IF NOT EXISTS ballot_vote (
     id           BIGSERIAL PRIMARY KEY,
     ballot_id    BIGINT    NOT NULL REFERENCES community_ballot(id) ON DELETE CASCADE,
     option_id    BIGINT    NOT NULL REFERENCES ballot_option(id),
@@ -122,9 +122,9 @@ CREATE TABLE ballot_vote (
     voted_at     TIMESTAMP DEFAULT NOW(),
     UNIQUE (ballot_id, user_id)
 );
-CREATE INDEX idx_ballot_vote_ballot ON ballot_vote(ballot_id);
+CREATE INDEX IF NOT EXISTS idx_ballot_vote_ballot ON ballot_vote(ballot_id);
 
-CREATE TABLE community_resolution (
+CREATE TABLE IF NOT EXISTS community_resolution (
     id                       BIGSERIAL PRIMARY KEY,
     community_id             BIGINT       NOT NULL REFERENCES community(id),
     resolution_number        TEXT         NOT NULL,
@@ -145,15 +145,15 @@ CREATE TABLE community_resolution (
     created_by               BIGINT,
     updated_by               BIGINT
 );
-CREATE INDEX idx_community_resolution_community ON community_resolution(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_resolution_community ON community_resolution(community_id);
 
-CREATE TABLE community_resolution_provisions (
+CREATE TABLE IF NOT EXISTS community_resolution_provisions (
     resolution_id   BIGINT NOT NULL REFERENCES community_resolution(id) ON DELETE CASCADE,
     provision_text  TEXT
 );
-CREATE INDEX idx_resolution_provisions_resolution ON community_resolution_provisions(resolution_id);
+CREATE INDEX IF NOT EXISTS idx_resolution_provisions_resolution ON community_resolution_provisions(resolution_id);
 
-CREATE TABLE governance_vault_document (
+CREATE TABLE IF NOT EXISTS governance_vault_document (
     id                      BIGSERIAL PRIMARY KEY,
     community_id            BIGINT       NOT NULL REFERENCES community(id),
     title                   TEXT         NOT NULL,
@@ -169,4 +169,4 @@ CREATE TABLE governance_vault_document (
     created_by              BIGINT,
     updated_by              BIGINT
 );
-CREATE INDEX idx_governance_vault_document_community ON governance_vault_document(community_id);
+CREATE INDEX IF NOT EXISTS idx_governance_vault_document_community ON governance_vault_document(community_id);

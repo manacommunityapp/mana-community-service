@@ -1,6 +1,6 @@
--- V244: Fit profiles and jewellery recommendation engine
+﻿-- V244: Fit profiles and jewellery recommendation engine
 
-CREATE TABLE fit_profiles (
+CREATE TABLE IF NOT EXISTS fit_profiles (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT NOT NULL UNIQUE REFERENCES app_user(id) ON DELETE CASCADE,
     face_shape  VARCHAR(20) NOT NULL
@@ -12,7 +12,7 @@ CREATE TABLE fit_profiles (
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE product_fit_attributes (
+CREATE TABLE IF NOT EXISTS product_fit_attributes (
     product_id         BIGINT PRIMARY KEY REFERENCES jewellery_product(id) ON DELETE CASCADE,
     drop_length_mm     INT,
     size_mm            INT,
@@ -20,7 +20,7 @@ CREATE TABLE product_fit_attributes (
     style_tags         TEXT[] NOT NULL DEFAULT '{}'
 );
 
-CREATE TABLE recommendation_rules (
+CREATE TABLE IF NOT EXISTS recommendation_rules (
     id         BIGSERIAL PRIMARY KEY,
     category   VARCHAR(30) NOT NULL,
     face_shape VARCHAR(20) NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE recommendation_rules (
     active     BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE INDEX idx_rules_lookup ON recommendation_rules (category, face_shape) WHERE active;
+CREATE INDEX IF NOT EXISTS idx_rules_lookup ON recommendation_rules (category, face_shape) WHERE active;
 
 INSERT INTO recommendation_rules (category, face_shape, attribute, min_value, max_value, weight) VALUES
     ('EARRINGS', 'round',  'drop_length_mm', 30, 70, 1.0),
