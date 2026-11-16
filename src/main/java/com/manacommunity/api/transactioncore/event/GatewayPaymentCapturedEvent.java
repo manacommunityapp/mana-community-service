@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class GatewayPaymentCapturedEvent {
 
-    public enum Gateway { CASHFREE, RAZORPAY, MANUAL }
+    public enum Gateway { CASHFREE, RAZORPAY, MANUAL, MANA_PAY }
 
     private final Gateway gateway;
     private final String  gatewayOrderId;

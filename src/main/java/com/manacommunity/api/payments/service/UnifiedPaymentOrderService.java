@@ -4,6 +4,7 @@ import com.manacommunity.api.payments.config.dto.RecordManualPaymentRequest;
 import com.manacommunity.api.payments.config.service.PaymentConfigService;
 import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
 import com.manacommunity.api.payments.entity.PaymentOrder;
+import com.manacommunity.api.payments.gateway.ManaPayGatewayService;
 import com.manacommunity.api.payments.model.PaymentGateway;
 import com.manacommunity.api.payments.model.PaymentOrderStatus;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
@@ -45,16 +46,19 @@ public class UnifiedPaymentOrderService {
     private final PaymentLifecycleStateMachine stateMachine;
     private final ApplicationEventPublisher   eventPublisher;
     private final PaymentConfigService        paymentConfigService;
+    private final ManaPayGatewayService       manaPayGatewayService;
 
     public UnifiedPaymentOrderService(
             PaymentOrderRepository repository,
             PaymentLifecycleStateMachine stateMachine,
             ApplicationEventPublisher eventPublisher,
-            @Lazy PaymentConfigService paymentConfigService) {
-        this.repository           = repository;
-        this.stateMachine         = stateMachine;
-        this.eventPublisher       = eventPublisher;
-        this.paymentConfigService = paymentConfigService;
+            @Lazy PaymentConfigService paymentConfigService,
+            ManaPayGatewayService manaPayGatewayService) {
+        this.repository             = repository;
+        this.stateMachine           = stateMachine;
+        this.eventPublisher         = eventPublisher;
+        this.paymentConfigService   = paymentConfigService;
+        this.manaPayGatewayService  = manaPayGatewayService;
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────────
@@ -196,6 +200,13 @@ public class UnifiedPaymentOrderService {
         if (totalRefunded.compareTo(order.getAmount()) > 0) {
             throw new IllegalArgumentException("Total refunded amount would exceed order amount");
         }
+
+        // For ManaPay, credit the wallet back before recording the refund status
+        if (order.getGateway() == PaymentGateway.MANA_PAY && order.getGatewayOrderId() != null) {
+            manaPayGatewayService.refundPayment(
+                order.getGatewayOrderId(), refundedAmount, "Refund orderId=" + orderId);
+        }
+
         order.setRefundedAmount(totalRefunded);
         PaymentOrderStatus next = totalRefunded.compareTo(order.getAmount()) == 0
             ? PaymentOrderStatus.REFUNDED
@@ -215,6 +226,68 @@ public class UnifiedPaymentOrderService {
             order.setReceiptNumber(receiptNumber);
             repository.save(order);
         });
+    }
+
+    // ─── ManaPay (wallet) payment ────────────────────────────────────────────────
+
+    /**
+     * Initiates a ManaPay wallet payment for an existing order in INITIATED state.
+     *
+     * <p>ManaPay is synchronous — wallet debit happens immediately. If the debit
+     * succeeds the order is set to SUCCESS and GatewayPaymentCapturedEvent is
+     * published so ModulePaymentConfirmationListener updates the module entity.
+     *
+     * <p>Financial rule: amount comes from the stored PaymentOrder — never from
+     * the caller. The order must already exist (created via createOrder).
+     *
+     * @throws InsufficientWalletBalanceException (402) if wallet balance insufficient
+     */
+    @Transactional
+    public PaymentOrder initiateManaPayOrder(Long orderId) {
+        PaymentOrder order = repository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("PaymentOrder not found: " + orderId));
+
+        if (order.getGateway() != PaymentGateway.MANA_PAY) {
+            throw new IllegalArgumentException(
+                "Order " + orderId + " is not a MANA_PAY order (gateway=" + order.getGateway() + ")");
+        }
+
+        stateMachine.assertTransition(order.getStatus(), PaymentOrderStatus.PENDING);
+        order.setStatus(PaymentOrderStatus.PENDING);
+
+        String description = "ManaPay: " + order.getReferenceType() + " #" + order.getReferenceId();
+        String manaRef = manaPayGatewayService.initiatePayment(
+            order.getPayerUserId(), order.getCommunityId(), order.getAmount(), description);
+
+        order.setGatewayOrderId(manaRef);
+
+        boolean verified = manaPayGatewayService.verifyPayment(manaRef);
+        if (verified) {
+            stateMachine.assertTransition(PaymentOrderStatus.PENDING, PaymentOrderStatus.SUCCESS);
+            order.setStatus(PaymentOrderStatus.SUCCESS);
+            order.setGatewayPaymentId(manaRef);
+            order.setWebhookReceivedAt(OffsetDateTime.now());
+            PaymentOrder saved = repository.save(order);
+            log.info("[ManaPay] SUCCESS orderId={} ref={}", orderId, manaRef);
+
+            eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+                GatewayPaymentCapturedEvent.Gateway.MANA_PAY,
+                manaRef,
+                manaRef,
+                order.getAmount(),
+                order.getCurrency(),
+                description,
+                saved.getId()));
+
+            return saved;
+        } else {
+            stateMachine.assertTransition(PaymentOrderStatus.PENDING, PaymentOrderStatus.FAILED);
+            order.setStatus(PaymentOrderStatus.FAILED);
+            order.setFailureReason("ManaPay wallet debit verification failed");
+            order.setWebhookReceivedAt(OffsetDateTime.now());
+            log.warn("[ManaPay] FAILED orderId={} ref={}", orderId, manaRef);
+            return repository.save(order);
+        }
     }
 
     // ─── Manual payment ───────────────────────────────────────────────────────────

@@ -158,6 +158,29 @@ public class UnifiedPaymentOrderController {
             orderRepository.findById(id).orElse(order)));
     }
 
+    // ─── ManaPay (wallet) ────────────────────────────────────────────────────────
+
+    /**
+     * Initiates a ManaPay wallet payment for an order previously created with
+     * gateway=MANA_PAY.  Wallet debit is synchronous — the response will be
+     * SUCCESS or FAILED immediately (no PG redirect).
+     *
+     * <p>Financial rule: amount comes from the stored order — never from this request.
+     */
+    @Operation(summary = "Pay via ManaPay wallet (synchronous internal debit)")
+    @PostMapping("/mana-pay/initiate")
+    public ResponseEntity<UnifiedPaymentOrderResponse> initiateManaPayPayment(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long orderId = Long.parseLong(body.get("orderId").toString());
+        PaymentOrder order = loadAndAssertAccess(orderId, principal);
+
+        // Community isolation already asserted by loadAndAssertAccess
+        PaymentOrder updated = orderService.initiateManaPayOrder(orderId);
+        return ResponseEntity.ok(UnifiedPaymentOrderResponse.from(updated));
+    }
+
     // ─── Refund ──────────────────────────────────────────────────────────────────
 
     @Operation(summary = "Initiate a refund for a successful payment")
