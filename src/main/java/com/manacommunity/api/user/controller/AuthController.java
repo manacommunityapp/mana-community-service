@@ -34,6 +34,21 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private com.manacommunity.api.security.RsaKeyService rsaKeyService;
+
+    /**
+     * Exposes the active RSA public key for client-side password encryption.
+     */
+    @GetMapping("/public-key")
+    public ResponseEntity<Map<String, Object>> getPublicKey() {
+        return ResponseEntity.ok(Map.of(
+                "publicKey", rsaKeyService.getPublicKeyPem(),
+                "keyId", rsaKeyService.getKeyId(),
+                "algorithm", "RSA-OAEP-256"
+        ));
+    }
+
     /**
      * Sends a 6-digit OTP to the provided email to verify it before signup.
      * Call this first, then include the received code in the /register request.
