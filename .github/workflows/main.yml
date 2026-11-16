@@ -71,20 +71,27 @@ jobs:
             # Restart service
             sudo systemctl restart backend
 
-            sleep 45
+            # Wait for backend service to become healthy or stabilize
+            echo "Waiting for backend service to initialize..."
+            for i in $(seq 1 25); do
+              if curl -s -f http://localhost:8081/api/actuator/health >/dev/null 2>&1; then
+                echo "Backend is HEALTHY after ${i} checks!"
+                break
+              fi
+              sleep 3
+            done
 
             # Verify deployment
             sudo systemctl status backend --no-pager
             sudo systemctl is-active backend
 
-            # Verify log files are being written
             echo ""
-            echo "=== Log directory ==="
-            ls -la /var/log/mana-community/
+            echo "=== Last 250 lines of mana-service.log ==="
+            tail -250 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
 
             echo ""
-            echo "=== Last 200 lines of mana-service.log ==="
-            tail -200 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
+            echo "=== Last 150 lines of journalctl ==="
+            journalctl -u backend -n 150 --no-pager
 
             # Cleanup temp files
             rm -rf /tmp/target /tmp/deploy
