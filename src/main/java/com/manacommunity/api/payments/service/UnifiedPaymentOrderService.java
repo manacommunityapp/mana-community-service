@@ -204,7 +204,7 @@ public class UnifiedPaymentOrderService {
         // For ManaPay, credit the wallet back before recording the refund status
         if (order.getGateway() == PaymentGateway.MANA_PAY && order.getGatewayOrderId() != null) {
             manaPayGatewayService.refundPayment(
-                order.getGatewayOrderId(), refundedAmount, "Refund orderId=" + orderId);
+                order.getGatewayOrderId(), order.getPayerUserId(), refundedAmount, "Refund orderId=" + orderId);
         }
 
         order.setRefundedAmount(totalRefunded);

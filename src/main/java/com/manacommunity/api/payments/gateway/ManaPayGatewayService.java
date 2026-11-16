@@ -71,14 +71,14 @@ public class ManaPayGatewayService {
 
     /**
      * Credits the resident's wallet as a refund for a ManaPay payment.
+     *
+     * @param userId the original payer's userId (from PaymentOrder.payerUserId)
      */
     @Transactional
-    public void refundPayment(String manaRef, BigDecimal amount, String reason) {
-        log.info("[ManaPay] refund manaRef={} amount={} reason={}", manaRef, amount, reason);
-        // Wallet balance for refund is retrieved by community ID; for now we use payerId=0
-        // TODO: resolve userId from manaRef when wallet stores the transaction reference
+    public void refundPayment(String manaRef, Long userId, BigDecimal amount, String reason) {
+        log.info("[ManaPay] refund manaRef={} userId={} amount={} reason={}", manaRef, userId, amount, reason);
         walletEngine.creditWallet(
-                0L,
+                userId,
                 amount,
                 WalletTransactionType.REFUND,
                 "MANA_PAY",
