@@ -4,7 +4,7 @@ import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.ConversationParticipantRepository;
 import com.manacommunity.api.security.CommunityMembershipService;
 import com.manacommunity.api.security.StompSubscriptionInterceptor;
-import com.manacommunity.api.socialcircle.repository.KittyPartyCircleRepository;
+import com.manacommunity.api.socialcircle.repository.KittyPartyGameRoomRepository;
 import com.manacommunity.api.sports.scheduler.SportsTournamentConfig;
 import com.manacommunity.api.sports.repository.SportsTournamentConfigRepository;
 import com.manacommunity.api.sports.repository.SportsTournamentMatchRepository;
