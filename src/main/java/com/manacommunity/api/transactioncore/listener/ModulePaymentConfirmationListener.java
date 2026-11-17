@@ -73,9 +73,9 @@ public class ModulePaymentConfirmationListener {
                     healthAppointmentRepo.findById(order.getReferenceId()).ifPresent(appt -> {
                         appt.setPaymentReferenceId(event.getGatewayPaymentId());
                         appt.setPaymentOrderId(order.getId());
+                        appt.setPaymentStatus(PaymentStatus.PAID);
                         healthAppointmentRepo.save(appt);
-                        log.info("[ModuleConfirm] Health appointment {} payment ref + orderId updated",
-                                order.getReferenceId());
+                        log.info("[ModuleConfirm] Health appointment {} marked PAID", order.getReferenceId());
                     });
 
                 case FOOD_ORDER ->
@@ -102,8 +102,9 @@ public class ModulePaymentConfirmationListener {
                 case TRIP_SETTLEMENT ->
                     tripBookingRepo.findById(String.valueOf(order.getReferenceId())).ifPresent(tb -> {
                         tb.setPaymentOrderId(order.getId());
+                        tb.setPaymentStatus("PAID");
                         tripBookingRepo.save(tb);
-                        log.info("[ModuleConfirm] Trip booking {} payment order {} linked",
+                        log.info("[ModuleConfirm] Trip booking {} marked PAID, payment order {} linked",
                                 order.getReferenceId(), order.getId());
                     });
 
@@ -135,19 +136,18 @@ public class ModulePaymentConfirmationListener {
                     });
 
                 case AMENITY_BOOKING ->
-                    // PaymentStatus enum has no FAILED value; revert to PENDING so the
-                    // booking can be re-attempted rather than silently orphaned.
                     resourceBookingRepo.findById(event.getReferenceId()).ifPresent(booking -> {
-                        booking.setPaymentStatus(PaymentStatus.PENDING);
+                        booking.setPaymentStatus(PaymentStatus.FAILED);
                         resourceBookingRepo.save(booking);
-                        log.info("[ModuleConfirm] Resource booking {} reverted to PENDING after payment failure",
-                                event.getReferenceId());
+                        log.info("[ModuleConfirm] Resource booking {} marked FAILED", event.getReferenceId());
                     });
 
                 case HEALTH_BOOKING ->
-                    // HealthAppointment has no paymentStatus field; log only so an admin can follow up.
-                    log.warn("[ModuleConfirm] Health appointment {} payment failed — manual follow-up needed (no paymentStatus field)",
-                            event.getReferenceId());
+                    healthAppointmentRepo.findById(event.getReferenceId()).ifPresent(appt -> {
+                        appt.setPaymentStatus(PaymentStatus.FAILED);
+                        healthAppointmentRepo.save(appt);
+                        log.info("[ModuleConfirm] Health appointment {} marked FAILED", event.getReferenceId());
+                    });
 
                 case FOOD_ORDER ->
                     foodOrderRepo.findById(event.getReferenceId()).ifPresent(fo -> {
@@ -179,9 +179,11 @@ public class ModulePaymentConfirmationListener {
                     });
 
                 case TRIP_SETTLEMENT ->
-                    // TripBooking has no paymentStatus field; log only.
-                    log.warn("[ModuleConfirm] Trip booking {} payment failed — no paymentStatus field to update",
-                            event.getReferenceId());
+                    tripBookingRepo.findById(String.valueOf(event.getReferenceId())).ifPresent(tb -> {
+                        tb.setPaymentStatus("PAYMENT_FAILED");
+                        tripBookingRepo.save(tb);
+                        log.info("[ModuleConfirm] Trip booking {} marked PAYMENT_FAILED", event.getReferenceId());
+                    });
 
                 default ->
                     log.debug("[ModuleConfirm] No failure handler for referenceType={}", event.getReferenceType());

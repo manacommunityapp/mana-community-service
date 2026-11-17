@@ -71,4 +71,7 @@ public class TripBooking {
 
     @Column(name = "payment_order_id")
     private Long paymentOrderId;
+
+    @Column(name = "payment_status", length = 30)
+    private String paymentStatus;
 }

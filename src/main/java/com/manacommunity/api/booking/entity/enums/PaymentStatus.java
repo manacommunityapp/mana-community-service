@@ -12,6 +12,8 @@ public enum PaymentStatus {
     /** Full or partial refund confirmed. */
     REFUNDED,
     PARTIALLY_REFUNDED,
+    /** Gateway returned an error or payment was declined. */
+    FAILED,
     /** No payment collected. */
     WAIVED
 }

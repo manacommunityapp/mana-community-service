@@ -1,5 +1,6 @@
 package com.manacommunity.api.health.entity;
 
+import com.manacommunity.api.booking.entity.enums.PaymentStatus;
 import com.manacommunity.api.health.enums.HealthEnums.AppointmentStatus;
 import com.manacommunity.api.health.enums.HealthEnums.ConsultationMode;
 import com.manacommunity.api.model.common.BaseAuditEntity;
@@ -76,6 +77,10 @@ public class HealthAppointment extends BaseAuditEntity {
     /** FK to unified payment_order table — null for free consultations. */
     @Column(name = "payment_order_id")
     private Long paymentOrderId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 30)
+    private PaymentStatus paymentStatus;
 
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
