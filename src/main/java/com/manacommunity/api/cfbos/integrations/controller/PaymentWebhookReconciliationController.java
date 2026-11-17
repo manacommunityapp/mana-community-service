@@ -28,6 +28,12 @@ public class PaymentWebhookReconciliationController {
             @RequestBody Map<String, Object> payload,
             @RequestHeader(value = "x-webhook-signature", required = false) String signature,
             @RequestHeader(value = "x-webhook-timestamp", required = false) String timestamp) {
+        // Reject immediately if signature header is absent — Cashfree always sends it.
+        if (signature == null || signature.isBlank()) {
+            log.warn("[WEBHOOK][CASHFREE] Missing x-webhook-signature — rejecting request");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Missing signature"));
+        }
         webhookService.processCashfreeWebhook(payload, signature, timestamp);
         return ResponseEntity.ok(Map.of("status", "processed"));
     }

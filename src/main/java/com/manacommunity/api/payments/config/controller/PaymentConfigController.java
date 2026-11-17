@@ -2,6 +2,7 @@ package com.manacommunity.api.payments.config.controller;
 
 import com.manacommunity.api.model.CommunitySettings;
 import com.manacommunity.api.payments.config.dto.CheckoutOptionsResponse;
+import com.manacommunity.api.payments.config.dto.PlatformPaymentConfigResponse;
 import com.manacommunity.api.payments.config.dto.UpdateCommunityPaymentSettingsRequest;
 import com.manacommunity.api.payments.config.dto.UpdatePlatformPaymentConfigRequest;
 import com.manacommunity.api.payments.config.entity.PlatformPaymentConfig;
@@ -37,17 +38,18 @@ public class PaymentConfigController {
     // ─── Super admin — platform config ───────────────────────────────────────────
 
     @GetMapping("/api/admin/payment-config")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    public ResponseEntity<PlatformPaymentConfig> getPlatformConfig() {
-        return ResponseEntity.ok(paymentConfigService.getPlatformConfig());
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<PlatformPaymentConfigResponse> getPlatformConfig() {
+        return ResponseEntity.ok(PlatformPaymentConfigResponse.from(paymentConfigService.getPlatformConfig()));
     }
 
     @PutMapping("/api/admin/payment-config")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    public ResponseEntity<PlatformPaymentConfig> updatePlatformConfig(
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<PlatformPaymentConfigResponse> updatePlatformConfig(
             @RequestBody UpdatePlatformPaymentConfigRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(paymentConfigService.updatePlatformConfig(req, principal.getId()));
+        return ResponseEntity.ok(PlatformPaymentConfigResponse.from(
+                paymentConfigService.updatePlatformConfig(req, principal.getId())));
     }
 
     // ─── Community admin — community payment settings ────────────────────────────

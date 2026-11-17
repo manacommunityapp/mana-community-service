@@ -19,4 +19,9 @@ public class RecordManualPaymentRequest {
     private String referenceNumber;
     /** Admin note for audit trail — optional. */
     private String remarks;
+    /**
+     * The resident/payer's user ID — the person who actually made the payment.
+     * Optional: if omitted, the recording admin's userId is stored as a fallback.
+     */
+    private Long payerUserId;
 }

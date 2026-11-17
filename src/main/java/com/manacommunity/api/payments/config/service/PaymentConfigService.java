@@ -116,6 +116,17 @@ public class PaymentConfigService {
             .orElseThrow(() -> new IllegalArgumentException("No community settings for communityId=" + communityId));
 
         if (req.getAllowedPaymentGateways() != null) {
+            // Validate each requested gateway against the platform-enabled list so a community
+            // cannot activate a gateway the platform operator has disabled.
+            PlatformPaymentConfig platform = getPlatformConfig();
+            List<String> platformEnabled = getEnabledGatewayNames(platform);
+            List<String> invalid = req.getAllowedPaymentGateways().stream()
+                    .filter(gw -> !platformEnabled.contains(gw))
+                    .collect(Collectors.toList());
+            if (!invalid.isEmpty()) {
+                throw new PaymentGatewayNotAllowedException(
+                        "Gateways not enabled on this platform: " + invalid);
+            }
             settings.setAllowedPaymentGateways(req.getAllowedPaymentGateways().toArray(new String[0]));
         }
         if (req.getDefaultGateway() != null)    settings.setDefaultGateway(req.getDefaultGateway());

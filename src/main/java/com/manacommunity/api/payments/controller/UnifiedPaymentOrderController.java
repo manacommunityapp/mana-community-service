@@ -2,6 +2,8 @@ package com.manacommunity.api.payments.controller;
 
 import com.manacommunity.api.payments.config.dto.RecordManualPaymentRequest;
 import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
+import com.manacommunity.api.payments.dto.InitiateManaPayRequest;
+import com.manacommunity.api.payments.dto.InitiateRefundRequest;
 import com.manacommunity.api.payments.dto.UnifiedPaymentOrderResponse;
 import com.manacommunity.api.payments.dto.VerifyPaymentRequest;
 import com.manacommunity.api.payments.entity.PaymentOrder;
@@ -25,9 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -170,14 +170,13 @@ public class UnifiedPaymentOrderController {
     @Operation(summary = "Pay via ManaPay wallet (synchronous internal debit)")
     @PostMapping("/mana-pay/initiate")
     public ResponseEntity<UnifiedPaymentOrderResponse> initiateManaPayPayment(
-            @RequestBody Map<String, Object> body,
+            @Valid @RequestBody InitiateManaPayRequest body,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        Long orderId = Long.parseLong(body.get("orderId").toString());
-        PaymentOrder order = loadAndAssertAccess(orderId, principal);
+        PaymentOrder order = loadAndAssertAccess(body.getOrderId(), principal);
 
         // Community isolation already asserted by loadAndAssertAccess
-        PaymentOrder updated = orderService.initiateManaPayOrder(orderId);
+        PaymentOrder updated = orderService.initiateManaPayOrder(order.getId());
         return ResponseEntity.ok(UnifiedPaymentOrderResponse.from(updated));
     }
 
@@ -187,13 +186,12 @@ public class UnifiedPaymentOrderController {
     @PostMapping("/{id}/refund")
     public ResponseEntity<UnifiedPaymentOrderResponse> initiateRefund(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> body,
+            @Valid @RequestBody InitiateRefundRequest body,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         PaymentOrder order = loadAndAssertAccess(id, principal);
 
-        BigDecimal refundAmount = new BigDecimal(body.get("amount").toString());
-        PaymentOrder updated = orderService.initiateRefund(order.getId(), refundAmount);
+        PaymentOrder updated = orderService.initiateRefund(order.getId(), body.getAmount());
         return ResponseEntity.ok(UnifiedPaymentOrderResponse.from(updated));
     }
 
@@ -212,16 +210,12 @@ public class UnifiedPaymentOrderController {
 
     private void verifyCashfree(PaymentOrder order) {
         if (order.getGatewayOrderId() == null) return;
-        var response = cashfreePaymentService.verifyPayment(order.getGatewayOrderId());
-        if (response != null) {
-            String pgStatus = response.getStatus() != null ? response.getStatus() : "";
-            if ("PAID".equalsIgnoreCase(pgStatus) || "SUCCESS".equalsIgnoreCase(pgStatus)) {
-                orderService.markSuccess(order.getIdempotencyKey(),
-                    order.getGatewayOrderId(), order.getGatewayOrderId());
-            } else if ("FAILED".equalsIgnoreCase(pgStatus) || "CANCELLED".equalsIgnoreCase(pgStatus)) {
-                orderService.markFailed(order.getIdempotencyKey(), pgStatus);
-            }
-        }
+        // CashfreePaymentService.verifyPayment() fetches live status from Cashfree, updates
+        // the CashfreeOrder record, and calls dispatchBusinessConfirmation() which fires
+        // GatewayPaymentCapturedEvent / markSuccess() internally.  The controller must NOT
+        // call markSuccess() a second time — just trigger the service and let the state
+        // machine transitions happen through the canonical path.
+        cashfreePaymentService.verifyPayment(order.getGatewayOrderId());
     }
 
     private void verifyRazorpay(PaymentOrder order) {

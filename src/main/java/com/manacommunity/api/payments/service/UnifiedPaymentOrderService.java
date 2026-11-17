@@ -85,8 +85,17 @@ public class UnifiedPaymentOrderService {
      */
     @Transactional
     public PaymentOrder createOrder(CreatePaymentOrderRequest req) {
-        // Guard: gateway must be enabled for this community
-        if (req.getGateway() != null && req.getCommunityId() != null) {
+        // Guard: gateway and communityId are mandatory; gateway must be enabled for this community.
+        // Never silently skip — missing either is a programmer/client error.
+        if (req.getGateway() == null) {
+            throw new IllegalArgumentException("gateway is required");
+        }
+        if (req.getCommunityId() == null) {
+            throw new IllegalArgumentException("communityId is required");
+        }
+        // MANUAL orders are created via recordManualPayment(), not createOrder().
+        // All other gateways must pass the 3-layer config gate.
+        if (req.getGateway() != PaymentGateway.MANUAL) {
             paymentConfigService.assertGatewayAllowed(req.getCommunityId(), req.getGateway().name());
         }
 
@@ -394,7 +403,9 @@ public class UnifiedPaymentOrderService {
             .gateway(PaymentGateway.MANUAL)
             .referenceType(req.getReferenceType())
             .referenceId(req.getReferenceId())
-            .payerUserId(adminUserId)
+            // If the caller supplied the resident's userId, use it; otherwise fall back to the
+            // admin who is recording the payment so the row is never null.
+            .payerUserId(req.getPayerUserId() != null ? req.getPayerUserId() : adminUserId)
             .amount(req.getAmount())
             .currency("INR")
             .status(PaymentOrderStatus.SUCCESS)
