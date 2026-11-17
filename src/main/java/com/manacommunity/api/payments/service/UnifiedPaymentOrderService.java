@@ -13,6 +13,7 @@ import com.manacommunity.api.payments.model.PaymentOrderStatus;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
 import com.manacommunity.api.repository.CommunitySettingsRepository;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
+import com.manacommunity.api.transactioncore.event.GatewayPaymentFailedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
@@ -241,6 +242,9 @@ public class UnifiedPaymentOrderService {
         order.setWebhookReceivedAt(OffsetDateTime.now());
         PaymentOrder saved = repository.save(order);
         log.warn("[PaymentOrder] FAILED id={} reason={}", saved.getId(), failureReason);
+        eventPublisher.publishEvent(new GatewayPaymentFailedEvent(
+                saved.getId(), saved.getReferenceType(), saved.getReferenceId(),
+                saved.getCommunityId(), failureReason));
         return saved;
     }
 

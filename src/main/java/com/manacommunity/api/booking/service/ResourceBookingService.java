@@ -722,6 +722,7 @@ public class ResourceBookingService {
                 .depositAmount(b.getDepositAmount())
                 .taxAmount(b.getTaxAmount())
                 .discountAmount(b.getDiscountAmount())
+                .paymentOrderId(b.getPaymentOrderId())
                 .paymentStatus(b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null)
                 .paymentReference(b.getPaymentReference())
                 .isRecurring(b.isRecurring())

@@ -3,6 +3,7 @@ package com.manacommunity.api.transactioncore.listener;
 import com.manacommunity.api.booking.entity.enums.PaymentStatus;
 import com.manacommunity.api.booking.repository.ResourceBookingRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
+import com.manacommunity.api.commerce.core.service.CommerceInventoryService;
 import com.manacommunity.api.events.repository.EventBookingRegistrationRepository;
 import com.manacommunity.api.food.entity.FoodGroceryOrder;
 import com.manacommunity.api.food.entity.FoodOrder;
@@ -12,6 +13,7 @@ import com.manacommunity.api.health.repository.HealthAppointmentRepository;
 import com.manacommunity.api.payments.entity.PaymentOrder;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
+import com.manacommunity.api.transactioncore.event.GatewayPaymentFailedEvent;
 import com.manacommunity.api.trip.repository.TripBookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,7 @@ public class ModulePaymentConfirmationListener {
     private final FoodOrderRepository                 foodOrderRepo;
     private final FoodGroceryOrderRepository          foodGroceryOrderRepo;
     private final CommerceOrderRepository             commerceOrderRepo;
+    private final CommerceInventoryService            commerceInventoryService;
     private final TripBookingRepository               tripBookingRepo;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -112,6 +115,33 @@ public class ModulePaymentConfirmationListener {
         } catch (Exception e) {
             // Module status update failure must NOT roll back the payment record.
             log.error("[ModuleConfirm] Failed to update module entity for payment order {}: {}",
+                    event.getInternalOrderId(), e.getMessage(), e);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPaymentFailed(GatewayPaymentFailedEvent event) {
+        if (event.getReferenceType() == null) return;
+        try {
+            switch (event.getReferenceType()) {
+                case MARKETPLACE_ORDER ->
+                    commerceOrderRepo.findById(event.getReferenceId()).ifPresent(co -> {
+                        co.setPaymentStatus("PAYMENT_FAILED");
+                        commerceOrderRepo.save(co);
+                        try {
+                            commerceInventoryService.releaseStock(co);
+                            log.info("[ModuleConfirm] Inventory released for failed commerce order {}",
+                                    event.getReferenceId());
+                        } catch (Exception ex) {
+                            log.error("[ModuleConfirm] Inventory release failed for commerce order {}: {}",
+                                    event.getReferenceId(), ex.getMessage());
+                        }
+                    });
+                default ->
+                    log.debug("[ModuleConfirm] No failure handler for referenceType={}", event.getReferenceType());
+            }
+        } catch (Exception e) {
+            log.error("[ModuleConfirm] onPaymentFailed error for payment order {}: {}",
                     event.getInternalOrderId(), e.getMessage(), e);
         }
     }
