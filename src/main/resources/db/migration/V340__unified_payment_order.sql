@@ -2,19 +2,28 @@
 -- Replaces the parallel cashfree_order / razorpay_order tables (those stay for now
 -- as legacy — do NOT drop them in this migration).
 
-CREATE TYPE payment_gateway AS ENUM ('CASHFREE', 'RAZORPAY', 'UPI_DIRECT', 'WALLET', 'MANUAL');
-CREATE TYPE payment_order_status AS ENUM (
-    'INITIATED', 'PENDING', 'SUCCESS', 'FAILED',
-    'REFUND_PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED', 'VOIDED', 'EXPIRED'
-);
-CREATE TYPE payment_reference_type AS ENUM (
-    'MAINTENANCE_BILL', 'EVENT_REGISTRATION', 'POOJA_BOOKING',
-    'SPORTS_REGISTRATION', 'FOOD_ORDER', 'MARKETPLACE_ORDER',
-    'HEALTH_BOOKING', 'AMENITY_BOOKING', 'TRIP_SETTLEMENT',
-    'BBPS_BILL', 'MANUAL'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_gateway') THEN
+        CREATE TYPE payment_gateway AS ENUM ('CASHFREE', 'RAZORPAY', 'UPI_DIRECT', 'WALLET', 'MANUAL');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_order_status') THEN
+        CREATE TYPE payment_order_status AS ENUM (
+            'INITIATED', 'PENDING', 'SUCCESS', 'FAILED',
+            'REFUND_PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED', 'VOIDED', 'EXPIRED'
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_reference_type') THEN
+        CREATE TYPE payment_reference_type AS ENUM (
+            'MAINTENANCE_BILL', 'EVENT_REGISTRATION', 'POOJA_BOOKING',
+            'SPORTS_REGISTRATION', 'FOOD_ORDER', 'MARKETPLACE_ORDER',
+            'HEALTH_BOOKING', 'AMENITY_BOOKING', 'TRIP_SETTLEMENT',
+            'BBPS_BILL', 'MANUAL'
+        );
+    END IF;
+END $$;
 
-CREATE TABLE payment_order (
+CREATE TABLE IF NOT EXISTS payment_order (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     community_id        BIGINT NOT NULL,
     idempotency_key     VARCHAR(128) NOT NULL,
@@ -41,11 +50,11 @@ CREATE TABLE payment_order (
     CONSTRAINT chk_amount_positive          CHECK (amount > 0)
 );
 
-CREATE INDEX idx_payment_order_community   ON payment_order(community_id);
-CREATE INDEX idx_payment_order_reference   ON payment_order(reference_type, reference_id);
-CREATE INDEX idx_payment_order_status      ON payment_order(status);
-CREATE INDEX idx_payment_order_payer       ON payment_order(payer_user_id);
-CREATE INDEX idx_payment_order_created     ON payment_order(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_order_community   ON payment_order(community_id);
+CREATE INDEX IF NOT EXISTS idx_payment_order_reference   ON payment_order(reference_type, reference_id);
+CREATE INDEX IF NOT EXISTS idx_payment_order_status      ON payment_order(status);
+CREATE INDEX IF NOT EXISTS idx_payment_order_payer       ON payment_order(payer_user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_order_created     ON payment_order(created_at DESC);
 
 -- Link sports payments to the unified order
 ALTER TABLE sports_tournament_player_payment
