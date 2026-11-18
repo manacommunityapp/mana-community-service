@@ -28,6 +28,18 @@ public class ServiceQuote {
     @Column(name = "estimated_duration_minutes")
     private Integer estimatedDurationMinutes;
 
+    @Column(name = "estimated_duration_days")
+    private Integer estimatedDurationDays;
+
+    @Column(name = "material_allowance", precision = 12, scale = 2)
+    @Builder.Default private BigDecimal materialAllowance = BigDecimal.ZERO;
+
+    @Column(name = "labor_amount", precision = 12, scale = 2)
+    @Builder.Default private BigDecimal laborAmount = BigDecimal.ZERO;
+
+    @Column(name = "tax_amount", precision = 12, scale = 2)
+    @Builder.Default private BigDecimal taxAmount = BigDecimal.ZERO;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 

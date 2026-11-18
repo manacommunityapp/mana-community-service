@@ -154,7 +154,8 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                 .buyer(buyer)
                 .seller(seller)
                 .vendorName(vendorOrSeller)
-                .status(CommerceOrderStatus.CONFIRMED)
+                .channelReferenceId(request.getChannelReferenceId())
+                .status(CommerceOrderStatus.PENDING)
                 .fulfillmentType(request.getFulfillmentType() != null ? request.getFulfillmentType() : "CLUBHOUSE_PICKUP")
                 .deliveryAddress(request.getDeliveryAddress())
                 .pickupSlot(pickupOrDeliverySlot)
@@ -172,38 +173,6 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
         orderItems.forEach(i -> i.setOrder(order));
         CommerceOrder savedOrder = orderRepository.save(order);
 
-        // Phase 8: commit stock for confirmed orders
-        try {
-            inventoryService.commitStock(savedOrder);
-        } catch (Exception e) {
-            log.warn("Inventory commit failed for order {}: {}", orderNumber, e.getMessage());
-        }
-        // Phase 12: notify buyer + vendor
-        notificationService.notifyOrderConfirmed(savedOrder);
-        notificationService.notifyVendorNewOrder(savedOrder);
-
-        // Payment record
-        CommercePayment payment = CommercePayment.builder()
-                .paymentRef("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .order(savedOrder)
-                .amount(totalAmount)
-                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "UPI")
-                .status("CAPTURED")
-                .build();
-        paymentRepository.save(payment);
-
-        // Handover Pass record
-        CommerceHandoverPass pass = CommerceHandoverPass.builder()
-                .order(savedOrder)
-                .passCode("PASS-" + orderNumber)
-                .qrPayload("QR-MANA-" + orderNumber)
-                .otp(handoverOtp)
-                .fulfillmentType(savedOrder.getFulfillmentType())
-                .pickupPoint(savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress() : "Clubhouse Main Desk")
-                .status("ACTIVE")
-                .build();
-        handoverPassRepository.save(pass);
-
         return toDto(savedOrder);
     }
 
@@ -213,6 +182,13 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
         return orderRepository.findByBuyerIdOrderByCreatedAtDesc(buyer.getId()).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CommerceOrderDto> getOrdersByChannelReferenceId(AppUser buyer, String channelReferenceId) {
+        return orderRepository.findByBuyerIdAndChannelReferenceIdOrderByCreatedAtDesc(buyer.getId(), channelReferenceId)
+                .stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
@@ -657,6 +633,7 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
                 .id(order.getId())
                 .orderNumber(order.getOrderNumber())
                 .channel(order.getChannel())
+                .channelReferenceId(order.getChannelReferenceId())
                 .buyerId(order.getBuyer() != null ? order.getBuyer().getId() : null)
                 .buyerName(order.getBuyer() != null ? order.getBuyer().getFullName() : null)
                 .buyerFlat(order.getBuyer() != null ? order.getBuyer().getFlatNo() : null)

@@ -32,31 +32,22 @@ jobs:
           source: "target/*.jar"
           target: "/tmp/dev"
 
-      - name: Copy Service File to Server
+      - name: Copy Deployment Files to Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
           username: ${{ secrets.DEV_LIGHTSAIL_USER }}
           key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
-          source: "deploy/backend-dev.service"
+          source: "deploy/backend-dev.service,deploy/deploy-backend.sh"
           target: "/tmp/dev"
 
-      - name: Deploy Dev Application
+      - name: Deploy Dev Application with Auto-Rollback
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
           username: ${{ secrets.DEV_LIGHTSAIL_USER }}
           key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           script: |
-            # Create directories
-            sudo mkdir -p /opt/mana-community/backend-dev
-            sudo mkdir -p /var/log/mana-community-dev/archive
-            sudo mkdir -p /etc/mana-community-dev
-
-            # Deploy JAR
-            sudo cp /tmp/dev/target/*.jar \
-              /opt/mana-community/backend-dev/manacommunity.jar
-
             # Deploy systemd service
             sudo cp /tmp/dev/deploy/backend-dev.service /etc/systemd/system/backend-dev.service
             sudo systemctl daemon-reload
@@ -79,27 +70,12 @@ jobs:
               echo "Create it with at minimum: JASYPT_ENCRYPTOR_PASSWORD=<your-master-key>"
             fi
 
-            # Restart service
-            sudo systemctl restart backend-dev
-
-            sleep 15
-
-            # Verify deployment
-            sudo systemctl status backend-dev --no-pager
-            sudo systemctl is-active backend-dev
-
-            # Verify log files
-            echo ""
-            echo "=== Dev log directory ==="
-            ls -la /var/log/mana-community-dev/
-
-            echo ""
-            echo "=== Last 10 lines of mana-service.log ==="
-            tail -10 /var/log/mana-community-dev/mana-service.log 2>/dev/null || echo "(not yet created)"
-
-            echo ""
-            echo "=== Dev API health check ==="
-            curl -s http://localhost:8081/actuator/health || echo "Backend not responding yet"
+            # Make deploy script executable and execute safe deployment with auto-rollback
+            chmod +x /tmp/dev/deploy/deploy-backend.sh
+            sudo /tmp/dev/deploy/deploy-backend.sh dev "/tmp/dev/target/*.jar"
+            DEPLOY_STATUS=$?
 
             # Cleanup temp files
             rm -rf /tmp/dev
+
+            exit $DEPLOY_STATUS

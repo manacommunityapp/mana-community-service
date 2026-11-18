@@ -12,5 +12,6 @@ public enum MediaModule {
     FINANCE,
     COMPLAINT,
     ANNOUNCEMENT,
-    DOCUMENT
+    DOCUMENT,
+    INTERIORS
 }

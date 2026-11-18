@@ -4,9 +4,11 @@ import com.manacommunity.api.commerce.core.dto.CommerceOrderDto;
 import com.manacommunity.api.commerce.core.dto.CommercePaymentInitiateResponse;
 import com.manacommunity.api.commerce.core.dto.CommercePaymentVerifyRequest;
 import com.manacommunity.api.commerce.core.model.CommerceOrder;
+import com.manacommunity.api.commerce.core.model.CommerceHandoverPass;
 import com.manacommunity.api.commerce.core.model.CommerceOrderStatus;
 import com.manacommunity.api.commerce.core.model.CommercePayment;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceHandoverPassRepository;
 import com.manacommunity.api.commerce.core.repository.CommercePaymentRepository;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ import java.util.UUID;
 public class CommercePaymentService {
 
     private final CommerceOrderRepository orderRepository;
+    private final CommerceHandoverPassRepository handoverPassRepository;
     private final CommercePaymentRepository paymentRepository;
     private final CommerceCoreService coreService;
     private final CommerceInventoryService inventoryService;
@@ -142,8 +145,8 @@ public class CommercePaymentService {
         payment.setCapturedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // Transition order: PENDING → PAYMENT_AUTHORIZED → CONFIRMED
-        order.setStatus(CommerceOrderStatus.PAYMENT_AUTHORIZED);
+        // Confirm the order only after payment verification
+        order.setStatus(CommerceOrderStatus.CONFIRMED);
         order.setPaymentStatus("PAID");
         orderRepository.save(order);
 
@@ -155,6 +158,20 @@ public class CommercePaymentService {
         }
 
         notificationService.notifyPaymentReceived(order);
+        notificationService.notifyOrderConfirmed(order);
+        notificationService.notifyVendorNewOrder(order);
+        if (handoverPassRepository.findByOrderId(order.getId()).isEmpty()) {
+            CommerceHandoverPass pass = CommerceHandoverPass.builder()
+                    .order(order)
+                    .passCode("PASS-" + orderNumber)
+                    .qrPayload("QR-MANA-" + orderNumber)
+                    .otp(order.getHandoverOtp())
+                    .fulfillmentType(order.getFulfillmentType())
+                    .pickupPoint(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "Clubhouse Main Desk")
+                    .status("ACTIVE")
+                    .build();
+            handoverPassRepository.save(pass);
+        }
         log.info("Commerce payment captured: order={} razorpayPaymentId={}", orderNumber, req.getRazorpayPaymentId());
 
         return coreService.getOrderByNumber(user, orderNumber);

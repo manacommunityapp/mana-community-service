@@ -14,6 +14,8 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, 
 
     Page<ServiceRequest> findByRequesterIdOrderByCreatedAtDesc(Long requesterId, Pageable pageable);
 
+    List<ServiceRequest> findByRequesterIdAndCategorySlugOrderByCreatedAtDesc(Long requesterId, String slug);
+
     Page<ServiceRequest> findByCommunityIdAndStatus(Long communityId,
                                                      ServiceRequestStatus status,
                                                      Pageable pageable);

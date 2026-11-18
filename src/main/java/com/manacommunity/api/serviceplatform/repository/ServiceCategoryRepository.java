@@ -17,6 +17,8 @@ public interface ServiceCategoryRepository extends JpaRepository<ServiceCategory
 
     boolean existsBySlugAndDomainId(String slug, Long domainId);
 
+    java.util.Optional<ServiceCategory> findBySlugAndActiveTrue(String slug);
+
     @Query("SELECT c FROM ServiceCategory c WHERE c.domain.id = :domainId AND c.active = true " +
            "AND LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<ServiceCategory> searchByName(@Param("domainId") Long domainId,

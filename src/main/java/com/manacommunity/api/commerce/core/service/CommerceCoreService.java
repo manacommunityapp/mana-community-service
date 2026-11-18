@@ -21,6 +21,7 @@ public interface CommerceCoreService {
     CommerceOrderDto checkout(AppUser buyer, CommerceCheckoutRequest request);
 
     List<CommerceOrderDto> getMyOrders(AppUser buyer);
+    List<CommerceOrderDto> getOrdersByChannelReferenceId(AppUser buyer, String channelReferenceId);
 
     CommerceOrderDto getOrderByNumber(AppUser user, String orderNumber);
 
