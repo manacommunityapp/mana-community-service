@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -59,8 +60,8 @@ public class UnifiedPaymentOrderController {
 
     private final UnifiedPaymentOrderService orderService;
     private final PaymentOrderRepository     orderRepository;
-    private final CashfreePaymentService     cashfreePaymentService;
-    private final RazorpayPaymentService     razorpayPaymentService;
+    private final ObjectProvider<CashfreePaymentService> cashfreePaymentService;
+    private final ObjectProvider<RazorpayPaymentService> razorpayPaymentService;
 
     // ─── Create ──────────────────────────────────────────────────────────────────
 
@@ -215,24 +216,26 @@ public class UnifiedPaymentOrderController {
         // GatewayPaymentCapturedEvent / markSuccess() internally.  The controller must NOT
         // call markSuccess() a second time — just trigger the service and let the state
         // machine transitions happen through the canonical path.
-        cashfreePaymentService.verifyPayment(order.getGatewayOrderId());
+        cashfreePaymentService.ifAvailable(service -> service.verifyPayment(order.getGatewayOrderId()));
     }
 
     private void verifyRazorpay(PaymentOrder order) {
         if (order.getGatewayOrderId() == null || order.getGatewayPaymentId() == null) return;
-        VerifyPaymentRequest req = new VerifyPaymentRequest();
-        req.setRazorpayOrderId(order.getGatewayOrderId());
-        req.setRazorpayPaymentId(order.getGatewayPaymentId());
-        var response = razorpayPaymentService.verifyPayment(req);
-        if (response != null) {
-            String pgStatus = response.getStatus() != null ? response.getStatus() : "";
-            if ("PAID".equalsIgnoreCase(pgStatus) || "captured".equalsIgnoreCase(pgStatus)) {
-                orderService.markSuccess(order.getIdempotencyKey(),
-                    order.getGatewayPaymentId(), order.getGatewayOrderId());
-            } else if ("FAILED".equalsIgnoreCase(pgStatus)) {
-                orderService.markFailed(order.getIdempotencyKey(), pgStatus);
+        razorpayPaymentService.ifAvailable(service -> {
+            VerifyPaymentRequest req = new VerifyPaymentRequest();
+            req.setRazorpayOrderId(order.getGatewayOrderId());
+            req.setRazorpayPaymentId(order.getGatewayPaymentId());
+            var response = service.verifyPayment(req);
+            if (response != null) {
+                String pgStatus = response.getStatus() != null ? response.getStatus() : "";
+                if ("PAID".equalsIgnoreCase(pgStatus) || "captured".equalsIgnoreCase(pgStatus)) {
+                    orderService.markSuccess(order.getIdempotencyKey(),
+                        order.getGatewayPaymentId(), order.getGatewayOrderId());
+                } else if ("FAILED".equalsIgnoreCase(pgStatus)) {
+                    orderService.markFailed(order.getIdempotencyKey(), pgStatus);
+                }
             }
-        }
+        });
     }
 
     // ─── Manual payment ──────────────────────────────────────────────────────────
