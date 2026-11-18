@@ -21,6 +21,7 @@ public interface CommerceOrderRepository extends JpaRepository<CommerceOrder, Lo
     Optional<CommerceOrder> findByOrderNumber(String orderNumber);
     Optional<CommerceOrder> findByQrToken(String qrToken);
     List<CommerceOrder> findByBuyerIdOrderByCreatedAtDesc(Long buyerId);
+    List<CommerceOrder> findByBuyerIdAndChannelReferenceIdOrderByCreatedAtDesc(Long buyerId, String channelReferenceId);
     List<CommerceOrder> findByCommunityIdAndChannelOrderByCreatedAtDesc(Long communityId, CommerceChannel channel);
     List<CommerceOrder> findByVendorIdOrderByCreatedAtDesc(String vendorId);
     List<CommerceOrder> findBySellerIdOrderByCreatedAtDesc(Long sellerId);

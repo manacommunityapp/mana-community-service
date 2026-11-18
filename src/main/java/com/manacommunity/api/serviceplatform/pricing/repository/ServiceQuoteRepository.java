@@ -6,6 +6,7 @@ import java.util.List;
 @Repository
 public interface ServiceQuoteRepository extends JpaRepository<ServiceQuote, Long> {
     List<ServiceQuote> findByServiceRequestId(Long serviceRequestId);
+    java.util.Optional<ServiceQuote> findByServiceRequestIdAndProviderId(Long serviceRequestId, Long providerId);
     List<ServiceQuote> findByServiceRequestIdOrderByCreatedAtDesc(Long serviceRequestId);
     List<ServiceQuote> findByProviderId(Long providerId);
 }

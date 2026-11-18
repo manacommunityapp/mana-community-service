@@ -32,84 +32,33 @@ jobs:
           source: "target/*.jar"
           target: "/tmp"
 
-      - name: Copy Service File to Server
+      - name: Copy Deployment Files to Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: "deploy/backend.service"
+          source: "deploy/backend.service,deploy/deploy-backend.sh"
           target: "/tmp"
 
-      - name: Deploy Application
+      - name: Deploy Application with Auto-Rollback
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            # Create directories
-            sudo mkdir -p /opt/mana-community/backend
-            sudo mkdir -p /var/log/mana-community/archive
-            sudo mkdir -p /etc/mana-community
-
-            # Stop service temporarily to prevent corrupt read / EOFException during overwrite
-            sudo systemctl stop backend || true
-
-            # Deploy JAR atomically
-            sudo cp /tmp/target/*.jar /opt/mana-community/backend/manacommunity.jar.tmp
-            sudo mv /opt/mana-community/backend/manacommunity.jar.tmp /opt/mana-community/backend/manacommunity.jar
-
-            # Deploy systemd service (only if changed or missing)
+            # Deploy systemd service definition
             sudo cp /tmp/deploy/backend.service /etc/systemd/system/backend.service
             sudo systemctl daemon-reload
             sudo systemctl enable backend
 
-            # Create env file if it doesn't exist (secrets stay on server)
-            if [ ! -f /etc/mana-community/env ]; then
-              echo "WARNING: /etc/mana-community/env not found!"
-              echo "Create it from deploy/env.example with real values."
-            fi
+            # Make deploy script executable and execute safe deployment with auto-rollback
+            chmod +x /tmp/deploy/deploy-backend.sh
+            sudo /tmp/deploy/deploy-backend.sh prod "/tmp/target/*.jar"
+            DEPLOY_STATUS=$?
 
-            # Start service cleanly
-            sudo systemctl start backend
-
-            # Wait for backend service to become healthy or stabilize (up to 4 minutes)
-            echo "Waiting for backend service to initialize..."
-            HEALTHY=false
-            for i in $(seq 1 80); do
-              if curl -s -f http://localhost:8081/api/actuator/health >/dev/null 2>&1; then
-                echo "Backend is HEALTHY after ${i} checks ($((i * 3))s)!"
-                HEALTHY=true
-                break
-              fi
-              if [ $((i % 5)) -eq 0 ]; then
-                echo "Check ${i}/80 ($((i * 3))s elapsed): backend not yet responding to health check..."
-                if ! sudo systemctl is-active --quiet backend; then
-                  echo "WARNING: backend.service is NOT active (crashed or stopped)!"
-                  break
-                fi
-              fi
-              sleep 3
-            done
-
-            # Verify deployment
-            echo ""
-            echo "=== Systemd Status ==="
-            sudo systemctl status backend --no-pager || true
-
-            echo ""
-            echo "=== Last 250 lines of mana-service.log ==="
-            tail -250 /var/log/mana-community/mana-service.log 2>/dev/null || echo "(not yet created)"
-
-            echo ""
-            echo "=== Journalctl logs from this deployment ==="
-            journalctl -u backend --since "10 minutes ago" --no-pager || journalctl -u backend -n 150 --no-pager
-
-            # Cleanup temp files
+            # Cleanup staging files
             rm -rf /tmp/target /tmp/deploy
 
-            if [ "$HEALTHY" != "true" ]; then
-              echo "ERROR: Backend failed to respond healthy at http://localhost:8081/api/actuator/health within timeout!"
-              exit 1
-            fi
+            exit $DEPLOY_STATUS

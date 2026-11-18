@@ -3,6 +3,7 @@ package com.manacommunity.api.serviceplatform.controller;
 
 import com.manacommunity.api.serviceplatform.dto.request.RegisterProviderRequest;
 import com.manacommunity.api.serviceplatform.dto.request.UpdateWorkOrderStatusRequest;
+import com.manacommunity.api.serviceplatform.dto.request.UpdateWorkOrderProgressRequest;
 import com.manacommunity.api.serviceplatform.dto.response.ServiceProviderResponse;
 import com.manacommunity.api.serviceplatform.dto.response.ServiceRequestResponse;
 import com.manacommunity.api.serviceplatform.dto.response.WorkOrderResponse;
@@ -97,6 +98,15 @@ public class ServiceProviderController {
             @Valid @RequestBody UpdateWorkOrderStatusRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(workOrderService.updateStatus(id, principal.getId(), request));
+    }
+
+    @PatchMapping("/me/work-orders/{id}/progress")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<WorkOrderResponse> updateWorkOrderProgress(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateWorkOrderProgressRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(workOrderService.updateProgress(id, principal.getId(), request));
     }
 
     @GetMapping("/{id}")

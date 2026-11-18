@@ -59,6 +59,7 @@ public class ServiceProviderService {
                 .profileImageUrl(req.getProfileImageUrl())
                 .serviceAreas(req.getServiceAreas())
                 .certifications(req.getCertifications())
+                .portfolio(req.getPortfolio())
                 .verificationStatus(VerificationStatus.PENDING)
                 .build();
 
@@ -86,6 +87,18 @@ public class ServiceProviderService {
     }
 
     @Transactional(readOnly = true)
+    public ServiceProviderResponse getProviderForCommunity(Long providerId, Long communityId) {
+        ServiceProvider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider", providerId));
+        if (communityId == null || provider.getCommunity() == null || !provider.getCommunity().getId().equals(communityId)) {
+            throw new ResourceNotFoundException("ServiceProvider", providerId);
+        }
+        ServiceProviderResponse response = toResponseMasked(provider);
+        response.setOfferings(provider.getOfferings().stream().map(this::toOfferingResponse).collect(Collectors.toList()));
+        return response;
+    }
+
+    @Transactional(readOnly = true)
     public ServiceProviderResponse getProviderById(Long providerId) {
         ServiceProvider provider = providerRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider", providerId));
@@ -108,6 +121,7 @@ public class ServiceProviderService {
         provider.setProfileImageUrl(req.getProfileImageUrl());
         provider.setServiceAreas(req.getServiceAreas());
         provider.setCertifications(req.getCertifications());
+        provider.setPortfolio(req.getPortfolio());
 
         provider = providerRepository.save(provider);
         return toResponse(provider);
@@ -257,6 +271,7 @@ public class ServiceProviderService {
                 .totalJobsCompleted(p.getTotalJobsCompleted())
                 .serviceAreas(p.getServiceAreas())
                 .certifications(p.getCertifications())
+                .portfolio(p.getPortfolio())
                 .offerings(Collections.emptyList())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
