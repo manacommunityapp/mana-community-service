@@ -1,5 +1,6 @@
 package com.manacommunity.api.config;
 
+import com.manacommunity.api.config.tenant.TenantAwareTaskDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -22,6 +23,12 @@ import java.util.concurrent.Executor;
 @Configuration
 @EnableAsync
 public class RestClientConfig {
+
+    private final TenantAwareTaskDecorator tenantAwareTaskDecorator;
+
+    public RestClientConfig(TenantAwareTaskDecorator tenantAwareTaskDecorator) {
+        this.tenantAwareTaskDecorator = tenantAwareTaskDecorator;
+    }
 
     /**
      * Primary RestTemplate — used by ExpoPushServiceImpl and other lightweight callers.
@@ -65,6 +72,7 @@ public class RestClientConfig {
         executor.setMaxPoolSize(16);
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("push-async-");
+        executor.setTaskDecorator(tenantAwareTaskDecorator);
         executor.setRejectedExecutionHandler(
             (runnable, pool) ->
                 org.slf4j.LoggerFactory.getLogger(RestClientConfig.class)

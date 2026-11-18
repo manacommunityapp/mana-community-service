@@ -14,7 +14,7 @@ public class HrCareerPath {
     @Column(name = "organization_id", nullable = false) private Long organizationId;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "employee_id", nullable = false)
     private HrEmployee employee;
-    @Column(name = "current_role", length = 200) private String currentRole;
+    @Column(name = "\"current_role\"", length = 200) private String currentRole;
     @Column(name = "target_role", length = 200) private String targetRole;
     @Column(name = "target_date") private LocalDate targetDate;
     @Column(name = "development_activities", columnDefinition = "TEXT") private String developmentActivities;

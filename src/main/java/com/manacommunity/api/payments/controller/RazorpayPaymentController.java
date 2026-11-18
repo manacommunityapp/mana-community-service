@@ -83,29 +83,21 @@ public class RazorpayPaymentController {
     }
 
     /**
-     * Razorpay server-to-server webhook receiver.
-     *
-     * <p>This endpoint is {@code permitAll} in SecurityConfig because Razorpay
-     * cannot send a JWT. Authenticity is enforced inside the service via HMAC-SHA256
-     * verification of {@code X-Razorpay-Signature} against the raw body.
-     *
-     * <p>Always returns HTTP 200 immediately so Razorpay does not retry. Business
-     * processing happens synchronously inside the service transaction.
+     * @deprecated Duplicate Razorpay webhook endpoint. Update the Razorpay dashboard
+     * to use the canonical handler at POST /api/payments/webhooks/razorpay
+     * (PaymentWebhookReconciliationController) which performs inline HMAC-SHA256 validation.
      */
-    @Operation(summary = "Razorpay webhook receiver (unauthenticated — verified by HMAC-SHA256)")
+    @Deprecated
+    @Operation(summary = "Razorpay webhook — DEPRECATED, use /api/payments/webhooks/razorpay")
     @PostMapping("/webhook")
     public ResponseEntity<Map<String, String>> webhook(
             @RequestBody String payload,
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature) {
-
-        if (signature == null || signature.isBlank()) {
-            log.warn("Razorpay webhook arrived without X-Razorpay-Signature header");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Missing X-Razorpay-Signature header"));
-        }
-
-        paymentService.processWebhook(payload, signature);
-        return ResponseEntity.ok(Map.of("status", "ok"));
+        log.warn("[WEBHOOK][RAZORPAY] Request to deprecated /api/payments/razorpay/webhook — " +
+                "update Razorpay dashboard to /api/payments/webhooks/razorpay");
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(Map.of("error", "This webhook URL is deprecated.",
+                             "canonical", "/api/payments/webhooks/razorpay"));
     }
 
     /**

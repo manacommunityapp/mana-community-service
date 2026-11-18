@@ -18,7 +18,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -48,12 +48,16 @@ spring:
     enabled: true
     clean-disabled: true
     out-of-order: false
+    validate-on-migrate: true
 
 server:
   port: ${SERVER_PORT:8081}
   forward-headers-strategy: framework
 
 app:
+  flyway:
+    repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
+    out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}
   # AI/Ollama integration — temporarily OFF (no Ollama server on the EC2 host).
   # Set AI_ENABLED=true only once a reachable Ollama endpoint is configured.
   ai:

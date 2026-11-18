@@ -20,7 +20,7 @@ public class GovernanceVaultDocument {
     private String title;
 
     @Column(nullable = false, length = 50)
-    private String category; // BYLAW, AUDIT, MINUTES, POLICY, CERTIFICATE, OTHER
+    private String category;
 
     @Column(name = "document_url", nullable = false, length = 500)
     private String documentUrl;
@@ -29,7 +29,7 @@ public class GovernanceVaultDocument {
     private Long fileSizeKb;
 
     @Column(length = 10)
-    private String fileType; // PDF, DOCX, XLSX
+    private String fileType;
 
     @Column(name = "community_id", nullable = false)
     private Long communityId;
@@ -44,4 +44,21 @@ public class GovernanceVaultDocument {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "file_size")
+    private String fileSize;
+
+    @Column(name = "file_format")
+    private String fileFormat;
+
+    @Column(name = "is_confidential")
+    @Builder.Default
+    private Boolean isConfidential = false;
+
+    @Column(name = "resolution_ref")
+    private String resolutionRef;
+
+    @Column(name = "digital_seal_verified")
+    @Builder.Default
+    private Boolean digitalSealVerified = false;
 }

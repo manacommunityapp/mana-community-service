@@ -182,7 +182,8 @@ public class EventBookingRegistrationServiceImpl implements EventBookingRegistra
             if (registration.getBookingFee() <= 0.0) {
                 registration.setPaymentStatus("FREE");
             } else {
-                registration.setPaymentStatus("PAID");
+                // TRUST: payment is not confirmed until gateway webhook fires — set INITIATED, not PAID
+                registration.setPaymentStatus("INITIATED");
             }
         }
 

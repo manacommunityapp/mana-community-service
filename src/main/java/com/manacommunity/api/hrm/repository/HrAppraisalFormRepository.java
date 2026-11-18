@@ -6,5 +6,5 @@ import java.util.Optional;
 public interface HrAppraisalFormRepository extends JpaRepository<HrAppraisalForm, Long> {
     Optional<HrAppraisalForm> findByEmployeeIdAndAppraisalCycleId(Long employeeId, Long cycleId);
     List<HrAppraisalForm> findByAppraisalCycleId(Long cycleId);
-    List<HrAppraisalForm> findByReviewerEmployeeIdAndStatus(Long reviewerId, String status);
+    List<HrAppraisalForm> findByReviewerIdAndStatus(Long reviewerId, String status);
 }

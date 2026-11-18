@@ -50,6 +50,10 @@ public class SportsTournamentSchedulerController {
     private final com.manacommunity.api.sports.scheduler.SportsPlayoffScheduleGenerator playoffGenerator;
     private final com.manacommunity.api.sports.scheduler.SportsMatchResultService matchResultService;
     private final com.manacommunity.api.sports.service.SportsFeedService feedService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.scheduler.SportsLiveScoringService liveScoringService;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD — save / update (without schedule generation)
@@ -631,7 +635,20 @@ public class SportsTournamentSchedulerController {
     public ResponseEntity<SportsMatchDetailResponse> recordMatchToss(
             @PathVariable Long matchId,
             @Valid @RequestBody SportsMatchTossRequest req) {
-        return ResponseEntity.ok(matchResultService.recordToss(matchId, req));
+        log.info("Recording match toss matchId={} winnerTeamId={} decision={}", matchId, req.tossWinnerTeamId(), req.tossDecision());
+        SportsMatchDetailResponse response = matchResultService.recordToss(matchId, req);
+        if (feedService != null) {
+            feedService.broadcastLiveFeedUpdate();
+        }
+        if (messagingTemplate != null && liveScoringService != null) {
+            try {
+                SportsLiveMatchStateResponse liveState = liveScoringService.getMatchState(matchId);
+                messagingTemplate.convertAndSend("/topic/match/" + matchId + "/state", liveState);
+            } catch (Exception ex) {
+                log.warn("Failed to broadcast live match state for toss on matchId={}: {}", matchId, ex.getMessage());
+            }
+        }
+        return ResponseEntity.ok(response);
     }
 
     /**

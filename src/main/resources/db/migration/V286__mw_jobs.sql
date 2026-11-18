@@ -1,7 +1,6 @@
--- V286: Mana Jobs — community job board and application pipeline
-
+﻿-- V286: Mana Jobs
 CREATE TABLE mw_job_listings (
-    id               BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id               BIGSERIAL PRIMARY KEY,
     organization_id  BIGINT NOT NULL,
     title            VARCHAR(200) NOT NULL,
     description      TEXT,
@@ -16,13 +15,13 @@ CREATE TABLE mw_job_listings (
     expires_at       DATE,
     created_by       BIGINT NOT NULL,
     created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_job_listing_org (organization_id),
-    INDEX idx_job_listing_status (status)
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_job_listing_org ON mw_job_listings(organization_id);
+CREATE INDEX idx_job_listing_status ON mw_job_listings(status);
 
 CREATE TABLE mw_job_applications (
-    id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id            BIGSERIAL PRIMARY KEY,
     job_id        BIGINT NOT NULL,
     mana_user_id  BIGINT NOT NULL,
     passport_id   BIGINT,
@@ -31,8 +30,8 @@ CREATE TABLE mw_job_applications (
     applied_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     responded_at  TIMESTAMP,
     employer_note VARCHAR(500),
-    UNIQUE KEY uq_job_application (job_id, mana_user_id),
-    FOREIGN KEY (job_id) REFERENCES mw_job_listings(id),
-    INDEX idx_job_app_user (mana_user_id),
-    INDEX idx_job_app_job (job_id)
+    CONSTRAINT uq_job_application UNIQUE (job_id, mana_user_id),
+    FOREIGN KEY (job_id) REFERENCES mw_job_listings(id)
 );
+CREATE INDEX idx_job_app_user ON mw_job_applications(mana_user_id);
+CREATE INDEX idx_job_app_job ON mw_job_applications(job_id);

@@ -144,6 +144,10 @@ public class ResourceBooking extends BaseAuditEntity {
     @Column(name = "payment_note", length = 500)
     private String paymentNote;
 
+    /** FK to unified payment_order table — null for waived/free bookings. */
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @PrePersist
     protected void initDefaults() {
         if (status == null) status = BookingStatus.PENDING;

@@ -24,11 +24,14 @@ spring:
     baseline-description: "pre-flyway baseline schema"
     out-of-order: false
     validate-on-migrate: true
+    clean-disabled: true
   # ── Timezone & Localization (Indian Standard Time) ─────────────────────
   jackson:
     time-zone: Asia/Kolkata
     locale: en_IN
   jpa:
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         jdbc:
@@ -104,6 +107,9 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  flyway:
+    repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
+    out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}
   insert-sample-data: ${INSERT_SAMPLE_DATA:false}
   insert-sports-sample-data: ${INSERT_SPORTS_SAMPLE_DATA:false}
   delete-sports-sample-data: ${DELETE_SPORTS_SAMPLE_DATA:false}

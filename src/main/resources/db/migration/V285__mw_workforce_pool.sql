@@ -1,8 +1,6 @@
--- V285__mw_workforce_pool.sql
--- Workforce Pool: businesses post temp shifts; trained workers opt in
-
+﻿-- V285: Workforce Pool
 CREATE TABLE mw_pool_listings (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   organization_id   BIGINT NOT NULL,
   title             VARCHAR(200) NOT NULL,
   description       TEXT,
@@ -18,14 +16,14 @@ CREATE TABLE mw_pool_listings (
   status            VARCHAR(20) DEFAULT 'OPEN',
   created_by        BIGINT NOT NULL,
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_pool_listing_date (shift_date),
-  INDEX idx_pool_listing_org (organization_id),
-  INDEX idx_pool_listing_status (status)
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_pool_listing_date ON mw_pool_listings(shift_date);
+CREATE INDEX idx_pool_listing_org ON mw_pool_listings(organization_id);
+CREATE INDEX idx_pool_listing_status ON mw_pool_listings(status);
 
 CREATE TABLE mw_pool_applications (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   listing_id        BIGINT NOT NULL,
   mana_user_id      BIGINT NOT NULL,
   passport_id       BIGINT,
@@ -34,14 +32,14 @@ CREATE TABLE mw_pool_applications (
   employer_note     VARCHAR(500),
   applied_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   responded_at      TIMESTAMP,
-  UNIQUE KEY uq_pool_application (listing_id, mana_user_id),
-  FOREIGN KEY (listing_id) REFERENCES mw_pool_listings(id),
-  INDEX idx_pool_app_user (mana_user_id),
-  INDEX idx_pool_app_listing (listing_id)
+  CONSTRAINT uq_pool_application UNIQUE (listing_id, mana_user_id),
+  FOREIGN KEY (listing_id) REFERENCES mw_pool_listings(id)
 );
+CREATE INDEX idx_pool_app_user ON mw_pool_applications(mana_user_id);
+CREATE INDEX idx_pool_app_listing ON mw_pool_applications(listing_id);
 
 CREATE TABLE mw_engagement_contracts (
-  id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id                BIGSERIAL PRIMARY KEY,
   application_id    BIGINT NOT NULL UNIQUE,
   terms_summary     TEXT,
   worker_consented  BOOLEAN DEFAULT FALSE,

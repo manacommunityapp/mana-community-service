@@ -30,6 +30,7 @@ public class ResourceBookingResponse {
     private BigDecimal depositAmount;
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
+    private Long paymentOrderId;
     private String paymentStatus;
     private String paymentReference;
     private Boolean isRecurring;

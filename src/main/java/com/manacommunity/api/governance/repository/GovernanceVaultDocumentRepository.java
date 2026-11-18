@@ -10,4 +10,5 @@ import java.util.List;
 public interface GovernanceVaultDocumentRepository extends JpaRepository<GovernanceVaultDocument, Long> {
     List<GovernanceVaultDocument> findByCommunityIdOrderByCreatedAtDesc(Long communityId);
     List<GovernanceVaultDocument> findByCommunityIdAndCategoryOrderByCreatedAtDesc(Long communityId, String category);
+    List<GovernanceVaultDocument> findByCommunityIdAndTitleContainingIgnoreCaseOrderByCreatedAtDesc(Long communityId, String title);
 }

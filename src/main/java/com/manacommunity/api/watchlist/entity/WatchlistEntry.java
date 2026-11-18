@@ -15,6 +15,10 @@ import jakarta.persistence.*;
 @EqualsAndHashCode(callSuper = true)
 public class WatchlistEntry extends BaseAuditEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
     private Community community;
