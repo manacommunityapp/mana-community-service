@@ -25,6 +25,7 @@ public class ServiceProviderResponse {
     private Integer totalJobsCompleted;
     private String serviceAreas;
     private String certifications;
+    private String portfolio;
     private List<ServiceOfferingResponse> offerings;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

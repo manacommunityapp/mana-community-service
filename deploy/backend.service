@@ -1,6 +1,8 @@
 [Unit]
 Description=Mana Community Backend Service
 After=network.target postgresql.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -25,8 +27,6 @@ ExecStart=/bin/bash -c 'exec /usr/bin/java -Xms256m -Xmx512m \
 
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 
 StandardOutput=journal
 StandardError=journal

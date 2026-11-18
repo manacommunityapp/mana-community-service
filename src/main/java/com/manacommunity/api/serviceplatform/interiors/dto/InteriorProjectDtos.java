@@ -1,0 +1,91 @@
+package com.manacommunity.api.serviceplatform.interiors.dto;
+
+import com.manacommunity.api.commerce.core.dto.CommerceOrderDto;
+import com.manacommunity.api.serviceplatform.dto.response.ServiceOfferingResponse;
+import com.manacommunity.api.serviceplatform.dto.response.WorkOrderResponse;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public final class InteriorProjectDtos {
+    private InteriorProjectDtos() {}
+
+    public record DesignerProfile(
+            Long id, Long userId, String userName, String providerType, String businessName,
+            String bio, String profileImageUrl, String verificationStatus, BigDecimal avgRating,
+            Integer totalJobsCompleted, String serviceAreas, String portfolio,
+            List<ServiceOfferingResponse> offerings) {}
+
+    public record BriefRequest(
+            @NotBlank @Size(max = 40) String propertyType,
+            @NotBlank @Size(max = 20) String homeSize,
+            @NotBlank @Size(max = 120) String locality,
+            @Size(max = 60) String stylePreference,
+            @Size(max = 10) List<@NotBlank @Size(max = 40) String> focusAreas,
+            @DecimalMin("0.0") BigDecimal budgetMin,
+            @DecimalMin("0.0") BigDecimal budgetMax,
+            @NotBlank @Size(max = 4000) String projectScope,
+            LocalDate preferredStart,
+            @Size(max = 5) List<Long> designerIds) {}
+
+    public record QuoteRequest(
+            @NotNull @DecimalMin(value = "1.0") BigDecimal quotedAmount,
+            @NotNull @DecimalMin(value = "1.0") Integer estimatedDurationDays,
+            @DecimalMin(value = "0.0") BigDecimal materialAllowance,
+            @DecimalMin(value = "0.0") BigDecimal laborAmount,
+            @DecimalMin(value = "0.0") BigDecimal taxAmount,
+            @Size(max = 2000) String notes,
+            @Size(max = 100) List<@Valid QuoteLineItemRequest> lineItems) {}
+
+    public record QuoteLineItemRequest(
+            @NotBlank @Size(max = 40) String category,
+            @NotBlank @Size(max = 240) String description,
+            @NotNull @DecimalMin(value = "0.001") BigDecimal quantity,
+            @NotBlank @Size(max = 24) String unit,
+            @NotNull @DecimalMin(value = "0.0") BigDecimal unitPrice,
+            @DecimalMin(value = "0.0") BigDecimal marginPercent,
+            @DecimalMin(value = "0.0") BigDecimal taxPercent) {}
+
+    public record QuoteLineItemResponse(
+            Long id, String category, String description, BigDecimal quantity, String unit,
+            BigDecimal unitPrice, BigDecimal marginPercent, BigDecimal taxPercent, BigDecimal lineTotal,
+            Integer position) {}
+
+    public record ReviewRequest(
+            @NotNull @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) Integer rating,
+            @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) Integer qualityRating,
+            @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) Integer punctualityRating,
+            @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) Integer behaviorRating,
+            @Size(max = 2000) String comment) {}
+
+    public record QuoteResponse(
+            Long id, Long projectId, Long providerId, String providerName,
+            BigDecimal quotedAmount, Integer estimatedDurationDays,
+            BigDecimal materialAllowance, BigDecimal laborAmount, BigDecimal taxAmount,
+            String notes, String status, LocalDateTime createdAt, List<QuoteLineItemResponse> lineItems) {}
+
+    public record ReviewResponse(
+            Long id, Long workOrderId, Long providerId, String providerName, Long reviewerId,
+            String reviewerName, int rating, Integer qualityRating, Integer punctualityRating,
+            Integer behaviorRating, String comment, String providerResponse, boolean verifiedResident,
+            LocalDateTime createdAt) {}
+
+    public record ProjectAttachmentsRequest(@Size(max = 10) List<@NotBlank @Size(max = 36) String> mediaIds) {}
+
+    public record AttachmentRef(String mediaId, String fileName, String contentType, Long sizeBytes) {}
+
+    public record ProjectResponse(
+            Long id, String title, String status, String propertyType, String homeSize,
+            String locality, String stylePreference, List<String> focusAreas,
+            BigDecimal budgetMin, BigDecimal budgetMax, String projectScope,
+            LocalDate preferredStart, LocalDateTime createdAt, List<Long> invitedDesignerIds,
+            List<QuoteResponse> quotes, WorkOrderResponse workOrder, ReviewResponse review,
+            List<AttachmentRef> attachments, List<String> milestoneApprovals, List<CommerceOrderDto> materialOrders) {}
+}

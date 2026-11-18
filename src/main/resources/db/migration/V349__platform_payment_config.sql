@@ -1,4 +1,4 @@
-CREATE TABLE platform_payment_config (
+CREATE TABLE IF NOT EXISTS platform_payment_config (
     id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cashfree_enabled        BOOLEAN NOT NULL DEFAULT false,
     razorpay_enabled        BOOLEAN NOT NULL DEFAULT false,
@@ -15,6 +15,7 @@ CREATE TABLE platform_payment_config (
     )
 );
 
--- Seed one platform-wide config row
+-- Seed one platform-wide config row (idempotent)
 INSERT INTO platform_payment_config (cashfree_enabled, razorpay_enabled, mana_pay_enabled, bbps_enabled, default_gateway)
-VALUES (true, false, false, false, 'CASHFREE');
+SELECT true, false, false, false, 'CASHFREE'
+WHERE NOT EXISTS (SELECT 1 FROM platform_payment_config);
