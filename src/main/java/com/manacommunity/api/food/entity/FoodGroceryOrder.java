@@ -67,6 +67,9 @@ public class FoodGroceryOrder {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;

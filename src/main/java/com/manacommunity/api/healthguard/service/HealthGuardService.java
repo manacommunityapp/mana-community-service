@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+// TODO: Wire paid health consultations/bookings to UnifiedPaymentOrderService.
+//  Create a payment_order with referenceType=HEALTH_BOOKING before redirecting to PG.
 @Service
 @Slf4j
 public class HealthGuardService {

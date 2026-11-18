@@ -89,6 +89,9 @@ public class CommerceOrder extends BaseAuditEntity {
     @Builder.Default
     private String paymentStatus = "INITIATED";
 
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @Column(name = "fulfillment_type", length = 32)
     @Builder.Default
     private String fulfillmentType = "CLUBHOUSE_PICKUP";

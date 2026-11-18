@@ -81,6 +81,8 @@ public class SportsTournamentPaymentController {
         return ResponseEntity.ok(list);
     }
 
+    // Admin manual override — bypasses gateway lifecycle.
+    // For gateway-initiated payments use POST /api/payments/orders (UnifiedPaymentOrderController).
     @PostMapping("/{tournamentId}/payments/mark-paid")
     @Transactional
     public ResponseEntity<SportsTournamentPlayerPaymentResponse> markPaid(
@@ -149,8 +151,10 @@ public class SportsTournamentPaymentController {
 
         if (key != null) {
             paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, key).ifPresent(p -> {
-                paymentRepo.delete(p);
-                log.info("Removed payment / marked unpaid for tournamentId={} playerKey={}", tournamentId, key);
+                p.setPaymentStatus(SportsTournamentPlayerPayment.PaymentStatus.VOIDED);
+                p.setVoidedAt(LocalDateTime.now());
+                paymentRepo.save(p);
+                log.info("Voided payment for tournamentId={} playerKey={}", tournamentId, key);
             });
         }
         return ResponseEntity.noContent().build();
@@ -165,8 +169,10 @@ public class SportsTournamentPaymentController {
         permissionCheckService.requireAnyPermission(principal, DELETE_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS);
 
         paymentRepo.findByTournamentIdAndPlayerKey(tournamentId, playerKey).ifPresent(p -> {
-            paymentRepo.delete(p);
-            log.info("Deleted payment / marked unpaid for tournamentId={} playerKey={}", tournamentId, playerKey);
+            p.setPaymentStatus(SportsTournamentPlayerPayment.PaymentStatus.VOIDED);
+            p.setVoidedAt(LocalDateTime.now());
+            paymentRepo.save(p);
+            log.info("Voided payment for tournamentId={} playerKey={}", tournamentId, playerKey);
         });
         return ResponseEntity.noContent().build();
     }

@@ -8,6 +8,11 @@ import com.manacommunity.api.booking.entity.*;
 import com.manacommunity.api.booking.entity.enums.*;
 import com.manacommunity.api.booking.repository.*;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.payments.dto.CreatePaymentOrderRequest;
+import com.manacommunity.api.payments.entity.PaymentOrder;
+import com.manacommunity.api.payments.model.PaymentGateway;
+import com.manacommunity.api.payments.model.PaymentReferenceType;
+import com.manacommunity.api.payments.service.UnifiedPaymentOrderService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,6 +45,7 @@ public class ResourceBookingService {
     private final CouponRepository couponRepo;
     private final ResourceHolidayRepository holidayRepo;
     private final ResourceScheduleRepository scheduleRepo;
+    private final UnifiedPaymentOrderService paymentOrderService;
     private final ResourceMaintenanceRepository maintenanceRepo;
 
     private static final List<BookingStatus> ACTIVE_STATUSES = List.of(
@@ -716,6 +722,7 @@ public class ResourceBookingService {
                 .depositAmount(b.getDepositAmount())
                 .taxAmount(b.getTaxAmount())
                 .discountAmount(b.getDiscountAmount())
+                .paymentOrderId(b.getPaymentOrderId())
                 .paymentStatus(b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null)
                 .paymentReference(b.getPaymentReference())
                 .isRecurring(b.isRecurring())
@@ -735,19 +742,62 @@ public class ResourceBookingService {
         return dt != null ? dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null;
     }
 
+    /**
+     * Creates a {@code INITIATED} payment order for a resource booking and stores the FK.
+     * The booking's paymentStatus stays PENDING until the gateway webhook fires.
+     */
     @Transactional
-    public ResourceBooking confirmBookingWithPayment(Long bookingId, BigDecimal fee, String paymentNote) {
+    public PaymentOrder initiateBookingPayment(Long bookingId, BigDecimal fee,
+                                               Long communityId, Long payerUserId,
+                                               PaymentGateway gateway) {
         ResourceBooking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
 
         booking.setTotalAmount(fee);
+        booking.setPaymentStatus(PaymentStatus.INITIATED);
+        bookingRepo.save(booking);
+
+        PaymentOrder order = paymentOrderService.createOrder(
+                CreatePaymentOrderRequest.builder()
+                        .communityId(communityId)
+                        .idempotencyKey("AMENITY-" + bookingId + "-" + System.currentTimeMillis())
+                        .gateway(gateway)
+                        .referenceType(PaymentReferenceType.AMENITY_BOOKING)
+                        .referenceId(bookingId)
+                        .payerUserId(payerUserId)
+                        .amount(fee)
+                        .build());
+
+        booking.setPaymentOrderId(order.getId());
+        bookingRepo.save(booking);
+        return order;
+    }
+
+    /**
+     * Marks a resource booking's paymentStatus to PAID after the gateway confirms capture.
+     * Called from webhook handlers or the unified payment confirmation listener — never from frontend.
+     */
+    @Transactional
+    public ResourceBooking confirmBookingOnPaymentSuccess(Long bookingId, String paymentNote) {
+        ResourceBooking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
         booking.setPaymentStatus(PaymentStatus.PAID);
         booking.setPaymentNote(paymentNote);
+        return bookingRepo.save(booking);
+    }
 
-        // Generate a simple ad-hoc invoice record via cfbos if available; otherwise store fee only
-        // Full cfbos invoice integration requires propertyId/residentId which are society-finance concepts
-        // — wire to InvoiceEngine when resident <-> property mapping is available for this booking
-
+    /**
+     * @deprecated Use {@link #initiateBookingPayment} + gateway flow + {@link #confirmBookingOnPaymentSuccess}.
+     * Retained as admin/offline-payment fallback; sets PAID directly for cash/manual collections.
+     */
+    @Deprecated
+    @Transactional
+    public ResourceBooking confirmBookingWithPayment(Long bookingId, BigDecimal fee, String paymentNote) {
+        ResourceBooking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
+        booking.setTotalAmount(fee);
+        booking.setPaymentStatus(PaymentStatus.PAID);
+        booking.setPaymentNote(paymentNote);
         return bookingRepo.save(booking);
     }
 }

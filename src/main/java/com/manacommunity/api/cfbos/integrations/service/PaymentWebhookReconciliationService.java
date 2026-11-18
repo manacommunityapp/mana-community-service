@@ -3,6 +3,7 @@ package com.manacommunity.api.cfbos.integrations.service;
 import com.manacommunity.api.cfbos.payment.entity.CfbosPayment;
 import com.manacommunity.api.cfbos.payment.enums.PaymentStatus;
 import com.manacommunity.api.cfbos.payment.repository.CfbosPaymentRepository;
+import com.manacommunity.api.payments.repository.RazorpayOrderRepository;
 import com.manacommunity.api.transactioncore.dto.ConfirmPaymentRequest;
 import com.manacommunity.api.transactioncore.entity.TransactionIntent;
 import com.manacommunity.api.transactioncore.enums.PaymentRail;
@@ -19,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
@@ -29,32 +29,29 @@ public class PaymentWebhookReconciliationService {
     private final CfbosPaymentRepository paymentRepository;
     private final TransactionIntentRepository intentRepository;
     private final ManaTransactionCoreService transactionCoreService;
-
-    private final Set<String> processedEventIds = ConcurrentHashMap.newKeySet();
-    private final Map<String, Object> inFlightLocks = new ConcurrentHashMap<>();
+    /** Used for durable webhook idempotency — checks the DB unique index on webhook_event_id. */
+    private final RazorpayOrderRepository razorpayOrderRepository;
 
     public boolean isEventProcessed(String eventId) {
         if (eventId == null || eventId.trim().isEmpty()) {
             return false;
         }
-        return processedEventIds.contains(eventId);
+        return razorpayOrderRepository.existsByWebhookEventId(eventId);
     }
 
     public boolean tryAcquireLock(String eventId) {
         if (eventId == null || eventId.trim().isEmpty()) {
             return true;
         }
-        if (processedEventIds.contains(eventId)) {
-            return false;
-        }
-        return inFlightLocks.putIfAbsent(eventId, new Object()) == null;
+        // Durable check: if the event is already persisted in razorpay_order, it was processed.
+        return !razorpayOrderRepository.existsByWebhookEventId(eventId);
     }
 
     public void markEventProcessed(String eventId) {
+        // No-op: the razorpay_order row (with webhook_event_id) is the durable record.
+        // The DB unique constraint on webhook_event_id prevents reprocessing.
         if (eventId != null && !eventId.trim().isEmpty()) {
-            processedEventIds.add(eventId);
-            inFlightLocks.remove(eventId);
-            log.info("[IDEMPOTENCY] Event {} recorded as processed", eventId);
+            log.info("[IDEMPOTENCY] Event {} durable via razorpay_order.webhook_event_id", eventId);
         }
     }
 
@@ -83,9 +80,6 @@ public class PaymentWebhookReconciliationService {
             return true;
         } catch (Exception e) {
             log.error("Error processing Razorpay webhook event {}: {}", eventId, e.getMessage(), e);
-            if (eventId != null) {
-                inFlightLocks.remove(eventId);
-            }
             throw e;
         }
     }

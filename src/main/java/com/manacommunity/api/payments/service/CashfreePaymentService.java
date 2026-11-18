@@ -17,6 +17,7 @@ import com.manacommunity.api.payments.exception.PaymentGatewayException;
 import com.manacommunity.api.payments.exception.PaymentVerificationException;
 import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
 import com.manacommunity.api.market.bazaar.listener.MarketBazaarPaymentListener.CashfreePaymentSucceededEvent;
+import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
 import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
@@ -362,6 +363,16 @@ public class CashfreePaymentService {
                 auditService.record(AuditAction.PAYMENT_WEBHOOK_PROCESSED, AuditModule.PAYMENT,
                         "CashfreeOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook PAYMENT_SUCCESS: order {} PAID via cfPaymentId={}", manaOrderId, cfPaymentId);
+
+                eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+                        GatewayPaymentCapturedEvent.Gateway.CASHFREE,
+                        manaOrderId,
+                        cfPaymentId,
+                        order.getAmount(),
+                        "INR",
+                        "Cashfree payment captured: " + manaOrderId,
+                        order.getId()
+                ));
 
                 // Wire to business workflows based on referenceType.
                 dispatchBusinessConfirmation(order);

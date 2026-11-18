@@ -64,6 +64,9 @@ public class FoodOrder {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    @Column(name = "payment_order_id")
+    private Long paymentOrderId;
+
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 
