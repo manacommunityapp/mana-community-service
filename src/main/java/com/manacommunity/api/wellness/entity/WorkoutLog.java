@@ -1,21 +1,20 @@
 package com.manacommunity.api.wellness.entity;
 
-import com.manacommunity.api.model.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "workout_log", schema = "manacommunity")
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkoutLog extends BaseAuditEntity {
+public class WorkoutLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,4 +58,23 @@ public class WorkoutLog extends BaseAuditEntity {
 
     @Column(name = "notes")
     private String notes;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

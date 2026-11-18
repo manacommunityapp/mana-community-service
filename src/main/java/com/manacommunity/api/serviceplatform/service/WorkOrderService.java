@@ -6,6 +6,7 @@ import com.manacommunity.api.security.AuditAction;
 import com.manacommunity.api.security.AuditModule;
 import com.manacommunity.api.security.AuditService;
 import com.manacommunity.api.serviceplatform.dto.request.UpdateWorkOrderStatusRequest;
+import com.manacommunity.api.serviceplatform.dto.request.UpdateWorkOrderProgressRequest;
 import com.manacommunity.api.serviceplatform.dto.response.WorkOrderResponse;
 import com.manacommunity.api.serviceplatform.entity.ServiceProvider;
 import com.manacommunity.api.serviceplatform.entity.ServiceRequest;
@@ -94,6 +95,41 @@ public class WorkOrderService {
         if (req.getBeforePhotos() != null) wo.setBeforePhotos(req.getBeforePhotos());
         if (req.getAfterPhotos() != null) wo.setAfterPhotos(req.getAfterPhotos());
 
+        wo = workOrderRepository.save(wo);
+        auditService.record(AuditAction.SERVICE_WORK_ORDER_STATUS_UPDATED, AuditModule.SERVICE_PLATFORM,
+                "WorkOrder", String.valueOf(workOrderId));
+        return toResponse(wo);
+    }
+
+    @Transactional
+    public WorkOrderResponse updateProgress(Long workOrderId, Long userId, UpdateWorkOrderProgressRequest req) {
+        WorkOrder wo = workOrderRepository.findById(workOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", workOrderId));
+        ServiceProvider provider = providerRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider", userId));
+        if (!wo.getProvider().getId().equals(provider.getId())) {
+            throw new UnauthorizedActionException("Cannot update another provider's work order");
+        }
+        if (wo.getStatus() == WorkOrderStatus.CANCELLED) {
+            throw new IllegalStateException("Progress cannot be changed after this work order is cancelled");
+        }
+        if (wo.getStatus() == WorkOrderStatus.COMPLETED
+                && (req.getNotes() != null || req.getChecklistItems() != null || req.getMaterialsUsed() != null
+                || req.getBeforePhotos() != null || req.getScheduledStart() != null || req.getScheduledEnd() != null)) {
+            throw new IllegalStateException("Only completion photos can be updated after this work order is completed");
+        }
+        LocalDateTime start = req.getScheduledStart() != null ? req.getScheduledStart() : wo.getScheduledStart();
+        LocalDateTime end = req.getScheduledEnd() != null ? req.getScheduledEnd() : wo.getScheduledEnd();
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new IllegalArgumentException("Scheduled end must be after scheduled start");
+        }
+        if (req.getNotes() != null) wo.setNotes(req.getNotes());
+        if (req.getChecklistItems() != null) wo.setChecklistItems(req.getChecklistItems());
+        if (req.getMaterialsUsed() != null) wo.setMaterialsUsed(req.getMaterialsUsed());
+        if (req.getBeforePhotos() != null) wo.setBeforePhotos(req.getBeforePhotos());
+        if (req.getAfterPhotos() != null) wo.setAfterPhotos(req.getAfterPhotos());
+        if (req.getScheduledStart() != null) wo.setScheduledStart(req.getScheduledStart());
+        if (req.getScheduledEnd() != null) wo.setScheduledEnd(req.getScheduledEnd());
         wo = workOrderRepository.save(wo);
         auditService.record(AuditAction.SERVICE_WORK_ORDER_STATUS_UPDATED, AuditModule.SERVICE_PLATFORM,
                 "WorkOrder", String.valueOf(workOrderId));

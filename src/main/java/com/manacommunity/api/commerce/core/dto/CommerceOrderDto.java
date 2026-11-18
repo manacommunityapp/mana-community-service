@@ -18,6 +18,7 @@ public class CommerceOrderDto {
     private Long id;
     private String orderNumber;
     private CommerceChannel channel;
+    private String channelReferenceId;
     private Long buyerId;
     private String buyerName;
     private String buyerFlat;

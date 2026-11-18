@@ -18,5 +18,6 @@ public class RegisterProviderRequest {
     private String profileImageUrl;
     private String serviceAreas;
     private String certifications;
+    private String portfolio;
     private Long vendorId;
 }

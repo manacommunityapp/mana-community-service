@@ -104,6 +104,7 @@ public class MediaKeyGenerator {
             case COMPLAINT   -> "complaints/"    + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case ANNOUNCEMENT-> "announcements/" + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
             case DOCUMENT    -> "documents/"     + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
+            case INTERIORS   -> "interiors/"     + communityId + "/" + moduleId + "/" + slugSegment + ctx + "/original";
         };
     }
 
