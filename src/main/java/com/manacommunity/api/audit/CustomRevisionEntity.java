@@ -29,7 +29,7 @@ public class CustomRevisionEntity implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @RevisionNumber
     @Column(name = "rev")
-    private Long id;
+    private Integer id;
 
     @RevisionTimestamp
     @Column(name = "revtstmp")

@@ -90,6 +90,10 @@ public class ServiceProvider {
     @Column(columnDefinition = "jsonb")
     private String certifications;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "portfolio", columnDefinition = "jsonb")
+    private String portfolio;
+
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
