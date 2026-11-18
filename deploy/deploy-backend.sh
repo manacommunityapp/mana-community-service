@@ -79,8 +79,8 @@ sudo systemctl restart "$SERVICE_NAME"
 
 # 7. Health Verification Loop
 # Checks systemd service state and Actuator health endpoint
-echo "⏳ Monitoring startup and health (timeout: 90s)..."
-MAX_ATTEMPTS=30
+echo "⏳ Monitoring startup and health (timeout: 180s)..."
+MAX_ATTEMPTS=60
 SLEEP_INTERVAL=3
 IS_HEALTHY=false
 

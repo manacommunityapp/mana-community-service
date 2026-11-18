@@ -1,7 +1,7 @@
 [Unit]
 Description=Mana Community Backend Service (DEV)
 After=network.target postgresql.service
-StartLimitIntervalSec=120
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
