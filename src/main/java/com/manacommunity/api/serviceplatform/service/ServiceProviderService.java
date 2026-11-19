@@ -272,6 +272,8 @@ public class ServiceProviderService {
                 .serviceAreas(p.getServiceAreas())
                 .certifications(p.getCertifications())
                 .portfolio(p.getPortfolio())
+                .verifiedCredentialLevel(p.getVerifiedCredentialLevel())
+                .credentialsVerifiedAt(p.getCredentialsVerifiedAt())
                 .offerings(Collections.emptyList())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())

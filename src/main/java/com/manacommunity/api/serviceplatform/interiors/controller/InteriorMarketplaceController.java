@@ -2,6 +2,7 @@ package com.manacommunity.api.serviceplatform.interiors.controller;
 
 import com.manacommunity.api.commerce.core.dto.CommerceCheckoutRequest;
 import com.manacommunity.api.commerce.core.dto.CommerceOrderDto;
+import com.manacommunity.api.payments.dto.PaymentOrderResponse;
 import com.manacommunity.api.serviceplatform.interiors.dto.InteriorProjectDtos.*;
 import com.manacommunity.api.serviceplatform.interiors.service.InteriorMarketplaceService;
 import com.manacommunity.api.user.model.AppUser;
@@ -76,6 +77,26 @@ public class InteriorMarketplaceController {
     @PreAuthorize("hasAuthority('View Service Catalog')")
     public ResponseEntity<Void> removeSavedDesigner(@PathVariable Long providerId, @AuthenticationPrincipal UserPrincipal principal) {
         interiorsService.removeSavedDesigner(providerId, principal.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/inspirations")
+    @PreAuthorize("hasAuthority('View Service Catalog')")
+    public ResponseEntity<List<InspirationResponse>> inspirations(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(interiorsService.listInspirations(principal.getId()));
+    }
+
+    @PostMapping("/inspirations")
+    @PreAuthorize("hasAuthority('View Service Catalog')")
+    public ResponseEntity<InspirationResponse> saveInspiration(@Valid @RequestBody InspirationRequest request,
+                                                                @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.saveInspiration(principal.getId(), request));
+    }
+
+    @DeleteMapping("/inspirations/{id}")
+    @PreAuthorize("hasAuthority('View Service Catalog')")
+    public ResponseEntity<Void> removeInspiration(@PathVariable Long id,@AuthenticationPrincipal UserPrincipal principal) {
+        interiorsService.removeInspiration(id,principal.getId());
         return ResponseEntity.noContent().build();
     }
 
@@ -176,5 +197,119 @@ public class InteriorMarketplaceController {
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(interiorsService.submitProjectReview(projectId, principal.getId(), communityId, request));
+    }
+
+    @GetMapping("/projects/{projectId}/change-requests")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ChangeRequestResponse>> changeRequests(@PathVariable Long projectId,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.listChangeRequests(projectId,principal.getId(),communityId));
+    }
+
+    @PostMapping("/projects/{projectId}/change-requests")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChangeRequestResponse> createChangeRequest(@PathVariable Long projectId,@Valid @RequestBody ChangeRequestCreate request,
+                                                                      @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.createChangeRequest(projectId,principal.getId(),communityId,request));
+    }
+
+    @PostMapping("/projects/{projectId}/change-requests/{changeId}/decision")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChangeRequestResponse> decideChangeRequest(@PathVariable Long projectId,@PathVariable Long changeId,
+            @Valid @RequestBody ChangeDecision request,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.decideChangeRequest(projectId,changeId,principal.getId(),communityId,request));
+    }
+
+    @GetMapping("/projects/{projectId}/payment-schedule")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<PaymentMilestoneResponse>> paymentSchedule(@PathVariable Long projectId,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.listPaymentMilestones(projectId,principal.getId(),communityId));
+    }
+
+    @PostMapping("/projects/{projectId}/payment-schedule")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PaymentMilestoneResponse> addPaymentMilestone(@PathVariable Long projectId,@Valid @RequestBody PaymentMilestoneCreate request,
+                                                                        @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.addPaymentMilestone(projectId,principal.getId(),communityId,request));
+    }
+
+    @PostMapping("/projects/{projectId}/payment-schedule/{milestoneId}/checkout")
+    @PreAuthorize("hasAuthority('Create Service Request')")
+    public ResponseEntity<PaymentCheckoutResponse> checkoutMilestone(@PathVariable Long projectId,@PathVariable Long milestoneId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.createMilestoneCheckout(projectId,milestoneId,user,communityId));
+    }
+
+    @PostMapping("/projects/{projectId}/payment-schedule/{milestoneId}/authorize")
+    @PreAuthorize("hasAuthority('Create Service Request')")
+    public ResponseEntity<PaymentMilestoneResponse> authorizeMilestone(@PathVariable Long projectId,@PathVariable Long milestoneId,
+            @Valid @RequestBody MilestonePaymentAuthorization request,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.authorizeMilestone(projectId,milestoneId,request.gateway(),request.orderId(),request.paymentId(),principal.getId(),communityId));
+    }
+
+    @PostMapping("/projects/{projectId}/payment-schedule/{milestoneId}/release")
+    @PreAuthorize("hasAuthority('Create Service Request')")
+    public ResponseEntity<PaymentMilestoneResponse> releaseMilestone(@PathVariable Long projectId,@PathVariable Long milestoneId,
+            @RequestBody(required=false) PaymentRelease request,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.releaseMilestone(projectId,milestoneId,principal.getId(),communityId,request));
+    }
+
+    @PutMapping("/projects/{projectId}/payment-schedule/{milestoneId}/invoice")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PaymentMilestoneResponse> linkInvoice(@PathVariable Long projectId,@PathVariable Long milestoneId,
+            @Valid @RequestBody PaymentInvoiceLink request,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.ok(interiorsService.linkMilestoneInvoice(projectId,milestoneId,principal.getId(),communityId,request));
+    }
+
+    @PostMapping("/providers/me/credentials")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CredentialResponse> submitCredential(@Valid @RequestBody CredentialCreate request,@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.submitCredential(principal.getId(),request));
+    }
+
+    @GetMapping("/providers/me/credentials")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CredentialResponse>> myCredentials(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(interiorsService.listMyCredentials(principal.getId()));
+    }
+
+    @GetMapping("/providers/me/credentials/{credentialId}/audit")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CredentialAuditResponse>> credentialAudit(@PathVariable Long credentialId,@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(interiorsService.credentialAudit(credentialId,principal.getId()));
+    }
+
+    @GetMapping("/provider-credentials/pending")
+    @PreAuthorize("hasAuthority('Manage Service Providers')")
+    public ResponseEntity<List<CredentialResponse>> pendingCredentials() {
+        return ResponseEntity.ok(interiorsService.listPendingCredentials());
+    }
+
+    @PostMapping("/provider-credentials/{credentialId}/review")
+    @PreAuthorize("hasAuthority('Manage Service Providers')")
+    public ResponseEntity<CredentialResponse> reviewCredential(@PathVariable Long credentialId,@Valid @RequestBody CredentialReview request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(interiorsService.reviewCredential(credentialId,principal.getId(),request));
+    }
+
+    @GetMapping("/provider-credentials/{credentialId}/audit")
+    @PreAuthorize("hasAuthority('Manage Service Providers')")
+    public ResponseEntity<List<CredentialAuditResponse>> credentialReviewAudit(@PathVariable Long credentialId) {
+        return ResponseEntity.ok(interiorsService.credentialAuditForReview(credentialId));
+    }
+
+    @PostMapping("/projects/{projectId}/materials/checkout-boq")
+    @PreAuthorize("hasAuthority('Create Service Request')")
+    public ResponseEntity<CommerceOrderDto> checkoutProjectBoq(@PathVariable Long projectId,@AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user=loggedInUserService.resolve(principal); Long communityId=user.getCommunity()!=null?user.getCommunity().getId():null;
+        return ResponseEntity.status(HttpStatus.CREATED).body(interiorsService.checkoutProjectBoq(projectId,user,communityId));
     }
 }
