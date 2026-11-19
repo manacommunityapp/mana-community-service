@@ -94,11 +94,22 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 || upper.equals("COMMUNITY_ADMINISTRATOR") || upper.equals("COMMUNITY ADMIN");
     }
 
+    private static final long ROLE_PERMS_CACHE_TTL_MS = 300_000L; // 5 minutes
+    private record CachedRolePermissions(long timestamp, Map<String, List<String>> permissions) {}
+    private final java.util.concurrent.ConcurrentHashMap<Long, CachedRolePermissions> rolePermsCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     @Transactional(readOnly = true)
     public Map<String, List<String>> getAllRolePermissions(Long communityId) {
-        // Collect ALL role-permission rows for non-reserved roles
-        List<RolePermission> allRows = rolePermissionRepo.findAll().stream()
+        Long cacheKey = communityId != null ? communityId : -1L;
+        CachedRolePermissions cached = rolePermsCache.get(cacheKey);
+        long now = System.currentTimeMillis();
+        if (cached != null && (now - cached.timestamp()) < ROLE_PERMS_CACHE_TTL_MS) {
+            return cached.permissions();
+        }
+
+        // Collect role-permission template rows with roleEntity fetched in single query
+        List<RolePermission> allRows = rolePermissionRepo.findAllRoleTemplatesWithRoleEntity().stream()
                 .filter(rp -> rp.getUser() == null)
                 .filter(rp -> {
                     String rName = rp.getRole() != null ? rp.getRole().trim().toUpperCase() : "";
@@ -142,6 +153,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                     .distinct()
                     .toList());
         }
+        rolePermsCache.put(cacheKey, new CachedRolePermissions(now, result));
         return result;
     }
 
@@ -187,6 +199,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 ));
 
         roleRepo.save(role);
+        rolePermsCache.clear();
 
         auditService.record(
                 AuditAction.PERMISSION_CHANGED,
@@ -228,6 +241,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .toList();
 
         rolePermissionRepo.saveAll(entities);
+        rolePermsCache.clear();
         auditService.record(
                 com.manacommunity.api.security.AuditAction.PERMISSION_CHANGED,
                 com.manacommunity.api.security.AuditModule.ADMIN,

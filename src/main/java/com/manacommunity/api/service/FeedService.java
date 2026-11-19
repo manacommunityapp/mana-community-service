@@ -22,12 +22,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class FeedService {
+
+    private static final long SIDEBAR_CACHE_TTL_MS = 60_000L; // 60 seconds
+    private record CachedCommunityCounts(
+            long directoryCount,
+            long sportsCount,
+            long upcomingEvents,
+            long trending,
+            long contributorsCount,
+            long officialCount,
+            long timestamp
+    ) {}
+    private final java.util.concurrent.ConcurrentHashMap<Long, CachedCommunityCounts> communityCountsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
@@ -764,6 +777,41 @@ public class FeedService {
             }
         }
 
+        // 7. Batch Community Leaders for post authors (eliminates N+1 DB queries)
+        Set<Long> authorUserIds = posts.stream()
+                .map(Post::getUser)
+                .filter(Objects::nonNull)
+                .map(AppUser::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, CommunityLeader> leaderByUserId = new HashMap<>();
+        if (communityLeaderRepository != null && !authorUserIds.isEmpty()) {
+            List<CommunityLeader> activeLeaders = communityLeaderRepository.findByUserIdInAndIsActiveTrue(authorUserIds);
+            for (CommunityLeader cl : activeLeaders) {
+                if (cl.getUser() != null && cl.getUser().getId() != null) {
+                    leaderByUserId.putIfAbsent(cl.getUser().getId(), cl);
+                }
+            }
+        }
+
+        // 8. Batch MediaObjects for media attachments (eliminates N+1 DB queries)
+        List<UUID> mediaExternalIds = allMedia.stream()
+                .map(PostMedia::getMediaObjectExternalId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<UUID, MediaObject> mediaObjectByExternalId = new HashMap<>();
+        if (mediaRepository != null && !mediaExternalIds.isEmpty()) {
+            List<MediaObject> mediaObjects = mediaRepository.findByExternalIdInAndDeletedFalse(mediaExternalIds);
+            for (MediaObject mo : mediaObjects) {
+                if (mo.getExternalId() != null) {
+                    mediaObjectByExternalId.put(mo.getExternalId(), mo);
+                }
+            }
+        }
+
         return postsPage.map(post -> {
             Long pid = post.getId();
             AppUser author = post.getUser();
@@ -805,10 +853,10 @@ public class FeedService {
                         String url = m.getMediaUrl();
                         String thumbUrl = m.getThumbnailUrl();
                         if (m.getMediaObjectExternalId() != null) {
-                            Optional<MediaObject> mo = mediaRepository.findByExternalIdAndDeletedFalse(m.getMediaObjectExternalId());
-                            if (mo.isPresent()) {
-                                url = mediaUrlService.generateUrl(mo.get());
-                                String freshThumb = mediaUrlService.generateThumbnailUrl(mo.get());
+                            MediaObject mo = mediaObjectByExternalId.get(m.getMediaObjectExternalId());
+                            if (mo != null) {
+                                url = mediaUrlService.generateUrl(mo);
+                                String freshThumb = mediaUrlService.generateThumbnailUrl(mo);
                                 if (freshThumb != null) thumbUrl = freshThumb;
                             }
                         }
@@ -822,6 +870,8 @@ public class FeedService {
                 CommunityGroup g = post.getGroup();
                 groupSummary = new PostResponse.GroupSummary(g.getId(), g.getName(), g.getSlug(), g.getIconUrl(), g.getGroupType());
             }
+
+            CommunityLeader authorLeader = (author != null && author.getId() != null) ? leaderByUserId.get(author.getId()) : null;
 
             return new PostResponse(
                     post.getId(),
@@ -842,7 +892,7 @@ public class FeedService {
                     author != null ? author.getId() : null,
                     author != null ? author.getFullName() : "",
                     initials,
-                    author != null ? mapRole(author) : "",
+                    author != null ? mapRole(author, authorLeader) : "",
                     author != null ? author.getProfilePicUrl() : null,
                     post.getCreatedAt(),
                     post.getPostType(),
@@ -1138,21 +1188,28 @@ public class FeedService {
     }
 
     private String mapRole(AppUser user) {
+        CommunityLeader leader = null;
+        if (communityLeaderRepository != null && user != null && user.getId() != null) {
+            List<CommunityLeader> leaders = communityLeaderRepository.findByUserIdAndIsActiveTrue(user.getId());
+            if (!leaders.isEmpty()) {
+                leader = leaders.get(0);
+            }
+        }
+        return mapRole(user, leader);
+    }
+
+    private String mapRole(AppUser user, CommunityLeader leader) {
         if (user == null) return "Verified Member";
 
         // 1. Check CommunityLeader table for active community post / designation
-        if (communityLeaderRepository != null && user.getId() != null) {
-            List<CommunityLeader> leaders = communityLeaderRepository.findByUserIdAndIsActiveTrue(user.getId());
-            if (!leaders.isEmpty()) {
-                CommunityLeader leader = leaders.get(0);
-                if (leader.getDesignation() != null && !leader.getDesignation().isBlank()) {
-                    String designation = leader.getDesignation().trim();
-                    if (leader.getCommittee() != null && !leader.getCommittee().isBlank()
-                            && !leader.getCommittee().trim().equalsIgnoreCase(designation)) {
-                        return designation + " (" + leader.getCommittee().trim() + ")";
-                    }
-                    return designation;
+        if (leader != null) {
+            if (leader.getDesignation() != null && !leader.getDesignation().isBlank()) {
+                String designation = leader.getDesignation().trim();
+                if (leader.getCommittee() != null && !leader.getCommittee().isBlank()
+                        && !leader.getCommittee().trim().equalsIgnoreCase(designation)) {
+                    return designation + " (" + leader.getCommittee().trim() + ")";
                 }
+                return designation;
             }
         }
 
@@ -1187,46 +1244,52 @@ public class FeedService {
         Long communityId = currentUser.getCommunity().getId();
         Long userId = currentUser.getId();
 
-        long dirLeaderCount = communityLeaderRepository.countByCommunityIdAndIsActiveTrue(communityId);
-        long dirWhoToCallCount = communityWhoToCallRepository.countByCommunityIdAndIsActiveTrue(communityId);
-        long directoryCount = dirLeaderCount + dirWhoToCallCount;
+        CachedCommunityCounts cached = communityCountsCache.get(communityId);
+        long now = System.currentTimeMillis();
+        if (cached == null || (now - cached.timestamp()) >= SIDEBAR_CACHE_TTL_MS) {
+            long dirLeaderCount = communityLeaderRepository.countByCommunityIdAndIsActiveTrue(communityId);
+            long dirWhoToCallCount = communityWhoToCallRepository.countByCommunityIdAndIsActiveTrue(communityId);
+            long directoryCount = dirLeaderCount + dirWhoToCallCount;
 
-        long sportsCount = 0;
-        try {
-            sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
-                    communityId,
-                    List.of(
-                            com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN,
-                            com.manacommunity.api.sports.model.SportsEventStatus.LIVE
-                    )
-            );
-        } catch (Exception ignored) {
-            sportsCount = sportsEventRepository.findByCommunityIdOrderByEventDateStartDesc(communityId).size();
+            long sportsCount = 0;
+            try {
+                sportsCount = sportsEventRepository.countByCommunityIdAndTournamentRegistrationStatusIn(
+                        communityId,
+                        List.of(
+                                com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN,
+                                com.manacommunity.api.sports.model.SportsEventStatus.LIVE
+                        )
+                );
+            } catch (Exception ignored) {
+                sportsCount = sportsEventRepository.findByCommunityIdOrderByEventDateStartDesc(communityId).size();
+            }
+
+            long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
+            long trending = trendingTopicRepository.countByCommunityId(communityId);
+            long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);
+            long officialCount = postRepository.countByCommunityIdAndOfficialTrueAndDeletedFalse(communityId);
+
+            cached = new CachedCommunityCounts(directoryCount, sportsCount, upcomingEvents, trending, contributorsCount, officialCount, now);
+            communityCountsCache.put(communityId, cached);
         }
 
-        long upcomingEvents = communityEventRepository.countUpcomingByCommunity(communityId);
         long myPasses = eventBookingRegistrationRepository.countByUserId(userId);
-        long trending = trendingTopicRepository.countByCommunityId(communityId);
         long myGroups = groupMembershipRepository.countByUserIdAndStatus(userId, "ACTIVE");
-        long contributorsCount = Math.min(userEngagementScoreRepository.countByCommunityId(communityId), 5);
-
         Optional<UserEngagementScore> scoreOpt = userEngagementScoreRepository.findByUserIdAndCommunityId(userId, communityId);
         int points = scoreOpt.map(UserEngagementScore::getTotalPoints).orElse(0);
         int level = scoreOpt.map(UserEngagementScore::getLevel).orElse(1);
 
-        long officialCount = postRepository.countByCommunityIdAndOfficialTrueAndDeletedFalse(communityId);
-
         return new FeedSummaryCountsResponse(
-                directoryCount,
-                sportsCount,
-                upcomingEvents,
+                cached.directoryCount(),
+                cached.sportsCount(),
+                cached.upcomingEvents(),
                 myPasses,
-                trending,
+                cached.trending(),
                 myGroups,
-                contributorsCount,
+                cached.contributorsCount(),
                 points,
                 level,
-                officialCount
+                cached.officialCount()
         );
     }
 }
