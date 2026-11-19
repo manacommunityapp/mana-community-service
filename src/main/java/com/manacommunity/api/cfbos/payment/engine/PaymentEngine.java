@@ -17,6 +17,7 @@ import com.manacommunity.api.cfbos.shared.enums.DocumentType;
 import com.manacommunity.api.cfbos.shared.enums.SourceModule;
 import com.manacommunity.api.cfbos.shared.sequence.service.DocumentSequenceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentEngine {
@@ -150,7 +152,9 @@ public class PaymentEngine {
             payment.setJournalEntryId(entry.getId());
             receipt.setJournalEntryId(entry.getId());
             receiptRepository.save(receipt);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.error("Failed to post journal entry for payment {}: {}", paymentNumber, ex.getMessage(), ex);
+        }
 
         return paymentRepository.save(payment);
     }

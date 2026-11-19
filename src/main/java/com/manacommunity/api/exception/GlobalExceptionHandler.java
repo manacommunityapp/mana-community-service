@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -13,18 +14,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -320,18 +327,45 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
-        List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(fe -> ErrorResponse.FieldError.builder()
+        List<ErrorResponse.FieldError> fieldErrors = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(fe ->
+                fieldErrors.add(ErrorResponse.FieldError.builder()
                         .field(fe.getField())
                         .message(fe.getDefaultMessage())
                         .build())
-                .collect(Collectors.toList());
+        );
+        ex.getBindingResult().getGlobalErrors().forEach(ge ->
+                fieldErrors.add(ErrorResponse.FieldError.builder()
+                        .field(ge.getObjectName())
+                        .message(ge.getDefaultMessage())
+                        .build())
+        );
 
-        log.warn("Validation failed on {} field(s) at {}", fieldErrors.size(), request.getRequestURI());
+        log.warn("Validation failed on {} error(s) at {}", fieldErrors.size(), request.getRequestURI());
         return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
                 "Request validation failed. Check 'fieldErrors' for details.", request, fieldErrors);
+    }
+
+    /**
+     * Handles parameter-level validation failures on controller methods (Spring 6 / Boot 3).
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleHandlerMethodValidation(
+            HandlerMethodValidationException ex, HttpServletRequest request) {
+        List<ErrorResponse.FieldError> fieldErrors = new ArrayList<>();
+        ex.getValueResults().forEach(result -> {
+            String paramName = result.getMethodParameter().getParameterName();
+            result.getResolvableErrors().forEach(error ->
+                    fieldErrors.add(ErrorResponse.FieldError.builder()
+                            .field(paramName != null ? paramName : "parameter")
+                            .message(error.getDefaultMessage())
+                            .build())
+            );
+        });
+
+        log.warn("Handler method validation failed on {} error(s) at {}", fieldErrors.size(), request.getRequestURI());
+        return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
+                "Method parameter validation failed. Check 'fieldErrors' for details.", request, fieldErrors);
     }
 
     /**
@@ -357,6 +391,17 @@ public class GlobalExceptionHandler {
             MissingServletRequestParameterException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",
                 "Required parameter '" + ex.getParameterName() + "' is missing.", request, null);
+    }
+
+    /**
+     * Handles missing required headers (@RequestHeader), missing path variables, etc.
+     */
+    @ExceptionHandler(ServletRequestBindingException.class)
+    public ResponseEntity<ErrorResponse> handleServletRequestBinding(
+            ServletRequestBindingException ex, HttpServletRequest request) {
+        log.warn("Request binding failure at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "MISSING_REQUEST_PARAMETER",
+                ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -495,10 +540,63 @@ public class GlobalExceptionHandler {
                 "You do not have the required circle role to perform this action.", request, null);
     }
 
+    // ─── 3d. Spring Web & Transaction Exceptions ─────────────────────────────
+
+    /**
+     * Handles Spring's ResponseStatusException thrown directly from controllers or services.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(
+            ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        String message = ex.getReason() != null && !ex.getReason().isBlank()
+                ? ex.getReason()
+                : ex.getMessage();
+
+        if (status.is5xxServerError()) {
+            log.error("ResponseStatusException [{}] at {}: {}", status, request.getRequestURI(), message, ex);
+        } else {
+            log.warn("ResponseStatusException [{}] at {}: {}", status, request.getRequestURI(), message);
+        }
+        return build(status, status.name(), message, request, null);
+    }
+
+    /**
+     * Handles entity-level validation flush failures wrapped by Spring's @Transactional commit.
+     */
+    @ExceptionHandler(TransactionSystemException.class)
+    public ResponseEntity<ErrorResponse> handleTransactionSystem(
+            TransactionSystemException ex, HttpServletRequest request) {
+        Throwable rootCause = ex.getRootCause();
+        if (rootCause instanceof ConstraintViolationException cve) {
+            return handleConstraintViolation(cve, request);
+        }
+        if (rootCause instanceof DataIntegrityViolationException dive) {
+            return handleDataIntegrity(dive, request);
+        }
+        log.error("Transaction system failure at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "TRANSACTION_FAILURE",
+                "A transaction error occurred. Please try again.", request, null);
+    }
+
     // ─── 4. Generic Fallback ─────────────────────────────────────────────────
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAll(Exception ex, HttpServletRequest request) {
+        ResponseStatus responseStatus = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
+        if (responseStatus != null) {
+            HttpStatus status = responseStatus.value() != HttpStatus.INTERNAL_SERVER_ERROR
+                    ? responseStatus.value()
+                    : responseStatus.code();
+            String reason = !responseStatus.reason().isBlank() ? responseStatus.reason() : ex.getMessage();
+            String message = (reason != null && !reason.isBlank()) ? reason : "Request failed with status " + status.value();
+            log.warn("Annotated exception [{}] at {}: {}", status, request.getRequestURI(), message);
+            return build(status, status.name(), message, request, null);
+        }
+
         log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                 "An unexpected error occurred. Please try again later or contact support.", request, null);
