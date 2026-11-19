@@ -68,6 +68,23 @@ public class SportsMatchPersistenceService {
     private final SportsScoringConfigRepository     scoringConfigRepo;
     private final SportsMatchResultRepository       matchResultRepo;
     private final SportsTournamentStageRepository   stageRepo;
+    // All non-cascading FK children of SportsTournamentMatch / SportsTournamentConfig
+    private final SportsBattingPerformanceRepository   battingPerfRepo;
+    private final SportsBowlingPerformanceRepository   bowlingPerfRepo;
+    private final SportsMatchInningsRepository         matchInningsRepo;
+    private final SportsMatchBallEventRepository       ballEventRepo;
+    private final SportsMatchEventRepository           matchEventRepo;
+    private final SportsMatchOfficialRepository        matchOfficialRepo;
+    private final SportsMatchPeriodScoreRepository     periodScoreRepo;
+    private final SportsMatchPostponementRepository    postponementRepo;
+    private final SportsPlayerMatchStatsRepository     playerMatchStatsRepo;
+    private final SportsScoringCorrectionRepository    scoringCorrectionRepo;
+    private final SportsRaceResultRepository           raceResultRepo;
+    private final SportsScoringCommandRepository       scoringCommandRepo;
+    private final SportsMatchStreamRepository          matchStreamRepo;
+    private final SportsScheduleVersionRepository      scheduleVersionRepo;
+    private final SportsTournamentReserveDayRepository reserveDayRepo;
+    private final SportsPlayerTournamentStatsRepository playerTournamentStatsRepo;
     private final AuditService                      auditService;
     private final ObjectMapper                      objectMapper;
 
@@ -85,16 +102,48 @@ public class SportsMatchPersistenceService {
                 "Only tournament configurations in DRAFT status can be deleted. Current status: " + config.getStatus());
         }
 
-        scoringConfigRepo.findByConfigId(config.getId()).ifPresent(scoringConfigRepo::delete);
+        // 1. Cricket innings chain: batting/bowling perf → innings → match_result → match
+        battingPerfRepo.deleteByConfigId(configId);
+        bowlingPerfRepo.deleteByConfigId(configId);
+        matchInningsRepo.deleteByConfigId(configId);
 
-        // Delete match results before bulk-deleting matches (FK: sports_match_result.match_id)
-        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(config.getId()));
-        matchRepo.deleteByConfigId(config.getId());
+        // 2. Direct match children (FK → match, no cascade)
+        ballEventRepo.deleteByConfigId(configId);
+        matchEventRepo.deleteByConfigId(configId);
+        matchOfficialRepo.deleteByConfigId(configId);
+        periodScoreRepo.deleteByConfigId(configId);
+        postponementRepo.deleteByConfigId(configId);
+        playerMatchStatsRepo.deleteByConfigId(configId);
+        scoringCorrectionRepo.deleteByConfigId(configId);
+        raceResultRepo.deleteByConfigId(configId);
+        scoringCommandRepo.deleteByConfigId(configId);
 
-        // Delete stages before deleting config (FK: sports_tournament_stage.config_id, no cascade)
-        stageRepo.deleteAll(stageRepo.findByConfigIdOrderByStageOrder(config.getId()));
+        // 3. Match streams — entity-level delete so cameras/messages cascade (CascadeType.ALL)
+        List<Long> matchIds = matchRepo.findByConfigId(configId).stream()
+            .map(SportsTournamentMatch::getId).toList();
+        if (!matchIds.isEmpty()) {
+            matchStreamRepo.deleteAll(matchStreamRepo.findAllByMatchIdIn(matchIds));
+        }
 
-        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+        // 4. Scoring config (FK → config)
+        scoringConfigRepo.findByConfigId(configId).ifPresent(scoringConfigRepo::delete);
+
+        // 5. Match results (FK → match, no cascade)
+        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(configId));
+
+        // 6. Bulk delete matches (bypasses JPA cascade — all children already gone above)
+        matchRepo.deleteByConfigId(configId);
+
+        // 7. Config-level children (FK → config, must precede stage and config deletion)
+        scheduleVersionRepo.deleteByConfigId(configId);
+        reserveDayRepo.deleteByConfigId(configId);
+        playerTournamentStatsRepo.deleteByConfigId(configId);
+
+        // 8. Stages (FK → config, no cascade)
+        stageRepo.deleteAll(stageRepo.findByConfigIdOrderByStageOrder(configId));
+
+        // 9. Group standings → groups (FK → config)
+        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(configId);
         for (SportsTournamentGroup group : groups) {
             standingRepo.deleteAll(standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(group.getId()));
         }
