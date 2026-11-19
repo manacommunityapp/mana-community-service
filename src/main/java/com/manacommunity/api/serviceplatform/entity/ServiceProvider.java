@@ -74,6 +74,12 @@ public class ServiceProvider {
     @Builder.Default
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
+    @Column(name = "verified_credential_level", length = 40)
+    private String verifiedCredentialLevel;
+
+    @Column(name = "credentials_verified_at")
+    private LocalDateTime credentialsVerifiedAt;
+
     @Column(name = "avg_rating", precision = 3, scale = 2)
     @Builder.Default
     private BigDecimal avgRating = BigDecimal.ZERO;
