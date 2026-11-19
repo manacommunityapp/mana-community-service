@@ -945,6 +945,26 @@ public class SportsMatchPersistenceService {
         }
 
         long count = matches.size();
+
+        // Delete all non-cascading match child records before bulk-deleting matches
+        battingPerfRepo.deleteByConfigId(effectiveConfigId);
+        bowlingPerfRepo.deleteByConfigId(effectiveConfigId);
+        matchInningsRepo.deleteByConfigId(effectiveConfigId);
+        ballEventRepo.deleteByConfigId(effectiveConfigId);
+        matchEventRepo.deleteByConfigId(effectiveConfigId);
+        matchOfficialRepo.deleteByConfigId(effectiveConfigId);
+        periodScoreRepo.deleteByConfigId(effectiveConfigId);
+        postponementRepo.deleteByConfigId(effectiveConfigId);
+        playerMatchStatsRepo.deleteByConfigId(effectiveConfigId);
+        scoringCorrectionRepo.deleteByConfigId(effectiveConfigId);
+        raceResultRepo.deleteByConfigId(effectiveConfigId);
+        scoringCommandRepo.deleteByConfigId(effectiveConfigId);
+        List<Long> matchIds = matches.stream().map(SportsTournamentMatch::getId).toList();
+        if (!matchIds.isEmpty()) {
+            matchStreamRepo.deleteAll(matchStreamRepo.findAllByMatchIdIn(matchIds));
+        }
+        scoringConfigRepo.findByConfigId(effectiveConfigId).ifPresent(scoringConfigRepo::delete);
+        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(effectiveConfigId));
         matchRepo.deleteByConfigId(effectiveConfigId);
         log.info("Deleted {} matches for config {}", count, effectiveConfigId);
         return (int) count;
