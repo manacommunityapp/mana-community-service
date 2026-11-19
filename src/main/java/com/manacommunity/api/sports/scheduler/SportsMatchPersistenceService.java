@@ -126,7 +126,7 @@ public class SportsMatchPersistenceService {
         }
 
         // 4. Scoring config (FK → config)
-        scoringConfigRepo.findByConfigId(configId).ifPresent(scoringConfigRepo::delete);
+        scoringConfigRepo.deleteByTournamentConfigId(configId);
 
         // 5. Match results (FK → match, no cascade)
         matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(configId));
