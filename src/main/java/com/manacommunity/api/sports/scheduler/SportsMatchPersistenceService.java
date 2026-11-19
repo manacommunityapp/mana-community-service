@@ -66,6 +66,25 @@ public class SportsMatchPersistenceService {
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
     private final SportsScoringConfigRepository     scoringConfigRepo;
+    private final SportsMatchResultRepository       matchResultRepo;
+    private final SportsTournamentStageRepository   stageRepo;
+    // All non-cascading FK children of SportsTournamentMatch / SportsTournamentConfig
+    private final SportsBattingPerformanceRepository   battingPerfRepo;
+    private final SportsBowlingPerformanceRepository   bowlingPerfRepo;
+    private final SportsMatchInningsRepository         matchInningsRepo;
+    private final SportsMatchBallEventRepository       ballEventRepo;
+    private final SportsMatchEventRepository           matchEventRepo;
+    private final SportsMatchOfficialRepository        matchOfficialRepo;
+    private final SportsMatchPeriodScoreRepository     periodScoreRepo;
+    private final SportsMatchPostponementRepository    postponementRepo;
+    private final SportsPlayerMatchStatsRepository     playerMatchStatsRepo;
+    private final SportsScoringCorrectionRepository    scoringCorrectionRepo;
+    private final SportsRaceResultRepository           raceResultRepo;
+    private final SportsScoringCommandRepository       scoringCommandRepo;
+    private final SportsMatchStreamRepository          matchStreamRepo;
+    private final SportsScheduleVersionRepository      scheduleVersionRepo;
+    private final SportsTournamentReserveDayRepository reserveDayRepo;
+    private final SportsPlayerTournamentStatsRepository playerTournamentStatsRepo;
     private final AuditService                      auditService;
     private final ObjectMapper                      objectMapper;
 
@@ -83,10 +102,50 @@ public class SportsMatchPersistenceService {
                 "Only tournament configurations in DRAFT status can be deleted. Current status: " + config.getStatus());
         }
 
-        scoringConfigRepo.findByConfigId(config.getId()).ifPresent(scoringConfigRepo::delete);
-        matchRepo.deleteByConfigId(config.getId());
+        // 1. Cricket innings chain: batting/bowling perf → innings → match_result → match
+        battingPerfRepo.deleteByConfigId(configId);
+        bowlingPerfRepo.deleteByConfigId(configId);
+        matchInningsRepo.deleteByConfigId(configId);
 
-        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
+        // 2. Direct match children (FK → match, no cascade)
+        ballEventRepo.deleteByConfigId(configId);
+        matchEventRepo.deleteByConfigId(configId);
+        matchOfficialRepo.deleteByConfigId(configId);
+        periodScoreRepo.deleteByConfigId(configId);
+        postponementRepo.deleteByConfigId(configId);
+        playerMatchStatsRepo.deleteByConfigId(configId);
+        scoringCorrectionRepo.deleteByConfigId(configId);
+        raceResultRepo.deleteByConfigId(configId);
+        scoringCommandRepo.deleteByConfigId(configId);
+
+        // 3. Match streams — entity-level delete so cameras/messages cascade (CascadeType.ALL)
+        List<Long> matchIds = matchRepo.findByConfigId(configId).stream()
+            .map(SportsTournamentMatch::getId).toList();
+        if (!matchIds.isEmpty()) {
+            matchStreamRepo.deleteAll(matchStreamRepo.findAllByMatchIdIn(matchIds));
+        }
+
+        // 4. Scoring config (FK → config)
+        scoringConfigRepo.deleteByTournamentConfigId(configId);
+
+        // 5. Match results (FK → match, no cascade)
+        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(configId));
+
+        // 6. Bulk delete matches — nullify self-referential bracket links first to avoid
+        //    any db-level FK on those columns, then bulk delete
+        matchRepo.nullifyBracketLinksForConfig(configId);
+        matchRepo.deleteByConfigId(configId);
+
+        // 7. Config-level children (FK → config, must precede stage and config deletion)
+        scheduleVersionRepo.deleteByConfigId(configId);
+        reserveDayRepo.deleteByConfigId(configId);
+        playerTournamentStatsRepo.deleteByConfigId(configId);
+
+        // 8. Stages (FK → config, no cascade)
+        stageRepo.deleteAll(stageRepo.findByConfigIdOrderByStageOrder(configId));
+
+        // 9. Group standings → groups (FK → config)
+        List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(configId);
         for (SportsTournamentGroup group : groups) {
             standingRepo.deleteAll(standingRepo.findByGroupIdOrderByPointsDescNetRunRateDesc(group.getId()));
         }
@@ -888,6 +947,26 @@ public class SportsMatchPersistenceService {
         }
 
         long count = matches.size();
+
+        // Delete all non-cascading match child records before bulk-deleting matches
+        battingPerfRepo.deleteByConfigId(effectiveConfigId);
+        bowlingPerfRepo.deleteByConfigId(effectiveConfigId);
+        matchInningsRepo.deleteByConfigId(effectiveConfigId);
+        ballEventRepo.deleteByConfigId(effectiveConfigId);
+        matchEventRepo.deleteByConfigId(effectiveConfigId);
+        matchOfficialRepo.deleteByConfigId(effectiveConfigId);
+        periodScoreRepo.deleteByConfigId(effectiveConfigId);
+        postponementRepo.deleteByConfigId(effectiveConfigId);
+        playerMatchStatsRepo.deleteByConfigId(effectiveConfigId);
+        scoringCorrectionRepo.deleteByConfigId(effectiveConfigId);
+        raceResultRepo.deleteByConfigId(effectiveConfigId);
+        scoringCommandRepo.deleteByConfigId(effectiveConfigId);
+        List<Long> matchIds = matches.stream().map(SportsTournamentMatch::getId).toList();
+        if (!matchIds.isEmpty()) {
+            matchStreamRepo.deleteAll(matchStreamRepo.findAllByMatchIdIn(matchIds));
+        }
+        scoringConfigRepo.findByConfigId(effectiveConfigId).ifPresent(scoringConfigRepo::delete);
+        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(effectiveConfigId));
         matchRepo.deleteByConfigId(effectiveConfigId);
         log.info("Deleted {} matches for config {}", count, effectiveConfigId);
         return (int) count;
