@@ -528,6 +528,10 @@ public class SportsTournamentSchedulerService {
     public SportsMatchResponse toMatchResponse(SportsTournamentMatch m) {
         String teamAName = m.getTeamA() != null ? m.getTeamA().getTeamName() : (m.getPlaceholderTeamA() != null && !m.getPlaceholderTeamA().isBlank() ? m.getPlaceholderTeamA() : extractNote(m.getMatchNotes(), "homeName", "TBD"));
         String teamBName = m.getTeamB() != null ? m.getTeamB().getTeamName() : (m.getPlaceholderTeamB() != null && !m.getPlaceholderTeamB().isBlank() ? m.getPlaceholderTeamB() : extractNote(m.getMatchNotes(), "awayName", "TBD"));
+
+        teamAName = resolveTeamName(teamAName, m.getWinnerFeedFromMatchA());
+        teamBName = resolveTeamName(teamBName, m.getWinnerFeedFromMatchB());
+
         String roundName = m.getRound() != null ? m.getRound().name() : extractNote(m.getMatchNotes(), "groupName", "TBD");
         String teamAFlat = extractNote(m.getMatchNotes(), "homeFlat", null);
         String teamBFlat = extractNote(m.getMatchNotes(), "awayFlat", null);
@@ -574,6 +578,30 @@ public class SportsTournamentSchedulerService {
             log.debug("Could not extract {} from matchNotes: {}", key, e.getMessage());
         }
         return fallback;
+    }
+
+    private String resolveTeamName(String currentName, Long feederMatchId) {
+        if (isPlaceholder(currentName) && feederMatchId != null) {
+            try {
+                SportsTournamentMatch feeder = matchRepo.findById(feederMatchId).orElse(null);
+                if (feeder != null && feeder.getStatus() == MatchStatus.COMPLETED) {
+                    String win = feeder.getWinner() != null ? feeder.getWinner().getTeamName() : feeder.getWinnerName();
+                    if (win != null && !win.isBlank() && !isPlaceholder(win)) {
+                        return win;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return currentName;
+    }
+
+    private boolean isPlaceholder(String name) {
+        if (name == null || name.isBlank()) return true;
+        String trimmed = name.trim();
+        if ("TBD".equalsIgnoreCase(trimmed) || "TBA".equalsIgnoreCase(trimmed) || "dummy".equalsIgnoreCase(trimmed) || "—".equals(trimmed)) return true;
+        String upper = trimmed.toUpperCase();
+        if (upper.contains("(WINNER)") || upper.startsWith("WINNER OF") || upper.startsWith("LOSER OF")) return true;
+        return false;
     }
 
 
