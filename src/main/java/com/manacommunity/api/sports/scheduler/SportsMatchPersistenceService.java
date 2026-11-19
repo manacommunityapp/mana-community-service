@@ -131,7 +131,9 @@ public class SportsMatchPersistenceService {
         // 5. Match results (FK → match, no cascade)
         matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(configId));
 
-        // 6. Bulk delete matches (bypasses JPA cascade — all children already gone above)
+        // 6. Bulk delete matches — nullify self-referential bracket links first to avoid
+        //    any db-level FK on those columns, then bulk delete
+        matchRepo.nullifyBracketLinksForConfig(configId);
         matchRepo.deleteByConfigId(configId);
 
         // 7. Config-level children (FK → config, must precede stage and config deletion)

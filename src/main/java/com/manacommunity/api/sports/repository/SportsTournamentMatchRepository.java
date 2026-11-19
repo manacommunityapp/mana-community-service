@@ -145,6 +145,11 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
 
     @Transactional
     @Modifying(clearAutomatically = true)
+    @Query("UPDATE SportsTournamentMatch m SET m.winnerFeedFromMatchA = NULL, m.winnerFeedFromMatchB = NULL, m.winnerAdvancesToMatchId = NULL, m.loserSentToMatchId = NULL WHERE m.config.id = :configId")
+    void nullifyBracketLinksForConfig(@Param("configId") Long configId);
+
+    @Transactional
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM SportsTournamentMatch m WHERE m.config.id = :configId")
     void deleteByConfigId(@Param("configId") Long configId);
 
