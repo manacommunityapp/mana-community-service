@@ -459,8 +459,9 @@ public class GlobalExceptionHandler {
         String constraintName = extractConstraintName(ex);
         log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName, ex);
 
+        String constraintHint = "unknown".equals(constraintName) ? "" : " [db: " + constraintName + "]";
         String friendlyMessage = "The operation conflicts with existing data — a referenced record is missing, "
-                + "or a unique value is already in use.";
+                + "or a unique value is already in use." + constraintHint;
         if (constraintName.contains("uq_reg_event_player")) {
             friendlyMessage = "This player is already registered for this event. "
                     + "If registering for a different format (e.g. Doubles), please try again — "
