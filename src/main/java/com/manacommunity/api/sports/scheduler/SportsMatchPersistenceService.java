@@ -66,6 +66,8 @@ public class SportsMatchPersistenceService {
     private final SportsCourtRepository             courtRepo;
     private final SportsTimeSlotAllocator           timeSlots;
     private final SportsScoringConfigRepository     scoringConfigRepo;
+    private final SportsMatchResultRepository       matchResultRepo;
+    private final SportsTournamentStageRepository   stageRepo;
     private final AuditService                      auditService;
     private final ObjectMapper                      objectMapper;
 
@@ -84,7 +86,13 @@ public class SportsMatchPersistenceService {
         }
 
         scoringConfigRepo.findByConfigId(config.getId()).ifPresent(scoringConfigRepo::delete);
+
+        // Delete match results before bulk-deleting matches (FK: sports_match_result.match_id)
+        matchResultRepo.deleteAll(matchResultRepo.findByMatch_Config_Id(config.getId()));
         matchRepo.deleteByConfigId(config.getId());
+
+        // Delete stages before deleting config (FK: sports_tournament_stage.config_id, no cascade)
+        stageRepo.deleteAll(stageRepo.findByConfigIdOrderByStageOrder(config.getId()));
 
         List<SportsTournamentGroup> groups = groupRepo.findByConfigIdOrderByGroupOrder(config.getId());
         for (SportsTournamentGroup group : groups) {
