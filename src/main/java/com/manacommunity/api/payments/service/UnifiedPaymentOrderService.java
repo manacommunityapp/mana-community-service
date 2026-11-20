@@ -12,6 +12,7 @@ import com.manacommunity.api.payments.model.PaymentGateway;
 import com.manacommunity.api.payments.model.PaymentOrderStatus;
 import com.manacommunity.api.payments.repository.PaymentOrderRepository;
 import com.manacommunity.api.repository.CommunitySettingsRepository;
+import com.manacommunity.api.platform.outbox.DomainEventPublisher;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentFailedEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +56,7 @@ public class UnifiedPaymentOrderService {
     private final PaymentOrderRepository      repository;
     private final PaymentLifecycleStateMachine stateMachine;
     private final ApplicationEventPublisher   eventPublisher;
+    private final DomainEventPublisher        domainEventPublisher;
     private final PaymentConfigService        paymentConfigService;
     private final ManaPayGatewayService       manaPayGatewayService;
     private final CommunitySettingsRepository communitySettingsRepo;
@@ -63,12 +65,14 @@ public class UnifiedPaymentOrderService {
             PaymentOrderRepository repository,
             PaymentLifecycleStateMachine stateMachine,
             ApplicationEventPublisher eventPublisher,
+            DomainEventPublisher domainEventPublisher,
             @Lazy PaymentConfigService paymentConfigService,
             ManaPayGatewayService manaPayGatewayService,
             CommunitySettingsRepository communitySettingsRepo) {
         this.repository             = repository;
         this.stateMachine           = stateMachine;
         this.eventPublisher         = eventPublisher;
+        this.domainEventPublisher   = domainEventPublisher;
         this.paymentConfigService   = paymentConfigService;
         this.manaPayGatewayService  = manaPayGatewayService;
         this.communitySettingsRepo  = communitySettingsRepo;
@@ -254,6 +258,11 @@ public class UnifiedPaymentOrderService {
         eventPublisher.publishEvent(new GatewayPaymentFailedEvent(
                 saved.getId(), saved.getReferenceType(), saved.getReferenceId(),
                 saved.getCommunityId(), failureReason));
+        domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(saved.getId()),
+                "GatewayPaymentFailed", new GatewayPaymentFailedEvent(
+                        saved.getId(), saved.getReferenceType(), saved.getReferenceId(),
+                        saved.getCommunityId(), failureReason),
+                saved.getCommunityId());
         return saved;
     }
 
@@ -359,14 +368,12 @@ public class UnifiedPaymentOrderService {
             PaymentOrder saved = repository.save(order);
             log.info("[ManaPay] SUCCESS orderId={} ref={}", orderId, manaRef);
 
-            eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+            GatewayPaymentCapturedEvent manaPayCaptured = new GatewayPaymentCapturedEvent(
                 GatewayPaymentCapturedEvent.Gateway.MANA_PAY,
-                manaRef,
-                manaRef,
-                order.getAmount(),
-                order.getCurrency(),
-                description,
-                saved.getId()));
+                manaRef, manaRef, order.getAmount(), order.getCurrency(), description, saved.getId());
+            eventPublisher.publishEvent(manaPayCaptured);
+            domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(saved.getId()),
+                    "GatewayPaymentCaptured", manaPayCaptured, order.getCommunityId());
 
             return saved;
         } else {
@@ -420,16 +427,15 @@ public class UnifiedPaymentOrderService {
             adminUserId, req.getPaymentMode());
 
         // Fire event so ModulePaymentConfirmationListener marks the module entity PAID
-        eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+        GatewayPaymentCapturedEvent manualCaptured = new GatewayPaymentCapturedEvent(
             GatewayPaymentCapturedEvent.Gateway.MANUAL,
-            idempotencyKey,
-            receiptNumber,
-            req.getAmount(),
-            "INR",
+            idempotencyKey, receiptNumber, req.getAmount(), "INR",
             "Manual payment: " + req.getPaymentMode()
                 + (req.getReferenceNumber() != null ? " ref=" + req.getReferenceNumber() : ""),
-            saved.getId()
-        ));
+            saved.getId());
+        eventPublisher.publishEvent(manualCaptured);
+        domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(saved.getId()),
+                "GatewayPaymentCaptured", manualCaptured, req.getCommunityId());
 
         return saved;
     }
