@@ -31,17 +31,27 @@ import java.util.Optional;
  * Centralized, tamper-resistant audit logging service for mana-community-service.
  * Enforces the 11-dimension audit invariant:
  * WHO, WHAT, WHEN, WHERE, TENANT, RESOURCE, OLD VALUE, NEW VALUE, IP, DEVICE, CORRELATION ID.
+ *
+ * <p>The HMAC signing key is loaded from {@code app.audit.hmac-secret} (environment override:
+ * {@code APP_AUDIT_HMAC_SECRET}).  The fallback default is intentionally weak and should
+ * always be overridden in staging/production via the environment variable.</p>
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class TamperResistantAuditService {
 
     private static final Logger AUDIT = LoggerFactory.getLogger("AUDIT");
-    private static final String DEFAULT_HMAC_SECRET = "mana-audit-tamper-resistant-immutable-secret-key-2026";
     private static final String GENESIS_PREV_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private final AuditLogRepository auditLogRepository;
+    private final String hmacSecret;
+
+    public TamperResistantAuditService(
+            AuditLogRepository auditLogRepository,
+            @org.springframework.beans.factory.annotation.Value("${app.audit.hmac-secret:mana-audit-tamper-resistant-immutable-secret-key-2026}") String hmacSecret) {
+        this.auditLogRepository = auditLogRepository;
+        this.hmacSecret = hmacSecret;
+    }
 
     public static String sha256Hex(String data) {
         if (data == null) return "NULL";
@@ -135,8 +145,8 @@ public class TamperResistantAuditService {
             String canonicalPayload = computeCanonicalPayload(effectiveTenant, nextSequence, now, userId, username,
                     action.name(), module.name(), resourceType, resourceId, oldValueJson, newValueJson, correlationId, ip);
 
-            String recordHash = hmacSha256Hex(DEFAULT_HMAC_SECRET, prevHash + "::" + canonicalPayload);
-            String signature = hmacSha256Hex(DEFAULT_HMAC_SECRET + "_SIGN", recordHash + "::" + nextSequence);
+            String recordHash = hmacSha256Hex(hmacSecret, prevHash + "::" + canonicalPayload);
+            String signature = hmacSha256Hex(hmacSecret + "_SIGN", recordHash + "::" + nextSequence);
 
             AuditLog logEntry = AuditLog.builder()
                     .tenantId(effectiveTenant)

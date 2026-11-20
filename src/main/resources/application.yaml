@@ -126,6 +126,8 @@ management:
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  audit:
+    hmac-secret: ${APP_AUDIT_HMAC_SECRET:mana-audit-tamper-resistant-immutable-secret-key-2026}
   flyway:
     repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
     out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}

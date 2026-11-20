@@ -47,6 +47,13 @@ public class PropertyService {
     }
 
     @Transactional(readOnly = true)
+    public Property getById(UUID id) {
+        return propertyRepository.findById(id)
+                .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted()))
+                .orElseThrow(() -> new RuntimeException("Property not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
     public List<Property> getVacantProperties(UUID tenantId) {
         return propertyRepository.findByTenantIdAndOccupancyStatusAndIsDeletedFalse(tenantId, "VACANT");
     }
