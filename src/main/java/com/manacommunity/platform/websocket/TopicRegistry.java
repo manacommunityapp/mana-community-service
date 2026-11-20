@@ -35,6 +35,9 @@ public final class TopicRegistry {
         register("/topic/noticeboard/(\\d+)(?:/.*)?$",  TopicPermission.COMMUNITY_MEMBER);
         register("/topic/sports/live(?:/.*)?$",          TopicPermission.COMMUNITY_MEMBER);
 
+        // Social group chat topics
+        register("/topic/groups/(\\d+)/messages$",       TopicPermission.COMMUNITY_MEMBER);
+
         // Chat/conversation topics
         register("/topic/conversation/(\\d+)(?:/.*)?$", TopicPermission.CHAT_MEMBER);
 
