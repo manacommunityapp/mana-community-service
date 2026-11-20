@@ -82,21 +82,13 @@ public class SportsMatchResultService {
         SportsMatchResultRequest basicReq = new SportsMatchResultRequest(
             req.matchId(), req.winnerTeamId(),
             req.scoreTeamA(), req.scoreTeamB(), req.matchNotes(),
-            req.runsTeamA(), req.runsTeamB(), req.oversTeamA(), req.oversTeamB()
+            req.runsTeamA(), req.runsTeamB(), req.oversTeamA(), req.oversTeamB(),
+            null, null, req.tossWinnerTeamId(), req.tossDecision()
         );
 
-        if (req.winnerTeamId() != null) {
-            bracketGenerator.applyResult(basicReq);
-            match = matchRepo.findById(req.matchId())
-                    .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
-        } else {
-            match.setScoreTeamA(req.scoreTeamA());
-            match.setScoreTeamB(req.scoreTeamB());
-            match.setMatchNotes(req.matchNotes());
-            match.setStatus(MatchStatus.COMPLETED);
-            match.setCompletedAt(java.time.LocalDateTime.now());
-            matchRepo.save(match);
-        }
+        bracketGenerator.applyResult(basicReq);
+        match = matchRepo.findById(req.matchId())
+                .orElseThrow(() -> new ResourceNotFoundException("SportsTournamentMatch", req.matchId()));
 
         // 2. Set structured result fields on SportsTournamentMatch
         if (req.resultType() != null) {

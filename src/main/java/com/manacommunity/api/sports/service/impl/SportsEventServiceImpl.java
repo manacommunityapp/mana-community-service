@@ -272,7 +272,11 @@ public class SportsEventServiceImpl implements SportsEventService {
             throw new UnauthorizedActionException("You can only register residents from the event's community.");
         }
 
-        req.setEmail(requester.getEmail());
+        if (req.getEmail() == null || req.getEmail().isBlank()) {
+            req.setEmail(participant.getEmail() != null && !participant.getEmail().isBlank()
+                    ? participant.getEmail()
+                    : requester.getEmail());
+        }
         if (req.getFamilyMemberId() != null) {
             familyMemberRepository.findByIdAndUserId(req.getFamilyMemberId(), participant.getId())
                     .orElseThrow(() -> new ResourceNotFoundException("FamilyMember", req.getFamilyMemberId()));
@@ -901,10 +905,12 @@ public class SportsEventServiceImpl implements SportsEventService {
     @Override
     @Transactional
     public List<SportsEventRegistration> registerTeam(TeamRegistrationRequest teamReq, Long captainUserId, boolean admin) {
-        if (!teamReq.getMemberUserIds().contains(captainUserId)) {
+        Long captainId = teamReq.getCaptainUserId() != null ? teamReq.getCaptainUserId() : (admin ? null : captainUserId);
+        if (!admin && !teamReq.getMemberUserIds().contains(captainUserId)) {
             teamReq.getMemberUserIds().add(0, captainUserId);
+        } else if (captainId != null && !teamReq.getMemberUserIds().contains(captainId)) {
+            teamReq.getMemberUserIds().add(0, captainId);
         }
-        Long captainId = teamReq.getCaptainUserId() != null ? teamReq.getCaptainUserId() : captainUserId;
         List<SportsEventRegistration> results = new java.util.ArrayList<>();
         for (Long memberId : teamReq.getMemberUserIds()) {
             RegistrationRequest req = new RegistrationRequest();
