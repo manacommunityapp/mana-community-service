@@ -424,11 +424,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(
             HttpMessageNotReadableException ex, HttpServletRequest request) {
-        log.warn("Unreadable request body at {}: {}", request.getRequestURI(), ex.getMessage());
-        String msg = (ex.getMostSpecificCause() != null && ex.getMostSpecificCause().getMessage() != null)
-                ? ex.getMostSpecificCause().getMessage()
-                : "Request body is missing or malformed.";
-        return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", msg, request, null);
+        return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
+                "Request body is missing or contains invalid data.", request, null);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -504,13 +501,10 @@ public class GlobalExceptionHandler {
         String constraintName = extractConstraintName(ex);
         log.error("Data integrity violation at {} [constraint: {}]", request.getRequestURI(), constraintName, ex);
 
-        String constraintHint = "unknown".equals(constraintName) ? "" : " [db: " + constraintName + "]";
         String friendlyMessage = "The operation conflicts with existing data — a referenced record is missing, "
-                + "or a unique value is already in use." + constraintHint;
+                + "or a unique value is already in use.";
         if (constraintName.contains("uq_reg_event_player")) {
-            friendlyMessage = "This player is already registered for this event. "
-                    + "If registering for a different format (e.g. Doubles), please try again — "
-                    + "this may require a database update.";
+            friendlyMessage = "This player is already registered for this event.";
         } else if (constraintName.contains("sports_meta") || constraintName.contains("uq_sports_meta")) {
             friendlyMessage = "A sport with this name already exists in this community.";
         }
@@ -604,18 +598,21 @@ public class GlobalExceptionHandler {
 
     // ─── Helper ──────────────────────────────────────────────────────────────
 
-    private ResponseEntity<ErrorResponse> build(
+    public static ResponseEntity<ErrorResponse> build(
             HttpStatus status, String errorCode, String message,
             HttpServletRequest request, List<ErrorResponse.FieldError> fieldErrors) {
+
+        String safeMessage = ErrorSanitizer.sanitize(message);
+        List<ErrorResponse.FieldError> safeFieldErrors = ErrorSanitizer.sanitizeFieldErrors(fieldErrors);
 
         ErrorResponse body = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(status.value())
                 .error(errorCode)
-                .message(message)
-                .path(request.getRequestURI())
+                .message(safeMessage)
+                .path(request != null ? request.getRequestURI() : null)
                 .correlationId(org.slf4j.MDC.get("correlationId"))
-                .fieldErrors(fieldErrors)
+                .fieldErrors(safeFieldErrors)
                 .build();
 
         return ResponseEntity.status(status).body(body);

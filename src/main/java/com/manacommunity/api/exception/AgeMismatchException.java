@@ -2,12 +2,14 @@ package com.manacommunity.api.exception;
 
 import org.springframework.http.HttpStatus;
 
-/** Thrown when a user's age does not meet the sport's or category's age requirements. */
+/**
+ * Thrown when a participant does not meet the category's age criteria.
+ * Message focuses on eligibility criteria without echoing exact personal age values.
+ */
 public class AgeMismatchException extends ManaCommunityException {
 
     public AgeMismatchException(int userAge, int minAge, int maxAge, String sportName) {
-        super("Your age (" + userAge + " yrs) does not meet the eligibility for '"
-                + sportName + "'. Required age: " + minAge + "–" + maxAge + " years.",
-                HttpStatus.BAD_REQUEST, "AGE_MISMATCH");
+        super("Age requirement not met for '" + sportName + "'. Required age: "
+                + minAge + "–" + maxAge + " years.", HttpStatus.BAD_REQUEST, "AGE_MISMATCH");
     }
 }

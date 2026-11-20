@@ -235,4 +235,70 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getError()).isEqualTo("INTERNAL_ERROR");
         assertThat(response.getBody().getMessage()).isEqualTo("An unexpected error occurred. Please try again later or contact support.");
     }
+
+    @Test
+    @DisplayName("Data integrity violation never leaks [db: ...] or table constraint names to client")
+    void testDataIntegrityNeverLeaksConstraintNameOrDbHints() {
+        DataIntegrityViolationException dive = new DataIntegrityViolationException(
+                "Execution error",
+                new RuntimeException("duplicate key value violates unique constraint \"uq_users_phone_number\" on table \"tbl_users\"")
+        );
+
+        ResponseEntity<ErrorResponse> response = handler.handleDataIntegrity(dive, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).doesNotContain("[db:");
+        assertThat(response.getBody().getMessage()).doesNotContain("uq_users_phone_number");
+        assertThat(response.getBody().getMessage()).doesNotContain("tbl_users");
+    }
+
+    @Test
+    @DisplayName("ResourceNotFoundException cleans table names into friendly entity names")
+    void testResourceNotFoundSanitizesTableNames() {
+        ResourceNotFoundException ex = new ResourceNotFoundException("tbl_property_tenants", 42L);
+
+        ResponseEntity<ErrorResponse> response = handler.handleNotFound(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Property Tenant not found with id: 42");
+        assertThat(response.getBody().getMessage()).doesNotContain("tbl_property_tenants");
+    }
+
+    @Test
+    @DisplayName("DuplicateResourceException cleans table and field names and never leaks raw values")
+    void testDuplicateResourceSanitizesTableAndFieldName() {
+        DuplicateResourceException ex = new DuplicateResourceException("tbl_residents", "col_phone_number", "9876543210");
+
+        ResponseEntity<ErrorResponse> response = handler.handleDuplicate(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("A Resident with that phone number already exists.");
+        assertThat(response.getBody().getMessage()).doesNotContain("tbl_residents");
+        assertThat(response.getBody().getMessage()).doesNotContain("9876543210");
+        assertThat(response.getBody().getMessage()).doesNotContain("col_phone_number");
+    }
+
+    @Test
+    @DisplayName("InvalidPhoneNumberException never leaks raw phone numbers")
+    void testInvalidPhoneNumberNeverLeaksPhoneNumber() {
+        InvalidPhoneNumberException ex = new InvalidPhoneNumberException("+91 9876543210");
+
+        ResponseEntity<ErrorResponse> response = handler.handleManaCommunity(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).doesNotContain("9876543210");
+        assertThat(response.getBody().getMessage()).isEqualTo("Invalid phone number format. Please provide a valid 10-digit mobile number.");
+    }
+
+    @Test
+    @DisplayName("SmsRateLimitException never leaks phone number or user identifiers")
+    void testSmsRateLimitNeverLeaksPhoneNumber() {
+        SmsRateLimitException ex = new SmsRateLimitException("phone:+919876543210");
+
+        ResponseEntity<ErrorResponse> response = handler.handleManaCommunity(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).doesNotContain("9876543210");
+        assertThat(response.getBody().getMessage()).isEqualTo("SMS rate limit exceeded. Please wait a few minutes before trying again.");
+    }
 }
