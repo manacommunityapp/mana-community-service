@@ -108,6 +108,15 @@ public class FileStorageController {
             if (principal == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
+            boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("SECURITY"));
+            if (!isAdmin && key.startsWith("kyc/")) {
+                String userSegment = "user-" + principal.getId();
+                String directUserSegment = "/" + principal.getId() + "/";
+                if (!key.contains(userSegment) && !key.contains(directUserSegment)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+            }
         }
 
         FileStreamResource resource = storageService.getStream(key);

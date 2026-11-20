@@ -16,6 +16,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** Paginated feed: all non-dismissed notifications for a user, newest first. */
     Page<Notification> findByUserIdAndDismissedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    /** Deduplication check to prevent duplicate notifications for the same reference event. */
+    boolean existsByUserIdAndReferenceTypeAndReferenceIdAndType(Long userId, com.manacommunity.api.model.ReferenceType referenceType, Long referenceId, com.manacommunity.api.model.NotificationType type);
+
     /**
      * Dedicated projection query for UI notification dropdown & feed preview.
      * Selects only the 12 columns required for rendering, omitting metadata, channel logs, and lazy relations.

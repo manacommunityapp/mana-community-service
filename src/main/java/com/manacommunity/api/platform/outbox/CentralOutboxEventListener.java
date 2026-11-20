@@ -23,6 +23,7 @@ import java.util.Map;
 public class CentralOutboxEventListener {
 
     private final NotificationManagementService notificationService;
+    private final com.manacommunity.api.repository.NotificationRepository notificationRepo;
     private final ObjectMapper objectMapper;
 
     @EventListener
@@ -47,9 +48,15 @@ public class CentralOutboxEventListener {
         Map<String, Object> data = extractPayload(event.getPayload());
         Long residentId = getLongValue(data, "residentId");
         if (residentId != null && residentId > 0) {
+            Long passId = getLongValue(data, "passId");
+            if (passId != null && notificationRepo.existsByUserIdAndReferenceTypeAndReferenceIdAndType(
+                    residentId, ReferenceType.VISITOR_PASS, passId, NotificationType.VISITOR_CHECK_IN)) {
+                log.debug("[OutboxRelayed] Check-in notification already exists for passId={} residentId={}", passId, residentId);
+                return;
+            }
+
             String visitorName = getStringValue(data, "visitorName", "Visitor");
             String flatNumber = getStringValue(data, "flatNumber", "");
-            Long passId = getLongValue(data, "passId");
 
             notificationService.createNotification(
                     residentId,
@@ -72,8 +79,14 @@ public class CentralOutboxEventListener {
         Map<String, Object> data = extractPayload(event.getPayload());
         Long residentId = getLongValue(data, "residentId");
         if (residentId != null && residentId > 0) {
-            String visitorName = getStringValue(data, "visitorName", "Visitor");
             Long passId = getLongValue(data, "passId");
+            if (passId != null && notificationRepo.existsByUserIdAndReferenceTypeAndReferenceIdAndType(
+                    residentId, ReferenceType.VISITOR_PASS, passId, NotificationType.VISITOR_CHECK_OUT)) {
+                log.debug("[OutboxRelayed] Check-out notification already exists for passId={} residentId={}", passId, residentId);
+                return;
+            }
+
+            String visitorName = getStringValue(data, "visitorName", "Visitor");
 
             notificationService.createNotification(
                     residentId,
@@ -96,9 +109,15 @@ public class CentralOutboxEventListener {
         Map<String, Object> data = extractPayload(event.getPayload());
         Long residentId = getLongValue(data, "residentId");
         if (residentId != null && residentId > 0) {
+            Long passId = getLongValue(data, "passId");
+            if (passId != null && notificationRepo.existsByUserIdAndReferenceTypeAndReferenceIdAndType(
+                    residentId, ReferenceType.VISITOR_PASS, passId, NotificationType.VISITOR_OVERSTAY_ALERT)) {
+                log.debug("[OutboxRelayed] Overstay alert notification already exists for passId={} residentId={}", passId, residentId);
+                return;
+            }
+
             String visitorName = getStringValue(data, "visitorName", "Visitor");
             String reason = getStringValue(data, "reason", "");
-            Long passId = getLongValue(data, "passId");
 
             notificationService.createNotification(
                     residentId,
@@ -126,6 +145,11 @@ public class CentralOutboxEventListener {
     private Map<String, Object> extractPayload(Object payload) {
         if (payload instanceof Map<?, ?> map) {
             return (Map<String, Object>) map;
+        }
+        if (payload instanceof String jsonStr && !jsonStr.isBlank()) {
+            try {
+                return objectMapper.readValue(jsonStr, Map.class);
+            } catch (Exception ignored) {}
         }
         return Map.of();
     }

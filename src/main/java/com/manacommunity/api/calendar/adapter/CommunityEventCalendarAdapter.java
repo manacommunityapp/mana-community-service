@@ -56,6 +56,9 @@ public class CommunityEventCalendarAdapter implements CalendarAdapter {
         LocalDateTime endDt = event.getEndDate() != null
                 ? LocalDateTime.of(event.getEndDate(), endTime)
                 : LocalDateTime.of(event.getStartDate(), endTime);
+        if (endDt.isBefore(startDt)) {
+            endDt = startDt.plusHours(2);
+        }
 
         Instant startInstant = startDt.toInstant(ZoneOffset.UTC);
         Instant endInstant = endDt.toInstant(ZoneOffset.UTC);
