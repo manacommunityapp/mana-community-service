@@ -23,6 +23,17 @@ public class PilotKpisResponse {
     private SupportKpiDto support;
     private RevenueKpiDto revenue;
     private List<ModuleKpiDto> modules;
+    private CostCalibrationDto costCalibration;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CostCalibrationDto {
+        private double gatewayMdrRate;
+        private double perTxnFixedCost;
+        private double moduleHostingAllocation;
+    }
 
     @Data
     @Builder
@@ -87,6 +98,7 @@ public class PilotKpisResponse {
     public static class ModuleKpiDto {
         private String module;
         private long activeUsers;
+        private long orderCount;
         private BigDecimal revenue;
         private BigDecimal cost;
     }

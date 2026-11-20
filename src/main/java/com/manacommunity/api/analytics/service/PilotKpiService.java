@@ -37,8 +37,30 @@ public class PilotKpiService {
 
     @Transactional(readOnly = true)
     public PilotKpisResponse getPilotKpis(Long communityId, LocalDate from, LocalDate to) {
+        return getPilotKpis(communityId, from, to, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PilotKpisResponse getPilotKpis(
+            Long communityId,
+            LocalDate from,
+            LocalDate to,
+            Double gatewayMdrRate,
+            Double perTxnFixedCost,
+            Double moduleHostingAllocation) {
         OffsetDateTime fromDt = from.atStartOfDay().atOffset(ZoneOffset.UTC);
         OffsetDateTime toDt = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+
+        // Calibrated cost model inputs (Finance/Ops inputs or defaults)
+        BigDecimal mdrRate = gatewayMdrRate != null && gatewayMdrRate >= 0
+                ? BigDecimal.valueOf(gatewayMdrRate)
+                : BigDecimal.valueOf(0.02); // Calibrated default: 2.0% standard PG MDR (Razorpay/Cashfree)
+        BigDecimal txnFixedCost = perTxnFixedCost != null && perTxnFixedCost >= 0
+                ? BigDecimal.valueOf(perTxnFixedCost)
+                : BigDecimal.valueOf(2.0); // Calibrated default: ₹2.00 messaging/cloud per transaction
+        BigDecimal hostingAllocation = moduleHostingAllocation != null && moduleHostingAllocation >= 0
+                ? BigDecimal.valueOf(moduleHostingAllocation)
+                : BigDecimal.ZERO; // Optional fixed hosting allocation per module
 
         // 1. Onboarding & Resident Activation
         long activeUsersFromEvents = eventRepo.countDistinctActiveUsers(communityId, fromDt, toDt);
@@ -190,19 +212,29 @@ public class PilotKpiService {
             if (rev.compareTo(BigDecimal.ZERO) == 0 && orders == 0) {
                 users = 0;
             }
-            // Estimated direct cost: 5% gateway/support + flat infrastructure charge if active
-            BigDecimal cost = rev.multiply(BigDecimal.valueOf(0.05)).setScale(2, RoundingMode.HALF_UP);
+            // Calibrated direct cost: gateway MDR on GMV + fixed messaging/infra per order + module hosting allocation
+            BigDecimal cost = rev.multiply(mdrRate).setScale(2, RoundingMode.HALF_UP);
             if (orders > 0) {
-                cost = cost.add(BigDecimal.valueOf(orders * 2.0)); // ₹2 per transaction messaging/infra cost
+                cost = cost.add(txnFixedCost.multiply(BigDecimal.valueOf(orders)));
+            }
+            if (orders > 0 || rev.compareTo(BigDecimal.ZERO) > 0) {
+                cost = cost.add(hostingAllocation);
             }
 
             moduleScorecard.add(PilotKpisResponse.ModuleKpiDto.builder()
                     .module(mod)
                     .activeUsers(users)
+                    .orderCount(orders)
                     .revenue(rev)
                     .cost(cost)
                     .build());
         }
+
+        PilotKpisResponse.CostCalibrationDto costCalibration = PilotKpisResponse.CostCalibrationDto.builder()
+                .gatewayMdrRate(mdrRate.doubleValue())
+                .perTxnFixedCost(txnFixedCost.doubleValue())
+                .moduleHostingAllocation(hostingAllocation.doubleValue())
+                .build();
 
         return PilotKpisResponse.builder()
                 .activeResidents(activeResidents)
@@ -214,6 +246,7 @@ public class PilotKpiService {
                 .support(support)
                 .revenue(revenue)
                 .modules(moduleScorecard)
+                .costCalibration(costCalibration)
                 .build();
     }
 }

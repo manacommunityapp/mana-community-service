@@ -27,6 +27,9 @@ public class PilotKpiController {
             @RequestParam(required = false) Long communityId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Double gatewayMdrRate,
+            @RequestParam(required = false) Double perTxnFixedCost,
+            @RequestParam(required = false) Double moduleHostingAllocation,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         boolean isSuperAdmin = principal.getAuthorities().stream()
@@ -46,6 +49,7 @@ public class PilotKpiController {
             return ResponseEntity.badRequest().build();
         }
 
-        return ResponseEntity.ok(pilotKpiService.getPilotKpis(targetCommunityId, from, to));
+        return ResponseEntity.ok(pilotKpiService.getPilotKpis(
+                targetCommunityId, from, to, gatewayMdrRate, perTxnFixedCost, moduleHostingAllocation));
     }
 }

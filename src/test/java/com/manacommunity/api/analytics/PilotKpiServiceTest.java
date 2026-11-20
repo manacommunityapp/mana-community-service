@@ -126,5 +126,18 @@ class PilotKpiServiceTest {
         assertThat(amenityMod).isNotNull();
         assertThat(amenityMod.getRevenue()).isEqualByComparingTo("15000");
         assertThat(amenityMod.getCost()).isGreaterThan(BigDecimal.ZERO);
+        assertThat(amenityMod.getOrderCount()).isEqualTo(10L);
+
+        // Calibrated cost model defaults
+        assertThat(response.getCostCalibration()).isNotNull();
+        assertThat(response.getCostCalibration().getGatewayMdrRate()).isEqualTo(0.02);
+        assertThat(response.getCostCalibration().getPerTxnFixedCost()).isEqualTo(2.0);
+
+        // Custom Finance/Ops calibration verification
+        PilotKpisResponse customResponse = pilotKpiService.getPilotKpis(
+                communityId, from, to, 0.015, 1.0, 100.0);
+        assertThat(customResponse.getCostCalibration().getGatewayMdrRate()).isEqualTo(0.015);
+        assertThat(customResponse.getCostCalibration().getPerTxnFixedCost()).isEqualTo(1.0);
+        assertThat(customResponse.getCostCalibration().getModuleHostingAllocation()).isEqualTo(100.0);
     }
 }
