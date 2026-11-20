@@ -16,6 +16,8 @@ public class HsWorker {
     @Column(name = "is_external", nullable = false) private Boolean isExternal = false;
     @Column(precision = 3, scale = 2) private BigDecimal rating;
     @Column(name = "total_jobs", nullable = false) private Integer totalJobs = 0;
+    @Column(name = "vms_vendor_id") private Long vmsVendorId;
+    @Column(name = "user_id") private Long userId;
     @Column(name = "is_active", nullable = false) private Boolean isActive = true;
     @Column(name = "created_at") private Instant createdAt = Instant.now();
 }

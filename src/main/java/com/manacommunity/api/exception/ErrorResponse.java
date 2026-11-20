@@ -29,6 +29,9 @@ public class ErrorResponse {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private final LocalDateTime timestamp;
 
+    @Builder.Default
+    private final boolean success = false;
+
     private final int status;
 
     private final String error;     // machine-readable error code

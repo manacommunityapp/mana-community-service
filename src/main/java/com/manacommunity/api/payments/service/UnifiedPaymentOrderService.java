@@ -223,6 +223,7 @@ public class UnifiedPaymentOrderService {
         order.setWebhookReceivedAt(OffsetDateTime.now());
         PaymentOrder saved = repository.save(order);
         log.info("[PaymentOrder] SUCCESS id={} paymentId={}", saved.getId(), gatewayPaymentId);
+        publishPaymentCapturedEvent(saved);
         return saved;
     }
 
@@ -241,7 +242,31 @@ public class UnifiedPaymentOrderService {
         order.setGatewayPaymentId(gatewayPaymentId);
         order.setStatus(PaymentOrderStatus.SUCCESS);
         order.setWebhookReceivedAt(OffsetDateTime.now());
-        return repository.save(order);
+        PaymentOrder saved = repository.save(order);
+        log.info("[PaymentOrder] SUCCESS (by gateway order) id={} paymentId={}", saved.getId(), gatewayPaymentId);
+        publishPaymentCapturedEvent(saved);
+        return saved;
+    }
+
+    private void publishPaymentCapturedEvent(PaymentOrder saved) {
+        GatewayPaymentCapturedEvent.Gateway mappedGateway;
+        try {
+            mappedGateway = GatewayPaymentCapturedEvent.Gateway.valueOf(saved.getGateway().name());
+        } catch (Exception e) {
+            mappedGateway = GatewayPaymentCapturedEvent.Gateway.MANUAL;
+        }
+        String description = saved.getGateway() + " payment for " + saved.getReferenceType() + " #" + saved.getReferenceId();
+        GatewayPaymentCapturedEvent captured = new GatewayPaymentCapturedEvent(
+                mappedGateway,
+                saved.getGatewayOrderId(),
+                saved.getGatewayPaymentId(),
+                saved.getAmount(),
+                saved.getCurrency(),
+                description,
+                saved.getId());
+        eventPublisher.publishEvent(captured);
+        domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(saved.getId()),
+                "GatewayPaymentCaptured", captured, saved.getCommunityId());
     }
 
     // ─── Failure ─────────────────────────────────────────────────────────────────

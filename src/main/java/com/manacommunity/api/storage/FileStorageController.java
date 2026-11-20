@@ -92,14 +92,22 @@ public class FileStorageController {
      */
     @GetMapping("/**")
     public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamFile(
-            jakarta.servlet.http.HttpServletRequest request) {
+            jakarta.servlet.http.HttpServletRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         String fullPath = (String) request.getAttribute(org.springframework.web.servlet.HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
         if (fullPath == null || !fullPath.startsWith("/api/files/")) {
             return ResponseEntity.badRequest().build();
         }
         String key = fullPath.substring("/api/files/".length()).trim();
-        if (key.isBlank()) {
-            return ResponseEntity.notFound().build();
+        if (key.isBlank() || key.contains("..") || key.contains("\\")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Sensitive paths require authenticated access
+        if (key.startsWith("kyc/") || key.startsWith("id_proofs/") || key.startsWith("documents/private/")) {
+            if (principal == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
         }
 
         FileStreamResource resource = storageService.getStream(key);
