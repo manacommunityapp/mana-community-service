@@ -1,5 +1,8 @@
 package com.manacommunity.api.security;
 
+import com.manacommunity.platform.ratelimit.DistributedRateLimitService;
+import com.manacommunity.platform.ratelimit.DistributedRateLimitService.RateLimitResult;
+import com.manacommunity.platform.ratelimit.RateLimitType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,69 +16,32 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Strict per-endpoint rate limiter for authentication endpoints. Prevents
- * brute-force password/OTP guessing and credential-stuffing attacks.
- *
- * <p>Each endpoint has its own limit and window. After the limit is hit,
- * subsequent requests receive 429 with a {@code Retry-After} header whose
- * value doubles on each consecutive blocked request (exponential backoff,
- * capped at 1 hour).</p>
- *
- * <p>Runs at highest precedence + 1, right after the global {@link RateLimitFilter}.</p>
+ * Strict per-endpoint rate limiter for authentication endpoints.
+ * Uses {@link DistributedRateLimitService} (Redis-backed) so counters are
+ * consistent across multiple application instances. Falls back to in-memory
+ * when Redis is unavailable — limits are still enforced, never skipped.
  */
 @Slf4j
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class AuthRateLimitFilter extends OncePerRequestFilter {
 
-    private static final int MAX_TRACKED_KEYS = 100_000;
-    private static final long MAX_BACKOFF_SEC = 3600L;
-
     private final boolean enabled;
     private final boolean bypassLocalhost;
-    private final int loginLimit;
-    private final long loginWindowMs;
-    private final int registerLimit;
-    private final long registerWindowMs;
-    private final int forgotPasswordLimit;
-    private final long forgotPasswordWindowMs;
-    private final int otpLimit;
-    private final long otpWindowMs;
-    private final long otpMaxBackoffSec;
     private final boolean trustForwardedHeader;
-
-    private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final DistributedRateLimitService rateLimitService;
 
     public AuthRateLimitFilter(
             @Value("${app.security.auth-rate-limit.enabled:${app.security.rate-limit.enabled:true}}") boolean enabled,
             @Value("${app.security.auth-rate-limit.bypass-localhost:true}") boolean bypassLocalhost,
-            @Value("${app.security.auth-rate-limit.login.limit:10}") int loginLimit,
-            @Value("${app.security.auth-rate-limit.login.window-minutes:15}") int loginWindowMin,
-            @Value("${app.security.auth-rate-limit.register.limit:10}") int registerLimit,
-            @Value("${app.security.auth-rate-limit.register.window-minutes:60}") int registerWindowMin,
-            @Value("${app.security.auth-rate-limit.forgot-password.limit:10}") int forgotPasswordLimit,
-            @Value("${app.security.auth-rate-limit.forgot-password.window-minutes:60}") int forgotPasswordWindowMin,
-            @Value("${app.security.auth-rate-limit.otp.limit:30}") int otpLimit,
-            @Value("${app.security.auth-rate-limit.otp.window-minutes:10}") int otpWindowMin,
-            @Value("${app.security.auth-rate-limit.otp.max-backoff-seconds:60}") long otpMaxBackoffSec,
-            @Value("${app.security.rate-limit.trust-forwarded-header:false}") boolean trustForwardedHeader) {
+            @Value("${app.security.rate-limit.trust-forwarded-header:false}") boolean trustForwardedHeader,
+            DistributedRateLimitService rateLimitService) {
         this.enabled = enabled;
         this.bypassLocalhost = bypassLocalhost;
-        this.loginLimit = loginLimit;
-        this.loginWindowMs = loginWindowMin * 60_000L;
-        this.registerLimit = registerLimit;
-        this.registerWindowMs = registerWindowMin * 60_000L;
-        this.forgotPasswordLimit = forgotPasswordLimit;
-        this.forgotPasswordWindowMs = forgotPasswordWindowMin * 60_000L;
-        this.otpLimit = otpLimit;
-        this.otpWindowMs = otpWindowMin * 60_000L;
-        this.otpMaxBackoffSec = otpMaxBackoffSec;
         this.trustForwardedHeader = trustForwardedHeader;
+        this.rateLimitService = rateLimitService;
     }
 
     @Override
@@ -87,8 +53,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         }
 
         String uri = request.getRequestURI();
-        EndpointRule rule = resolveRule(uri);
-        if (rule == null) {
+        RateLimitType type = resolveType(uri);
+        if (type == null) {
             chain.doFilter(request, response);
             return;
         }
@@ -99,48 +65,35 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String bucketKey = rule.name + ":" + clientIp;
-        long now = System.currentTimeMillis();
+        // Extract account key from request body hint (email in param) or fall back to IP
+        String accountKey = resolveAccountKey(request, clientIp);
+        RateLimitResult result = rateLimitService.check(clientIp, accountKey, type);
 
-        evictIfNeeded(now);
-
-        Bucket bucket = buckets.compute(bucketKey, (k, existing) -> {
-            if (existing == null || now - existing.windowStart >= rule.windowMs) {
-                return new Bucket(now);
-            }
-            existing.count.incrementAndGet();
-            return existing;
-        });
-
-        if (bucket.count.get() > rule.limit) {
-            int consecutiveBlocks = bucket.consecutiveBlocks.incrementAndGet();
-            long baseRetry = Math.max(1, (rule.windowMs - (now - bucket.windowStart)) / 1000);
-            long maxBackoff = "otp".equals(rule.name) ? otpMaxBackoffSec : MAX_BACKOFF_SEC;
-            long backoff = Math.min(maxBackoff, baseRetry * (1L << Math.min(consecutiveBlocks - 1, 10)));
-            writeTooManyRequests(request, response, backoff, rule.name);
-            log.warn("Auth rate limit hit: endpoint={} ip={} attempts={} window={}min",
-                    rule.name, clientIp, bucket.count.get(), rule.windowMs / 60_000);
+        if (!result.allowed()) {
+            long retryAfter = result.resetAtEpochSecond() - System.currentTimeMillis() / 1000;
+            long backoff = Math.max(1, retryAfter);
+            writeTooManyRequests(request, response, backoff, type.name().toLowerCase());
+            log.warn("Auth rate limit hit: endpoint={} ip={} remaining={}", type, clientIp, result.remaining());
             return;
         }
 
         chain.doFilter(request, response);
     }
 
-    private EndpointRule resolveRule(String uri) {
-        if (uri.equals("/api/auth/login")) {
-            return new EndpointRule("login", loginLimit, loginWindowMs);
-        }
-        if (uri.equals("/api/auth/register")) {
-            return new EndpointRule("register", registerLimit, registerWindowMs);
-        }
-        if (uri.equals("/api/auth/forgot-password")) {
-            return new EndpointRule("forgot-password", forgotPasswordLimit, forgotPasswordWindowMs);
-        }
+    private RateLimitType resolveType(String uri) {
+        if (uri.equals("/api/auth/login")) return RateLimitType.LOGIN;
+        if (uri.equals("/api/auth/register")) return RateLimitType.REGISTRATION;
+        if (uri.equals("/api/auth/forgot-password")) return RateLimitType.PASSWORD_RESET;
         if (uri.equals("/api/auth/send-signup-otp") || uri.equals("/api/auth/verify-signup-otp")
-                || uri.startsWith("/api/otp/")) {
-            return new EndpointRule("otp", otpLimit, otpWindowMs);
-        }
+                || uri.startsWith("/api/otp/")) return RateLimitType.OTP;
         return null;
+    }
+
+    private String resolveAccountKey(HttpServletRequest request, String fallbackIp) {
+        // Use email parameter as account key when present (before body is consumed)
+        String email = request.getParameter("email");
+        if (email != null && !email.isBlank()) return email.toLowerCase().trim();
+        return fallbackIp;
     }
 
     private String clientIp(HttpServletRequest request) {
@@ -157,19 +110,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private boolean isLoopback(String ip) {
         if (ip == null || ip.isBlank()) return false;
         String trimmed = ip.trim();
-        return "127.0.0.1".equals(trimmed)
-                || "0:0:0:0:0:0:0:1".equals(trimmed)
-                || "::1".equals(trimmed)
-                || "localhost".equalsIgnoreCase(trimmed);
-    }
-
-    private void evictIfNeeded(long now) {
-        if (buckets.size() > MAX_TRACKED_KEYS) {
-            buckets.entrySet().removeIf(e -> {
-                Bucket b = e.getValue();
-                return now - b.windowStart > MAX_BACKOFF_SEC * 1000;
-            });
-        }
+        return "127.0.0.1".equals(trimmed) || "0:0:0:0:0:0:0:1".equals(trimmed)
+                || "::1".equals(trimmed) || "localhost".equalsIgnoreCase(trimmed);
     }
 
     private void writeTooManyRequests(HttpServletRequest request, HttpServletResponse response,
@@ -178,32 +120,16 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         response.setContentType("application/json");
         response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
         String safePath = request.getRequestURI()
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\r", "")
-                .replace("\n", "");
-        String body = "{"
+                .replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\r", "").replace("\n", "");
+        response.getWriter().write("{"
                 + "\"timestamp\":\"" + LocalDateTime.now() + "\","
                 + "\"status\":429,"
                 + "\"error\":\"RATE_LIMIT_EXCEEDED\","
                 + "\"message\":\"Too many " + endpoint + " attempts. Please try again after "
                 + retryAfterSeconds + " seconds.\","
-                + "\"retryAfter\":" + retryAfterSeconds + ","
-                + "\"path\":\"" + safePath + "\"}";
-        response.getWriter().write(body);
-    }
-
-    private record EndpointRule(String name, int limit, long windowMs) {}
-
-    private static final class Bucket {
-        final long windowStart;
-        final AtomicInteger count;
-        final AtomicInteger consecutiveBlocks;
-
-        Bucket(long windowStart) {
-            this.windowStart = windowStart;
-            this.count = new AtomicInteger(1);
-            this.consecutiveBlocks = new AtomicInteger(0);
-        }
+                + "\"retryAfterSeconds\":" + retryAfterSeconds + ","
+                + "\"type\":\"" + endpoint.toUpperCase() + "\","
+                + "\"path\":\"" + safePath + "\"}");
     }
 }

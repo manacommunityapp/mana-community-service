@@ -1,6 +1,7 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.platform.idempotency.IdempotencyInterceptor;
+import com.manacommunity.platform.ratelimit.RateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
     private String allowedOrigins;
 
     private final IdempotencyInterceptor idempotencyInterceptor;
+    private final RateLimitInterceptor rateLimitInterceptor;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -32,5 +34,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(idempotencyInterceptor).addPathPatterns("/api/**");
+        registry.addInterceptor(rateLimitInterceptor).addPathPatterns("/api/**");
     }
 }
