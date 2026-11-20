@@ -2,6 +2,7 @@ package com.manacommunity.api.config;
 
 import com.manacommunity.api.security.JwtTokenProvider;
 import com.manacommunity.api.security.StompSubscriptionInterceptor;
+import com.manacommunity.platform.websocket.StompSecurityChannelInterceptor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -42,6 +43,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtTokenProvider jwtTokenProvider;
     private final Environment environment;
     private final StompSubscriptionInterceptor stompSubscriptionInterceptor;
+    private final StompSecurityChannelInterceptor stompSecurityChannelInterceptor;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private List<String> allowedOrigins;
@@ -50,10 +52,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private boolean mockAuthEnabled;
 
     public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment,
-                           StompSubscriptionInterceptor stompSubscriptionInterceptor) {
+                           StompSubscriptionInterceptor stompSubscriptionInterceptor,
+                           StompSecurityChannelInterceptor stompSecurityChannelInterceptor) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.environment = environment;
         this.stompSubscriptionInterceptor = stompSubscriptionInterceptor;
+        this.stompSecurityChannelInterceptor = stompSecurityChannelInterceptor;
     }
 
     @PostConstruct
@@ -91,7 +95,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
                 return message;
             }
-        }, stompSubscriptionInterceptor);
+        }, stompSubscriptionInterceptor, stompSecurityChannelInterceptor);
     }
 
     /** Resolves a user id from the CONNECT Authorization header and attaches it as the session principal. */
