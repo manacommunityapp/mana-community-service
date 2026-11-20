@@ -129,13 +129,14 @@ public class AuthController {
 
     /**
      * Sends a 6-digit OTP verification code to the registered email address for password reset.
+     * Prevents user enumeration by returning a generic response whether or not the account exists.
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.sendPasswordResetOtp(request.getEmail());
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Verification code has been sent to your email address."
+                "message", "If an account exists with that email address, a verification code has been sent."
         ));
     }
 

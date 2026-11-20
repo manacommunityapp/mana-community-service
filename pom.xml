@@ -140,6 +140,19 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
+        <!-- Micrometer Tracing with OpenTelemetry bridge (W3C traceparent propagation) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+
+        <!-- Logstash Logback JSON Encoder for structured log ingestion (Loki / CloudWatch) -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
+        </dependency>
+
         <!-- WebSocket + STOMP messaging (real-time chat / live push) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

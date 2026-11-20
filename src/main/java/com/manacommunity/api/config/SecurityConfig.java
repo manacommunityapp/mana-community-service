@@ -156,9 +156,10 @@ public class SecurityConfig { // BUG FIX: was package-private
         config.setAllowedHeaders(Arrays.asList(
                 "Authorization", "Content-Type", "X-Requested-With", "Accept",
                 "X-Idempotency-Key", "X-XSRF-TOKEN", "X-Community-ID",
-                "X-Correlation-Id", "X-Correlation-ID", "X-Platform"
+                "X-Correlation-Id", "X-Correlation-ID", "X-Platform",
+                "traceparent", "tracestate", "baggage"
         ));
-        config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie"));
+        config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie", "X-Correlation-Id", "traceparent"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

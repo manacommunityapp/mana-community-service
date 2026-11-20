@@ -33,6 +33,7 @@ import java.util.UUID;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
+    public static final String TRACEPARENT_HEADER = "traceparent";
     public static final String MDC_CORRELATION_ID = "correlationId";
     public static final String MDC_USER_ID = "userId";
 
@@ -42,6 +43,12 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         String correlationId = resolveCorrelationId(request);
         MDC.put(MDC_CORRELATION_ID, correlationId);
         response.setHeader(CORRELATION_ID_HEADER, correlationId);
+
+        String traceparent = request.getHeader(TRACEPARENT_HEADER);
+        if (traceparent != null && !traceparent.isBlank()) {
+            response.setHeader(TRACEPARENT_HEADER, traceparent.trim());
+        }
+
         try {
             // userId is added to the MDC by JwtAuthenticationFilter once the request
             // is authenticated; this filter owns the lifecycle and clears both keys.
@@ -57,6 +64,14 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         if (incoming != null && !incoming.isBlank() && incoming.length() <= 64) {
             // Strip anything that isn't safe for a log token to prevent log forging.
             return incoming.replaceAll("[^a-zA-Z0-9\\-]", "");
+        }
+        // Fallback to W3C traceparent traceId if available
+        String traceparent = request.getHeader(TRACEPARENT_HEADER);
+        if (traceparent != null && traceparent.startsWith("00-")) {
+            String[] parts = traceparent.split("-");
+            if (parts.length >= 2 && parts[1].length() == 32) {
+                return parts[1];
+            }
         }
         return UUID.randomUUID().toString();
     }

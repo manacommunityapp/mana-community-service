@@ -118,6 +118,11 @@ management:
       # Stamp every metric with the app name so multiple services are separable
       # in one Prometheus/Grafana instance.
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY:1.0}
+    propagation:
+      type: W3C
 
 # ── Application-level email notification settings ───────────────────────
 app:

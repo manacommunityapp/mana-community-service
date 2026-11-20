@@ -26,6 +26,8 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     List<PaymentOrder> findByReferenceTypeAndReferenceId(
             PaymentReferenceType referenceType, Long referenceId);
 
+    Page<PaymentOrder> findByCommunityId(Long communityId, Pageable pageable);
+
     Page<PaymentOrder> findByCommunityIdAndStatus(
             Long communityId, PaymentOrderStatus status, Pageable pageable);
 
