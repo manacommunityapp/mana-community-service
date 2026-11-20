@@ -28,7 +28,7 @@ public class MarketOrderController {
     private final MarketHandoverSecurityService handoverSecurityService;
     private final LoggedInUserService loggedInUserService;
 
-    @GetMapping("/purchases")
+    @GetMapping({"/purchases", "/mine"})
     @PreAuthorize("hasAuthority('View Marketplace')")
     public ResponseEntity<Page<MarketOrderResponse>> getMyPurchases(
             @RequestParam(defaultValue = "0") int page,
@@ -39,7 +39,7 @@ public class MarketOrderController {
         return ResponseEntity.ok(orderService.getMyPurchases(user.getId(), pageable));
     }
 
-    @GetMapping("/sales")
+    @GetMapping({"/sales", "/selling"})
     @PreAuthorize("hasAuthority('View Marketplace')")
     public ResponseEntity<Page<MarketOrderResponse>> getMySales(
             @RequestParam(defaultValue = "0") int page,

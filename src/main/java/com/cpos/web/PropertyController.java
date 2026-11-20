@@ -17,6 +17,7 @@ import java.util.UUID;
  * Property Master Controller — REST API for Property Digital Twin operations.
  * Base path: /api/v1/cpos/properties
  */
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')") // CPOS is portfolio-wide; tenantId is client-supplied, so restrict to super admins
 @RestController
 @RequestMapping("/api/v1/cpos/properties")
 @RequiredArgsConstructor

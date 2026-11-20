@@ -34,8 +34,10 @@ public class PaymentWebhookReconciliationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Missing signature"));
         }
-        webhookService.processCashfreeWebhook(payload, signature, timestamp);
-        return ResponseEntity.ok(Map.of("status", "processed"));
+        // Handler is not implemented: never acknowledge as processed (fake success). 501 lets the gateway retry/alert.
+        log.error("[WEBHOOK][CASHFREE] Handler not implemented - rejecting with 501");
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(Map.of("error", "Cashfree webhook processing not implemented"));
     }
 
     @PostMapping("/razorpay")
@@ -78,7 +80,9 @@ public class PaymentWebhookReconciliationController {
     public ResponseEntity<Map<String, String>> handleStripe(
             @RequestBody String rawPayload,
             @RequestHeader(value = "Stripe-Signature", required = false) String signature) {
-        webhookService.processStripeWebhook(rawPayload, signature);
-        return ResponseEntity.ok(Map.of("status", "processed"));
+        // Handler is not implemented and signature is not verified: never acknowledge as processed.
+        log.error("[WEBHOOK][STRIPE] Handler not implemented - rejecting with 501");
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(Map.of("error", "Stripe webhook processing not implemented"));
     }
 }

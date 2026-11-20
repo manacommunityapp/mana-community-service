@@ -56,6 +56,7 @@ class AuthServiceTest {
     @Mock com.manacommunity.api.service.NotificationManagementService notificationService;
     @Mock com.manacommunity.api.security.RsaKeyService rsaKeyService;
     @Mock com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
+    @Mock com.manacommunity.api.privacy.ConsentRecordRepository consentRecordRepository;
 
     @InjectMocks AuthServiceImpl authService;
 
@@ -111,7 +112,7 @@ class AuthServiceTest {
             when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
-            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-tenant");
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-tenant");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-tenant");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);

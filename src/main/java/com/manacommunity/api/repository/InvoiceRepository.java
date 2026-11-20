@@ -25,6 +25,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     java.util.Optional<Invoice> findByIdAndCommunityId(Long id, Long communityId);
 
+    List<Invoice> findByCommunityId(Long communityId);
+
     long countByCommunityId(Long communityId);
 
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.community.id = :cid " +

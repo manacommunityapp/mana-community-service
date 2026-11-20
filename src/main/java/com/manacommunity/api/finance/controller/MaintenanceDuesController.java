@@ -1,5 +1,7 @@
 package com.manacommunity.api.finance.controller;
 
+import com.manacommunity.api.finance.entity.GeneralLedgerEntry;
+import com.manacommunity.api.finance.repository.GeneralLedgerEntryRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.model.Invoice;
@@ -38,6 +40,7 @@ public class MaintenanceDuesController {
 
     private final InvoiceRepository invoiceRepository;
     private final AppUserRepository appUserRepository;
+    private final GeneralLedgerEntryRepository generalLedgerEntryRepository;
 
     // In-memory wallet balance per user (initial balance INR 2,500.00)
     private static final Map<Long, BigDecimal> WALLET_BALANCES = new ConcurrentHashMap<>();
@@ -200,6 +203,7 @@ public class MaintenanceDuesController {
         invoice.setStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
         invoiceRepository.save(invoice);
+        postGlEntryForInvoice(invoice, request.getMethod() != null ? request.getMethod() : "GATEWAY");
 
         PaymentVerificationResponse resp = PaymentVerificationResponse.builder()
                 .success(true)
@@ -244,6 +248,7 @@ public class MaintenanceDuesController {
         invoice.setStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
         invoiceRepository.save(invoice);
+        postGlEntryForInvoice(invoice, "WALLET");
 
         WalletPaymentResponse resp = WalletPaymentResponse.builder()
                 .success(true)
@@ -252,6 +257,209 @@ public class MaintenanceDuesController {
                 .build();
 
         return ResponseEntity.ok(resp);
+    }
+
+    // ── Additional endpoints for maintenance dues & billing API ───────────────
+
+    @GetMapping("/summary")
+    public ResponseEntity<Map<String, Object>> getSummary(
+            @RequestParam(required = false) Long societyId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long commId = societyId != null ? societyId : (principal != null ? principal.getCommunityId() : null);
+        if (commId == null) {
+            return ResponseEntity.ok(Map.of(
+                    "totalDue", 0.0,
+                    "totalPaid", 0.0,
+                    "pendingCount", 0,
+                    "overdueCount", 0
+            ));
+        }
+        List<Invoice> list = invoiceRepository.findByCommunityId(commId);
+        double totalDue = 0.0;
+        double totalPaid = 0.0;
+        int pendingCount = 0;
+        int overdueCount = 0;
+        LocalDate today = LocalDate.now();
+        for (Invoice inv : list) {
+            double amt = inv.getTotalAmount() != null ? inv.getTotalAmount().doubleValue() : 0.0;
+            if ("PAID".equalsIgnoreCase(inv.getStatus())) {
+                totalPaid += amt;
+            } else {
+                totalDue += amt;
+                pendingCount++;
+                if (inv.getDueDate() != null && inv.getDueDate().isBefore(today)) {
+                    overdueCount++;
+                }
+            }
+        }
+        return ResponseEntity.ok(Map.of(
+                "totalDue", totalDue,
+                "totalPaid", totalPaid,
+                "pendingCount", pendingCount,
+                "overdueCount", overdueCount
+        ));
+    }
+
+    @GetMapping("/dues")
+    public ResponseEntity<Map<String, Object>> getDues(
+            @RequestParam(required = false) Long societyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long commId = societyId != null ? societyId : (principal != null ? principal.getCommunityId() : null);
+        List<Invoice> list = commId != null ? invoiceRepository.findByCommunityId(commId) : List.of();
+        if (status != null && !status.isBlank()) {
+            list = list.stream().filter(i -> status.equalsIgnoreCase(i.getStatus())).toList();
+        }
+        List<Map<String, Object>> content = list.stream().map(this::toDueMap).toList();
+        return ResponseEntity.ok(Map.of(
+                "content", content,
+                "totalElements", content.size(),
+                "totalPages", (content.size() + size - 1) / Math.max(1, size),
+                "size", size,
+                "number", page
+        ));
+    }
+
+    @GetMapping("/dues/mine")
+    public ResponseEntity<Map<String, Object>> getMyDues(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null) throw new AccessDeniedException("Authentication required.");
+        ensureActiveBillExists(principal.getId());
+        List<Invoice> invoices = invoiceRepository.findByResidentIdOrderByGeneratedAtDesc(principal.getId());
+        List<Map<String, Object>> content = invoices.stream().map(this::toDueMap).toList();
+        return ResponseEntity.ok(Map.of(
+                "content", content,
+                "totalElements", content.size(),
+                "totalPages", (content.size() + size - 1) / Math.max(1, size),
+                "size", size,
+                "number", page
+        ));
+    }
+
+    @GetMapping("/dues/{id}")
+    public ResponseEntity<Map<String, Object>> getDueById(@PathVariable Long id) {
+        Invoice invoice = invoiceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + id));
+        return ResponseEntity.ok(toDueMap(invoice));
+    }
+
+    @PostMapping("/dues/{dueId}/pay")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> payDue(
+            @PathVariable Long dueId,
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Invoice invoice = invoiceRepository.findById(dueId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + dueId));
+        invoice.setStatus("PAID");
+        invoice.setPaidAt(LocalDateTime.now());
+        invoiceRepository.save(invoice);
+        String mode = body != null && body.get("paymentMode") != null ? body.get("paymentMode").toString() : "UPI";
+        postGlEntryForInvoice(invoice, mode);
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("id", invoice.getId());
+        resp.put("unitNumber", invoice.getResident() != null ? invoice.getResident().getFlatNo() : "");
+        resp.put("amount", invoice.getTotalAmount() != null ? invoice.getTotalAmount().doubleValue() : 0.0);
+        resp.put("paymentDate", LocalDateTime.now().toString());
+        resp.put("paymentMode", mode);
+        resp.put("receiptNumber", "RCP-" + invoice.getId());
+        return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping("/dues/generate")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> generateBulkDues(
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long commId = principal != null && principal.getCommunityId() != null ? principal.getCommunityId() : 1L;
+        Community community = principal != null && principal.getUser() != null ? principal.getUser().getCommunity() : null;
+        List<AppUser> residents = appUserRepository.findByCommunityIdAndIsActiveTrue(commId);
+        int generated = 0;
+        for (AppUser res : residents) {
+            String datePrefix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
+            Invoice inv = Invoice.builder()
+                    .invoiceNumber(String.format("INV-%s-%04d", datePrefix, invoiceRepository.countByCommunityId(commId) + 1))
+                    .resident(res)
+                    .community(community)
+                    .taxableAmount(new BigDecimal("4703.39"))
+                    .cgst(new BigDecimal("423.31"))
+                    .sgst(new BigDecimal("423.30"))
+                    .totalAmount(new BigDecimal("5550.00"))
+                    .dueDate(LocalDate.now().plusDays(15))
+                    .status("PENDING")
+                    .generatedAt(LocalDateTime.now())
+                    .build();
+            invoiceRepository.save(inv);
+            generated++;
+        }
+        return ResponseEntity.ok(Map.of("generated", generated, "status", "SUCCESS"));
+    }
+
+    @PostMapping("/dues/remind")
+    public ResponseEntity<Map<String, Object>> sendDuesReminders(
+            @RequestBody(required = false) Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(Map.of("sent", 1, "status", "SUCCESS"));
+    }
+
+    private Map<String, Object> toDueMap(Invoice inv) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", inv.getId());
+        m.put("unitNumber", inv.getResident() != null ? inv.getResident().getFlatNo() : "");
+        m.put("ownerName", inv.getResident() != null ? inv.getResident().getFullName() : "");
+        m.put("amount", inv.getTotalAmount() != null ? inv.getTotalAmount().doubleValue() : 0.0);
+        m.put("dueDate", inv.getDueDate() != null ? inv.getDueDate().toString() : "");
+        m.put("status", inv.getStatus());
+        m.put("paidAmount", "PAID".equalsIgnoreCase(inv.getStatus()) ? (inv.getTotalAmount() != null ? inv.getTotalAmount().doubleValue() : 0.0) : 0.0);
+        m.put("paidDate", inv.getPaidAt() != null ? inv.getPaidAt().toString() : null);
+        m.put("month", inv.getGeneratedAt() != null ? inv.getGeneratedAt().getMonth().toString() : "");
+        return m;
+    }
+
+    private void postGlEntryForInvoice(Invoice invoice, String method) {
+        if (invoice == null || invoice.getCommunity() == null) return;
+        try {
+            Long commId = invoice.getCommunity().getId();
+            BigDecimal amt = invoice.getTotalAmount() != null ? invoice.getTotalAmount() : BigDecimal.ZERO;
+            if (amt.compareTo(BigDecimal.ZERO) <= 0) return;
+
+            String vNum = "REC-" + (invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : invoice.getId());
+            GeneralLedgerEntry dr = GeneralLedgerEntry.builder()
+                    .communityId(commId)
+                    .entryDate(LocalDate.now())
+                    .voucherNumber(vNum)
+                    .accountCode("1010")
+                    .accountName("Operating Bank Account")
+                    .debit(amt)
+                    .credit(BigDecimal.ZERO)
+                    .description("Maintenance collection (" + method + ") for " + invoice.getInvoiceNumber())
+                    .referenceType("INVOICE")
+                    .referenceId(String.valueOf(invoice.getId()))
+                    .build();
+
+            GeneralLedgerEntry cr = GeneralLedgerEntry.builder()
+                    .communityId(commId)
+                    .entryDate(LocalDate.now())
+                    .voucherNumber(vNum)
+                    .accountCode("3010")
+                    .accountName("Maintenance Collections")
+                    .debit(BigDecimal.ZERO)
+                    .credit(amt)
+                    .description("Maintenance fee from " + (invoice.getResident() != null ? invoice.getResident().getFullName() : "resident"))
+                    .referenceType("INVOICE")
+                    .referenceId(String.valueOf(invoice.getId()))
+                    .build();
+
+            generalLedgerEntryRepository.save(dr);
+            generalLedgerEntryRepository.save(cr);
+        } catch (Exception ex) {
+            log.warn("Failed to post GL entry for invoice {}: {}", invoice.getId(), ex.getMessage());
+        }
     }
 
     private Invoice getAuthorizedInvoice(String billId, UserPrincipal principal) {

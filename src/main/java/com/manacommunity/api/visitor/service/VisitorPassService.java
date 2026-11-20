@@ -36,6 +36,7 @@ public class VisitorPassService {
     private final VisitorAuditLogRepository auditLogRepo;
     private final AppUserRepository userRepo;
     private final NotificationManagementService notificationService;
+    private final com.manacommunity.api.platform.outbox.DomainEventPublisher domainEventPublisher;
 
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
@@ -283,6 +284,19 @@ public class VisitorPassService {
             log.error("Failed to send check-in notification to resident: {}", e.getMessage());
         }
 
+        try {
+            Map<String, Object> payload = Map.of(
+                    "passId", saved.getId(),
+                    "visitorName", saved.getVisitorName() != null ? saved.getVisitorName() : "",
+                    "residentId", saved.getResident() != null ? saved.getResident().getId() : 0L,
+                    "flatNumber", saved.getFlatNumber() != null ? saved.getFlatNumber() : ""
+            );
+            domainEventPublisher.publish("VISITOR_PASS", String.valueOf(saved.getId()),
+                    "VisitorCheckedIn", payload, saved.getCommunity() != null ? saved.getCommunity().getId() : null);
+        } catch (Exception ex) {
+            log.warn("Failed to publish outbox event for visitor check-in: {}", ex.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -311,7 +325,80 @@ public class VisitorPassService {
                 guard != null ? "Guard (" + guard + ")" : "Guard",
                 "Visitor check-out successful at " + (gate != null ? gate : "Gate") + ".");
 
+        try {
+            if (saved.getResident() != null) {
+                notificationService.createNotification(
+                        saved.getResident().getId(),
+                        NotificationType.VISITOR_CHECK_OUT,
+                        NotificationCategory.COMMUNITY,
+                        "Visitor Checked Out",
+                        saved.getVisitorName() + " has checked out of the premises at " + formatTimeOnly(saved.getCheckedOutAt()) + ".",
+                        "/visitors",
+                        ReferenceType.VISITOR_PASS,
+                        saved.getId(),
+                        NotificationPriority.NORMAL,
+                        null,
+                        saved.getCommunity() != null ? saved.getCommunity().getId() : null
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send check-out notification to resident: {}", e.getMessage());
+        }
+
+        try {
+            Map<String, Object> payload = Map.of(
+                    "passId", saved.getId(),
+                    "visitorName", saved.getVisitorName() != null ? saved.getVisitorName() : "",
+                    "residentId", saved.getResident() != null ? saved.getResident().getId() : 0L,
+                    "flatNumber", saved.getFlatNumber() != null ? saved.getFlatNumber() : ""
+            );
+            domainEventPublisher.publish("VISITOR_PASS", String.valueOf(saved.getId()),
+                    "VisitorCheckedOut", payload, saved.getCommunity() != null ? saved.getCommunity().getId() : null);
+        } catch (Exception ex) {
+            log.warn("Failed to publish outbox event for visitor check-out: {}", ex.getMessage());
+        }
+
         return toResponse(saved);
+    }
+
+    @Transactional
+    public void sendOverstayAlert(Long id, String reason) {
+        VisitorPass pass = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+        if (pass.getResident() != null) {
+            try {
+                notificationService.createNotification(
+                        pass.getResident().getId(),
+                        NotificationType.VISITOR_OVERSTAY_ALERT,
+                        NotificationCategory.SECURITY,
+                        "Visitor Overstay Alert",
+                        "Visitor " + pass.getVisitorName() + " has exceeded expected duration." + (reason != null && !reason.isBlank() ? " Note: " + reason : ""),
+                        "/visitors",
+                        ReferenceType.VISITOR_PASS,
+                        pass.getId(),
+                        NotificationPriority.HIGH,
+                        null,
+                        pass.getCommunity() != null ? pass.getCommunity().getId() : null
+                );
+            } catch (Exception e) {
+                log.error("Failed to send overstay alert notification: {}", e.getMessage());
+            }
+        }
+        writeAudit(pass.getId(), pass.getVisitorName(), "OVERSTAY_ALERT", "System/Security",
+                "Overstay alert issued for visitor." + (reason != null ? " Reason: " + reason : ""));
+
+        try {
+            Map<String, Object> payload = Map.of(
+                    "passId", pass.getId(),
+                    "visitorName", pass.getVisitorName() != null ? pass.getVisitorName() : "",
+                    "residentId", pass.getResident() != null ? pass.getResident().getId() : 0L,
+                    "reason", reason != null ? reason : ""
+            );
+            domainEventPublisher.publish("VISITOR_PASS", String.valueOf(pass.getId()),
+                    "VisitorOverstay", payload, pass.getCommunity() != null ? pass.getCommunity().getId() : null);
+        } catch (Exception ex) {
+            log.warn("Failed to publish outbox event for visitor overstay: {}", ex.getMessage());
+        }
     }
 
     @Transactional

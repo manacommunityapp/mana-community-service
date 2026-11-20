@@ -92,14 +92,31 @@ public class FileStorageController {
      */
     @GetMapping("/**")
     public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamFile(
-            jakarta.servlet.http.HttpServletRequest request) {
+            jakarta.servlet.http.HttpServletRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         String fullPath = (String) request.getAttribute(org.springframework.web.servlet.HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
         if (fullPath == null || !fullPath.startsWith("/api/files/")) {
             return ResponseEntity.badRequest().build();
         }
         String key = fullPath.substring("/api/files/".length()).trim();
-        if (key.isBlank()) {
-            return ResponseEntity.notFound().build();
+        if (key.isBlank() || key.contains("..") || key.contains("\\")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Sensitive paths require authenticated access
+        if (key.startsWith("kyc/") || key.startsWith("id_proofs/") || key.startsWith("documents/private/")) {
+            if (principal == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().contains("ADMIN") || a.getAuthority().contains("SECURITY"));
+            if (!isAdmin && key.startsWith("kyc/")) {
+                String userSegment = "user-" + principal.getId();
+                String directUserSegment = "/" + principal.getId() + "/";
+                if (!key.contains(userSegment) && !key.contains(directUserSegment)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+            }
         }
 
         FileStreamResource resource = storageService.getStream(key);

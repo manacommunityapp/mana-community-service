@@ -14,7 +14,7 @@ import java.util.List;
 public class BillingController {
     private final BillingService billingService;
 
-    @PostMapping("/runs")
+    @PostMapping({"/runs", "/runs/generate"})
     public ResponseEntity<BillingRunResponse> executeBillingRun(
             @RequestBody BillingRunRequest request,
             @RequestParam(required = false) List<PropertyContext> properties) {

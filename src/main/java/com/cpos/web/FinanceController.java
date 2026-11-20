@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')") // CPOS is portfolio-wide; tenantId is client-supplied, so restrict to super admins
 @RestController
 @RequestMapping("/api/v1/cpos/finance")
 @RequiredArgsConstructor
