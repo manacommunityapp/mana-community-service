@@ -60,9 +60,10 @@ public class BiometricTurnstileController {
 
     @PutMapping("/{turnstileId}/status")
     public ResponseEntity<Void> updateStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long turnstileId,
             @RequestParam BiometricEnums.TurnstileStatus status) {
-        turnstileService.setTurnstileStatus(turnstileId, status);
+        turnstileService.setTurnstileStatus(principal.getCommunityId(), turnstileId, status);
         return ResponseEntity.ok().build();
     }
 
