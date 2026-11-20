@@ -290,8 +290,9 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Communities: only the public GET endpoints used by the registration form
                 // (list all communities, filter by type, and per-community public info) are open.
                 // Communities: public GET endpoints for listing, filtering, looking up communities and registration
-                .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**", "/api/v1/communities/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/community", "/api/community/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/analytics/events", "/api/analytics/events").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
