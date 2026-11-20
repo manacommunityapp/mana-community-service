@@ -1,0 +1,65 @@
+package com.manacommunity.api.communityops.parcel;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ParcelService {
+
+    private final ParcelLogRepository repo;
+    private final SecureRandom random = new SecureRandom();
+
+    @Transactional
+    public ParcelLog receive(Long communityId, Long guardUserId, ParcelReceiveRequest req) {
+        String otp = String.format("%06d", random.nextInt(1_000_000));
+        ParcelLog parcel = repo.save(ParcelLog.builder()
+            .communityId(communityId)
+            .flatNumber(req.flatNumber())
+            .residentUserId(req.residentUserId())
+            .senderName(req.senderName())
+            .courierName(req.courierName())
+            .trackingNumber(req.trackingNumber())
+            .description(req.description())
+            .status(ParcelStatus.RECEIVED)
+            .receivedBy(guardUserId)
+            .receivedAt(Instant.now())
+            .pickupOtp(otp)
+            .notes(req.notes())
+            .build());
+        log.info("[Parcel] received id={} flat={} otp={}", parcel.getId(), req.flatNumber(), otp);
+        // TODO: integrate with notification service to send OTP to resident
+        return parcel;
+    }
+
+    @Transactional
+    public ParcelLog acknowledge(Long parcelId, Long residentUserId, String otp) {
+        ParcelLog parcel = repo.findById(parcelId)
+            .orElseThrow(() -> new IllegalArgumentException("Parcel not found"));
+        if (!otp.equals(parcel.getPickupOtp())) throw new IllegalArgumentException("Invalid OTP");
+        if (parcel.getStatus() == ParcelStatus.PICKED_UP) throw new IllegalStateException("Already picked up");
+        parcel.setStatus(ParcelStatus.PICKED_UP);
+        parcel.setPickedUpBy(residentUserId);
+        parcel.setPickedUpAt(Instant.now());
+        return repo.save(parcel);
+    }
+
+    public List<ParcelLog> getPendingForCommunity(Long communityId) {
+        return repo.findByCommunityIdAndStatus(communityId, ParcelStatus.RECEIVED);
+    }
+
+    public List<ParcelLog> getPendingForFlat(Long communityId, String flatNumber) {
+        return repo.findByCommunityIdAndFlatNumberAndStatus(communityId, flatNumber, ParcelStatus.RECEIVED);
+    }
+
+    public List<ParcelLog> getMyParcels(Long residentUserId) {
+        return repo.findByResidentUserIdAndStatusIn(residentUserId, List.of(ParcelStatus.RECEIVED, ParcelStatus.NOTIFIED));
+    }
+}
