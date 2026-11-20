@@ -48,6 +48,9 @@ public final class TopicRegistry {
 
         // Admin-only topics
         register("/topic/admin(?:/.*)?$",               TopicPermission.ADMIN_ROLE);
+
+        // Platform ops (super-admin live feed)
+        register("/topic/platform/ops(?:/.*)?$",        TopicPermission.ADMIN_ROLE);
     }
 
     private static void register(String pattern, TopicPermission permission) {
