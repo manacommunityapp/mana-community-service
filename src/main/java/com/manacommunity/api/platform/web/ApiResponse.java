@@ -22,7 +22,12 @@ public record ApiResponse<T>(
         return new ApiResponse<>(true, data, message, CorrelationContext.get(), Instant.now());
     }
 
-    public static ApiResponse<Void> error(String message) {
+    public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(false, null, message, CorrelationContext.get(), Instant.now());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> ApiResponse<T> typedError(String message) {
+        return (ApiResponse<T>) error(message);
     }
 }

@@ -90,13 +90,13 @@ public class ElectionController {
         return electionRepo.findById(id).map(election -> {
             if (!"NOMINATIONS_OPEN".equals(election.getStatus())) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .<ApiResponse<ElectionNomination>>body(ApiResponse.<ElectionNomination>error(
+                        .<ApiResponse<ElectionNomination>>body(ApiResponse.error(
                                 "Nominations are not open for this election"));
             }
             Long nomineeId = Long.valueOf(body.get("nomineeId").toString());
             if (nominationRepo.findByElectionIdAndNomineeId(id, nomineeId).isPresent()) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .<ApiResponse<ElectionNomination>>body(ApiResponse.<ElectionNomination>error(
+                        .<ApiResponse<ElectionNomination>>body(ApiResponse.error(
                                 "Already nominated"));
             }
             ElectionNomination nomination = ElectionNomination.builder()

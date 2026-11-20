@@ -1,5 +1,6 @@
 package com.manacommunity.api.model;
 
+import com.manacommunity.api.resident.model.CommunityFlat;
 import com.manacommunity.api.user.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
@@ -49,6 +50,20 @@ public class VehicleProfile {
     @Column(name = "is_default", nullable = false)
     @Builder.Default
     private boolean isDefault = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "flat_id")
+    private CommunityFlat flat;
+
+    @Column(name = "rfid_tag", length = 100)
+    private String rfidTag;
+
+    @Column(name = "parking_slot", length = 50)
+    private String parkingSlot;
+
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
