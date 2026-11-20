@@ -31,10 +31,10 @@ import java.util.List;
 @Slf4j
 public class FlywayConfig {
 
-    @Value("${app.flyway.repair-on-startup:true}")
+    @Value("${app.flyway.repair-on-startup:false}")
     private boolean repairOnStartup;
 
-    @Value("${app.flyway.out-of-order:true}")
+    @Value("${app.flyway.out-of-order:false}")
     private boolean outOfOrder;
 
     @Bean(initMethod = "migrate")

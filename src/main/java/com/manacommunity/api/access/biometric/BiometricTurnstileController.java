@@ -45,14 +45,16 @@ public class BiometricTurnstileController {
     }
 
     @GetMapping("/community/{communityId}")
-    public ResponseEntity<List<BiometricTurnstileDto>> getTurnstiles(@PathVariable Long communityId) {
+    public ResponseEntity<List<BiometricTurnstileDto>> getTurnstiles(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long communityId) {
+        requireSameCommunity(principal, communityId);
         return ResponseEntity.ok(turnstileService.getTurnstilesForCommunity(communityId));
     }
 
     @GetMapping("/logs/{communityId}")
     public ResponseEntity<Page<BiometricAccessLogDto>> getAccessLogs(
-            @PathVariable Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long communityId,
             Pageable pageable) {
+        requireSameCommunity(principal, communityId);
         return ResponseEntity.ok(turnstileService.getAccessLogs(communityId, pageable));
     }
 
@@ -62,5 +64,13 @@ public class BiometricTurnstileController {
             @RequestParam BiometricEnums.TurnstileStatus status) {
         turnstileService.setTurnstileStatus(turnstileId, status);
         return ResponseEntity.ok().build();
+    }
+
+    /** Tenant isolation: callers may only read data for their own community. */
+    private static void requireSameCommunity(UserPrincipal principal, Long communityId) {
+        if (principal == null || principal.getCommunityId() == null
+                || !principal.getCommunityId().equals(communityId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Cross-community access denied");
+        }
     }
 }

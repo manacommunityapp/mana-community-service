@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+@org.springframework.context.annotation.Profile("!prod") // static placeholder figures; never serve in production
 @RestController
 @RequestMapping("/api/v1/cpos/occupancy")
 @RequiredArgsConstructor
