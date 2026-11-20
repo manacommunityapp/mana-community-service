@@ -82,6 +82,9 @@ public class HomeServiceBookingEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "completion_otp", length = 6)
+    private String completionOtp;
+
     @Column(name = "created_at")
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

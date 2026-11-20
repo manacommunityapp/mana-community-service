@@ -9,5 +9,6 @@ public enum NotificationCategory {
     EVENTS,
     COMMUNITY,
     COMMUTE,
+    SECURITY,
     GENERAL
 }

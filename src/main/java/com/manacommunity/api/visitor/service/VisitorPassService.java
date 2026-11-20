@@ -311,7 +311,54 @@ public class VisitorPassService {
                 guard != null ? "Guard (" + guard + ")" : "Guard",
                 "Visitor check-out successful at " + (gate != null ? gate : "Gate") + ".");
 
+        try {
+            if (saved.getResident() != null) {
+                notificationService.createNotification(
+                        saved.getResident().getId(),
+                        NotificationType.VISITOR_CHECK_OUT,
+                        NotificationCategory.COMMUNITY,
+                        "Visitor Checked Out",
+                        saved.getVisitorName() + " has checked out of the premises at " + formatTimeOnly(saved.getCheckedOutAt()) + ".",
+                        "/visitors",
+                        ReferenceType.VISITOR_PASS,
+                        saved.getId(),
+                        NotificationPriority.NORMAL,
+                        null,
+                        saved.getCommunity() != null ? saved.getCommunity().getId() : null
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send check-out notification to resident: {}", e.getMessage());
+        }
+
         return toResponse(saved);
+    }
+
+    @Transactional
+    public void sendOverstayAlert(Long id, String reason) {
+        VisitorPass pass = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+        if (pass.getResident() != null) {
+            try {
+                notificationService.createNotification(
+                        pass.getResident().getId(),
+                        NotificationType.VISITOR_OVERSTAY_ALERT,
+                        NotificationCategory.SECURITY,
+                        "Visitor Overstay Alert",
+                        "Visitor " + pass.getVisitorName() + " has exceeded expected duration." + (reason != null && !reason.isBlank() ? " Note: " + reason : ""),
+                        "/visitors",
+                        ReferenceType.VISITOR_PASS,
+                        pass.getId(),
+                        NotificationPriority.HIGH,
+                        null,
+                        pass.getCommunity() != null ? pass.getCommunity().getId() : null
+                );
+            } catch (Exception e) {
+                log.error("Failed to send overstay alert notification: {}", e.getMessage());
+            }
+        }
+        writeAudit(pass.getId(), pass.getVisitorName(), "OVERSTAY_ALERT", "System/Security",
+                "Overstay alert issued for visitor." + (reason != null ? " Reason: " + reason : ""));
     }
 
     @Transactional
