@@ -90,10 +90,9 @@ public class IdempotencyInterceptor implements HandlerInterceptor {
         }
 
         // Capture response body from wrapper if present
-        String body = null;
-        if (response instanceof ContentCachingResponseWrapper wrapper) {
-            body = new String(wrapper.getContentAsByteArray(), StandardCharsets.UTF_8);
-        }
+        final String body = (response instanceof ContentCachingResponseWrapper wrapper)
+                ? new String(wrapper.getContentAsByteArray(), StandardCharsets.UTF_8)
+                : null;
 
         repository.findById(keyValue).ifPresent(key -> {
             key.setResponseStatus(response.getStatus());
