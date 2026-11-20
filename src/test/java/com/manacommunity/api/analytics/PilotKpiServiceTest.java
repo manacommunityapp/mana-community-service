@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,18 +76,18 @@ class PilotKpiServiceTest {
         Ticket ticket = Ticket.builder()
                 .id(1L)
                 .status(Ticket.TicketStatus.RESOLVED)
-                .createdAt(LocalDateTime.now().minusHours(3))
                 .resolvedAt(LocalDateTime.now())
                 .build();
+        ticket.setCreatedAt(LocalDateTime.now().minusHours(3));
         when(ticketRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)).thenReturn(List.of(ticket));
 
         when(subscriptionRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)).thenReturn(List.of(
                 CommerceSubscription.builder().status("ACTIVE").unitPrice(BigDecimal.valueOf(500)).quantity(2).build()
         ));
 
-        when(paymentOrderRepo.analyticsGroupByReferenceType(eq(communityId), any(), any())).thenReturn(List.of(
-                new Object[]{"AMENITY_BOOKING", 10L, BigDecimal.valueOf(15000)}
-        ));
+        List<Object[]> refRows = new java.util.ArrayList<>();
+        refRows.add(new Object[]{"AMENITY_BOOKING", 10L, BigDecimal.valueOf(15000)});
+        when(paymentOrderRepo.analyticsGroupByReferenceType(eq(communityId), any(), any())).thenReturn(refRows);
 
         PilotKpisResponse response = pilotKpiService.getPilotKpis(communityId, from, to);
 
