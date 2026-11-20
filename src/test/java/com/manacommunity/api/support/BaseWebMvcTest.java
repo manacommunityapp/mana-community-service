@@ -52,6 +52,9 @@ public abstract class BaseWebMvcTest {
     protected com.manacommunity.api.security.CookieAuthHelper cookieAuthHelper;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.security.RsaKeyService rsaKeyService;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     protected com.manacommunity.api.ops.OpsMetricsCollector opsMetricsCollector;
 
     protected String toJson(Object obj) throws Exception {

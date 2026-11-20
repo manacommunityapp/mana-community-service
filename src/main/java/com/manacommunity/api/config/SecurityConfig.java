@@ -153,8 +153,12 @@ public class SecurityConfig { // BUG FIX: was package-private
                 : List.of();
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "X-Idempotency-Key"));
-        config.setExposedHeaders(Arrays.asList("Authorization"));
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization", "Content-Type", "X-Requested-With", "Accept",
+                "X-Idempotency-Key", "X-XSRF-TOKEN", "X-Community-ID",
+                "X-Correlation-Id", "X-Correlation-ID", "X-Platform"
+        ));
+        config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -216,9 +220,9 @@ public class SecurityConfig { // BUG FIX: was package-private
         // BUG FIX: Updated to Spring Security 6 lambda DSL (non-deprecated)
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // CSRF is disabled because this is a stateless, token-authenticated API (no
-            // session cookies are used for auth), so CSRF tokens add no protection. If
-            // cookie-based auth is ever introduced, re-enable CSRF.
+            // CSRF protection for cookie-authenticated web sessions is enforced by
+            // CsrfDoubleSubmitFilter (Double-Submit Cookie Pattern with XSRF-TOKEN).
+            // We disable Spring Security's internal CSRF mechanism to avoid duplicate token repositories.
             .csrf(csrf -> csrf.disable())
             // Stateless: never create or rely on an HTTP session — mitigates session
             // fixation / hijacking and keeps the API horizontally scalable.
