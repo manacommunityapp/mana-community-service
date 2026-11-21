@@ -4,6 +4,7 @@ import com.manacommunity.api.platform.web.ApiResponse;
 import com.manacommunity.api.user.security.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -77,15 +78,38 @@ public class PrivacyNoticeController {
     /**
      * GET /api/privacy/community/{communityId}/pending
      * ADMIN: list resident IDs who have not yet accepted the current notice version.
+     *
+     * The path variable is NOT trusted: @PreAuthorize only checks the role, so an
+     * admin of community 5 could otherwise enumerate community 9's residents.
+     * Non-SUPER_ADMIN callers are always scoped to their own community and get a
+     * 403 if the path names a different one (the path is kept for route
+     * compatibility with existing clients).
      */
     @GetMapping("/community/{communityId}/pending")
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<Long>>> getPendingResidents(
-            @PathVariable Long communityId) {
+            @PathVariable Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long scopedCommunityId = communityId;
+        if (!isSuperAdmin(principal)) {
+            Long callerCommunityId = principal != null ? principal.getCommunityId() : null;
+            if (callerCommunityId == null
+                    || (communityId != null && !callerCommunityId.equals(communityId))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            scopedCommunityId = callerCommunityId;
+        }
 
         List<Long> pending = acceptanceRepository
-                .findResidentIdsWithoutAcceptance(communityId, CURRENT_VERSION);
+                .findResidentIdsWithoutAcceptance(scopedCommunityId, CURRENT_VERSION);
         return ResponseEntity.ok(ApiResponse.ok(pending));
+    }
+
+    private static boolean isSuperAdmin(UserPrincipal principal) {
+        if (principal == null || principal.getAuthorities() == null) return false;
+        return principal.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -26,6 +26,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CommerceSubscriptionService {
+
+    /**
+     * Handover OTPs are a bearer credential for physically collecting goods, so
+     * they MUST come from a CSPRNG. java.util.Random is a predictable 48-bit LCG.
+     */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final CommerceSubscriptionRepository subscriptionRepository;
     private final CommerceOrderRepository orderRepository;
@@ -139,7 +145,7 @@ public class CommerceSubscriptionService {
 
     private void createOrderFromSubscription(CommerceSubscription sub) {
         String orderNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String otp = String.format("%06d", new Random().nextInt(900000) + 100000);
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
 
         BigDecimal unitPrice = sub.getUnitPrice();
         BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(sub.getQuantity()));

@@ -4,9 +4,11 @@ import com.manacommunity.api.billing.event.InvoiceIssuedEvent;
 import com.manacommunity.api.billing.event.InvoicePaymentReceivedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -19,7 +21,19 @@ import java.time.LocalDate;
  *   <li>Payment received → DR Cash / Bank (1010)         / CR Accounts Receivable (1100)</li>
  * </ul>
  *
- * Runs asynchronously so the billing transaction is never held up by ledger I/O.
+ * <p>Both handlers are {@link TransactionalEventListener}s bound to
+ * {@link TransactionPhase#AFTER_COMMIT}. A plain {@code @EventListener} fires at publish
+ * time, inside the still-open billing transaction; combined with {@code @Async} it ran on
+ * another thread in its own transaction, so the ledger pair could commit and the billing
+ * transaction then roll back, leaving a permanent journal entry for an invoice that does
+ * not exist — and it could equally be scheduled before the invoice row was visible.
+ * AFTER_COMMIT removes both races: the invoice is committed and visible before the ledger
+ * is touched.
+ *
+ * <p>{@code @Async} is kept so ledger I/O does not hold up the request thread; because the
+ * work now happens outside the caller's transaction and on another thread, a failure can
+ * no longer be surfaced to the caller, which is why
+ * {@code GeneralLedgerEntryService} logs at ERROR before throwing.
  */
 @Slf4j
 @Component
@@ -37,8 +51,8 @@ public class InvoiceLedgerListener {
      * DR Accounts Receivable / CR Maintenance Income.
      */
     @Async
-    @EventListener
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onInvoiceIssued(InvoiceIssuedEvent event) {
         log.info("Ledger: invoice issued event for invoiceId={} community={}",
                 event.invoiceId(), event.communityId());
@@ -59,8 +73,8 @@ public class InvoiceLedgerListener {
      * DR Cash / Bank / CR Accounts Receivable.
      */
     @Async
-    @EventListener
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onInvoicePaymentReceived(InvoicePaymentReceivedEvent event) {
         log.info("Ledger: payment received event for invoiceId={} community={}",
                 event.invoiceId(), event.communityId());

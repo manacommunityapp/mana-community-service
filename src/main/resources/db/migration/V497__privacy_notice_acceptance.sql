@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS privacy_notice_acceptances (
     ip_address VARCHAR(45),
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_pna_resident FOREIGN KEY (resident_id) REFERENCES resident(id) ON DELETE CASCADE,
+    -- resident_id holds an app_user id (PrivacyNoticeController stores principal.getId()).
+    -- There is no `resident` table in this schema; the original reference to it made
+    -- this migration fail on a fresh database with: relation "resident" does not exist.
+    CONSTRAINT fk_pna_resident FOREIGN KEY (resident_id) REFERENCES app_user(id) ON DELETE CASCADE,
     CONSTRAINT fk_pna_community FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_pna_resident ON privacy_notice_acceptances(resident_id);

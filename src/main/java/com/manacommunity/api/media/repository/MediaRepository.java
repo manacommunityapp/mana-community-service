@@ -20,6 +20,9 @@ public interface MediaRepository extends JpaRepository<MediaObject, Long> {
 
     Optional<MediaObject> findByExternalIdAndDeletedFalse(UUID externalId);
 
+    /** Includes soft-deleted rows; used by restore. */
+    Optional<MediaObject> findByExternalId(UUID externalId);
+
     Page<MediaObject> findByModuleAndModuleIdAndDeletedFalseOrderByUploadedAtDesc(
             MediaModule module, String moduleId, Pageable pageable);
 
@@ -28,6 +31,23 @@ public interface MediaRepository extends JpaRepository<MediaObject, Long> {
 
     List<MediaObject> findByModuleAndModuleIdAndSubContextAndDeletedFalseAndStatus(
             MediaModule module, String moduleId, String subContext, MediaStatus status);
+
+    // ── Community-scoped variants (multi-tenancy enforcement) ────────────────
+
+    Optional<MediaObject> findByExternalIdAndCommunityIdAndDeletedFalse(
+            UUID externalId, Long communityId);
+
+    /** Includes soft-deleted rows; used by restore. */
+    Optional<MediaObject> findByExternalIdAndCommunityId(UUID externalId, Long communityId);
+
+    Page<MediaObject> findByModuleAndModuleIdAndCommunityIdAndDeletedFalseOrderByUploadedAtDesc(
+            MediaModule module, String moduleId, Long communityId, Pageable pageable);
+
+    List<MediaObject> findByModuleAndModuleIdAndCommunityIdAndDeletedFalseAndStatusOrderBySortOrderAscUploadedAtDesc(
+            MediaModule module, String moduleId, Long communityId, MediaStatus status);
+
+    List<MediaObject> findByModuleAndModuleIdAndCommunityIdAndSubContextAndDeletedFalseAndStatus(
+            MediaModule module, String moduleId, Long communityId, String subContext, MediaStatus status);
 
     Page<MediaObject> findByCommunityIdAndDeletedFalseAndStatus(
             Long communityId, MediaStatus status, Pageable pageable);

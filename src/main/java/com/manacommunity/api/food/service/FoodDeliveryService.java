@@ -22,12 +22,18 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class FoodDeliveryService {
+
+    /**
+     * Delivery OTPs are a bearer credential for handing over an order, so they
+     * MUST come from a CSPRNG. java.util.Random is a predictable 48-bit LCG.
+     */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final FoodDeliveryPartnerRepository partnerRepo;
     private final FoodDeliveryAssignmentRepository assignmentRepo;
@@ -69,7 +75,7 @@ public class FoodDeliveryService {
         FoodDeliveryPartner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("FoodDeliveryPartner", partnerId));
 
-        String otpCode = String.format("%06d", new Random().nextInt(999999));
+        String otpCode = String.format("%06d", SECURE_RANDOM.nextInt(999999));
 
         FoodDeliveryAssignment assignment = FoodDeliveryAssignment.builder()
                 .order(order)

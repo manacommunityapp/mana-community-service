@@ -17,6 +17,19 @@ import java.util.List;
 public class GlobalSearchService {
 
     private static final int PER_TYPE_LIMIT = 5;
+    private static final int MIN_LIMIT = 1;
+    private static final int MAX_LIMIT = 50;
+
+    /**
+     * Frontend route templates per result type. These are the ONLY source of the
+     * {@code url} field: the id is formatted in as a number, so no user-controlled
+     * text can reach the path.
+     */
+    private static final String URL_RESIDENT    = "/residents/%d";
+    private static final String URL_MAINTENANCE = "/maintenance/tickets/%d";
+    private static final String URL_EVENT       = "/events/%d";
+    private static final String URL_NOTICE      = "/notices/%d";
+    private static final String URL_VISITOR     = "/security/visitors/%d";
 
     @PersistenceContext
     private EntityManager em;
@@ -30,6 +43,9 @@ public class GlobalSearchService {
      */
     public List<GlobalSearchResult> search(String query, Long communityId, int limit) {
         if (query == null || query.isBlank()) return List.of();
+        // A negative (or absurdly large) limit used to blow up on subList with an
+        // IndexOutOfBoundsException -> HTTP 500. Clamp it to a sane window.
+        int effectiveLimit = Math.max(MIN_LIMIT, Math.min(limit, MAX_LIMIT));
         String pattern = "%" + query.toLowerCase() + "%";
         List<GlobalSearchResult> results = new ArrayList<>();
 
@@ -39,7 +55,7 @@ public class GlobalSearchService {
         results.addAll(searchNotices(pattern, communityId));
         results.addAll(searchVisitors(pattern, communityId));
 
-        return results.size() <= limit ? results : results.subList(0, limit);
+        return results.size() <= effectiveLimit ? results : results.subList(0, effectiveLimit);
     }
 
     // ── per-type queries ──────────────────────────────────────────────────────
@@ -67,7 +83,7 @@ public class GlobalSearchService {
                 toLong(r[0]),
                 str(r[1]),
                 str(r[2]),
-                communityId
+                url(URL_RESIDENT, toLong(r[0]))
         )).toList();
     }
 
@@ -94,7 +110,7 @@ public class GlobalSearchService {
                 toLong(r[0]),
                 str(r[1]),
                 str(r[2]),
-                communityId
+                url(URL_MAINTENANCE, toLong(r[0]))
         )).toList();
     }
 
@@ -120,7 +136,7 @@ public class GlobalSearchService {
                 toLong(r[0]),
                 str(r[1]),
                 str(r[2]),
-                communityId
+                url(URL_EVENT, toLong(r[0]))
         )).toList();
     }
 
@@ -146,7 +162,7 @@ public class GlobalSearchService {
                 toLong(r[0]),
                 str(r[1]),
                 str(r[2]),
-                communityId
+                url(URL_NOTICE, toLong(r[0]))
         )).toList();
     }
 
@@ -174,11 +190,20 @@ public class GlobalSearchService {
                 toLong(r[0]),
                 str(r[1]),
                 str(r[2]),
-                communityId
+                url(URL_VISITOR, toLong(r[0]))
         )).toList();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Builds the relative frontend route for a hit. Returns null when the id is
+     * missing (nothing sensible to navigate to) so the clients can skip the link
+     * rather than follow a malformed path.
+     */
+    private static String url(String template, Long id) {
+        return id == null ? null : String.format(template, id);
+    }
 
     private static Long toLong(Object o) {
         if (o == null) return null;

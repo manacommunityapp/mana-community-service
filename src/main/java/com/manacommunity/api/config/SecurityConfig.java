@@ -274,9 +274,14 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/tournament/**").authenticated()
                 // AI Chat Agent — requires authentication; the controller itself
                 // validates community membership and active status.
-                // Public file and media streaming (allows browsers to load images in <img> tags without Authorization headers)
-                .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
+                // File and media streaming REQUIRES a valid token. These paths serve
+                // KYC documents, payment screenshots and private galleries keyed by
+                // sequential integer ids, so anonymous access let anyone enumerate and
+                // download every tenant's files. Browsers can no longer load these URLs
+                // from a bare <img src> — the frontend must fetch them with the
+                // Authorization header (or use a presigned S3 URL).
+                .requestMatchers(HttpMethod.GET, "/api/files/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/media/**").authenticated()
                 // Health Directory & Public Camps / Triage
                 .requestMatchers(HttpMethod.GET, "/api/health/providers/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
