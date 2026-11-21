@@ -89,4 +89,14 @@ public class VmsVendorController {
         vendorService.updateVendorStatus(id, status, user.getCommunity().getId());
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('Manage Vendors')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        vendorService.deleteVendor(id, user.getCommunity().getId());
+        return ResponseEntity.noContent().build();
+    }
 }

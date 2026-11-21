@@ -8,4 +8,5 @@ public interface HrTaskRepository extends JpaRepository<HrTask, Long> {
     List<HrTask> findByAssignedToId(Long employeeId);
     List<HrTask> findByAssignedToIdAndStatus(Long employeeId, String status);
     List<HrTask> findByOrganizationIdAndStatus(Long orgId, String status);
+    org.springframework.data.domain.Page<HrTask> findByOrganizationId(Long orgId, org.springframework.data.domain.Pageable pageable);
 }

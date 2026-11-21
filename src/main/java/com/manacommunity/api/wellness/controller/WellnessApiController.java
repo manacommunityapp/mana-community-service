@@ -79,6 +79,13 @@ public class WellnessApiController {
         return ResponseEntity.ok(wellnessService.logMeal(principal.getId(), dto));
     }
 
+    @PostMapping("/meals/analyze")
+    public ResponseEntity<AiMealAnalysisResponse> analyzeMeal(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody AiMealAnalysisRequest request) {
+        return ResponseEntity.ok(wellnessService.analyzeMeal(request));
+    }
+
     @DeleteMapping("/meals/{id}")
     public ResponseEntity<Void> deleteMeal(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -164,6 +171,13 @@ public class WellnessApiController {
             @PathVariable Long id) {
         wellnessService.markAlertRead(principal.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/alerts")
+    public ResponseEntity<AccountabilityAlertDto> createAlert(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody java.util.Map<String, Object> req) {
+        return ResponseEntity.ok(wellnessService.createAlert(principal.getId(), req));
     }
 
     // ── Workouts ──

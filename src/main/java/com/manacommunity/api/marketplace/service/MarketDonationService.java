@@ -96,6 +96,18 @@ public class MarketDonationService {
         return toResponse(donationRepository.save(donation));
     }
 
+    @Transactional
+    public void delete(Long id, Long currentUserId) {
+        MarketDonation donation = donationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Donation not found with id: " + id));
+
+        if (!donation.getDonor().getId().equals(currentUserId)) {
+            throw new UnauthorizedActionException("Only donor can delete their donation listing");
+        }
+
+        donationRepository.delete(donation);
+    }
+
     private MarketDonationResponse toResponse(MarketDonation d) {
         return MarketDonationResponse.builder()
                 .id(d.getId())

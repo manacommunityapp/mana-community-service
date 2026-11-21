@@ -49,12 +49,67 @@ public class SportsVendorServiceImpl implements SportsVendorService {
     }
 
     @Override
+    @Transactional
+    public FacilityResponse createFacility(FacilityResponse req) {
+        SportsVenue venue = SportsVenue.builder()
+                .name(req.getName() != null ? req.getName() : "Sports Arena")
+                .address(req.getAddress())
+                .city(req.getCity())
+                .area(req.getArea())
+                .contactNumber(req.getPhone())
+                .contactEmail(req.getEmail())
+                .openingTime(req.getOpeningTime() != null ? req.getOpeningTime() : "06:00")
+                .closingTime(req.getClosingTime() != null ? req.getClosingTime() : "23:00")
+                .vendorId(req.getVendorId() != null ? req.getVendorId() : 1L)
+                .isFederated(req.getIsFederated() != null ? req.getIsFederated() : false)
+                .isActive(true)
+                .build();
+        return toFacilityResponse(venueRepository.save(venue));
+    }
+
+    @Override
+    @Transactional
+    public FacilityResponse updateFacility(Long id, FacilityResponse req) {
+        SportsVenue venue = venueRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sports venue not found: " + id));
+        if (req.getName() != null) venue.setName(req.getName());
+        if (req.getAddress() != null) venue.setAddress(req.getAddress());
+        if (req.getCity() != null) venue.setCity(req.getCity());
+        if (req.getArea() != null) venue.setArea(req.getArea());
+        if (req.getPhone() != null) venue.setContactNumber(req.getPhone());
+        if (req.getEmail() != null) venue.setContactEmail(req.getEmail());
+        if (req.getOpeningTime() != null) venue.setOpeningTime(req.getOpeningTime());
+        if (req.getClosingTime() != null) venue.setClosingTime(req.getClosingTime());
+        return toFacilityResponse(venueRepository.save(venue));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<CourtResponse> getCourts(Long facilityId) {
         return courtRepository.findAll().stream()
                 .filter(c -> c.getVenue() != null && Objects.equals(c.getVenue().getId(), facilityId))
                 .map(this::toCourtResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CourtResponse createCourt(Long facilityId, CourtResponse req) {
+        SportsVenue venue = venueRepository.findById(facilityId)
+                .orElseThrow(() -> new IllegalArgumentException("Sports venue not found: " + facilityId));
+        SportsCourt court = SportsCourt.builder()
+                .venue(venue)
+                .name(req.getName() != null ? req.getName() : "Court")
+                .sportType(req.getSportType() != null ? req.getSportType() : "BADMINTON")
+                .surfaceType(req.getSurfaceType() != null ? req.getSurfaceType() : "SYNTHETIC_MAT")
+                .isIndoor(req.getIsIndoor() != null ? req.getIsIndoor() : true)
+                .hasLighting(req.getHasLighting() != null ? req.getHasLighting() : true)
+                .baseHourlyPrice(req.getBaseHourlyPrice() != null ? req.getBaseHourlyPrice() : new BigDecimal("450.00"))
+                .residentDiscountPercent(req.getResidentDiscountPercent() != null ? req.getResidentDiscountPercent() : new BigDecimal("15.00"))
+                .rules(req.getRules() != null ? req.getRules() : "Standard rules apply")
+                .isActive(true)
+                .build();
+        return toCourtResponse(courtRepository.save(court));
     }
 
     @Override

@@ -35,6 +35,23 @@ public class DoctorUtilizationController {
         ));
     }
 
+    @GetMapping
+    public ResponseEntity<List<DoctorSlotUtilization>> getUtilization(
+            @RequestParam(required = false) Long doctorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long cid = principal != null ? principal.getCommunityId() : null;
+        if (doctorId != null && from != null && to != null) {
+            return ResponseEntity.ok(utilizationService.getForDoctor(cid, doctorId, from, to));
+        }
+        if (date != null) {
+            return ResponseEntity.ok(utilizationService.getForDate(cid, date));
+        }
+        return ResponseEntity.ok(List.of());
+    }
+
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<List<DoctorSlotUtilization>> forDoctor(
             @PathVariable Long doctorId,

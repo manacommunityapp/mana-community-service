@@ -47,7 +47,7 @@ public class FoodNutritionController {
         return ResponseEntity.ok(nutritionService.getById(communityId, id));
     }
 
-    @PostMapping("/nutritionists/register")
+    @PostMapping({"/nutritionists", "/nutritionists/register"})
     @PreAuthorize("hasAuthority('Manage Food Nutrition')")
     public ResponseEntity<?> register(
             @Valid @RequestBody Map<String, Object> request,

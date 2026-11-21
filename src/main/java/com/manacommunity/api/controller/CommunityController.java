@@ -58,6 +58,15 @@ public class CommunityController {
     }
 
     /**
+     * GET /api/communities/{id}
+     * Returns a specific community's details, enabled modules, and block configurations.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<CommunityResponse> getCommunityById(@PathVariable Long id) {
+        return ResponseEntity.ok(communityService.getCommunityById(id));
+    }
+
+    /**
      * POST /api/communities
      * Creates a new community. Restricted to ADMIN and SUPER_ADMIN.
      */

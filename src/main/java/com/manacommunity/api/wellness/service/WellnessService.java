@@ -393,6 +393,102 @@ public class WellnessService {
                 .ifPresent(a -> { a.setIsRead(true); alertRepository.save(a); });
     }
 
+    @Transactional
+    public AccountabilityAlertDto createAlert(Long userId, Map<String, Object> req) {
+        String alertTypeStr = req.get("alertType") != null ? req.get("alertType").toString() : "JUNK_FOOD";
+        AlertType type;
+        try {
+            type = AlertType.valueOf(alertTypeStr.toUpperCase());
+        } catch (Exception e) {
+            type = AlertType.JUNK_FOOD;
+        }
+        String message = req.get("message") != null ? req.get("message").toString() : "";
+        Object data = req.get("data");
+        String dataJson = null;
+        if (data != null) {
+            try {
+                dataJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(data);
+            } catch (Exception ignored) {}
+        }
+        AccountabilityAlert alert = AccountabilityAlert.builder()
+                .userId(userId)
+                .alertType(type)
+                .triggeredAt(LocalDateTime.now())
+                .message(message)
+                .dataJson(dataJson)
+                .isRead(false)
+                .build();
+        return toAlertDto(alertRepository.save(alert));
+    }
+
+    public AiMealAnalysisResponse analyzeMeal(AiMealAnalysisRequest req) {
+        String text = req.getText() != null ? req.getText() : "";
+        List<FoodCatalog> matches = text.isBlank() ? List.of() : foodCatalogRepository.searchByName(text);
+
+        List<MealItemDto> items;
+        int calories = 0;
+        BigDecimal protein = BigDecimal.ZERO;
+        BigDecimal carbs = BigDecimal.ZERO;
+        BigDecimal fat = BigDecimal.ZERO;
+        BigDecimal fiber = BigDecimal.ZERO;
+
+        if (!matches.isEmpty()) {
+            items = matches.stream().map(f -> MealItemDto.builder()
+                    .foodName(f.getName())
+                    .foodNameLocal(f.getNameLocal())
+                    .quantity(BigDecimal.ONE)
+                    .unit(f.getServingUnit() != null ? f.getServingUnit() : "serving")
+                    .calories(f.getCaloriesPerServing())
+                    .protein(f.getProteinPerServing())
+                    .carbs(f.getCarbsPerServing())
+                    .fat(f.getFatPerServing())
+                    .fiber(f.getFiberPerServing())
+                    .foodCatalogId(f.getId())
+                    .build()).toList();
+
+            for (FoodCatalog f : matches) {
+                if (f.getCaloriesPerServing() != null) calories += f.getCaloriesPerServing();
+                if (f.getProteinPerServing() != null) protein = protein.add(f.getProteinPerServing());
+                if (f.getCarbsPerServing() != null) carbs = carbs.add(f.getCarbsPerServing());
+                if (f.getFatPerServing() != null) fat = fat.add(f.getFatPerServing());
+                if (f.getFiberPerServing() != null) fiber = fiber.add(f.getFiberPerServing());
+            }
+        } else {
+            String name = text.isBlank() ? "Logged Meal" : text;
+            calories = 350;
+            protein = new BigDecimal("12.0");
+            carbs = new BigDecimal("45.0");
+            fat = new BigDecimal("10.0");
+            fiber = new BigDecimal("4.0");
+            items = List.of(MealItemDto.builder()
+                    .foodName(name)
+                    .quantity(BigDecimal.ONE)
+                    .unit("serving")
+                    .calories(calories)
+                    .protein(protein)
+                    .carbs(carbs)
+                    .fat(fat)
+                    .fiber(fiber)
+                    .build());
+        }
+
+        BigDecimal junkScore = detectJunkFoodScore(items, text);
+        boolean isJunk = junkScore.compareTo(JUNK_THRESHOLD) >= 0;
+
+        return AiMealAnalysisResponse.builder()
+                .items(items)
+                .totalCalories(calories)
+                .totalProtein(protein)
+                .totalCarbs(carbs)
+                .totalFat(fat)
+                .totalFiber(fiber)
+                .confidence(new BigDecimal("0.85"))
+                .suggestions(isJunk ? "Consider balancing with fresh salads or higher fiber foods." : "Balanced meal! Keep it up.")
+                .junkFoodScore(junkScore)
+                .isJunkFood(isJunk)
+                .build();
+    }
+
     private AccountabilityAlertDto toAlertDto(AccountabilityAlert a) {
         return AccountabilityAlertDto.builder()
                 .id(a.getId()).alertType(a.getAlertType()).partnerUserId(a.getPartnerUserId())

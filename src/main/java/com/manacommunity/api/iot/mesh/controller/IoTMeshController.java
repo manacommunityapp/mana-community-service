@@ -89,11 +89,13 @@ public class IoTMeshController {
         return ResponseEntity.ok(ApiResponse.ok(iotService.getActiveAnomalies(communityId)));
     }
 
-    @PutMapping("/anomalies/{anomalyId}/resolve")
+    @RequestMapping(value = "/anomalies/{anomalyId}/resolve", method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<ApiResponse<SensorAnomalyEvent>> resolveAnomaly(
             @PathVariable Long anomalyId,
-            @RequestParam Long resolvedBy) {
-        return ResponseEntity.ok(ApiResponse.ok(iotService.resolveAnomaly(anomalyId, resolvedBy)));
+            @RequestParam(required = false) Long resolvedBy,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.manacommunity.api.user.security.UserPrincipal principal) {
+        Long resolverId = resolvedBy != null ? resolvedBy : (principal != null ? principal.getId() : 1L);
+        return ResponseEntity.ok(ApiResponse.ok(iotService.resolveAnomaly(anomalyId, resolverId)));
     }
 
     // ── Emergency ─────────────────────────────────────────────────────────

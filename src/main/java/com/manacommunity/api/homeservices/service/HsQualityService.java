@@ -39,6 +39,11 @@ public class HsQualityService {
         return photoRepo.findByBookingId(bookingId);
     }
 
+    @Transactional(readOnly = true)
+    public HsWarranty getWarranty(Long bookingId) {
+        return warrantyRepo.findByBookingId(bookingId).orElse(null);
+    }
+
     @Transactional
     public HsWarranty issueWarranty(Long bookingId, Long communityId, int warrantyDays) {
         HsWarranty w = HsWarranty.builder()

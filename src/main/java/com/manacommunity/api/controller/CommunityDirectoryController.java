@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 /** REST controller for the Community Directory (committee leaders / office-bearers). */
 @RestController
-@RequestMapping("/api/community/leaders")
+@RequestMapping({"/api/community/leaders", "/api/community/directory/leaders"})
 @PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class CommunityDirectoryController {

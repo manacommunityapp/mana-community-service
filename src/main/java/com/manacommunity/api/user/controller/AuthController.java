@@ -92,6 +92,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/login")
+    public ResponseEntity<Map<String, String>> loginHealth() {
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "auth"));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request,

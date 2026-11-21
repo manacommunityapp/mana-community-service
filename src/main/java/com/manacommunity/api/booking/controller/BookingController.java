@@ -452,6 +452,76 @@ public class BookingController {
         return ResponseEntity.ok(maintenanceService.updateMaintenance(id, request));
     }
 
+    @DeleteMapping("/maintenance/{id}")
+    @PreAuthorize("hasAuthority('Manage Maintenance')")
+    public ResponseEntity<Void> deleteMaintenance(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        maintenanceService.deleteMaintenance(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Blackout Dates ───────────────────────────────────────────
+
+    @GetMapping("/blackout")
+    @PreAuthorize("hasAnyAuthority('View Resource Booking', 'Manage Maintenance')")
+    public ResponseEntity<List<Map<String, Object>>> getBlackoutDates(
+            @RequestParam(required = false) Long resourceId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        List<MaintenanceResponse> records = maintenanceService.getMaintenanceRecords(communityId, resourceId);
+        List<Map<String, Object>> blackoutList = records.stream().map(m -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", m.getId());
+            map.put("resourceId", m.getResourceId());
+            map.put("date", m.getStartDate() != null ? m.getStartDate().substring(0, Math.min(10, m.getStartDate().length())) : "");
+            map.put("reason", m.getReason() != null ? m.getReason() : "");
+            map.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt() : java.time.LocalDateTime.now().toString());
+            return map;
+        }).toList();
+        return ResponseEntity.ok(blackoutList);
+    }
+
+    @PostMapping("/blackout")
+    @PreAuthorize("hasAuthority('Manage Maintenance')")
+    public ResponseEntity<Map<String, Object>> createBlackoutDate(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long resId = body.get("resourceId") != null ? Long.valueOf(body.get("resourceId").toString()) : null;
+        String date = body.get("date") != null ? body.get("date").toString() : java.time.LocalDate.now().toString();
+        String reason = body.get("reason") != null ? body.get("reason").toString() : "Blackout date";
+
+        MaintenanceRequest req = new MaintenanceRequest();
+        req.setResourceId(resId);
+        req.setStartDate(date.contains("T") ? date : date + "T00:00:00");
+        req.setEndDate(date.contains("T") ? date : date + "T23:59:59");
+        req.setReason(reason);
+        req.setMaintenanceType("PREVENTIVE");
+        req.setCost(0.0);
+
+        MaintenanceResponse resp = maintenanceService.createMaintenance(req, user, user.getCommunity());
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", resp.getId());
+        map.put("resourceId", resp.getResourceId());
+        map.put("date", date);
+        map.put("reason", resp.getReason());
+        map.put("createdAt", resp.getCreatedAt() != null ? resp.getCreatedAt() : java.time.LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.CREATED).body(map);
+    }
+
+    @DeleteMapping("/blackout/{id}")
+    @PreAuthorize("hasAuthority('Manage Maintenance')")
+    public ResponseEntity<Void> deleteBlackoutDate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        loggedInUserService.resolve(principal);
+        maintenanceService.deleteMaintenance(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Coupons ──────────────────────────────────────────────────
 
     @GetMapping("/coupons")

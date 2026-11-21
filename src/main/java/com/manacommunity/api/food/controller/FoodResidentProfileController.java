@@ -90,6 +90,16 @@ public class FoodResidentProfileController {
         return ResponseEntity.ok(profileService.addFavorite(communityId, user.getId(), request));
     }
 
+    @PostMapping("/favorites/{itemId}")
+    @PreAuthorize("hasAuthority('Manage Food Profile')")
+    public ResponseEntity<Map<String, Object>> addFavoriteByPath(
+            @PathVariable Long itemId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity().getId();
+        return ResponseEntity.ok(profileService.addFavorite(communityId, user.getId(), Map.of("itemId", itemId)));
+    }
+
     @DeleteMapping("/favorites/{id}")
     @PreAuthorize("hasAuthority('Manage Food Profile')")
     public ResponseEntity<Void> removeFavorite(

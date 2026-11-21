@@ -23,13 +23,13 @@ public class CommunityInsightsController {
         this.insightsService = insightsService;
     }
 
-    @GetMapping
+    @GetMapping({"", "/active"})
     public ResponseEntity<ApiResponse<List<CommunityInsight>>> getActiveInsights(
             @RequestParam Long communityId) {
         return ResponseEntity.ok(ApiResponse.ok(insightsService.getActiveInsights(communityId)));
     }
 
-    @GetMapping("/metrics")
+    @GetMapping({"/metrics", "/trend"})
     public ResponseEntity<ApiResponse<List<CommunityMetricsSnapshot>>> getMetricsTrend(
             @RequestParam Long communityId,
             @RequestParam(defaultValue = "30") int days) {
@@ -39,25 +39,29 @@ public class CommunityInsightsController {
     @PostMapping("/snapshot")
     @PreAuthorize("hasAnyRole('FM','ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<ApiResponse<CommunityMetricsSnapshot>> triggerSnapshot(
-            @RequestParam Long communityId,
+            @RequestParam(required = false) Long communityId,
+            @RequestBody(required = false) Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(insightsService.snapshotMetrics(communityId), "Snapshot taken"));
+        Long cid = communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : null);
+        return ResponseEntity.ok(ApiResponse.ok(insightsService.snapshotMetrics(cid), "Snapshot taken"));
     }
 
     @PostMapping("/generate")
     @PreAuthorize("hasAnyRole('FM','ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<ApiResponse<List<CommunityInsight>>> generateInsights(
-            @RequestParam Long communityId,
+            @RequestParam(required = false) Long communityId,
+            @RequestBody(required = false) Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        List<CommunityInsight> insights = insightsService.generateInsights(communityId);
+        Long cid = communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : null);
+        List<CommunityInsight> insights = insightsService.generateInsights(cid);
         return ResponseEntity.ok(ApiResponse.ok(insights, insights.size() + " insight(s) generated"));
     }
 
-    @PutMapping("/{id}/dismiss")
+    @RequestMapping(value = "/{id}/dismiss", method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<ApiResponse<Map<String, String>>> dismissInsight(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        insightsService.dismissInsight(id, principal.getId());
+        insightsService.dismissInsight(id, principal != null ? principal.getId() : null);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("status", "dismissed")));
     }
 }

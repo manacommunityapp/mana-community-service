@@ -29,9 +29,13 @@ public class PrescriptionFollowupController {
         return ResponseEntity.ok(followupService.markComplete(id));
     }
 
-    @GetMapping("/pending")
-    public ResponseEntity<List<PrescriptionFollowup>> pending(@AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(followupService.getPendingForCommunity(principal.getCommunityId()));
+    @GetMapping({"", "/pending"})
+    public ResponseEntity<List<PrescriptionFollowup>> pending(
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(required = false) String date,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long cid = communityId != null ? communityId : (principal != null ? principal.getCommunityId() : null);
+        return ResponseEntity.ok(followupService.getPendingForCommunity(cid));
     }
 
     @GetMapping("/patient/{patientUserId}")

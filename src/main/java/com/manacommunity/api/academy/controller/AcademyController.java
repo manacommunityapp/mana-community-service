@@ -40,11 +40,49 @@ public class AcademyController {
         return ResponseEntity.ok(programRepo.findByCommunityIdOrderByCreatedAtDesc(communityId));
     }
 
+    @PostMapping("/programs")
+    @Transactional
+    public ResponseEntity<AcademyProgram> createProgram(@RequestBody AcademyProgram program) {
+        if (program.getCommunityId() == null) {
+            program.setCommunityId(1L);
+        }
+        if (program.getStatus() == null) {
+            program.setStatus("OPEN");
+        }
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(programRepo.save(program));
+    }
+
     @GetMapping("/programs/{id}")
     public ResponseEntity<AcademyProgram> getProgram(@PathVariable Long id) {
         return programRepo.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/programs/{id}")
+    @Transactional
+    public ResponseEntity<AcademyProgram> updateProgram(@PathVariable Long id, @RequestBody AcademyProgram req) {
+        return programRepo.findById(id).map(p -> {
+            if (req.getTitle() != null) p.setTitle(req.getTitle());
+            if (req.getDescription() != null) p.setDescription(req.getDescription());
+            if (req.getCategory() != null) p.setCategory(req.getCategory());
+            if (req.getStatus() != null) p.setStatus(req.getStatus());
+            if (req.getInstructorName() != null) p.setInstructorName(req.getInstructorName());
+            if (req.getMaxSeats() > 0) p.setMaxSeats(req.getMaxSeats());
+            if (req.getFee() != null) p.setFee(req.getFee());
+            if (req.getScheduleText() != null) p.setScheduleText(req.getScheduleText());
+            return ResponseEntity.ok(programRepo.save(p));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/programs/{id}")
+    @Transactional
+    public ResponseEntity<Void> deleteProgram(@PathVariable Long id) {
+        if (programRepo.existsById(id)) {
+            programRepo.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PostMapping("/programs/{programId}/enroll")

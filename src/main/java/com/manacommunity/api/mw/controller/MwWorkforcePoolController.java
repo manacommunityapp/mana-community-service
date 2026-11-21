@@ -120,6 +120,15 @@ public class MwWorkforcePoolController {
         return ResponseEntity.ok(poolService.applyToListing(listingId, user.getId(), req));
     }
 
+    @DeleteMapping("/listings/{listingId}/apply")
+    public ResponseEntity<Void> withdrawApplication(
+            @PathVariable Long listingId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        poolService.withdrawApplication(listingId, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/my-applications")
     public ResponseEntity<List<MwPoolApplication>> getMyApplications(
             @AuthenticationPrincipal UserPrincipal principal) {

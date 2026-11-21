@@ -68,7 +68,7 @@ public class KycController {
         return ResponseEntity.ok(ApiResponse.ok(kycService.getPendingReviews(communityId)));
     }
 
-    @PutMapping("/{id}/approve")
+    @RequestMapping(value = "/{id}/approve", method = {RequestMethod.PUT, RequestMethod.POST})
     @PreAuthorize("hasAnyRole('FACILITY_MANAGER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<KycVerificationRequest>> approve(
             @PathVariable Long id,
@@ -78,7 +78,7 @@ public class KycController {
         return ResponseEntity.ok(ApiResponse.ok(result, "KYC approved"));
     }
 
-    @PutMapping("/{id}/reject")
+    @RequestMapping(value = "/{id}/reject", method = {RequestMethod.PUT, RequestMethod.POST})
     @PreAuthorize("hasAnyRole('FACILITY_MANAGER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<KycVerificationRequest>> reject(
             @PathVariable Long id,

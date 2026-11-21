@@ -146,6 +146,14 @@ public class VmsVendorManagementService {
         vendorRepo.save(vendor);
     }
 
+    @Transactional
+    public void deleteVendor(Long id, Long communityId) {
+        VmsVendor vendor = vendorRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor", id));
+        vendor.setStatus(VmsVendor.VendorStatus.SUSPENDED);
+        vendorRepo.save(vendor);
+    }
+
     private VendorResponse toResponse(VmsVendor v) {
         return VendorResponse.builder()
                 .id(v.getId())

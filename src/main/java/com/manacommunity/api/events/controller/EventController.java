@@ -29,7 +29,7 @@ public class EventController {
     private final EventService eventService;
     private final LoggedInUserService loggedInUserService;
 
-    @GetMapping
+    @GetMapping({"", "/dashboard-preview"})
     @PreAuthorize("hasAnyAuthority('View Events', 'View Event Dashboard', 'View Event Schedule')")
     public ResponseEntity<List<EventResponse>> getUpcomingEvents(
             @RequestParam(required = false) String type,

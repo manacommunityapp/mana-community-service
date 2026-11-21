@@ -93,6 +93,11 @@ public class MaintenanceService {
         return toResponse(maintenanceRepo.save(maintenance));
     }
 
+    @Transactional
+    public void deleteMaintenance(Long id) {
+        maintenanceRepo.deleteById(id);
+    }
+
     private MaintenanceResponse toResponse(ResourceMaintenance m) {
         return MaintenanceResponse.builder()
                 .id(m.getId())
