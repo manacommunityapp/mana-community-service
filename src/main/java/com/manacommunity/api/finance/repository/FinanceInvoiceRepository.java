@@ -22,6 +22,8 @@ public interface FinanceInvoiceRepository extends JpaRepository<FinanceInvoice, 
 
     boolean existsByIdAndCommunityId(Long id, Long communityId);
 
+    long countByCommunityId(Long communityId);
+
     @Query("SELECT COALESCE(SUM(i.grandTotal), 0) FROM FinanceInvoice i " +
             "WHERE i.status <> 'Paid' AND i.communityId = :communityId")
     BigDecimal sumOutstandingReceivables(@Param("communityId") Long communityId);
