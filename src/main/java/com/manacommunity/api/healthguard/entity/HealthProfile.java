@@ -1,6 +1,7 @@
 package com.manacommunity.api.healthguard.entity;
 
 import com.manacommunity.api.healthguard.enums.HealthGuardEnums.BloodGroup;
+import com.manacommunity.api.security.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,12 +28,15 @@ public class HealthProfile {
     @Builder.Default
     private BloodGroup bloodGroup = BloodGroup.UNKNOWN;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(columnDefinition = "text")
     private String allergies;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(columnDefinition = "text")
     private String medicalConditions;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(columnDefinition = "text")
     private String emergencyNotes;
 
@@ -43,13 +47,16 @@ public class HealthProfile {
     @Builder.Default
     private Boolean organDonorConsent = false;
 
-    @Column(length = 100)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(length = 255)
     private String medicalIdNumber;
 
-    @Column(length = 150)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(length = 255)
     private String physicianName;
 
-    @Column(length = 20)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(length = 255)
     private String physicianPhone;
 
     @Column(updatable = false)
