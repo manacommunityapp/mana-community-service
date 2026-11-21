@@ -27,8 +27,9 @@ public class CommunityWalletController {
 
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<WalletResponse>> getMyWallet(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         CommunityResidentWallet w = walletService.getOrCreateWallet(user.getId(), communityId);
         return ResponseEntity.ok(ApiResponse.ok(toWalletResponse(w)));
@@ -37,8 +38,8 @@ public class CommunityWalletController {
     @GetMapping("/my/transactions")
     public ResponseEntity<ApiResponse<Page<CommunityWalletTransaction>>> getMyTransactions(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             Pageable pageable) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(ApiResponse.ok(
                 walletService.getTransactionHistory(user.getId(), communityId, pageable)));
@@ -47,8 +48,8 @@ public class CommunityWalletController {
     @PostMapping("/topup")
     public ResponseEntity<ApiResponse<TopupInitResult>> initiateTopup(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody TopupRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         TopupInitResult result = walletService.initiateTopup(user.getId(), communityId,
                 req.amount(), req.paymentMethod());
@@ -58,8 +59,8 @@ public class CommunityWalletController {
     @PostMapping("/topup/confirm")
     public ResponseEntity<ApiResponse<CommunityWalletTransaction>> confirmTopup(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody ConfirmTopupRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         // Amount from gateway — stub uses ₹100 for testing
         java.math.BigDecimal amount = java.math.BigDecimal.valueOf(100);
@@ -71,8 +72,8 @@ public class CommunityWalletController {
     @PostMapping("/pay/invoice")
     public ResponseEntity<ApiResponse<CommunityWalletTransaction>> payInvoice(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody PayInvoiceRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         CommunityWalletTransaction txn = walletService.payInvoice(
                 user.getId(), communityId, req.invoiceId(), req.amount());
@@ -82,8 +83,8 @@ public class CommunityWalletController {
     @PostMapping("/pay/booking")
     public ResponseEntity<ApiResponse<CommunityWalletTransaction>> payBooking(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody PayBookingRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         CommunityWalletTransaction txn = walletService.payBooking(
                 user.getId(), communityId, req.bookingId(), req.amount());
@@ -93,8 +94,8 @@ public class CommunityWalletController {
     @PostMapping("/pay/expense")
     public ResponseEntity<ApiResponse<CommunityWalletTransaction>> settleExpense(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody SettleExpenseRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         CommunityWalletTransaction txn = walletService.settleGroupExpense(
                 user.getId(), communityId, req.expenseId(), req.amount());
@@ -105,8 +106,8 @@ public class CommunityWalletController {
     @PreAuthorize("hasAnyRole('FACILITY_MANAGER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<CommunityWalletCreditLine>> approveCreditLine(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestBody ApproveCreditLineRequest req) {
+        Long communityId = principal.getCommunityId();
         AppUser admin = loggedInUserService.resolve(principal);
         CommunityWalletCreditLine line = walletService.approveCreditLine(
                 req.walletId(), communityId, req.amount(), admin.getId(), req.repaymentDays());
@@ -116,9 +117,10 @@ public class CommunityWalletController {
     @GetMapping("/ledger")
     @PreAuthorize("hasAnyRole('FACILITY_MANAGER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Page<CommunityWalletTransaction>>> getCommunityLedger(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type,
             Pageable pageable) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(
                 walletService.getCommunityLedger(communityId, type, pageable)));
     }

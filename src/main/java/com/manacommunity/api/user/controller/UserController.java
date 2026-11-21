@@ -163,11 +163,11 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
@@ -222,8 +222,8 @@ public class UserController {
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<com.manacommunity.api.user.dto.UserStatsResponse> getUserStats(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);

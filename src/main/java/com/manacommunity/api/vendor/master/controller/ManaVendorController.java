@@ -35,8 +35,8 @@ public class ManaVendorController {
     /** List all vendors for a community (active + inactive). */
     @GetMapping
     public ResponseEntity<List<ManaVendorDto>> list(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.listByCommunity(communityId));
     }
@@ -44,8 +44,8 @@ public class ManaVendorController {
     /** List only active vendors — suitable for picker/autocomplete dropdowns. */
     @GetMapping("/active")
     public ResponseEntity<List<ManaVendorDto>> listActive(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.listActiveByCommunity(communityId));
     }
@@ -53,9 +53,9 @@ public class ManaVendorController {
     /** Search vendors by name or email — for autocomplete in forms. */
     @GetMapping("/search")
     public ResponseEntity<List<ManaVendorDto>> search(
-            @RequestParam Long communityId,
             @RequestParam(defaultValue = "") String q,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.search(communityId, q));
     }
@@ -63,10 +63,10 @@ public class ManaVendorController {
     /** Paginated vendor list (for the management table). */
     @GetMapping("/page")
     public ResponseEntity<Page<ManaVendorDto>> page(
-            @RequestParam Long communityId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.pageByCommunity(communityId, page, size));
     }
@@ -75,8 +75,8 @@ public class ManaVendorController {
     @GetMapping("/{id}")
     public ResponseEntity<ManaVendorDto> getById(
             @PathVariable Long id,
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.getById(communityId, id));
     }
@@ -94,9 +94,9 @@ public class ManaVendorController {
     @PatchMapping("/{id}")
     public ResponseEntity<ManaVendorDto> update(
             @PathVariable Long id,
-            @RequestParam Long communityId,
             @RequestBody UpdateManaVendorRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         return ResponseEntity.ok(service.update(communityId, id, request));
     }
@@ -108,8 +108,8 @@ public class ManaVendorController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deactivate(
             @PathVariable Long id,
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN);
         service.deactivate(communityId, id);
         return ResponseEntity.noContent().build();

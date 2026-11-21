@@ -24,6 +24,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @Slf4j
 @RestController
@@ -45,9 +47,9 @@ public class MainEmailVerificationController {
     private final ConcurrentHashMap<String, RateLimitWindow> rateLimitWindows = new ConcurrentHashMap<>();
 
     @GetMapping("/templates")
-    public ResponseEntity<Map<String, Object>> templates(
-            @RequestParam(value = "communityId", required = false) Long communityId
+    public ResponseEntity<Map<String, Object>> templates(@AuthenticationPrincipal UserPrincipal principal
     ) {
+        Long communityId = principal.getCommunityId();
         List<TemplateSummaryResponse> templates = communityId == null
                 ? templateService.listAllTemplates()
                 : templateService.listTemplates(communityId);
@@ -100,9 +102,10 @@ public class MainEmailVerificationController {
 
     @GetMapping(value = "/preview/{templateCode}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> preview(
-            @PathVariable String templateCode,
-            @RequestParam("communityId") Long communityId
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String templateCode
     ) {
+        Long communityId = principal.getCommunityId();
         PreviewResponse preview = templateService.previewActiveTemplate(
                 communityId,
                 templateCode,
@@ -113,10 +116,11 @@ public class MainEmailVerificationController {
 
     @PostMapping(value = "/preview/{templateCode}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> previewPost(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String templateCode,
-            @RequestParam("communityId") Long communityId,
             @RequestBody(required = false) Map<String, Object> customVars
     ) {
+        Long communityId = principal.getCommunityId();
         Map<String, Object> vars = sampleVars(templateCode);
         if (customVars != null) {
             vars.putAll(customVars);
@@ -127,9 +131,9 @@ public class MainEmailVerificationController {
     }
 
     @GetMapping("/sample-payloads")
-    public ResponseEntity<Map<String, Object>> allSamplePayloads(
-            @RequestParam(value = "communityId", required = false) Long communityId
+    public ResponseEntity<Map<String, Object>> allSamplePayloads(@AuthenticationPrincipal UserPrincipal principal
     ) {
+        Long communityId = principal.getCommunityId();
         List<TemplateSummaryResponse> templates = communityId == null
                 ? templateService.listAllTemplates()
                 : templateService.listTemplates(communityId);
@@ -147,9 +151,10 @@ public class MainEmailVerificationController {
 
     @GetMapping("/sample-payloads/{templateCode}")
     public ResponseEntity<Map<String, Object>> samplePayload(
-            @PathVariable String templateCode,
-            @RequestParam(value = "communityId", required = false) Long communityId
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String templateCode
     ) {
+        Long communityId = principal.getCommunityId();
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("templateCode", normalizeCode(templateCode));
         resp.put("communityId", communityId);
@@ -158,9 +163,9 @@ public class MainEmailVerificationController {
     }
 
     @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> health(
-            @RequestParam(value = "communityId", required = false) Long communityId
+    public ResponseEntity<Map<String, Object>> health(@AuthenticationPrincipal UserPrincipal principal
     ) {
+        Long communityId = principal.getCommunityId();
         int templateCount = communityId == null
                 ? templateService.listAllTemplates().size()
                 : templateService.listTemplates(communityId).size();
@@ -194,12 +199,13 @@ public class MainEmailVerificationController {
 
     @PostMapping("/test")
     public ResponseEntity<Map<String, Object>> sendTest(
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(value = "to", required = false) String to,
-            @RequestParam("communityId") Long communityId,
             @RequestParam("template") String templateCode,
             @RequestBody(required = false) Map<String, Object> customVars,
             Authentication authentication
     ) {
+        Long communityId = principal.getCommunityId();
         ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test"), TEST_SEND_LIMIT_PER_MINUTE);
         if (limited != null) return limited;
 
@@ -246,11 +252,12 @@ public class MainEmailVerificationController {
 
     @PostMapping("/test-all")
     public ResponseEntity<Map<String, Object>> sendAllTemplates(
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(value = "to", required = false) String to,
-            @RequestParam("communityId") Long communityId,
             @RequestBody(required = false) Map<String, Object> customVars,
             Authentication authentication
     ) {
+        Long communityId = principal.getCommunityId();
         ResponseEntity<Map<String, Object>> limited = checkRateLimit(bucketKey(authentication, "test-all"), TEST_SEND_ALL_LIMIT_PER_MINUTE);
         if (limited != null) return limited;
 

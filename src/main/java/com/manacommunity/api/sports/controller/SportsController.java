@@ -421,8 +421,8 @@ public class SportsController {
 
     @GetMapping({"/event-list-map", "/tournament-list-map"})
     public ResponseEntity<List<Map<String, Object>>> getTournamentMap(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         return ResponseEntity.ok(eventService.getEventMap(ctx.scopeCommunityId(communityId)));
@@ -430,8 +430,8 @@ public class SportsController {
 
     @GetMapping({"/events/open", "/tournaments/open"})
     public ResponseEntity<List<SportsEventResponse>> getOpenTournaments(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         Long targetCommunityId = ctx.scopeCommunityId(communityId);
@@ -524,9 +524,9 @@ public class SportsController {
 
     @GetMapping({"/events/community", "/tournaments/community"})
     public ResponseEntity<List<SportsEventResponse>> getCommunityTournaments(
-            @RequestParam Long communityId,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN);
         ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         Long targetCommunityId = ctx.scopeCommunityId(communityId);

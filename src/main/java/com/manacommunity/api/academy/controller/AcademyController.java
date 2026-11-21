@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/academy")
@@ -28,9 +30,10 @@ public class AcademyController {
 
     @GetMapping("/programs")
     public ResponseEntity<List<AcademyProgram>> getPrograms(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         if (category != null && !category.isBlank()) {
             return ResponseEntity.ok(programRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category));
         }
@@ -95,7 +98,8 @@ public class AcademyController {
     }
 
     @GetMapping("/instructors")
-    public ResponseEntity<List<Map<String, Object>>> getInstructors(@RequestParam Long communityId) {
+    public ResponseEntity<List<Map<String, Object>>> getInstructors(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(List.of());
     }
 
@@ -124,7 +128,8 @@ public class AcademyController {
     }
 
     @GetMapping("/admin/stats")
-    public ResponseEntity<Map<String, Object>> adminStats(@RequestParam Long communityId) {
+    public ResponseEntity<Map<String, Object>> adminStats(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(Map.of(
                 "totalPrograms", programRepo.count(),
                 "activePrograms", programRepo.countByCommunityIdAndStatus(communityId, "OPEN"),
@@ -149,7 +154,8 @@ public class AcademyController {
     }
 
     @GetMapping("/admin/programs/pending")
-    public ResponseEntity<List<AcademyProgram>> pendingPrograms(@RequestParam Long communityId) {
+    public ResponseEntity<List<AcademyProgram>> pendingPrograms(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(programRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, "PENDING_APPROVAL"));
     }
 

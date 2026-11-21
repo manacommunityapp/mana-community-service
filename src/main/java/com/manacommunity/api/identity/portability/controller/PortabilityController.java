@@ -65,8 +65,9 @@ public class PortabilityController {
     // ── Federation ───────────────────────────────────────────────────────────
 
     @GetMapping("/federation")
-    public ResponseEntity<ApiResponse<List<CommunityFederationLink>>> getFederation(
-            @RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<CommunityFederationLink>>> getFederation(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(portabilityService.getFederatedCommunities(communityId)));
     }
 

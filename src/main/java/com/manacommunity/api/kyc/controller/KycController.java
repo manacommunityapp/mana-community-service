@@ -63,8 +63,9 @@ public class KycController {
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('FACILITY_MANAGER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<KycVerificationRequest>>> getPending(
-            @RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<KycVerificationRequest>>> getPending(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(kycService.getPendingReviews(communityId)));
     }
 

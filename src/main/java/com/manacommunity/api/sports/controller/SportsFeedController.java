@@ -151,8 +151,8 @@ public class SportsFeedController {
     /** Live matches (and ones completed in the last 15 min) flagged for the community feed. */
     @GetMapping("/live-feed")
     public ResponseEntity<List<SportsFeedMatchResponse>> liveFeed(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         ResolvedUser ctx = principal != null ? loggedInUserService.resolveContext(principal) : null;
         return ResponseEntity.ok(feedService.getLiveFeed(communityId, ctx));
     }
@@ -160,9 +160,9 @@ public class SportsFeedController {
     /** Upcoming scheduled matches flagged for the community feed. */
     @GetMapping("/upcoming-feed")
     public ResponseEntity<List<SportsFeedMatchResponse>> upcomingFeed(
-            @RequestParam(required = false) Long communityId,
             @RequestParam(defaultValue = "15") int limit,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         ResolvedUser ctx = principal != null ? loggedInUserService.resolveContext(principal) : null;
         return ResponseEntity.ok(feedService.getUpcomingFeed(communityId, limit, ctx));
     }
@@ -170,9 +170,9 @@ public class SportsFeedController {
     /** Recently completed matches with winner details and scores for the results modal. */
     @GetMapping("/recent-completed")
     public ResponseEntity<List<SportsFeedMatchResponse>> recentCompleted(
-            @RequestParam(required = false) Long communityId,
             @RequestParam(defaultValue = "30") int limit,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         ResolvedUser ctx = principal != null ? loggedInUserService.resolveContext(principal) : null;
         return ResponseEntity.ok(feedService.getRecentCompletedMatches(communityId, limit, ctx));
     }

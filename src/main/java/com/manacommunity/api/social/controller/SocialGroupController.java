@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/social")
@@ -24,10 +26,11 @@ public class SocialGroupController {
 
     @GetMapping("/groups")
     public ResponseEntity<Page<SocialGroup>> listGroups(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(service.getGroupsByCommunity(communityId, type,
                 PageRequest.of(page, size, Sort.by("createdAt").descending())));
     }

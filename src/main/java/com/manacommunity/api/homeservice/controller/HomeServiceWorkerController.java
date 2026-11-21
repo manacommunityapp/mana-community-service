@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("homeServiceWorkerController")
 @RequestMapping("/api/v1/home-services/workers")
@@ -18,10 +20,11 @@ public class HomeServiceWorkerController {
 
     @GetMapping
     public ResponseEntity<List<HomeServiceWorkerEntity>> getWorkers(
-            @RequestParam(required = false, defaultValue = "comm-mana-1") String communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) BigDecimal minRating,
             @RequestParam(required = false) HomeServiceVerificationStatus status) {
+        String communityId = String.valueOf(principal.getCommunityId());
         return ResponseEntity.ok(workerService.getWorkers(communityId, category, minRating, status));
     }
 

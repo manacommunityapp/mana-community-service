@@ -24,31 +24,33 @@ public class CommunityInsightsController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<CommunityInsight>>> getActiveInsights(
-            @RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<CommunityInsight>>> getActiveInsights(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(insightsService.getActiveInsights(communityId)));
     }
 
     @GetMapping("/metrics")
     public ResponseEntity<ApiResponse<List<CommunityMetricsSnapshot>>> getMetricsTrend(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "30") int days) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(insightsService.getMetricsTrend(communityId, days)));
     }
 
     @PostMapping("/snapshot")
     @PreAuthorize("hasAnyRole('FM','ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<ApiResponse<CommunityMetricsSnapshot>> triggerSnapshot(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(insightsService.snapshotMetrics(communityId), "Snapshot taken"));
     }
 
     @PostMapping("/generate")
     @PreAuthorize("hasAnyRole('FM','ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<ApiResponse<List<CommunityInsight>>> generateInsights(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         List<CommunityInsight> insights = insightsService.generateInsights(communityId);
         return ResponseEntity.ok(ApiResponse.ok(insights, insights.size() + " insight(s) generated"));
     }

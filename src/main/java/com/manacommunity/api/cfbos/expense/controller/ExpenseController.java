@@ -10,6 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("cfbosExpenseController")
 @RequestMapping("/api/cfbos/expenses")
@@ -30,8 +32,9 @@ public class ExpenseController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ExpenseResponse>> getAll(
-            @RequestParam(required = false) Long communityId) {
+    public ResponseEntity<List<ExpenseResponse>> getAll(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         if (communityId != null) {
             return ResponseEntity.ok(expenseService.getExpensesByCommunity(communityId));
         }

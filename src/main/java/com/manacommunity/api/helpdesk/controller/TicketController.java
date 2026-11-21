@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
 
 @RestController
 @RequestMapping("/api/v1/helpdesk/tickets")
@@ -28,14 +29,16 @@ public class TicketController {
     @GetMapping
     @Operation(summary = "Get all tickets in the community with optional status filter")
     public ResponseEntity<List<TicketResponse>> getCommunityTickets(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ticketService.getCommunityTickets(communityId, status));
     }
 
     @GetMapping("/open")
     @Operation(summary = "Get active open/in-progress tickets")
-    public ResponseEntity<List<TicketResponse>> getOpenTickets(@RequestParam Long communityId) {
+    public ResponseEntity<List<TicketResponse>> getOpenTickets(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ticketService.getOpenTickets(communityId));
     }
 
@@ -131,7 +134,8 @@ public class TicketController {
 
     @GetMapping("/analytics")
     @Operation(summary = "Get helpdesk SLA and performance analytics for a community")
-    public ResponseEntity<HelpdeskAnalyticsResponse> getAnalytics(@RequestParam Long communityId) {
+    public ResponseEntity<HelpdeskAnalyticsResponse> getAnalytics(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ticketService.getAnalytics(communityId));
     }
 }
