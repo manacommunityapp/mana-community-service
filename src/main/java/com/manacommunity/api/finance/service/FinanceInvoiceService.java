@@ -1,11 +1,15 @@
 package com.manacommunity.api.finance.service;
 
+import com.manacommunity.api.billing.event.InvoiceIssuedEvent;
+import com.manacommunity.api.billing.event.InvoicePaymentReceivedEvent;
+import com.manacommunity.api.config.tenant.TenantContext;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.finance.dto.FinanceInvoiceDto;
 import com.manacommunity.api.finance.entity.FinanceInvoice;
 import com.manacommunity.api.finance.entity.FinanceLineItem;
 import com.manacommunity.api.finance.repository.FinanceInvoiceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +24,10 @@ import java.util.List;
 public class FinanceInvoiceService {
 
     private static final String CODE_PREFIX = "INV";
+    private static final String STATUS_PAID = "Paid";
 
     private final FinanceInvoiceRepository repo;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<FinanceInvoiceDto> getAll(String status) {
@@ -63,12 +69,27 @@ public class FinanceInvoiceService {
             saved.setCode(CODE_PREFIX + "/" + String.format("%03d", saved.getId()));
             saved = repo.save(saved);
         }
+
+        // Publish invoice-issued event so the ledger listener can create journal entries.
+        BigDecimal invoiceAmount = saved.getGrandTotal() != null ? saved.getGrandTotal() : BigDecimal.ZERO;
+        if (invoiceAmount.compareTo(BigDecimal.ZERO) > 0) {
+            eventPublisher.publishEvent(new InvoiceIssuedEvent(
+                    saved.getId(),
+                    TenantContext.getCommunityId(),
+                    saved.getCustomerId(),
+                    invoiceAmount,
+                    saved.getCode(),
+                    saved.getDueDate()
+            ));
+        }
+
         return toDto(saved);
     }
 
     @Transactional
     public FinanceInvoiceDto update(Long id, FinanceInvoiceDto dto) {
         FinanceInvoice doc = require(id);
+        String previousStatus = doc.getStatus();
         doc.setStatus(dto.getStatus());
         doc.setCustomerId(dto.getCustomerId());
         doc.setCustomerName(dto.getCustomerName());
@@ -86,7 +107,24 @@ public class FinanceInvoiceService {
         if (dto.getCode() != null && !dto.getCode().isBlank()) doc.setCode(dto.getCode());
         doc.getLines().clear();
         applyLines(doc, dto);
-        return toDto(repo.save(doc));
+        FinanceInvoice saved = repo.save(doc);
+
+        // Publish payment-received event when status transitions to "Paid".
+        boolean transitionedToPaid = STATUS_PAID.equalsIgnoreCase(dto.getStatus())
+                && !STATUS_PAID.equalsIgnoreCase(previousStatus);
+        BigDecimal paidAmount = saved.getGrandTotal() != null ? saved.getGrandTotal() : BigDecimal.ZERO;
+        if (transitionedToPaid && paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            eventPublisher.publishEvent(new InvoicePaymentReceivedEvent(
+                    saved.getId(),
+                    TenantContext.getCommunityId(),
+                    saved.getCustomerId(),
+                    paidAmount,
+                    saved.getCode(),
+                    saved.getCode()   // use invoice code as payment reference
+            ));
+        }
+
+        return toDto(saved);
     }
 
     @Transactional
