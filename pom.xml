@@ -53,7 +53,7 @@
             Re-enable permanently:                 remove this property.
         -->
         <maven.test.skip>false</maven.test.skip>
-        <spring-ai.version>2.0.1</spring-ai.version>
+        <spring-ai.version>2.0.3</spring-ai.version>
         <postgresql.version>42.7.14</postgresql.version>
         <aws.sdk.version>2.54.20</aws.sdk.version>
         <poi.version>6.0.0</poi.version>
@@ -64,6 +64,15 @@
         <twilio.version>11.3.5</twilio.version>
         <springdoc.version>2.8.17</springdoc.version>
         <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
+        <micrometer.version>1.16.7</micrometer.version>
+        <micrometer-tracing.version>1.8.0</micrometer-tracing.version>
+        <jackson-bom.version>2.21.8</jackson-bom.version>
+        <logback.version>1.5.38</logback.version>
+        <netty.version>4.1.141.Final</netty.version>
+        <tomcat.version>10.1.62</tomcat.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <kotlin.version>2.1.0</kotlin.version>
+        <opentelemetry.version>1.54.1</opentelemetry.version>
     </properties>
 
     <!-- ── Centralised Dependency Management & BOMs ── -->
@@ -89,7 +98,7 @@
             <dependency>
                 <groupId>org.json</groupId>
                 <artifactId>json</artifactId>
-                <version>20240303</version>
+                <version>20260719</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
@@ -105,6 +114,46 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
                 <version>1.27.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.18.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.linecorp.armeria</groupId>
+                <artifactId>armeria</artifactId>
+                <version>1.43.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>5.6.4</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>com.auth0</groupId>
+                <artifactId>java-jwt</artifactId>
+                <version>4.6.2</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor.netty</groupId>
+                <artifactId>reactor-netty-http</artifactId>
+                <version>1.3.9</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor.netty</groupId>
+                <artifactId>reactor-netty-core</artifactId>
+                <version>1.3.9</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
