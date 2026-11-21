@@ -3,6 +3,7 @@ package com.manacommunity.api.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.manacommunity.api.exception.ErrorResponse;
+import com.manacommunity.api.exception.ErrorSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
@@ -37,11 +38,12 @@ public class SecurityErrorWriter {
         if (response.isCommitted()) {
             return;
         }
+
         ErrorResponse body = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(status.value())
                 .error(errorCode)
-                .message(message)
+                .message(ErrorSanitizer.sanitize(message))
                 .path(request.getRequestURI())
                 .correlationId(MDC.get(CorrelationIdFilter.MDC_CORRELATION_ID))
                 .build();

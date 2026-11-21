@@ -35,4 +35,10 @@ public interface VmsBookingRepository extends JpaRepository<VmsBooking, Long> {
     long countByCommunityIdAndStatus(Long communityId, VmsBooking.BookingStatus status);
 
     long countByVendorIdAndStatus(Long vendorId, VmsBooking.BookingStatus status);
+
+    @Query("SELECT COUNT(b) FROM VmsBooking b WHERE b.status = " +
+            "com.manacommunity.api.vendor.entity.VmsBooking.BookingStatus.COMPLETED " +
+            "AND b.completedAt BETWEEN :from AND :to")
+    long countCompletedPlatformBookings(@Param("from") java.time.LocalDateTime from,
+                                        @Param("to") java.time.LocalDateTime to);
 }

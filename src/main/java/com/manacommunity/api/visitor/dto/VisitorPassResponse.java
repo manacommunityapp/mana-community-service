@@ -1,5 +1,6 @@
 package com.manacommunity.api.visitor.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
@@ -47,4 +48,9 @@ public class VisitorPassResponse {
      * This field is always {@code null} on all subsequent reads.
      */
     private String otpOnCreation;
+
+    @JsonProperty("otp")
+    public String getOtp() {
+        return otpOnCreation;
+    }
 }

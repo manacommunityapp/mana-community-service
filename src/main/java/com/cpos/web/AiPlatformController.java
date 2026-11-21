@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+@org.springframework.context.annotation.Profile("!prod") // hardcoded stub -- no real AI valuation service yet
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
 @RestController
 @RequestMapping("/api/v1/cpos/ai")
 @RequiredArgsConstructor

@@ -172,4 +172,55 @@ class AuthControllerTest extends BaseWebMvcTest {
                     .andExpect(jsonPath("$.message").value("Account locked due to too many failed attempts. Try again in 15 minute(s)."));
         }
     }
+
+    // ── POST /api/auth/forgot-password ─────────────────────────────────
+
+    @Nested
+    @DisplayName("POST /api/auth/forgot-password")
+    class ForgotPassword {
+
+        @Test
+        @DisplayName("valid email returns 200 with uniform security message")
+        void validEmail_returns200() throws Exception {
+            String json = "{\"email\":\"resident@community.com\"}";
+
+            mockMvc.perform(post("/api/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.message").value("If an account exists with that email address, a verification code has been sent."));
+        }
+
+        @Test
+        @DisplayName("invalid email format returns 400")
+        void invalidEmail_returns400() throws Exception {
+            String json = "{\"email\":\"not-an-email\"}";
+
+            mockMvc.perform(post("/api/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    // ── POST /api/auth/reset-password ──────────────────────────────────
+
+    @Nested
+    @DisplayName("POST /api/auth/reset-password")
+    class ResetPassword {
+
+        @Test
+        @DisplayName("valid reset request returns 200")
+        void validRequest_returns200() throws Exception {
+            String json = "{\"email\":\"resident@community.com\",\"otpCode\":\"123456\",\"newPassword\":\"SecurePass123!\"}";
+
+            mockMvc.perform(post("/api/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.message").value("Password has been successfully updated. You can now log in with your new password."));
+        }
+    }
 }

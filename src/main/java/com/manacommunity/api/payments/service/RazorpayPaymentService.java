@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.manacommunity.api.platform.outbox.DomainEventPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -63,6 +64,7 @@ public class RazorpayPaymentService {
     private final RazorpayClient          razorpayClient;
     private final AuditService            auditService;
     private final ApplicationEventPublisher eventPublisher;
+    private final DomainEventPublisher    domainEventPublisher;
 
     // ─── Order Creation ──────────────────────────────────────────────────────
 
@@ -275,15 +277,13 @@ public class RazorpayPaymentService {
                         "RazorpayOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook payment.captured: order {} PAID via paymentId={}", razorpayOrderId, razorpayPaymentId);
 
-                eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+                GatewayPaymentCapturedEvent razorpayCaptured = new GatewayPaymentCapturedEvent(
                         GatewayPaymentCapturedEvent.Gateway.RAZORPAY,
-                        razorpayOrderId,
-                        razorpayPaymentId,
-                        order.getAmount(),
-                        "INR",
-                        "Razorpay payment captured: " + razorpayOrderId,
-                        order.getId()
-                ));
+                        razorpayOrderId, razorpayPaymentId, order.getAmount(), "INR",
+                        "Razorpay payment captured: " + razorpayOrderId, order.getId());
+                eventPublisher.publishEvent(razorpayCaptured);
+                domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(order.getId()),
+                        "GatewayPaymentCaptured", razorpayCaptured, order.getCommunity() != null ? order.getCommunity().getId() : null);
             }
         }, () -> log.warn("Webhook payment.captured: no local order found for razorpayOrderId={}", razorpayOrderId));
     }

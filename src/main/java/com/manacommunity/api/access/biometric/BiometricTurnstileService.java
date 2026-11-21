@@ -11,5 +11,5 @@ public interface BiometricTurnstileService {
     void enrollUser(EnrollBiometricRequest request);
     List<BiometricTurnstileDto> getTurnstilesForCommunity(Long communityId);
     Page<BiometricAccessLogDto> getAccessLogs(Long communityId, Pageable pageable);
-    void setTurnstileStatus(Long turnstileId, BiometricEnums.TurnstileStatus status);
+    void setTurnstileStatus(Long communityId, Long turnstileId, BiometricEnums.TurnstileStatus status);
 }

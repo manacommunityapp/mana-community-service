@@ -293,7 +293,7 @@ class PoojaRegistrationStatusTest {
         }
 
         @Test
-        @DisplayName("updating status with invalid transition throws IllegalArgumentException")
+        @DisplayName("updating status with invalid transition throws IllegalStateException")
         void updateWithInvalidTransitionBlocked() {
             EventPoojaUserRegistrationRepository repo = mock(EventPoojaUserRegistrationRepository.class);
             EventPoojaUserRegistration reg = registration("CHECKED_IN");
@@ -305,7 +305,7 @@ class PoojaRegistrationStatusTest {
             update.setStatus("CONFIRMED"); // CHECKED_IN cannot go back to CONFIRMED
 
             assertThatThrownBy(() -> service.updateRegistration(1L, update, null))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Invalid status transition");
         }
 

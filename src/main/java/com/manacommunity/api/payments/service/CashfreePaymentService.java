@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import com.manacommunity.api.platform.outbox.DomainEventPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -85,6 +86,7 @@ public class CashfreePaymentService {
     private final SportsEventRegistrationRepository regRepository;
     private final MobilityTripRepository mobilityTripRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DomainEventPublisher domainEventPublisher;
     private final org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.groupbuying.service.GroupBuyPaymentConfirmationService> groupBuyPaymentConfirmationService;
     private final com.manacommunity.api.commerce.core.repository.CommerceOrderRepository commerceOrderRepository;
 
@@ -364,15 +366,14 @@ public class CashfreePaymentService {
                         "CashfreeOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook PAYMENT_SUCCESS: order {} PAID via cfPaymentId={}", manaOrderId, cfPaymentId);
 
-                eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+                GatewayPaymentCapturedEvent cashfreeCaptured = new GatewayPaymentCapturedEvent(
                         GatewayPaymentCapturedEvent.Gateway.CASHFREE,
-                        manaOrderId,
-                        cfPaymentId,
-                        order.getAmount(),
-                        "INR",
-                        "Cashfree payment captured: " + manaOrderId,
-                        order.getId()
-                ));
+                        manaOrderId, cfPaymentId, order.getAmount(), "INR",
+                        "Cashfree payment captured: " + manaOrderId, order.getId());
+                eventPublisher.publishEvent(cashfreeCaptured);
+                domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(order.getId()),
+                        "GatewayPaymentCaptured", cashfreeCaptured,
+                        order.getCommunity() != null ? order.getCommunity().getId() : null);
 
                 // Wire to business workflows based on referenceType.
                 dispatchBusinessConfirmation(order);

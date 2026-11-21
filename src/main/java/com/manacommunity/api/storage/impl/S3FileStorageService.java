@@ -1,6 +1,7 @@
 package com.manacommunity.api.storage.impl;
 
 import com.manacommunity.api.exception.MediaStorageException;
+import com.manacommunity.api.platform.audit.AuditJournalService;
 import com.manacommunity.api.storage.FileStorageService;
 import com.manacommunity.api.storage.FileStreamResource;
 import com.manacommunity.api.storage.StoredFileDto;
@@ -68,6 +69,12 @@ public class S3FileStorageService implements FileStorageService {
 
     private S3Client s3;
     private S3Presigner presigner;
+
+    private final AuditJournalService auditJournalService;
+
+    public S3FileStorageService(AuditJournalService auditJournalService) {
+        this.auditJournalService = auditJournalService;
+    }
 
     @PostConstruct
     void init() {
@@ -162,7 +169,15 @@ public class S3FileStorageService implements FileStorageService {
                         .key(key)
                         .build())
                 .build();
-        return presigner.presignGetObject(presignRequest).url().toString();
+        String url = presigner.presignGetObject(presignRequest).url().toString();
+        try {
+            auditJournalService.recordOperational("S3_PRESIGNED_URL_GENERATED",
+                    java.util.Map.of("bucket", bucket, "key", key,
+                            "expiryMinutes", presignedGetExpiryMinutes));
+        } catch (Exception e) {
+            log.warn("Failed to audit presigned URL generation for key={}: {}", key, e.getMessage());
+        }
+        return url;
     }
 
     @Override

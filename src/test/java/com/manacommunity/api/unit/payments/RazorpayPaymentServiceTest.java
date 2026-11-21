@@ -42,6 +42,7 @@ class RazorpayPaymentServiceTest {
     @Mock RazorpayClient           razorpayClient;
     @Mock AuditService             auditService;
     @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock com.manacommunity.api.platform.outbox.DomainEventPublisher domainEventPublisher;
     @Mock OrderClient              ordersApi;
 
     RazorpayPaymentService service;
@@ -51,7 +52,7 @@ class RazorpayPaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RazorpayPaymentService(orderRepository, properties, razorpayClient, auditService, eventPublisher);
+        service = new RazorpayPaymentService(orderRepository, properties, razorpayClient, auditService, eventPublisher, domainEventPublisher);
 
         community = new Community();
         community.setId(1L);

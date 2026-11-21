@@ -1,5 +1,6 @@
 package com.manacommunity.api.ops.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -125,18 +126,141 @@ public class OpsDashboardDtos {
         private double overallErrorRate;
     }
 
+    // ── Extended Platform Telemetry DTOs ─────────────────────────────────────
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class FailedNotificationSummaryDto {
+        private long totalFailed;
+        private long failedLast1h;
+        private List<ChannelFailureDto> byChannel;
+        private Instant lastFailureAt;
+
+        @Data
+        @Builder
+        @NoArgsConstructor
+        @AllArgsConstructor
+        public static class ChannelFailureDto {
+            private String channel; // PUSH, EMAIL, SMS, WHATSAPP
+            private long failed;
+            private long total;
+            private double failureRate;
+        }
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WebSocketHealthDto {
+        private int activeConnections;
+        private int peakConnectionsLast1h;
+        private int disconnectsLast1h;
+        private double messageErrorRate;
+        private long avgSessionDurationSeconds;
+        private HealthStatus status;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BackgroundJobStatusDto {
+        private String jobName;
+        private String cronExpression;
+        private String status; // HEALTHY, FAILING, STALLED, DISABLED
+        private Instant lastRunAt;
+        private Instant lastSuccessAt;
+        private Instant lastFailureAt;
+        private int failureCountLast24h;
+        private long avgDurationMs;
+        private Instant nextScheduledAt;
+        private String lastErrorMessage;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CicdPipelineStatusDto {
+        private String pipeline;
+        private String status; // SUCCESS, RUNNING, FAILED, PENDING, CANCELLED
+        private String branch;
+        private String commitSha;
+        private String triggeredBy;
+        private Instant startedAt;
+        private Instant finishedAt;
+        private Long durationSeconds;
+        private String deployedEnvironment;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PaymentGatewayHealthDto {
+        private String gateway;
+        private HealthStatus status;
+        private long verificationDelayP95Ms;
+        private double successRate;
+        private long failureCount;
+        private long avgResponseMs;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TenantHealthSummaryDto {
+        private int totalTenants;
+        private int healthyTenants;
+        private int degradedTenants;
+        private int offlineTenants;
+        private int pendingOnboarding;
+        private int onboardingCompletedLast7Days;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DatabaseConnectionPoolDto {
+        private String poolName;
+        private int activeConnections;
+        private int idleConnections;
+        private int maxPoolSize;
+        private int pendingAcquire;
+        private long avgAcquireTimeMs;
+        private String status; // HEALTHY, WARNING, CRITICAL
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class PlatformOpsOverviewDto {
         private Instant generatedAt;
         private HealthStatus overallStatus;
+        private long uptimeSeconds;
+        private int activeWebsockets;
+        private long failedRequestsTotal;
         private SystemClusterMetricsDto clusterMetrics;
         private List<ServiceHealthDto> services;
         private List<FailedRequestDto> recentFailures;
         private List<QueueLagDto> queueLags;
         private List<MigrationStatusDto> migrations;
         private List<IncidentAlertDto> activeIncidents;
+
+        // Extended Telemetry Sections
+        private FailedNotificationSummaryDto notifications;
+        private WebSocketHealthDto webSocketHealth;
+        private List<BackgroundJobStatusDto> backgroundJobs;
+        private List<CicdPipelineStatusDto> cicdPipelines;
+        private List<PaymentGatewayHealthDto> paymentGateways;
+        private TenantHealthSummaryDto tenantHealth;
+        private List<DatabaseConnectionPoolDto> databasePools;
     }
 }

@@ -17,11 +17,29 @@
     <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
     <property name="ARCHIVE" value="${LOG_DIR:-logs}/archive"/>
     <property name="PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [cid=%X{correlationId:--} uid=%X{userId:--}] %logger{36} - %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [traceId=%X{traceId:-%X{correlationId:--}} spanId=%X{spanId:--} uid=%X{userId:--}] %logger{36} - %msg%n"/>
 
     <!-- ── Console ──────────────────────────────────────────────────────── -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder><pattern>${PATTERN}</pattern></encoder>
+    </appender>
+
+    <!-- ── Structured JSON application log (Loki / CloudWatch / Promtail) ── -->
+    <appender name="JSON_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/mana-service-json.log</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <customFields>{"app":"mana-community-service"}</customFields>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE}/mana-service-json-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
     </appender>
 
     <!-- ── Primary application log (path matches logging.file.name) ─────── -->
@@ -172,6 +190,7 @@
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP"/>
         <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="JSON_APP"/>
     </root>
 
 </configuration>

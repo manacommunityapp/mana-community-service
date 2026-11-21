@@ -210,14 +210,19 @@ successful business action, `meterRegistry.counter("name", "tag", value).increme
 dashboard auto-provisioned, alert rules). The `AdminLogsServerError` alarm fires on any
 5xx to `/api/admin/logs`. See `monitoring/README.md` for the prod scrape-auth options.
 
-## 10b. Still on the roadmap
+## 10b. Distributed Tracing & Structured Logging — IMPLEMENTED
+
+- **W3C `traceparent` & OpenTelemetry:** Fully integrated via `micrometer-tracing-bridge-otel` in `pom.xml` and `application.yaml`. Automatically extracts incoming `traceparent` (`00-{traceId}-{spanId}-01`), binds `traceId` and `spanId` to SLF4J MDC, and echoes headers on responses.
+- **Client Propagation:** React web (`apiClient.ts`) and React Native mobile (`apiClient.ts`) attach compliant W3C `traceparent` on all outbound API requests and log events.
+- **Structured JSON Logging:** `mana-service-json.log` rolling appender using `LogstashEncoder` exports indexed `traceId`, `spanId`, `correlationId`, `userId`, and `app` metadata for Grafana Loki / CloudWatch ingestion.
+- **CORS Headers:** `SecurityConfig` allows `traceparent`, `tracestate`, and `baggage` cross-origin.
+
+## 10c. Still on the roadmap
 
 - **DB query monitoring** — enable `hibernate.generate_statistics` + a slow-query threshold
   (HikariCP pool metrics are already exported via Micrometer and on the dashboard).
 - **Alertmanager wiring** — route the alert rules to Slack/email/PagerDuty (the rules exist;
   Alertmanager is commented out in `monitoring/prometheus/prometheus.yml`).
-- **Distributed tracing across services** — current correlation id is per-service; for multi-service
-  tracing adopt W3C `traceparent` / OpenTelemetry.
 - **Remaining audit events** — scheduler/match/auction-status (§5).
 
 ---

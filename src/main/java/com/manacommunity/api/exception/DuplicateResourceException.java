@@ -2,15 +2,20 @@ package com.manacommunity.api.exception;
 
 import org.springframework.http.HttpStatus;
 
-/** Thrown when a unique constraint is violated (duplicate email, phone, etc.). */
+/**
+ * Thrown when a unique constraint is violated (duplicate email, phone, etc.).
+ * Client message sanitizes table/resource and field names, and never reveals raw values.
+ */
 public class DuplicateResourceException extends ManaCommunityException {
 
     private final String diagnosticDetail;
 
     public DuplicateResourceException(String resource, String field, String value) {
-        super("A " + resource + " with that " + field + " already exists.",
+        super("A " + ErrorSanitizer.cleanResourceName(resource) + " with that "
+                        + ErrorSanitizer.cleanFieldName(field) + " already exists.",
                 HttpStatus.CONFLICT, "DUPLICATE_RESOURCE");
-        this.diagnosticDetail = resource + " duplicate on " + field + ": " + mask(value);
+        this.diagnosticDetail = ErrorSanitizer.cleanResourceName(resource) + " duplicate on "
+                + ErrorSanitizer.cleanFieldName(field) + ": " + mask(value);
     }
 
     public String getDiagnosticDetail() {

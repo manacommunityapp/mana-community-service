@@ -6,11 +6,30 @@ logging:
   file:
     name: logs/mana-service.log
 
+mana:
+  business:
+    # Set to the contracted payout SLA in calendar days. Zero leaves overdue counts unavailable.
+    vendor-settlement-sla-days: ${MANA_BUSINESS_VENDOR_SETTLEMENT_SLA_DAYS:0}
+
 spring:
   application:
     name: mana-community-service
   main:
     allow-bean-definition-overriding: true
+
+  # ── Redis (distributed rate limiting, WS session tracking) ───────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 500ms
+      connect-timeout: 500ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
 
   # ── Flyway Database Migrations ─────────────────────────────────────────
   flyway:
@@ -104,9 +123,16 @@ management:
       # Stamp every metric with the app name so multiple services are separable
       # in one Prometheus/Grafana instance.
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY:1.0}
+    propagation:
+      type: W3C
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  audit:
+    hmac-secret: ${APP_AUDIT_HMAC_SECRET:mana-audit-tamper-resistant-immutable-secret-key-2026}
   flyway:
     repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
     out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}

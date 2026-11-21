@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public final class InteriorProjectDtos {
     private InteriorProjectDtos() {}
@@ -20,7 +21,8 @@ public final class InteriorProjectDtos {
     public record DesignerProfile(
             Long id, Long userId, String userName, String providerType, String businessName,
             String bio, String profileImageUrl, String verificationStatus, BigDecimal avgRating,
-            Integer totalJobsCompleted, String serviceAreas, String portfolio,
+            Integer totalJobsCompleted, String serviceAreas, String portfolio, String verifiedCredentialLevel,
+            LocalDateTime credentialsVerifiedAt,
             List<ServiceOfferingResponse> offerings) {}
 
     public record BriefRequest(
@@ -51,12 +53,14 @@ public final class InteriorProjectDtos {
             @NotBlank @Size(max = 24) String unit,
             @NotNull @DecimalMin(value = "0.0") BigDecimal unitPrice,
             @DecimalMin(value = "0.0") BigDecimal marginPercent,
-            @DecimalMin(value = "0.0") BigDecimal taxPercent) {}
+            @DecimalMin(value = "0.0") BigDecimal taxPercent,
+            Long catalogProductId,
+            @jakarta.validation.constraints.Min(1) Integer procurementQuantity) {}
 
     public record QuoteLineItemResponse(
             Long id, String category, String description, BigDecimal quantity, String unit,
             BigDecimal unitPrice, BigDecimal marginPercent, BigDecimal taxPercent, BigDecimal lineTotal,
-            Integer position) {}
+            Integer position, Long catalogProductId, Integer procurementQuantity) {}
 
     public record ReviewRequest(
             @NotNull @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) Integer rating,
@@ -88,4 +92,41 @@ public final class InteriorProjectDtos {
             LocalDate preferredStart, LocalDateTime createdAt, List<Long> invitedDesignerIds,
             List<QuoteResponse> quotes, WorkOrderResponse workOrder, ReviewResponse review,
             List<AttachmentRef> attachments, List<String> milestoneApprovals, List<CommerceOrderDto> materialOrders) {}
+
+    public record InspirationRequest(
+            Long projectId, @NotBlank @Size(max=2000) String sourceUrl, @Size(max=2000) String imageUrl,
+            @Size(max=240) String title, @Size(max=2000) String notes, @Size(max=1000) String tags) {}
+    public record InspirationResponse(Long id, Long projectId, String sourceUrl, String imageUrl, String title,
+            String notes, String tags, LocalDateTime createdAt, LocalDateTime updatedAt) {}
+
+    public record ChangeRequestCreate(
+            @NotBlank @Size(max=2000) String description, @Size(max=4000) String scopeDelta,
+            BigDecimal priceDelta, LocalDate proposedStartDate, LocalDate proposedEndDate) {}
+    public record ChangeDecision(@NotBlank String decision, @Size(max=2000) String note) {}
+    public record ChangeRequestResponse(Long id, Long projectId, Long proposedBy, String description,
+            String scopeDelta, BigDecimal priceDelta, LocalDate proposedStartDate, LocalDate proposedEndDate,
+            String status, String decisionNote, Long decidedBy, LocalDateTime decidedAt, LocalDateTime createdAt) {}
+
+    public record PaymentMilestoneCreate(@NotBlank @Size(max=180) String title, @Size(max=2000) String description,
+            @NotNull @DecimalMin("1.00") BigDecimal amount, LocalDate dueDate,
+            @Size(max=120) String invoiceReference, @Size(max=2000) String invoiceUrl) {}
+    public record PaymentInvoiceLink(@NotBlank @Size(max=120) String invoiceReference, @Size(max=2000) String invoiceUrl) {}
+    public record PaymentRelease(@Size(max=120) String payoutReference) {}
+    public record PaymentMilestoneResponse(Long id, Long projectId, Long providerId, String title, String description,
+            BigDecimal amount, LocalDate dueDate, String status, String paymentGateway, String razorpayOrderId, String razorpayPaymentId, String cashfreeManaOrderId,
+            LocalDateTime authorizedAt, LocalDateTime releasedAt, String payoutReference,
+            String invoiceReference, String invoiceUrl) {}
+    public record PaymentCheckoutResponse(String gateway, String orderId, BigDecimal amount, String currency,
+            String paymentSessionId, String appId, String razorpayKeyId) {}
+    public record MilestonePaymentAuthorization(@NotBlank String gateway, @NotBlank String orderId, String paymentId) {}
+
+    public record CredentialCreate(@NotBlank @Size(max=80) String credentialType,
+            @NotBlank @Size(max=40) String credentialLevel, @Size(max=180) String issuer,
+            @Size(max=120) String credentialNumber, @NotNull UUID evidenceMediaId) {}
+    public record CredentialReview(@NotBlank String decision, @Size(max=2000) String note) {}
+    public record CredentialResponse(Long id, Long providerId, String credentialType, String credentialLevel,
+            String issuer, String credentialNumber, UUID evidenceMediaId, String status, Long submittedBy,
+            Long reviewedBy, String reviewNote, LocalDateTime reviewedAt, LocalDateTime createdAt) {}
+    public record CredentialAuditResponse(Long id, Long actorUserId, String action, String fromStatus,
+            String toStatus, String note, LocalDateTime createdAt) {}
 }
