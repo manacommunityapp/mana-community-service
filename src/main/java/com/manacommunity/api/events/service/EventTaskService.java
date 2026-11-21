@@ -35,17 +35,12 @@ public class EventTaskService {
 
     @Transactional(readOnly = true)
     public List<EventTaskResponse> getByCommunity(Long communityId) {
-        List<EventTask> tasks;
-        if (communityId != null) {
-            tasks = taskRepo.findByCommunityIdOrderByDueDateAsc(communityId);
-            if (tasks.isEmpty()) {
-                tasks = taskRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
-            }
-        } else {
-            tasks = taskRepo.findAll();
+        if (communityId == null) {
+            throw new IllegalArgumentException("communityId is required");
         }
-        if (tasks == null || tasks.isEmpty()) {
-            tasks = taskRepo.findAll();
+        List<EventTask> tasks = taskRepo.findByCommunityIdOrderByDueDateAsc(communityId);
+        if (tasks.isEmpty()) {
+            tasks = taskRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
         }
         return tasks.stream().map(this::toResponse).toList();
     }
