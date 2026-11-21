@@ -4,11 +4,13 @@ import com.manacommunity.api.cfbos.dashboard.dto.CommunityFinanceSummaryResponse
 import com.manacommunity.api.cfbos.dashboard.service.CommunityFinanceDashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/cfbos/dashboard")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('View Finance') or hasAuthority('Admin')")
 public class CommunityFinanceDashboardController {
 
     private final CommunityFinanceDashboardService dashboardService;

@@ -4,8 +4,10 @@ import com.manacommunity.api.governance.dto.GovernanceDtos;
 import com.manacommunity.api.governance.dto.GovernanceDtos.*;
 import com.manacommunity.api.governance.entity.*;
 import com.manacommunity.api.governance.repository.*;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +28,8 @@ public class GovernanceController {
     // ── Stats ─────────────────────────────────────────────────────────────────
 
     @GetMapping("/stats")
-    public ResponseEntity<StatsDto> getStats(@RequestParam Long communityId) {
+    public ResponseEntity<StatsDto> getStats(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(StatsDto.builder()
                 .upcomingMeetings(meetingRepo.countByCommunityIdAndStatus(communityId, "SCHEDULED"))
                 .activeProposals(proposalRepo.countByCommunityIdAndStatus(communityId, "OPEN"))
@@ -42,8 +45,9 @@ public class GovernanceController {
 
     @GetMapping("/meetings")
     public ResponseEntity<List<MeetingDto>> getMeetings(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceMeeting> list = (type != null && !type.isBlank())
                 ? meetingRepo.findByCommunityIdAndTypeOrderByMeetingDateDesc(communityId, type)
                 : meetingRepo.findByCommunityIdOrderByMeetingDateDesc(communityId);
@@ -82,8 +86,9 @@ public class GovernanceController {
 
     @GetMapping("/proposals")
     public ResponseEntity<List<ProposalDto>> getProposals(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceProposal> list = (category != null && !category.isBlank() && !category.equals("ALL"))
                 ? proposalRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category)
                 : proposalRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -113,8 +118,9 @@ public class GovernanceController {
 
     @GetMapping("/ballots")
     public ResponseEntity<List<BallotDto>> getBallots(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceBallot> list = (status != null && !status.isBlank())
                 ? ballotRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status)
                 : ballotRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -138,8 +144,9 @@ public class GovernanceController {
 
     @GetMapping("/resolutions")
     public ResponseEntity<List<ResolutionDto>> getResolutions(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(resolutionRepo.findByCommunityIdOrderByPassedOnDesc(communityId)
                 .stream().map(this::toResolutionDto).toList());
     }
@@ -148,8 +155,9 @@ public class GovernanceController {
 
     @GetMapping("/vault")
     public ResponseEntity<List<VaultDocumentDto>> getVault(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceVaultDocument> list = (category != null && !category.isBlank())
                 ? vaultRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category)
                 : vaultRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);

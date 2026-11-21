@@ -102,15 +102,11 @@ public class UserController {
 
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
-            @RequestParam(required = false) Long communityId,
             @RequestParam String query,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        Long targetCommunityId = communityId;
+        Long targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
-        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
-            targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        }
         if (targetCommunityId == null) {
             return ResponseEntity.ok(java.util.Collections.emptyList());
         }

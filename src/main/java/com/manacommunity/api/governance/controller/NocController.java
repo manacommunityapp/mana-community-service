@@ -3,9 +3,11 @@ package com.manacommunity.api.governance.controller;
 import com.manacommunity.api.governance.entity.NocRequest;
 import com.manacommunity.api.governance.repository.NocRequestRepository;
 import com.manacommunity.api.platform.web.ApiResponse;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,14 +37,16 @@ public class NocController {
     }
 
     @GetMapping("/pending")
-    public ResponseEntity<ApiResponse<List<NocRequest>>> getPending(@RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<NocRequest>>> getPending(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ok(nocRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, "PENDING"));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<NocRequest>>> getAll(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         List<NocRequest> list = status != null
                 ? nocRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status)
                 : nocRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
