@@ -27,4 +27,10 @@ public interface VmsPaymentRepository extends JpaRepository<VmsPayment, Long> {
 
     @Query("select coalesce(sum(p.amount), 0) from VmsPayment p where p.vendor.id = :vendorId and p.status in :statuses")
     BigDecimal sumAmountByVendorAndStatuses(@Param("vendorId") Long vendorId, @Param("statuses") java.util.Collection<PaymentProcessStatus> statuses);
+
+    @Query("select coalesce(sum(p.commissionAmount), 0) from VmsPayment p " +
+            "where p.paymentDate between :from and :to and p.status = :status")
+    BigDecimal sumCommissionAmountPlatform(@Param("from") java.time.LocalDate from,
+                                           @Param("to") java.time.LocalDate to,
+                                           @Param("status") PaymentProcessStatus status);
 }

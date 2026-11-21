@@ -37,12 +37,14 @@ public class CommunityOpsDashboardService {
         long openComplaints = ticketRepo.countByCommunityIdAndStatus(communityId, Ticket.TicketStatus.OPEN);
 
         long overduePayments = invoiceRepo.countOverdue(communityId, today);
+        java.math.BigDecimal overduePaymentsAmount = invoiceRepo.sumOverdueAmount(communityId, today);
 
         long activeGuards = guardShiftRepo
                 .findByCommunityIdAndShiftDateOrderByStartTimeAsc(communityId, today)
                 .stream()
                 .filter(s -> s.getStatus() == GuardShift.ShiftStatus.IN_PROGRESS)
                 .count();
+        long totalGuards = guardShiftRepo.countByCommunityIdAndShiftDate(communityId, today);
 
         long todayVisitors = visitorPassRepo.countByCommunityIdAndStatus(communityId, VisitorPass.PassStatus.CHECKED_IN);
 
@@ -59,7 +61,9 @@ public class CommunityOpsDashboardService {
                 communityId,
                 openComplaints,
                 overduePayments,
+                overduePaymentsAmount,
                 activeGuards,
+                totalGuards,
                 todayVisitors,
                 staffPresent,
                 parkingOccupied,

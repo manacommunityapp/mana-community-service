@@ -32,4 +32,16 @@ public interface MarketOrderRepository extends JpaRepository<MarketOrder, Long> 
     int countBySellerId(Long sellerId);
 
     int countByCommunityId(Long communityId);
+
+    @Query("SELECT COUNT(o) FROM MarketOrder o WHERE o.status = " +
+           "com.manacommunity.api.marketplace.entity.MarketOrder.OrderStatus.COMPLETED " +
+           "AND o.createdAt BETWEEN :from AND :to")
+    long countCompletedPlatformOrders(@Param("from") java.time.LocalDateTime from,
+                                      @Param("to") java.time.LocalDateTime to);
+
+    @Query("SELECT o.buyer.id, COUNT(o) FROM MarketOrder o WHERE o.buyer.id IS NOT NULL AND o.status = " +
+           "com.manacommunity.api.marketplace.entity.MarketOrder.OrderStatus.COMPLETED " +
+           "AND o.createdAt BETWEEN :from AND :to GROUP BY o.buyer.id")
+    List<Object[]> completedOrderCountsByBuyer(@Param("from") java.time.LocalDateTime from,
+                                               @Param("to") java.time.LocalDateTime to);
 }

@@ -68,6 +68,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     long countByKycStatus(String kycStatus);
     long countByCommunityIdAndKycStatus(Long communityId, String kycStatus);
     long countByCommunityId(Long communityId);
+    long countByCommunityIdAndOccupancyStatusIgnoreCase(Long communityId, String occupancyStatus);
+    long countByCommunityIdAndOccupancyStatusIgnoreCaseAndIsActiveTrue(Long communityId, String occupancyStatus);
     long countByIsActiveTrue();
     long countByCommunityIdAndIsActiveTrue(Long communityId);
 

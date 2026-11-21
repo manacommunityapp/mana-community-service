@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface VendorRepository extends JpaRepository<Vendor, Long> {
     List<Vendor> findByActiveTrueOrderByNameAsc();
+    long countByActiveTrue();
 }

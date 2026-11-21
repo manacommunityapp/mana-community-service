@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 @Repository
 public interface CommerceSettlementRepository extends JpaRepository<CommerceSettlement, Long> {
@@ -17,6 +18,11 @@ public interface CommerceSettlementRepository extends JpaRepository<CommerceSett
     List<CommerceSettlement> findBySeller_IdOrderByCycleEndDateDesc(Long sellerId);
     List<CommerceSettlement> findBySeller_Id(Long sellerId);
     List<CommerceSettlement> findByCommunityIdOrderByCycleEndDateDesc(Long communityId);
+    List<CommerceSettlement> findByCycleEndDateBetween(Instant from, Instant to);
+
+    @Query("SELECT COUNT(s) FROM CommerceSettlement s WHERE s.status = 'PENDING' " +
+            "AND s.payoutDate IS NULL AND s.cycleEndDate < :cutoff")
+    long countOverduePlatformSettlements(@org.springframework.data.repository.query.Param("cutoff") Instant cutoff);
 
     @Query("SELECT s FROM CommerceSettlement s WHERE s.community.id = :communityId ORDER BY s.cycleEndDate DESC")
     Page<CommerceSettlement> findByCommunityIdPaged(Long communityId, Pageable pageable);

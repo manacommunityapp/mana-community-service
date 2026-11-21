@@ -3,8 +3,10 @@ package com.manacommunity.api.communityops.dashboard;
 public record CommunityOpsSnapshot(
         Long communityId,
         long openComplaints,
-        long overduePayments,
+        long overduePaymentsCount,
+        java.math.BigDecimal overduePaymentsAmount,
         long activeGuards,
+        long totalGuards,
         long todayVisitors,
         long staffPresent,
         long parkingOccupied,
