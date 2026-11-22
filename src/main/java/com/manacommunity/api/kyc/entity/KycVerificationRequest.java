@@ -32,9 +32,17 @@ public class KycVerificationRequest {
     @Column(name = "id_type", length = 50)
     private String idType;
 
-    // SHA-256 hash of actual ID number; plaintext is never stored
+    /**
+     * HMAC-SHA256(server pepper, client SHA-256 digest) of the ID number. Plaintext is
+     * never stored, and neither is the client digest on its own — a bare SHA-256 of a
+     * 12-digit Aadhaar is enumerable offline. See {@code KycIdNumberProtector}.
+     */
     @Column(name = "id_number_hash", length = 100)
     private String idNumberHash;
+
+    /** Last 1-4 characters of the ID number. Display only. */
+    @Column(name = "id_number_last4", length = 4)
+    private String idNumberLast4;
 
     @Column(name = "document_url", length = 500)
     private String documentUrl;

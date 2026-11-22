@@ -1,7 +1,10 @@
 package com.manacommunity.api.kyc.controller;
 
 import com.manacommunity.api.kyc.dto.*;
+import com.manacommunity.api.kyc.entity.KycDocument;
 import com.manacommunity.api.kyc.entity.KycVerificationRequest;
+import com.manacommunity.api.kyc.service.KycIdNumberProtector;
+import com.manacommunity.api.kyc.service.KycService;
 import com.manacommunity.api.kyc.service.KycVerificationService;
 import com.manacommunity.api.platform.web.ApiResponse;
 import com.manacommunity.api.user.model.AppUser;
@@ -21,6 +24,8 @@ import java.util.List;
 public class KycController {
 
     private final KycVerificationService kycService;
+    private final KycService kycDocumentService;
+    private final KycIdNumberProtector idNumberProtector;
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping("/status")
@@ -37,8 +42,9 @@ public class KycController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody AadhaarInitiateRequest req) {
         AppUser user = loggedInUserService.resolve(principal);
+        idNumberProtector.rejectRawIdNumber(req.getAadhaarNumber(), "aadhaarNumber", "'aadhaarHash'");
         KycVerificationRequest result = kycService.initiateAadhaarOtp(
-                user.getId(), req.getCommunityId(), req.getAadhaarHash());
+                user.getId(), req.getCommunityId(), req.getAadhaarHash(), req.getAadhaarLast4());
         return ResponseEntity.ok(ApiResponse.ok(result, "OTP sent to registered Aadhaar mobile"));
     }
 
@@ -55,10 +61,42 @@ public class KycController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody DocumentSubmitRequest req) {
         AppUser user = loggedInUserService.resolve(principal);
+        idNumberProtector.rejectRawIdNumber(req.getIdNumber(), "idNumber",
+                "'idNumberHash' and 'idNumberLast4'");
         KycVerificationRequest result = kycService.submitDocumentForReview(
                 user.getId(), req.getCommunityId(), req.getIdType(),
-                req.getIdNumberHash(), req.getDocumentUrl());
+                req.getIdNumberHash(), req.getIdNumberLast4(), req.getDocumentUrl());
         return ResponseEntity.ok(ApiResponse.ok(result, "Document submitted for review"));
+    }
+
+    // ── Document submission (mobile onboarding) ───────────────────────────
+    // The client sends idNumberHash + idNumberLast4; the raw number is never
+    // transmitted and a request that still carries documentNumber is refused with 400.
+
+    @GetMapping("/documents")
+    public ResponseEntity<ApiResponse<KycSummaryResponse>> listDocuments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(ApiResponse.ok(kycDocumentService.getStatus(user)));
+    }
+
+    @PostMapping("/submit")
+    public ResponseEntity<ApiResponse<KycDocument>> submit(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody KycSubmitRequest req) {
+        AppUser user = loggedInUserService.resolve(principal);
+        KycDocument doc = kycDocumentService.submit(req, user);
+        return ResponseEntity.ok(ApiResponse.ok(doc, "KYC document submitted for review"));
+    }
+
+    @PutMapping("/documents/{id}")
+    public ResponseEntity<ApiResponse<KycDocument>> resubmitDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody KycSubmitRequest req) {
+        AppUser user = loggedInUserService.resolve(principal);
+        KycDocument doc = kycDocumentService.resubmit(id, req, user);
+        return ResponseEntity.ok(ApiResponse.ok(doc, "KYC document resubmitted for review"));
     }
 
     @GetMapping("/pending")

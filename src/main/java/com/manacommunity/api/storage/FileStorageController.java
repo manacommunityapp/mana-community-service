@@ -1,5 +1,6 @@
 package com.manacommunity.api.storage;
 
+import com.manacommunity.api.media.repository.MediaRepository;
 import com.manacommunity.api.storage.entity.StoredFile;
 import com.manacommunity.api.storage.repository.StoredFileRepository;
 import com.manacommunity.api.user.model.AppUser;
@@ -7,6 +8,7 @@ import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -15,11 +17,15 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
+@Slf4j
 public class FileStorageController {
 
     private final FileStorageService storageService;
@@ -27,6 +33,7 @@ public class FileStorageController {
     private final LoggedInUserService loggedInUserService;
     private final AppUserRepository appUserRepository;
     private final PresignedUrlRefreshService refreshService;
+    private final MediaRepository mediaRepository;
 
     /** Upload a file; returns metadata including the URL to persist. */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -77,9 +84,10 @@ public class FileStorageController {
      * Serve a Postgres-stored file by id.
      *
      * Ids are sequential integers, so the caller's tenancy MUST be checked:
-     * only the uploader, a user of the uploader's community, or a SUPER_ADMIN
-     * may read the bytes. {@code stored_file} has no community column, so the
-     * owning community is derived from {@code uploaded_by}.
+     * only the uploader, a user of the file's community, or a SUPER_ADMIN may
+     * read the bytes. The owning community is {@code stored_file.community_id}
+     * (added and back-filled in V506), falling back to a lookup through
+     * {@code uploaded_by} where that column is still NULL.
      */
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<byte[]> download(@PathVariable Long id,
@@ -105,21 +113,38 @@ public class FileStorageController {
 
     /**
      * True when {@code principal} is entitled to the given stored file.
-     * SUPER_ADMIN sees everything; otherwise the file must have been uploaded
-     * by the caller, or by a user belonging to the caller's community. Files
-     * with no {@code uploaded_by} (legacy rows) have no ownership information
-     * at all and are therefore SUPER_ADMIN-only.
+     *
+     * <p>SUPER_ADMIN sees everything. Otherwise:
+     * <ol>
+     *   <li>the uploader is always entitled to their own file;</li>
+     *   <li>if {@code stored_file.community_id} is set (V506, back-filled from the uploader)
+     *       it is authoritative — one indexed column read instead of a per-request
+     *       {@code app_user} lookup;</li>
+     *   <li>if it is NULL the previous behaviour is kept exactly: derive the community from
+     *       {@code uploaded_by} through {@code app_user}, so nothing that works today breaks
+     *       on a row the V506 back-fill could not attribute (e.g. a file uploaded after V506
+     *       by a user whose community was unknown at the time).</li>
+     * </ol>
+     * A row with neither a community nor an uploader carries no ownership information at all
+     * and stays SUPER_ADMIN-only.
      */
     private boolean canAccess(StoredFile file, UserPrincipal principal) {
         LoggedInUserService.ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         if (ctx.superAdmin()) return true;
 
         Long uploadedBy = file.getUploadedBy();
-        if (uploadedBy == null) return false;
-        if (uploadedBy.equals(principal.getId())) return true;
+        if (uploadedBy != null && uploadedBy.equals(principal.getId())) return true;
 
         Long callerCommunityId = ctx.communityId();
         if (callerCommunityId == null) return false;
+
+        Long fileCommunityId = file.getCommunityId();
+        if (fileCommunityId != null) {
+            return callerCommunityId.equals(fileCommunityId);
+        }
+
+        // Legacy row the back-fill could not attribute: fall back to the uploader lookup.
+        if (uploadedBy == null) return false;
         return callerCommunityId.equals(communityIdOfUser(uploadedBy));
     }
 
@@ -135,9 +160,11 @@ public class FileStorageController {
     /**
      * Stream any S3 or persistent file by wildcard path/key (e.g. /api/files/users/14/gallery/original/xxx.jpg).
      *
-     * Requires authentication, and for the per-user key space
-     * ({@code users/{userId}/...}) the caller must be that user, a member of
-     * that user's community, or a SUPER_ADMIN.
+     * Requires authentication. For the per-user key space
+     * ({@code users/{userId}/...}) the caller must be that user, a member of that user's
+     * community, or a SUPER_ADMIN; any other key is scoped against the owning
+     * {@code media_objects} / {@code stored_file} row when one can be found for it.
+     * See {@link #canAccessKey}.
      */
     @GetMapping("/**")
     public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamFile(
@@ -202,23 +229,83 @@ public class FileStorageController {
     /**
      * Tenancy check for wildcard S3/persistent keys.
      *
-     * Keys in the per-user namespace ({@code users/{userId}/...}) are resolved
-     * to their owner and checked against the caller. Other key namespaces
-     * (e.g. {@code events/...}) carry no owner in the key itself, so they are
-     * allowed to any authenticated caller — the anonymous enumeration hole is
-     * closed by SecurityConfig, but true per-tenant scoping of those keys needs
-     * the key to be persisted against its owning entity.
+     * <p>Resolution order, most specific first:
+     * <ol>
+     *   <li>SUPER_ADMIN: always allowed.</li>
+     *   <li>Keys in the per-user namespace ({@code users/{userId}/...}): resolved to their
+     *       owner and checked against the caller, as before.</li>
+     *   <li>Any other key is looked up against {@code media_objects} by all four of its S3
+     *       keys (original / thumbnail / compressed / medium). {@code community_id} is NOT
+     *       NULL there, so a hit gives a hard tenant check for key namespaces such as
+     *       {@code events/...} that carry no owner in the key itself.</li>
+     *   <li>Failing that, a key that names a Postgres-backed {@code stored_file} row (by id or
+     *       by stored filename — what {@code PostgresFileStorageService#getStream} accepts) is
+     *       checked with the same rules as {@code GET /api/files/{id}}, so the wildcard route
+     *       cannot be used to side-step the id route's tenancy check.</li>
+     *   <li>A key matching no row stays authenticated-only and is logged. It cannot be scoped
+     *       from the key alone, and denying it would break objects whose keys were never
+     *       persisted against an owning entity (pre-media-service uploads, the
+     *       {@code events/...} paths written by {@code /upload/event-payment}).</li>
+     * </ol>
      */
     private boolean canAccessKey(String key, UserPrincipal principal) {
         LoggedInUserService.ResolvedUser ctx = loggedInUserService.resolveContext(principal);
         if (ctx.superAdmin()) return true;
 
         Long ownerId = userIdFromKey(key);
-        if (ownerId == null) return true;
-        if (ownerId.equals(principal.getId())) return true;
+        if (ownerId != null) {
+            if (ownerId.equals(principal.getId())) return true;
+            Long callerCommunity = ctx.communityId();
+            return callerCommunity != null && callerCommunity.equals(communityIdOfUser(ownerId));
+        }
 
         Long callerCommunityId = ctx.communityId();
-        return callerCommunityId != null && callerCommunityId.equals(communityIdOfUser(ownerId));
+
+        Set<Long> mediaOwners = mediaCommunitiesForKey(key);
+        if (!mediaOwners.isEmpty()) {
+            boolean allowed = callerCommunityId != null && mediaOwners.contains(callerCommunityId);
+            if (!allowed) {
+                log.warn("Denying media key {} to userId={} (community {}) — object belongs to community {}",
+                        key, principal.getId(), callerCommunityId, mediaOwners);
+            }
+            return allowed;
+        }
+
+        StoredFile stored = storedFileForKey(key);
+        if (stored != null) {
+            return canAccess(stored, principal);
+        }
+
+        log.warn("Wildcard file key {} matched no media_objects or stored_file row — serving it to "
+                        + "authenticated userId={} (community {}) with no tenant check. Persist the key "
+                        + "against its owning entity to make it scopable.",
+                key, principal.getId(), callerCommunityId);
+        return true;
+    }
+
+    /** Communities owning the media object that holds {@code key} as any of its S3 keys. */
+    private Set<Long> mediaCommunitiesForKey(String key) {
+        String normalized = key.startsWith("/") ? key.substring(1) : key;
+        List<Long> ids = mediaRepository.findCommunityIdsByAnyKey(normalized);
+        Set<Long> owners = new HashSet<>();
+        for (Long id : ids) {
+            if (id != null) owners.add(id);
+        }
+        return owners;
+    }
+
+    /**
+     * The {@code stored_file} row a wildcard key refers to, if any. Mirrors the lookups
+     * {@code PostgresFileStorageService#getStream} performs (numeric id, then stored filename).
+     */
+    private StoredFile storedFileForKey(String key) {
+        String normalized = key.startsWith("/") ? key.substring(1) : key;
+        if (normalized.matches("^\\d+$")) {
+            StoredFile byId = storedFileRepo.findById(Long.parseLong(normalized)).orElse(null);
+            if (byId != null) return byId;
+        }
+        if (normalized.contains("/")) return null;
+        return storedFileRepo.findByFilename(normalized).orElse(null);
     }
 
     /** Extracts {userId} from a {@code users/{userId}/...} key, else null. */

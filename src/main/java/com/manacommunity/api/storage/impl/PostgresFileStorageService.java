@@ -6,6 +6,9 @@ import com.manacommunity.api.storage.FileStreamResource;
 import com.manacommunity.api.storage.StoredFileDto;
 import com.manacommunity.api.storage.entity.StoredFile;
 import com.manacommunity.api.storage.repository.StoredFileRepository;
+import com.manacommunity.api.config.tenant.TenantContext;
+import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -39,6 +42,7 @@ public class PostgresFileStorageService implements FileStorageService {
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024L; // 20 MB
 
     private final StoredFileRepository repo;
+    private final AppUserRepository appUserRepository;
 
     @Override
     @Transactional
@@ -61,6 +65,7 @@ public class PostgresFileStorageService implements FileStorageService {
                     .sizeBytes(file.getSize())
                     .data(file.getBytes())
                     .uploadedBy(uploadedByUserId)
+                    .communityId(resolveCommunityId(uploadedByUserId))
                     .build();
 
             entity = repo.save(entity);
@@ -115,6 +120,30 @@ public class PostgresFileStorageService implements FileStorageService {
     @Override
     public boolean isS3() {
         return false;
+    }
+
+    /**
+     * Owning community for a new upload (stored_file.community_id, V506).
+     *
+     * <p>Preferred source is {@link TenantContext}, which TenantFilter populates from the
+     * authenticated principal — never from a client header for a non-SUPER_ADMIN. For a
+     * SUPER_ADMIN acting on another community the context holds that community, which is the
+     * right owner for the file. When there is no request context (background jobs, tests) the
+     * uploader's own community is used. Null when neither is known: the row then behaves
+     * exactly like a legacy row and is SUPER_ADMIN-only.
+     */
+    private Long resolveCommunityId(Long uploadedByUserId) {
+        Long fromContext = TenantContext.getCommunityId();
+        if (fromContext != null) {
+            return fromContext;
+        }
+        if (uploadedByUserId == null) {
+            return null;
+        }
+        return appUserRepository.findById(uploadedByUserId)
+                .map(AppUser::getCommunity)
+                .map(c -> c.getId())
+                .orElse(null);
     }
 
     private String extractExtension(String name) {

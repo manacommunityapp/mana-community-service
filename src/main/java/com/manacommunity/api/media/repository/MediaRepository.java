@@ -76,4 +76,26 @@ public interface MediaRepository extends JpaRepository<MediaObject, Long> {
                               @Param("medKey") String medKey);
 
     boolean existsByS3Key(String s3Key);
+
+    /**
+     * Owning community/communities of whichever media row holds {@code key} as any of its
+     * four S3 keys (original, thumbnail, compressed, medium).
+     *
+     * <p>Used to tenant-scope the wildcard file-streaming path, which receives a bare S3 key
+     * and — for keys outside the {@code users/{userId}/...} shape — has no other way to find
+     * out who owns the object. {@code media_objects.community_id} is NOT NULL, so a hit always
+     * yields a usable tenant; soft-deleted rows are included on purpose, because a soft-deleted
+     * object's bytes are still in the bucket and must not become readable by other tenants.
+     *
+     * <p>Returns a list rather than an Optional: only {@code s3_key} is unique, so a key could
+     * in principle appear as a variant key on more than one row.
+     */
+    @Query("""
+            SELECT DISTINCT m.communityId FROM MediaObject m
+             WHERE m.s3Key = :key
+                OR m.thumbnailKey = :key
+                OR m.compressedKey = :key
+                OR m.mediumKey = :key
+            """)
+    List<Long> findCommunityIdsByAnyKey(@Param("key") String key);
 }
