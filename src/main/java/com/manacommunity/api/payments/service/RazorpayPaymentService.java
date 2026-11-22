@@ -65,6 +65,7 @@ public class RazorpayPaymentService {
     private final AuditService            auditService;
     private final ApplicationEventPublisher eventPublisher;
     private final DomainEventPublisher    domainEventPublisher;
+    private final PaymentAmountResolver   amountResolver;
 
     // ─── Order Creation ──────────────────────────────────────────────────────
 
@@ -82,8 +83,14 @@ public class RazorpayPaymentService {
      */
     @Transactional
     public PaymentOrderResponse createOrder(CreateOrderRequest req, AppUser user, Community community) {
+        // Always resolve the authoritative amount server-side — never trust req.getAmount().
+        PaymentAmountResolver.ResolvedAmount resolved = amountResolver.resolve(
+                req.getReferenceType(), req.getReferenceId(),
+                community.getId(), user.getId(), req.getAmount());
+        BigDecimal resolvedAmount = resolved.amount();
+
         // Convert rupees to paise (Razorpay smallest unit for INR).
-        long amountInPaise = req.getAmount()
+        long amountInPaise = resolvedAmount
                 .multiply(BigDecimal.valueOf(100))
                 .longValueExact();
 
@@ -107,7 +114,7 @@ public class RazorpayPaymentService {
 
             RazorpayOrder entity = RazorpayOrder.builder()
                     .razorpayOrderId(razorpayOrderId)
-                    .amount(req.getAmount())
+                    .amount(resolvedAmount)
                     .currency(properties.getCurrency())
                     .status("CREATED")
                     .referenceType(req.getReferenceType())
@@ -128,7 +135,7 @@ public class RazorpayPaymentService {
             );
 
             log.info("Razorpay order created: razorpayOrderId={} amount=₹{} userId={} communityId={} ref={}:{}",
-                    razorpayOrderId, req.getAmount(), user.getId(), community.getId(),
+                    razorpayOrderId, resolvedAmount, user.getId(), community.getId(),
                     req.getReferenceType(), req.getReferenceId());
 
             return toResponse(saved, true);
