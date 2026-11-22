@@ -29,6 +29,16 @@ public class KycDocument extends BaseAuditEntity {
     @Column(name = "document_type", nullable = false, length = 30)
     private String documentType;
 
+    /** HMAC-SHA256(server pepper, client SHA-256 of ID). See KycIdNumberProtector. Never raw number. */
+    @Column(name = "id_number_hash", length = 100)
+    private String idNumberHash;
+
+    /** Last 1-4 chars of the government ID, for masked display only. */
+    @Column(name = "id_number_last4", length = 4)
+    private String idNumberLast4;
+
+    /** @deprecated Legacy column; raw/encrypted number from old onboarding path. Never write from new code. */
+    @Deprecated
     @Column(name = "document_number", length = 50)
     private String documentNumber;
 
