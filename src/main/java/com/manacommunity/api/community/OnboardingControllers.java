@@ -100,9 +100,9 @@ class CommunityLookupController {
 // ── KYC Controller ────────────────────────────────────────────
 @Slf4j
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/users/me")
 @RequiredArgsConstructor
-class KycController {
+class OnboardingKycController {
 
     @PersistenceContext
     private final EntityManager em;
@@ -112,22 +112,32 @@ class KycController {
     private final com.manacommunity.api.kyc.service.KycIdNumberProtector kycIdNumberProtector;
 
     /**
-     * PUT /api/auth/kyc
+     * POST (or PUT) /api/users/me/kyc
      *
-     * Called by the mobile onboarding Step 4 (verify.tsx) after the user
-     * has uploaded their government ID images.
+     * Called by mobile onboarding step 4 (verify.tsx, via authService.submitKyc)
+     * after the user has uploaded their government ID images.
+     *
+     * This used to be mapped at PUT /api/auth/kyc, which no client ever called —
+     * the only caller posts to /api/users/me/kyc, so the endpoint 404'd. Moving it
+     * here also takes it out from under the permitAll /api/auth/** matcher, so it
+     * is now covered by the default authenticated rule rather than relying on its
+     * own principal check alone. POST and PUT are both accepted because the client
+     * sends POST and the previous contract was PUT.
      *
      * Body: {
      *   govtIdType:        "AADHAAR" | "PAN" | "PASSPORT" | "VOTER_ID" | "DRIVING_LICENSE"
-     *   govtIdNumber:      "123456789012"
+     *   govtIdNumberHash:  64-char lowercase hex SHA-256 of the normalised number
+     *   govtIdLast4:       last 1-4 characters, for display only
      *   documentFrontUrl:  "https://..."
      *   documentBackUrl?:  "https://..."    (optional — not required for PAN/Passport)
      * }
      *
+     * The raw number must never arrive here; sending govtIdNumber is a 400.
+     *
      * Sets kycStatus = "PENDING" (admin must review and approve via the admin panel).
      * Returns the updated UserProfileResponse.
      */
-    @PutMapping("/kyc")
+    @RequestMapping(value = "/kyc", method = { RequestMethod.POST, RequestMethod.PUT })
     @Transactional
     public ResponseEntity<Map<String, Object>> submitKyc(
             @AuthenticationPrincipal UserPrincipal principal,
