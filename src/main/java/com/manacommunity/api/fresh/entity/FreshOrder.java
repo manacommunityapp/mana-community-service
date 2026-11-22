@@ -37,6 +37,23 @@ public class FreshOrder {
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    /**
+     * The ordered lines. EAGER because the controller serialises the entity directly
+     * and a LAZY collection would throw once the transaction has closed. Orders carry
+     * a handful of lines, so this is cheap; if "my orders" ever grows large enough for
+     * the per-order select to matter, switch to a fetch-join query rather than to LAZY.
+     */
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true,
+               fetch = FetchType.EAGER)
+    @Builder.Default
+    private java.util.List<FreshOrderItem> items = new java.util.ArrayList<>();
+
+    /** Keeps both sides of the association consistent before a cascade save. */
+    public void addItem(FreshOrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 

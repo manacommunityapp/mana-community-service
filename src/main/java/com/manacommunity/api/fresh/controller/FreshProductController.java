@@ -3,6 +3,7 @@ package com.manacommunity.api.fresh.controller;
 import com.manacommunity.api.exception.InvalidInputException;
 import com.manacommunity.api.fresh.dto.PlaceFreshOrderRequest;
 import com.manacommunity.api.fresh.entity.FreshOrder;
+import com.manacommunity.api.fresh.entity.FreshOrderItem;
 import com.manacommunity.api.fresh.entity.FreshProduct;
 import com.manacommunity.api.fresh.repository.FreshOrderRepository;
 import com.manacommunity.api.fresh.repository.FreshProductRepository;
@@ -127,6 +128,10 @@ public class FreshProductController {
         Long communityId = requireCommunityId(principal);
 
         BigDecimal total = BigDecimal.ZERO;
+        // Lines are captured as well as totalled. The order used to persist only the
+        // computed total, so there was no record of what had actually been ordered —
+        // nothing to pick, deliver or dispute against.
+        List<FreshOrderItem> lines = new java.util.ArrayList<>();
         for (PlaceFreshOrderRequest.Item item : request.items()) {
             if (item == null || item.productId() == null
                     || item.quantity() == null || item.quantity() < 1) {
@@ -140,6 +145,14 @@ public class FreshProductController {
                             "Product " + item.productId() + " is not available in your community."));
             BigDecimal price = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
             total = total.add(price.multiply(BigDecimal.valueOf(item.quantity())));
+
+            lines.add(FreshOrderItem.builder()
+                    .productId(product.getId())
+                    .quantity(item.quantity())
+                    // Priced now, not looked up later: a catalogue change must not
+                    // alter what this resident was charged.
+                    .unitPrice(price.setScale(2, RoundingMode.HALF_UP))
+                    .build());
         }
 
         FreshOrder order = FreshOrder.builder()
@@ -151,6 +164,8 @@ public class FreshProductController {
                 .deliverySlot(request.deliverySlot())
                 .notes(request.notes())
                 .build();
+
+        lines.forEach(order::addItem);
 
         FreshOrder saved = orderRepository.save(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
