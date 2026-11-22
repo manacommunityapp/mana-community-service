@@ -21,6 +21,7 @@ public class KycService {
 
     private final KycDocumentRepository repo;
     private final KycIdNumberProtector idNumberProtector;
+    private final KycDocumentImageStore imageStore;
 
     @Transactional(readOnly = true)
     public KycSummaryResponse getStatus(AppUser user) {
@@ -41,6 +42,21 @@ public class KycService {
     public KycDocument submit(KycSubmitRequest req, AppUser user) {
         validate(req);
 
+        // The images are stored BEFORE the row is built, and a storage failure throws out of
+        // here and rolls the transaction back. The bug this replaces was the opposite: the
+        // base64 fields were bound and read by nothing, so every submission persisted a hash
+        // with front_image_url / back_image_url NULL and the admin review screen had no
+        // evidence to review. A KYC record without its document is worse than a failed
+        // submission, so do not "recover" from a storage error by saving the row anyway.
+        if (req.getFrontImageBase64() == null || req.getFrontImageBase64().isBlank()) {
+            throw new InvalidInputException("'frontImageBase64' is required: a KYC document cannot be "
+                    + "reviewed without an image of the document front.");
+        }
+        String frontUrl = imageStore.store(req.getFrontImageBase64(), "frontImageBase64",
+                req.getDocumentType(), user.getId(), "front");
+        String backUrl = imageStore.store(req.getBackImageBase64(), "backImageBase64",
+                req.getDocumentType(), user.getId(), "back");
+
         KycDocument doc = KycDocument.builder()
                 .user(user)
                 .community(user.getCommunity())
@@ -53,6 +69,8 @@ public class KycService {
                 // req.getIdNumberHash() directly — see KycIdNumberProtector.
                 .idNumberHash(idNumberProtector.protectForStorage(req.getIdNumberHash(), "idNumberHash"))
                 .idNumberLast4(idNumberProtector.requireLast4(req.getIdNumberLast4(), "idNumberLast4"))
+                .frontImageUrl(frontUrl)
+                .backImageUrl(backUrl)
                 .status("PENDING_REVIEW")
                 .build();
         return repo.save(doc);
@@ -71,6 +89,19 @@ public class KycService {
         if (req.getDocumentType() != null && !req.getDocumentType().isBlank()) {
             doc.setDocumentType(req.getDocumentType());
         }
+
+        // Images are optional on a resubmission: a resident correcting only the number keeps
+        // the images already on file. When new ones are sent they must store successfully
+        // before anything is written, same as submit(). The previously stored file is left in
+        // place rather than deleted — the old row's URL is the only audit trail of what an
+        // earlier review looked at.
+        String documentTypeForPath = doc.getDocumentType();
+        String newFrontUrl = imageStore.store(req.getFrontImageBase64(), "frontImageBase64",
+                documentTypeForPath, user.getId(), "front");
+        String newBackUrl = imageStore.store(req.getBackImageBase64(), "backImageBase64",
+                documentTypeForPath, user.getId(), "back");
+        if (newFrontUrl != null) doc.setFrontImageUrl(newFrontUrl);
+        if (newBackUrl != null) doc.setBackImageUrl(newBackUrl);
         doc.setStatus("PENDING_REVIEW");
         doc.setRejectionReason(null);
         return repo.save(doc);

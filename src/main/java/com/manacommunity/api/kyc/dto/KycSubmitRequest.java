@@ -32,8 +32,19 @@ public class KycSubmitRequest {
     /** Last 1–4 characters of the ID number. Display only: the UI renders {@code •••• •••• {last4}}. */
     private String idNumberLast4;
 
+    /**
+     * Base64 of the document front, with or without a {@code data:image/...;base64,} prefix.
+     * Required on {@code POST /api/kyc/submit}, optional on a resubmission (the image already
+     * on file is kept when it is omitted).
+     *
+     * <p>Decoded, sniffed with Tika and stored by {@code KycDocumentImageStore}, which fills
+     * {@code KycDocument.frontImageUrl}. Max 5 MB decoded; JPEG / PNG / WebP / HEIC / HEIF
+     * only. Anything else is a 400 and no KYC row is written. These fields used to be bound
+     * and read by nothing, so the images were silently discarded.
+     */
     private String frontImageBase64;
 
+    /** Base64 of the document back. Optional — PAN and passport have nothing on the reverse. */
     private String backImageBase64;
 
     /**

@@ -5,6 +5,7 @@ import com.manacommunity.api.commerce.core.dto.CommerceSubscriptionRequest;
 import com.manacommunity.api.commerce.core.model.*;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderItemRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceOrderRepository;
+import com.manacommunity.api.commerce.core.repository.CommerceProductRepository;
 import com.manacommunity.api.commerce.core.repository.CommerceSubscriptionRepository;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
@@ -36,10 +37,21 @@ public class CommerceSubscriptionService {
     private final CommerceSubscriptionRepository subscriptionRepository;
     private final CommerceOrderRepository orderRepository;
     private final CommerceOrderItemRepository orderItemRepository;
+    private final CommerceProductRepository productRepository;
     private final AppUserRepository userRepository;
 
     // ── Customer operations ───────────────────────────────────────────────────
 
+    /**
+     * Creates a recurring subscription.
+     *
+     * <p>The price is resolved from the product catalogue server-side;
+     * {@code req.getUnitPrice()} is ignored. A tampered price here would not just
+     * underpay once, it would set the price for every future delivery, so the same
+     * rule as the one-off checkout in {@code CommerceCoreServiceImpl#checkout}
+     * applies: {@code discountPrice ?? basePrice}, and a product that cannot be
+     * resolved or has no usable price is rejected.
+     */
     @Transactional
     public CommerceSubscriptionDto createSubscription(AppUser customer, CommerceSubscriptionRequest req) {
         LocalDate startDate = req.getStartDate() != null
@@ -48,18 +60,32 @@ public class CommerceSubscriptionService {
         AppUser seller = req.getSellerId() != null
                 ? userRepository.findById(req.getSellerId()).orElse(null) : null;
 
+        int quantity = req.getQuantity() != null ? req.getQuantity() : 1;
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero.");
+        }
+
+        CommerceProduct product = resolveProduct(req.getProductId(), req.getSku());
+        // Enforce catalog price server-side; ignore client-tampered unitPrice
+        BigDecimal unitPrice = catalogPrice(product);
+        if (req.getUnitPrice() != null && req.getUnitPrice().compareTo(unitPrice) != 0) {
+            log.warn("Ignoring client unitPrice ₹{} for subscription on SKU {}; catalog price is ₹{} (userId={})",
+                    req.getUnitPrice(), product.getSku(), unitPrice, customer.getId());
+        }
+
         CommerceSubscription sub = CommerceSubscription.builder()
                 .subscriptionCode("SUB-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .community(customer.getCommunity())
                 .customerUser(customer)
-                .productId(req.getProductId())
-                .productName(req.getProductName() != null ? req.getProductName() : "Subscription Item")
-                .sku(req.getSku())
+                .productId(product.getId())
+                .productName(product.getTitle() != null ? product.getTitle()
+                        : (req.getProductName() != null ? req.getProductName() : "Subscription Item"))
+                .sku(product.getSku())
                 .seller(seller)
                 .sellerName(req.getSellerName() != null ? req.getSellerName()
                         : (seller != null ? seller.getFullName() : null))
-                .unitPrice(req.getUnitPrice() != null ? req.getUnitPrice() : BigDecimal.ZERO)
-                .quantity(req.getQuantity() != null ? req.getQuantity() : 1)
+                .unitPrice(unitPrice)
+                .quantity(quantity)
                 .channel(req.getChannel() != null ? req.getChannel() : "MARKETPLACE")
                 .frequency(req.getFrequency() != null ? req.getFrequency().toUpperCase() : "WEEKLY")
                 .status("ACTIVE")
@@ -143,11 +169,32 @@ public class CommerceSubscriptionService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Generates one order for a due subscription.
+     *
+     * <p>Pricing rule: each run uses the price <strong>captured when the subscription
+     * was created</strong> ({@code sub.getUnitPrice()}), not the current catalogue
+     * price. A recurring debit is a standing mandate the resident agreed to at a known
+     * figure; re-reading the catalogue would let a seller raise what is auto-charged
+     * every week without the resident consenting, and this model has no agreed price
+     * cap or price-change notification to hang that on. A price rise therefore applies
+     * only to new subscriptions; residents can cancel and re-subscribe at the new price.
+     *
+     * <p>The captured price is still re-validated here, because rows created before
+     * the price was enforced server-side may carry a client-supplied figure: a
+     * non-positive price aborts the run (no free orders), and drift from the current
+     * catalogue price is logged so it can be audited.
+     */
     private void createOrderFromSubscription(CommerceSubscription sub) {
         String orderNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String otp = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
 
         BigDecimal unitPrice = sub.getUnitPrice();
+        if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Subscription " + sub.getSubscriptionCode()
+                    + " has no usable unit price (₹" + unitPrice + "); refusing to generate an order.");
+        }
+        logCatalogDrift(sub, unitPrice);
         BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(sub.getQuantity()));
 
         CommerceOrderItem item = CommerceOrderItem.builder()
@@ -180,6 +227,73 @@ public class CommerceSubscriptionService {
         CommerceOrder savedOrder = orderRepository.save(order);
         item.setOrder(savedOrder);
         orderItemRepository.save(item);
+    }
+
+    /**
+     * Resolves the catalogue product for a subscription request, by SKU first and then
+     * by id — the same order {@code CommerceCoreServiceImpl#checkout} uses.
+     */
+    private CommerceProduct resolveProduct(Long productId, String sku) {
+        CommerceProduct product = null;
+        if (sku != null && !sku.isBlank()) {
+            product = productRepository.findBySku(sku).orElse(null);
+        }
+        if (product == null && productId != null) {
+            product = productRepository.findById(productId).orElse(null);
+        }
+        if (product == null) {
+            throw new IllegalArgumentException(
+                    "Product not found in catalog for subscription (sku=" + sku + ", productId=" + productId + ").");
+        }
+        if (!product.isActive()) {
+            throw new IllegalStateException(
+                    "Product is no longer active or available: " + product.getTitle());
+        }
+        return product;
+    }
+
+    /** Same rule as the one-off checkout: discountPrice when set, else basePrice. */
+    private BigDecimal catalogPrice(CommerceProduct product) {
+        BigDecimal unitPrice = product.getDiscountPrice() != null
+                ? product.getDiscountPrice() : product.getBasePrice();
+        if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException(
+                    "Invalid product price configuration for SKU: " + product.getSku());
+        }
+        return unitPrice;
+    }
+
+    /**
+     * Logs when a subscription's captured price no longer matches the catalogue.
+     * Expected after a legitimate price change; a captured price far BELOW the
+     * catalogue on an old row may be a pre-enforcement, client-set price.
+     */
+    private void logCatalogDrift(CommerceSubscription sub, BigDecimal capturedPrice) {
+        try {
+            CommerceProduct product = null;
+            if (sub.getSku() != null && !sub.getSku().isBlank()) {
+                product = productRepository.findBySku(sub.getSku()).orElse(null);
+            }
+            if (product == null && sub.getProductId() != null) {
+                product = productRepository.findById(sub.getProductId()).orElse(null);
+            }
+            if (product == null) {
+                log.warn("Subscription {} references a product no longer in the catalog (sku={}, productId={}); "
+                                + "charging the captured price ₹{}",
+                        sub.getSubscriptionCode(), sub.getSku(), sub.getProductId(), capturedPrice);
+                return;
+            }
+            BigDecimal current = product.getDiscountPrice() != null
+                    ? product.getDiscountPrice() : product.getBasePrice();
+            if (current != null && current.compareTo(capturedPrice) != 0) {
+                log.warn("Subscription {} price drift: captured ₹{} vs catalog ₹{} for SKU {} — "
+                                + "charging the captured price (mandate amount).",
+                        sub.getSubscriptionCode(), capturedPrice, current, product.getSku());
+            }
+        } catch (Exception e) {
+            log.warn("Could not compare subscription {} price against the catalog: {}",
+                    sub.getSubscriptionCode(), e.getMessage());
+        }
     }
 
     private LocalDate advanceDate(LocalDate from, String frequency) {

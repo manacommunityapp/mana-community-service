@@ -18,6 +18,15 @@ public interface CashfreeOrderRepository extends JpaRepository<CashfreeOrder, Lo
 
     Optional<CashfreeOrder> findTopByReferenceTypeAndReferenceIdAndStatusOrderByCreatedAtDesc(String referenceType, Long referenceId, String status);
 
+    /**
+     * Duplicate-payment guard for order creation: has THIS user already paid for this
+     * business reference? Scoped to the user on purpose — some referenceIds are shared
+     * across payers (e.g. SPORTS_REGISTRATION carries a sports event id), so a
+     * reference-wide check would block every registrant after the first.
+     */
+    boolean existsByReferenceTypeAndReferenceIdAndUserIdAndStatus(
+            String referenceType, Long referenceId, Long userId, String status);
+
     Optional<CashfreeOrder> findByCfPaymentId(String cfPaymentId);
 
     boolean existsByWebhookEventId(String webhookEventId);

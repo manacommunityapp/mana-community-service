@@ -178,6 +178,17 @@ class OnboardingKycController {
             ));
         }
 
+        // These URLs are stored verbatim and later rendered to whoever reviews the KYC.
+        // Previously any string was accepted, so a submission could point the reviewer
+        // at an external site or at a javascript:/data: URL. Accept only a relative
+        // /api/files/... path (what this service issues under Postgres storage) or an
+        // https URL (S3 storage).
+        if (!isAcceptableDocumentUrl(frontUrl) || (!backUrl.isBlank() && !isAcceptableDocumentUrl(backUrl))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Document URLs must be an uploaded file path (/api/files/...) or an https URL"
+            ));
+        }
+
         // The client's bare SHA-256 of a 12-digit number is brute-forceable offline;
         // re-protect it under the server-held pepper before it is stored.
         String storedHash = kycIdNumberProtector.protectForStorage(clientDigest, "govtIdNumberHash");
@@ -238,5 +249,24 @@ class OnboardingKycController {
             "kycStatus",  "PENDING",
             "message",    "KYC submitted successfully. Your admin will review and approve your account."
         ));
+    }
+
+    /**
+     * True for a document URL this service is willing to store and later show to a
+     * reviewer: a relative upload path it issued itself, or an https URL (S3-backed
+     * storage returns absolute ones).
+     *
+     * <p>This validates shape only. It does NOT establish that an /api/files/{id} path
+     * belongs to the submitting resident, so one resident could still reference
+     * another's uploaded file. Closing that needs an ownership lookup against
+     * stored_file at submission time.
+     */
+    private static boolean isAcceptableDocumentUrl(String url) {
+        if (url == null || url.isBlank()) return false;
+        String v = url.trim();
+        // "//host/path" is protocol-relative, not a local path.
+        if (v.startsWith("//")) return false;
+        if (v.startsWith("/api/files/") || v.startsWith("/api/media/")) return true;
+        return v.regionMatches(true, 0, "https://", 0, 8);
     }
 }
