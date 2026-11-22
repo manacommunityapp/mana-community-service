@@ -67,12 +67,15 @@
         <micrometer.version>1.16.7</micrometer.version>
         <micrometer-tracing.version>1.8.0</micrometer-tracing.version>
         <jackson-bom.version>2.21.8</jackson-bom.version>
-        <logback.version>1.5.38</logback.version>
+        <logback.version>1.6.8</logback.version>
         <netty.version>4.1.141.Final</netty.version>
         <tomcat.version>10.1.62</tomcat.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <kotlin.version>2.1.0</kotlin.version>
-        <opentelemetry.version>1.54.1</opentelemetry.version>
+        <opentelemetry.version>1.68.0</opentelemetry.version>
+        <log4j2.version>2.25.5</log4j2.version>
+        <reactor-bom.version>2025.0.9</reactor-bom.version>
+        <hibernate-validator.version>8.0.6.Final</hibernate-validator.version>
     </properties>
 
     <!-- ── Centralised Dependency Management & BOMs ── -->
@@ -91,6 +94,14 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
                 <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Reactor BOM -->
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-bom</artifactId>
+                <version>${reactor-bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
