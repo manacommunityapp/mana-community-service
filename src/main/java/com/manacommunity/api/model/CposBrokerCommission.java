@@ -34,7 +34,19 @@ public class CposBrokerCommission {
 
     @Column(length = 50, nullable = false)
     @Builder.Default
-    private String status = "PENDING"; // PENDING, APPROVED, PAID
+    private String status = "PENDING"; // PENDING, APPROVED, PAID, REJECTED
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @Column(name = "payment_reference", length = 100)
+    private String paymentReference;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
+    @Column(name = "gl_voucher_number", length = 60)
+    private String glVoucherNumber;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

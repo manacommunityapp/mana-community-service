@@ -19,5 +19,9 @@ public class CposBrokerCommissionDto {
     private BigDecimal commissionRate;
     private BigDecimal commissionLakhs;
     private String status;
+    private LocalDateTime paidAt;
+    private String paymentReference;
+    private String paymentMethod;
+    private String glVoucherNumber;
     private LocalDateTime createdAt;
 }
