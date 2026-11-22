@@ -974,14 +974,32 @@ public class SportsEventServiceImpl implements SportsEventService {
 
         // Cutoff: participants cannot unregister once registration is closed or the event has started (admins can).
         if (!admin && event != null) {
-            if (event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
-                    || (event.getTournament() != null && event.getTournament().getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED)) {
-                throw new InvalidInputException("Registration is closed for this event. Please contact the organizers to withdraw.");
-            }
-            LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
-                    : (event.getTournament() != null ? event.getTournament().getEventDateStart() : null);
-            if (start != null && !LocalDate.now().isBefore(start)) {
+            SportsTournament tourney = event.getTournament();
+            if (event.getStatus() == SportsEventStatus.LIVE || event.getStatus() == SportsEventStatus.COMPLETED
+                    || (tourney != null && (tourney.getRegistrationStatus() == SportsEventStatus.LIVE
+                            || tourney.getRegistrationStatus() == SportsEventStatus.COMPLETED))) {
                 throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
+            }
+
+            LocalDate regEnd = event.getRegistrationDateEnd() != null ? event.getRegistrationDateEnd()
+                    : (tourney != null ? tourney.getRegistrationDateEnd() : null);
+            boolean isRegOpen = Boolean.TRUE.equals(event.getActive())
+                    && event.getStatus() == SportsEventStatus.REGISTRATION_OPEN
+                    && (tourney == null || tourney.getRegistrationStatus() == null || tourney.getRegistrationStatus() == SportsEventStatus.REGISTRATION_OPEN)
+                    && (regEnd == null || !regEnd.isBefore(LocalDate.now()));
+
+            if (!isRegOpen) {
+                if (Boolean.FALSE.equals(event.getActive())
+                        || event.getStatus() == SportsEventStatus.REGISTRATION_CLOSED
+                        || (tourney != null && tourney.getRegistrationStatus() == SportsEventStatus.REGISTRATION_CLOSED)
+                        || (regEnd != null && regEnd.isBefore(LocalDate.now()))) {
+                    throw new InvalidInputException("Registration is closed for this event. Please contact the organizers to withdraw.");
+                }
+                LocalDate start = event.getEventDateStart() != null ? event.getEventDateStart()
+                        : (tourney != null ? tourney.getEventDateStart() : null);
+                if (start != null && !LocalDate.now().isBefore(start)) {
+                    throw new InvalidInputException("This event has already started. Please contact the organizers to withdraw.");
+                }
             }
         }
 
@@ -1567,10 +1585,12 @@ public class SportsEventServiceImpl implements SportsEventService {
                 throw new InvalidInputException("Registration deadline has passed for this event. Doubles partner invitation cannot be accepted.");
             }
 
-            LocalDate evStart = event.getEventDateStart() != null ? event.getEventDateStart()
-                    : (tourney != null ? tourney.getEventDateStart() : null);
-            if (evStart != null && !LocalDate.now().isBefore(evStart)) {
-                throw new InvalidInputException("This event has already started. Doubles partner invitation cannot be accepted.");
+            if (event.getStatus() != SportsEventStatus.REGISTRATION_OPEN) {
+                LocalDate evStart = event.getEventDateStart() != null ? event.getEventDateStart()
+                        : (tourney != null ? tourney.getEventDateStart() : null);
+                if (evStart != null && !LocalDate.now().isBefore(evStart)) {
+                    throw new InvalidInputException("This event has already started. Doubles partner invitation cannot be accepted.");
+                }
             }
         }
 
