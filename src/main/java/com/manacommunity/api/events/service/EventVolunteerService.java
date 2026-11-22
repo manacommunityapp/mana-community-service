@@ -35,15 +35,10 @@ public class EventVolunteerService {
 
     @Transactional(readOnly = true)
     public List<EventVolunteerResponse> getByCommunity(Long communityId) {
-        List<EventVolunteer> list;
-        if (communityId != null) {
-            list = volunteerRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
-            if (list.isEmpty()) {
-                list = volunteerRepo.findAll();
-            }
-        } else {
-            list = volunteerRepo.findAll();
+        if (communityId == null) {
+            throw new IllegalArgumentException("communityId is required");
         }
+        List<EventVolunteer> list = volunteerRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
         return list.stream().map(this::toResponse).toList();
     }
 

@@ -4,6 +4,7 @@ import com.manacommunity.api.cfbos.invoice.dto.InvoiceResponse;
 import com.manacommunity.api.cfbos.invoice.service.InvoiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
 @RestController("cfbosInvoiceController")
 @RequestMapping("/api/cfbos/invoices")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Manage Finance') or hasAuthority('Admin') or hasAuthority('Finance Admin')")
 public class InvoiceController {
 
     private final InvoiceService invoiceService;

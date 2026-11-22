@@ -62,8 +62,8 @@ public class SportsTournamentController {
 
     @GetMapping("/community")
     public ResponseEntity<List<SportsTournamentResponse>> getCommunityTournaments(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
 
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;

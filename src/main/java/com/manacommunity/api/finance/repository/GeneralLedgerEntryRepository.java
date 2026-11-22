@@ -12,6 +12,16 @@ public interface GeneralLedgerEntryRepository extends JpaRepository<GeneralLedge
 
     List<GeneralLedgerEntry> findByCommunityIdOrderByEntryDateDesc(Long communityId);
 
+    /**
+     * Idempotency guard for {@code GeneralLedgerEntryService.postDoubleEntry}: a source
+     * document must never be posted to the ledger twice (an invoice toggled
+     * Paid -> Pending -> Paid used to produce two DR Cash / CR AR pairs).
+     * Backed by the index created in V504.
+     */
+    boolean existsByCommunityIdAndReferenceTypeAndReferenceId(Long communityId,
+                                                              String referenceType,
+                                                              String referenceId);
+
     @Query("SELECT COALESCE(SUM(e.credit), 0) FROM GeneralLedgerEntry e " +
             "WHERE e.communityId = :communityId AND e.accountCode LIKE '3%' " +
             "AND e.entryDate BETWEEN :from AND :to")

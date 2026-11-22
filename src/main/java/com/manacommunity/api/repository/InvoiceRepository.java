@@ -26,6 +26,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     java.util.Optional<Invoice> findByIdAndCommunityId(Long id, Long communityId);
 
+    /** All invoices for a community (used to aggregate overdueAmount). */
     List<Invoice> findByCommunityId(Long communityId);
 
     long countByCommunityId(Long communityId);
@@ -63,8 +64,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
                                               @Param("from") LocalDateTime from,
                                               @Param("to") LocalDateTime to);
 
-    java.util.List<Invoice> findByCommunityIdAndGeneratedAtBetween(
-            Long communityId,
-            java.time.LocalDateTime from,
-            java.time.LocalDateTime to);
+    /** Invoices for a community generated within the given datetime range. */
+    List<Invoice> findByCommunityIdAndGeneratedAtBetween(
+            Long communityId, LocalDateTime from, LocalDateTime to);
 }

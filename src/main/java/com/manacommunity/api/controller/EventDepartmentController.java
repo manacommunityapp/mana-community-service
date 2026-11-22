@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/events/departments")
@@ -18,8 +20,9 @@ public class EventDepartmentController {
 
     @GetMapping
     public ResponseEntity<List<EventDepartmentDto>> list(
-            @RequestParam(required = false) Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Long eventId) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(service.list(communityId, eventId));
     }
 

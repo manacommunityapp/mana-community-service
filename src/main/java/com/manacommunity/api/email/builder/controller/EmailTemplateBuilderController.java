@@ -17,6 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/email/templates")
@@ -26,7 +28,8 @@ public class EmailTemplateBuilderController {
     private final EmailTemplateBuilderService service;
 
     @GetMapping
-    public ResponseEntity<List<EmailTemplateResponse>> list(@RequestParam Long communityId) {
+    public ResponseEntity<List<EmailTemplateResponse>> list(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         List<EmailTemplateResponse> templates = service.listByCommunity(communityId)
                 .stream()
                 .map(EmailTemplateResponse::from)
@@ -79,8 +82,10 @@ public class EmailTemplateBuilderController {
 
     @PostMapping(value = "/assets", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AssetUploadResponse> uploadAsset(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("communityId") Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("file") MultipartFile file
+) {
+        Long communityId = principal.getCommunityId();
         AssetUploadResponse response = service.uploadAsset(file, communityId);
         return ResponseEntity.ok(response);
     }

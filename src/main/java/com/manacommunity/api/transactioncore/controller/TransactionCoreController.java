@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -61,8 +63,10 @@ public class TransactionCoreController {
 
     @PostMapping("/reconciliation/run")
     public ResponseEntity<TransactionReconciliationLog> runReconciliation(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(reconciliationService.runDailyReconciliation(date, communityId));
     }
 }

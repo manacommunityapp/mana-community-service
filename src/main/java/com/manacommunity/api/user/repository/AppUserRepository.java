@@ -105,4 +105,14 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
             WHERE UPPER(r.name) = UPPER(:roleName)
             """)
     List<AppUser> findByUserRoleName(@Param("roleName") String roleName);
+
+    /**
+     * Count users in a community by their primary {@code role} string field,
+     * case-insensitive.  Used by the Community Manager dashboard to split
+     * residents into OWNER vs TENANT.
+     */
+    @Query("SELECT COUNT(u) FROM AppUser u WHERE u.community.id = :communityId AND UPPER(u.role) = UPPER(:role)")
+    long countByCommunityIdAndRoleIgnoreCase(
+            @Param("communityId") Long communityId,
+            @Param("role") String role);
 }

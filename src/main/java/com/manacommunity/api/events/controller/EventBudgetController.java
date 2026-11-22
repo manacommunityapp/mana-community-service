@@ -11,6 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/events/budgets")
@@ -21,8 +23,9 @@ public class EventBudgetController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN')")
-    public ResponseEntity<List<EventBudgetResponse>> listByCommunity(
-            @RequestParam Long communityId) {
+    public ResponseEntity<List<EventBudgetResponse>> listByCommunity(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(budgetService.listByCommunity(communityId));
     }
 

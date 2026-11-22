@@ -359,6 +359,33 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com,http://localhost:5173,http://localhost:3000}
 
+# ── Mana platform secrets (field encryption + KYC ID pepper) ────────────
+# Both default to EMPTY on purpose. The fail-fast / fail-closed logic in the
+# code keys off "not set", so never commit a value here — set the environment
+# variable instead.
+mana:
+  encryption:
+    # AES-256-GCM key for field-level encryption of sensitive columns
+    # (health data, emergency contacts), read by
+    # com.manacommunity.api.security.FieldEncryptionService.
+    # Base64-encoded 32-byte key, or a raw 16/24/32-character secret.
+    # [REQUIRED IN PRODUCTION] If unset, the service falls back to a built-in
+    # development key under the dev/test/local/default profiles and REFUSES TO
+    # START under any other profile (notably prod).
+    field-key: ${MANA_ENCRYPTION_FIELD_KEY:}
+  kyc:
+    # Server-wide pepper used as the HMAC-SHA256 key that re-protects the
+    # client-side SHA-256 of a government ID number before it is stored
+    # (com.manacommunity.api.kyc.service.KycIdNumberProtector). The client digest
+    # alone is not a confidentiality control: a 12-digit Aadhaar has only 10^12
+    # candidates, so plain digests can be enumerated offline.
+    # Use a long random secret (>= 32 bytes of entropy).
+    # [REQUIRED IN PRODUCTION] If unset, KYC ID submission is REFUSED with
+    # HTTP 503 and an ERROR log; the bare client digest is never stored as a
+    # fallback. Rotating this value makes existing id_number_hash rows
+    # unmatchable, so rotation means re-collecting the ID numbers.
+    id-pepper: ${MANA_KYC_ID_PEPPER:}
+
 # ── AI Chat Agent (Ollama — free, runs locally) ──────────────────────
 # Connection settings for the Ollama model. Only takes effect when
 # app.ai.enabled=true (the master switch above); otherwise the AI beans that

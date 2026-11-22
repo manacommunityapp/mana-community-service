@@ -10,6 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/sports/budgets")
@@ -20,8 +22,9 @@ public class TournamentBudgetController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN')")
-    public ResponseEntity<List<TournamentBudgetResponse>> listByCommunity(
-            @RequestParam Long communityId) {
+    public ResponseEntity<List<TournamentBudgetResponse>> listByCommunity(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(budgetService.listByCommunity(communityId));
     }
 

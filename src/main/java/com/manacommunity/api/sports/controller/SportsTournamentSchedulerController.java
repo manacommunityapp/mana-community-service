@@ -189,8 +189,8 @@ public class SportsTournamentSchedulerController {
     @GetMapping("/events")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getEventsForDropdown(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null) {
             AppUser user = loggedInUserService.resolve(principal);
             if (user != null && user.getCommunity() != null) {
@@ -274,8 +274,8 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping("/tournaments")
     public ResponseEntity<List<Map<String, Object>>> getTournamentsForDropdown(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null) {
             AppUser currentUser = loggedInUserService.resolve(principal);
             if (currentUser != null && currentUser.getCommunity() != null) {
@@ -380,8 +380,8 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping
     public ResponseEntity<List<SportsTournamentConfig>> list(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
         if (!user.hasRole(ROLE_SUPER_ADMIN)) {

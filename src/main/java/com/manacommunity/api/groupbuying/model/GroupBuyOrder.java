@@ -55,11 +55,11 @@ public class GroupBuyOrder extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private OrderStatus status = OrderStatus.CONFIRMED;
+    private OrderStatus status = OrderStatus.PENDING_PAYMENT;
 
     @Column(name = "payment_status", length = 30)
     @Builder.Default
-    private String paymentStatus = "PAID";
+    private String paymentStatus = "INITIATED";
 
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;

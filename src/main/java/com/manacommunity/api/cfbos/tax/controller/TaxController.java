@@ -8,6 +8,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cfbos/v1/tax")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Manage Finance') or hasAuthority('Admin') or hasAuthority('Finance Admin')")
 public class TaxController {
 
     private final TaxEngine taxEngine;

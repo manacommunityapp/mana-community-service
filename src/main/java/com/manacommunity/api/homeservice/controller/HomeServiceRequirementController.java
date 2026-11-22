@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("homeServiceRequirementController")
 @RequestMapping("/api/v1/home-services/requirements")
@@ -23,7 +25,8 @@ public class HomeServiceRequirementController {
     }
 
     @GetMapping
-    public ResponseEntity<List<HomeServiceRequirementEntity>> getRequirements(@RequestParam(defaultValue = "comm-mana-1") String communityId) {
+    public ResponseEntity<List<HomeServiceRequirementEntity>> getRequirements(@AuthenticationPrincipal UserPrincipal principal) {
+        String communityId = String.valueOf(principal.getCommunityId());
         return ResponseEntity.ok(requirementService.getCommunityRequirements(communityId));
     }
 

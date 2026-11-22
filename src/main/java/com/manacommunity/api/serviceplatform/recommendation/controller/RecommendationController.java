@@ -3,10 +3,12 @@ package com.manacommunity.api.serviceplatform.recommendation.controller;
 import com.manacommunity.api.serviceplatform.recommendation.dto.ProviderMatchScoreDto;
 import com.manacommunity.api.serviceplatform.recommendation.dto.RecommendedServiceDto;
 import com.manacommunity.api.serviceplatform.recommendation.service.RecommendationService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +30,8 @@ public class RecommendationController {
     @GetMapping("/seasonal")
     @Operation(summary = "Get seasonal and predictive service recommendations for a community")
     public ResponseEntity<List<RecommendedServiceDto>> getSeasonalRecommendations(
-            @RequestParam(required = false, defaultValue = "1") Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(recommendationService.getSeasonalRecommendations(communityId));
     }
 }

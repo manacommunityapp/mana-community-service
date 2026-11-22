@@ -9,6 +9,7 @@ import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.service.PermissionCheckService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/cfbos/v1/charges")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Manage Finance') or hasAuthority('Admin') or hasAuthority('Finance Admin')")
 public class ChargeController {
 
     private final ChargeCalculationEngine chargeCalculationEngine;

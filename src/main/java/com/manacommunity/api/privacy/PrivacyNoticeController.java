@@ -1,0 +1,124 @@
+package com.manacommunity.api.privacy;
+
+import com.manacommunity.api.platform.web.ApiResponse;
+import com.manacommunity.api.user.security.UserPrincipal;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/privacy")
+@RequiredArgsConstructor
+public class PrivacyNoticeController {
+
+    private static final String CURRENT_VERSION = "1.0";
+
+    private final PrivacyNoticeAcceptanceRepository acceptanceRepository;
+
+    /**
+     * POST /api/privacy/accept
+     * Resident records their acceptance of the current privacy notice.
+     */
+    @PostMapping("/accept")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<PrivacyNoticeAcceptance>> acceptPrivacyNotice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request) {
+
+        Long residentId   = principal.getId();
+        Long communityId  = principal.getCommunityId();
+        String ip         = resolveIp(request);
+        String userAgent  = request.getHeader("User-Agent");
+
+        if (acceptanceRepository.existsByResidentIdAndNoticeVersion(residentId, CURRENT_VERSION)) {
+            PrivacyNoticeAcceptance existing = acceptanceRepository
+                    .findByResidentIdAndNoticeVersion(residentId, CURRENT_VERSION)
+                    .orElseThrow();
+            return ResponseEntity.ok(ApiResponse.ok(existing, "Already accepted"));
+        }
+
+        PrivacyNoticeAcceptance acceptance = PrivacyNoticeAcceptance.builder()
+                .residentId(residentId)
+                .communityId(communityId)
+                .noticeVersion(CURRENT_VERSION)
+                .ipAddress(ip)
+                .userAgent(userAgent)
+                .build();
+
+        PrivacyNoticeAcceptance saved = acceptanceRepository.save(acceptance);
+        return ResponseEntity.ok(ApiResponse.ok(saved, "Privacy notice accepted"));
+    }
+
+    /**
+     * GET /api/privacy/my-acceptance
+     * Resident checks whether they have accepted the current notice version.
+     */
+    @GetMapping("/my-acceptance")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyAcceptance(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long residentId = principal.getId();
+        boolean accepted = acceptanceRepository
+                .existsByResidentIdAndNoticeVersion(residentId, CURRENT_VERSION);
+
+        return ResponseEntity.ok(ApiResponse.ok(Map.of(
+                "accepted",       accepted,
+                "noticeVersion",  CURRENT_VERSION
+        )));
+    }
+
+    /**
+     * GET /api/privacy/community/{communityId}/pending
+     * ADMIN: list resident IDs who have not yet accepted the current notice version.
+     *
+     * The path variable is NOT trusted: @PreAuthorize only checks the role, so an
+     * admin of community 5 could otherwise enumerate community 9's residents.
+     * Non-SUPER_ADMIN callers are always scoped to their own community and get a
+     * 403 if the path names a different one (the path is kept for route
+     * compatibility with existing clients).
+     */
+    @GetMapping("/community/{communityId}/pending")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<Long>>> getPendingResidents(
+            @PathVariable Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Long scopedCommunityId = communityId;
+        if (!isSuperAdmin(principal)) {
+            Long callerCommunityId = principal != null ? principal.getCommunityId() : null;
+            if (callerCommunityId == null
+                    || (communityId != null && !callerCommunityId.equals(communityId))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            scopedCommunityId = callerCommunityId;
+        }
+
+        List<Long> pending = acceptanceRepository
+                .findResidentIdsWithoutAcceptance(scopedCommunityId, CURRENT_VERSION);
+        return ResponseEntity.ok(ApiResponse.ok(pending));
+    }
+
+    private static boolean isSuperAdmin(UserPrincipal principal) {
+        if (principal == null || principal.getAuthorities() == null) return false;
+        return principal.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private String resolveIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+}
