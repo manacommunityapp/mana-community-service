@@ -12,16 +12,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration;
+import org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration;
 import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
 
-// Spring AI 1.0.0 targets Boot 3.x and references RestClientAutoConfiguration
-// which was relocated in Boot 4. Exclude all AI auto-configs until Spring AI
-// releases a Boot-4-compatible version.
+// Spring AI targets Boot 3.x/4.x and references components like
+// RestClientAutoConfiguration / RetryListener that cause startup issues.
+// Exclude all AI auto-configs to prevent eager introspection failures.
 @EnableAsync
 @EnableScheduling
 @SpringBootApplication(
     nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class,
     exclude = {
+        OllamaApiAutoConfiguration.class,
         OllamaChatAutoConfiguration.class,
         OllamaEmbeddingAutoConfiguration.class,
         ChatClientAutoConfiguration.class,
@@ -29,6 +32,11 @@ import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGe
         ToolCallingAutoConfiguration.class,
         ChatObservationAutoConfiguration.class,
         EmbeddingObservationAutoConfiguration.class,
+        SpringAiRetryAutoConfiguration.class,
+    },
+    excludeName = {
+        "org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration",
+        "org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration"
     }
 )
 public class ManaCommunityServiceApplication {

@@ -13,7 +13,7 @@ import java.util.Arrays;
 import java.util.concurrent.Executor;
 
 @Slf4j
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableAsync
 public class AsyncConfig implements AsyncConfigurer {
 
