@@ -10,6 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,6 +43,7 @@ import java.io.IOException;
  * Context cleanup is guaranteed in {@code finally} after every request.
  */
 @Slf4j
+@Order(1)
 @Component
 public class TenantFilter extends OncePerRequestFilter {
 

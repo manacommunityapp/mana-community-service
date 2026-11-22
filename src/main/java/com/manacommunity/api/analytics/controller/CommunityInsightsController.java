@@ -25,15 +25,21 @@ public class CommunityInsightsController {
 
     @GetMapping({"", "/active"})
     public ResponseEntity<ApiResponse<List<CommunityInsight>>> getActiveInsights(
-            @RequestParam Long communityId) {
-        return ResponseEntity.ok(ApiResponse.ok(insightsService.getActiveInsights(communityId)));
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId) {
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId() : (communityId != null ? communityId : 1L);
+        return ResponseEntity.ok(ApiResponse.ok(insightsService.getActiveInsights(cid)));
     }
 
     @GetMapping({"/metrics", "/trend"})
     public ResponseEntity<ApiResponse<List<CommunityMetricsSnapshot>>> getMetricsTrend(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
             @RequestParam(defaultValue = "30") int days) {
-        return ResponseEntity.ok(ApiResponse.ok(insightsService.getMetricsTrend(communityId, days)));
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId() : (communityId != null ? communityId : 1L);
+        return ResponseEntity.ok(ApiResponse.ok(insightsService.getMetricsTrend(cid, days)));
     }
 
     @PostMapping("/snapshot")
@@ -42,7 +48,9 @@ public class CommunityInsightsController {
             @RequestParam(required = false) Long communityId,
             @RequestBody(required = false) Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Long cid = communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : null);
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId()
+                : (communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : 1L));
         return ResponseEntity.ok(ApiResponse.ok(insightsService.snapshotMetrics(cid), "Snapshot taken"));
     }
 
@@ -52,7 +60,9 @@ public class CommunityInsightsController {
             @RequestParam(required = false) Long communityId,
             @RequestBody(required = false) Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        Long cid = communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : null);
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId()
+                : (communityId != null ? communityId : (body != null && body.containsKey("communityId") ? Long.valueOf(body.get("communityId").toString()) : 1L));
         List<CommunityInsight> insights = insightsService.generateInsights(cid);
         return ResponseEntity.ok(ApiResponse.ok(insights, insights.size() + " insight(s) generated"));
     }

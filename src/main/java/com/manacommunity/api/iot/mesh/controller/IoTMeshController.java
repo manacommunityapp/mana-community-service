@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/iot")
@@ -25,9 +27,12 @@ public class IoTMeshController {
 
     @GetMapping("/sensors")
     public ResponseEntity<ApiResponse<List<IoTSensor>>> getSensors(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(ApiResponse.ok(iotService.getSensors(communityId, type)));
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId() : (communityId != null ? communityId : 1L);
+        return ResponseEntity.ok(ApiResponse.ok(iotService.getSensors(cid, type)));
     }
 
     @PostMapping("/sensors")
@@ -85,15 +90,18 @@ public class IoTMeshController {
 
     @GetMapping("/anomalies")
     public ResponseEntity<ApiResponse<List<SensorAnomalyEvent>>> getActiveAnomalies(
-            @RequestParam Long communityId) {
-        return ResponseEntity.ok(ApiResponse.ok(iotService.getActiveAnomalies(communityId)));
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId) {
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId() : (communityId != null ? communityId : 1L);
+        return ResponseEntity.ok(ApiResponse.ok(iotService.getActiveAnomalies(cid)));
     }
 
     @RequestMapping(value = "/anomalies/{anomalyId}/resolve", method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<ApiResponse<SensorAnomalyEvent>> resolveAnomaly(
             @PathVariable Long anomalyId,
             @RequestParam(required = false) Long resolvedBy,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal com.manacommunity.api.user.security.UserPrincipal principal) {
+            @AuthenticationPrincipal UserPrincipal principal) {
         Long resolverId = resolvedBy != null ? resolvedBy : (principal != null ? principal.getId() : 1L);
         return ResponseEntity.ok(ApiResponse.ok(iotService.resolveAnomaly(anomalyId, resolverId)));
     }
@@ -102,9 +110,12 @@ public class IoTMeshController {
 
     @PostMapping("/emergency")
     public ResponseEntity<ApiResponse<Void>> broadcastEmergency(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
             @RequestBody EmergencyBroadcastRequest req) {
-        iotService.broadcastEmergency(communityId, req.message(), req.severity());
+        Long cid = (principal != null && principal.getCommunityId() != null)
+                ? principal.getCommunityId() : (communityId != null ? communityId : 1L);
+        iotService.broadcastEmergency(cid, req.message(), req.severity());
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

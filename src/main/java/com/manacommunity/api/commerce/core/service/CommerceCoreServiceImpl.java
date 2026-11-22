@@ -45,6 +45,14 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
     private final AppUserRepository userRepository;
     private final CommerceCommissionService commissionService;
 
+    /**
+     * Handover OTPs are a bearer credential for physically collecting goods at
+     * the gate, so they MUST come from a CSPRNG. java.util.Random is a 48-bit
+     * LCG whose seed (and therefore every future OTP) is recoverable from a
+     * couple of observed outputs.
+     */
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
+
     private static final Map<String, Integer> failedOtpAttempts = new ConcurrentHashMap<>();
     private static final Map<String, Long> lockoutTimestamps = new ConcurrentHashMap<>();
     private static final int MAX_FAILED_ATTEMPTS = 5;
@@ -72,7 +80,7 @@ public class CommerceCoreServiceImpl implements CommerceCoreService {
         }
 
         String orderNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String handoverOtp = String.format("%06d", new Random().nextInt(900000) + 100000);
+        String handoverOtp = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
 
         BigDecimal subtotal = BigDecimal.ZERO;
         List<CommerceOrderItem> orderItems = new ArrayList<>();

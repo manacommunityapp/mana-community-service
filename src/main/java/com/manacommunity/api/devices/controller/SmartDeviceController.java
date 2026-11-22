@@ -31,8 +31,9 @@ public class SmartDeviceController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<DeviceResponse>>> listDevices(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(deviceService.getDevices(communityId, type)));
     }
 

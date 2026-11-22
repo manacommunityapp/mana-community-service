@@ -27,8 +27,8 @@ public class TrustAndSafetyController {
 
     @GetMapping("/overview")
     public ResponseEntity<TrustSafetyOverviewDto> getOverview(
-            @RequestParam(defaultValue = "1") Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_ADMIN, VIEW_VISITORS);
         return ResponseEntity.ok(trustAndSafetyService.getOverview(communityId));
     }

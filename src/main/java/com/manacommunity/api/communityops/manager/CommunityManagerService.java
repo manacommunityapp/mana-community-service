@@ -2,6 +2,7 @@ package com.manacommunity.api.communityops.manager;
 
 import com.manacommunity.api.events.entity.EventCulturalEvent;
 import com.manacommunity.api.events.repository.CulturalEventRepository;
+import com.manacommunity.api.events.repository.CulturalRegistrationRepository;
 import com.manacommunity.api.governance.entity.CommitteeElection;
 import com.manacommunity.api.governance.repository.CommitteeElectionRepository;
 import com.manacommunity.api.governance.repository.CommitteePositionRepository;
@@ -17,6 +18,7 @@ import com.manacommunity.api.homeservices.repository.StaffAttendanceRepository;
 import com.manacommunity.api.platform.audit.AuditCategory;
 import com.manacommunity.api.platform.audit.AuditJournalRepository;
 import com.manacommunity.api.repository.InvoiceRepository;
+import com.manacommunity.api.repository.VendorRepository;
 import com.manacommunity.api.user.repository.AppUserRepository;
 import com.manacommunity.api.visitor.entity.VisitorPass;
 import com.manacommunity.api.visitor.repository.VisitorPassRepository;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -47,10 +50,12 @@ public class CommunityManagerService {
     private final NocRequestRepository nocRequestRepo;
     private final AuditJournalRepository auditJournalRepo;
     private final CulturalEventRepository culturalEventRepo;
+    private final CulturalRegistrationRepository culturalRegistrationRepo;
     private final CommitteeElectionRepository committeeElectionRepo;
     private final CommitteePositionRepository committeePositionRepo;
     private final GovernanceBallotRepository governanceBallotRepo;
     private final GovernanceProposalRepository governanceProposalRepo;
+    private final VendorRepository vendorRepo;
     private final SimpMessagingTemplate messaging;
 
     private final ConcurrentHashMap<Long, CommunityManagerSnapshot> cache = new ConcurrentHashMap<>();
@@ -81,7 +86,10 @@ public class CommunityManagerService {
                 buildAmenities(),
                 buildStaff(communityId, today),
                 buildUpcoming(communityId, today),
-                buildGovernance(communityId)
+                buildGovernance(communityId),
+                buildEventAttendance(communityId, today),
+                buildVendorContracts(communityId),
+                buildEngagement(communityId, today)
         );
     }
 
@@ -124,7 +132,15 @@ public class CommunityManagerService {
         long active = appUserRepo.countByCommunityIdAndIsActiveTrue(communityId);
         long verified = appUserRepo.countByCommunityIdAndKycStatus(communityId, "VERIFIED");
         long pending = appUserRepo.countByCommunityIdAndKycStatus(communityId, "PENDING");
-        return new CommunityManagerSnapshot.ResidentStats(total, active, verified, pending);
+        long ownerCount = 0L;
+        long tenantCount = 0L;
+        try {
+            ownerCount = appUserRepo.countByCommunityIdAndRoleIgnoreCase(communityId, "OWNER");
+            tenantCount = appUserRepo.countByCommunityIdAndRoleIgnoreCase(communityId, "TENANT");
+        } catch (Exception e) {
+            log.warn("Could not compute owner/tenant counts for community {}: {}", communityId, e.getMessage());
+        }
+        return new CommunityManagerSnapshot.ResidentStats(total, active, verified, pending, ownerCount, tenantCount);
     }
 
     private CommunityManagerSnapshot.SecurityStats buildSecurity(Long communityId, LocalDate today) {
@@ -186,6 +202,100 @@ public class CommunityManagerService {
                 .findByCommunityIdAndStatus(communityId, "COMPLETED").size();
         return new CommunityManagerSnapshot.GovernanceStats(
                 activePolls, openProposals, filledPositions, totalPositions);
+    }
+
+    private CommunityManagerSnapshot.EventAttendanceStats buildEventAttendance(Long communityId, LocalDate today) {
+        try {
+            long upcomingEventsCount = culturalEventRepo
+                    .findByCommunityIdOrderByDateAscStartTimeAscSortOrderAsc(communityId)
+                    .stream()
+                    .filter(e -> e.getDate() != null && !e.getDate().isBefore(today))
+                    .count();
+
+            LocalDateTime monthStart = today.withDayOfMonth(1).atStartOfDay();
+            LocalDateTime monthEnd = today.plusDays(1).atStartOfDay();
+
+            List<?> registrationsThisMonth = culturalRegistrationRepo
+                    .findByCommunityIdOrderByCreatedAtDesc(communityId)
+                    .stream()
+                    .filter(r -> r.getCreatedAt() != null && !r.getCreatedAt().isBefore(monthStart)
+                            && r.getCreatedAt().isBefore(monthEnd))
+                    .collect(Collectors.toList());
+
+            long totalRsvps = registrationsThisMonth.size();
+
+            long actualAttendees = culturalRegistrationRepo
+                    .findByCommunityIdOrderByCreatedAtDesc(communityId)
+                    .stream()
+                    .filter(r -> r.getCreatedAt() != null && !r.getCreatedAt().isBefore(monthStart)
+                            && r.getCreatedAt().isBefore(monthEnd))
+                    .filter(r -> Boolean.TRUE.equals(r.getCheckedIn()))
+                    .count();
+
+            double avgRate = totalRsvps > 0
+                    ? (actualAttendees * 100.0 / totalRsvps)
+                    : 0.0;
+
+            return new CommunityManagerSnapshot.EventAttendanceStats(
+                    upcomingEventsCount, totalRsvps, actualAttendees, avgRate);
+        } catch (Exception e) {
+            log.warn("Could not compute event attendance for community {}: {}", communityId, e.getMessage());
+            return new CommunityManagerSnapshot.EventAttendanceStats(0, 0, 0, 0.0);
+        }
+    }
+
+    private CommunityManagerSnapshot.VendorContractStats buildVendorContracts(Long communityId) {
+        try {
+            long activeVendors = vendorRepo.findByActiveTrueOrderByNameAsc().size();
+            // TODO: Vendor entity has no contractExpiryDate/contractEndDate field.
+            // Add that field to Vendor entity and filter here once available.
+            return new CommunityManagerSnapshot.VendorContractStats(activeVendors, 0L, 0L);
+        } catch (Exception e) {
+            log.warn("Could not compute vendor contract stats for community {}: {}", communityId, e.getMessage());
+            return new CommunityManagerSnapshot.VendorContractStats(0, 0, 0);
+        }
+    }
+
+    private CommunityManagerSnapshot.CommunityEngagementStats buildEngagement(Long communityId, LocalDate today) {
+        try {
+            long activeUsers = appUserRepo.countByCommunityIdAndIsActiveTrue(communityId);
+
+            // Poll participants: use active ballot count as a proxy for participation
+            long pollParticipants = 0L;
+            try {
+                pollParticipants = governanceBallotRepo.countByCommunityIdAndStatus(communityId, "ACTIVE");
+            } catch (Exception ex) {
+                log.warn("Could not compute poll participants for community {}: {}", communityId, ex.getMessage());
+            }
+
+            // Event RSVPs this month
+            long eventRsvps = 0L;
+            try {
+                LocalDateTime monthStart = today.withDayOfMonth(1).atStartOfDay();
+                LocalDateTime monthEnd = today.plusDays(1).atStartOfDay();
+                eventRsvps = culturalRegistrationRepo
+                        .findByCommunityIdOrderByCreatedAtDesc(communityId)
+                        .stream()
+                        .filter(r -> r.getCreatedAt() != null
+                                && !r.getCreatedAt().isBefore(monthStart)
+                                && r.getCreatedAt().isBefore(monthEnd))
+                        .count();
+            } catch (Exception ex) {
+                log.warn("Could not compute event RSVPs for community {}: {}", communityId, ex.getMessage());
+            }
+
+            long totalResidents = appUserRepo.countByCommunityId(communityId);
+            double engagementScore = 0.0;
+            if (totalResidents > 0) {
+                engagementScore = ((pollParticipants + eventRsvps) * 100.0) / (2.0 * totalResidents);
+            }
+
+            return new CommunityManagerSnapshot.CommunityEngagementStats(
+                    activeUsers, pollParticipants, eventRsvps, engagementScore);
+        } catch (Exception e) {
+            log.warn("Could not compute engagement stats for community {}: {}", communityId, e.getMessage());
+            return new CommunityManagerSnapshot.CommunityEngagementStats(0, 0, 0, 0.0);
+        }
     }
 
     @Scheduled(fixedRate = 300_000)

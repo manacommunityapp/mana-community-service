@@ -32,8 +32,8 @@ public class SportsVenueController {
 
     @GetMapping
     public ResponseEntity<List<VenueResponse>> getVenues(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = communityId;
@@ -59,9 +59,9 @@ public class SportsVenueController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','SPORTS_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<VenueResponse> createVenue(
-            @RequestParam(required = false) Long communityId,
             @Valid @RequestBody VenueRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
         if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {

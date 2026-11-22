@@ -14,7 +14,10 @@ public record CommunityManagerSnapshot(
         AmenityStats amenities,
         StaffStats staff,
         UpcomingItems upcoming,
-        GovernanceStats governance
+        GovernanceStats governance,
+        EventAttendanceStats eventAttendance,
+        VendorContractStats vendorContracts,
+        CommunityEngagementStats engagement
 ) {
 
     public record MaintenanceStats(
@@ -35,7 +38,9 @@ public record CommunityManagerSnapshot(
             long totalResidents,
             long activeResidents,
             long kycVerified,
-            long kycPending
+            long kycPending,
+            long ownerCount,
+            long tenantCount
     ) {}
 
     public record SecurityStats(
@@ -68,5 +73,25 @@ public record CommunityManagerSnapshot(
             long openProposals,
             long committeePositionsFilled,
             long committeePositionsTotal
+    ) {}
+
+    public record EventAttendanceStats(
+            long upcomingEventsCount,
+            long totalRsvpsThisMonth,
+            long actualAttendeesThisMonth,
+            double avgAttendanceRatePct
+    ) {}
+
+    public record VendorContractStats(
+            long activeVendors,
+            long contractsExpiringIn30Days,
+            long contractsExpired
+    ) {}
+
+    public record CommunityEngagementStats(
+            long activeUsersThisMonth,
+            long pollParticipantsThisMonth,
+            long eventRsvpsThisMonth,
+            double engagementScorePct
     ) {}
 }

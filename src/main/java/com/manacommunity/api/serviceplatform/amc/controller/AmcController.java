@@ -45,10 +45,10 @@ public class AmcController {
     public ResponseEntity<AmcSubscriptionDto> subscribe(
             @RequestParam Long planId,
             @RequestParam Long userId,
-            @RequestParam Long communityId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @AuthenticationPrincipal UserPrincipal principal) {
         assertUserOrAdmin(userId, principal);
+        Long communityId = principal.getCommunityId();
         return new ResponseEntity<>(amcService.subscribe(planId, userId, communityId, startDate), HttpStatus.CREATED);
     }
 

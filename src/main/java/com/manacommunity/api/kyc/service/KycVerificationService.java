@@ -19,16 +19,27 @@ public class KycVerificationService {
 
     private final KycVerificationRequestRepository repo;
     private final KycApiClient kycApiClient;
+    private final KycIdNumberProtector idNumberProtector;
 
     @Transactional
-    public KycVerificationRequest initiateAadhaarOtp(Long residentId, Long communityId, String aadhaarHash) {
-        String externalRef = kycApiClient.initiateAadhaarOtp(aadhaarHash);
+    public KycVerificationRequest initiateAadhaarOtp(Long residentId, Long communityId,
+                                                     String aadhaarHash, String aadhaarLast4) {
+        // The authority is given the client digest it expects; only the stored copy is peppered.
+        String clientDigest = idNumberProtector.requireClientDigest(aadhaarHash, "aadhaarHash");
+        String externalRef = kycApiClient.initiateAadhaarOtp(clientDigest);
         KycVerificationRequest req = KycVerificationRequest.builder()
                 .residentId(residentId)
                 .communityId(communityId)
                 .verificationMethod("AADHAAR_OTP")
                 .idType("AADHAAR")
-                .idNumberHash(aadhaarHash)
+                // The client's bare SHA-256 must never be the stored value: a 12-digit Aadhaar
+                // has only 10^12 candidates, so a dump of plain digests is a dump of the numbers.
+                // Store HMAC-SHA256(server pepper, client digest) instead, and fail closed with
+                // 503 when no pepper is configured. See KycIdNumberProtector.
+                .idNumberHash(idNumberProtector.protectForStorage(clientDigest, "aadhaarHash"))
+                .idNumberLast4(aadhaarLast4 == null || aadhaarLast4.isBlank()
+                        ? null
+                        : idNumberProtector.requireLast4(aadhaarLast4, "aadhaarLast4"))
                 .status("OTP_SENT")
                 .externalRef(externalRef)
                 .build();
@@ -56,13 +67,20 @@ public class KycVerificationService {
     @Transactional
     public KycVerificationRequest submitDocumentForReview(Long residentId, Long communityId,
                                                           String idType, String idNumberHash,
-                                                          String documentUrl) {
+                                                          String idNumberLast4, String documentUrl) {
         KycVerificationRequest req = KycVerificationRequest.builder()
                 .residentId(residentId)
                 .communityId(communityId)
                 .verificationMethod("MANUAL_REVIEW")
                 .idType(idType)
-                .idNumberHash(idNumberHash)
+                // Same reasoning as initiateAadhaarOtp(): the client digest alone is offline
+                // enumerable, so only the peppered HMAC is written. See KycIdNumberProtector.
+                .idNumberHash(idNumberProtector.protectForStorage(idNumberHash, "idNumberHash"))
+                // Optional here: this endpoint predates the masked-display change and older
+                // clients do not send it. Validated when present.
+                .idNumberLast4(idNumberLast4 == null || idNumberLast4.isBlank()
+                        ? null
+                        : idNumberProtector.requireLast4(idNumberLast4, "idNumberLast4"))
                 .documentUrl(documentUrl)
                 .status("PENDING")
                 .build();

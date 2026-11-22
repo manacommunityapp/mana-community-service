@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/academy/sessions")
@@ -24,10 +26,11 @@ public class AcademySessionController {
 
     @GetMapping
     public ResponseEntity<Page<AcademySession>> list(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(service.getUpcomingSessions(communityId, category,
                 PageRequest.of(page, size, Sort.by("startsAt").ascending())));
     }

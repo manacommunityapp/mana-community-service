@@ -61,11 +61,11 @@ public class SportsPartnerSearchController {
     @GetMapping("/partner-search")
     public ResponseEntity<List<PartnerCandidateResponse>> searchPartners(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId,
             @RequestParam(defaultValue = "") String query,
             @RequestParam(required = false) Long eventId,
             @RequestParam(required = false, defaultValue = "DOUBLES") String matchType,
             @RequestParam(required = false) String callerGender) {
+        Long communityId = principal.getCommunityId();
 
         // ── Resolve the target event (optional) ────────────────────────────
         SportsEvent event = (eventId != null)

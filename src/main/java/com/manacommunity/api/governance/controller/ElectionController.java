@@ -3,10 +3,12 @@ package com.manacommunity.api.governance.controller;
 import com.manacommunity.api.governance.entity.*;
 import com.manacommunity.api.governance.repository.*;
 import com.manacommunity.api.platform.web.ApiResponse;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,7 +29,8 @@ public class ElectionController {
     // ── Positions ─────────────────────────────────────────────────────────────
 
     @GetMapping("/positions")
-    public ResponseEntity<ApiResponse<List<CommitteePosition>>> getPositions(@RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<CommitteePosition>>> getPositions(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ok(positionRepo.findByCommunityId(communityId));
     }
 
@@ -40,8 +43,9 @@ public class ElectionController {
 
     @GetMapping("/elections")
     public ResponseEntity<ApiResponse<List<CommitteeElection>>> getElections(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         List<CommitteeElection> list = status != null
                 ? electionRepo.findByCommunityIdAndStatus(communityId, status)
                 : electionRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -90,13 +94,13 @@ public class ElectionController {
         return electionRepo.findById(id).map(election -> {
             if (!"NOMINATIONS_OPEN".equals(election.getStatus())) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .<ApiResponse<ElectionNomination>>body(ApiResponse.error(
+                        .<ApiResponse<ElectionNomination>>body(ApiResponse.<ElectionNomination>error(
                                 "Nominations are not open for this election"));
             }
             Long nomineeId = Long.valueOf(body.get("nomineeId").toString());
             if (nominationRepo.findByElectionIdAndNomineeId(id, nomineeId).isPresent()) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .<ApiResponse<ElectionNomination>>body(ApiResponse.error(
+                        .<ApiResponse<ElectionNomination>>body(ApiResponse.<ElectionNomination>error(
                                 "Already nominated"));
             }
             ElectionNomination nomination = ElectionNomination.builder()

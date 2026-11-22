@@ -8,26 +8,40 @@ import java.math.BigDecimal;
 /**
  * Request body for {@code POST /api/payments/cashfree/orders}.
  *
- * <p>The amount is supplied by the caller, but the backend service is
- * responsible for validating it against the server-calculated price for
- * the referenced business entity. Amount from the frontend is never
- * used blindly.
+ * <p>The payable amount is derived server-side from
+ * {@link #referenceType} / {@link #referenceId} by
+ * {@code PaymentAmountResolver}. The client's {@link #amount} is advisory
+ * and is ignored for pricing.
  */
 @Data
 public class CashfreeCreateOrderRequest {
 
     /**
-     * Amount in INR rupees. Must be at least ₹1.
+     * ADVISORY / IGNORED — do not wire this back into pricing.
+     *
+     * <p>The server prices the order from {@link #referenceType} +
+     * {@link #referenceId} and charges that figure; this field is kept only so
+     * existing clients keep working, and is used for two things:
+     * <ol>
+     *   <li>a WARN log when it disagrees with the server-derived amount
+     *       (a persistent mismatch is a client bug or someone probing), and</li>
+     *   <li>the one reference type that has no server-side amount yet
+     *       (see {@code PaymentAmountResolver.CLIENT_PRICED_REFERENCE_TYPES}).</li>
+     * </ol>
+     *
+     * <p>Optional: a client that omits it gets a server-priced order. The bounds
+     * below are only sanity limits for the advisory value.
      */
-    @NotNull(message = "Amount is required")
     @DecimalMin(value = "1.00", message = "Minimum payment amount is ₹1")
     @DecimalMax(value = "99999999.99", message = "Amount exceeds maximum allowed")
     @Digits(integer = 10, fraction = 2, message = "Amount must have at most 2 decimal places")
     private BigDecimal amount;
 
     /**
-     * Discriminates which module is creating this order.
-     * Examples: SPORTS_REGISTRATION, EVENT_TICKET, VENUE_BOOKING.
+     * Discriminates which module is creating this order, and — together with
+     * {@link #referenceId} — determines the amount the server will charge.
+     * Supported: GROUP_BUY_ORDER, COMMERCE_ORDER, SPORTS_REGISTRATION.
+     * Any other value is rejected with 400.
      */
     @NotBlank(message = "referenceType is required")
     @Size(max = 60, message = "referenceType must be at most 60 characters")

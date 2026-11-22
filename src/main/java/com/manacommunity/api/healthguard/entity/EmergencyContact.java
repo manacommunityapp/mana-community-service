@@ -1,6 +1,7 @@
 package com.manacommunity.api.healthguard.entity;
 
 import com.manacommunity.api.healthguard.enums.HealthGuardEnums.ContactRelationship;
+import com.manacommunity.api.security.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,13 +22,16 @@ public class EmergencyContact {
     @Column(nullable = false)
     private Long userId;
 
-    @Column(nullable = false, length = 150)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 255)
     private String name;
 
-    @Column(nullable = false, length = 20)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 255)
     private String phone;
 
-    @Column(length = 200)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(length = 255)
     private String email;
 
     @Enumerated(EnumType.STRING)

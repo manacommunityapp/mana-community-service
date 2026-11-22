@@ -32,9 +32,10 @@ public class ComplianceController {
 
     @GetMapping("/reports")
     public ResponseEntity<ApiResponse<List<GeneratedReport>>> listReports(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String period) {
+        Long communityId = principal.getCommunityId();
         List<GeneratedReport> reports;
         if (type != null && period != null) {
             reports = reportRepo.findByCommunityIdAndReportTypeAndReportPeriodOrderByGeneratedAtDesc(
@@ -64,8 +65,9 @@ public class ComplianceController {
     }
 
     @GetMapping("/configs")
-    public ResponseEntity<ApiResponse<List<ComplianceReportConfig>>> listConfigs(
-            @RequestParam Long communityId) {
+    public ResponseEntity<ApiResponse<List<ComplianceReportConfig>>> listConfigs(@AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(ApiResponse.ok(
                 configRepo.findByCommunityIdAndIsActiveTrue(communityId)));
     }

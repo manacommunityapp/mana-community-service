@@ -89,6 +89,7 @@ public class CashfreePaymentService {
     private final DomainEventPublisher domainEventPublisher;
     private final org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.groupbuying.service.GroupBuyPaymentConfirmationService> groupBuyPaymentConfirmationService;
     private final com.manacommunity.api.commerce.core.repository.CommerceOrderRepository commerceOrderRepository;
+    private final PaymentAmountResolver            amountResolver;
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
 
@@ -108,6 +109,13 @@ public class CashfreePaymentService {
      * <p>The internal record is saved BEFORE calling Cashfree so there is always
      * an audit trail. If the gateway call fails the record status stays "CREATED"
      * and can be retried.
+     *
+     * <p>The payable amount is derived server-side from {@code (referenceType,
+     * referenceId)} by {@link PaymentAmountResolver}. {@code req.getAmount()} is
+     * advisory only and is never used to price the gateway order (except for the one
+     * documented client-priced reference type, which the resolver logs loudly) — a
+     * patched client sending {@code amount: 1} for a ₹12,000 order would otherwise
+     * have ₹1 collected.
      */
     @Transactional
     public CashfreeOrderResponse createOrder(
@@ -118,10 +126,19 @@ public class CashfreePaymentService {
 
         String manaOrderId = "MANA-" + System.currentTimeMillis() + "-" + user.getId();
 
+        // Server-side price authority. Throws rather than falling back to req.getAmount().
+        PaymentAmountResolver.ResolvedAmount resolved = amountResolver.resolve(
+                req.getReferenceType(),
+                req.getReferenceId(),
+                community != null ? community.getId() : null,
+                user.getId(),
+                req.getAmount());
+        BigDecimal payableAmount = resolved.amount();
+
         // Persist the local record first.
         CashfreeOrder entity = CashfreeOrder.builder()
                 .manaOrderId(manaOrderId)
-                .amount(req.getAmount())
+                .amount(payableAmount)
                 .currency(properties.getCurrency())
                 .status("CREATED")
                 .referenceType(req.getReferenceType())
@@ -148,7 +165,7 @@ public class CashfreePaymentService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("order_id", manaOrderId);
-        body.put("order_amount", req.getAmount());
+        body.put("order_amount", payableAmount);
         body.put("order_currency", properties.getCurrency());
         body.put("customer_details", customerDetails);
         body.put("order_meta", orderMeta);
@@ -181,8 +198,9 @@ public class CashfreePaymentService {
             auditService.record(AuditAction.PAYMENT_ORDER_CREATED, AuditModule.PAYMENT,
                     "CashfreeOrder", String.valueOf(saved.getId()));
 
-            log.info("Cashfree order created: manaOrderId={} cfOrderId={} amount=₹{} userId={} ref={}:{}",
-                    manaOrderId, cfOrderId, req.getAmount(), user.getId(),
+            log.info("Cashfree order created: manaOrderId={} cfOrderId={} amount=₹{} (serverDerived={}) "
+                            + "userId={} ref={}:{}",
+                    manaOrderId, cfOrderId, payableAmount, resolved.serverDerived(), user.getId(),
                     req.getReferenceType(), req.getReferenceId());
 
             return toResponse(saved, true);

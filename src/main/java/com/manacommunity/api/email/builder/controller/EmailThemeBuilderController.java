@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/email/themes")
@@ -20,7 +22,8 @@ public class EmailThemeBuilderController {
     private final EmailTemplateBuilderService templateService;
 
     @GetMapping
-    public ResponseEntity<List<EmailThemeResponse>> list(@RequestParam Long communityId) {
+    public ResponseEntity<List<EmailThemeResponse>> list(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         List<EmailThemeResponse> themes = themeService.listByCommunity(communityId)
                 .stream()
                 .map(EmailThemeResponse::from)

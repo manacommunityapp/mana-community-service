@@ -45,8 +45,8 @@ public class SportsTrainerController {
 
     @GetMapping("/trainers")
     public ResponseEntity<List<SportsTrainerResponse>> listApproved(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         return ResponseEntity.ok(trainerService.listApproved(communityId));
     }
@@ -55,9 +55,9 @@ public class SportsTrainerController {
 
     @PostMapping("/trainers/apply")
     public ResponseEntity<SportsTrainerResponse> apply(
-            @RequestParam Long communityId,
             @RequestBody SportsTrainerRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -68,8 +68,8 @@ public class SportsTrainerController {
 
     @GetMapping("/trainers/admin")
     public ResponseEntity<List<SportsTrainerResponse>> listAll(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         return ResponseEntity.ok(trainerService.listAll(communityId));
     }
@@ -98,9 +98,9 @@ public class SportsTrainerController {
 
     @PostMapping("/trainer-slots")
     public ResponseEntity<TrainerSlotResponse> createSlot(
-            @RequestParam Long communityId,
             @RequestBody TrainerSlotRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, CREATE_EDIT_SPORTS_MAIN);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(trainerService.createSlot(communityId, request));
@@ -130,8 +130,8 @@ public class SportsTrainerController {
 
     @GetMapping("/trainer-bookings/my")
     public ResponseEntity<List<TrainerSlotBookingResponse>> myBookings(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_SPORTS_MENU);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(trainerService.myBookings(user.getId(), communityId));

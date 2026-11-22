@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 /**
  * <pre>
@@ -96,8 +98,10 @@ public class InventoryPickingController {
 
     @GetMapping("/reporting/ledger")
     public ResponseEntity<List<StockLedgerReportRow>> getStockLedger(
-            @RequestParam(required = false) Long productId,
-            @RequestParam(required = false) Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long productId
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(pickingService.getStockLedgerReport(productId, communityId));
     }
 

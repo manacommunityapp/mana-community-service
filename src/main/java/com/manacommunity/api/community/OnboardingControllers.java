@@ -100,85 +100,139 @@ class CommunityLookupController {
 // ── KYC Controller ────────────────────────────────────────────
 @Slf4j
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/users/me")
 @RequiredArgsConstructor
-class KycController {
+class OnboardingKycController {
 
     @PersistenceContext
     private final EntityManager em;
 
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.service.FieldEncryptionService fieldEncryptionService;
+    private final com.manacommunity.api.kyc.service.KycIdNumberProtector kycIdNumberProtector;
 
     /**
-     * PUT /api/auth/kyc
+     * POST (or PUT) /api/users/me/kyc
      *
-     * Called by the mobile onboarding Step 4 (verify.tsx) after the user
-     * has uploaded their government ID images.
+     * Called by mobile onboarding step 4 (verify.tsx, via authService.submitKyc)
+     * after the user has uploaded their government ID images.
+     *
+     * This used to be mapped at PUT /api/auth/kyc, which no client ever called —
+     * the only caller posts to /api/users/me/kyc, so the endpoint 404'd. Moving it
+     * here also takes it out from under the permitAll /api/auth/** matcher, so it
+     * is now covered by the default authenticated rule rather than relying on its
+     * own principal check alone. POST and PUT are both accepted because the client
+     * sends POST and the previous contract was PUT.
      *
      * Body: {
      *   govtIdType:        "AADHAAR" | "PAN" | "PASSPORT" | "VOTER_ID" | "DRIVING_LICENSE"
-     *   govtIdNumber:      "123456789012"
+     *   govtIdNumberHash:  64-char lowercase hex SHA-256 of the normalised number
+     *   govtIdLast4:       last 1-4 characters, for display only
      *   documentFrontUrl:  "https://..."
      *   documentBackUrl?:  "https://..."    (optional — not required for PAN/Passport)
      * }
      *
+     * The raw number must never arrive here; sending govtIdNumber is a 400.
+     *
      * Sets kycStatus = "PENDING" (admin must review and approve via the admin panel).
      * Returns the updated UserProfileResponse.
      */
-    @PutMapping("/kyc")
+    @RequestMapping(value = "/kyc", method = { RequestMethod.POST, RequestMethod.PUT })
     @Transactional
     public ResponseEntity<Map<String, Object>> submitKyc(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Map<String, Object> body) {
 
+        // This method sits under the permitAll /api/auth/** matcher. It was relying on
+        // loggedInUserService.resolve() dereferencing a null principal to keep anonymous
+        // callers out, which is an accident rather than a control. Reject explicitly.
+        if (principal == null || principal.getId() == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Authentication required"));
+        }
+
         AppUser user = loggedInUserService.resolve(principal);
 
         String idType    = body.getOrDefault("govtIdType",       "").toString().trim();
-        String idNumber  = body.getOrDefault("govtIdNumber",     "").toString().trim();
         String frontUrl  = body.getOrDefault("documentFrontUrl", "").toString().trim();
         String backUrl   = body.getOrDefault("documentBackUrl",  "").toString().trim();
 
-        if (idType.isBlank() || idNumber.isBlank() || frontUrl.isBlank()) {
+        // The client hashes the government ID before it leaves the device, so the raw
+        // number must never arrive here. Refuse it rather than hashing it server-side,
+        // which would quietly restore plaintext transmission.
+        Object rawSubmitted = body.get("govtIdNumber");
+        kycIdNumberProtector.rejectRawIdNumber(
+                rawSubmitted == null ? null : rawSubmitted.toString(),
+                "govtIdNumber", "govtIdNumberHash' and 'govtIdLast4");
+
+        Object hashRaw  = body.get("govtIdNumberHash");
+        Object last4Raw = body.get("govtIdLast4");
+        String clientDigest = kycIdNumberProtector.requireClientDigest(
+                hashRaw == null ? null : hashRaw.toString().trim(), "govtIdNumberHash");
+        String idLast4 = kycIdNumberProtector.requireLast4(
+                last4Raw == null ? null : last4Raw.toString().trim(), "govtIdLast4");
+
+        if (idType.isBlank() || frontUrl.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
-                "message", "govtIdType, govtIdNumber and documentFrontUrl are required"
+                "message", "govtIdType and documentFrontUrl are required"
             ));
         }
 
-        // Encrypt the ID number before persisting
-        String encryptedIdNumber = fieldEncryptionService.isEnabled()
-                ? fieldEncryptionService.encrypt(idNumber)
-                : idNumber;
+        // These URLs are stored verbatim and later rendered to whoever reviews the KYC.
+        // Previously any string was accepted, so a submission could point the reviewer
+        // at an external site or at a javascript:/data: URL. Accept only a relative
+        // /api/files/... path (what this service issues under Postgres storage) or an
+        // https URL (S3 storage).
+        if (!isAcceptableDocumentUrl(frontUrl) || (!backUrl.isBlank() && !isAcceptableDocumentUrl(backUrl))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Document URLs must be an uploaded file path (/api/files/...) or an https URL"
+            ));
+        }
+
+        // The client's bare SHA-256 of a 12-digit number is brute-forceable offline;
+        // re-protect it under the server-held pepper before it is stored.
+        String storedHash = kycIdNumberProtector.protectForStorage(clientDigest, "govtIdNumberHash");
 
         // Persist KYC document info using a separate KYC table if it exists,
         // or store directly on AppUser if the fields are there.
         // Using native SQL for maximum compatibility with the existing schema.
+        // The failure here used to be swallowed with a warning, after which the user was
+        // still marked PENDING — so a resident saw "submitted" with no document row behind
+        // it. If the document cannot be written, the submission has not happened.
         try {
-            // Try to insert/update a kyc_document record if the table exists
             em.createNativeQuery(
-                "INSERT INTO kyc_document (user_id, id_type, id_number, front_url, back_url, status, submitted_at)" +
-                " VALUES (?, ?, ?, ?, ?, 'PENDING', NOW())" +
+                "INSERT INTO kyc_document (user_id, id_type, document_type, id_number_hash, id_number_last4," +
+                "                          front_url, front_image_url, back_url, back_image_url, status, submitted_at)" +
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW())" +
                 " ON CONFLICT (user_id) DO UPDATE SET" +
-                "   id_type=EXCLUDED.id_type, id_number=EXCLUDED.id_number," +
-                "   front_url=EXCLUDED.front_url, back_url=EXCLUDED.back_url," +
+                "   id_type=EXCLUDED.id_type, document_type=EXCLUDED.document_type," +
+                "   id_number_hash=EXCLUDED.id_number_hash, id_number_last4=EXCLUDED.id_number_last4," +
+                "   front_url=EXCLUDED.front_url, front_image_url=EXCLUDED.front_image_url," +
+                "   back_url=EXCLUDED.back_url, back_image_url=EXCLUDED.back_image_url," +
                 "   status='PENDING', submitted_at=NOW()")
                 .setParameter(1, user.getId())
                 .setParameter(2, idType)
-                .setParameter(3, encryptedIdNumber)
-                .setParameter(4, frontUrl)
-                .setParameter(5, backUrl.isBlank() ? null : backUrl)
+                .setParameter(3, idType)
+                .setParameter(4, storedHash)
+                .setParameter(5, idLast4)
+                .setParameter(6, frontUrl)
+                .setParameter(7, frontUrl)
+                .setParameter(8, backUrl.isBlank() ? null : backUrl)
+                .setParameter(9, backUrl.isBlank() ? null : backUrl)
                 .executeUpdate();
         } catch (Exception e) {
-            // kyc_document table might not exist — store on AppUser fields instead
-            log.warn("[KYC] kyc_document table not found, storing on AppUser: {}", e.getMessage());
+            log.error("[KYC] Failed to persist kyc_document for userId={}: {}", user.getId(), e.toString());
+            return ResponseEntity.internalServerError().body(Map.of(
+                "message", "KYC submission failed. Nothing was recorded — please try again."
+            ));
         }
 
-        // Always set kycStatus to PENDING on the AppUser
+        // Only now is the submission real.
         try {
             user.setKycStatus("PENDING");
-            // Persist govt ID fields if they exist on AppUser
+            // The raw number no longer reaches this server, so there is nothing to mirror
+            // onto AppUser beyond the type; the hash and last 4 live on kyc_document.
             try { user.getClass().getDeclaredMethod("setGovtIdType", String.class).invoke(user, idType); } catch (Exception ignored) {}
-            try { user.getClass().getDeclaredMethod("setGovtIdNumber", String.class).invoke(user, encryptedIdNumber); } catch (Exception ignored) {}
             em.merge(user);
         } catch (Exception e) {
             log.error("[KYC] Failed to update AppUser kycStatus: {}", e.getMessage());
@@ -195,5 +249,24 @@ class KycController {
             "kycStatus",  "PENDING",
             "message",    "KYC submitted successfully. Your admin will review and approve your account."
         ));
+    }
+
+    /**
+     * True for a document URL this service is willing to store and later show to a
+     * reviewer: a relative upload path it issued itself, or an https URL (S3-backed
+     * storage returns absolute ones).
+     *
+     * <p>This validates shape only. It does NOT establish that an /api/files/{id} path
+     * belongs to the submitting resident, so one resident could still reference
+     * another's uploaded file. Closing that needs an ownership lookup against
+     * stored_file at submission time.
+     */
+    private static boolean isAcceptableDocumentUrl(String url) {
+        if (url == null || url.isBlank()) return false;
+        String v = url.trim();
+        // "//host/path" is protocol-relative, not a local path.
+        if (v.startsWith("//")) return false;
+        if (v.startsWith("/api/files/") || v.startsWith("/api/media/")) return true;
+        return v.regionMatches(true, 0, "https://", 0, 8);
     }
 }

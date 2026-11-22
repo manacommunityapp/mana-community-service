@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/finance/categories")
@@ -17,7 +19,8 @@ public class InvoiceCategoryController {
     private final InvoiceCategoryService service;
 
     @GetMapping
-    public ResponseEntity<List<InvoiceCategoryDto>> list(@RequestParam(required = false) Long communityId) {
+    public ResponseEntity<List<InvoiceCategoryDto>> list(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(service.listCategories(communityId));
     }
 

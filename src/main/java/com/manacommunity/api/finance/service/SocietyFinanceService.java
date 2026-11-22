@@ -336,7 +336,9 @@ public class SocietyFinanceService {
 
     @Transactional
     public Map<String, Object> recordInvoicePayment(Long communityId, RecordInvoicePaymentDto dto) {
-        FinanceInvoice invoice = invoiceRepo.findById(dto.getInvoiceId())
+        // Scoped by community: a bare findById here let a caller in one community
+        // mark another community's invoice Paid and post against their ledger.
+        FinanceInvoice invoice = invoiceRepo.findByIdAndCommunityId(dto.getInvoiceId(), communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("FinanceInvoice", dto.getInvoiceId()));
 
         invoice.setStatus("Paid");
