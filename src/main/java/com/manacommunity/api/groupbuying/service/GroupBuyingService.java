@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -32,6 +33,8 @@ public class GroupBuyingService {
     private final BuyingGroupRepository buyingGroupRepository;
     private final GroupDealSettlementRepository settlementRepository;
     private final GroupBuyingTransactionAdapter transactionAdapter;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     public List<GroupDealResponse> getDeals(Long communityId) {
         List<GroupDeal> deals = dealRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -94,23 +97,15 @@ public class GroupBuyingService {
         BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(qty));
         BigDecimal savings = deal.getMrp() != null ? deal.getMrp().subtract(unitPrice).multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO;
 
-        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", (System.currentTimeMillis() + (long)(Math.random() * 999)) % 100000);
+        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", SECURE_RANDOM.nextInt(100000));
+        // QR token and OTP are generated now but only released to the resident after payment confirmation.
         String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String deliveryOtp = String.format("%06d", (int)(Math.random() * 900000) + 100000);
+        String deliveryOtp = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
 
-        String txnIntentId = null;
-        if (transactionAdapter != null) {
-            try {
-                PaymentIntentResponse intent = transactionAdapter.initiateGroupOrderPayment(
-                        orderNum, deal.getId(), user.getId(), total, 1L, deal.getCommunity() != null ? deal.getCommunity().getId() : 1L);
-                if (intent != null) {
-                    txnIntentId = intent.getIntentId();
-                }
-            } catch (Exception e) {
-                log.warn("Transaction adapter intent creation: {}", e.getMessage());
-            }
-        }
-
+        // Order starts PENDING_PAYMENT / INITIATED. It becomes CONFIRMED / PAID only after the
+        // payment gateway confirms the transaction via processOrderPayment. Setting PAID here
+        // before any gateway call would let a resident receive a confirmed order and QR pass
+        // without money ever moving.
         GroupBuyOrder order = GroupBuyOrder.builder()
                 .orderNumber(orderNum)
                 .community(deal.getCommunity())
@@ -121,18 +116,16 @@ public class GroupBuyingService {
                 .unitPrice(unitPrice)
                 .totalAmount(total)
                 .savingsAmount(savings)
-                .status(OrderStatus.CONFIRMED)
-                .paymentStatus("PAID")
-                .paymentMethod(request.getPaymentType() != null ? request.getPaymentType() : "UPI")
-                .transactionId(txnIntentId != null ? txnIntentId : "TXN-" + orderNum)
-                .escrowHoldAmount(total)
+                .status(OrderStatus.PENDING_PAYMENT)
+                .paymentStatus("INITIATED")
+                .paymentMethod(request.getPaymentType() != null ? request.getPaymentType() : "CASHFREE")
+                .escrowHoldAmount(BigDecimal.ZERO)
                 .qrToken(qrToken)
                 .deliveryOtp(deliveryOtp)
                 .pickupPoint(deal.getPickupPoint())
                 .pickupDate(deal.getPickupDate())
                 .deliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : (user.getFlatNo() != null ? "Flat " + user.getFlatNo() : "Clubhouse"))
                 .specialNotes(request.getSpecialNotes())
-                .paymentTimestamp(LocalDateTime.now())
                 .build();
 
         orderRepository.save(order);
@@ -171,9 +164,9 @@ public class GroupBuyingService {
         BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(qty));
         BigDecimal savings = deal.getMrp() != null ? deal.getMrp().subtract(unitPrice).multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO;
 
-        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", (System.currentTimeMillis() + (long)(Math.random() * 999)) % 100000);
+        String orderNum = "GB-" + LocalDateTime.now().getYear() + "-" + String.format("%05d", SECURE_RANDOM.nextInt(100000));
         String qrToken = "TKN-" + dealId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String deliveryOtp = String.format("%06d", (int)(Math.random() * 900000) + 100000);
+        String deliveryOtp = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
 
         GroupBuyOrder order = GroupBuyOrder.builder()
                 .orderNumber(orderNum)
@@ -185,18 +178,16 @@ public class GroupBuyingService {
                 .unitPrice(unitPrice)
                 .totalAmount(total)
                 .savingsAmount(savings)
-                .status(OrderStatus.CONFIRMED)
-                .paymentStatus("PAID")
-                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "UPI")
-                .transactionId(request.getPaymentMethod() != null ? "TXN-" + System.currentTimeMillis() : null)
-                .escrowHoldAmount(total)
+                .status(OrderStatus.PENDING_PAYMENT)
+                .paymentStatus("INITIATED")
+                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASHFREE")
+                .escrowHoldAmount(BigDecimal.ZERO)
                 .qrToken(qrToken)
                 .deliveryOtp(deliveryOtp)
                 .pickupPoint(deal.getPickupPoint())
                 .pickupDate(deal.getPickupDate())
                 .deliveryAddress(request.getDeliveryAddress() != null ? request.getDeliveryAddress() : (user.getFlatNo() != null ? "Flat " + user.getFlatNo() : "Clubhouse"))
                 .specialNotes(request.getDeliveryNotes())
-                .paymentTimestamp(LocalDateTime.now())
                 .build();
 
         orderRepository.save(order);
