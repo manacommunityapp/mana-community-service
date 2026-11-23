@@ -6,8 +6,10 @@ import com.manacommunity.api.cfbos.integrations.service.PaymentWebhookReconcilia
 import com.manacommunity.api.cfbos.payment.entity.CfbosPayment;
 import com.manacommunity.api.cfbos.payment.enums.PaymentStatus;
 import com.manacommunity.api.cfbos.payment.repository.CfbosPaymentRepository;
+import com.manacommunity.api.payments.repository.RazorpayOrderRepository;
 import com.manacommunity.api.transactioncore.repository.TransactionIntentRepository;
 import com.manacommunity.api.transactioncore.service.ManaTransactionCoreService;
+import com.manacommunity.api.trip.p2p.service.TripP2PCollectService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,11 +38,19 @@ class PaymentWebhookReconciliationTest {
     @Mock
     private ManaTransactionCoreService transactionCoreService;
 
+    @Mock
+    private RazorpayOrderRepository razorpayOrderRepository;
+
+    @Mock
+    private TripP2PCollectService tripP2PCollectService;
+
     private PaymentWebhookReconciliationService service;
 
     @BeforeEach
     void setUp() {
-        service = new PaymentWebhookReconciliationService(paymentRepository, intentRepository, transactionCoreService);
+        service = new PaymentWebhookReconciliationService(
+                paymentRepository, intentRepository, transactionCoreService, razorpayOrderRepository, tripP2PCollectService
+        );
     }
 
     @Test
@@ -49,6 +59,10 @@ class PaymentWebhookReconciliationTest {
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", "evt_razorpay_duplicate_123");
         payload.put("event", "payment.captured");
+
+        when(razorpayOrderRepository.existsByWebhookEventId("evt_razorpay_duplicate_123"))
+                .thenReturn(false)
+                .thenReturn(true);
 
         boolean first = service.processRazorpayWebhook(payload, "sig1");
         assertThat(first).isTrue();
@@ -67,6 +81,9 @@ class PaymentWebhookReconciliationTest {
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         CyclicBarrier barrier = new CyclicBarrier(threadCount);
         AtomicInteger lockAcquiredCount = new AtomicInteger(0);
+
+        java.util.concurrent.atomic.AtomicBoolean exists = new java.util.concurrent.atomic.AtomicBoolean(false);
+        when(razorpayOrderRepository.existsByWebhookEventId(eventId)).thenAnswer(inv -> exists.getAndSet(true));
 
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < threadCount; i++) {
