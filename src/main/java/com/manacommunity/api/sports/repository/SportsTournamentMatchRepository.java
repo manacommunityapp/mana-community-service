@@ -4,6 +4,7 @@ import com.manacommunity.api.sports.model.MatchStatus;
 import com.manacommunity.api.sports.scheduler.SportsTournamentMatch;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -72,10 +73,12 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
                            OR (m.completedAt IS NULL AND m.scheduledAt >= :since))))
            ORDER BY m.scheduledAt DESC
            """)
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     List<SportsTournamentMatch> findFeedCandidatesByCommunityId(@Param("communityId") Long communityId,
                                                                 @Param("since") LocalDateTime since);
 
     /** Live matches, plus matches completed since {@code since}, across all communities (for super-admin feed). */
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE (m.status = com.manacommunity.api.sports.model.MatchStatus.LIVE
@@ -88,6 +91,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     List<SportsTournamentMatch> findFeedCandidatesAll(@Param("since") LocalDateTime since);
 
     /** Upcoming scheduled matches for a community, ordered earliest scheduled first. */
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE (m.community.id = :communityId
@@ -104,6 +108,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
                                                                    Pageable pageable);
 
     /** Upcoming scheduled matches across all communities, ordered earliest scheduled first. */
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE (m.status = com.manacommunity.api.sports.model.MatchStatus.SCHEDULED
@@ -114,6 +119,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     List<SportsTournamentMatch> findUpcomingCandidatesAll(@Param("since") LocalDateTime since, Pageable pageable);
 
     /** Recently completed matches for a community, ordered newest completed first. */
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE (m.community.id = :communityId
@@ -126,6 +132,7 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
     List<SportsTournamentMatch> findRecentCompletedByCommunityId(@Param("communityId") Long communityId, Pageable pageable);
 
     /** Recently completed matches across all communities, ordered newest completed first. */
+    @EntityGraph(attributePaths = {"config", "teamA", "teamB", "venue", "court", "winner"})
     @Query("""
            SELECT m FROM SportsTournamentMatch m
            WHERE m.status = com.manacommunity.api.sports.model.MatchStatus.COMPLETED
@@ -142,6 +149,11 @@ public interface SportsTournamentMatchRepository extends JpaRepository<SportsTou
            ORDER BY m.scheduledAt
            """)
     List<SportsTournamentMatch> findCompletedWithoutFeedPost(@Param("since") LocalDateTime since);
+
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE SportsTournamentMatch m SET m.winnerFeedFromMatchA = NULL, m.winnerFeedFromMatchB = NULL, m.winnerAdvancesToMatchId = NULL, m.loserSentToMatchId = NULL WHERE m.config.id = :configId")
+    void nullifyBracketLinksForConfig(@Param("configId") Long configId);
 
     @Transactional
     @Modifying(clearAutomatically = true)

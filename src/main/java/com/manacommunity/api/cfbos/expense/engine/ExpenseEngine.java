@@ -21,6 +21,7 @@ import com.manacommunity.api.cfbos.shared.sequence.service.DocumentSequenceServi
 import com.manacommunity.api.cfbos.tax.dto.GstCalculationResult;
 import com.manacommunity.api.cfbos.tax.engine.TaxEngine;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExpenseEngine {
@@ -167,6 +169,8 @@ public class ExpenseEngine {
             );
             expense.setJournalEntryId(entry.getId());
             expenseRepository.save(expense);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.error("Failed to post journal entry for expense {}: {}", expense.getExpenseNumber(), ex.getMessage(), ex);
+        }
     }
 }

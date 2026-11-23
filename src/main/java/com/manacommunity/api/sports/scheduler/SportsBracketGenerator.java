@@ -195,14 +195,7 @@ public class SportsBracketGenerator {
                     "winnerTeamId=" + winner.getId() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
 
                 // Advance winner to next round match
-                if (match.getWinnerAdvancesToMatchId() != null) {
-                    matchRepo.findById(match.getWinnerAdvancesToMatchId()).ifPresent(next -> {
-                        if (next.getTeamA() == null) next.setTeamA(winner);
-                        else next.setTeamB(winner);
-                        advanceNonAuctionWinner(next, winner.getTeamName());
-                        matchRepo.save(next);
-                    });
-                }
+                advanceWinnerToNextMatch(match, winner, winner.getTeamName());
 
                 // For double elimination: send loser to losers bracket
                 if (match.getLoserSentToMatchId() != null && loser != null) {
@@ -222,7 +215,7 @@ public class SportsBracketGenerator {
                 match.setWinnerName(winnerName);
                 match.setWinnerSide(req.winnerSide());
                 matchRepo.save(match);
-                advanceWinnerToNextMatch(match, winnerName);
+                advanceWinnerToNextMatch(match, null, winnerName);
             }
         } else if (req.winnerName() != null && !req.winnerName().isBlank()) {
             match.setWinnerName(req.winnerName());
@@ -236,19 +229,47 @@ public class SportsBracketGenerator {
                 null,
                 "winnerName=" + req.winnerName() + ", side=" + req.winnerSide() + ", score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
 
-            advanceWinnerToNextMatch(match, req.winnerName());
+            advanceWinnerToNextMatch(match, null, req.winnerName());
         } else {
-            matchRepo.save(match);
-            auditService.record(
-                com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
-                com.manacommunity.api.security.AuditModule.TOURNAMENT,
-                "SportsTournamentMatch", String.valueOf(match.getId()),
-                null,
-                "result=DRAW/TIE, score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+            String side = req.winnerSide();
+            if (side == null && req.scoreTeamA() != null && req.scoreTeamB() != null) {
+                try {
+                    int scA = Integer.parseInt(req.scoreTeamA().trim());
+                    int scB = Integer.parseInt(req.scoreTeamB().trim());
+                    if (scA > scB) side = "A";
+                    else if (scB > scA) side = "B";
+                } catch (Exception ignored) {}
+            }
 
-            // Update group standings for draws
-            if (match.getGroup() != null) {
-                updateGroupStandingsForDraw(match, req);
+            if ("A".equalsIgnoreCase(side)) {
+                SportsAuctionTeam winner = match.getTeamA();
+                String winnerName = winner != null ? winner.getTeamName() : extractNote(match.getMatchNotes(), "homeName", match.getPlaceholderTeamA());
+                match.setWinner(winner);
+                match.setWinnerName(winnerName);
+                match.setWinnerSide("A");
+                matchRepo.save(match);
+                advanceWinnerToNextMatch(match, winner, winnerName);
+            } else if ("B".equalsIgnoreCase(side)) {
+                SportsAuctionTeam winner = match.getTeamB();
+                String winnerName = winner != null ? winner.getTeamName() : extractNote(match.getMatchNotes(), "awayName", match.getPlaceholderTeamB());
+                match.setWinner(winner);
+                match.setWinnerName(winnerName);
+                match.setWinnerSide("B");
+                matchRepo.save(match);
+                advanceWinnerToNextMatch(match, winner, winnerName);
+            } else {
+                matchRepo.save(match);
+                auditService.record(
+                    com.manacommunity.api.security.AuditAction.WINNER_DECLARED,
+                    com.manacommunity.api.security.AuditModule.TOURNAMENT,
+                    "SportsTournamentMatch", String.valueOf(match.getId()),
+                    null,
+                    "result=DRAW/TIE, score=" + req.scoreTeamA() + "-" + req.scoreTeamB());
+
+                // Update group standings for draws
+                if (match.getGroup() != null) {
+                    updateGroupStandingsForDraw(match, req);
+                }
             }
         }
 
@@ -268,12 +289,97 @@ public class SportsBracketGenerator {
     }
 
     private void advanceWinnerToNextMatch(SportsTournamentMatch match, String winnerName) {
-        if (match.getWinnerAdvancesToMatchId() != null && winnerName != null && !winnerName.isBlank()) {
-            matchRepo.findById(match.getWinnerAdvancesToMatchId()).ifPresent(next -> {
-                advanceNonAuctionWinner(next, winnerName);
-                matchRepo.save(next);
-            });
+        advanceWinnerToNextMatch(match, null, winnerName);
+    }
+
+    private void advanceWinnerToNextMatch(SportsTournamentMatch match, SportsAuctionTeam winnerTeam, String winnerName) {
+        if (match == null || (winnerTeam == null && (winnerName == null || winnerName.isBlank()))) return;
+        final String effectiveWinnerName = winnerTeam != null ? winnerTeam.getTeamName() : winnerName;
+
+        SportsTournamentMatch next = null;
+        if (match.getWinnerAdvancesToMatchId() != null) {
+            next = matchRepo.findById(match.getWinnerAdvancesToMatchId()).orElse(null);
         }
+
+        if (next == null && match.getConfig() != null) {
+            List<SportsTournamentMatch> configMatches = matchRepo.findByConfigIdOrderByScheduledAt(match.getConfig().getId());
+            for (SportsTournamentMatch candidate : configMatches) {
+                if (candidate.getId().equals(match.getId())) continue;
+                if ((candidate.getWinnerFeedFromMatchA() != null && candidate.getWinnerFeedFromMatchA().equals(match.getId())) ||
+                    (candidate.getWinnerFeedFromMatchB() != null && candidate.getWinnerFeedFromMatchB().equals(match.getId()))) {
+                    next = candidate;
+                    break;
+                }
+                String aPlace = candidate.getPlaceholderTeamA() != null ? candidate.getPlaceholderTeamA() : extractNote(candidate.getMatchNotes(), "homeName", "");
+                String bPlace = candidate.getPlaceholderTeamB() != null ? candidate.getPlaceholderTeamB() : extractNote(candidate.getMatchNotes(), "awayName", "");
+                if (matchesFeederText(aPlace, match) || matchesFeederText(bPlace, match)) {
+                    next = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (next == null) return;
+
+        if (match.getWinnerAdvancesToMatchId() == null) {
+            match.setWinnerAdvancesToMatchId(next.getId());
+            matchRepo.save(match);
+        }
+
+        boolean isSideA = true;
+        if (next.getWinnerFeedFromMatchA() != null && next.getWinnerFeedFromMatchA().equals(match.getId())) {
+            isSideA = true;
+        } else if (next.getWinnerFeedFromMatchB() != null && next.getWinnerFeedFromMatchB().equals(match.getId())) {
+            isSideA = false;
+        } else {
+            String aPlace = next.getPlaceholderTeamA() != null ? next.getPlaceholderTeamA() : extractNote(next.getMatchNotes(), "homeName", "");
+            String bPlace = next.getPlaceholderTeamB() != null ? next.getPlaceholderTeamB() : extractNote(next.getMatchNotes(), "awayName", "");
+            if (matchesFeederText(aPlace, match)) {
+                isSideA = true;
+            } else if (matchesFeederText(bPlace, match)) {
+                isSideA = false;
+            } else if (isPlaceholder(aPlace) && !isPlaceholder(bPlace)) {
+                isSideA = true;
+            } else if (isPlaceholder(bPlace) && !isPlaceholder(aPlace)) {
+                isSideA = false;
+            } else if (match.getMatchNumber() != null) {
+                isSideA = (match.getMatchNumber() % 2 != 0);
+            }
+        }
+
+        if (isSideA) {
+            next.setWinnerFeedFromMatchA(match.getId());
+            if (winnerTeam != null) next.setTeamA(winnerTeam);
+            next.setPlaceholderTeamA(effectiveWinnerName);
+        } else {
+            next.setWinnerFeedFromMatchB(match.getId());
+            if (winnerTeam != null) next.setTeamB(winnerTeam);
+            next.setPlaceholderTeamB(effectiveWinnerName);
+        }
+
+        String notes = next.getMatchNotes();
+        String home = extractNote(notes, "homeName", "");
+        String away = extractNote(notes, "awayName", "");
+        String homeFlat = extractNote(notes, "homeFlat", "");
+        String awayFlat = extractNote(notes, "awayFlat", "");
+        String group = extractNote(notes, "groupName", "");
+
+        String winnerFlat = extractWinnerFlat(match);
+
+        if (isSideA) {
+            home = effectiveWinnerName;
+            if (winnerFlat != null && !winnerFlat.isBlank()) homeFlat = winnerFlat;
+        } else {
+            away = effectiveWinnerName;
+            if (winnerFlat != null && !winnerFlat.isBlank()) awayFlat = winnerFlat;
+        }
+
+        next.setMatchNotes(String.format("{\"homeName\":\"%s\",\"homeFlat\":\"%s\",\"awayName\":\"%s\",\"awayFlat\":\"%s\",\"groupName\":\"%s\"}",
+            home.replace("\"", "'"), homeFlat.replace("\"", "'"),
+            away.replace("\"", "'"), awayFlat.replace("\"", "'"),
+            group.replace("\"", "'")));
+
+        matchRepo.save(next);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -767,13 +873,64 @@ public class SportsBracketGenerator {
         String home = extractNote(notes, "homeName", "");
         String away = extractNote(notes, "awayName", "");
         String group = extractNote(notes, "groupName", "");
-        if (home.isBlank() || "TBD".equalsIgnoreCase(home) || "dummy".equalsIgnoreCase(home)) {
+        if (isPlaceholder(home)) {
             home = winnerName;
-        } else if (away.isBlank() || "TBD".equalsIgnoreCase(away) || "dummy".equalsIgnoreCase(away)) {
+            next.setPlaceholderTeamA(winnerName);
+        } else if (isPlaceholder(away)) {
             away = winnerName;
+            next.setPlaceholderTeamB(winnerName);
         }
         next.setMatchNotes(String.format("{\"homeName\":\"%s\",\"awayName\":\"%s\",\"groupName\":\"%s\"}",
             home.replace("\"", "'"), away.replace("\"", "'"), group.replace("\"", "'")));
+    }
+
+    private boolean isPlaceholder(String name) {
+        if (name == null || name.isBlank()) return true;
+        String trimmed = name.trim();
+        if ("TBD".equalsIgnoreCase(trimmed) || "TBA".equalsIgnoreCase(trimmed) || "dummy".equalsIgnoreCase(trimmed) || "—".equals(trimmed)) return true;
+        String upper = trimmed.toUpperCase();
+        if (upper.contains("(WINNER)") || upper.startsWith("WINNER OF") || upper.startsWith("LOSER OF")) return true;
+        return false;
+    }
+
+    private boolean matchesFeederText(String text, SportsTournamentMatch feeder) {
+        if (text == null || feeder == null) return false;
+        String clean = text.trim().toUpperCase();
+        if (feeder.getId() != null && clean.contains(String.valueOf(feeder.getId()))) {
+            return true;
+        }
+        if (feeder.getMatchNumber() != null) {
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\bMATCH\\s*#?\\s*" + feeder.getMatchNumber() + "\\b");
+            if (pattern.matcher(clean).find()) {
+                String feederRound = feeder.getRound() != null ? feeder.getRound().name() : "";
+                String placeRound = extractRoundKey(clean);
+                if (!feederRound.isBlank() && !placeRound.isBlank() && !feederRound.equals(placeRound)) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String extractRoundKey(String text) {
+        if (text == null) return "";
+        String upper = text.toUpperCase();
+        if (upper.contains("128")) return "ROUND_OF_128";
+        if (upper.contains("64")) return "ROUND_OF_64";
+        if (upper.contains("32")) return "ROUND_OF_32";
+        if (upper.contains("16")) return "ROUND_OF_16";
+        if (upper.contains("QUARTER") || upper.contains("QF")) return "QUARTER_FINAL";
+        if (upper.contains("SEMI") || upper.contains("SF")) return "SEMI_FINAL";
+        if (upper.contains("FINAL") && !upper.contains("SEMI") && !upper.contains("QUARTER")) return "FINAL";
+        return "";
+    }
+
+    private String extractWinnerFlat(SportsTournamentMatch match) {
+        if (match == null) return "";
+        String side = match.getWinnerSide();
+        boolean winSideA = "A".equalsIgnoreCase(side) || (match.getTeamA() != null && match.getWinner() != null && match.getTeamA().getId().equals(match.getWinner().getId()));
+        return extractNote(match.getMatchNotes(), winSideA ? "homeFlat" : "awayFlat", "");
     }
 
     private String extractNote(String notes, String key, String fallback) {

@@ -1,15 +1,19 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.config.tenant.TenantAwareTaskDecorator;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.Arrays;
 import java.util.concurrent.Executor;
 
-@Configuration
+@Slf4j
+@Configuration(proxyBeanMethods = false)
 @EnableAsync
 public class AsyncConfig implements AsyncConfigurer {
 
@@ -23,6 +27,14 @@ public class AsyncConfig implements AsyncConfigurer {
     @Override
     public Executor getAsyncExecutor() {
         return smsAsyncExecutor();
+    }
+
+    @Override
+    public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
+        return (throwable, method, params) -> {
+            log.error("[Async] Uncaught exception in async method '{}' with parameters {}: {}",
+                    method.toGenericString(), Arrays.toString(params), throwable.getMessage(), throwable);
+        };
     }
 
     @Bean(name = "smsAsyncExecutor")

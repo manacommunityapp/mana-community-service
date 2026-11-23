@@ -163,9 +163,12 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
 
     @Override
     @Transactional
-    public void setTurnstileStatus(Long turnstileId, TurnstileStatus status) {
+    public void setTurnstileStatus(Long communityId, Long turnstileId, TurnstileStatus status) {
         BiometricTurnstile turnstile = turnstileRepository.findById(turnstileId)
                 .orElseThrow(() -> new ResourceNotFoundException("BiometricTurnstile", turnstileId));
+        if (turnstile.getCommunity() == null || !turnstile.getCommunity().getId().equals(communityId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Cross-community access denied");
+        }
         turnstile.setStatus(status);
         turnstileRepository.save(turnstile);
     }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
@@ -33,4 +34,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             + "where e.community.id = :communityId and e.status = :status")
     BigDecimal sumAmountByCommunityAndStatus(@Param("communityId") Long communityId,
                                              @Param("status") String status);
+
+    @Query("select coalesce(sum(e.amount), 0) from Expense e " +
+            "where e.community.id = :communityId and e.status = 'APPROVED' " +
+            "and e.createdAt between :from and :to")
+    BigDecimal sumApprovedAmountByCommunityAndCreatedAtBetween(@Param("communityId") Long communityId,
+                                                                @Param("from") LocalDateTime from,
+                                                                @Param("to") LocalDateTime to);
 }

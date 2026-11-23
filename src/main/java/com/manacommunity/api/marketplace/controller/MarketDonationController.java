@@ -82,4 +82,14 @@ public class MarketDonationController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(donationService.markDonated(id, user.getId()));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('Create Listing')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        donationService.delete(id, user.getId());
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -81,7 +81,7 @@ public class CommunityGroupController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{id}/leave")
+    @RequestMapping(value = "/{id}/leave", method = {RequestMethod.POST, RequestMethod.DELETE})
     public ResponseEntity<Void> leaveGroup(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {

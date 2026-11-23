@@ -25,6 +25,9 @@ public class HomeServiceWorkerEntity {
     @Column(name = "user_id", length = 64)
     private String userId;
 
+    @Column(name = "vms_vendor_id")
+    private Long vmsVendorId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "worker_type", nullable = false, length = 30)
     @Builder.Default

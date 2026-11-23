@@ -95,7 +95,7 @@ public class FoodMenuController {
         return ResponseEntity.ok(menuService.getItems(communityId, restaurantId, categoryId, search, pageable));
     }
 
-    @GetMapping("/items/{id}")
+    @GetMapping({"/items/{id}", "/{id}"})
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAnyAuthority('View Food Restaurants', 'View Food Menu')")
     public ResponseEntity<Map<String, Object>> getItem(
             @PathVariable Long restaurantId,
@@ -106,7 +106,7 @@ public class FoodMenuController {
         return ResponseEntity.ok(menuService.getItem(communityId, restaurantId, id));
     }
 
-    @PostMapping("/items")
+    @PostMapping({"/items", ""})
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Menu')")
     public ResponseEntity<Map<String, Object>> createItem(
             @PathVariable Long restaurantId,
@@ -117,7 +117,7 @@ public class FoodMenuController {
         return ResponseEntity.ok(menuService.createItem(communityId, restaurantId, request));
     }
 
-    @PutMapping("/items/{id}")
+    @PutMapping({"/items/{id}", "/{id}"})
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Menu')")
     public ResponseEntity<Map<String, Object>> updateItem(
             @PathVariable Long restaurantId,
@@ -129,12 +129,12 @@ public class FoodMenuController {
         return ResponseEntity.ok(menuService.updateItem(communityId, restaurantId, id, request));
     }
 
-    @PatchMapping("/items/{id}/availability")
+    @PatchMapping({"/items/{id}/availability", "/{id}/availability"})
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','FOOD_ADMIN') or hasAnyAuthority('Manage Food Menu')")
     public ResponseEntity<Map<String, Object>> toggleAvailability(
             @PathVariable Long restaurantId,
             @PathVariable Long id,
-            @RequestParam boolean available,
+            @RequestParam(required = false) Boolean available,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;

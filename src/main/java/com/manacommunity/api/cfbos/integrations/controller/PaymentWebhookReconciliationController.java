@@ -9,14 +9,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @Slf4j
+// NOTE: This controller handles inbound payment gateway webhooks.
+// In addition to the @PreAuthorize below, production deployments should restrict
+// access to known PG IP ranges at the WAF/load-balancer/firewall level
+// (e.g. Razorpay: 15.206.33.56/32, 13.235.210.230/32; Stripe: 3.18.12.63/32 etc.)
 @RestController
 @RequestMapping({"/api/finance/webhooks", "/api/payments/webhooks", "/api/v1/payments/webhooks"})
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Admin') or hasAuthority('System')")
 public class PaymentWebhookReconciliationController {
 
     private final PaymentWebhookReconciliationService webhookService;
@@ -34,8 +40,10 @@ public class PaymentWebhookReconciliationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Missing signature"));
         }
-        webhookService.processCashfreeWebhook(payload, signature, timestamp);
-        return ResponseEntity.ok(Map.of("status", "processed"));
+        // Handler is not implemented: never acknowledge as processed (fake success). 501 lets the gateway retry/alert.
+        log.error("[WEBHOOK][CASHFREE] Handler not implemented - rejecting with 501");
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(Map.of("error", "Cashfree webhook processing not implemented"));
     }
 
     @PostMapping("/razorpay")
@@ -78,7 +86,9 @@ public class PaymentWebhookReconciliationController {
     public ResponseEntity<Map<String, String>> handleStripe(
             @RequestBody String rawPayload,
             @RequestHeader(value = "Stripe-Signature", required = false) String signature) {
-        webhookService.processStripeWebhook(rawPayload, signature);
-        return ResponseEntity.ok(Map.of("status", "processed"));
+        // Handler is not implemented and signature is not verified: never acknowledge as processed.
+        log.error("[WEBHOOK][STRIPE] Handler not implemented - rejecting with 501");
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(Map.of("error", "Stripe webhook processing not implemented"));
     }
 }

@@ -28,6 +28,14 @@ public class FinanceInvoice {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Owning community (tenant). Every read/write path in
+     * {@code FinanceInvoiceService} filters on this; see V502.
+     * Rows created before V502 have it NULL and are not visible to those queries.
+     */
+    @Column(name = "community_id")
+    private Long communityId;
+
     /** Human-readable code, e.g. INV/001. */
     @Column(length = 24)
     private String code;
@@ -72,6 +80,14 @@ public class FinanceInvoice {
     @CollectionTable(name = "finance_invoice_line", joinColumns = @JoinColumn(name = "invoice_id"))
     @Builder.Default
     private List<FinanceLineItem> lines = new ArrayList<>();
+
+    /**
+     * Timestamp of the first genuine transition to "Paid". Used to make the
+     * InvoicePaymentReceivedEvent fire exactly once, so a Paid -> Pending -> Paid
+     * cycle cannot double-post DR Cash / CR Accounts Receivable.
+     */
+    @Column(name = "payment_recorded_at")
+    private LocalDateTime paymentRecordedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

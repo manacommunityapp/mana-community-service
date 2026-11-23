@@ -32,8 +32,9 @@ public class SportsScheduleController {
     /** GET /api/sports/schedule/events/open?communityId= — lean event list for schedule page */
     @GetMapping("/events/open")
     public ResponseEntity<List<EventListItem>> getOpenEvents(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal
+) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(scheduleService.getOpenEvents(communityId));
     }
 

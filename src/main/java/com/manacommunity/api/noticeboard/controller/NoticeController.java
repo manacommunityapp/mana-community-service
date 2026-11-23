@@ -27,17 +27,17 @@ public class NoticeController {
     @GetMapping
     @Operation(summary = "Get active published notices targeted to current user")
     public ResponseEntity<List<NoticeResponse>> getActiveNotices(
-            @RequestParam Long communityId,
             @RequestParam(required = false) String category,
             @AuthenticationPrincipal AppUser currentUser) {
+        Long communityId = currentUser.getCommunity().getId();
         return ResponseEntity.ok(noticeService.getActiveNotices(communityId, category, currentUser));
     }
 
     @GetMapping("/all")
     @Operation(summary = "Get all notices in community (Admin view)")
     public ResponseEntity<List<NoticeResponse>> getAllNotices(
-            @RequestParam Long communityId,
             @AuthenticationPrincipal AppUser currentUser) {
+        Long communityId = currentUser.getCommunity().getId();
         return ResponseEntity.ok(noticeService.getAllNotices(communityId, currentUser));
     }
 

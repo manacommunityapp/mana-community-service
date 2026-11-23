@@ -52,6 +52,8 @@ public enum NotificationType {
     // Visitor
     VISITOR_PENDING,
     VISITOR_CHECK_IN,
+    VISITOR_CHECK_OUT,
+    VISITOR_OVERSTAY_ALERT,
 
     // Account
     SIGNUP_SUCCESS,

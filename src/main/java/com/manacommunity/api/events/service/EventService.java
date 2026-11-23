@@ -75,6 +75,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 
+import com.manacommunity.api.payments.entity.PaymentOrder;
+import com.manacommunity.api.payments.model.PaymentOrderStatus;
+import com.manacommunity.api.payments.model.PaymentReferenceType;
+import com.manacommunity.api.payments.repository.PaymentOrderRepository;
 import com.manacommunity.api.sports.repository.SportsAuctionPlayerRepository;
 
 @Service
@@ -110,6 +114,7 @@ public class EventService {
     private final EventPoojaUserRegistrationRepository poojaUserRegRepo;
     private final com.manacommunity.api.user.repository.AppUserRepository appUserRepo;
     private final ObjectMapper objectMapper;
+    private final PaymentOrderRepository paymentOrderRepository;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getUpcomingEvents(Long communityId, String typeFilter, Long currentUserId) {
@@ -659,6 +664,26 @@ public class EventService {
             }
         }
 
+        // For paid events: verify that a successful PaymentOrder exists before allowing registration
+        boolean isPaidEvent = event.getPriceType() == EventCommunity.PriceType.PAID
+                || (event.getPrice() != null && event.getPrice() > 0);
+        if (isPaidEvent && user != null && user.getId() != null) {
+            Long communityId = event.getCommunity() != null ? event.getCommunity().getId() : null;
+            if (communityId != null) {
+                boolean paymentConfirmed = paymentOrderRepository
+                        .findByReferenceTypeAndReferenceId(PaymentReferenceType.EVENT_REGISTRATION, eventId)
+                        .stream()
+                        .anyMatch(po -> PaymentOrderStatus.SUCCESS.equals(po.getStatus())
+                                && user.getId().equals(po.getPayerUserId())
+                                && communityId.equals(po.getCommunityId()));
+                if (!paymentConfirmed) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.PAYMENT_REQUIRED,
+                            "Payment required before registration");
+                }
+            }
+        }
+
         // Use DB count for concurrent-safe capacity check
         Integer maxLimit = event.getMaxAttendees() != null ? event.getMaxAttendees() : event.getCapacity();
         if (maxLimit != null && maxLimit > 0) {
@@ -710,20 +735,19 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(Long communityId) {
+        if (communityId == null) {
+            throw new IllegalArgumentException("communityId is required");
+        }
         double donationTotal = donationRepo.sumAmountByCommunity(communityId);
         double sponsorTotalReceived = sponsorRepo.sumAmountReceivedByCommunity(communityId);
         double totalRevenue = donationTotal + sponsorTotalReceived;
 
-        long totalEvents = communityId != null ? eventRepo.countByCommunityId(communityId) : eventRepo.count();
-        if (totalEvents == 0) {
-            totalEvents = eventRepo.count();
-        }
+        long totalEvents = eventRepo.countByCommunityId(communityId);
         long upcomingEvents = eventRepo.countUpcomingByCommunity(communityId);
         long bookingRegs = 0;
         if (bookingRegRepo != null) {
-            java.util.List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings = communityId != null
-                    ? bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId)
-                    : bookingRegRepo.findAll();
+            java.util.List<com.manacommunity.api.events.entity.EventBookingRegistration> bookings =
+                    bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
             if (bookings != null && !bookings.isEmpty()) {
                 bookingRegs = bookings.stream()
                         .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
@@ -748,7 +772,7 @@ public class EventService {
         // Live Food Prepared / Plates Count from Database
         long foodPlates = mealRegRepo != null ? mealRegRepo.sumHeadCountByCommunity(communityId) : 0;
         if (foodPlates == 0 && lunchDinnerRepo != null) {
-            java.util.List<com.manacommunity.api.events.entity.EventLunchDinner> lunches = communityId != null ? lunchDinnerRepo.findByCommunityIdOrderByDateAscStartTimeAsc(communityId) : lunchDinnerRepo.findAll();
+            java.util.List<com.manacommunity.api.events.entity.EventLunchDinner> lunches = lunchDinnerRepo.findByCommunityIdOrderByDateAscStartTimeAsc(communityId);
             if (lunches != null && !lunches.isEmpty()) {
                 foodPlates = lunches.stream().mapToLong(l -> l.getTargetPlates() != null && l.getTargetPlates() > 0 ? l.getTargetPlates() : 0L).sum();
             }
@@ -823,9 +847,12 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public DashboardAnalyticsResponse getDashboardAnalytics(Long communityId) {
+        if (communityId == null) {
+            throw new IllegalArgumentException("communityId is required");
+        }
         // 1. Daily Registrations (Mon - Sun) strictly from database
         List<EventBookingRegistration> bookingRegs = bookingRegRepo != null
-                ? (communityId != null ? bookingRegRepo.findByCommunityId(communityId) : bookingRegRepo.findAll())
+                ? bookingRegRepo.findByCommunityId(communityId)
                 : Collections.emptyList();
 
         String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
@@ -940,13 +967,13 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<PendingActionItemDto> getPendingActionItems(Long communityId) {
+        if (communityId == null) {
+            throw new IllegalArgumentException("communityId is required");
+        }
         List<PendingActionItemDto> result = new ArrayList<>();
 
         if (taskRepo != null) {
-            List<EventTask> tasks = communityId != null ? taskRepo.findByCommunityIdOrderByDueDateAsc(communityId) : taskRepo.findAll();
-            if (tasks.isEmpty()) {
-                tasks = taskRepo.findAll();
-            }
+            List<EventTask> tasks = taskRepo.findByCommunityIdOrderByDueDateAsc(communityId);
             for (EventTask t : tasks) {
                 if (!t.isDone()) {
                     String dueStr = t.getDueDate() != null ? formatDue(t.getDueDate()) : "Tomorrow";
@@ -963,7 +990,7 @@ public class EventService {
         }
 
         if (sponsorRepo != null) {
-            List<EventSponsor> sponsors = communityId != null ? sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId) : sponsorRepo.findAll();
+            List<EventSponsor> sponsors = sponsorRepo.findByEventCommunityIdOrderByCreatedAtDesc(communityId);
             for (EventSponsor s : sponsors) {
                 if ("PENDING".equalsIgnoreCase(s.getStatus())) {
                     result.add(PendingActionItemDto.builder()
@@ -979,7 +1006,7 @@ public class EventService {
         }
 
         if (bookingRegRepo != null) {
-            List<EventBookingRegistration> bookings = communityId != null ? bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId) : bookingRegRepo.findAll();
+            List<EventBookingRegistration> bookings = bookingRegRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
             for (EventBookingRegistration b : bookings) {
                 if ("PENDING".equalsIgnoreCase(b.getPaymentStatus()) && !"CANCELLED".equalsIgnoreCase(b.getStatus())) {
                     result.add(PendingActionItemDto.builder()

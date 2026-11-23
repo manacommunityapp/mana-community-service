@@ -77,6 +77,32 @@ public class VmsWorkOrderService {
     }
 
     @Transactional
+    public WorkOrderResponse update(Long id, WorkOrderRequest req, Long communityId) {
+        VmsWorkOrder wo = workOrderRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", id));
+        if (req.getTitle() != null) wo.setTitle(req.getTitle());
+        if (req.getDescription() != null) wo.setDescription(req.getDescription());
+        if (req.getType() != null) wo.setType(VmsWorkOrder.WorkOrderType.valueOf(req.getType()));
+        if (req.getPriority() != null) wo.setPriority(VmsWorkOrder.Priority.valueOf(req.getPriority()));
+        if (req.getLocation() != null) wo.setLocation(req.getLocation());
+        if (req.getScheduledDate() != null) wo.setScheduledDate(req.getScheduledDate());
+        if (req.getEstimatedCost() != null) wo.setEstimatedCost(req.getEstimatedCost());
+        if (req.getVendorId() != null) {
+            VmsVendor vendor = vendorRepo.findById(req.getVendorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vendor", req.getVendorId()));
+            wo.setVendor(vendor);
+        }
+        return toResponse(workOrderRepo.save(wo));
+    }
+
+    @Transactional
+    public void delete(Long id, Long communityId) {
+        VmsWorkOrder wo = workOrderRepo.findByIdAndCommunityId(id, communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", id));
+        workOrderRepo.delete(wo);
+    }
+
+    @Transactional
     public WorkOrderResponse updateStatus(Long id, String status, Long communityId) {
         VmsWorkOrder wo = workOrderRepo.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("WorkOrder", id));

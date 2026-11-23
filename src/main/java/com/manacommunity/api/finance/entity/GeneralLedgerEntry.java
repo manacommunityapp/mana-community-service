@@ -51,7 +51,9 @@ public class GeneralLedgerEntry {
     @Column(name = "reference_type", length = 30)
     private String referenceType;
 
-    @Column(name = "reference_id", length = 30)
+    // V504 widened this column to VARCHAR(100); payment postings carry an invoice
+    // code such as INV/001, which the old 30-char limit truncated into collisions.
+    @Column(name = "reference_id", length = 100)
     private String referenceId;
 
     @Column(name = "created_at", nullable = false, updatable = false)

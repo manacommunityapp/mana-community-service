@@ -63,4 +63,23 @@ public interface ResourceBookingRepository extends JpaRepository<ResourceBooking
 
     Page<ResourceBooking> findByCommunityIdAndStatusIn(
             Long communityId, List<BookingStatus> statuses, Pageable pageable);
+
+    @Query("SELECT COUNT(b) FROM ResourceBooking b WHERE b.resource.community.id = :communityId " +
+            "AND b.bookingDate = :date AND b.status IN :statuses")
+    long countFacilityBookingsForDate(@Param("communityId") Long communityId,
+                                      @Param("date") LocalDate date,
+                                      @Param("statuses") List<BookingStatus> statuses);
+
+    @Query("SELECT COUNT(b) FROM ResourceBooking b WHERE b.resource.community.id = :communityId " +
+            "AND b.bookingDate BETWEEN :from AND :to AND b.status IN :statuses")
+    long countFacilityBookingsForPeriod(@Param("communityId") Long communityId,
+                                        @Param("from") LocalDate from,
+                                        @Param("to") LocalDate to,
+                                        @Param("statuses") List<BookingStatus> statuses);
+
+    @Query("SELECT COUNT(b) FROM ResourceBooking b WHERE b.status = " +
+            "com.manacommunity.api.booking.entity.enums.BookingStatus.COMPLETED " +
+            "AND b.updatedAt BETWEEN :from AND :to")
+    long countCompletedPlatformBookings(@Param("from") java.time.LocalDateTime from,
+                                        @Param("to") java.time.LocalDateTime to);
 }

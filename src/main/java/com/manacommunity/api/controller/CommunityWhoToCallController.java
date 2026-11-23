@@ -43,9 +43,12 @@ public class CommunityWhoToCallController {
         return ResponseEntity.ok(whoToCallService.getAll(communityId));
     }
 
+    /** Single contact by id, scoped to the caller's community. */
     @GetMapping("/{id}")
-    public ResponseEntity<CommunityWhoToCallResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(whoToCallService.getById(id));
+    public ResponseEntity<CommunityWhoToCallResponse> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(requireInCallerCommunity(id, principal));
     }
 
     @PostMapping
@@ -68,6 +71,7 @@ public class CommunityWhoToCallController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CommunityWhoToCallRequest req) {
+        requireInCallerCommunity(id, principal);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(whoToCallService.update(id, user.getId(), user.getFullName(), req));
     }
@@ -77,6 +81,7 @@ public class CommunityWhoToCallController {
     public ResponseEntity<Void> toggleStatus(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
+        requireInCallerCommunity(id, principal);
         AppUser user = loggedInUserService.resolve(principal);
         whoToCallService.toggleStatus(id, user.getId(), user.getFullName());
         return ResponseEntity.ok().build();
@@ -87,6 +92,7 @@ public class CommunityWhoToCallController {
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
+        requireInCallerCommunity(id, principal);
         AppUser user = loggedInUserService.resolve(principal);
         whoToCallService.delete(id, user.getId(), user.getFullName());
         return ResponseEntity.noContent().build();
@@ -97,6 +103,7 @@ public class CommunityWhoToCallController {
     public ResponseEntity<CommunityWhoToCallResponse> restore(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
+        requireInCallerCommunity(id, principal);
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(whoToCallService.restore(id, user.getId(), user.getFullName()));
     }
@@ -113,8 +120,29 @@ public class CommunityWhoToCallController {
     /** Specific contact history */
     @GetMapping("/{id}/history")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
-    public ResponseEntity<List<CommunityWhoToCallHistoryResponse>> getContactHistory(@PathVariable Long id) {
+    public ResponseEntity<List<CommunityWhoToCallHistoryResponse>> getContactHistory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        requireInCallerCommunity(id, principal);
         return ResponseEntity.ok(whoToCallService.getHistory(id));
+    }
+
+    /**
+     * Loads a contact and asserts it belongs to the caller's community.
+     * Sequential ids plus an unscoped lookup let any authenticated user read
+     * (or an admin of another community mutate) other tenants' contacts.
+     * SUPER_ADMIN is global.
+     */
+    private CommunityWhoToCallResponse requireInCallerCommunity(Long id, UserPrincipal principal) {
+        CommunityWhoToCallResponse contact = whoToCallService.getById(id);
+        LoggedInUserService.ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (ctx.superAdmin()) return contact;
+        if (contact.getCommunityId() == null
+                || !contact.getCommunityId().equals(ctx.communityId())) {
+            // 404 rather than 403: do not confirm the existence of other tenants' rows.
+            throw new com.manacommunity.api.exception.ResourceNotFoundException("CommunityWhoToCall", id);
+        }
+        return contact;
     }
 
     private Long resolveCommunityId(UserPrincipal principal) {

@@ -101,6 +101,8 @@ public final class TestDataBuilder {
         req.setBlock("A");
         req.setFlatNo("101");  // Floor 1, Flat 1 of Block A
         req.setUserType("Owner");
+        req.setConsentToPrivacyNotice(true);
+        req.setConsentNoticeVersion("2026-10-13-v1");
         return req;
     }
 

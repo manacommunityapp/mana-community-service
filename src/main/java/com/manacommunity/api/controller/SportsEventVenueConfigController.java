@@ -5,6 +5,8 @@ import com.manacommunity.api.service.SportsEventVenueConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/api/events/venues/config")
@@ -15,8 +17,10 @@ public class SportsEventVenueConfigController {
 
     @GetMapping
     public ResponseEntity<SportsEventVenueConfigDto> getVenueConfig(
-            @RequestParam(required = false) Long eventId,
-            @RequestParam(required = false) Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) Long eventId
+) {
+        Long communityId = principal.getCommunityId();
         SportsEventVenueConfigDto dto = venueConfigService.getVenueConfig(eventId, communityId);
         return ResponseEntity.ok(dto);
     }

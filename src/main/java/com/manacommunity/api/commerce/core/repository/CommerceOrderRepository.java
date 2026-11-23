@@ -56,6 +56,16 @@ public interface CommerceOrderRepository extends JpaRepository<CommerceOrder, Lo
     @Query("SELECT COUNT(o) FROM CommerceOrder o WHERE o.community.id = :communityId AND o.status = 'COMPLETED' AND o.createdAt BETWEEN :from AND :to")
     long countCompletedInPeriod(@Param("communityId") Long communityId, @Param("from") Instant from, @Param("to") Instant to);
 
+    @Query("SELECT COUNT(o) FROM CommerceOrder o WHERE o.status = 'COMPLETED' " +
+            "AND o.createdAt BETWEEN :from AND :to")
+    long countCompletedPlatformOrders(@Param("from") java.time.LocalDateTime from,
+                                      @Param("to") java.time.LocalDateTime to);
+
+    @Query("SELECT o.buyer.id, COUNT(o) FROM CommerceOrder o WHERE o.buyer.id IS NOT NULL AND o.status = 'COMPLETED' " +
+            "AND o.createdAt BETWEEN :from AND :to GROUP BY o.buyer.id")
+    List<Object[]> completedOrderCountsByBuyer(@Param("from") java.time.LocalDateTime from,
+                                               @Param("to") java.time.LocalDateTime to);
+
     @Query("SELECT COUNT(o) FROM CommerceOrder o WHERE o.community.id = :communityId AND o.status = 'CANCELLED' AND o.createdAt BETWEEN :from AND :to")
     long countCancelledInPeriod(@Param("communityId") Long communityId, @Param("from") Instant from, @Param("to") Instant to);
 

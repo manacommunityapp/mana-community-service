@@ -21,7 +21,7 @@ import static com.manacommunity.api.constants.PermissionConstants.MANAGE_GUARDS;
 import static com.manacommunity.api.constants.PermissionConstants.VIEW_GUARDS;
 
 @RestController
-@RequestMapping("/api/guards")
+@RequestMapping({"/api/guards", "/api/guard"})
 @RequiredArgsConstructor
 public class GuardController {
 

@@ -40,12 +40,16 @@ public class FoodCorporateController {
         return ResponseEntity.status(HttpStatus.CREATED).body(corporateService.create(communityId, request));
     }
 
-    @PostMapping("/meal-cards")
+    @PostMapping({"/meal-cards", "/accounts/{accountId}/meal-cards"})
     @PreAuthorize("hasAuthority('Manage Food Corporate')")
     public ResponseEntity<?> issue(@AuthenticationPrincipal UserPrincipal principal,
+                                   @PathVariable(required = false) Long accountId,
                                    @RequestBody Map<String, Object> request) {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
+        if (accountId != null) {
+            request.put("accountId", accountId);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(corporateService.issue(communityId, request));
     }
 

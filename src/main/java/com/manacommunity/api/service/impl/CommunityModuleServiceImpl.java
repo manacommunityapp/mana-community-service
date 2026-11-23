@@ -25,6 +25,10 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     private final CommunityModuleRepository communityModuleRepo;
     private final CommunityRepository communityRepo;
 
+    private static final long MODULES_CACHE_TTL_MS = 300_000L; // 5 minutes
+    private record CachedModules(long timestamp, List<String> modules) {}
+    private final java.util.concurrent.ConcurrentHashMap<Long, CachedModules> enabledModulesCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     @Transactional(readOnly = true)
     public List<CommunityModuleResponse> getModulesForCommunity(Long communityId) {
@@ -36,17 +40,29 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Override
     @Transactional
     public List<String> getEnabledModuleKeys(Long communityId) {
+        if (communityId == null) {
+            return java.util.Collections.emptyList();
+        }
+        CachedModules cached = enabledModulesCache.get(communityId);
+        long now = System.currentTimeMillis();
+        if (cached != null && (now - cached.timestamp()) < MODULES_CACHE_TTL_MS) {
+            return cached.modules();
+        }
+
         if (!communityModuleRepo.existsByCommunityId(communityId)) {
             initializeModulesForCommunity(communityId);
         }
-        return communityModuleRepo.findEnabledByCommunityId(communityId).stream()
+        List<String> result = communityModuleRepo.findEnabledByCommunityId(communityId).stream()
                 .map(CommunityModule::getModuleKey)
                 .toList();
+        enabledModulesCache.put(communityId, new CachedModules(now, result));
+        return result;
     }
 
     @Override
     @Transactional
     public CommunityModuleResponse toggleModule(Long communityId, String moduleKey, boolean enabled) {
+        enabledModulesCache.remove(communityId);
         Community community = communityRepo.findById(communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Community", communityId));
 
@@ -96,6 +112,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
         }).toList();
 
         log.info("Bulk-updated {} modules for community {}", results.size(), request.communityId());
+        enabledModulesCache.remove(request.communityId());
         return results;
     }
 

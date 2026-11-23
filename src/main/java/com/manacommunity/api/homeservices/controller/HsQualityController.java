@@ -42,6 +42,12 @@ public class HsQualityController {
         return ResponseEntity.ok(qualityService.photos(bookingId));
     }
 
+    @GetMapping("/warranty/{bookingId}")
+    public ResponseEntity<HsWarranty> getWarranty(@PathVariable Long bookingId) {
+        HsWarranty warranty = qualityService.getWarranty(bookingId);
+        return warranty != null ? ResponseEntity.ok(warranty) : ResponseEntity.notFound().build();
+    }
+
     @PostMapping("/warranty/{bookingId}")
     public ResponseEntity<HsWarranty> issueWarranty(@PathVariable Long bookingId,
             @RequestBody Map<String, Integer> body,

@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import com.manacommunity.api.vendor.entity.VmsContract.ContractStatus;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface VmsContractRepository extends JpaRepository<VmsContract, Long> {
     Page<VmsContract> findByCommunityId(Long communityId, Pageable pageable);
@@ -15,4 +18,13 @@ public interface VmsContractRepository extends JpaRepository<VmsContract, Long> 
     Page<VmsContract> findByVendorId(Long vendorId, Pageable pageable);
     Optional<VmsContract> findByIdAndCommunityId(Long id, Long communityId);
     List<VmsContract> findByEndDateBeforeAndStatus(LocalDate date, VmsContract.ContractStatus status);
+    long countByCommunityIdAndStatus(Long communityId, ContractStatus status);
+
+    @Query("SELECT COUNT(c) FROM VmsContract c WHERE c.community.id = :communityId " +
+            "AND c.status IN (com.manacommunity.api.vendor.entity.VmsContract.ContractStatus.ACTIVE, " +
+            "com.manacommunity.api.vendor.entity.VmsContract.ContractStatus.PENDING_RENEWAL) " +
+            "AND c.endDate BETWEEN :from AND :to")
+    long countRenewalsDue(@Param("communityId") Long communityId,
+                          @Param("from") LocalDate from,
+                          @Param("to") LocalDate to);
 }

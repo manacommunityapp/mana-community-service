@@ -50,6 +50,13 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
+    public CommunityResponse getCommunityById(Long id) {
+        Community c = communityRepository.findById(id)
+                .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("Community", id));
+        return toResponse(c);
+    }
+
+    @Override
     @org.springframework.transaction.annotation.Transactional
     public CommunityResponse createCommunity(CommunityResponse request) {
         Community community = toEntity(request);

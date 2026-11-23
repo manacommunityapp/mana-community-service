@@ -16,7 +16,11 @@ import com.manacommunity.api.cfbos.payment.repository.CfbosReceiptRepository;
 import com.manacommunity.api.cfbos.shared.enums.DocumentType;
 import com.manacommunity.api.cfbos.shared.enums.SourceModule;
 import com.manacommunity.api.cfbos.shared.sequence.service.DocumentSequenceService;
+import com.manacommunity.api.audit.TamperResistantAuditService;
+import com.manacommunity.api.security.AuditAction;
+import com.manacommunity.api.security.AuditModule;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentEngine {
@@ -36,6 +41,9 @@ public class PaymentEngine {
     private final CfbosInvoiceRepository invoiceRepository;
     private final DocumentSequenceService documentSequenceService;
     private final AccountingEngine accountingEngine;
+    /** Tamper-resistant audit trail — records every admin-posted cash/cheque payment. */
+    private final TamperResistantAuditService auditService;
+
 
     @Transactional
     public CfbosPayment processPayment(RecordPaymentRequest request) {
@@ -150,8 +158,28 @@ public class PaymentEngine {
             payment.setJournalEntryId(entry.getId());
             receipt.setJournalEntryId(entry.getId());
             receiptRepository.save(receipt);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.error("Failed to post journal entry for payment {}: {}", paymentNumber, ex.getMessage(), ex);
+        }
 
-        return paymentRepository.save(payment);
+        CfbosPayment finalPayment = paymentRepository.save(payment);
+
+        // Emit tamper-resistant audit record for every admin-recorded payment.
+        // Uses REQUIRES_NEW so the audit write is never rolled back by a caller rollback.
+        try {
+            String newValueJson = String.format(
+                    "{\"paymentNumber\":\"%s\",\"amount\":%s,\"method\":\"%s\",\"mode\":\"%s\",\"residentId\":%d}",
+                    finalPayment.getPaymentNumber(), finalPayment.getAmount(),
+                    finalPayment.getPaymentMethod(), finalPayment.getPaymentMode(),
+                    request.getResidentId());
+            auditService.record(
+                    AuditAction.PAYMENT_COMPLETED, AuditModule.PAYMENT,
+                    "CfbosPayment", String.valueOf(finalPayment.getId()),
+                    null, newValueJson);
+        } catch (Exception auditEx) {
+            log.error("AUDIT FAILURE for payment {}: {}", finalPayment.getPaymentNumber(), auditEx.getMessage(), auditEx);
+        }
+
+        return finalPayment;
     }
 }

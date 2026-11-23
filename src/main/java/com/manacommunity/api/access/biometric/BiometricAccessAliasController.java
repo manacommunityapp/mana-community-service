@@ -28,8 +28,8 @@ public class BiometricAccessAliasController {
     @GetMapping
     public ResponseEntity<List<BiometricTurnstileDto>> listTurnstiles(
             @RequestParam(required = false) Long societyId,
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         Long cid = societyId != null ? societyId : communityId;
         if (cid == null) {
             AppUser user = loggedInUserService.resolve(principal);
@@ -71,10 +71,10 @@ public class BiometricAccessAliasController {
     @GetMapping("/logs")
     public ResponseEntity<Page<BiometricAccessLogDto>> getAccessLogs(
             @RequestParam(required = false) Long societyId,
-            @RequestParam(required = false) Long communityId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         Long cid = societyId != null ? societyId : communityId;
         if (cid == null) {
             AppUser user = loggedInUserService.resolve(principal);

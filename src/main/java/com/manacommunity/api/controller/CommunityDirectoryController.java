@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 /** REST controller for the Community Directory (committee leaders / office-bearers). */
 @RestController
-@RequestMapping("/api/community/leaders")
+@RequestMapping({"/api/community/leaders", "/api/community/directory/leaders"})
 @PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class CommunityDirectoryController {
@@ -56,11 +56,11 @@ public class CommunityDirectoryController {
                 .stream().map(this::toResponse).collect(Collectors.toList()));
     }
 
-    /** Single leader by id. */
+    /** Single leader by id, scoped to the caller's community. */
     @GetMapping("/{id}")
-    public ResponseEntity<CommunityLeaderResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(toResponse(leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", id))));
+    public ResponseEntity<CommunityLeaderResponse> getById(
+            @PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(toResponse(findInCallerCommunity(id, principal)));
     }
 
     /** Distinct designation strings used in this community. */
@@ -104,8 +104,7 @@ public class CommunityDirectoryController {
         if (leaderRepo.existsByCommunityIdAndUserIdAndDesignation(communityId, req.userId(), req.designation())) {
             throw new InvalidInputException("This user already holds the designation '" + req.designation() + "' in your community.");
         }
-        AppUser targetUser = userRepo.findById(req.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("AppUser", req.userId()));
+        AppUser targetUser = requireUserInSameCommunity(req.userId(), communityId);
         com.manacommunity.api.model.Community community = communityRepo.findById(communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Community", communityId));
         CommunityLeader leader = CommunityLeader.builder()
@@ -123,10 +122,9 @@ public class CommunityDirectoryController {
     public ResponseEntity<CommunityLeaderResponse> update(
             @PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CommunityLeaderRequest req) {
-        CommunityLeader leader = leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", id));
-        AppUser targetUser = userRepo.findById(req.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("AppUser", req.userId()));
+        CommunityLeader leader = findInCallerCommunity(id, principal);
+        AppUser targetUser = requireUserInSameCommunity(req.userId(), leader.getCommunity() != null
+                ? leader.getCommunity().getId() : resolveCommunityId(principal));
         leader.setUser(targetUser); leader.setDesignation(req.designation());
         leader.setCommittee(req.committee()); leader.setContactPhone(req.contactPhone());
         leader.setContactEmail(req.contactEmail());
@@ -138,19 +136,49 @@ public class CommunityDirectoryController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
-        leaderRepo.delete(leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", id)));
+        leaderRepo.delete(findInCallerCommunity(id, principal));
         return ResponseEntity.noContent().build();
     }
 
     /** Toggle active / inactive status. */
     @PutMapping("/{id}/toggle-status")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
-    public ResponseEntity<CommunityLeaderResponse> toggleStatus(@PathVariable Long id) {
-        CommunityLeader leader = leaderRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", id));
+    public ResponseEntity<CommunityLeaderResponse> toggleStatus(
+            @PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        CommunityLeader leader = findInCallerCommunity(id, principal);
         leader.setIsActive(!Boolean.TRUE.equals(leader.getIsActive()));
         return ResponseEntity.ok(toResponse(leaderRepo.save(leader)));
+    }
+
+    /**
+     * Resolves a leader row and asserts it belongs to the caller's community.
+     * Without this, any authenticated user could read, edit, deactivate or
+     * delete another community's office-bearer record (name, flat, block,
+     * phone, email) just by guessing the sequential id. SUPER_ADMIN is global.
+     */
+    private CommunityLeader findInCallerCommunity(Long id, UserPrincipal principal) {
+        CommunityLeader leader = leaderRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("CommunityLeader", id));
+        LoggedInUserService.ResolvedUser ctx = loggedInUserService.resolveContext(principal);
+        if (ctx.superAdmin()) return leader;
+        Long ownerCommunityId = leader.getCommunity() != null ? leader.getCommunity().getId() : null;
+        if (ownerCommunityId == null || !ownerCommunityId.equals(ctx.communityId())) {
+            // 404 rather than 403: do not confirm the existence of other tenants' rows.
+            throw new ResourceNotFoundException("CommunityLeader", id);
+        }
+        return leader;
+    }
+
+    /** The referenced user must live in the same community as the directory entry. */
+    private AppUser requireUserInSameCommunity(Long userId, Long communityId) {
+        AppUser targetUser = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("AppUser", userId));
+        Long targetCommunityId = targetUser.getCommunity() != null
+                ? targetUser.getCommunity().getId() : null;
+        if (targetCommunityId == null || !targetCommunityId.equals(communityId)) {
+            throw new InvalidInputException("The selected user does not belong to your community.");
+        }
+        return targetUser;
     }
 
     private Long resolveCommunityId(UserPrincipal principal) {

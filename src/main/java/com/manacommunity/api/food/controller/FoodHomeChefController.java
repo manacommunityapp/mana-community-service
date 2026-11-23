@@ -48,7 +48,7 @@ public class FoodHomeChefController {
         return ResponseEntity.ok(homeChefService.getById(communityId, id));
     }
 
-    @GetMapping("/my-profile")
+    @GetMapping({"/my-profile", "/mine"})
     @PreAuthorize("hasAuthority('View Food Home Chefs')")
     public ResponseEntity<Map<String, Object>> getMyProfile(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -57,7 +57,7 @@ public class FoodHomeChefController {
         return ResponseEntity.ok(homeChefService.getMyProfile(communityId, user.getId()));
     }
 
-    @PostMapping("/register")
+    @PostMapping({"", "/register"})
     @PreAuthorize("hasAuthority('Manage Food Home Chefs')")
     public ResponseEntity<Map<String, Object>> register(
             @RequestBody Map<String, Object> request,

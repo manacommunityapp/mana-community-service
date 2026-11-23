@@ -42,6 +42,9 @@ public class ModulePaymentConfirmationListener {
     private final CommerceOrderRepository             commerceOrderRepo;
     private final CommerceInventoryService            commerceInventoryService;
     private final TripBookingRepository               tripBookingRepo;
+    private final com.manacommunity.api.homeservice.repository.HomeServiceBookingRepository homeServiceBookingRepo;
+    private final com.manacommunity.api.sports.repository.SportsEventRegistrationRepository sportsRegistrationRepo;
+    private final com.manacommunity.api.repository.InvoiceRepository invoiceRepo;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentCaptured(GatewayPaymentCapturedEvent event) {
@@ -106,6 +109,28 @@ public class ModulePaymentConfirmationListener {
                         tripBookingRepo.save(tb);
                         log.info("[ModuleConfirm] Trip booking {} marked PAID, payment order {} linked",
                                 order.getReferenceId(), order.getId());
+                    });
+
+                case HOME_SERVICE, VENDOR_BOOKING ->
+                    homeServiceBookingRepo.findById(String.valueOf(order.getReferenceId())).ifPresent(hsb -> {
+                        hsb.setStatus(com.manacommunity.api.homeservice.model.enums.HomeServiceBookingStatus.CONFIRMED);
+                        homeServiceBookingRepo.save(hsb);
+                        log.info("[ModuleConfirm] Home service booking {} confirmed upon payment", order.getReferenceId());
+                    });
+
+                case SPORTS_REGISTRATION ->
+                    sportsRegistrationRepo.findById(order.getReferenceId()).ifPresent(sr -> {
+                        sr.setStatus(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.CONFIRMED);
+                        sportsRegistrationRepo.save(sr);
+                        log.info("[ModuleConfirm] Sports registration {} confirmed upon payment", order.getReferenceId());
+                    });
+
+                case MAINTENANCE_BILL ->
+                    invoiceRepo.findById(order.getReferenceId()).ifPresent(inv -> {
+                        inv.setStatus("PAID");
+                        inv.setPaidAt(java.time.LocalDateTime.now());
+                        invoiceRepo.save(inv);
+                        log.info("[ModuleConfirm] Maintenance invoice {} marked PAID", order.getReferenceId());
                     });
 
                 case BBPS_BILL ->
@@ -183,6 +208,25 @@ public class ModulePaymentConfirmationListener {
                         tb.setPaymentStatus("PAYMENT_FAILED");
                         tripBookingRepo.save(tb);
                         log.info("[ModuleConfirm] Trip booking {} marked PAYMENT_FAILED", event.getReferenceId());
+                    });
+
+                case HOME_SERVICE, VENDOR_BOOKING ->
+                    homeServiceBookingRepo.findById(String.valueOf(event.getReferenceId())).ifPresent(hsb -> {
+                        log.warn("[ModuleConfirm] Payment failed for home service booking {}", event.getReferenceId());
+                    });
+
+                case SPORTS_REGISTRATION ->
+                    sportsRegistrationRepo.findById(event.getReferenceId()).ifPresent(sr -> {
+                        sr.setStatus(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.PENDING);
+                        sportsRegistrationRepo.save(sr);
+                        log.warn("[ModuleConfirm] Payment failed for sports registration {}", event.getReferenceId());
+                    });
+
+                case MAINTENANCE_BILL ->
+                    invoiceRepo.findById(event.getReferenceId()).ifPresent(inv -> {
+                        inv.setStatus("UNPAID");
+                        invoiceRepo.save(inv);
+                        log.warn("[ModuleConfirm] Payment failed for maintenance invoice {}", event.getReferenceId());
                     });
 
                 default ->

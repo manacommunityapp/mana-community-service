@@ -2,6 +2,8 @@ package com.manacommunity.api.healthcare.service;
 
 import com.manacommunity.api.healthcare.entity.PrescriptionFollowup;
 import com.manacommunity.api.healthcare.repository.PrescriptionFollowupRepository;
+import com.manacommunity.platform.privacy.HealthDataAccess;
+import com.manacommunity.platform.privacy.HealthDataIsolationGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,11 +33,15 @@ public class PrescriptionFollowupService {
         return repo.save(f);
     }
 
+    @HealthDataAccess(recordType = "PRESCRIPTION_FOLLOWUP", purpose = "COMMUNITY_VIEW")
     public List<PrescriptionFollowup> getPendingForCommunity(Long communityId) {
+        HealthDataIsolationGuard.assertNotCommunityFeedContext();
         return repo.findByCommunityIdAndCompletedFalseOrderByFollowupDueDateAsc(communityId);
     }
 
+    @HealthDataAccess(recordType = "PRESCRIPTION_FOLLOWUP", purpose = "PATIENT_VIEW")
     public List<PrescriptionFollowup> getForPatient(Long communityId, Long patientUserId) {
+        HealthDataIsolationGuard.assertNotCommunityFeedContext();
         return repo.findByCommunityIdAndPatientUserIdOrderByFollowupDueDateAsc(communityId, patientUserId);
     }
 

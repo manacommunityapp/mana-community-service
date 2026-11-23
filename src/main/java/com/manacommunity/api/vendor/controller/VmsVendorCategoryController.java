@@ -40,6 +40,13 @@ public class VmsVendorCategoryController {
         return ResponseEntity.ok(categoryService.getAllCategories(user.getCommunity().getId()));
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<VendorCategoryResponse> getCategory(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(categoryService.getCategoryById(id));
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('Manage Vendors')")
     public ResponseEntity<VendorCategoryResponse> create(

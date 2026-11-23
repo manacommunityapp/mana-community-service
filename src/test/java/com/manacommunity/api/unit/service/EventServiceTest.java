@@ -75,6 +75,9 @@ class EventServiceTest {
     @Mock NotificationRepository notificationRepo;
     @Mock AppUserRepository appUserRepo;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    // EventService gained this dependency when paid event registration started
+    // requiring a confirmed PaymentOrder instead of trusting the client.
+    @Mock com.manacommunity.api.payments.repository.PaymentOrderRepository paymentOrderRepo;
 
     private EventService eventService;
 
@@ -91,7 +94,8 @@ class EventServiceTest {
                 activityRegRepo, programRepo, galleryRepo, invoiceRepo, mediaRepo,
                 mediaUrlService, bookingRegRepo, notificationRepo, poojaSevaRepo,
                 culturalEventRepo, competitionRepo, lunchDinnerRepo, familyMemberRepo,
-                ticketCategoryRepo, eventContactRepo, poojaUserRegRepo, appUserRepo, objectMapper
+                ticketCategoryRepo, eventContactRepo, poojaUserRegRepo, appUserRepo, objectMapper,
+                paymentOrderRepo
         );
         community = TestDataBuilder.community(1L, "INVITE123");
         adminUser = TestDataBuilder.adminUser();

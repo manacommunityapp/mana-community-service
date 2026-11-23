@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 public class DuplicateWebhookException extends ManaCommunityException {
 
     public DuplicateWebhookException(String eventId) {
-        super("Webhook event already processed: " + eventId,
-              HttpStatus.OK, "DUPLICATE_WEBHOOK_EVENT");
+        super("Webhook event already processed.", HttpStatus.OK, "DUPLICATE_WEBHOOK_EVENT");
     }
 }

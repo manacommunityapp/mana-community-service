@@ -54,9 +54,10 @@ public class EventSubResourceService {
 
     @Transactional(readOnly = true)
     public List<EventTaskResponse> getTasks(Long eventId) {
-        List<EventTask> tasks = eventId != null
-                ? taskRepo.findByEventIdOrderByCreatedAtDesc(eventId)
-                : taskRepo.findAll();
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId is required");
+        }
+        List<EventTask> tasks = taskRepo.findByEventIdOrderByCreatedAtDesc(eventId);
         return tasks.stream().map(this::toTaskResponse).toList();
     }
 
@@ -125,9 +126,10 @@ public class EventSubResourceService {
 
     @Transactional(readOnly = true)
     public List<EventVolunteerResponse> getVolunteers(Long eventId) {
-        List<EventVolunteer> vols = eventId != null
-                ? volunteerRepo.findByEventIdOrderByCreatedAtDesc(eventId)
-                : volunteerRepo.findAll();
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId is required");
+        }
+        List<EventVolunteer> vols = volunteerRepo.findByEventIdOrderByCreatedAtDesc(eventId);
         return vols.stream().map(this::toVolunteerResponse).toList();
     }
 
@@ -203,9 +205,10 @@ public class EventSubResourceService {
 
     @Transactional(readOnly = true)
     public List<EventSponsorResponse> getSponsors(Long eventId) {
-        List<EventSponsor> sponsors = eventId != null
-                ? sponsorRepo.findByEventIdOrderByCreatedAtDesc(eventId)
-                : sponsorRepo.findAll();
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId is required");
+        }
+        List<EventSponsor> sponsors = sponsorRepo.findByEventIdOrderByCreatedAtDesc(eventId);
         return sponsors.stream().map(this::toSponsorResponse).toList();
     }
 
@@ -273,9 +276,10 @@ public class EventSubResourceService {
 
     @Transactional(readOnly = true)
     public List<EventExpenseResponse> getExpenses(Long eventId) {
-        List<EventExpense> expenses = eventId != null
-                ? expenseRepo.findByEventIdOrderByCreatedAtDesc(eventId)
-                : expenseRepo.findAll();
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId is required");
+        }
+        List<EventExpense> expenses = expenseRepo.findByEventIdOrderByCreatedAtDesc(eventId);
         return expenses.stream().map(this::toExpenseResponse).toList();
     }
 

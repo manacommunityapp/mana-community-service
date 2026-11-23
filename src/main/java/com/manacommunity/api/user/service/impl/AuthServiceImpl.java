@@ -518,20 +518,16 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = rawEmail.trim().toLowerCase();
-        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
-                new ManaCommunityException("No account found with email address: " + email,
-                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
-
-        if (Boolean.FALSE.equals(user.getIsActive())) {
-            throw new ManaCommunityException("This account has been deactivated. Please contact your community administrator.",
-                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
-        }
-
-        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(user.getEmail(), user.getFullName());
-        if (!otpResp.success()) {
-            throw new ManaCommunityException(otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
-                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
-        }
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            if (Boolean.TRUE.equals(user.getIsActive())) {
+                com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(user.getEmail(), user.getFullName());
+                if (!otpResp.success()) {
+                    log.warn("Failed to send password reset OTP to userId={}", user.getId());
+                }
+            } else {
+                log.warn("Password reset requested for inactive account userId={}", user.getId());
+            }
+        });
     }
 
     @Override
@@ -571,6 +567,9 @@ public class AuthServiceImpl implements AuthService {
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
         userRepository.save(user);
+
+        // Security hardening: Invalidate all active sessions across devices
+        sessionService.endSession(user.getId());
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
         auditService.record(

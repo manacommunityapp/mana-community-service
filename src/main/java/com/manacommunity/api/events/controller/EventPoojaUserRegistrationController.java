@@ -107,9 +107,8 @@ public class EventPoojaUserRegistrationController {
     @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<AppUser>> searchUsers(
             @RequestParam(value = "q", defaultValue = "") String query,
-            @RequestParam(value = "communityId", required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
-
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null && principal.getCommunityId() != null) {
             communityId = principal.getCommunityId();
         }

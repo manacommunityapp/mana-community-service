@@ -37,9 +37,19 @@ public class SportsVendorController {
         return ResponseEntity.ok(vendorService.getFacilities(sport, city, vendorId));
     }
 
+    @PostMapping("/facilities")
+    public ResponseEntity<FacilityResponse> createFacility(@RequestBody FacilityResponse req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.createFacility(req));
+    }
+
     @GetMapping("/facilities/{id}")
     public ResponseEntity<FacilityResponse> getFacilityById(@PathVariable Long id) {
         return ResponseEntity.ok(vendorService.getFacilityById(id));
+    }
+
+    @PutMapping("/facilities/{id}")
+    public ResponseEntity<FacilityResponse> updateFacility(@PathVariable Long id, @RequestBody FacilityResponse req) {
+        return ResponseEntity.ok(vendorService.updateFacility(id, req));
     }
 
     // ── 2. Courts & Slot Inventory ─────────────────────────────────────────────
@@ -47,6 +57,13 @@ public class SportsVendorController {
     @GetMapping("/facilities/{facilityId}/courts")
     public ResponseEntity<List<CourtResponse>> getCourts(@PathVariable Long facilityId) {
         return ResponseEntity.ok(vendorService.getCourts(facilityId));
+    }
+
+    @PostMapping("/facilities/{facilityId}/courts")
+    public ResponseEntity<CourtResponse> createCourt(
+            @PathVariable Long facilityId,
+            @RequestBody CourtResponse req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.createCourt(facilityId, req));
     }
 
     @GetMapping("/courts/{courtId}/slots")
@@ -68,7 +85,7 @@ public class SportsVendorController {
 
     // ── 3. Court Reservations & QR Check-In ────────────────────────────────────
 
-    @PostMapping("/bookings/reserve")
+    @PostMapping({"/bookings/reserve", "/bookings"})
     public ResponseEntity<BookingResponse> reserveSlot(
             @RequestBody CreateBookingRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -82,7 +99,7 @@ public class SportsVendorController {
         return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.reserveSlot(residentId, request));
     }
 
-    @PostMapping("/bookings/{bookingId}/check-in")
+    @RequestMapping(value = {"/bookings/{bookingId}/check-in", "/bookings/{bookingId}/checkin"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<BookingResponse> checkInResident(
             @PathVariable Long bookingId,
             @RequestParam(required = false) String qrToken,

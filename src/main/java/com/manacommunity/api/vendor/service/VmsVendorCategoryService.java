@@ -30,6 +30,13 @@ public class VmsVendorCategoryService {
                 .stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public VendorCategoryResponse getCategoryById(Long id) {
+        VmsVendorCategory category = categoryRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", id));
+        return toResponseWithChildren(category);
+    }
+
     @Transactional
     public VendorCategoryResponse create(VendorCategoryRequest req, Community community) {
         VmsVendorCategory category = VmsVendorCategory.builder()

@@ -12,6 +12,7 @@ import java.util.List;
 @Repository("homeServiceWorkerRepository")
 public interface HomeServiceWorkerRepository extends JpaRepository<HomeServiceWorkerEntity, String> {
     List<HomeServiceWorkerEntity> findByCommunityIdAndActiveTrue(String communityId);
+    List<HomeServiceWorkerEntity> findByVmsVendorIdAndActiveTrue(Long vmsVendorId);
     List<HomeServiceWorkerEntity> findByVerificationStatus(HomeServiceVerificationStatus status);
 
     @Query("SELECT w FROM HomeServiceWorkerEntity w WHERE w.communityId = :communityId " +

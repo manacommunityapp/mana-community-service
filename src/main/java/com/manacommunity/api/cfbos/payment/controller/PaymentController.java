@@ -6,6 +6,7 @@ import com.manacommunity.api.cfbos.payment.entity.CfbosReceipt;
 import com.manacommunity.api.cfbos.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cfbos/payments")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Manage Finance') or hasAuthority('Admin') or hasAuthority('Finance Admin')")
 public class PaymentController {
 
     private final PaymentService paymentService;

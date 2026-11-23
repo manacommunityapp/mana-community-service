@@ -249,4 +249,14 @@ public class VisitorPassController {
             @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(visitorPassService.capturePhoto(id, body.get("photoUrl")));
     }
+
+    @PostMapping("/{id}/overstay-alert")
+    @PreAuthorize("hasAnyAuthority('Manage Gate', 'View Visitors')")
+    public ResponseEntity<Map<String, Object>> sendOverstayAlert(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        visitorPassService.sendOverstayAlert(id, reason);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Overstay alert dispatched."));
+    }
 }

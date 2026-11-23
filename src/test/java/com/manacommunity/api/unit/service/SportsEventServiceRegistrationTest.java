@@ -532,6 +532,89 @@ class SportsEventServiceRegistrationTest {
     }
 
     @Test
+    void withdraw_whenEventRegistrationIsOpen_allowsWithdrawEvenIfStartDateIsTodayOrPast() {
+        AppUser user = new AppUser();
+        user.setId(10L);
+        user.setFullName("Cricket Player");
+
+        com.manacommunity.api.sports.model.SportsTournament tournament = new com.manacommunity.api.sports.model.SportsTournament();
+        tournament.setId(1L);
+        tournament.setEventDateStart(java.time.LocalDate.now().minusDays(3));
+        tournament.setRegistrationStatus(com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN);
+
+        com.manacommunity.api.sports.model.SportsEvent event = new com.manacommunity.api.sports.model.SportsEvent();
+        event.setId(200L);
+        event.setName("Cricket Tournament");
+        event.setStatus(com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_OPEN);
+        event.setActive(true);
+        event.setTournament(tournament);
+        event.setEventDateStart(java.time.LocalDate.now()); // today
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(910L)
+                .event(event)
+                .user(user)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED)
+                .build();
+
+        when(regRepo.findById(910L)).thenReturn(Optional.of(reg));
+        when(regRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.withdraw(910L, 10L, false, "Change of plans");
+
+        org.assertj.core.api.Assertions.assertThat(reg.getStatus())
+                .isEqualTo(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.WITHDRAWN);
+    }
+
+    @Test
+    void withdraw_whenEventIsLiveOrCompleted_blocksWithdrawal() {
+        AppUser user = new AppUser();
+        user.setId(10L);
+
+        com.manacommunity.api.sports.model.SportsEvent event = new com.manacommunity.api.sports.model.SportsEvent();
+        event.setId(201L);
+        event.setName("Live Cricket Match");
+        event.setStatus(com.manacommunity.api.sports.model.SportsEventStatus.LIVE);
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(911L)
+                .event(event)
+                .user(user)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED)
+                .build();
+
+        when(regRepo.findById(911L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.withdraw(911L, 10L, false, null))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
+                .hasMessageContaining("already started");
+    }
+
+    @Test
+    void withdraw_whenRegistrationIsClosed_blocksWithdrawal() {
+        AppUser user = new AppUser();
+        user.setId(10L);
+
+        com.manacommunity.api.sports.model.SportsEvent event = new com.manacommunity.api.sports.model.SportsEvent();
+        event.setId(202L);
+        event.setName("Closed Volleyball Event");
+        event.setStatus(com.manacommunity.api.sports.model.SportsEventStatus.REGISTRATION_CLOSED);
+
+        com.manacommunity.api.sports.model.SportsEventRegistration reg = com.manacommunity.api.sports.model.SportsEventRegistration.builder()
+                .id(912L)
+                .event(event)
+                .user(user)
+                .status(com.manacommunity.api.sports.model.SportsEventRegistration.RegistrationStatus.REGISTERED)
+                .build();
+
+        when(regRepo.findById(912L)).thenReturn(Optional.of(reg));
+
+        assertThatThrownBy(() -> service.withdraw(912L, 10L, false, null))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidInputException.class)
+                .hasMessageContaining("Registration is closed for this event");
+    }
+
+    @Test
     void registerUser_mixedDoubles_mandatoryTrue_rejectsSameGender() {
         RegistrationRequest req = new RegistrationRequest();
         req.setEventId(1L);

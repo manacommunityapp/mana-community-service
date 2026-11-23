@@ -2,6 +2,8 @@ package com.manacommunity.api.healthcare.service;
 
 import com.manacommunity.api.healthcare.entity.Referral;
 import com.manacommunity.api.healthcare.repository.ReferralRepository;
+import com.manacommunity.platform.privacy.HealthDataAccess;
+import com.manacommunity.platform.privacy.HealthDataIsolationGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,15 +42,21 @@ public class ReferralService {
         return repo.save(r);
     }
 
+    @HealthDataAccess(recordType = "REFERRAL", purpose = "COMMUNITY_VIEW")
     public List<Referral> getByCommunity(Long communityId) {
+        HealthDataIsolationGuard.assertNotCommunityFeedContext();
         return repo.findByCommunityIdOrderByCreatedAtDesc(communityId);
     }
 
+    @HealthDataAccess(recordType = "REFERRAL", purpose = "PATIENT_VIEW")
     public List<Referral> getByPatient(Long communityId, Long patientUserId) {
+        HealthDataIsolationGuard.assertNotCommunityFeedContext();
         return repo.findByCommunityIdAndPatientUserId(communityId, patientUserId);
     }
 
+    @HealthDataAccess(recordType = "REFERRAL", purpose = "PENDING_VIEW")
     public List<Referral> getPendingReferrals(Long communityId) {
+        HealthDataIsolationGuard.assertNotCommunityFeedContext();
         return repo.findByCommunityIdAndStatus(communityId, "PENDING");
     }
 }

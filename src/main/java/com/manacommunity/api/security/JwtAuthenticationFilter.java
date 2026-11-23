@@ -12,6 +12,7 @@ import com.manacommunity.api.repository.RolePermissionRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -85,11 +86,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        String token = null;
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
+            token = authHeader.substring(7).trim();
+        } else if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if (CookieAuthHelper.ACCESS_TOKEN_COOKIE.equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
 
+        if (token != null && !token.isBlank()) {
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
                 String jti = jwtTokenProvider.getJti(token);
                 if (!tokenBlacklistService.isBlacklisted(jti)) {

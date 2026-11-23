@@ -263,7 +263,7 @@ class EventControllerTest extends BaseWebMvcTest {
         @DisplayName("POST /api/events/{id}/register returns 409 for capacity full")
         void register_returns409_capacityFull() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
-            when(eventService.register(eq(100L), any()))
+            when(eventService.register(eq(100L), any(), any()))
                     .thenThrow(new EventFullException("Annual Sports Meet", 100));
 
             mockMvc.perform(post("/api/events/100/register"))
@@ -275,7 +275,7 @@ class EventControllerTest extends BaseWebMvcTest {
         @DisplayName("POST /api/events/{id}/register returns 409 for already registered")
         void register_returns409_alreadyRegistered() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
-            when(eventService.register(eq(100L), any()))
+            when(eventService.register(eq(100L), any(), any()))
                     .thenThrow(new AlreadyRegisteredException("Annual Sports Meet"));
 
             mockMvc.perform(post("/api/events/100/register"))
@@ -287,7 +287,7 @@ class EventControllerTest extends BaseWebMvcTest {
         @DisplayName("POST /api/events/{id}/register returns 409 for deadline passed")
         void register_returns409_deadlinePassed() throws Exception {
             when(loggedInUserService.resolve(any())).thenReturn(memberUser);
-            when(eventService.register(eq(100L), any()))
+            when(eventService.register(eq(100L), any(), any()))
                     .thenThrow(new ManaCommunityException("Registration deadline has passed",
                             HttpStatus.CONFLICT, "REGISTRATION_DEADLINE_PASSED"));
 

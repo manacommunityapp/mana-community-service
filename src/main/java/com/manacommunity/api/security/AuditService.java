@@ -21,8 +21,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * logger (routed to audit.log).
  *
  * <p>Actor, client IP and correlation id are resolved from the current request /
- * security context. Auditing must never break the business flow: all failures are
- * swallowed and reported to the logger, never propagated.</p>
+ * security context. For FINANCIAL and SECURITY modules, audit failures are
+ * re-thrown so the calling transaction rolls back — a payment or security event
+ * must never complete silently without its audit record. For all other modules,
+ * failures are logged at ERROR level and swallowed so they do not break the
+ * business flow.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -54,10 +57,23 @@ public class AuditService {
             AUDIT.info("action={} module={} entity={} entityId={} userId={} ip={}",
                     action, module, entityName, entityId, userId, ip);
         } catch (Exception ex) {
-            // Never let an audit failure break the business transaction.
-            AUDIT.error("Failed to persist audit entry action={} module={} entityId={}: {}",
-                    action, module, entityId, ex.getMessage());
+            if (isFinancialOrSecurity(module)) {
+                // Financial and security audit failures must propagate — a payment approval,
+                // refund, settlement or security event must never complete without its record.
+                AUDIT.error("CRITICAL audit persist failure action={} module={} entityId={} correlationId={}: {}",
+                        action, module, entityId, correlationId, ex.getMessage());
+                throw ex;
+            }
+            AUDIT.error("Failed to persist audit entry action={} module={} entityId={} correlationId={}: {}",
+                    action, module, entityId, correlationId, ex.getMessage());
         }
+    }
+
+    private static boolean isFinancialOrSecurity(AuditModule module) {
+        return switch (module) {
+            case FINANCE, BILLING, WALLET, PAYMENTS, PAYMENT, SAFETY_SECURITY -> true;
+            default -> false;
+        };
     }
 
     /** Convenience overload for create/simple events with no before-state. */
