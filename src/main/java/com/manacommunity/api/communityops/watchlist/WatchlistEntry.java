@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
 
-@Entity
+@Entity(name = "CommunityOpsWatchlistEntry")
 @Table(name = "watchlist_entry")
 @Data
 @Builder
