@@ -1,5 +1,5 @@
 -- Open-play sessions (matchmaking)
-CREATE TABLE open_play_session (
+CREATE TABLE IF NOT EXISTS open_play_session (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     sport           VARCHAR(100) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE open_play_session (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE open_play_participant (
+CREATE TABLE IF NOT EXISTS open_play_participant (
     id              BIGSERIAL PRIMARY KEY,
     session_id      BIGINT NOT NULL REFERENCES open_play_session(id),
     user_id         BIGINT NOT NULL,
@@ -25,6 +25,6 @@ CREATE TABLE open_play_participant (
     UNIQUE(session_id, user_id)
 );
 
-CREATE INDEX idx_ops_comm  ON open_play_session(community_id, sport, session_date, status);
-CREATE INDEX idx_opp_sess  ON open_play_participant(session_id);
-CREATE INDEX idx_opp_user  ON open_play_participant(user_id);
+CREATE INDEX IF NOT EXISTS idx_ops_comm  ON open_play_session(community_id, sport, session_date, status);
+CREATE INDEX IF NOT EXISTS idx_opp_sess  ON open_play_participant(session_id);
+CREATE INDEX IF NOT EXISTS idx_opp_user  ON open_play_participant(user_id);

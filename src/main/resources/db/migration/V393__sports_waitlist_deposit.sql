@@ -1,5 +1,5 @@
 -- Court slot waitlist
-CREATE TABLE court_slot_waitlist (
+CREATE TABLE IF NOT EXISTS court_slot_waitlist (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     booking_id      BIGINT,
@@ -11,10 +11,10 @@ CREATE TABLE court_slot_waitlist (
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_csw_community ON court_slot_waitlist(community_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_csw_community ON court_slot_waitlist(community_id, user_id);
 
 -- Sports no-show deposit
-CREATE TABLE sports_no_show_deposit (
+CREATE TABLE IF NOT EXISTS sports_no_show_deposit (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     user_id         BIGINT NOT NULL,
@@ -28,5 +28,5 @@ CREATE TABLE sports_no_show_deposit (
     reason          VARCHAR(500)
 );
 
-CREATE INDEX idx_snsd_booking ON sports_no_show_deposit(booking_id);
-CREATE INDEX idx_snsd_user    ON sports_no_show_deposit(user_id, forfeited);
+CREATE INDEX IF NOT EXISTS idx_snsd_booking ON sports_no_show_deposit(booking_id);
+CREATE INDEX IF NOT EXISTS idx_snsd_user    ON sports_no_show_deposit(user_id, forfeited);

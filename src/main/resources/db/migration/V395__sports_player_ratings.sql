@@ -1,5 +1,5 @@
 -- Per-game player ratings
-CREATE TABLE player_rating (
+CREATE TABLE IF NOT EXISTS player_rating (
     id              BIGSERIAL PRIMARY KEY,
     community_id    BIGINT NOT NULL,
     rated_user_id   BIGINT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE player_rating (
 );
 
 -- Aggregated per-player per-sport summary
-CREATE TABLE player_rating_summary (
+CREATE TABLE IF NOT EXISTS player_rating_summary (
     id                  BIGSERIAL PRIMARY KEY,
     community_id        BIGINT NOT NULL,
     user_id             BIGINT NOT NULL,
@@ -28,6 +28,6 @@ CREATE TABLE player_rating_summary (
     UNIQUE(user_id, sport)
 );
 
-CREATE INDEX idx_pr_rated   ON player_rating(rated_user_id, sport);
-CREATE INDEX idx_pr_rater   ON player_rating(rated_by);
-CREATE INDEX idx_prs_user   ON player_rating_summary(community_id, sport, avg_rating DESC);
+CREATE INDEX IF NOT EXISTS idx_pr_rated   ON player_rating(rated_user_id, sport);
+CREATE INDEX IF NOT EXISTS idx_pr_rater   ON player_rating(rated_by);
+CREATE INDEX IF NOT EXISTS idx_prs_user   ON player_rating_summary(community_id, sport, avg_rating DESC);
