@@ -3823,6 +3823,13 @@ END $$;
                             ADD COLUMN IF NOT EXISTS community_id BIGINT,
                             ADD COLUMN IF NOT EXISTS payment_recorded_at TIMESTAMP;
 
+                        ALTER TABLE IF EXISTS manacommunity.health_data_access_log
+                            ALTER COLUMN ip_address TYPE VARCHAR(50);
+
+                        ALTER TABLE IF EXISTS manacommunity.user_consent_record
+                            ALTER COLUMN ip_address TYPE VARCHAR(50),
+                            ALTER COLUMN purpose TYPE VARCHAR(50);
+
                         CREATE TABLE IF NOT EXISTS manacommunity.consent_records_aud (
                             id                   BIGINT    NOT NULL,
                             rev                  INT       NOT NULL REFERENCES manacommunity.revinfo(rev),

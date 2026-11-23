@@ -82,10 +82,10 @@ public class HealthDataAccessLogger {
         @Column(name = "community_id")
         private Long communityId;
 
-        @Column(name = "access_purpose")
+        @Column(name = "access_purpose", length = 200)
         private String accessPurpose;
 
-        @Column(name = "ip_address")
+        @Column(name = "ip_address", length = 50)
         private String ipAddress;
 
         @Column(name = "correlation_id")

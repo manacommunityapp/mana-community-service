@@ -29,22 +29,22 @@ public class UserConsentRecord {
     private Long communityId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "purpose", nullable = false)
+    @Column(name = "purpose", nullable = false, length = 50)
     private ConsentPurposeCode purpose;
 
-    @Column(name = "privacy_notice_version", nullable = false)
+    @Column(name = "privacy_notice_version", nullable = false, length = 20)
     private String privacyNoticeVersion;
 
-    @Column(name = "action", nullable = false)
+    @Column(name = "action", nullable = false, length = 10)
     private String action; // GRANT or REVOKE
 
     @Column(name = "actor_id")
     private Long actorId;
 
-    @Column(name = "ip_address")
+    @Column(name = "ip_address", length = 50)
     private String ipAddress;
 
-    @Column(name = "user_agent")
+    @Column(name = "user_agent", length = 512)
     private String userAgent;
 
     @CreationTimestamp
