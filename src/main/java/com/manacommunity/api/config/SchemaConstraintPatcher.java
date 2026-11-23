@@ -3819,6 +3819,10 @@ END $$;
                         ALTER TABLE IF EXISTS manacommunity.app_user_aud
                             ADD COLUMN IF NOT EXISTS organization_id BIGINT;
 
+                        ALTER TABLE IF EXISTS manacommunity.finance_invoice_aud
+                            ADD COLUMN IF NOT EXISTS community_id BIGINT,
+                            ADD COLUMN IF NOT EXISTS payment_recorded_at TIMESTAMP;
+
                         CREATE TABLE IF NOT EXISTS manacommunity.consent_records_aud (
                             id                   BIGINT    NOT NULL,
                             rev                  INT       NOT NULL REFERENCES manacommunity.revinfo(rev),
