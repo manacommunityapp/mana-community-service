@@ -1,8 +1,13 @@
-CREATE TYPE audit_category AS ENUM (
-    'BUSINESS', 'SECURITY', 'PRIVACY', 'FINANCIAL', 'OPERATIONAL'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'audit_category') THEN
+        CREATE TYPE audit_category AS ENUM (
+            'BUSINESS', 'SECURITY', 'PRIVACY', 'FINANCIAL', 'OPERATIONAL'
+        );
+    END IF;
+END $$;
 
-CREATE TABLE audit_journal (
+CREATE TABLE IF NOT EXISTS audit_journal (
     id              BIGSERIAL       PRIMARY KEY,
     audit_id        UUID            NOT NULL DEFAULT gen_random_uuid(),
     category        audit_category  NOT NULL,
@@ -19,10 +24,10 @@ CREATE TABLE audit_journal (
 );
 
 -- Append-only: prevent UPDATE and DELETE at the database level
-CREATE RULE no_update_audit_journal AS ON UPDATE TO audit_journal DO INSTEAD NOTHING;
-CREATE RULE no_delete_audit_journal AS ON DELETE TO audit_journal DO INSTEAD NOTHING;
+CREATE OR REPLACE RULE no_update_audit_journal AS ON UPDATE TO audit_journal DO INSTEAD NOTHING;
+CREATE OR REPLACE RULE no_delete_audit_journal AS ON DELETE TO audit_journal DO INSTEAD NOTHING;
 
-CREATE INDEX idx_audit_community_time ON audit_journal(community_id, created_at DESC);
-CREATE INDEX idx_audit_entity         ON audit_journal(entity_type, entity_id);
-CREATE INDEX idx_audit_category_time  ON audit_journal(category, created_at DESC);
-CREATE INDEX idx_audit_actor          ON audit_journal(actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_community_time  ON audit_journal(community_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_journal_entity   ON audit_journal(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_category_time   ON audit_journal(category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_journal_actor    ON audit_journal(actor_id, created_at DESC);

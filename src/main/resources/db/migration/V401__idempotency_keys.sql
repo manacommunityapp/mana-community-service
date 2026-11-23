@@ -1,4 +1,4 @@
-CREATE TABLE idempotency_key (
+CREATE TABLE IF NOT EXISTS idempotency_key (
     key_value       VARCHAR(100)  PRIMARY KEY,
     request_path    VARCHAR(500),
     request_hash    VARCHAR(64),
@@ -9,4 +9,4 @@ CREATE TABLE idempotency_key (
     expires_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
 );
 
-CREATE INDEX idx_idempotency_expires ON idempotency_key(expires_at);
+CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON idempotency_key(expires_at);

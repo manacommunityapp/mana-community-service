@@ -1,6 +1,6 @@
 -- DPDP Act compliance: purpose-granular consent, versioned privacy notices, append-only records
 
-CREATE TABLE privacy_notice_version (
+CREATE TABLE IF NOT EXISTS privacy_notice_version (
     id              BIGSERIAL       PRIMARY KEY,
     version_code    VARCHAR(20)     NOT NULL UNIQUE,  -- e.g. 'v1.0', 'v1.1'
     effective_date  DATE            NOT NULL,
@@ -10,18 +10,23 @@ CREATE TABLE privacy_notice_version (
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE TYPE consent_purpose_code AS ENUM (
-    'SERVICE_OPERATION',
-    'HEALTHCARE_DATA',
-    'ANALYTICS',
-    'MARKETING',
-    'THIRD_PARTY_SHARING',
-    'PROFILE_ENHANCEMENT',
-    'PUSH_NOTIFICATIONS'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'consent_purpose_code') THEN
+        CREATE TYPE consent_purpose_code AS ENUM (
+            'SERVICE_OPERATION',
+            'HEALTHCARE_DATA',
+            'ANALYTICS',
+            'MARKETING',
+            'THIRD_PARTY_SHARING',
+            'PROFILE_ENHANCEMENT',
+            'PUSH_NOTIFICATIONS'
+        );
+    END IF;
+END $$;
 
 -- Append-only consent record (DPDP §6 — specific, informed, unconditional consent)
-CREATE TABLE user_consent_record (
+CREATE TABLE IF NOT EXISTS user_consent_record (
     id                      BIGSERIAL               PRIMARY KEY,
     record_id               UUID                    NOT NULL DEFAULT gen_random_uuid(),
     user_id                 BIGINT                  NOT NULL REFERENCES app_user(id),
@@ -36,22 +41,32 @@ CREATE TABLE user_consent_record (
 );
 
 -- Append-only at DB level
-CREATE RULE no_update_user_consent AS ON UPDATE TO user_consent_record DO INSTEAD NOTHING;
-CREATE RULE no_delete_user_consent AS ON DELETE TO user_consent_record DO INSTEAD NOTHING;
+CREATE OR REPLACE RULE no_update_user_consent AS ON UPDATE TO user_consent_record DO INSTEAD NOTHING;
+CREATE OR REPLACE RULE no_delete_user_consent AS ON DELETE TO user_consent_record DO INSTEAD NOTHING;
 
-CREATE INDEX idx_consent_user_purpose ON user_consent_record(user_id, purpose, created_at DESC);
-CREATE INDEX idx_consent_community    ON user_consent_record(community_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consent_user_purpose      ON user_consent_record(user_id, purpose, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consent_record_community  ON user_consent_record(community_id, created_at DESC);
 
 -- Data rights requests (DPDP §13 — right to access, correct, erase, nominate)
-CREATE TYPE data_rights_request_type AS ENUM (
-    'ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATION', 'GRIEVANCE'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'data_rights_request_type') THEN
+        CREATE TYPE data_rights_request_type AS ENUM (
+            'ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATION', 'GRIEVANCE'
+        );
+    END IF;
+END $$;
 
-CREATE TYPE data_rights_request_status AS ENUM (
-    'PENDING', 'IN_REVIEW', 'COMPLETED', 'REJECTED', 'WITHDRAWN'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'data_rights_request_status') THEN
+        CREATE TYPE data_rights_request_status AS ENUM (
+            'PENDING', 'IN_REVIEW', 'COMPLETED', 'REJECTED', 'WITHDRAWN'
+        );
+    END IF;
+END $$;
 
-CREATE TABLE data_rights_request (
+CREATE TABLE IF NOT EXISTS data_rights_request (
     id              BIGSERIAL                       PRIMARY KEY,
     request_id      UUID                            NOT NULL DEFAULT gen_random_uuid(),
     user_id         BIGINT                          NOT NULL REFERENCES app_user(id),
@@ -66,5 +81,5 @@ CREATE TABLE data_rights_request (
     updated_at      TIMESTAMPTZ                     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_rights_request_user   ON data_rights_request(user_id, created_at DESC);
-CREATE INDEX idx_rights_request_status ON data_rights_request(status, due_date);
+CREATE INDEX IF NOT EXISTS idx_rights_request_user   ON data_rights_request(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rights_request_status ON data_rights_request(status, due_date);

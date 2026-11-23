@@ -1,4 +1,4 @@
-CREATE TABLE kyc_verification_requests (
+CREATE TABLE IF NOT EXISTS kyc_verification_requests (
   id                  BIGSERIAL PRIMARY KEY,
   community_id        BIGINT NOT NULL,
   resident_id         BIGINT NOT NULL,
@@ -16,5 +16,5 @@ CREATE TABLE kyc_verification_requests (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_kyc_resident   ON kyc_verification_requests(resident_id, status);
-CREATE INDEX idx_kyc_community  ON kyc_verification_requests(community_id, status);
+CREATE INDEX IF NOT EXISTS idx_kyc_resident       ON kyc_verification_requests(resident_id, status);
+CREATE INDEX IF NOT EXISTS idx_kyc_req_community  ON kyc_verification_requests(community_id, status);
