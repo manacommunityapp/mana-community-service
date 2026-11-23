@@ -18,19 +18,6 @@ public class HsBookingController {
 
     private final HsBookingService bookingService;
 
-    @PostMapping
-    public ResponseEntity<HsBooking> create(@RequestBody HsBooking booking,
-            @AuthenticationPrincipal UserPrincipal p) {
-        booking.setCommunityId(p.getCommunityId());
-        booking.setUserId(p.getUserId());
-        return ResponseEntity.ok(bookingService.create(booking));
-    }
-
-    @GetMapping("/my")
-    public ResponseEntity<List<HsBooking>> myBookings(@AuthenticationPrincipal UserPrincipal p) {
-        return ResponseEntity.ok(bookingService.myBookings(p.getUserId()));
-    }
-
     @GetMapping("/pending")
     public ResponseEntity<List<HsBooking>> communityPending(@AuthenticationPrincipal UserPrincipal p) {
         return ResponseEntity.ok(bookingService.communityPending(p.getCommunityId()));
