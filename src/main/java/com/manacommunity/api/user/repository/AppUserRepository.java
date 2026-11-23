@@ -115,4 +115,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
     long countByCommunityIdAndRoleIgnoreCase(
             @Param("communityId") Long communityId,
             @Param("role") String role);
+
+    @Query("SELECT u.community.id, COUNT(u.id) FROM AppUser u WHERE u.isActive = true AND u.community IS NOT NULL GROUP BY u.community.id")
+    List<Object[]> countActiveMembersByCommunity();
 }
