@@ -53,7 +53,7 @@
             Re-enable permanently:                 remove this property.
         -->
         <maven.test.skip>false</maven.test.skip>
-        <spring-ai.version>2.0.3</spring-ai.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
         <postgresql.version>42.7.14</postgresql.version>
         <aws.sdk.version>2.54.20</aws.sdk.version>
         <poi.version>6.0.0</poi.version>

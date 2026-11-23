@@ -13,14 +13,11 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration;
-import org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-// Spring AI targets Boot 3.x/4.x and references components like
-// RestClientAutoConfiguration / RetryListener that cause startup issues.
-// Exclude all AI auto-configs to prevent eager introspection failures.
+// Exclude AI auto-configs to prevent eager introspection failures when AI is disabled.
 @EnableAsync
 @EnableScheduling
 @EntityScan(basePackages = "com.manacommunity")
@@ -37,7 +34,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         ToolCallingAutoConfiguration.class,
         ChatObservationAutoConfiguration.class,
         EmbeddingObservationAutoConfiguration.class,
-        SpringAiRetryAutoConfiguration.class,
     },
     excludeName = {
         "org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration",
