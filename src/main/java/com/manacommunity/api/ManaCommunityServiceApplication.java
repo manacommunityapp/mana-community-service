@@ -12,12 +12,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-// Exclude AI auto-configs to prevent eager introspection failures when AI is disabled.
+// Exclude Spring AI auto-configs to prevent eager startup failures when AI is disabled.
+// IMPORTANT: Only list classes that appear in AutoConfiguration.imports (registered as @AutoConfiguration).
+// OllamaApiAutoConfiguration is a plain @Configuration, NOT registered for auto-config — use excludeName only.
 @EnableAsync
 @EnableScheduling
 @EntityScan(basePackages = "com.manacommunity")
@@ -26,7 +27,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     scanBasePackages = "com.manacommunity",
     nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class,
     exclude = {
-        OllamaApiAutoConfiguration.class,
+        // These ARE registered in AutoConfiguration.imports — safe to exclude by class reference:
         OllamaChatAutoConfiguration.class,
         OllamaEmbeddingAutoConfiguration.class,
         ChatClientAutoConfiguration.class,
@@ -36,8 +37,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         EmbeddingObservationAutoConfiguration.class,
     },
     excludeName = {
+        // String-based exclusions for classes that may not be auto-configurations in all versions:
+        "org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration",
         "org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration",
-        "org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration"
     }
 )
 public class ManaCommunityServiceApplication {
