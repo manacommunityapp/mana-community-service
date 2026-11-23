@@ -1,7 +1,7 @@
 package com.manacommunity.platform.websocket;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,6 @@ import java.util.Set;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class StaleSessionReaper {
 
     private static final String SESSION_KEY_PATTERN = "ws:sessions:*";
@@ -22,12 +21,17 @@ public class StaleSessionReaper {
 
     private final StringRedisTemplate redisTemplate;
 
+    public StaleSessionReaper(@Autowired(required = false) StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
     /**
      * Every 5 minutes, scan for user session sets that have zero members and
      * remove the empty key to avoid unbounded growth of stale Redis keys.
      */
     @Scheduled(fixedDelayString = "${app.websocket.session-reaper.interval-ms:300000}")
     public void reapStaleSessions() {
+        if (redisTemplate == null) return;
         try {
             Set<String> keys = redisTemplate.keys(SESSION_KEY_PATTERN);
             if (keys == null || keys.isEmpty()) return;

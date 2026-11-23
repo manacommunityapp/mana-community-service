@@ -2,8 +2,8 @@ package com.manacommunity.platform.ratelimit;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -13,14 +13,18 @@ import java.security.Principal;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final DistributedRateLimitService rateLimitService;
 
+    public RateLimitInterceptor(@Autowired(required = false) DistributedRateLimitService rateLimitService) {
+        this.rateLimitService = rateLimitService;
+    }
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
                              Object handler) throws IOException {
+        if (rateLimitService == null) return true;
         if (!(handler instanceof HandlerMethod method)) return true;
 
         RateLimit annotation = method.getMethodAnnotation(RateLimit.class);

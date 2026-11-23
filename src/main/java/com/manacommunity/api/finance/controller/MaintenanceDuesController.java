@@ -156,22 +156,9 @@ public class MaintenanceDuesController {
          */
         private BigDecimal amount;
 
-        /** Declared explicitly so Lombok does not skip it because of the bridge below. */
         @JsonSetter("amount")
         public void setAmount(BigDecimal amount) {
             this.amount = amount;
-        }
-
-        /**
-         * Bridge for {@code MaintenanceWalletAliasController}, which is owned elsewhere
-         * and still calls {@code setAmount(double)}. Not visible to Jackson.
-         *
-         * @deprecated use {@link #setAmount(BigDecimal)}; the value is ignored anyway.
-         */
-        @Deprecated
-        @JsonIgnore
-        public void setAmount(double amount) {
-            this.amount = BigDecimal.valueOf(amount);
         }
     }
 

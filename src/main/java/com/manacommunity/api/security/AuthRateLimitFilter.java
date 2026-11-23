@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -37,7 +38,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             @Value("${app.security.auth-rate-limit.enabled:${app.security.rate-limit.enabled:true}}") boolean enabled,
             @Value("${app.security.auth-rate-limit.bypass-localhost:true}") boolean bypassLocalhost,
             @Value("${app.security.rate-limit.trust-forwarded-header:false}") boolean trustForwardedHeader,
-            DistributedRateLimitService rateLimitService) {
+            @Autowired(required = false) DistributedRateLimitService rateLimitService) {
         this.enabled = enabled;
         this.bypassLocalhost = bypassLocalhost;
         this.trustForwardedHeader = trustForwardedHeader;
@@ -47,7 +48,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        if (!enabled || !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!enabled || rateLimitService == null || !"POST".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);
             return;
         }

@@ -1,7 +1,7 @@
 package com.manacommunity.platform.ratelimit;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DistributedRateLimitService {
 
     private final StringRedisTemplate redis;
@@ -24,6 +23,11 @@ public class DistributedRateLimitService {
 
     // Fallback in-memory buckets: key → {count, windowStart}
     private final ConcurrentHashMap<String, long[]> memoryBuckets = new ConcurrentHashMap<>();
+
+    public DistributedRateLimitService(@Autowired(required = false) StringRedisTemplate redis, RateLimitConfig config) {
+        this.redis = redis;
+        this.config = config;
+    }
 
     public RateLimitResult checkIpLimit(String ip, RateLimitType type) {
         return check("ip:" + sanitize(ip), type);
@@ -44,6 +48,9 @@ public class DistributedRateLimitService {
     private RateLimitResult check(String subKey, RateLimitType type) {
         RateLimitConfig.EndpointLimit limit = config.forType(type);
         String key = "rl:" + type.name().toLowerCase() + ":" + subKey;
+        if (redis == null) {
+            return checkInMemory(key, limit);
+        }
         try {
             Long count = redis.opsForValue().increment(key);
             if (count == null) count = 1L;

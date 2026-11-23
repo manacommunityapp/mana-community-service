@@ -2,6 +2,7 @@ package com.manacommunity.platform.websocket;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class WebSocketSessionTracker {
 
     private static final String KEY_PREFIX = "ws:sessions:";
@@ -31,8 +31,16 @@ public class WebSocketSessionTracker {
     // Session → userId mapping (needed for disconnect cleanup in fallback mode)
     private final ConcurrentHashMap<String, Long> sessionUserMap = new ConcurrentHashMap<>();
 
+    public WebSocketSessionTracker(@Autowired(required = false) StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
     public void registerSession(Long userId, String sessionId) {
         sessionUserMap.put(sessionId, userId);
+        if (redisTemplate == null) {
+            localCounts.computeIfAbsent(userId, id -> new AtomicInteger(0)).incrementAndGet();
+            return;
+        }
         try {
             String key = KEY_PREFIX + userId;
             redisTemplate.opsForSet().add(key, sessionId);
@@ -45,6 +53,14 @@ public class WebSocketSessionTracker {
 
     public void unregisterSession(Long userId, String sessionId) {
         sessionUserMap.remove(sessionId);
+        if (redisTemplate == null) {
+            AtomicInteger counter = localCounts.get(userId);
+            if (counter != null) {
+                int remaining = counter.decrementAndGet();
+                if (remaining <= 0) localCounts.remove(userId);
+            }
+            return;
+        }
         try {
             redisTemplate.opsForSet().remove(KEY_PREFIX + userId, sessionId);
         } catch (Exception e) {
@@ -58,6 +74,10 @@ public class WebSocketSessionTracker {
     }
 
     public int getConnectionCount(Long userId) {
+        if (redisTemplate == null) {
+            AtomicInteger counter = localCounts.get(userId);
+            return counter != null ? counter.get() : 0;
+        }
         try {
             Long count = redisTemplate.opsForSet().size(KEY_PREFIX + userId);
             return count != null ? count.intValue() : 0;
