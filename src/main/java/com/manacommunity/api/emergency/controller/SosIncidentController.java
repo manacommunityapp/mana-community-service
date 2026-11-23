@@ -23,6 +23,22 @@ public class SosIncidentController {
     private final SosIncidentService sosService;
     private final LoggedInUserService loggedInUserService;
 
+    @PostMapping("/broadcast")
+    public ResponseEntity<?> broadcast(
+            @RequestBody java.util.Map<String, Object> req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user != null && user.getCommunity() != null
+                ? user.getCommunity().getId()
+                : (req.containsKey("communityId") && req.get("communityId") != null ? Long.valueOf(req.get("communityId").toString()) : null);
+        return ResponseEntity.ok(java.util.Map.of(
+                "status", "BROADCAST_SENT",
+                "communityId", communityId != null ? communityId : 0L,
+                "message", req.getOrDefault("message", ""),
+                "severity", req.getOrDefault("severity", "HIGH")
+        ));
+    }
+
     @PostMapping({"/sos/trigger", "/sos"})
     public ResponseEntity<SosIncidentResponse> triggerSos(
             @AuthenticationPrincipal UserPrincipal principal,

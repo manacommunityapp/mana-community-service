@@ -43,7 +43,14 @@ public class HsBookingController {
         return ResponseEntity.ok(bookingService.assignWorker(id, body.get("workerId")));
     }
 
-    @PutMapping("/{id}/status")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<HsBooking> statusPatch(@PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal p) {
+        return ResponseEntity.ok(bookingService.updateStatus(id, body.get("status")));
+    }
+
+    @PutMapping(value = "/{id}/status", params = "type=hs")
     public ResponseEntity<HsBooking> status(@PathVariable Long id,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserPrincipal p) {

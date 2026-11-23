@@ -58,7 +58,16 @@ public class BiometricTurnstileController {
         return ResponseEntity.ok(turnstileService.getAccessLogs(communityId, pageable));
     }
 
-    @PutMapping("/{turnstileId}/status")
+    @PatchMapping("/{turnstileId}/status")
+    public ResponseEntity<Void> updateStatusPatch(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long turnstileId,
+            @RequestParam BiometricEnums.TurnstileStatus status) {
+        turnstileService.setTurnstileStatus(principal.getCommunityId(), turnstileId, status);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping(value = "/{turnstileId}/status", params = "type=turnstile")
     public ResponseEntity<Void> updateStatus(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long turnstileId,

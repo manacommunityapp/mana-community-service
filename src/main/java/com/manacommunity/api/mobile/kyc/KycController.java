@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * KYC (Know Your Customer) document verification for residents.
  */
 @RestController
-@RequestMapping("/api/kyc")
+@RequestMapping({"/api/v1/mobile/kyc", "/api/mobile/kyc"})
 @PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class KycController {

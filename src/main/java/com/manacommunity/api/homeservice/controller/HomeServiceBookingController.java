@@ -18,7 +18,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 @RestController("homeServiceBookingController")
-@RequestMapping({"/api/v1/home-services/bookings", "/api/home-services/bookings", "/v1/home-services/bookings"})
+@RequestMapping({"/api/v1/home-services/bookings", "/v1/home-services/bookings"})
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class HomeServiceBookingController {
