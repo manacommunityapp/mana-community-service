@@ -43,7 +43,8 @@ spring:
     allow-bean-definition-overriding: true
   autoconfigure:
     exclude:
-      - org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration
+      # Only list classes registered in AutoConfiguration.imports — OllamaApiAutoConfiguration is a plain @Configuration
+      # and must NOT appear here (causes IllegalStateException: not auto-configuration class)
       - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
       - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
       - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
@@ -51,7 +52,6 @@ spring:
       - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration
       - org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration
       - org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration
-      - org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration
 
   # ── Redis (distributed rate limiting, WS session tracking) ───────────
   data:
