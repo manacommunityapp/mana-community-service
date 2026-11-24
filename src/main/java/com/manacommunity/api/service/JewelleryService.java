@@ -19,6 +19,8 @@ public interface JewelleryService {
     List<JewelleryDto.AppointmentResponse> getVendorAppointments(AppUser user);
     /** Merchant-facing: update appointment status (CONFIRMED / COMPLETED / CANCELLED). */
     void updateAppointmentStatus(AppUser user, Long appointmentId, String status);
+    /** Admin/Vendor verification and activation. */
+    JewelleryDto.VendorResponse verifyVendor(Long vendorId, boolean verified);
 
     // Products
     Page<JewelleryDto.ProductResponse> getProducts(String category, String material, String q, Pageable pageable, AppUser user);
@@ -26,6 +28,7 @@ public interface JewelleryService {
     JewelleryDto.ProductResponse getProduct(Long id, AppUser user);
     Page<JewelleryDto.ProductResponse> getVendorProducts(Long vendorId, Pageable pageable, AppUser user);
     JewelleryDto.ProductResponse createProduct(AppUser user, JewelleryDto.CreateProductRequest req);
+    JewelleryDto.ProductResponse updateProductStatus(AppUser user, Long productId, String status);
 
     // Try-On
     JewelleryDto.TryOnSessionResponse startTryOnSession(AppUser user, JewelleryDto.StartTryOnRequest req);

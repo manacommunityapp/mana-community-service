@@ -94,6 +94,16 @@ public class JewelleryController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Admin-facing: verify and activate a jewellery vendor profile. */
+    @PatchMapping("/vendors/{id}/verify")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'MARKETPLACE_ADMIN', 'VENDOR_MANAGEMENT_ADMIN')")
+    public ResponseEntity<JewelleryDto.VendorResponse> verifyVendor(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Boolean> body) {
+        boolean verified = body == null || Boolean.TRUE.equals(body.getOrDefault("verified", Boolean.TRUE));
+        return ResponseEntity.ok(jewelleryService.verifyVendor(id, verified));
+    }
+
     // ── Products ──────────────────────────────────────────────────
 
     @GetMapping("/products")
@@ -101,10 +111,17 @@ public class JewelleryController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String material,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long vendorId,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = principal != null ? loggedInUserService.resolve(principal) : null;
-        return ResponseEntity.ok(jewelleryService.getProducts(category, material, q, pageable, user));
+        if (vendorId != null && (category == null || category.isBlank()) && (material == null || material.isBlank())
+                && (q == null || q.isBlank()) && (search == null || search.isBlank())) {
+            return ResponseEntity.ok(jewelleryService.getVendorProducts(vendorId, pageable, user));
+        }
+        String effectiveQuery = (q != null && !q.isBlank()) ? q : search;
+        return ResponseEntity.ok(jewelleryService.getProducts(category, material, effectiveQuery, pageable, user));
     }
 
     @GetMapping("/products/featured")
@@ -138,6 +155,16 @@ public class JewelleryController {
             @Valid @RequestBody JewelleryDto.CreateProductRequest req) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(jewelleryService.createProduct(user, req));
+    }
+
+    @PatchMapping("/products/{id}/status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<JewelleryDto.ProductResponse> updateProductStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(jewelleryService.updateProductStatus(user, id, body.get("status")));
     }
 
     // ── Try-On ────────────────────────────────────────────────────

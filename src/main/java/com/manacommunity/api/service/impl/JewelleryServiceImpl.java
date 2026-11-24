@@ -32,6 +32,9 @@ public class JewelleryServiceImpl implements JewelleryService {
     private final JewelleryAppointmentRepository appointmentRepo;
     private final MediaUrlService mediaUrlService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private static final DateTimeFormatter DT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     // ── Vendor ────────────────────────────────────────────────────
@@ -93,6 +96,12 @@ public class JewelleryServiceImpl implements JewelleryService {
                 .collect(Collectors.toList());
     }
 
+    private static final java.util.Set<String> VALID_APPOINTMENT_STATUSES =
+            java.util.Set.of("PENDING", "CONFIRMED", "COMPLETED", "CANCELLED");
+
+    private static final java.util.Set<String> VALID_PRODUCT_STATUSES =
+            java.util.Set.of("ACTIVE", "OUT_OF_STOCK", "DRAFT", "ARCHIVED");
+
     @Override
     public void updateAppointmentStatus(AppUser user, Long appointmentId, String status) {
         JewelleryVendorProfile vendor = vendorRepo.findByUser(user)
@@ -102,34 +111,65 @@ public class JewelleryServiceImpl implements JewelleryService {
         if (status == null || status.isBlank()) {
             throw new IllegalArgumentException("Status must not be blank");
         }
-        appt.setStatus(status.toUpperCase());
+        String normalized = status.trim().toUpperCase();
+        if (!VALID_APPOINTMENT_STATUSES.contains(normalized)) {
+            throw new IllegalArgumentException("Invalid appointment status: " + status);
+        }
+        appt.setStatus(normalized);
         appointmentRepo.save(appt);
     }
 
-    // ── Products ──────────────────────────────────────────────────
+    @Override
+    public JewelleryDto.VendorResponse verifyVendor(Long vendorId, boolean verified) {
+        JewelleryVendorProfile vendor = vendorRepo.findById(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        vendor.setVerificationStatus(verified ? "VERIFIED" : "REJECTED");
+        vendor.setVerifiedAt(verified ? java.time.LocalDateTime.now() : null);
+        vendor.setIsActive(verified);
+        return toVendorResponse(vendorRepo.save(vendor));
+    }
 
+    // ── Products ──────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
     public Page<JewelleryDto.ProductResponse> getProducts(
             String category, String material, String q, Pageable pageable, AppUser user) {
-        List<JewelleryProduct> list;
-        if (q != null && !q.isBlank()) {
-            list = productRepo.searchActive(q, pageable);
-        } else if (category != null && material != null) {
-            list = productRepo.findByCategoryAndMaterialAndStatusOrderByCreatedAtDesc(category, material, "ACTIVE");
-        } else if (category != null) {
-            list = productRepo.findByCategoryAndStatusOrderByCreatedAtDesc(category, "ACTIVE");
-        } else if (material != null) {
-            list = productRepo.findByMaterialAndStatusOrderByCreatedAtDesc(material, "ACTIVE");
-        } else {
-            // Use Pageable-aware method for the unfiltered case so pagination info is correct
+        boolean hasCategory = category != null && !category.isBlank();
+        boolean hasMaterial = material != null && !material.isBlank();
+        boolean hasQuery = q != null && !q.isBlank();
+
+        if (!hasCategory && !hasMaterial && !hasQuery) {
             return productRepo.findByStatusOrderByCreatedAtDesc("ACTIVE", pageable)
                     .map(p -> toProductResponse(p, user));
         }
-        // Manually build a Page from the filtered list for consistent pagination response
-        int start = (int) pageable.getOffset();
-        int end   = Math.min(start + pageable.getPageSize(), list.size());
+
+        List<JewelleryProduct> list;
+        if (hasCategory && hasMaterial) {
+            list = productRepo.findByCategoryAndMaterialAndStatusOrderByCreatedAtDesc(
+                    category.trim().toUpperCase(), material.trim().toUpperCase(), "ACTIVE");
+        } else if (hasCategory) {
+            list = productRepo.findByCategoryAndStatusOrderByCreatedAtDesc(
+                    category.trim().toUpperCase(), "ACTIVE");
+        } else if (hasMaterial) {
+            list = productRepo.findByMaterialAndStatusOrderByCreatedAtDesc(
+                    material.trim().toUpperCase(), "ACTIVE");
+        } else {
+            list = productRepo.searchActive(q.trim(), Pageable.unpaged());
+        }
+
+        if (hasQuery && (hasCategory || hasMaterial)) {
+            String queryLower = q.trim().toLowerCase();
+            list = list.stream()
+                    .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(queryLower))
+                            || (p.getTags() != null && p.getTags().toLowerCase().contains(queryLower))
+                            || (p.getDescription() != null && p.getDescription().toLowerCase().contains(queryLower)))
+                    .collect(Collectors.toList());
+        }
+
+        int start = pageable.isPaged() ? (int) pageable.getOffset() : 0;
+        int pageSize = pageable.isPaged() ? pageable.getPageSize() : Math.max(list.size(), 1);
+        int end = Math.min(start + pageSize, list.size());
         List<JewelleryProduct> pageSlice = start >= list.size() ? List.of() : list.subList(start, end);
         return new org.springframework.data.domain.PageImpl<>(
                 pageSlice.stream().map(p -> toProductResponse(p, user)).collect(Collectors.toList()),
@@ -173,11 +213,19 @@ public class JewelleryServiceImpl implements JewelleryService {
     public JewelleryDto.ProductResponse createProduct(AppUser user, JewelleryDto.CreateProductRequest req) {
         JewelleryVendorProfile vendor = vendorRepo.findByUser(user)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found. Please register as a vendor first."));
+        String sku = (req.getSku() != null && !req.getSku().isBlank())
+                ? req.getSku().trim()
+                : "JWL-" + vendor.getId() + "-" + System.currentTimeMillis();
+        String status = (req.getStatus() != null && VALID_PRODUCT_STATUSES.contains(req.getStatus().trim().toUpperCase()))
+                ? req.getStatus().trim().toUpperCase()
+                : "ACTIVE";
+
         JewelleryProduct product = JewelleryProduct.builder()
                 .vendor(vendor)
+                .sku(sku)
                 .name(req.getName())
-                .category(req.getCategory())
-                .material(req.getMaterial())
+                .category(req.getCategory().trim().toUpperCase())
+                .material(req.getMaterial().trim().toUpperCase())
                 .purity(req.getPurity())
                 .netWeightG(req.getNetWeightG())
                 .description(req.getDescription())
@@ -189,8 +237,67 @@ public class JewelleryServiceImpl implements JewelleryService {
                 .totalPrice(req.getTotalPrice())
                 .gstPercent(req.getGstPercent())
                 .stockQuantity(req.getStockQuantity())
+                .status(status)
                 .stoneDetails(req.getStoneDetails())
                 .build();
+        JewelleryProduct saved = productRepo.save(product);
+
+        if (req.getImageUrls() != null) {
+            for (String url : req.getImageUrls()) {
+                if (url != null && !url.isBlank()) {
+                    assetRepo.save(JewelleryProductAsset.builder()
+                            .product(saved)
+                            .assetType("IMAGE_MAIN")
+                            .assetUrl(url.trim())
+                            .approvalStatus("APPROVED")
+                            .build());
+                }
+            }
+        }
+        if (req.getTryOnAssetUrl() != null && !req.getTryOnAssetUrl().isBlank()) {
+            assetRepo.save(JewelleryProductAsset.builder()
+                    .product(saved)
+                    .assetType("AR_2D")
+                    .assetUrl(req.getTryOnAssetUrl().trim())
+                    .approvalStatus("APPROVED")
+                    .build());
+        }
+
+        if (jdbcTemplate != null
+                && (req.getDropLengthMm() != null || req.getSizeMm() != null || req.getNecklaceLengthIn() != null)) {
+            jdbcTemplate.update("""
+                    INSERT INTO product_fit_attributes (product_id, drop_length_mm, size_mm, necklace_length_in)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT (product_id) DO UPDATE SET
+                        drop_length_mm = EXCLUDED.drop_length_mm,
+                        size_mm = EXCLUDED.size_mm,
+                        necklace_length_in = EXCLUDED.necklace_length_in
+                    """,
+                    saved.getId(), req.getDropLengthMm(), req.getSizeMm(), req.getNecklaceLengthIn());
+        }
+
+        return toProductResponse(saved, user);
+    }
+
+    @Override
+    public JewelleryDto.ProductResponse updateProductStatus(AppUser user, Long productId, String status) {
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Status must not be blank");
+        }
+        String normalized = status.trim().toUpperCase();
+        if (!VALID_PRODUCT_STATUSES.contains(normalized)) {
+            throw new IllegalArgumentException("Invalid product status: " + status);
+        }
+        JewelleryProduct product = productRepo.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        boolean isOwner = product.getVendor() != null
+                && product.getVendor().getUser() != null
+                && product.getVendor().getUser().getId().equals(user.getId());
+        boolean isAdmin = user.hasRole("SUPER_ADMIN") || user.hasRole("ADMIN") || user.hasRole("MARKETPLACE_ADMIN");
+        if (!isOwner && !isAdmin) {
+            throw new IllegalStateException("Not authorized to update this product");
+        }
+        product.setStatus(normalized);
         return toProductResponse(productRepo.save(product), user);
     }
 
@@ -221,13 +328,19 @@ public class JewelleryServiceImpl implements JewelleryService {
 
     @Override
     public JewelleryDto.PhotoJobResponse submitPhotoJob(AppUser user, Long sessionId, String sourceS3Key) {
+        if (sourceS3Key == null || sourceS3Key.isBlank()) {
+            throw new IllegalArgumentException("sourceS3Key must not be blank");
+        }
         JewelleryTryOnSession session = tryOnRepo.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Try-on session not found"));
+        if (session.getUser() == null || !session.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("Not authorized to submit photo job for this session");
+        }
         JewelleryPhotoJob job = JewelleryPhotoJob.builder()
                 .user(user)
                 .product(session.getProduct())
                 .provider("INTERNAL")
-                .sourceObjectKey(sourceS3Key)
+                .sourceObjectKey(sourceS3Key.trim())
                 .build();
         job = photoJobRepo.save(job);
         return toPhotoJobResponse(job);
@@ -269,8 +382,15 @@ public class JewelleryServiceImpl implements JewelleryService {
     public JewelleryDto.WishlistItemResponse addToWishlist(AppUser user, Long productId) {
         JewelleryProduct product = productRepo.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-        if (wishlistRepo.existsByUserAndProduct(user, product)) {
-            throw new IllegalStateException("Product already in wishlist");
+        java.util.Optional<JewelleryWishlist> existing = wishlistRepo.findByUserAndProduct(user, product);
+        if (existing.isPresent()) {
+            JewelleryWishlist item = existing.get();
+            return JewelleryDto.WishlistItemResponse.builder()
+                    .id(item.getId())
+                    .productId(productId)
+                    .product(toProductResponse(product, user))
+                    .savedAt(item.getSavedAt().format(DT))
+                    .build();
         }
         JewelleryWishlist item = JewelleryWishlist.builder()
                 .user(user)
@@ -305,14 +425,27 @@ public class JewelleryServiceImpl implements JewelleryService {
 
     @Override
     public JewelleryDto.AppointmentResponse bookAppointment(AppUser user, JewelleryDto.CreateAppointmentRequest req) {
+        if (req.getDate().isBefore(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("Appointment date cannot be in the past");
+        }
         JewelleryVendorProfile vendor = vendorRepo.findByIdAndIsActiveTrue(req.getVendorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        String normalizedTime = req.getTime().trim();
+        List<JewelleryAppointment> booked = appointmentRepo.findByVendorAndAppointmentDateAndStatusIn(
+                vendor, req.getDate(), List.of("PENDING", "CONFIRMED"));
+        boolean slotTaken = booked != null && booked.stream()
+                .anyMatch(a -> a.getAppointmentTime() != null && a.getAppointmentTime().trim().equalsIgnoreCase(normalizedTime));
+        if (slotTaken) {
+            throw new IllegalStateException("Selected time slot is already booked");
+        }
+
         JewelleryAppointment appt = JewelleryAppointment.builder()
                 .user(user)
                 .vendor(vendor)
                 .appointmentDate(req.getDate())
-                .appointmentTime(req.getTime())
-                .purpose(req.getPurpose())
+                .appointmentTime(normalizedTime)
+                .purpose(req.getPurpose().trim().toUpperCase())
                 .notes(req.getNotes())
                 .build();
         return toAppointmentResponse(appointmentRepo.save(appt));
@@ -322,6 +455,9 @@ public class JewelleryServiceImpl implements JewelleryService {
     public void cancelAppointment(AppUser user, Long appointmentId, String reason) {
         JewelleryAppointment appt = appointmentRepo.findByIdAndUser(appointmentId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        if ("COMPLETED".equalsIgnoreCase(appt.getStatus())) {
+            throw new IllegalStateException("Cannot cancel an already completed appointment");
+        }
         appt.setStatus("CANCELLED");
         appt.setCancellationReason(reason);
         appointmentRepo.save(appt);
@@ -386,6 +522,13 @@ public class JewelleryServiceImpl implements JewelleryService {
 
         boolean wishlisted = user != null && wishlistRepo.existsByUserAndProduct(user, p);
 
+        List<String> tagList = (p.getTags() != null && !p.getTags().isBlank())
+                ? java.util.Arrays.stream(p.getTags().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList())
+                : null;
+
         return JewelleryDto.ProductResponse.builder()
                 .id(p.getId())
                 .vendorId(p.getVendor().getId())
@@ -408,6 +551,7 @@ public class JewelleryServiceImpl implements JewelleryService {
                 .stockQuantity(p.getStockQuantity())
                 .status(p.getStatus())
                 .isWishlisted(wishlisted)
+                .tags(tagList)
                 .stoneDetails(p.getStoneDetails())
                 .build();
     }
@@ -430,11 +574,15 @@ public class JewelleryServiceImpl implements JewelleryService {
     }
 
     private JewelleryDto.AppointmentResponse toAppointmentResponse(JewelleryAppointment a) {
+        AppUser customer = a.getUser();
         return JewelleryDto.AppointmentResponse.builder()
                 .id(a.getId())
                 .vendorId(a.getVendor().getId())
                 .vendorName(a.getVendor().getShopName())
                 .shopAddress(a.getVendor().getAddress())
+                .customerId(customer != null ? customer.getId() : null)
+                .customerName(customer != null ? customer.getFullName() : null)
+                .customerPhone(customer != null ? customer.getPhone() : null)
                 .date(a.getAppointmentDate().toString())
                 .time(a.getAppointmentTime())
                 .purpose(a.getPurpose())

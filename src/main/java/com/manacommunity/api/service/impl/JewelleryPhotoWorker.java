@@ -37,6 +37,7 @@ public class JewelleryPhotoWorker {
      * Poll and process queued photo jobs.
      */
     @Scheduled(fixedDelayString = "${app.jewellery.tryon.poll-ms:5000}")
+    @Transactional
     public void processQueue() {
         List<JewelleryPhotoJob> queued = photoJobRepo.findTop10ByStatusOrderByCreatedAtAsc("QUEUED");
         if (queued.isEmpty()) {

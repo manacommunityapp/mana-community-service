@@ -102,10 +102,53 @@ public class SportsLiveScoringService {
         int ballInOver = legalBalls > 0 ? ((legalBalls - 1) % 6) + 1 : 0;
         String totalOvers = overNumber + "." + ballInOver;
 
-        SportsAuctionPlayer batsman = playerRepo.findById(req.batsmanId())
-                .orElseThrow(() -> new ResourceNotFoundException("Player", req.batsmanId()));
-        SportsAuctionPlayer bowler = playerRepo.findById(req.bowlerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Player", req.bowlerId()));
+        SportsAuctionTeam batTeam = (req.inningsNumber() != null && req.inningsNumber() == 2) ? match.getTeamB() : match.getTeamA();
+        SportsAuctionTeam bowlTeam = (req.inningsNumber() != null && req.inningsNumber() == 2) ? match.getTeamA() : match.getTeamB();
+
+        SportsAuctionPlayer batsman = null;
+        if (req.batsmanId() != null && req.batsmanId() > 0) {
+            batsman = playerRepo.findById(req.batsmanId()).orElse(null);
+        }
+        if (batsman == null && !existing.isEmpty()) {
+            batsman = existing.get(existing.size() - 1).getBatsman();
+        }
+        if (batsman == null && batTeam != null && batTeam.getConfig() != null) {
+            List<SportsAuctionPlayer> configPlayers = playerRepo.findByConfigId(batTeam.getConfig().getId());
+            if (!configPlayers.isEmpty()) batsman = configPlayers.get(0);
+        }
+        if (batsman == null) {
+            batsman = playerRepo.save(SportsAuctionPlayer.builder()
+                    .config(batTeam != null ? batTeam.getConfig() : null)
+                    .community(match.getCommunity())
+                    .category("GENERAL")
+                    .playerName("Striker (" + (batTeam != null ? batTeam.getTeamName() : "Team " + (req.inningsNumber() != null && req.inningsNumber() == 2 ? "B" : "A")) + ")")
+                    .status(SportsAuctionPlayer.PlayerStatus.SOLD)
+                    .assignedTeam(batTeam)
+                    .build());
+        }
+
+        SportsAuctionPlayer bowler = null;
+        if (req.bowlerId() != null && req.bowlerId() > 0) {
+            bowler = playerRepo.findById(req.bowlerId()).orElse(null);
+        }
+        if (bowler == null && !existing.isEmpty()) {
+            bowler = existing.get(existing.size() - 1).getBowler();
+        }
+        if (bowler == null && bowlTeam != null && bowlTeam.getConfig() != null) {
+            List<SportsAuctionPlayer> configPlayers = playerRepo.findByConfigId(bowlTeam.getConfig().getId());
+            if (configPlayers.size() > 1) bowler = configPlayers.get(1);
+            else if (!configPlayers.isEmpty()) bowler = configPlayers.get(0);
+        }
+        if (bowler == null) {
+            bowler = playerRepo.save(SportsAuctionPlayer.builder()
+                    .config(bowlTeam != null ? bowlTeam.getConfig() : null)
+                    .community(match.getCommunity())
+                    .category("GENERAL")
+                    .playerName("Bowler (" + (bowlTeam != null ? bowlTeam.getTeamName() : "Team " + (req.inningsNumber() != null && req.inningsNumber() == 2 ? "A" : "B")) + ")")
+                    .status(SportsAuctionPlayer.PlayerStatus.SOLD)
+                    .assignedTeam(bowlTeam)
+                    .build());
+        }
         SportsAuctionPlayer nonStriker = req.nonStrikerId() != null
                 ? playerRepo.findById(req.nonStrikerId()).orElse(null) : null;
         SportsAuctionPlayer dismissedPlayer = req.dismissedPlayerId() != null
