@@ -35,4 +35,16 @@ public class GroupExpense {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @Transient
+    private String paidByName;
+
+    @Transient
+    private Integer splitBetween;
+
+    @Transient
+    private BigDecimal myShare;
+
+    @Transient
+    private BigDecimal myBalance;
 }

@@ -40,4 +40,10 @@ public class GroupMessage {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    @Transient
+    private String senderName;
+
+    @Transient
+    private String senderAvatarUrl;
 }

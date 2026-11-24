@@ -1,5 +1,6 @@
 package com.manacommunity.api.social.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,6 +35,7 @@ public class SocialGroup {
     @Column(name = "cover_image", length = 500)
     private String coverImage;
 
+    @JsonProperty("isPrivate")
     @Column(name = "is_private")
     @Builder.Default
     private boolean isPrivate = false;
@@ -46,6 +48,7 @@ public class SocialGroup {
     @Builder.Default
     private int memberCount = 1;
 
+    @JsonProperty("isActive")
     @Column(name = "is_active")
     @Builder.Default
     private boolean isActive = true;
@@ -53,4 +56,13 @@ public class SocialGroup {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @Transient
+    @JsonProperty("isMember")
+    private Boolean isMember;
+
+    @JsonProperty("coverImageUrl")
+    public String getCoverImageUrl() {
+        return coverImage;
+    }
 }

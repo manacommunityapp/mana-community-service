@@ -1,5 +1,6 @@
 package com.manacommunity.api.social.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -39,4 +40,12 @@ public class GroupEvent {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @Transient
+    private String rsvpStatus;
+
+    @JsonProperty("scheduledAt")
+    public OffsetDateTime getScheduledAt() {
+        return eventDate;
+    }
 }

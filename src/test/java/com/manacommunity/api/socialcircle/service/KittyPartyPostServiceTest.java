@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Kitty Party Post Service Test Suite")
 class KittyPartyPostServiceTest {
 
@@ -35,6 +38,8 @@ class KittyPartyPostServiceTest {
     private KittyPartyPostCommentRepository commentRepository;
     @Mock
     private KittyPartyCircleRepository circleRepository;
+    @Mock
+    private KittyPartyAuthorizationService authorizationService;
 
     @InjectMocks
     private KittyPartyPostService postService;

@@ -186,6 +186,23 @@ public class KittyPartyCircleService {
         log.info("User {} requested to join circle {}", user.getId(), circleId);
     }
 
+    @Transactional(readOnly = true)
+    public List<JoinRequestResponse> getPendingJoinRequests(Long circleId, AppUser reviewer) {
+        authorizationService.assertAdminOrOwner(circleId, reviewer.getId());
+        return joinRequestRepository.findByCircleIdAndStatus(circleId, "PENDING").stream()
+                .map(jr -> JoinRequestResponse.builder()
+                        .id(jr.getId())
+                        .circleId(circleId)
+                        .userId(jr.getUser() != null ? jr.getUser().getId() : null)
+                        .fullName(jr.getUser() != null ? jr.getUser().getFullName() : "Resident")
+                        .phone(jr.getUser() != null ? jr.getUser().getPhone() : null)
+                        .requestMessage(jr.getRequestMessage())
+                        .status(jr.getStatus())
+                        .createdAt(jr.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public void approveJoinRequest(Long circleId, Long joinRequestId, AppUser reviewer) {
         authorizationService.assertAdminOrOwner(circleId, reviewer.getId());

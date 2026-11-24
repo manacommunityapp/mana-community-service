@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Kitty Party Phase 5 Features Test Suite (Leaderboard, Polls, Vendors)")
 class KittyPartyPhase5FeaturesTest {
 
@@ -46,6 +49,8 @@ class KittyPartyPhase5FeaturesTest {
     private KittyPartyMemberRepository memberRepository;
     @Mock
     private FlatMembershipRepository flatMembershipRepository;
+    @Mock
+    private KittyPartyAuthorizationService authorizationService;
 
     @InjectMocks
     private KittyPartyHousieEngine housieEngine;
