@@ -313,8 +313,20 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
                 // Mana Fresh & Kitchen: Public GET endpoints for city serviceability and catalog browsing
                 .requestMatchers(HttpMethod.GET, "/api/v1/fresh/cities", "/api/v1/fresh/service-zones", "/api/v1/fresh/serviceability").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/fresh-kitchen/products/**", "/api/v1/fresh-kitchen/batters", "/api/v1/fresh-kitchen/combos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/fresh-kitchen/products/**", "/fresh-kitchen/batters", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh/products", "/api/v1/fresh/products/**",
+                        "/api/fresh/products", "/api/fresh/products/**",
+                        "/fresh/products", "/fresh/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh-kitchen/products", "/api/v1/fresh-kitchen/products/**",
+                        "/api/fresh-kitchen/products", "/api/fresh-kitchen/products/**",
+                        "/fresh-kitchen/products", "/fresh-kitchen/products/**",
+                        "/api/v1/fresh-kitchen/batters", "/api/fresh-kitchen/batters", "/fresh-kitchen/batters",
+                        "/api/v1/fresh-kitchen/combos", "/api/v1/fresh-kitchen/combos/**",
+                        "/api/fresh-kitchen/combos", "/api/fresh-kitchen/combos/**",
+                        "/fresh-kitchen/combos", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/wellness-basket/plans", "/api/wellness-basket/plans", "/wellness-basket/plans").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

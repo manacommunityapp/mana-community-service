@@ -8,8 +8,15 @@ import com.manacommunity.api.iot.mesh.entity.SensorAnomalyEvent;
 import com.manacommunity.api.iot.mesh.repository.IoTSensorRepository;
 import com.manacommunity.api.iot.mesh.repository.SensorAlertConfigRepository;
 import com.manacommunity.api.iot.mesh.repository.SensorAnomalyEventRepository;
+import com.manacommunity.api.iot.mesh.sqs.IoTAlertSqsHandler;
+import com.manacommunity.api.iot.mesh.sqs.IoTAlertSqsHandler.IoTAnomalyPushPayload;
+import com.manacommunity.platform.sqs.SqsMessagePublisher;
+import com.manacommunity.platform.sqs.SqsProperties;
+import com.manacommunity.platform.websocket.IoTAlertsRedisPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,6 +39,23 @@ public class IoTMeshService {
     private final SensorAnomalyEventRepository anomalyRepo;
     private final SimpMessagingTemplate ws;
     private final JdbcTemplate jdbc;
+
+    /** Redis Pub/Sub publisher — optional, falls back to local STOMP when null. */
+    @Autowired(required = false)
+    private IoTAlertsRedisPublisher iotAlertsRedisPublisher;
+
+    @Autowired(required = false)
+    private SqsMessagePublisher sqsMessagePublisher;
+    @Autowired(required = false)
+    private SqsProperties sqsProperties;
+    @Autowired(required = false)
+    private IoTAlertSqsHandler iotAlertSqsHandler;
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
+
+    private static final String LAST_READING_KEY_PREFIX = "iot:sensor:";
+    private static final String LAST_READING_KEY_SUFFIX = ":last-reading";
+    private static final java.time.Duration LAST_READING_TTL = java.time.Duration.ofMinutes(10);
 
     // ── Registry ──────────────────────────────────────────────────────────
 
@@ -91,6 +115,18 @@ public class IoTMeshService {
         sensor.setLastReadingAt(ts);
         sensorRepo.save(sensor);
 
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(
+                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX,
+                        value.toPlainString(),
+                        LAST_READING_TTL
+                );
+            } catch (Exception e) {
+                log.debug("Redis write failed for sensor last-reading sensorId={}: {}", sensorId, e.getMessage());
+            }
+        }
+
         checkAlerts(sensor, value);
 
         return new TelemetryPoint(value, ts, q);
@@ -127,11 +163,33 @@ public class IoTMeshService {
                         .build();
                 anomalyRepo.save(event);
 
-                ws.convertAndSend(
-                        "/topic/community/" + sensor.getCommunityId() + "/iot-feed",
-                        Map.of("type", "ANOMALY", "sensorId", sensor.getId(),
-                               "severity", cfg.getSeverity(), "description", desc)
+                Map<String, Object> alertPayload = Map.of(
+                        "type", "ANOMALY",
+                        "sensorId", sensor.getId(),
+                        "severity", cfg.getSeverity(),
+                        "description", desc
                 );
+                if (iotAlertsRedisPublisher != null) {
+                    // Redis Pub/Sub — delivers to all nodes
+                    iotAlertsRedisPublisher.publishAlert(sensor.getCommunityId(), alertPayload);
+                } else {
+                    // Fallback: local in-memory broadcast
+                    ws.convertAndSend(
+                            "/topic/community/" + sensor.getCommunityId() + "/iot-feed",
+                            alertPayload
+                    );
+                }
+                if (sqsMessagePublisher != null && sqsProperties != null) {
+                    var pushPayload = new IoTAnomalyPushPayload(
+                            sensor.getCommunityId(), sensor.getId(), sensor.getSensorName(),
+                            cfg.getSeverity(), desc);
+                    sqsMessagePublisher.publishAfterCommit(
+                            sqsProperties.getQueues().getIotAlerts(),
+                            "SENSOR_ANOMALY",
+                            pushPayload,
+                            iotAlertSqsHandler != null ? () -> iotAlertSqsHandler.deliverPush(pushPayload) : null
+                    );
+                }
                 log.warn("IoT anomaly: communityId={} sensor={} {}", sensor.getCommunityId(), sensor.getId(), desc);
             }
         }
@@ -140,10 +198,30 @@ public class IoTMeshService {
     // ── Polling ───────────────────────────────────────────────────────────
 
     public BigDecimal pollSensor(Long sensorId) {
+        if (redisTemplate != null && sensorId != null) {
+            try {
+                String cached = redisTemplate.opsForValue().get(
+                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX);
+                if (cached != null && !cached.isBlank()) {
+                    return new BigDecimal(cached);
+                }
+            } catch (Exception e) {
+                log.debug("Redis read failed for sensor last-reading sensorId={}: {}", sensorId, e.getMessage());
+            }
+        }
         IoTSensor sensor = sensorRepo.findById(sensorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found: " + sensorId));
         // Stub: return last reading or 0
         BigDecimal value = sensor.getLastReading() != null ? sensor.getLastReading() : BigDecimal.ZERO;
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(
+                        LAST_READING_KEY_PREFIX + sensorId + LAST_READING_KEY_SUFFIX,
+                        value.toPlainString(),
+                        LAST_READING_TTL
+                );
+            } catch (Exception ignored) {}
+        }
         log.info("STUB poll sensor={} returning {}", sensorId, value);
         return value;
     }

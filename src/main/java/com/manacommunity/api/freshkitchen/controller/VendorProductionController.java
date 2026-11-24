@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/vendor", "/vendor"})
+@RequestMapping({"/api/v1/vendor", "/api/vendor", "/vendor"})
 @RequiredArgsConstructor
 public class VendorProductionController {
 

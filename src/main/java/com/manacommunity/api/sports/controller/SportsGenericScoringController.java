@@ -38,8 +38,9 @@ public class SportsGenericScoringController {
 
     private final SportsGenericScoringService scoringService;
     private final LoggedInUserService loggedInUserService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final com.manacommunity.platform.websocket.SportsMatchRedisPublisher redisPublisher;
+    private final com.manacommunity.api.sports.service.SportsLiveScoreCacheService liveScoreCacheService;
 
     @PostMapping("/score")
     @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SPORTS_REFEREE','SUPER_ADMIN')")
@@ -64,7 +65,7 @@ public class SportsGenericScoringController {
 
     @GetMapping("/{matchId}/state")
     public ResponseEntity<SportsGenericMatchStateResponse> getMatchState(@PathVariable Long matchId) {
-        return ResponseEntity.ok(scoringService.getMatchState(matchId));
+        return ResponseEntity.ok(liveScoreCacheService.getGenericLiveSnapshot(matchId, () -> scoringService.getMatchState(matchId)));
     }
 
     @PostMapping("/{matchId}/period/{periodNumber}/complete")
@@ -161,6 +162,7 @@ public class SportsGenericScoringController {
 
     private void broadcastState(Long matchId) {
         SportsGenericMatchStateResponse state = scoringService.getMatchState(matchId);
-        messagingTemplate.convertAndSend("/topic/match/" + matchId + "/generic-state", state);
+        liveScoreCacheService.setGenericLiveSnapshot(matchId, state);
+        redisPublisher.publishEvent(state, matchId);
     }
 }

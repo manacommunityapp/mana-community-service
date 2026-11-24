@@ -3,8 +3,10 @@ package com.manacommunity.api.grouporder.service;
 import com.manacommunity.api.grouporder.dto.*;
 import com.manacommunity.api.grouporder.entity.*;
 import com.manacommunity.api.grouporder.repository.*;
+import com.manacommunity.platform.websocket.GroupOrderRedisPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -25,6 +27,17 @@ public class GroupOrderService {
     private final GroupOrderContributionRepository contributionRepository;
     private final GroupOrderUpdateRepository updateRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    /** Redis Pub/Sub publisher — optional, falls back to local STOMP when null. */
+    @Autowired(required = false)
+    private GroupOrderRedisPublisher groupOrderRedisPublisher;
+
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+    @Autowired(required = false)
+    private com.manacommunity.api.grouporder.sqs.GroupOrderNotificationSqsHandler groupOrderNotificationSqsHandler;
 
     @Transactional
     public GroupOrder createGroupOrder(Long communityId, Long organizerId, CreateGroupOrderRequest req) {
@@ -245,16 +258,35 @@ public class GroupOrderService {
 
     private void publishStatusEvent(GroupOrder order, String message) {
         try {
-            messagingTemplate.convertAndSend(
-                    "/topic/community/" + order.getCommunityId() + "/group-orders",
-                    Map.of(
-                            "groupOrderId", order.getId(),
-                            "status", order.getStatus(),
-                            "title", order.getTitle(),
-                            "message", message,
-                            "totalCommitted", order.getTotalCommitted()
-                    )
+            Map<String, Object> payload = Map.of(
+                    "groupOrderId", order.getId(),
+                    "status", order.getStatus(),
+                    "title", order.getTitle(),
+                    "message", message,
+                    "totalCommitted", order.getTotalCommitted()
             );
+            if (groupOrderRedisPublisher != null) {
+                // Redis Pub/Sub — delivers to all nodes
+                groupOrderRedisPublisher.publishStatusEvent(order.getCommunityId(), payload);
+            } else {
+                // Fallback: local in-memory broadcast
+                messagingTemplate.convertAndSend(
+                        "/topic/community/" + order.getCommunityId() + "/group-orders",
+                        payload
+                );
+            }
+            if (sqsMessagePublisher != null && sqsProperties != null) {
+                var pushPayload = new com.manacommunity.api.grouporder.sqs.GroupOrderNotificationSqsHandler.GroupOrderNotificationPayload(
+                        order.getId(), order.getCommunityId(), order.getStatus(), order.getTitle(), message);
+                sqsMessagePublisher.publishAfterCommit(
+                        sqsProperties.getQueues().getGroupOrderNotifications(),
+                        "GROUP_ORDER_STATUS",
+                        pushPayload,
+                        groupOrderNotificationSqsHandler != null
+                                ? () -> groupOrderNotificationSqsHandler.deliverNotifications(pushPayload)
+                                : null
+                );
+            }
         } catch (Exception ex) {
             log.warn("WebSocket push failed for group order {}: {}", order.getId(), ex.getMessage());
         }

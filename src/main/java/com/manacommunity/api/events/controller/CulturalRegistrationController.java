@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/events/cultural/registrations")
+@RequestMapping({"/api/events/cultural/registrations", "/events/cultural/registrations"})
 public class CulturalRegistrationController {
 
     private final CulturalRegistrationService service;
@@ -49,21 +49,21 @@ public class CulturalRegistrationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN')")
     public ResponseEntity<List<EventCulturalRegistration>> getRegistrationsByCommunity(
             @RequestHeader(value = "X-Community-Id", required = false) Long communityId) {
         return ResponseEntity.ok(service.getRegistrationsByCommunity(communityId));
     }
 
     @GetMapping("/event/{culturalEventId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN')")
     public ResponseEntity<List<EventCulturalRegistration>> getRegistrationsByCulturalEvent(
             @PathVariable Long culturalEventId) {
         return ResponseEntity.ok(service.getRegistrationsByCulturalEvent(culturalEventId));
     }
 
     @GetMapping("/main-event/{mainEventId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN')")
     public ResponseEntity<List<EventCulturalRegistration>> getRegistrationsByMainEvent(
             @PathVariable Long mainEventId) {
         return ResponseEntity.ok(service.getRegistrationsByMainEvent(mainEventId));
@@ -91,7 +91,7 @@ public class CulturalRegistrationController {
     }
 
     @PatchMapping("/{id}/checkin")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN')")
     public ResponseEntity<EventCulturalRegistration> checkIn(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -100,7 +100,7 @@ public class CulturalRegistrationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN')")
     public ResponseEntity<Void> deleteRegistration(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {

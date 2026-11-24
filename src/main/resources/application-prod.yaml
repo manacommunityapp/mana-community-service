@@ -27,6 +27,14 @@ spring:
         format_sql: false
         use_sql_comments: false
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 1000ms
+      connect-timeout: 1000ms
+
 
   # ── SMTP transport (Brevo relay for Dev) ────────────────────────────────
   mail:

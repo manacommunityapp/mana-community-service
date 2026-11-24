@@ -47,6 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Value("${app.security.mock-auth-enabled:false}")
     private boolean mockAuthEnabled;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                    AppUserRepository userRepository,
                                    RolePermissionRepository rolePermissionRepository,
@@ -154,10 +157,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Set<String> enabledModules = null;
         Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (!isSuperAdmin && communityId != null) {
-            enabledModules = communityModuleRepository.findEnabledByCommunityId(communityId)
-                    .stream()
-                    .map(cm -> cm.getModuleKey())
-                    .collect(Collectors.toSet());
+            enabledModules = resolveEnabledModules(communityId);
         }
 
         for (String permKey : effectivePerms) {
@@ -183,6 +183,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         String moduleKey = ModuleConstants.getModuleForPermission(permissionKey);
         return moduleKey == null || enabledModules.contains(moduleKey);
+    }
+
+    private Set<String> resolveEnabledModules(Long communityId) {
+        String cacheKey = "community:modules:" + communityId;
+        if (redisTemplate != null) {
+            try {
+                Set<String> cached = redisTemplate.opsForSet().members(cacheKey);
+                if (cached != null && !cached.isEmpty()) {
+                    return cached;
+                }
+            } catch (Exception e) {
+                log.debug("Redis read failed for key {}: {}", cacheKey, e.getMessage());
+            }
+        }
+
+        Set<String> modules = communityModuleRepository.findEnabledByCommunityId(communityId)
+                .stream()
+                .map(com.manacommunity.api.model.CommunityModule::getModuleKey)
+                .collect(Collectors.toSet());
+
+        if (redisTemplate != null && !modules.isEmpty()) {
+            try {
+                redisTemplate.opsForSet().add(cacheKey, modules.toArray(new String[0]));
+                redisTemplate.expire(cacheKey, java.time.Duration.ofMinutes(30));
+            } catch (Exception e) {
+                log.debug("Redis write failed for key {}: {}", cacheKey, e.getMessage());
+            }
+        }
+        return modules;
     }
 
     private Long parseLegacyId(String token) {

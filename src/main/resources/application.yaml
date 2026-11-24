@@ -209,6 +209,28 @@ app:
     provider: ${RECHARGE_PROVIDER:MOCK}          # JUSPAY | RAZORPAY_BILLPAY | MOCK
     upi-vpa: ${RECHARGE_UPI_VPA:recharge@manapay}  # VPA used in UPI intent URLs
 
+  sqs:
+    # Set APP_SQS_ENABLED=true in prod/staging once SQS queues are provisioned.
+    # When false (default), publishers transparently execute the async in-process fallback.
+    enabled: ${APP_SQS_ENABLED:false}
+    region: ${SQS_REGION:eu-north-1}
+    access-key: ${SQS_ACCESS_KEY:}
+    secret-key: ${SQS_SECRET_KEY:}
+    endpoint: ${SQS_ENDPOINT:}
+    poll-delay-ms: ${SQS_POLL_DELAY_MS:2000}
+    max-messages-per-poll: ${SQS_MAX_MESSAGES:10}
+    wait-time-seconds: ${SQS_WAIT_SECONDS:10}
+    queues:
+      sms-dispatch: ${SQS_QUEUE_SMS_DISPATCH:mana-sms-dispatch}
+      notification-events: ${SQS_QUEUE_NOTIFICATION_EVENTS:mana-notification-events}
+      sports-events: ${SQS_QUEUE_SPORTS_EVENTS:mana-sports-events}
+      auction-notifications: ${SQS_QUEUE_AUCTION_NOTIFICATIONS:mana-auction-notifications}
+      iot-alerts: ${SQS_QUEUE_IOT_ALERTS:mana-iot-alerts}
+      mobility-events: ${SQS_QUEUE_MOBILITY_EVENTS:mana-mobility-events}
+      group-order-notifications: ${SQS_QUEUE_GROUP_ORDER_NOTIFICATIONS:mana-grouporder-notifications}
+      external-sync: ${SQS_QUEUE_EXTERNAL_SYNC:mana-external-sync}
+      report-jobs: ${SQS_QUEUE_REPORT_JOBS:mana-report-jobs}
+
   mail:
     # Set to true to enable email delivery via AWS SES.
     enabled: ${APP_MAIL_ENABLED:true}

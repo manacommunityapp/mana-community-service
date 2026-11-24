@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -90,6 +91,26 @@ public class WebSocketSessionTracker {
 
     public boolean isConnectionLimitReached(Long userId) {
         return getConnectionCount(userId) >= MAX_CONNECTIONS_PER_USER;
+    }
+
+    /**
+     * Checks if there are any active WebSocket client connections.
+     * Useful for schedulers to avoid broadcasting or running analytical queries when 0 clients are connected.
+     */
+    public boolean hasActiveSessions() {
+        if (!sessionUserMap.isEmpty()) {
+            return true;
+        }
+        if (redisTemplate == null) {
+            return false;
+        }
+        try {
+            Set<String> keys = redisTemplate.keys(KEY_PREFIX + "*");
+            return keys != null && !keys.isEmpty();
+        } catch (Exception e) {
+            log.debug("Redis unavailable while checking active sessions: {}", e.getMessage());
+            return !sessionUserMap.isEmpty();
+        }
     }
 
     @EventListener

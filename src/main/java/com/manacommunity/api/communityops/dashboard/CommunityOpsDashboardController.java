@@ -6,9 +6,11 @@ import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.service.LoggedInUserService;
 import com.manacommunity.api.service.PermissionCheckService;
 import com.manacommunity.api.platform.web.ApiResponse;
+import com.manacommunity.platform.websocket.WebSocketSessionTracker;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,6 +34,9 @@ public class CommunityOpsDashboardController {
     private final LoggedInUserService loggedInUserService;
     private final PermissionCheckService permissionCheckService;
 
+    @Autowired(required = false)
+    private WebSocketSessionTracker sessionTracker;
+
     @GetMapping("/snapshot")
     public ResponseEntity<ApiResponse<CommunityOpsSnapshot>> getSnapshot(
             @PathVariable(name = "communityId", required = false) Long pathCommunityId,
@@ -52,6 +57,10 @@ public class CommunityOpsDashboardController {
 
     @Scheduled(fixedRate = 30_000)
     public void pushSnapshotsToAll() {
+        if (sessionTracker != null && !sessionTracker.hasActiveSessions()) {
+            log.trace("Skipping Ops snapshot push: 0 active WebSocket sessions");
+            return;
+        }
         communityRepository.findByActiveTrueOrderByNameAsc().forEach(community -> {
             try {
                 CommunityOpsSnapshot snapshot = dashboardService.buildSnapshot(community.getId());

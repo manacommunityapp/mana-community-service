@@ -3,6 +3,7 @@ package com.manacommunity.api.mobility.service.impl;
 import com.manacommunity.api.mobility.dto.*;
 import com.manacommunity.api.mobility.model.*;
 import com.manacommunity.api.mobility.repository.*;
+import com.manacommunity.api.mobility.service.MobilityDriverLocationCacheService;
 import com.manacommunity.api.mobility.service.MobilityService;
 import com.manacommunity.api.model.Community;
 import com.manacommunity.api.repository.CommunityRepository;
@@ -51,6 +52,18 @@ public class MobilityServiceImpl implements MobilityService {
     private final CommuteMatchingEngine          matchingEngine;
     private final ExpoPushService                expoPushService;
     private final FileStorageService             fileStorageService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MobilityDriverLocationCacheService   locationCacheService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler mobilityEventsSqsHandler;
 
     // ── Fare rates ────────────────────────────────────────────────
     private static final BigDecimal BASE_FARE       = new BigDecimal("20");
@@ -273,8 +286,17 @@ public class MobilityServiceImpl implements MobilityService {
         if (driver.getStatus() != MobilityDriverStatus.APPROVED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Driver not approved yet");
         }
-        driver.setAvailability(availability.toUpperCase());
-        return toDriverDto(driverRepo.save(driver));
+        String normalized = availability.toUpperCase();
+        driver.setAvailability(normalized);
+        MobilityDriver saved = driverRepo.save(driver);
+        if (locationCacheService != null) {
+            boolean online = "ONLINE".equals(normalized);
+            var cached = locationCacheService.getLocation(saved.getId()).orElse(null);
+            Double lat = cached != null ? cached.lat() : saved.getCurrentLat();
+            Double lng = cached != null ? cached.lng() : saved.getCurrentLng();
+            locationCacheService.updateAvailabilityIndex(saved.getId(), online, lat, lng);
+        }
+        return toDriverDto(saved);
     }
 
     @Override
@@ -282,6 +304,13 @@ public class MobilityServiceImpl implements MobilityService {
         MobilityDriver driver = requireDriver(user);
         if (driver.getStatus() != MobilityDriverStatus.APPROVED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Driver not approved yet");
+        }
+        if (locationCacheService != null) {
+            boolean isOnline = "ONLINE".equalsIgnoreCase(driver.getAvailability());
+            if (locationCacheService.updateLocation(driver.getId(), latitude, longitude, isOnline)) {
+                // Skip DB write on high-frequency GPS pings; scheduler flushes every 30s
+                return toDriverDto(driver);
+            }
         }
         driver.setCurrentLat(latitude);
         driver.setCurrentLng(longitude);
@@ -945,15 +974,36 @@ public class MobilityServiceImpl implements MobilityService {
             trip.setStatus(MobilityTripStatus.NO_DRIVER_FOUND);
             return;
         }
-        // Pick driver with non-null location closest to pickup
-        MobilityDriver best = online.stream()
-                .filter(d -> d.getCurrentLat() != null && d.getCurrentLng() != null)
-                .min((a, b) -> {
-                    double da = matchingEngine.calculateDistanceKm(trip.getPickupLat(), trip.getPickupLng(), a.getCurrentLat(), a.getCurrentLng());
-                    double db = matchingEngine.calculateDistanceKm(trip.getPickupLat(), trip.getPickupLng(), b.getCurrentLat(), b.getCurrentLng());
-                    return Double.compare(da, db);
-                })
-                .orElse(online.get(0));  // fallback: first online driver if none have location
+
+        // Fast path: consult Redis GEO index for nearest online driver
+        MobilityDriver best = null;
+        if (locationCacheService != null) {
+            List<Long> geoNearestIds = locationCacheService.findNearestDriverIds(
+                    trip.getPickupLat(), trip.getPickupLng(), 25.0, 10);
+            if (!geoNearestIds.isEmpty()) {
+                Map<Long, MobilityDriver> onlineById = online.stream()
+                        .collect(Collectors.toMap(MobilityDriver::getId, d -> d, (a, b) -> a));
+                for (Long candidateId : geoNearestIds) {
+                    MobilityDriver candidate = onlineById.get(candidateId);
+                    if (candidate != null) {
+                        best = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fallback: in-memory distance scan using DB coordinates
+        if (best == null) {
+            best = online.stream()
+                    .filter(d -> d.getCurrentLat() != null && d.getCurrentLng() != null)
+                    .min((a, b) -> {
+                        double da = matchingEngine.calculateDistanceKm(trip.getPickupLat(), trip.getPickupLng(), a.getCurrentLat(), a.getCurrentLng());
+                        double db = matchingEngine.calculateDistanceKm(trip.getPickupLat(), trip.getPickupLng(), b.getCurrentLat(), b.getCurrentLng());
+                        return Double.compare(da, db);
+                    })
+                    .orElse(online.get(0));  // fallback: first online driver if none have location
+        }
 
         MobilityDriverOffer offer = MobilityDriverOffer.builder()
                 .trip(trip)
@@ -963,6 +1013,19 @@ public class MobilityServiceImpl implements MobilityService {
         offerRepo.save(offer);
         best.setAvailability("OFFER_PENDING");
         driverRepo.save(best);
+        if (locationCacheService != null) {
+            locationCacheService.updateAvailabilityIndex(best.getId(), false, null, null);
+        }
+        if (sqsMessagePublisher != null && sqsProperties != null && best.getUser() != null) {
+            var pushPayload = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.DriverTripOfferPayload(
+                    trip.getId(), trip.getTripRef(), best.getUser().getId(), trip.getPickupAddress());
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getMobilityEvents(),
+                    "DRIVER_TRIP_OFFER",
+                    pushPayload,
+                    mobilityEventsSqsHandler != null ? () -> mobilityEventsSqsHandler.deliverDriverOfferPush(pushPayload) : null
+            );
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────
@@ -1021,6 +1084,9 @@ public class MobilityServiceImpl implements MobilityService {
             AppUser du = d.getUser();
             List<MobilityVehicle> vehicles = vehicleRepo.findByDriverIdAndActiveTrue(d.getId());
             MobilityVehicle v = vehicles.isEmpty() ? null : vehicles.get(0);
+            var cachedLoc = locationCacheService != null
+                    ? locationCacheService.getLocation(d.getId()).orElse(null)
+                    : null;
             driverDto = MobilityTripDriverDto.builder()
                     .driverId(d.getId())
                     .driverName(driverDisplayName(d))
@@ -1028,9 +1094,9 @@ public class MobilityServiceImpl implements MobilityService {
                     .vehicleModel(v != null ? v.getModel() : null)
                     .vehicleNumber(v != null ? v.getNumberPlate() : null)
                     .rating(d.getAvgRating())
-                    .currentLat(d.getCurrentLat())
-                    .currentLng(d.getCurrentLng())
-                    .locationUpdatedAt(d.getLocationUpdatedAt())
+                    .currentLat(cachedLoc != null ? cachedLoc.lat() : d.getCurrentLat())
+                    .currentLng(cachedLoc != null ? cachedLoc.lng() : d.getCurrentLng())
+                    .locationUpdatedAt(cachedLoc != null ? cachedLoc.updatedAt() : d.getLocationUpdatedAt())
                     .build();
         }
         return MobilityTripDto.builder()

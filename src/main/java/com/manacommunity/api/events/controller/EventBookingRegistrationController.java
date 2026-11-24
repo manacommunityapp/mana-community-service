@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/events/registrations")
+@RequestMapping({"/api/events/registrations", "/events/registrations"})
 public class EventBookingRegistrationController {
 
     private final EventBookingRegistrationService service;
@@ -61,9 +61,9 @@ public class EventBookingRegistrationController {
         AppUser caller = loggedInUserService.resolve(principal);
         boolean isAdmin = caller != null && (
                 caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
-                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
+                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") || caller.hasRole("EVENTS_ADMIN") ||
                 caller.hasRole("ROLE_ADMIN") || caller.hasRole("ROLE_SUPER_ADMIN") ||
-                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN"));
+                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN") || caller.hasRole("ROLE_EVENTS_ADMIN"));
 
         Long effectiveTargetId = targetUserId;
         if (effectiveTargetId == null && registration.getUser() != null && registration.getUser().getId() != null) {
@@ -107,9 +107,9 @@ public class EventBookingRegistrationController {
         AppUser caller = loggedInUserService.resolve(principal);
         boolean isAdmin = caller != null && (
                 caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
-                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
+                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") || caller.hasRole("EVENTS_ADMIN") ||
                 caller.hasRole("ROLE_ADMIN") || caller.hasRole("ROLE_SUPER_ADMIN") ||
-                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN"));
+                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN") || caller.hasRole("ROLE_EVENTS_ADMIN"));
 
         Long effectiveTargetId = targetUserId;
         if (effectiveTargetId == null && body.get("userId") != null) {

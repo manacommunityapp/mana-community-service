@@ -20,10 +20,12 @@ import com.manacommunity.api.sports.repository.SportsVenueRepository;
 import com.manacommunity.api.sports.dto.SportsAnalyticsResponse;
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.repository.*;
+import com.manacommunity.api.sports.service.SportsAnalyticsCacheService;
 import com.manacommunity.api.sports.service.SportsAnalyticsService;
 import com.manacommunity.api.user.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,9 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
     private final SportsAuctionTeamRepository auctionTeamRepo;
     private final SportsAuctionPlayerRepository auctionPlayerRepo;
 
+    @Autowired(required = false)
+    private SportsAnalyticsCacheService analyticsCacheService;
+
     @Override
     @Transactional(readOnly = true)
     public SportsAnalyticsResponse getAnalytics(AppUser user, Long requestedCommunityId) {
@@ -55,10 +60,19 @@ public class SportsAnalyticsServiceImpl implements SportsAnalyticsService {
     @Override
     @Transactional(readOnly = true)
     public SportsAnalyticsResponse getAnalytics(AppUser user, Long requestedCommunityId, Long sportId, LocalDate fromDate, LocalDate toDate) {
-        boolean filtersApplied = sportId != null || fromDate != null || toDate != null;
         boolean isSuperAdmin = user != null && user.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? requestedCommunityId
                 : (user != null && user.getCommunity() != null ? user.getCommunity().getId() : requestedCommunityId);
+
+        if (analyticsCacheService != null) {
+            return analyticsCacheService.getAnalytics(targetCommunityId, sportId, fromDate, toDate,
+                    () -> computeAnalyticsFromDb(targetCommunityId, sportId, fromDate, toDate));
+        }
+        return computeAnalyticsFromDb(targetCommunityId, sportId, fromDate, toDate);
+    }
+
+    private SportsAnalyticsResponse computeAnalyticsFromDb(Long targetCommunityId, Long sportId, LocalDate fromDate, LocalDate toDate) {
+        boolean filtersApplied = sportId != null || fromDate != null || toDate != null;
 
         // 1. Fetch Tournaments
         List<SportsTournament> tournaments = targetCommunityId == null

@@ -35,6 +35,20 @@ public class SportsAdminMatchController {
     private final LoggedInUserService loggedInUserService;
     private final com.manacommunity.api.service.PermissionCheckService permissionCheckService;
     private final com.manacommunity.api.sports.service.SportsFeedService feedService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsLiveScoreCacheService liveScoreCacheService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsAnalyticsCacheService analyticsCacheService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsDashboardCacheService dashboardCacheService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
 
     @GetMapping("/matches")
     public ResponseEntity<PagedResponse<SportsMatchResponse>> getMatches(
@@ -104,6 +118,27 @@ public class SportsAdminMatchController {
         if (statusStr != null && !statusStr.isBlank()) {
             match.setStatus(MatchStatus.valueOf(statusStr.toUpperCase()));
             match = matchRepo.save(match);
+            if (liveScoreCacheService != null) {
+                if (match.getStatus() == MatchStatus.COMPLETED) {
+                    liveScoreCacheService.cleanupOnMatchCompleted(matchId);
+                } else {
+                    liveScoreCacheService.invalidate(matchId);
+                }
+            }
+            if (analyticsCacheService != null && match.getStatus() == MatchStatus.COMPLETED) {
+                analyticsCacheService.invalidateAll();
+            }
+            if (dashboardCacheService != null) {
+                dashboardCacheService.invalidateAll();
+            }
+            if (sqsMessagePublisher != null && sqsProperties != null && match.getStatus() == MatchStatus.COMPLETED) {
+                sqsMessagePublisher.publishAfterCommit(
+                        sqsProperties.getQueues().getSportsEvents(),
+                        "MATCH_RESULT_FEED_POST",
+                        Map.of("matchId", matchId),
+                        () -> feedService.publishCompletedMatchPost(matchId)
+                );
+            }
             feedService.broadcastLiveFeedUpdate();
         }
         return ResponseEntity.ok(schedulerService.toMatchResponse(match));

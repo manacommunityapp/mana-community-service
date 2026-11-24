@@ -94,6 +94,16 @@ public class SportsEventServiceImpl implements SportsEventService {
     private final com.manacommunity.api.user.repository.FamilyMemberRepository familyMemberRepository;
     private final SportsPlayerRankingRepository rankingRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsDashboardCacheService dashboardCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsAnalyticsCacheService analyticsCacheService;
+
+    private void invalidateSportsCaches() {
+        if (dashboardCacheService != null) dashboardCacheService.invalidateAll();
+        if (analyticsCacheService != null) analyticsCacheService.invalidateAll();
+    }
+
     private java.util.List<Contact> resolveContacts(java.util.List<ContactDto> dtos) {
         if (dtos == null || dtos.isEmpty()) return new java.util.ArrayList<>();
         return dtos.stream().map(dto -> {
@@ -241,6 +251,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             null,
             "name=" + saved.getName() + ", sport=" + (saved.getSport() != null ? saved.getSport().getName() : "")
         );
+        invalidateSportsCaches();
 
         return saved;
     }
@@ -834,6 +845,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             null,
             "eventId=" + event.getId() + ", player=" + saved.getPlayerName() + ", status=" + saved.getStatus()
         );
+        invalidateSportsCaches();
 
         return saved;
     }
@@ -1112,6 +1124,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         } catch (Exception e) {
             log.warn("Failed to persist withdrawal notification", e);
         }
+        invalidateSportsCaches();
     }
 
     @Override
@@ -1289,6 +1302,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             "status=PENDING",
             "status=CONFIRMED"
         );
+        invalidateSportsCaches();
 
         return saved;
     }
@@ -1361,6 +1375,7 @@ public class SportsEventServiceImpl implements SportsEventService {
             "status=PENDING",
             "status=REJECTED, reason=" + reason
         );
+        invalidateSportsCaches();
 
         return saved;
     }
@@ -2211,6 +2226,7 @@ public class SportsEventServiceImpl implements SportsEventService {
         }
 
         notifyEventParticipants(saved, tournamentStatus);
+        invalidateSportsCaches();
 
         return saved;
     }

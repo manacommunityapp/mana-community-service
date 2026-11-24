@@ -400,6 +400,12 @@
             <artifactId>s3-transfer-manager</artifactId>
         </dependency>
 
+        <!-- AWS SDK v2 SQS client — version managed by software.amazon.awssdk:bom -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+        </dependency>
+
         <!-- Apache Tika — server-side MIME type detection from file bytes (never trust client Content-Type). -->
         <dependency>
             <groupId>org.apache.tika</groupId>

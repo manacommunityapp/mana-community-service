@@ -15,8 +15,11 @@ import com.manacommunity.api.notification.repository.SmsCostRecordRepository;
 import com.manacommunity.api.notification.repository.SmsMessageRepository;
 import com.manacommunity.api.notification.repository.UserSmsPreferenceRepository;
 import com.manacommunity.api.notification.template.SmsTemplateResolver;
+import com.manacommunity.platform.sqs.SqsMessagePublisher;
+import com.manacommunity.platform.sqs.SqsProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -41,6 +44,11 @@ public class SmsServiceImpl implements SmsService {
     private final SmsRateLimiter rateLimiter;
     private final SmsProvider smsProvider;
     private final SmsProperties smsProperties;
+
+    @Autowired(required = false)
+    private SqsMessagePublisher sqsMessagePublisher;
+    @Autowired(required = false)
+    private SqsProperties sqsProperties;
 
     @Override
     @Transactional
@@ -105,8 +113,21 @@ public class SmsServiceImpl implements SmsService {
                 .build();
 
         SmsMessage saved = smsMessageRepo.save(message);
-        dispatchAsync(saved.getId());
+        enqueueSmsDispatch(saved.getId());
         return saved.getId();
+    }
+
+    private void enqueueSmsDispatch(Long messageId) {
+        if (sqsMessagePublisher != null && sqsProperties != null) {
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getSmsDispatch(),
+                    "SMS_DISPATCH",
+                    Map.of("smsMessageId", messageId),
+                    () -> dispatchAsync(messageId)
+            );
+        } else {
+            dispatchAsync(messageId);
+        }
     }
 
     @Async("smsAsyncExecutor")
@@ -204,7 +225,7 @@ public class SmsServiceImpl implements SmsService {
         message.setStatus(SmsStatus.QUEUED);
         message.setNextRetryAt(null);
         smsMessageRepo.save(message);
-        dispatchAsync(message.getId());
+        enqueueSmsDispatch(message.getId());
         return toResponse(message);
     }
 

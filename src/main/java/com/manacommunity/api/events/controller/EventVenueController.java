@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/venues")
+@RequestMapping({"/api/events/venues", "/api/venues", "/events/venues", "/venues"})
 public class EventVenueController {
 
     private final EventVenueService service;
@@ -22,7 +22,7 @@ public class EventVenueController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'RESIDENT', 'OWNER', 'TENANT', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'EVENTS_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<EventVenue>> getVenues(
             @RequestParam(required = false) String status,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -31,13 +31,13 @@ public class EventVenueController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('View Events', 'Register Event', 'View Event Dashboard') or hasAnyRole('USER', 'RESIDENT', 'OWNER', 'TENANT', 'MEMBER', 'ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'EVENTS_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<EventVenue> getVenueById(@PathVariable Long id) {
         return ResponseEntity.ok(service.getVenueById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'EVENTS_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<EventVenue> createVenue(
             @RequestBody EventVenue venue,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -46,7 +46,7 @@ public class EventVenueController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Create/Edit Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'EVENTS_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<EventVenue> updateVenue(
             @PathVariable Long id,
             @RequestBody EventVenue venue) {
@@ -54,7 +54,7 @@ public class EventVenueController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('Create Event', 'Delete Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('Create Event', 'Delete Event Schedule', 'Manage Event Dashboard') or hasAnyRole('ADMIN', 'COMMUNITY_ADMIN', 'EVENT_ADMIN', 'EVENTS_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Void> deleteVenue(@PathVariable Long id) {
         service.deleteVenue(id);
         return ResponseEntity.noContent().build();

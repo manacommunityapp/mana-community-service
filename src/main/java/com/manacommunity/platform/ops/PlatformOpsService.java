@@ -187,7 +187,7 @@ public class PlatformOpsService {
             Instant since = Instant.now().minus(hours, ChronoUnit.HOURS);
             return jdbc.queryForList(
                 "SELECT id, category, actor_id, action, created_at FROM audit_journal " +
-                "WHERE category = 'SECURITY' AND created_at > ? ORDER BY created_at DESC LIMIT 50",
+                "WHERE category::text = 'SECURITY' AND created_at > ? ORDER BY created_at DESC LIMIT 50",
                 since).stream().map(row -> new PlatformOpsSnapshot.SecurityIncidentSummary(
                     toLong(row.get("id")),
                     (String) row.get("category"),
@@ -206,10 +206,10 @@ public class PlatformOpsService {
         try {
             return jdbc.queryForList(
                 "SELECT c.id, c.name, c.status, " +
-                "  (SELECT COUNT(*) FROM household_members hm WHERE hm.community_id = c.id) AS res_count, " +
-                "  (SELECT COUNT(*) FROM helpdesk_tickets ht WHERE ht.community_id = c.id AND ht.status = 'OPEN') AS open_issues, " +
+                "  (SELECT COUNT(*) FROM app_user u WHERE u.community_id = c.id) AS res_count, " +
+                "  (SELECT COUNT(*) FROM helpdesk_ticket ht WHERE ht.community_id = c.id AND ht.status = 'OPEN') AS open_issues, " +
                 "  c.created_at " +
-                "FROM communities c ORDER BY c.id LIMIT 100"
+                "FROM community c ORDER BY c.id LIMIT 100"
             ).stream().map(row -> new PlatformOpsSnapshot.TenantHealthSummary(
                 toLong(row.get("id")),
                 (String) row.get("name"),

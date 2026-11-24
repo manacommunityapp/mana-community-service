@@ -4,8 +4,10 @@ import com.manacommunity.api.events.dto.BidAckMessage;
 import com.manacommunity.api.events.dto.BidAckMessage.BidAckStatus;
 import com.manacommunity.api.events.dto.EventAuctionItemResponse;
 import com.manacommunity.api.events.service.EventAuctionService;
-import lombok.RequiredArgsConstructor;
+import com.manacommunity.platform.ratelimit.AuctionBidRateLimiter;
+import com.manacommunity.platform.websocket.EventAuctionRedisPublisher;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -20,14 +22,26 @@ import java.util.Map;
 
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class EventAuctionBidWebSocketController {
 
     private static final String ACK_DESTINATION = "/queue/auction/bid-result";
-    private static final String TOPIC_AUCTION   = "/topic/auction/";
 
     private final EventAuctionService auctionService;
     private final SimpMessagingTemplate messaging;
+
+    /** Redis Pub/Sub publisher — optional, falls back to local STOMP when null. */
+    @Autowired(required = false)
+    private EventAuctionRedisPublisher eventAuctionRedisPublisher;
+
+    /** Distributed bid rate limiter — optional. */
+    @Autowired(required = false)
+    private AuctionBidRateLimiter bidRateLimiter;
+
+    public EventAuctionBidWebSocketController(EventAuctionService auctionService,
+                                              SimpMessagingTemplate messaging) {
+        this.auctionService = auctionService;
+        this.messaging = messaging;
+    }
 
     @MessageMapping("/auction/{itemId}/bid")
     public void handleBid(
@@ -63,6 +77,14 @@ public class EventAuctionBidWebSocketController {
         }
 
         try {
+            if (bidRateLimiter != null && !bidRateLimiter.tryAcquireEventBid(itemId, userId)) {
+                log.info("[AuctionWS] Bid RATE_LIMITED item={} user={}", itemId, userId);
+                sendAck(String.valueOf(userId), BidAckMessage.builder()
+                        .status(BidAckStatus.REJECTED).auctionId(itemId).amount(amount)
+                        .reason("Too many bids. Please wait a moment before bidding again.").build());
+                return;
+            }
+
             EventAuctionItemResponse updated = auctionService.placeBidByUserId(itemId, amount, userId);
 
             Map<String, Object> event = new HashMap<>();
@@ -73,8 +95,13 @@ public class EventAuctionBidWebSocketController {
             event.put("bidderName", updated.getLeaderName() != null ? updated.getLeaderName() : "");
             event.put("bidCount",   updated.getBidCount());
             event.put("timestamp",  Instant.now().toString());
-            Object broadcastPayload = event;
-            messaging.convertAndSend(TOPIC_AUCTION + itemId, broadcastPayload);
+
+            // Route through Redis Pub/Sub so all nodes deliver the event
+            if (eventAuctionRedisPublisher != null) {
+                eventAuctionRedisPublisher.publishBidEvent(itemId, event);
+            } else {
+                messaging.convertAndSend("/topic/auction/" + itemId, event);
+            }
 
             sendAck(String.valueOf(userId), BidAckMessage.builder()
                     .status(BidAckStatus.ACCEPTED).auctionId(itemId).amount(amount).build());

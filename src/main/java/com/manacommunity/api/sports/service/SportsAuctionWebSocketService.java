@@ -3,6 +3,7 @@ package com.manacommunity.api.sports.service;
 import com.manacommunity.api.sports.dto.SportsAuctionBidResponse;
 import com.manacommunity.api.sports.dto.SportsAuctionStatsResponse;
 import com.manacommunity.api.sports.dto.PlayerWithBidResponse;
+import com.manacommunity.platform.websocket.SportsAuctionRedisPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -15,9 +16,13 @@ import java.time.LocalDateTime;
 public class SportsAuctionWebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final SportsAuctionRedisPublisher redisPublisher;
 
-    public SportsAuctionWebSocketService(@Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
+    public SportsAuctionWebSocketService(
+            @Autowired(required = false) SimpMessagingTemplate messagingTemplate,
+            @Autowired(required = false) SportsAuctionRedisPublisher redisPublisher) {
         this.messagingTemplate = messagingTemplate;
+        this.redisPublisher = redisPublisher;
     }
 
     public record AuctionEvent(String type, Object payload, LocalDateTime timestamp) {
@@ -48,6 +53,11 @@ public class SportsAuctionWebSocketService {
     }
 
     private void send(Long configId, AuctionEvent event) {
+        if (redisPublisher != null) {
+            redisPublisher.publishEvent(configId, event);
+            return;
+        }
+
         if (messagingTemplate == null) {
             log.trace("SimpMessagingTemplate unavailable; skipping STOMP broadcast for auction {}", configId);
             return;

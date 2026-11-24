@@ -67,6 +67,12 @@ public class SportsFeedService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.websocket.SportsFeedRedisPublisher feedRedisPublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SportsFeedCacheService feedCacheService;
+
     // ── Getters for Feed Visibility & Policy ───────────────────────────────
 
     @Transactional(readOnly = true)
@@ -347,8 +353,16 @@ public class SportsFeedService {
 
     public void broadcastLiveFeedUpdate() {
         try {
-            if (messagingTemplate != null) {
-                messagingTemplate.convertAndSend("/topic/sports/live", java.util.Map.of("type", "REFRESH"));
+            if (feedCacheService != null) {
+                feedCacheService.invalidateLiveFeed();
+            }
+            java.util.Map<String, String> payload = java.util.Map.of("type", "REFRESH");
+            if (feedRedisPublisher != null) {
+                // Redis Pub/Sub — delivers to all nodes
+                feedRedisPublisher.publishFeedRefresh(payload);
+            } else if (messagingTemplate != null) {
+                // Fallback: local in-memory broadcast (single-node only)
+                messagingTemplate.convertAndSend("/topic/sports/live", payload);
             }
         } catch (Exception ex) {
             log.debug("Could not broadcast live feed update: {}", ex.getMessage());
@@ -362,6 +376,13 @@ public class SportsFeedService {
         Long targetCommunityId = communityIdParam != null
                 ? communityIdParam
                 : (ctx != null ? ctx.communityId() : null);
+        if (feedCacheService != null) {
+            return feedCacheService.getLiveFeed(targetCommunityId, () -> loadLiveFeedFromDb(targetCommunityId));
+        }
+        return loadLiveFeedFromDb(targetCommunityId);
+    }
+
+    private List<SportsFeedMatchResponse> loadLiveFeedFromDb(Long targetCommunityId) {
         LocalDateTime since = LocalDateTime.now().minus(COMPLETED_GRACE);
 
         List<SportsTournamentMatch> candidates;
@@ -389,6 +410,13 @@ public class SportsFeedService {
         Long targetCommunityId = communityIdParam != null
                 ? communityIdParam
                 : (ctx != null ? ctx.communityId() : null);
+        if (feedCacheService != null) {
+            return feedCacheService.getUpcomingFeed(targetCommunityId, limit, () -> loadUpcomingFeedFromDb(targetCommunityId, limit));
+        }
+        return loadUpcomingFeedFromDb(targetCommunityId, limit);
+    }
+
+    private List<SportsFeedMatchResponse> loadUpcomingFeedFromDb(Long targetCommunityId, int limit) {
         LocalDateTime since = LocalDate.now().atStartOfDay();
         int maxLimit = Math.min(Math.max(limit, 1), 50);
         Pageable pageable = PageRequest.of(0, maxLimit);
@@ -555,15 +583,33 @@ public class SportsFeedService {
         LocalDateTime since = LocalDateTime.now().minus(RESULT_POST_WINDOW);
         for (SportsTournamentMatch m : matchRepo.findCompletedWithoutFeedPost(since)) {
             try {
-                if (!shouldPublishResultPost(m)) continue;
-                Long postId = createResultPost(m);
-                if (postId != null) {
-                    m.setFeedResultPostId(postId);
-                    matchRepo.save(m);
-                }
+                publishCompletedMatchPostEntity(m);
             } catch (Exception e) {
                 log.error("Failed to publish feed result post for match {}", m.getId(), e);
             }
+        }
+    }
+
+    /**
+     * Event-driven result post publication invoked immediately via SQS on match completion.
+     * Idempotent via {@code feedResultPostId}.
+     */
+    @Transactional
+    public void publishCompletedMatchPost(Long matchId) {
+        if (matchId == null) return;
+        matchRepo.findById(matchId).ifPresent(m -> {
+            if (m.getFeedResultPostId() == null) {
+                publishCompletedMatchPostEntity(m);
+            }
+        });
+    }
+
+    private void publishCompletedMatchPostEntity(SportsTournamentMatch m) {
+        if (!shouldPublishResultPost(m)) return;
+        Long postId = createResultPost(m);
+        if (postId != null) {
+            m.setFeedResultPostId(postId);
+            matchRepo.save(m);
         }
     }
 

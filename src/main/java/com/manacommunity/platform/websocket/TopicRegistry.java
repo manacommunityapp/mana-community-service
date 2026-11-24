@@ -44,6 +44,7 @@ public final class TopicRegistry {
         // Resource topics (community-membership check via resource)
         register("/topic/auction/(\\d+)(?:/.*)?$",      TopicPermission.COMMUNITY_MEMBER);
         register("/topic/match/(\\d+)(?:/.*)?$",        TopicPermission.COMMUNITY_MEMBER);
+        register("/topic/matches/(\\d+)(?:/.*)?$",      TopicPermission.COMMUNITY_MEMBER);
         register("/topic/kitty-games/(\\d+)(?:/.*)?$",  TopicPermission.COMMUNITY_MEMBER);
 
         // Admin-only topics

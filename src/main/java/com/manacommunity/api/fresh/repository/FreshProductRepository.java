@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface FreshProductRepository extends JpaRepository<FreshProduct, Long> {
     List<FreshProduct> findByCommunityIdAndActiveTrueOrderByNameAsc(Long communityId);
     List<FreshProduct> findByCommunityIdOrderByNameAsc(Long communityId);
+    List<FreshProduct> findByActiveTrueOrderByNameAsc();
 
     /** Tenant-scoped single-product lookup — use instead of findById in controllers. */
     Optional<FreshProduct> findByIdAndCommunityId(Long id, Long communityId);

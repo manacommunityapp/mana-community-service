@@ -35,6 +35,9 @@ public class JewelleryServiceImpl implements JewelleryService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
     private static final DateTimeFormatter DT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     // ── Vendor ────────────────────────────────────────────────────
@@ -343,6 +346,13 @@ public class JewelleryServiceImpl implements JewelleryService {
                 .sourceObjectKey(sourceS3Key.trim())
                 .build();
         job = photoJobRepo.save(job);
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForList().leftPush("queue:jewellery:jobs", String.valueOf(job.getId()));
+            } catch (Exception e) {
+                // Non-fatal, worker will sweep DB fallback
+            }
+        }
         return toPhotoJobResponse(job);
     }
 

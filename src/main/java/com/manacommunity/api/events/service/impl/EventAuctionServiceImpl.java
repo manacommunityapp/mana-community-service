@@ -12,13 +12,19 @@ import com.manacommunity.api.events.entity.EventAuctionItem.ItemStatus;
 import com.manacommunity.api.events.repository.EventCommunityRepository;
 import com.manacommunity.api.events.repository.EventAuctionBidRepository;
 import com.manacommunity.api.events.repository.EventAuctionItemRepository;
+import com.manacommunity.api.events.service.EventAuctionCacheService;
 import com.manacommunity.api.events.service.EventAuctionService;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.model.Community;
+import com.manacommunity.api.sports.sqs.AuctionNotificationSqsHandler;
+import com.manacommunity.api.sports.sqs.AuctionNotificationSqsHandler.AuctionPushPayload;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.repository.AppUserRepository;
+import com.manacommunity.platform.sqs.SqsMessagePublisher;
+import com.manacommunity.platform.sqs.SqsProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +45,15 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     private final EventAuctionBidRepository bidRepository;
     private final EventCommunityRepository eventRepository;
     private final AppUserRepository userRepository;
+
+    @Autowired(required = false)
+    private EventAuctionCacheService auctionCacheService;
+    @Autowired(required = false)
+    private SqsMessagePublisher sqsMessagePublisher;
+    @Autowired(required = false)
+    private SqsProperties sqsProperties;
+    @Autowired(required = false)
+    private AuctionNotificationSqsHandler auctionNotificationSqsHandler;
 
     private static final DateTimeFormatter ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -61,6 +76,13 @@ public class EventAuctionServiceImpl implements EventAuctionService {
     @Override
     @Transactional(readOnly = true)
     public EventAuctionItemResponse getItem(Long id, Long communityId) {
+        if (auctionCacheService != null) {
+            return auctionCacheService.getItem(communityId, id, () -> loadItemFromDb(id, communityId));
+        }
+        return loadItemFromDb(id, communityId);
+    }
+
+    private EventAuctionItemResponse loadItemFromDb(Long id, Long communityId) {
         EventAuctionItem item = itemRepository.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("EventAuctionItem", id));
         return toResponse(item);
@@ -137,9 +159,11 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         if (req.getImageUrl() != null) {
             item.setImageUrl(req.getImageUrl());
         }
+        boolean closedJustNow = false;
         if (req.getStatus() != null && !req.getStatus().isBlank()) {
             try {
                 ItemStatus newStatus = ItemStatus.valueOf(req.getStatus().trim().toUpperCase());
+                closedJustNow = (item.getStatus() != ItemStatus.CLOSED && newStatus == ItemStatus.CLOSED);
                 item.setStatus(newStatus);
                 if (newStatus == ItemStatus.CLOSED && item.getClosedAt() == null) {
                     item.setClosedAt(LocalDateTime.now());
@@ -151,6 +175,17 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         }
 
         EventAuctionItem updated = itemRepository.save(item);
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(communityId, id);
+        }
+        if (closedJustNow) {
+            bidRepository.findByItemIdOrderByBidAtDesc(id).stream().findFirst().ifPresent(topBid -> {
+                if (topBid.getBidderUserId() != null) {
+                    publishEventAuctionPush("ITEM_WON", id, updated.getName(),
+                            topBid.getBidderName(), topBid.getAmount().longValue(), List.of(topBid.getBidderUserId()));
+                }
+            });
+        }
         return toResponse(updated);
     }
 
@@ -160,6 +195,9 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         EventAuctionItem item = itemRepository.findByIdAndCommunityId(id, communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("EventAuctionItem", id));
         itemRepository.delete(item);
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(communityId, id);
+        }
     }
 
     @Override
@@ -192,6 +230,10 @@ public class EventAuctionServiceImpl implements EventAuctionService {
                 ? user.getFullName().trim()
                 : (user != null && user.getEmail() != null ? user.getEmail() : "Community Devotee");
 
+        // Capture previous highest bidder before saving new bid (for outbid push)
+        EventAuctionBid previousTopBid = bidRepository.findByItemIdOrderByBidAtDesc(itemId)
+                .stream().findFirst().orElse(null);
+
         EventAuctionBid bid = EventAuctionBid.builder()
                 .item(item)
                 .community(community)
@@ -209,7 +251,29 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         item.setStatus(ItemStatus.LIVE);
 
         EventAuctionItem updated = itemRepository.save(item);
-        return toResponse(updated);
+        EventAuctionItemResponse response = toResponse(updated);
+        if (auctionCacheService != null) {
+            auctionCacheService.setItem(community.getId(), itemId, response);
+        }
+        if (previousTopBid != null && previousTopBid.getBidderUserId() != null
+                && (user == null || !previousTopBid.getBidderUserId().equals(user.getId()))) {
+            publishEventAuctionPush("OUTBID", itemId, updated.getName(),
+                    bidderName, bidAmount.longValue(), List.of(previousTopBid.getBidderUserId()));
+        }
+        return response;
+    }
+
+    private void publishEventAuctionPush(String type, Long itemId, String itemName,
+                                         String bidderName, Long amount, List<Long> recipientUserIds) {
+        if (sqsMessagePublisher == null || sqsProperties == null) return;
+        AuctionPushPayload payload = new AuctionPushPayload(
+                type, itemId, itemName, bidderName, amount, recipientUserIds);
+        sqsMessagePublisher.publishAfterCommit(
+                sqsProperties.getQueues().getAuctionNotifications(),
+                type,
+                payload,
+                auctionNotificationSqsHandler != null ? () -> auctionNotificationSqsHandler.deliverPush(payload) : null
+        );
     }
 
     @Override

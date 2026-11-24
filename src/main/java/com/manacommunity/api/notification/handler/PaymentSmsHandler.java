@@ -5,8 +5,10 @@ import com.manacommunity.api.notification.enums.MessageType;
 import com.manacommunity.api.notification.event.DonationSuccessEvent;
 import com.manacommunity.api.notification.event.PaymentCapturedEvent;
 import com.manacommunity.api.notification.service.SmsService;
+import com.manacommunity.api.notification.sqs.NotificationEventsSqsHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -21,11 +23,14 @@ public class PaymentSmsHandler {
 
     private final SmsService smsService;
 
+    @Autowired(required = false)
+    private NotificationEventsSqsHandler notificationSqs;
+
     @Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentCaptured(PaymentCapturedEvent event) {
         try {
-            smsService.send(SendSmsRequest.builder()
+            send("PAYMENT_CAPTURED", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode("PAYMENT_SUCCESSFUL")
                     .messageType(MessageType.PAYMENT)
@@ -47,7 +52,7 @@ public class PaymentSmsHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDonationSuccess(DonationSuccessEvent event) {
         try {
-            smsService.send(SendSmsRequest.builder()
+            send("DONATION_SUCCESS", SendSmsRequest.builder()
                     .phoneNumber(event.getPhoneNumber())
                     .templateCode("DONATION_RECEIVED")
                     .messageType(MessageType.PAYMENT)
@@ -59,6 +64,14 @@ public class PaymentSmsHandler {
                     .build());
         } catch (Exception ex) {
             log.warn("Donation SMS failed for userId={}: {}", event.getUserId(), ex.getMessage());
+        }
+    }
+
+    private void send(String eventType, SendSmsRequest req) {
+        if (notificationSqs != null) {
+            notificationSqs.dispatch(eventType, req);
+        } else {
+            smsService.send(req);
         }
     }
 }

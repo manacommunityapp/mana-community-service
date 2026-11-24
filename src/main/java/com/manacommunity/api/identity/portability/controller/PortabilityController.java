@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/identity")
+@RequestMapping({"/api/identity", "/api/reputation"})
 @RequiredArgsConstructor
 public class PortabilityController {
 
@@ -29,7 +29,8 @@ public class PortabilityController {
 
     // ── My portability token ─────────────────────────────────────────────────
 
-    @GetMapping("/portability/token")
+    @GetMapping({"/portability/token", "/portability-token"})
+    @PostMapping({"/portability/token", "/portability-token"})
     public ResponseEntity<ApiResponse<ResidentPortabilityToken>> getOrGenerateToken(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
@@ -40,7 +41,7 @@ public class PortabilityController {
 
     // ── Reputation score ─────────────────────────────────────────────────────
 
-    @GetMapping("/portability/score")
+    @GetMapping({"/portability/score", "/my-score"})
     public ResponseEntity<ApiResponse<ResidentReputationScore>> getMyScore(
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
