@@ -24,7 +24,7 @@ public class DeliverySlot {
     private int capacity;
     private int bookedCount;
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "slot_status")
+    @Column(nullable = false, length = 30)
     private SlotStatus status;
     private Instant createdAt;
 

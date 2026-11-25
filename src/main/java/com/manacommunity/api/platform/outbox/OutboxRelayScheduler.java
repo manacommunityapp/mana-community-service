@@ -34,13 +34,14 @@ public class OutboxRelayScheduler {
     private final AtomicInteger emptyCycles = new AtomicInteger(0);
 
     @Scheduled(fixedDelay = 5_000)
+    @Transactional
     public void relay() {
         if (redisTemplate != null) {
             try {
                 String val = redisTemplate.opsForValue().get(TransactionalOutboxPublisher.OUTBOX_PENDING_KEY);
                 long count = (val != null && !val.isBlank()) ? Long.parseLong(val.trim()) : 0L;
                 if (count <= 0 && emptyCycles.incrementAndGet() < SAFETY_SWEEP_CYCLES) {
-                    return; // Skip DB poll when Redis indicates 0 pending events
+                    return; // Skip DB query when Redis indicates 0 pending events
                 }
             } catch (Exception e) {
                 log.debug("Redis outbox count check failed, proceeding to DB check: {}", e.getMessage());
@@ -52,25 +53,17 @@ public class OutboxRelayScheduler {
             }
         }
 
-        int processed = processBatch();
-        if (processed == 0) {
+        List<OutboxEvent> pending = outboxEventRepository.findPendingWithLock(BATCH_SIZE);
+        if (pending.isEmpty()) {
             if (redisTemplate != null) {
                 try {
                     redisTemplate.opsForValue().set(TransactionalOutboxPublisher.OUTBOX_PENDING_KEY, "0");
                 } catch (Exception ignored) {}
             }
-        } else {
-            emptyCycles.set(0);
-        }
-    }
-
-    @Transactional
-    public int processBatch() {
-        List<OutboxEvent> pending = outboxEventRepository.findPendingWithLock(BATCH_SIZE);
-        if (pending.isEmpty()) {
-            return 0;
+            return;
         }
 
+        emptyCycles.set(0);
         for (OutboxEvent event : pending) {
             try {
                 // Deserialise to a generic map so listeners receive a structured payload.
@@ -94,6 +87,5 @@ public class OutboxRelayScheduler {
                 }
             }
         }
-        return pending.size();
     }
 }
