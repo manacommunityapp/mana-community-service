@@ -44,6 +44,10 @@ public class CommunityPinController {
             @Valid @RequestBody CreatePinRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser caller = loggedInUserService.resolve(principal);
+        Long callerCommunityId = caller.getCommunity() != null ? caller.getCommunity().getId() : null;
+        if (!caller.hasRole("SUPER_ADMIN") && !communityId.equals(callerCommunityId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You may only post pins within your own community");
+        }
         CommunityPinDto pin = pinService.createPin(communityId, caller, request);
         return ResponseEntity.ok(ApiResponse.ok(pin));
     }
@@ -55,6 +59,10 @@ public class CommunityPinController {
             @PathVariable Long pinId,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser caller = loggedInUserService.resolve(principal);
+        Long callerCommunityId = caller.getCommunity() != null ? caller.getCommunity().getId() : null;
+        if (!caller.hasRole("SUPER_ADMIN") && !communityId.equals(callerCommunityId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You may only manage pins within your own community");
+        }
         CommunityPinDto pin = pinService.closePin(pinId, communityId, caller);
         return ResponseEntity.ok(ApiResponse.ok(pin));
     }
