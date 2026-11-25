@@ -26,6 +26,16 @@ public class BiometricTurnstileController {
         return ResponseEntity.ok(turnstileService.verifyFace(request));
     }
 
+    @PostMapping("/kiosk-attendance")
+    public ResponseEntity<KioskAttendanceResult> recordKioskAttendance(@Valid @RequestBody KioskAttendanceRequest request) {
+        return ResponseEntity.ok(turnstileService.recordKioskAttendance(request));
+    }
+
+    @PostMapping("/sync-offline-punches")
+    public ResponseEntity<OfflinePunchSyncResponse> syncOfflinePunches(@Valid @RequestBody OfflinePunchSyncRequest request) {
+        return ResponseEntity.ok(turnstileService.syncOfflinePunches(request));
+    }
+
     /**
      * DPDP Act 2023 s.6 — biometric data is sensitive personal data.
      * Explicit, separate consent for BIOMETRIC purpose must be granted before enrolment.

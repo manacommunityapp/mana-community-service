@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class BiometricDtos {
 
@@ -221,5 +222,89 @@ public class BiometricDtos {
                 return new BiometricAccessLogDto(id, turnstileId, turnstileName, personName, personType, unitNumber, confidenceScore, accessDecision, failureReason, snapshotUrl, timestamp);
             }
         }
+    }
+
+    // ── Kiosk Attendance & Offline Sync DTOs ─────────────────────────────────
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class KioskAttendanceRequest {
+        @NotBlank(message = "Turnstile identifier is required")
+        private String turnstileIdentifier;
+
+        @NotBlank(message = "Face embedding hash is required")
+        private String faceEmbeddingHash;
+
+        @NotNull(message = "Confidence score is required")
+        private BigDecimal confidenceScore;
+
+        private String punchType; // CLOCK_IN, CLOCK_OUT, GATE_ACCESS, VISITOR_CHECKIN
+        private String snapshotUrl;
+        private Boolean isLivenessVerified;
+        private LocalDateTime deviceTimestamp;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class KioskAttendanceResult {
+        private String turnstileIdentifier;
+        private AccessDecision decision;
+        private boolean relayUnlock;
+        private int relayUnlockDurationMs;
+        private String personName;
+        private BiometricPersonType personType;
+        private String unitNumber;
+        private BigDecimal confidenceScore;
+        private String message;
+        private String shiftName;
+        private String workHoursToday;
+        private String punchType;
+        private String contractorAgencyName;
+        private Boolean autoAssignedShift;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OfflinePunchRecordDto {
+        private String id;
+        private String turnstileIdentifier;
+        private String faceEmbeddingHash;
+        private BigDecimal confidenceScore;
+        private String punchType;
+        private String personName;
+        private String personType;
+        private String unitOrDept;
+        private Boolean isLivenessVerified;
+        private String snapshotUrl;
+        private LocalDateTime timestamp;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OfflinePunchSyncRequest {
+        private List<OfflinePunchRecordDto> punches;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OfflinePunchSyncResponse {
+        private int syncedCount;
+        private int failedCount;
+        private String message;
     }
 }

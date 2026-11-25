@@ -12,4 +12,6 @@ public interface BiometricTurnstileService {
     List<BiometricTurnstileDto> getTurnstilesForCommunity(Long communityId);
     Page<BiometricAccessLogDto> getAccessLogs(Long communityId, Pageable pageable);
     void setTurnstileStatus(Long communityId, Long turnstileId, BiometricEnums.TurnstileStatus status);
+    KioskAttendanceResult recordKioskAttendance(KioskAttendanceRequest request);
+    OfflinePunchSyncResponse syncOfflinePunches(OfflinePunchSyncRequest request);
 }

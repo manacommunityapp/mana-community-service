@@ -270,6 +270,7 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/dev/sqs/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
                 // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.

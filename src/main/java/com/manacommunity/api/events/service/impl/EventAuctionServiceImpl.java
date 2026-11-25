@@ -257,7 +257,7 @@ public class EventAuctionServiceImpl implements EventAuctionService {
         }
         if (previousTopBid != null && previousTopBid.getBidderUserId() != null
                 && (user == null || !previousTopBid.getBidderUserId().equals(user.getId()))) {
-            publishEventAuctionPush("OUTBID", itemId, updated.getName(),
+            publishEventAuctionPush("ITEM_OUTBID", itemId, updated.getName(),
                     bidderName, bidAmount.longValue(), List.of(previousTopBid.getBidderUserId()));
         }
         return response;

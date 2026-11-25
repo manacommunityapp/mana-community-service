@@ -83,7 +83,7 @@ class RemainingGapsIntegrationTest {
                 Instant.now(), objectMapper.writeValueAsString(payload)));
 
         verify(expoPushService).sendToUsers(eq(List.of(42L)), contains("Auction Won"),
-                contains("Silver Lamp"), anyMap(), eq("events"));
+                contains("Silver Lamp"), anyMap(), eq("auctions"));
     }
 
     @Test

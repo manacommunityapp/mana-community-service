@@ -9,15 +9,20 @@ import com.manacommunity.api.events.service.EventAuctionService;
 import com.manacommunity.api.user.model.AppUser;
 import com.manacommunity.api.user.security.UserPrincipal;
 import com.manacommunity.api.user.service.LoggedInUserService;
+import com.manacommunity.platform.websocket.EventAuctionRedisPublisher;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/events/auction-items")
@@ -26,6 +31,9 @@ public class EventAuctionController {
 
     private final EventAuctionService auctionService;
     private final LoggedInUserService loggedInUserService;
+
+    @Autowired(required = false)
+    private EventAuctionRedisPublisher eventAuctionRedisPublisher;
 
     @GetMapping
     @PreAuthorize("hasAuthority('View Events')")
@@ -62,7 +70,9 @@ public class EventAuctionController {
             @Valid @RequestBody EventAuctionItemRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionService.updateItem(id, req, user.getCommunity().getId()));
+        EventAuctionItemResponse updated = auctionService.updateItem(id, req, user.getCommunity().getId());
+        publishAuctionEvent("ITEM_UPDATED", updated, null);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
@@ -82,7 +92,27 @@ public class EventAuctionController {
             @Valid @RequestBody EventAuctionBidRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
-        return ResponseEntity.ok(auctionService.placeBid(id, req, user, user.getCommunity()));
+        EventAuctionItemResponse updated = auctionService.placeBid(id, req, user, user.getCommunity());
+        publishAuctionEvent("BID_PLACED", updated, user.getId());
+        return ResponseEntity.ok(updated);
+    }
+
+    private void publishAuctionEvent(String type, EventAuctionItemResponse updated, Long bidderId) {
+        if (eventAuctionRedisPublisher == null || updated == null || updated.getId() == null) {
+            return;
+        }
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", type);
+        event.put("auctionId", updated.getId());
+        event.put("amount", updated.getCurrentBid());
+        if (bidderId != null) {
+            event.put("bidderId", bidderId);
+        }
+        event.put("bidderName", updated.getLeaderName() != null ? updated.getLeaderName() : "");
+        event.put("bidCount", updated.getBidCount());
+        event.put("status", updated.getStatus() != null ? updated.getStatus() : "");
+        event.put("timestamp", Instant.now().toString());
+        eventAuctionRedisPublisher.publishBidEvent(updated.getId(), event);
     }
 
     @GetMapping("/{id}/bids")

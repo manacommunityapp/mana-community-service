@@ -177,7 +177,7 @@ class SqsIntegrationTest {
         handler.handle(new SqsEventEnvelope("e3", "OUTBID", handler.queueName(),
                 Instant.now(), objectMapper.writeValueAsString(payload)));
 
-        verify(expoPushService).sendToUsers(eq(List.of(99L)), contains("outbid"), contains("Titans"), anyMap(), eq("events"));
+        verify(expoPushService).sendToUsers(eq(List.of(99L)), contains("outbid"), contains("Titans"), anyMap(), eq("auctions"));
     }
 
     @Test

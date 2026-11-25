@@ -14,6 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class SqsProperties {
 
     private boolean enabled = false;
+    private boolean autoCreateQueues = true;
     private String region = "eu-north-1";
     private String accessKey = "";
     private String secretKey = "";

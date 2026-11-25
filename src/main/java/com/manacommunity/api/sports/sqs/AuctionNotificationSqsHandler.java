@@ -52,7 +52,7 @@ public class AuctionNotificationSqsHandler implements SqsMessageHandler {
         }
         String title;
         String body;
-        if ("OUTBID".equals(payload.type())) {
+        if ("OUTBID".equals(payload.type()) || "ITEM_OUTBID".equals(payload.type())) {
             title = "You've been outbid!";
             body = payload.teamName() + " bid ₹" + payload.amount() + " for " + payload.playerName();
         } else if ("ITEM_WON".equals(payload.type())) {
@@ -70,7 +70,7 @@ public class AuctionNotificationSqsHandler implements SqsMessageHandler {
                         "type", "AUCTION_" + payload.type(),
                         "auctionId", String.valueOf(payload.auctionId())
                 ),
-                "events"
+                "auctions"
         );
     }
 }
