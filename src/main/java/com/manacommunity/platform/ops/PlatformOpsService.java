@@ -1,11 +1,14 @@
 package com.manacommunity.platform.ops;
 
+import com.manacommunity.platform.websocket.WebSocketSessionTracker;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,12 @@ public class PlatformOpsService {
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
     private final SimpMessagingTemplate messaging;
+
+    @Autowired(required = false)
+    private SimpUserRegistry simpUserRegistry;
+
+    @Autowired(required = false)
+    private WebSocketSessionTracker sessionTracker;
 
     // ─── Full Snapshot ──────────────────────────────────────────────────────
 
@@ -322,11 +331,26 @@ public class PlatformOpsService {
 
     @Scheduled(fixedRate = 30_000)
     public void broadcastSnapshot() {
+        if (!hasOpsSubscribers()) {
+            return;
+        }
         try {
             messaging.convertAndSend("/topic/platform/ops", getSnapshot());
         } catch (Exception e) {
             log.debug("Platform ops broadcast failed: {}", e.getMessage());
         }
+    }
+
+    private boolean hasOpsSubscribers() {
+        if (simpUserRegistry != null) {
+            return !simpUserRegistry
+                    .findSubscriptions(sub -> "/topic/platform/ops".equals(sub.getDestination()))
+                    .isEmpty();
+        }
+        if (sessionTracker != null) {
+            return sessionTracker.hasActiveSessions();
+        }
+        return true;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

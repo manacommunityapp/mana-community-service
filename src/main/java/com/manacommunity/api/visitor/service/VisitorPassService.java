@@ -37,6 +37,8 @@ public class VisitorPassService {
     private final AppUserRepository userRepo;
     private final NotificationManagementService notificationService;
     private final com.manacommunity.api.platform.outbox.DomainEventPublisher domainEventPublisher;
+    private final com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
+    private final com.manacommunity.api.visitor.repository.GroupInviteRepository groupInviteRepo;
 
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
@@ -129,11 +131,26 @@ public class VisitorPassService {
 
     @Transactional
     public VisitorPassResponse createWalkIn(VisitorPassRequest req, AppUser guard, Community community) {
-        if (req.getResidentId() == null) {
-            throw new IllegalArgumentException("Resident ID is required for walk-in approval");
+        AppUser resident;
+        if (req.getResidentId() != null) {
+            resident = userRepo.findById(req.getResidentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Resident not found: " + req.getResidentId()));
+        } else if (req.getFlatNumber() != null && !req.getFlatNumber().isBlank()) {
+            Long commId = community != null ? community.getId() : (guard != null && guard.getCommunity() != null ? guard.getCommunity().getId() : null);
+            List<AppUser> matches = commId != null
+                    ? userRepo.findByCommunityIdAndFlatNoQuery(commId, req.getFlatNumber().trim())
+                    : userRepo.findByFlatNoIgnoreCase(req.getFlatNumber().trim());
+            if (matches.isEmpty()) {
+                throw new IllegalArgumentException("No resident registered for flat: " + req.getFlatNumber());
+            }
+            resident = matches.get(0);
+        } else {
+            throw new IllegalArgumentException("Resident ID or Flat Number is required for walk-in approval");
         }
-        AppUser resident = userRepo.findById(req.getResidentId())
-                .orElseThrow(() -> new IllegalArgumentException("Resident not found: " + req.getResidentId()));
+
+        if (community == null) {
+            community = resident.getCommunity();
+        }
 
         String code = generatePassCode();
         String otp = generateOtpCode();
@@ -433,6 +450,26 @@ public class VisitorPassService {
                     search, List.of(VisitorPass.PassStatus.APPROVED, VisitorPass.PassStatus.CHECKED_IN, VisitorPass.PassStatus.PENDING));
         }
 
+        if (optPass.isEmpty()) {
+            // Check group invites
+            Optional<com.manacommunity.api.visitor.entity.GroupInvite> groupOpt = groupInviteRepo.findByPassCode(search);
+            if (groupOpt.isPresent()) {
+                com.manacommunity.api.visitor.entity.GroupInvite gi = groupOpt.get();
+                return VisitorPassResponse.builder()
+                        .id(gi.getId())
+                        .passCode(gi.getPassCode())
+                        .visitorName("Group: " + gi.getTitle() + " (" + gi.getCheckedInCount() + "/" + gi.getTotalGuests() + " arrived)")
+                        .purpose(gi.getTitle())
+                        .passType("EVENT_GUEST")
+                        .status(gi.getStatus().equals("ACTIVE") ? "APPROVED" : gi.getStatus())
+                        .residentName(gi.getHost() != null ? gi.getHost().getFullName() : "Host")
+                        .flatNumber(gi.getHost() != null ? gi.getHost().getFlatNo() : "N/A")
+                        .communityId(gi.getCommunity() != null ? gi.getCommunity().getId() : null)
+                        .expectedAt(gi.getEventDate() != null ? gi.getEventDate().toString() : null)
+                        .build();
+            }
+        }
+
         VisitorPass pass = optPass.orElseThrow(() -> new IllegalArgumentException(
                 "No active visitor pass found for the provided code/OTP/phone"));
 
@@ -511,6 +548,181 @@ public class VisitorPassService {
         stats.put("topVisitedFlats", flatRanks);
 
         return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getApprovalStatus(Long id) {
+        VisitorPass pass = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+
+        String approvalStatus = "PENDING";
+        if (pass.getStatus() == VisitorPass.PassStatus.APPROVED || pass.getStatus() == VisitorPass.PassStatus.CHECKED_IN) {
+            approvalStatus = "APPROVED";
+        } else if (pass.getStatus() == VisitorPass.PassStatus.REJECTED
+                || pass.getStatus() == VisitorPass.PassStatus.DENIED
+                || pass.getStatus() == VisitorPass.PassStatus.EXPIRED
+                || pass.getStatus() == VisitorPass.PassStatus.CANCELLED) {
+            approvalStatus = "DENIED";
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("id", pass.getId());
+        res.put("visitorName", pass.getVisitorName());
+        res.put("visitorPhone", pass.getVisitorPhone());
+        res.put("passCode", pass.getPassCode());
+        res.put("flatNumber", pass.getFlatNumber());
+        res.put("passType", pass.getPassType() != null ? pass.getPassType().name() : "GUEST");
+        res.put("purpose", pass.getPurpose());
+        res.put("approvalStatus", approvalStatus);
+        res.put("status", pass.getStatus().name());
+        res.put("arrivedAt", formatDt(pass.getCreatedAt()));
+        res.put("gate", pass.getGateIn());
+        res.put("guardName", pass.getGuardIn());
+        return res;
+    }
+
+    @Transactional
+    public Map<String, String> generateDeliveryOtp(String flat, String company, AppUser guard, Community community) {
+        if (flat == null || flat.isBlank()) {
+            throw new IllegalArgumentException("Flat number is required");
+        }
+        String cleanFlat = flat.trim();
+        Long communityId = community != null ? community.getId() : (guard != null && guard.getCommunity() != null ? guard.getCommunity().getId() : null);
+
+        List<AppUser> residents;
+        if (communityId != null) {
+            residents = userRepo.findByCommunityIdAndFlatNoQuery(communityId, cleanFlat);
+        } else {
+            residents = userRepo.findByFlatNoIgnoreCase(cleanFlat);
+        }
+
+        if (residents.isEmpty()) {
+            throw new IllegalArgumentException("No resident found registered for Flat: " + cleanFlat);
+        }
+
+        AppUser resident = residents.get(0);
+        Community targetCommunity = community != null ? community : resident.getCommunity();
+
+        String code = generatePassCode();
+        String otp = generateOtpCode();
+        String companyName = (company != null && !company.isBlank()) ? company.trim() : "Delivery";
+
+        VisitorPass pass = VisitorPass.builder()
+                .passCode(code)
+                .otpHash(hashOtp(otp))
+                .otpExpiresAt(LocalDateTime.now().plusMinutes(15))
+                .visitorName(companyName + " Courier")
+                .purpose(companyName + " Package Delivery")
+                .passType(VisitorPass.PassType.DELIVERY)
+                .flatNumber(cleanFlat)
+                .resident(resident)
+                .community(targetCommunity)
+                .status(VisitorPass.PassStatus.PENDING)
+                .gateIn(guard != null ? "Gate Desk" : "Main Gate")
+                .guardIn(guard != null ? guard.getFullName() : "Security")
+                .build();
+
+        VisitorPass saved = repo.save(pass);
+
+        writeAudit(saved.getId(), saved.getVisitorName(), "CREATED",
+                "Guard (" + (guard != null ? guard.getFullName() : "Gate") + ")",
+                "Delivery OTP issued for " + companyName + " to Flat " + cleanFlat);
+
+        try {
+            notificationService.createNotification(
+                    resident.getId(),
+                    NotificationType.VISITOR_PENDING,
+                    NotificationCategory.COMMUNITY,
+                    "Delivery Gate OTP",
+                    companyName + " delivery arrived at the gate for your flat (" + cleanFlat + "). Share OTP: " + otp + " with the guard, or approve via app.",
+                    "/visitors",
+                    ReferenceType.VISITOR_PASS,
+                    saved.getId(),
+                    NotificationPriority.HIGH,
+                    null,
+                    targetCommunity != null ? targetCommunity.getId() : null
+            );
+        } catch (Exception e) {
+            log.error("Failed to notify resident of delivery OTP: {}", e.getMessage());
+        }
+
+        String phone = resident.getPhone();
+        String masked = piiMaskingService.maskPhone(phone);
+        return Map.of(
+                "maskedPhone", masked != null ? masked : "Registered Phone",
+                "passCode", code
+        );
+    }
+
+    @Transactional
+    public VisitorPassResponse verifyDeliveryOtp(String flat, String otp, AppUser guard, Community community) {
+        if (flat == null || flat.isBlank() || otp == null || otp.isBlank()) {
+            throw new IllegalArgumentException("Flat and OTP are required");
+        }
+        String cleanFlat = flat.trim();
+        String cleanOtp = otp.trim();
+        String hashed = hashOtp(cleanOtp);
+
+        Optional<VisitorPass> optPass = repo.findByOtpHash(hashed);
+        if (optPass.isEmpty()) {
+            throw new IllegalArgumentException("Invalid OTP for delivery verification");
+        }
+
+        VisitorPass pass = optPass.get();
+        if (pass.getOtpExpiresAt() != null && LocalDateTime.now().isAfter(pass.getOtpExpiresAt())) {
+            pass.setStatus(VisitorPass.PassStatus.EXPIRED);
+            repo.save(pass);
+            throw new IllegalArgumentException("Delivery OTP has expired. Please request a new one.");
+        }
+
+        pass.setStatus(VisitorPass.PassStatus.CHECKED_IN);
+        pass.setCheckedInAt(LocalDateTime.now());
+        if (guard != null) pass.setGuardIn(guard.getFullName());
+        VisitorPass saved = repo.save(pass);
+
+        writeAudit(saved.getId(), saved.getVisitorName(), "ENTRY_COMPLETED",
+                guard != null ? "Guard (" + guard.getFullName() + ")" : "Guard",
+                "Delivery OTP verified. Visitor entered for Flat " + cleanFlat);
+
+        try {
+            if (saved.getResident() != null) {
+                notificationService.createNotification(
+                        saved.getResident().getId(),
+                        NotificationType.VISITOR_CHECK_IN,
+                        NotificationCategory.COMMUNITY,
+                        "Delivery Verified & Entered",
+                        saved.getVisitorName() + " has entered the community to deliver to your flat (" + cleanFlat + ").",
+                        "/visitors",
+                        ReferenceType.VISITOR_PASS,
+                        saved.getId(),
+                        NotificationPriority.NORMAL,
+                        null,
+                        saved.getCommunity() != null ? saved.getCommunity().getId() : null
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to notify resident of delivery check-in: {}", e.getMessage());
+        }
+
+        return toResponse(saved);
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(cron = "${app.visitor.overstay-cron:0 */15 * * * *}")
+    @Transactional
+    public void autoDetectOverstays() {
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(12);
+        List<VisitorPass> checkedIn = repo.findAll().stream()
+                .filter(p -> p.getStatus() == VisitorPass.PassStatus.CHECKED_IN)
+                .filter(p -> p.getCheckedInAt() != null && p.getCheckedInAt().isBefore(cutoff))
+                .toList();
+
+        for (VisitorPass p : checkedIn) {
+            try {
+                sendOverstayAlert(p.getId(), "Automated check: visitor checked in > 12 hours ago without check-out record.");
+            } catch (Exception ex) {
+                log.warn("Failed to auto-send overstay alert for pass {}: {}", p.getId(), ex.getMessage());
+            }
+        }
     }
 
     // ── OTP Helpers ──────────────────────────────────────────────────────────

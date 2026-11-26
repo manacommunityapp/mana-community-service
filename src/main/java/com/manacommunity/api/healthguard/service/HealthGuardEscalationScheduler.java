@@ -29,6 +29,15 @@ public class HealthGuardEscalationScheduler {
     private final AppUserRepository appUserRepository;
     private final ExpoPushService expoPushService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.healthguard.sqs.EmergencySosSqsHandler emergencySosSqsHandler;
+
     /** Escalate ACTIVE incidents that have gone unacknowledged for 10+ minutes. */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -65,12 +74,22 @@ public class HealthGuardEscalationScheduler {
                     .collect(Collectors.toList());
 
             if (!contactUserIds.isEmpty()) {
-                expoPushService.sendToUsers(
-                        contactUserIds,
-                        "🚨 ESCALATED: SOS from " + triggererName,
-                        "No one has responded yet — please check immediately",
-                        Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
-                        "emergency");
+                if (sqsMessagePublisher != null && sqsProperties != null && emergencySosSqsHandler != null) {
+                    var payload = new com.manacommunity.api.healthguard.sqs.EmergencySosSqsHandler.SosEscalatedPayload(
+                            incident.getId(), triggererName, contactUserIds);
+                    sqsMessagePublisher.publishAfterCommit(
+                            sqsProperties.getQueues().getEmergencySos(),
+                            "SOS_ESCALATED",
+                            payload,
+                            () -> emergencySosSqsHandler.deliverSosEscalated(payload));
+                } else {
+                    expoPushService.sendToUsers(
+                            contactUserIds,
+                            "🚨 ESCALATED: SOS from " + triggererName,
+                            "No one has responded yet — please check immediately",
+                            Map.of("type", "SOS_ALERT", "incidentId", incident.getId()),
+                            "emergency");
+                }
             }
         } catch (Exception e) {
             log.error("HealthGuard: escalation push failed for incident {}: {}", incident.getId(), e.getMessage());

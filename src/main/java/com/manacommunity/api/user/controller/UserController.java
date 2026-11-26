@@ -525,6 +525,7 @@ public class UserController {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
             user.setFailedLoginAttempts(0);
             user.setLockedUntil(null);
+            user.setTokenInvalidatedBefore(java.time.LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
         }
 
         if (req.getTower() != null) user.setTower(req.getTower());

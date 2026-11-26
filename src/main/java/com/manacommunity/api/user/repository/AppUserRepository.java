@@ -118,4 +118,18 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, org.spr
 
     @Query("SELECT u.community.id, COUNT(u.id) FROM AppUser u WHERE u.isActive = true AND u.community IS NOT NULL GROUP BY u.community.id")
     List<Object[]> countActiveMembersByCommunity();
+
+    @Query("""
+            SELECT u FROM AppUser u 
+            WHERE u.community.id = :communityId 
+              AND (
+                LOWER(TRIM(u.flatNo)) = LOWER(TRIM(:flatNo)) 
+                OR LOWER(CONCAT(COALESCE(TRIM(u.block), ''), '-', COALESCE(TRIM(u.flatNo), ''))) = LOWER(TRIM(:flatNo))
+                OR LOWER(CONCAT(COALESCE(TRIM(u.block), ''), ' ', COALESCE(TRIM(u.flatNo), ''))) = LOWER(TRIM(:flatNo))
+              )
+            ORDER BY u.id ASC
+            """)
+    List<AppUser> findByCommunityIdAndFlatNoQuery(@Param("communityId") Long communityId, @Param("flatNo") String flatNo);
+
+    List<AppUser> findByFlatNoIgnoreCase(String flatNo);
 }

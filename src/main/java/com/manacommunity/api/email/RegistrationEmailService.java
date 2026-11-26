@@ -1,12 +1,17 @@
 package com.manacommunity.api.email;
+import com.manacommunity.api.email.sqs.EmailDispatchSqsHandler;
+import com.manacommunity.api.email.sqs.EmailDispatchSqsHandler.EmailDispatchPayload;
 import com.manacommunity.api.sports.model.SportsEvent;
 import com.manacommunity.api.sports.model.SportsTournament;
 import com.manacommunity.api.sports.model.SportsEventRegistration;
 
 import com.manacommunity.api.model.*;
 import com.manacommunity.api.service.NotificationManagementService;
+import com.manacommunity.platform.sqs.SqsMessagePublisher;
+import com.manacommunity.platform.sqs.SqsProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,6 +30,10 @@ import static com.manacommunity.api.email.EmailDeliveryContext.withContext;
  *   <li>{@link Stage#REJECTED} — the organiser did not approve it (optional reason)</li>
  * </ul>
  *
+ * <p>Email dispatch is fully decoupled via {@code mana-email-dispatch} SQS queue so
+ * SMTP latency (1–3 s) never blocks the registration API response thread. When SQS
+ * is disabled, the in-process fallback calls {@link EmailService} directly.</p>
+ *
  * Failures are swallowed (logged) so a notification can never break the
  * surrounding registration transaction.
  */
@@ -40,6 +49,13 @@ public class RegistrationEmailService {
     private final EmailTemplateRenderer          renderer;
     private final EmailService                   emailService;
     private final NotificationManagementService  notificationService;
+    private final EmailDispatchSqsHandler        emailDispatchSqsHandler;
+
+    @Autowired(required = false)
+    private SqsMessagePublisher sqsMessagePublisher;
+
+    @Autowired(required = false)
+    private SqsProperties sqsProperties;
 
     public void send(SportsEventRegistration reg, Stage stage) {
         send(reg, stage, null);
@@ -116,8 +132,20 @@ public class RegistrationEmailService {
             Long communityId = (event != null && event.getCommunity() != null)
                     ? event.getCommunity().getId() : null;
             final String subjectFinal = subject;
-            withContext("REGISTRATION_EMAIL", communityId,
-                    () -> emailService.send(new EmailMessage(to, name, subjectFinal, html)));
+
+            EmailDispatchPayload dispatchPayload = new EmailDispatchPayload(to, name, subjectFinal, html, null, null);
+            if (sqsMessagePublisher != null && sqsProperties != null) {
+                sqsMessagePublisher.publishAfterCommit(
+                        sqsProperties.getQueues().getEmailDispatch(),
+                        "REGISTRATION_EMAIL",
+                        dispatchPayload,
+                        () -> withContext("REGISTRATION_EMAIL", communityId,
+                                () -> emailDispatchSqsHandler.deliverEmail(dispatchPayload, "REGISTRATION_EMAIL", "fallback"))
+                );
+            } else {
+                withContext("REGISTRATION_EMAIL", communityId,
+                        () -> emailService.send(new EmailMessage(to, name, subjectFinal, html)));
+            }
 
             persistNotification(reg, stage, subject);
         } catch (Exception e) {

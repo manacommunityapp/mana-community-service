@@ -67,6 +67,15 @@ public class RazorpayPaymentService {
     private final DomainEventPublisher    domainEventPublisher;
     private final PaymentAmountResolver   amountResolver;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
+
     // ─── Order Creation ──────────────────────────────────────────────────────
 
     /**
@@ -291,6 +300,8 @@ public class RazorpayPaymentService {
                 eventPublisher.publishEvent(razorpayCaptured);
                 domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(order.getId()),
                         "GatewayPaymentCaptured", razorpayCaptured, order.getCommunity() != null ? order.getCommunity().getId() : null);
+
+                enqueuePaymentNotification(order, true);
             }
         }, () -> log.warn("Webhook payment.captured: no local order found for razorpayOrderId={}", razorpayOrderId));
     }
@@ -309,8 +320,29 @@ public class RazorpayPaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
                 log.info("Webhook payment.failed: order {} FAILED: {}", razorpayOrderId, errorDesc);
+                enqueuePaymentNotification(order, false);
             }
         });
+    }
+
+    private void enqueuePaymentNotification(RazorpayOrder order, boolean success) {
+        if (order.getUser() == null || sqsMessagePublisher == null || sqsProperties == null || paymentEventsSqsHandler == null) {
+            return;
+        }
+        var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.PaymentNotificationPayload(
+                order.getUser().getId(),
+                order.getRazorpayOrderId(),
+                "RAZORPAY",
+                order.getAmount(),
+                success,
+                order.getFailureReason()
+        );
+        sqsMessagePublisher.publishAfterCommit(
+                sqsProperties.getQueues().getPaymentEvents(),
+                "PAYMENT_NOTIFICATION",
+                payload,
+                () -> paymentEventsSqsHandler.deliverPaymentNotification(payload)
+        );
     }
 
     private void handleRefundProcessed(JSONObject event, String eventId) {

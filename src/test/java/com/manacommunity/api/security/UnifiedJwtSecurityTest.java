@@ -6,6 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,5 +73,27 @@ class UnifiedJwtSecurityTest {
         assertThat(jwtTokenProvider.isRefreshToken(refreshToken)).isTrue();
         assertThat(jwtTokenProvider.isAccessToken(refreshToken)).isFalse();
         assertThat(jwtTokenProvider.getTokenType(refreshToken)).isEqualTo("refresh");
+    }
+
+    @Test
+    @DisplayName("Should detect tokens issued strictly before tokenInvalidatedBefore and allow same-second/later tokens")
+    void testTokenInvalidatedBeforeCheck() {
+        AppUser user = AppUser.builder()
+                .id(103L)
+                .email("user3@example.com")
+                .role("RESIDENT")
+                .build();
+
+        String token = jwtTokenProvider.generateToken(user);
+        LocalDateTime tokenSec = jwtTokenProvider.getIssuedAt(token).toInstant()
+                .atZone(ZoneId.systemDefault()).toLocalDateTime().truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime futureCutoff = tokenSec.plusSeconds(10);
+        LocalDateTime sameSecondCutoff = tokenSec;
+        LocalDateTime pastCutoff = tokenSec.minusSeconds(10);
+
+        assertThat(jwtTokenProvider.isIssuedBefore(token, futureCutoff)).isTrue();
+        assertThat(jwtTokenProvider.isIssuedBefore(token, sameSecondCutoff)).isFalse();
+        assertThat(jwtTokenProvider.isIssuedBefore(token, pastCutoff)).isFalse();
+        assertThat(jwtTokenProvider.isIssuedBefore(token, null)).isFalse();
     }
 }

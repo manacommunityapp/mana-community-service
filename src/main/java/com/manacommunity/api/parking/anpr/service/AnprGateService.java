@@ -11,6 +11,10 @@ import com.manacommunity.api.parking.entity.ResidentVehicle;
 import com.manacommunity.api.parking.repository.ParkingVisitorPassRepository;
 import com.manacommunity.api.parking.repository.ResidentVehicleRepository;
 import com.manacommunity.api.repository.CommunityRepository;
+import com.manacommunity.api.visitor.entity.VisitorPass;
+import com.manacommunity.api.visitor.entity.WhitelistEntry;
+import com.manacommunity.api.visitor.repository.VisitorPassRepository;
+import com.manacommunity.api.visitor.repository.WhitelistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +49,8 @@ public class AnprGateService {
     private final AnprGateEventRepository eventRepository;
     private final ResidentVehicleRepository vehicleRepository;
     private final ParkingVisitorPassRepository visitorPassRepository;
+    private final VisitorPassRepository communityVisitorPassRepository;
+    private final WhitelistRepository whitelistRepository;
     private final CommunityRepository communityRepository;
     private final AnprPlateNormalizer normalizer;
     private final SimpMessagingTemplate messagingTemplate;
@@ -77,7 +83,7 @@ public class AnprGateService {
                     "Resident vehicle recognised — barrier opening");
         }
 
-        // Step 2: Match against active visitor passes
+        // Step 2: Match against active parking visitor passes
         Optional<ParkingVisitorPass> passMatch = findActiveVisitorPass(communityId, normalisedPlate);
 
         if (passMatch.isPresent()) {
@@ -86,7 +92,7 @@ public class AnprGateService {
                     BarrierAction.OPEN, null, pass.getId(),
                     pass.getVisitorName());
 
-            log.info("ANPR OPEN — visitor pass: plate={} visitor={} gate={}",
+            log.info("ANPR OPEN — parking visitor pass: plate={} visitor={} gate={}",
                     normalisedPlate, pass.getVisitorName(), payload.gateId());
 
             return new AnprWebhookResponse(
@@ -95,7 +101,47 @@ public class AnprGateService {
                     "Visitor pass valid — barrier opening");
         }
 
-        // Step 3: Unknown vehicle — HOLD and alert security
+        // Step 3: Match against active community visitor passes (Visitor Management)
+        List<VisitorPass> activePasses = communityVisitorPassRepository.findActiveByCommunityAndNormalizedVehicle(
+                communityId,
+                List.of(VisitorPass.PassStatus.APPROVED, VisitorPass.PassStatus.CHECKED_IN),
+                normalisedPlate);
+
+        if (!activePasses.isEmpty()) {
+            VisitorPass pass = activePasses.get(0);
+            AnprGateEvent event = saveEvent(community, payload, normalisedPlate,
+                    BarrierAction.OPEN, null, pass.getId(),
+                    pass.getVisitorName());
+
+            log.info("ANPR OPEN — community visitor pass: plate={} visitor={} gate={}",
+                    normalisedPlate, pass.getVisitorName(), payload.gateId());
+
+            return new AnprWebhookResponse(
+                    event.getId(), normalisedPlate, BarrierAction.OPEN,
+                    pass.getVisitorName(),
+                    "Community visitor pass valid (" + pass.getVisitorName() + ") — barrier opening");
+        }
+
+        // Step 4: Match against trusted visitor whitelist
+        List<WhitelistEntry> whitelisted = whitelistRepository.findActiveByCommunityAndNormalizedVehicle(
+                communityId, normalisedPlate);
+
+        if (!whitelisted.isEmpty()) {
+            WhitelistEntry wl = whitelisted.get(0);
+            AnprGateEvent event = saveEvent(community, payload, normalisedPlate,
+                    BarrierAction.OPEN, null, null,
+                    wl.getName());
+
+            log.info("ANPR OPEN — trusted whitelist vehicle: plate={} name={} gate={}",
+                    normalisedPlate, wl.getName(), payload.gateId());
+
+            return new AnprWebhookResponse(
+                    event.getId(), normalisedPlate, BarrierAction.OPEN,
+                    wl.getName(),
+                    "Trusted visitor recognized (" + wl.getName() + ") — barrier opening");
+        }
+
+        // Step 5: Unknown vehicle — HOLD and alert security
         AnprGateEvent event = saveEvent(community, payload, normalisedPlate,
                 BarrierAction.HOLD, null, null, null);
 

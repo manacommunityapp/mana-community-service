@@ -70,4 +70,16 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
     long countTodayDeliveries(@Param("cid") Long communityId,
                               @Param("start") LocalDateTime start,
                               @Param("end") LocalDateTime end);
+
+    @Query("""
+           SELECT v FROM VisitorPass v 
+           WHERE v.community.id = :communityId 
+             AND v.status IN :statuses
+             AND REPLACE(REPLACE(UPPER(v.vehicleNumber), ' ', ''), '-', '') = :normalizedPlate
+           ORDER BY v.createdAt DESC
+           """)
+    List<VisitorPass> findActiveByCommunityAndNormalizedVehicle(
+            @Param("communityId") Long communityId,
+            @Param("statuses") List<VisitorPass.PassStatus> statuses,
+            @Param("normalizedPlate") String normalizedPlate);
 }

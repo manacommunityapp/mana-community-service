@@ -97,7 +97,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
-    @GetMapping({"/mine", "/my-visitors"})
+    @GetMapping("/mine")
     @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getMyPasses(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -125,7 +125,7 @@ public class VisitorPassController {
         return ResponseEntity.ok(visitorPassService.getById(id));
     }
 
-    @PostMapping({"", "/pre-approve"})
+    @PostMapping
     @PreAuthorize("hasAuthority('Create Visitor Pass')")
     public ResponseEntity<VisitorPassResponse> create(
             @Valid @RequestBody VisitorPassRequest req,
@@ -151,6 +151,11 @@ public class VisitorPassController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
+        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(visitorPassService.approvePass(id, user));
     }
 
@@ -186,6 +191,11 @@ public class VisitorPassController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
+        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
     }
 
@@ -195,6 +205,11 @@ public class VisitorPassController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
+        VisitorPassResponse pass = visitorPassService.getById(id);
+        boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
+        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));
     }
 
@@ -258,5 +273,33 @@ public class VisitorPassController {
         String reason = body != null ? body.get("reason") : null;
         visitorPassService.sendOverstayAlert(id, reason);
         return ResponseEntity.ok(Map.of("success", true, "message", "Overstay alert dispatched."));
+    }
+
+    @GetMapping("/{id}/approval-status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> getApprovalStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(visitorPassService.getApprovalStatus(id));
+    }
+
+    @PostMapping("/delivery-otp/generate")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<Map<String, String>> generateDeliveryOtp(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser guard = loggedInUserService.resolve(principal);
+        String flat = body != null ? body.get("flat") : null;
+        String company = body != null ? body.get("company") : null;
+        return ResponseEntity.ok(visitorPassService.generateDeliveryOtp(flat, company, guard, guard.getCommunity()));
+    }
+
+    @PostMapping("/delivery-otp/verify")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<VisitorPassResponse> verifyDeliveryOtp(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser guard = loggedInUserService.resolve(principal);
+        String flat = body != null ? body.get("flat") : null;
+        String otp = body != null ? body.get("otp") : null;
+        return ResponseEntity.ok(visitorPassService.verifyDeliveryOtp(flat, otp, guard, guard.getCommunity()));
     }
 }

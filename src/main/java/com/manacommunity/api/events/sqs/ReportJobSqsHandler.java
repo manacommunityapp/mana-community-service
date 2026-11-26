@@ -2,11 +2,13 @@ package com.manacommunity.api.events.sqs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.events.service.EventReportService;
+import com.manacommunity.api.service.BillingService;
 import com.manacommunity.api.service.ExpoPushService;
 import com.manacommunity.platform.sqs.SqsEventEnvelope;
 import com.manacommunity.platform.sqs.SqsMessageHandler;
 import com.manacommunity.platform.sqs.SqsProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -34,6 +36,9 @@ public class ReportJobSqsHandler implements SqsMessageHandler {
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redisTemplate;
 
+    @Autowired(required = false)
+    private ObjectProvider<BillingService> billingServiceProvider;
+
     public ReportJobSqsHandler(
             EventReportService reportService,
             ExpoPushService expoPushService,
@@ -54,6 +59,10 @@ public class ReportJobSqsHandler implements SqsMessageHandler {
             Long requesterUserId
     ) {}
 
+    public record BatchInvoicePayload(
+            Long expenseId
+    ) {}
+
     @Override
     public String queueName() {
         return sqsProperties.getQueues().getReportJobs();
@@ -61,11 +70,28 @@ public class ReportJobSqsHandler implements SqsMessageHandler {
 
     @Override
     public void handle(SqsEventEnvelope envelope) throws Exception {
-        if (!"EVENT_REGISTRATIONS_CSV".equals(envelope.eventType())) {
+        switch (envelope.eventType()) {
+            case "EVENT_REGISTRATIONS_CSV" -> {
+                ReportJobPayload payload = objectMapper.readValue(envelope.payloadJson(), ReportJobPayload.class);
+                processReportJob(payload);
+            }
+            case "BATCH_INVOICE_GENERATION" -> {
+                BatchInvoicePayload payload = objectMapper.readValue(envelope.payloadJson(), BatchInvoicePayload.class);
+                processBatchInvoiceJob(payload);
+            }
+            default -> log.debug("Unhandled report-job SQS event type={} eventId={}",
+                    envelope.eventType(), envelope.eventId());
+        }
+    }
+
+    public void processBatchInvoiceJob(BatchInvoicePayload payload) {
+        if (payload == null || payload.expenseId() == null) return;
+        BillingService billingService = billingServiceProvider != null ? billingServiceProvider.getIfAvailable() : null;
+        if (billingService == null) {
+            log.warn("BillingService unavailable for expenseId={}", payload.expenseId());
             return;
         }
-        ReportJobPayload payload = objectMapper.readValue(envelope.payloadJson(), ReportJobPayload.class);
-        processReportJob(payload);
+        billingService.executeBatchGenerateInvoices(payload.expenseId());
     }
 
     public void processReportJob(ReportJobPayload payload) {

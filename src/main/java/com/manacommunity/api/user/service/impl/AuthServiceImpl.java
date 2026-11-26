@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 
 @Slf4j
@@ -435,6 +436,12 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Session is no longer valid. Please log in again.",
                     HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
+        if (user.getTokenInvalidatedBefore() != null
+                && jwtTokenProvider.isIssuedBefore(refreshToken, user.getTokenInvalidatedBefore())) {
+            auditLog.record(AuditLogService.Action.TOKEN_REFRESH_FAILED, user.getId(), user.getEmail());
+            throw new ManaCommunityException("Session invalidated due to password change. Please log in again.",
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALIDATED");
+        }
 
         auditLog.record(AuditLogService.Action.TOKEN_REFRESH, user.getId(), user.getEmail());
         // Rotation: issue a brand-new access + refresh pair on every refresh.
@@ -575,10 +582,11 @@ public class AuthServiceImpl implements AuthService {
                 user.getCommunity() != null ? user.getCommunity().getName() : null
         ));
 
-        // Update password and clear lockout / failure attempts
+        // Update password, clear lockout / failure attempts, and revoke all prior JWTs
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
         userRepository.save(user);
 
         // Security hardening: Invalidate all active sessions across devices
@@ -644,6 +652,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
         userRepository.save(user);
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());

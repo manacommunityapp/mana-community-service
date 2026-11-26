@@ -107,12 +107,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
                 String jti = jwtTokenProvider.getJti(token);
                 if (!tokenBlacklistService.isBlacklisted(jti)) {
-                    authenticate(jwtTokenProvider.getUserId(token), request);
+                    authenticate(jwtTokenProvider.getUserId(token), token, request);
                 } else {
                     log.debug("Rejected blacklisted token jti={}", jti);
                 }
             } else if (mockAuthEnabled && token.startsWith("mock-token-")) {
-                authenticate(parseLegacyId(token), request);
+                authenticate(parseLegacyId(token), null, request);
             }
         } else if (mockAuthEnabled && !isDocsPath(request)) {
             authenticateDefaultUser(request);
@@ -129,10 +129,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || uri.startsWith("/webjars");
     }
 
-    private void authenticate(Long userId, HttpServletRequest request) {
+    private void authenticate(Long userId, String rawJwtToken, HttpServletRequest request) {
         if (userId == null) return;
         AppUser user = userRepository.findById(userId).orElse(null);
         if (user == null || Boolean.FALSE.equals(user.getIsActive())) return;
+        if (rawJwtToken != null && user.getTokenInvalidatedBefore() != null
+                && jwtTokenProvider.isIssuedBefore(rawJwtToken, user.getTokenInvalidatedBefore())) {
+            log.debug("Rejected token issued before password/session invalidation for userId={}", userId);
+            return;
+        }
         setAuthentication(user, request);
     }
 

@@ -59,6 +59,7 @@ public class SqsConfig {
             }
             List<String> queues = List.of(
                     props.getQueues().getSmsDispatch(),
+                    props.getQueues().getEmailDispatch(),
                     props.getQueues().getNotificationEvents(),
                     props.getQueues().getSportsEvents(),
                     props.getQueues().getAuctionNotifications(),
@@ -66,7 +67,9 @@ public class SqsConfig {
                     props.getQueues().getMobilityEvents(),
                     props.getQueues().getGroupOrderNotifications(),
                     props.getQueues().getExternalSync(),
-                    props.getQueues().getReportJobs()
+                    props.getQueues().getReportJobs(),
+                    props.getQueues().getPaymentEvents(),
+                    props.getQueues().getEmergencySos()
             );
             for (String queue : queues) {
                 if (queue != null && !queue.isBlank()) {

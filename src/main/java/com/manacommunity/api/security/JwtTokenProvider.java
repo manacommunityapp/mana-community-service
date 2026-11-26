@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -250,6 +253,26 @@ public class JwtTokenProvider {
     public long getExpiryMs(String token) {
         Date exp = parse(token).getPayload().getExpiration();
         return exp != null ? exp.getTime() : 0L;
+    }
+
+    /**
+     * Returns the {@code iat} (issued-at) timestamp of the token, or {@code null} if absent.
+     */
+    public Date getIssuedAt(String token) {
+        return parse(token).getPayload().getIssuedAt();
+    }
+
+    /**
+     * Returns {@code true} when the token was issued strictly before {@code invalidatedBefore}
+     * (truncated to whole seconds to match JWT numeric-date second granularity).
+     */
+    public boolean isIssuedBefore(String token, LocalDateTime invalidatedBefore) {
+        if (invalidatedBefore == null) return false;
+        Date issuedAt = getIssuedAt(token);
+        if (issuedAt == null) return false;
+        Instant invalidatedSec = invalidatedBefore.atZone(ZoneId.systemDefault())
+                .toInstant().truncatedTo(ChronoUnit.SECONDS);
+        return issuedAt.toInstant().isBefore(invalidatedSec);
     }
 
     private Jws<Claims> parse(String token) {

@@ -527,9 +527,17 @@ public class MobilityServiceImpl implements MobilityService {
             carpoolBookingRepo.save(MobilityCarpoolBooking.builder()
                     .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED").build());
         }
-        expoPushService.sendToUser(offer.getDriverUser().getId(), "New passenger joined",
-                user.getFullName() + " joined your " + offer.getJourneyType().toLowerCase() + " journey.",
-                Map.of("type", "MOBILITY_GROUP_JOIN", "offerId", offerId), "default");
+        if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
+            var gjp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.GroupJoinPayload(
+                    offerId, offer.getDriverUser().getId(),
+                    user.getFullName(), offer.getJourneyType().toLowerCase());
+            sqsMessagePublisher.publishAfterCommit(sqsProperties.getQueues().getMobilityEvents(),
+                    "MOBILITY_GROUP_JOIN", gjp, () -> mobilityEventsSqsHandler.deliverGroupJoinPush(gjp));
+        } else {
+            expoPushService.sendToUser(offer.getDriverUser().getId(), "New passenger joined",
+                    user.getFullName() + " joined your " + offer.getJourneyType().toLowerCase() + " journey.",
+                    Map.of("type", "MOBILITY_GROUP_JOIN", "offerId", offerId), "default");
+        }
     }
 
     @Override
@@ -547,16 +555,30 @@ public class MobilityServiceImpl implements MobilityService {
             next.setStatus("CONFIRMED");
             offer.setAvailableSeats((short) (offer.getAvailableSeats() - next.getSeats()));
             if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
-            expoPushService.sendToUser(next.getUser().getId(), "Your shared journey is confirmed",
-                    "A seat opened on the " + offer.getJourneyType().toLowerCase() + " journey from " + offer.getOrigin() + ".",
-                    Map.of("type", "MOBILITY_WAITLIST_PROMOTED", "offerId", offerId), "default");
+            if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
+                var wpp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.WaitlistPromotedPayload(
+                        offerId, next.getUser().getId(), offer.getOrigin(), offer.getJourneyType().toLowerCase());
+                sqsMessagePublisher.publishAfterCommit(sqsProperties.getQueues().getMobilityEvents(),
+                        "MOBILITY_WAITLIST_PROMOTED", wpp, () -> mobilityEventsSqsHandler.deliverWaitlistPromotedPush(wpp));
+            } else {
+                expoPushService.sendToUser(next.getUser().getId(), "Your shared journey is confirmed",
+                        "A seat opened on the " + offer.getJourneyType().toLowerCase() + " journey from " + offer.getOrigin() + ".",
+                        Map.of("type", "MOBILITY_WAITLIST_PROMOTED", "offerId", offerId), "default");
+            }
             carpoolBookingRepo.save(next);
         }
         carpoolBookingRepo.save(booking);
         carpoolRepo.save(offer);
-        expoPushService.sendToUser(offer.getDriverUser().getId(), "Passenger left the journey",
-                "A seat is available again on your " + offer.getJourneyType().toLowerCase() + " journey.",
-                Map.of("type", "MOBILITY_GROUP_LEAVE", "offerId", offerId), "default");
+        if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
+            var glp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.GroupLeavePayload(
+                    offerId, offer.getDriverUser().getId(), offer.getJourneyType().toLowerCase());
+            sqsMessagePublisher.publishAfterCommit(sqsProperties.getQueues().getMobilityEvents(),
+                    "MOBILITY_GROUP_LEAVE", glp, () -> mobilityEventsSqsHandler.deliverGroupLeavePush(glp));
+        } else {
+            expoPushService.sendToUser(offer.getDriverUser().getId(), "Passenger left the journey",
+                    "A seat is available again on your " + offer.getJourneyType().toLowerCase() + " journey.",
+                    Map.of("type", "MOBILITY_GROUP_LEAVE", "offerId", offerId), "default");
+        }
     }
 
     @Override
@@ -576,9 +598,15 @@ public class MobilityServiceImpl implements MobilityService {
         if (existing != null && "WAITLISTED".equals(existing.getStatus())) return;
         carpoolBookingRepo.save(MobilityCarpoolBooking.builder().offer(offer).user(user)
                 .seats((short) req.getSeats()).status("WAITLISTED").build());
-        expoPushService.sendToUser(user.getId(), "Added to journey waitlist",
-                "We’ll notify you if a seat opens on this journey.",
-                Map.of("type", "MOBILITY_WAITLISTED", "offerId", offerId), "default");
+        if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
+            var wp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.WaitlistedPayload(offerId, user.getId());
+            sqsMessagePublisher.publishAfterCommit(sqsProperties.getQueues().getMobilityEvents(),
+                    "MOBILITY_WAITLISTED", wp, () -> mobilityEventsSqsHandler.deliverWaitlistedPush(wp));
+        } else {
+            expoPushService.sendToUser(user.getId(), "Added to journey waitlist",
+                    "We'll notify you if a seat opens on this journey.",
+                    Map.of("type", "MOBILITY_WAITLISTED", "offerId", offerId), "default");
+        }
     }
 
     @Override
@@ -881,9 +909,15 @@ public class MobilityServiceImpl implements MobilityService {
         carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "CONFIRMED").forEach(booking -> {
             booking.setStatus("CANCELLED");
             carpoolBookingRepo.save(booking);
-            expoPushService.sendToUser(booking.getUser().getId(), "Journey cancelled",
-                    "The driver cancelled your shared journey offer.",
-                    Map.of("type", "MOBILITY_GROUP_CANCELLED", "offerId", offerId), "default");
+            if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
+                var gcp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.GroupCancelledPayload(offerId, booking.getUser().getId());
+                sqsMessagePublisher.publishAfterCommit(sqsProperties.getQueues().getMobilityEvents(),
+                        "MOBILITY_GROUP_CANCELLED", gcp, () -> mobilityEventsSqsHandler.deliverGroupCancelledPush(gcp));
+            } else {
+                expoPushService.sendToUser(booking.getUser().getId(), "Journey cancelled",
+                        "The driver cancelled your shared journey offer.",
+                        Map.of("type", "MOBILITY_GROUP_CANCELLED", "offerId", offerId), "default");
+            }
         });
         carpoolBookingRepo.findByOfferIdAndStatusOrderByBookedAtAsc(offerId, "WAITLISTED").forEach(booking -> {
             booking.setStatus("CANCELLED");

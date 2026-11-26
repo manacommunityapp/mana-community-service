@@ -27,6 +27,7 @@ public class SqsProperties {
     @Data
     public static class Queues {
         private String smsDispatch = "mana-sms-dispatch";
+        private String emailDispatch = "mana-email-dispatch";
         private String notificationEvents = "mana-notification-events";
         private String sportsEvents = "mana-sports-events";
         private String auctionNotifications = "mana-auction-notifications";
@@ -35,5 +36,7 @@ public class SqsProperties {
         private String groupOrderNotifications = "mana-grouporder-notifications";
         private String externalSync = "mana-external-sync";
         private String reportJobs = "mana-report-jobs";
+        private String paymentEvents = "mana-payment-events";
+        private String emergencySos = "mana-emergency-sos";
     }
 }
