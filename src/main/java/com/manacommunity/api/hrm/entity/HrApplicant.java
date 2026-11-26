@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,7 +22,7 @@ public class HrApplicant {
     @Column(name = "cover_letter", columnDefinition = "TEXT") private String coverLetter;
     @Column(name = "current_employer", length = 200) private String currentEmployer;
     @Column(name = "experience_years") private Integer experienceYears;
-    @Column(name = "expected_salary") private Double expectedSalary;
+    @Column(name = "expected_salary", precision = 14, scale = 2) private BigDecimal expectedSalary;
     @Column(name = "status", nullable = false, length = 30) @Builder.Default private String status = "APPLIED";
     @Column(name = "source", length = 100) private String source;
     @Column(name = "notes", columnDefinition = "TEXT") private String notes;

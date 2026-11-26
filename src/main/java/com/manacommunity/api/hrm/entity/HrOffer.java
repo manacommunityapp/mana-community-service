@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -14,7 +15,7 @@ public class HrOffer {
     @Column(name = "organization_id", nullable = false) private Long organizationId;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "applicant_id", nullable = false)
     private HrApplicant applicant;
-    @Column(name = "offered_salary", nullable = false) private Double offeredSalary;
+    @Column(name = "offered_salary", nullable = false, precision = 14, scale = 2) private BigDecimal offeredSalary;
     @Column(name = "proposed_joining_date") private LocalDate proposedJoiningDate;
     @Column(name = "offer_letter_url", length = 500) private String offerLetterUrl;
     @Column(name = "expiry_date") private LocalDate expiryDate;

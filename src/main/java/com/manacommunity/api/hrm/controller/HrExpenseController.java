@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -70,8 +71,8 @@ public class HrExpenseController {
         AppUser user = loggedInUserService.resolve(principal);
         employeeService.resolveAndVerifyMembership(orgId, user.getId());
         HrEmployee emp = employeeService.findByOrgAndManaUser(orgId, user.getId());
-        Double approvedAmount = body != null && body.get("approvedAmount") != null
-            ? ((Number) body.get("approvedAmount")).doubleValue() : null;
+        BigDecimal approvedAmount = body != null && body.get("approvedAmount") != null
+            ? new BigDecimal(body.get("approvedAmount").toString()) : null;
         return ResponseEntity.ok(expenseService.approveClaim(orgId, claimId, approvedAmount, emp.getId()));
     }
 

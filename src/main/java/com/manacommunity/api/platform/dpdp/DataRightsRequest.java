@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity(name = "PlatformDataRightsRequest")
-@Table(name = "data_rights_requests")
+@Table(name = "dpdp_data_rights_requests")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class DataRightsRequest {
 

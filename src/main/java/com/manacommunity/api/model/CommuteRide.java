@@ -4,6 +4,7 @@ import com.manacommunity.api.user.model.AppUser;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -65,8 +66,8 @@ public class CommuteRide {
     @Column(name = "available_seats", nullable = false)
     private int availableSeats;
 
-    @Column(name = "price_per_seat")
-    private Double pricePerSeat;
+    @Column(name = "price_per_seat", precision = 14, scale = 2)
+    private BigDecimal pricePerSeat;
 
     @Column(name = "is_free", nullable = false)
     @Builder.Default

@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -36,7 +37,7 @@ public class CreateCommuteRideRequest {
     @Min(1)
     private int totalSeats;
 
-    private Double pricePerSeat;
+    private BigDecimal pricePerSeat;
     private boolean free;
     private String vehicleType;
     private String vehicleNumber;
