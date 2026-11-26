@@ -76,6 +76,9 @@ public class RazorpayPaymentService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
+
     // ─── Order Creation ──────────────────────────────────────────────────────
 
     /**
@@ -212,6 +215,12 @@ public class RazorpayPaymentService {
         order.setPaidAt(LocalDateTime.now());
         RazorpayOrder saved = orderRepository.save(order);
 
+        if (mobilityPaymentCallbackService != null) {
+            mobilityPaymentCallbackService.confirmPayment(
+                    saved.getReferenceType(), saved.getReferenceId(),
+                    saved.getRazorpayOrderId(), saved.getRazorpayPaymentId(), "RAZORPAY");
+        }
+
         auditService.record(
                 AuditAction.PAYMENT_COMPLETED,
                 AuditModule.PAYMENT,
@@ -288,6 +297,12 @@ public class RazorpayPaymentService {
                 order.setPaidAt(LocalDateTime.now());
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
+
+                if (mobilityPaymentCallbackService != null) {
+                    mobilityPaymentCallbackService.confirmPayment(
+                            order.getReferenceType(), order.getReferenceId(),
+                            order.getRazorpayOrderId(), razorpayPaymentId, "RAZORPAY");
+                }
 
                 auditService.record(AuditAction.PAYMENT_WEBHOOK_PROCESSED, AuditModule.PAYMENT,
                         "RazorpayOrder", String.valueOf(order.getId()), prev, "PAID");

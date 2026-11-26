@@ -15,6 +15,8 @@ public class MobilityDriverDto {
     private String availability;
     private BigDecimal avgRating;
     private int totalTrips;
+    private Long serviceZoneId;
+    private String serviceZoneName;
     private Instant createdAt;
     private List<MobilityVehicleDto> vehicles;
 }

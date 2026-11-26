@@ -346,10 +346,15 @@ class SqsIntegrationTest {
                 77L, 12L, SportsEventRegistration.RegistrationStatus.PENDING))
                 .thenReturn(Optional.of(pendingReg));
 
+        @SuppressWarnings("unchecked")
+        ObjectProvider<com.manacommunity.api.mobility.service.MobilityPaymentCallbackService> mobilityCallbackProvider =
+                mock(ObjectProvider.class);
+
         PaymentEventsSqsHandler handler = new PaymentEventsSqsHandler(
                 notificationServiceProvider,
                 sportsRegistrationRepository,
                 groupBuyConfirmationProvider,
+                mobilityCallbackProvider,
                 eventPublisher,
                 sqsProperties,
                 objectMapper

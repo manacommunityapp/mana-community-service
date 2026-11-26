@@ -21,5 +21,17 @@ public class AirportRideRequestDto {
     private String flightNumber;
     private String terminal;
     private String status;
+    private Double pickupLat;
+    private Double pickupLng;
+    private Double destLat;
+    private Double destLng;
+    private Double maxDetourKm;
+    private boolean allowCrossCommunity;
+    private boolean autoReserve;
+    private boolean parentConsentRequired;
+    private String guardianName;
+    private String guardianPhone;
+    private String guardianConsentStatus;
+    private Instant guardianConsentedAt;
     private Instant createdAt;
 }

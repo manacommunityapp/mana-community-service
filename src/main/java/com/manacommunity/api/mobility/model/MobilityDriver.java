@@ -40,6 +40,10 @@ public class MobilityDriver {
     @Column(name = "total_trips", nullable = false)
     private int totalTrips = 0;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_zone_id")
+    private MobilityServiceZone serviceZone;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

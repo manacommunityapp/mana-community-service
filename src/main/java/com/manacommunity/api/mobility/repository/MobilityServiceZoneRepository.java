@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface MobilityServiceZoneRepository extends JpaRepository<MobilityServiceZone, Long> {
     List<MobilityServiceZone> findByCommunityIdAndActiveTrueOrderByNameAsc(Long communityId);
+    List<MobilityServiceZone> findByCommunityIdOrderByNameAsc(Long communityId);
 }

@@ -46,6 +46,7 @@ public class PaymentEventsSqsHandler implements SqsMessageHandler {
     private final ObjectProvider<UnifiedNotificationService> notificationServiceProvider;
     private final SportsEventRegistrationRepository regRepository;
     private final ObjectProvider<GroupBuyPaymentConfirmationService> groupBuyPaymentConfirmationService;
+    private final ObjectProvider<com.manacommunity.api.mobility.service.MobilityPaymentCallbackService> mobilityPaymentCallbackService;
     private final ApplicationEventPublisher eventPublisher;
     private final SqsProperties sqsProperties;
     private final ObjectMapper objectMapper;
@@ -132,6 +133,14 @@ public class PaymentEventsSqsHandler implements SqsMessageHandler {
         switch (payload.referenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(payload);
             case "GROUP_BUY_ORDER" -> confirmGroupBuyOrder(payload);
+            case "MOBILITY_TRIP", "MOBILITY_CARPOOL" -> {
+                var mobilityCb = mobilityPaymentCallbackService.getIfAvailable();
+                if (mobilityCb != null) {
+                    mobilityCb.confirmPayment(
+                            payload.referenceType(), payload.referenceId(),
+                            payload.manaOrderId(), payload.cfPaymentId(), "CASHFREE");
+                }
+            }
             case "MARKET_STALL_BOOKING" -> {
                 if (payload.userId() != null) {
                     eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(

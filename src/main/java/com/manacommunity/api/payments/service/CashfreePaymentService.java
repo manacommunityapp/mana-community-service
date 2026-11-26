@@ -103,6 +103,9 @@ public class CashfreePaymentService {
     @Autowired(required = false)
     private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
 
+    @Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
+
     /** Returns a checkout order only to its payer, including its session credentials. */
     @Transactional(readOnly = true)
     public CashfreeOrderResponse getUserOrder(String manaOrderId, AppUser user) {
@@ -528,6 +531,13 @@ public class CashfreePaymentService {
         switch (order.getReferenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
             case "GROUP_BUY_ORDER" -> confirmGroupBuyOrder(order);
+            case "MOBILITY_TRIP", "MOBILITY_CARPOOL" -> {
+                if (mobilityPaymentCallbackService != null) {
+                    mobilityPaymentCallbackService.confirmPayment(
+                            order.getReferenceType(), order.getReferenceId(),
+                            order.getManaOrderId(), order.getCfPaymentId(), "CASHFREE");
+                }
+            }
             case "MARKET_STALL_BOOKING" -> {
                 if (order.getUser() != null) {
                     eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(order.getReferenceType(), order.getReferenceId(), order.getUser().getId(), order.getAmount()));

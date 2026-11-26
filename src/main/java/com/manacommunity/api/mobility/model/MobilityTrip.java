@@ -39,6 +39,10 @@ public class MobilityTrip {
     @JoinColumn(name = "vehicle_id")
     private MobilityVehicle vehicle;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_zone_id")
+    private MobilityServiceZone serviceZone;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "service_type", nullable = false, length = 20)
     private MobilityServiceType serviceType;
@@ -100,6 +104,50 @@ public class MobilityTrip {
 
     @Column(name = "payment_method", nullable = false, length = 20)
     private String paymentMethod = "CASH";
+
+    @Builder.Default
+    @Column(name = "payment_status", nullable = false, length = 25)
+    private String paymentStatus = "PENDING";
+
+    @Column(name = "payment_order_id", length = 64)
+    private String paymentOrderId;
+
+    @Column(name = "payment_ref", length = 120)
+    private String paymentRef;
+
+    @Column(name = "gateway", length = 20)
+    private String gateway;
+
+    @Builder.Default
+    @Column(name = "refund_status", nullable = false, length = 25)
+    private String refundStatus = "NONE";
+
+    @Column(name = "refund_amount", precision = 10, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Column(name = "refund_ref", length = 120)
+    private String refundRef;
+
+    @Builder.Default
+    @Column(name = "platform_fee", nullable = false, precision = 10, scale = 2)
+    private BigDecimal platformFee = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "driver_payout", nullable = false, precision = 10, scale = 2)
+    private BigDecimal driverPayout = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "settled", nullable = false)
+    private boolean settled = false;
+
+    @Column(name = "settled_at")
+    private Instant settledAt;
+
+    @Column(name = "receipt_number", length = 40)
+    private String receiptNumber;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
 
     @Column(name = "promo_code", length = 30)
     private String promoCode;

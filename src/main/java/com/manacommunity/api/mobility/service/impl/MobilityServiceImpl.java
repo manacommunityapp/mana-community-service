@@ -65,6 +65,9 @@ public class MobilityServiceImpl implements MobilityService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler mobilityEventsSqsHandler;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
+
     // ── Fare rates ────────────────────────────────────────────────
     private static final BigDecimal BASE_FARE       = new BigDecimal("20");
     private static final BigDecimal RATE_PER_KM_BIKE  = new BigDecimal("4");
@@ -116,6 +119,9 @@ public class MobilityServiceImpl implements MobilityService {
         Community community = communityRepo.findById(user.getCommunity().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
 
+        MobilityServiceZone matchedZone = resolveAndEnforceServiceZone(
+                community.getId(), req.getPickupLat(), req.getPickupLng(), req.getDestLat(), req.getDestLng());
+
         double distKm = matchingEngine.calculateDistanceKm(
                 req.getPickupLat(), req.getPickupLng(), req.getDestLat(), req.getDestLng());
 
@@ -124,11 +130,13 @@ public class MobilityServiceImpl implements MobilityService {
         BigDecimal dist      = ratePerKm.multiply(BigDecimal.valueOf(distKm)).setScale(2, RoundingMode.HALF_UP);
         BigDecimal taxes     = base.add(dist).multiply(TAX_RATE).setScale(2, RoundingMode.HALF_UP);
         BigDecimal total     = base.add(dist).add(taxes).setScale(2, RoundingMode.HALF_UP);
+        String paymentMethod = req.getPaymentMethod() != null ? req.getPaymentMethod().trim().toUpperCase() : "CASH";
 
         MobilityTrip trip = MobilityTrip.builder()
                 .tripRef(generateRef())
                 .community(community)
                 .passenger(user)
+                .serviceZone(matchedZone)
                 .serviceType(req.getServiceType())
                 .status(MobilityTripStatus.SEARCHING)
                 .pickupLat(req.getPickupLat())
@@ -147,7 +155,9 @@ public class MobilityServiceImpl implements MobilityService {
                 .quotedTotal(total)
                 .distanceKm(BigDecimal.valueOf(distKm).setScale(2, RoundingMode.HALF_UP))
                 .etaMinutes(Math.max(5, (int)(distKm / 0.5)))
-                .paymentMethod(req.getPaymentMethod() != null ? req.getPaymentMethod() : "CASH")
+                .paymentMethod(paymentMethod)
+                .paymentStatus("PENDING")
+                .gateway("CASH".equals(paymentMethod) ? "CASH" : "CASHFREE")
                 .promoCode(req.getPromoCode())
                 .build();
 
@@ -187,7 +197,10 @@ public class MobilityServiceImpl implements MobilityService {
         trip.setCancelReason(req.getReason());
         trip.setCancelledAt(Instant.now());
         offerRepo.deleteByTripIdAndAcceptedIsNull(tripId);
-        return toDto(trip);
+        if (mobilityPaymentCallbackService != null) {
+            mobilityPaymentCallbackService.refundTripOnCancellation(trip, req.getReason());
+        }
+        return toDto(tripRepo.save(trip));
     }
 
     @Override
@@ -237,15 +250,56 @@ public class MobilityServiceImpl implements MobilityService {
         }
         return serviceZoneRepo.findByCommunityIdAndActiveTrueOrderByNameAsc(user.getCommunity().getId())
                 .stream()
-                .map(zone -> MobilityServiceZoneDto.builder()
-                        .id(zone.getId())
-                        .name(zone.getName())
-                        .centerLat(zone.getCenterLat())
-                        .centerLng(zone.getCenterLng())
-                        .radiusKm(zone.getRadiusKm())
-                        .active(zone.isActive())
-                        .build())
+                .map(this::toServiceZoneDto)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MobilityReceiptDto getTripReceipt(AppUser user, Long tripId) {
+        MobilityTrip trip = findTripForUser(user, tripId);
+        BigDecimal total = trip.getFinalFare() != null ? trip.getFinalFare() : trip.getQuotedTotal();
+        String receiptNo = trip.getReceiptNumber() != null ? trip.getReceiptNumber() : "MOB-RCP-" + trip.getTripRef();
+        return MobilityReceiptDto.builder()
+                .receiptNumber(receiptNo)
+                .tripId(trip.getId())
+                .tripRef(trip.getTripRef())
+                .serviceType(trip.getServiceType().name())
+                .paymentMethod(trip.getPaymentMethod())
+                .paymentStatus(trip.getPaymentStatus())
+                .gateway(trip.getGateway())
+                .paymentOrderId(trip.getPaymentOrderId())
+                .paymentRef(trip.getPaymentRef())
+                .baseFare(trip.getBaseFare())
+                .distanceFare(trip.getDistanceFare())
+                .durationFare(trip.getDurationFare())
+                .taxes(trip.getTaxes())
+                .totalPaid(total)
+                .refundStatus(trip.getRefundStatus())
+                .refundAmount(trip.getRefundAmount())
+                .paidAt(trip.getPaidAt())
+                .pickupAddress(trip.getPickupAddress())
+                .destAddress(trip.getDestAddress())
+                .passengerName(trip.getPassenger() != null ? trip.getPassenger().getFullName() : null)
+                .driverName(trip.getDriver() != null ? driverDisplayName(trip.getDriver()) : null)
+                .build();
+    }
+
+    @Override
+    public MobilityTripDto confirmTripPayment(AppUser user, Long tripId, String paymentOrderId, String paymentRef, String gateway) {
+        MobilityTrip trip = findTripForUser(user, tripId);
+        if (mobilityPaymentCallbackService != null) {
+            mobilityPaymentCallbackService.confirmTripPayment(trip.getId(), paymentOrderId, paymentRef, gateway);
+        } else {
+            trip.setPaymentStatus("PAID");
+            trip.setPaymentOrderId(paymentOrderId);
+            trip.setPaymentRef(paymentRef);
+            trip.setGateway(gateway);
+            trip.setPaidAt(Instant.now());
+            trip.setReceiptNumber("MOB-RCP-" + trip.getTripRef());
+            tripRepo.save(trip);
+        }
+        return toDto(tripRepo.findById(tripId).orElse(trip));
     }
 
     // ── Driver ────────────────────────────────────────────────────
@@ -261,10 +315,12 @@ public class MobilityServiceImpl implements MobilityService {
         if (driverRepo.existsByUserId(user.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Already registered as a driver");
         }
+        MobilityServiceZone zone = resolveZoneForCommunity(user, req.getServiceZoneId());
         MobilityDriver driver = driverRepo.save(MobilityDriver.builder()
                 .user(user)
                 .status(MobilityDriverStatus.PENDING)
                 .availability("OFFLINE")
+                .serviceZone(zone)
                 .build());
 
         vehicleRepo.save(MobilityVehicle.builder()
@@ -278,6 +334,14 @@ public class MobilityServiceImpl implements MobilityService {
                 .build());
 
         return toDriverDto(driver);
+    }
+
+    @Override
+    public MobilityDriverDto assignDriverServiceZone(AppUser user, Long serviceZoneId) {
+        MobilityDriver driver = requireDriver(user);
+        MobilityServiceZone zone = resolveZoneForCommunity(user, serviceZoneId);
+        driver.setServiceZone(zone);
+        return toDriverDto(driverRepo.save(driver));
     }
 
     @Override
@@ -358,12 +422,9 @@ public class MobilityServiceImpl implements MobilityService {
     @Transactional(readOnly = true)
     public DriverEarningsSummaryDto getMyEarnings(AppUser user) {
         MobilityDriver driver = requireDriver(user);
-        // Simplified: scan recent completed trips; in production, use earnings daily ledger
-        List<MobilityTrip> completed = tripRepo.findByPassengerIdOrderByRequestedAtDesc(
-                driver.getUser().getId(), PageRequest.of(0, 500)).stream()
-                .filter(t -> t.getStatus() == MobilityTripStatus.COMPLETED
-                          && t.getDriver() != null
-                          && t.getDriver().getId().equals(driver.getId()))
+        List<MobilityTrip> completed = tripRepo.findByDriverIdOrderByRequestedAtDesc(driver.getId())
+                .stream()
+                .filter(t -> t.getStatus() == MobilityTripStatus.COMPLETED)
                 .collect(Collectors.toList());
 
         Instant today = LocalDate.now(ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC);
@@ -371,17 +432,22 @@ public class MobilityServiceImpl implements MobilityService {
         Instant monthAgo = today.minusSeconds(30L * 86400);
 
         BigDecimal todayEarn = completed.stream().filter(t -> t.getCompletedAt() != null && t.getCompletedAt().isAfter(today))
-                .map(t -> t.getFinalFare() != null ? t.getFinalFare() : t.getQuotedTotal()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(this::tripNetOrGross).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal weekEarn = completed.stream().filter(t -> t.getCompletedAt() != null && t.getCompletedAt().isAfter(weekAgo))
-                .map(t -> t.getFinalFare() != null ? t.getFinalFare() : t.getQuotedTotal()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(this::tripNetOrGross).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal monthEarn = completed.stream().filter(t -> t.getCompletedAt() != null && t.getCompletedAt().isAfter(monthAgo))
-                .map(t -> t.getFinalFare() != null ? t.getFinalFare() : t.getQuotedTotal()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(this::tripNetOrGross).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pendingSettle = completed.stream().filter(t -> !t.isSettled())
+                .map(this::tripNetOrGross).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal settledEarn = completed.stream().filter(MobilityTrip::isSettled)
+                .map(this::tripNetOrGross).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return DriverEarningsSummaryDto.builder()
                 .todayEarnings(todayEarn)
                 .weekEarnings(weekEarn)
                 .monthEarnings(monthEarn)
-                .pendingSettlement(BigDecimal.ZERO)
+                .pendingSettlement(pendingSettle)
+                .settledEarnings(settledEarn)
                 .todayTrips((int) completed.stream().filter(t -> t.getCompletedAt() != null && t.getCompletedAt().isAfter(today)).count())
                 .totalTrips(driver.getTotalTrips())
                 .build();
@@ -456,7 +522,20 @@ public class MobilityServiceImpl implements MobilityService {
             case PICKED_UP   -> trip.setPickedUpAt(Instant.now());
             case COMPLETED   -> {
                 trip.setCompletedAt(Instant.now());
-                trip.setFinalFare(trip.getQuotedTotal());
+                BigDecimal fare = trip.getQuotedTotal() != null ? trip.getQuotedTotal() : BigDecimal.ZERO;
+                trip.setFinalFare(fare);
+                if ("CASH".equalsIgnoreCase(trip.getPaymentMethod()) && !"PAID".equalsIgnoreCase(trip.getPaymentStatus())) {
+                    trip.setPaymentStatus("PAID");
+                    trip.setGateway("CASH");
+                    trip.setPaidAt(Instant.now());
+                    trip.setPlatformFee(BigDecimal.ZERO);
+                    trip.setDriverPayout(fare);
+                    trip.setReceiptNumber("MOB-RCP-" + trip.getTripRef());
+                } else if (trip.getDriverPayout() == null || trip.getDriverPayout().compareTo(BigDecimal.ZERO) == 0) {
+                    BigDecimal fee = fare.multiply(new BigDecimal("0.10")).setScale(2, RoundingMode.HALF_UP);
+                    trip.setPlatformFee(fee);
+                    trip.setDriverPayout(fare.subtract(fee).max(BigDecimal.ZERO));
+                }
                 driver.setTotalTrips(driver.getTotalTrips() + 1);
                 driver.setAvailability("ONLINE");
                 driverRepo.save(driver);
@@ -490,7 +569,7 @@ public class MobilityServiceImpl implements MobilityService {
     public MobilityCarpoolOfferDto getCarpoolOffer(AppUser user, Long offerId) {
         MobilityCarpoolOffer offer = carpoolRepo.findById(offerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
-        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+        if (!offer.isAllowCrossCommunity() && !offer.getCommunity().getId().equals(user.getCommunity().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
         }
         return toCarpoolDto(offer, canRevealRoute(user, offer));
@@ -500,7 +579,7 @@ public class MobilityServiceImpl implements MobilityService {
     public void joinCarpoolOffer(AppUser user, Long offerId, JoinCarpoolRequest req) {
         MobilityCarpoolOffer offer = carpoolRepo.findByIdForUpdate(offerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not found"));
-        if (!offer.getCommunity().getId().equals(user.getCommunity().getId())) {
+        if (!offer.isAllowCrossCommunity() && !offer.getCommunity().getId().equals(user.getCommunity().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ride is outside your community");
         }
         if (offer.getDriverUser().getId().equals(user.getId())) {
@@ -512,20 +591,41 @@ public class MobilityServiceImpl implements MobilityService {
         if (offer.getAvailableSeats() < req.getSeats()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Not enough seats available");
         }
+        boolean requiresConsent = offer.isParentConsentRequired() || "SCHOOL".equalsIgnoreCase(offer.getJourneyType());
+        if (requiresConsent && (req.getGuardianName() == null || req.getGuardianName().isBlank()
+                || req.getGuardianPhone() == null || req.getGuardianPhone().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Guardian name and phone are required for school journey safeguarding");
+        }
         MobilityCarpoolBooking existing = carpoolBookingRepo.findByOfferIdAndUserId(offerId, user.getId()).orElse(null);
         if (existing != null && "CONFIRMED".equals(existing.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already joined this journey");
         }
+        BigDecimal totalAmt = (offer.getPricePerSeat() != null ? offer.getPricePerSeat() : BigDecimal.ZERO)
+                .multiply(BigDecimal.valueOf(req.getSeats())).setScale(2, RoundingMode.HALF_UP);
+        String payStatus = (req.getPaymentMethod() != null && !"CASH".equalsIgnoreCase(req.getPaymentMethod())
+                && totalAmt.compareTo(BigDecimal.ZERO) > 0) ? "PENDING" : "CASH";
+        String consentStatus = requiresConsent ? "PENDING" : "NOT_REQUIRED";
+
         offer.setAvailableSeats((short) (offer.getAvailableSeats() - req.getSeats()));
         if (offer.getAvailableSeats() == 0) offer.setStatus("FULL");
         carpoolRepo.save(offer);
         if (existing != null) {
             existing.setSeats((short) req.getSeats());
             existing.setStatus("CONFIRMED");
+            existing.setTotalAmount(totalAmt);
+            existing.setPaymentStatus(payStatus);
+            existing.setGuardianConsentStatus(consentStatus);
+            existing.setGuardianName(req.getGuardianName());
+            existing.setGuardianPhone(req.getGuardianPhone());
             carpoolBookingRepo.save(existing);
         } else {
             carpoolBookingRepo.save(MobilityCarpoolBooking.builder()
-                    .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED").build());
+                    .offer(offer).user(user).seats((short) req.getSeats()).status("CONFIRMED")
+                    .totalAmount(totalAmt).paymentStatus(payStatus)
+                    .guardianConsentStatus(consentStatus)
+                    .guardianName(req.getGuardianName()).guardianPhone(req.getGuardianPhone())
+                    .build());
         }
         if (sqsMessagePublisher != null && sqsProperties != null && mobilityEventsSqsHandler != null) {
             var gjp = new com.manacommunity.api.mobility.sqs.MobilityEventsSqsHandler.GroupJoinPayload(
@@ -639,6 +739,15 @@ public class MobilityServiceImpl implements MobilityService {
                 .pricePerSeat(req.getPricePerSeat() != null ? req.getPricePerSeat() : BigDecimal.ZERO)
                 .vehicleModel(req.getVehicleModel())
                 .vehicleNumber(req.getVehicleNumber())
+                .originLat(req.getOriginLat())
+                .originLng(req.getOriginLng())
+                .destLat(req.getDestLat())
+                .destLng(req.getDestLng())
+                .maxDetourKm(req.getMaxDetourKm() != null ? req.getMaxDetourKm() : 5.0)
+                .allowCrossCommunity(Boolean.TRUE.equals(req.getAllowCrossCommunity()))
+                .parentConsentRequired(req.getParentConsentRequired() != null
+                        ? req.getParentConsentRequired()
+                        : "SCHOOL".equalsIgnoreCase(journeyType))
                 .status("ACTIVE")
                 .build());
         return toCarpoolDto(offer, true);
@@ -724,6 +833,17 @@ public class MobilityServiceImpl implements MobilityService {
     public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
                                                               String travelAt, int timeWindowMinutes, int seats,
                                                               int luggageCount, int page, int size) {
+        return searchJourneyOffers(user, journeyType, hubCode, direction, area, travelAt,
+                timeWindowMinutes, seats, luggageCount, null, null, null, null, null, false, page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MobilityCarpoolOfferDto> searchJourneyOffers(AppUser user, String journeyType, String hubCode, String direction, String area,
+                                                              String travelAt, int timeWindowMinutes, int seats,
+                                                              int luggageCount, Double pickupLat, Double pickupLng,
+                                                              Double destLat, Double destLng, Double maxDetourKm,
+                                                              boolean allowCrossCommunity, int page, int size) {
         Instant from = null;
         Instant to = null;
         if (travelAt != null && !travelAt.isBlank()) {
@@ -744,9 +864,29 @@ public class MobilityServiceImpl implements MobilityService {
         if (normalizedDirection != null && !"TO_HUB".equals(normalizedDirection) && !"FROM_HUB".equals(normalizedDirection)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "direction must be TO_HUB or FROM_HUB");
         }
-        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), journeyType.toUpperCase(), hubCode.toUpperCase(), normalizedDirection, area,
-                        from, to, Math.max(1, seats), Math.max(0, luggageCount), PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(offer -> toCarpoolDto(offer, false));
+        Page<MobilityCarpoolOffer> raw = carpoolRepo.findJourneyOffersWithScope(
+                user.getCommunity().getId(), allowCrossCommunity,
+                journeyType.toUpperCase(), hubCode.toUpperCase(), normalizedDirection, area,
+                from, to, Math.max(1, seats), Math.max(0, luggageCount),
+                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
+
+        double effectiveMaxDetour = maxDetourKm != null ? maxDetourKm : 5.0;
+        if (pickupLat == null && pickupLng == null && destLat == null && destLng == null) {
+            return raw.map(offer -> toCarpoolDto(offer, false));
+        }
+        List<MobilityCarpoolOfferDto> ranked = raw.getContent().stream()
+                .map(offer -> {
+                    MobilityCarpoolOfferDto dto = toCarpoolDto(offer, false);
+                    Double detour = computeRouteDetourKm(offer, pickupLat, pickupLng, destLat, destLng);
+                    dto.setRouteDetourKm(detour);
+                    return dto;
+                })
+                .filter(dto -> dto.getRouteDetourKm() == null
+                        || dto.getRouteDetourKm() <= Math.min(effectiveMaxDetour, dto.getMaxDetourKm() != null ? dto.getMaxDetourKm() : effectiveMaxDetour))
+                .sorted(java.util.Comparator.comparing(
+                        dto -> dto.getRouteDetourKm() != null ? dto.getRouteDetourKm() : 999.0))
+                .toList();
+        return new org.springframework.data.domain.PageImpl<>(ranked, raw.getPageable(), ranked.size());
     }
 
     @Override
@@ -759,15 +899,66 @@ public class MobilityServiceImpl implements MobilityService {
         Instant travelAt;
         try { travelAt = Instant.parse(req.getTravelAt()); }
         catch (Exception ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "travelAt must be ISO-8601"); }
+        String jType = req.getJourneyType().toUpperCase();
+        boolean parentConsent = req.getParentConsentRequired() != null
+                ? req.getParentConsentRequired()
+                : "SCHOOL".equals(jType);
+        if (parentConsent && (req.getGuardianName() == null || req.getGuardianName().isBlank()
+                || req.getGuardianPhone() == null || req.getGuardianPhone().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Guardian name and phone are required for school travel safeguarding");
+        }
         Community community = communityRepo.findById(user.getCommunity().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
         MobilityAirportRideRequest request = airportRequestRepo.save(MobilityAirportRideRequest.builder()
-                .community(community).requester(user).journeyType(req.getJourneyType().toUpperCase())
+                .community(community).requester(user).journeyType(jType)
                 .direction(req.getDirection().toUpperCase()).hubCode(req.getHubCode().toUpperCase())
                 .contextName(req.getContextName()).area(req.getArea().trim()).travelAt(travelAt)
                 .timeWindowMinutes(req.getTimeWindowMinutes()).seats((short) req.getSeats()).luggageCount((short) req.getLuggageCount())
+                .pickupLat(req.getPickupLat()).pickupLng(req.getPickupLng())
+                .destLat(req.getDestLat()).destLng(req.getDestLng())
+                .maxDetourKm(req.getMaxDetourKm() != null ? req.getMaxDetourKm() : 5.0)
+                .allowCrossCommunity(Boolean.TRUE.equals(req.getAllowCrossCommunity()))
+                .autoReserve(Boolean.TRUE.equals(req.getAutoReserve()))
+                .parentConsentRequired(parentConsent)
+                .guardianName(req.getGuardianName())
+                .guardianPhone(req.getGuardianPhone())
+                .guardianConsentStatus(parentConsent ? "PENDING" : "NOT_REQUIRED")
                 .status("OPEN").build());
         return toAirportRequestDto(request);
+    }
+
+    @Override
+    public AirportRideRequestDto approveRequestGuardianConsent(AppUser guardian, Long requestId, boolean approved) {
+        MobilityAirportRideRequest request = airportRequestRepo.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey request not found"));
+        if (!request.getCommunity().getId().equals(guardian.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Request is outside your community");
+        }
+        request.setGuardianConsentStatus(approved ? "APPROVED" : "REJECTED");
+        request.setGuardianConsentedAt(Instant.now());
+        request.setGuardianApprovedBy(guardian.getId());
+        if (!approved) {
+            request.setStatus("CANCELLED");
+        }
+        return toAirportRequestDto(airportRequestRepo.save(request));
+    }
+
+    @Override
+    public JourneyBookingDto approveBookingGuardianConsent(AppUser guardian, Long bookingId, boolean approved) {
+        MobilityCarpoolBooking booking = carpoolBookingRepo.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey booking not found"));
+        if (!booking.getOffer().getCommunity().getId().equals(guardian.getCommunity().getId())
+                && !booking.getUser().getId().equals(guardian.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Booking is outside your community");
+        }
+        booking.setGuardianConsentStatus(approved ? "APPROVED" : "REJECTED");
+        booking.setGuardianConsentedAt(Instant.now());
+        if (!approved) {
+            booking.setStatus("CANCELLED");
+        }
+        return toJourneyBookingDto(carpoolBookingRepo.save(booking),
+                booking.getOffer().getDriverUser().getId().equals(guardian.getId()));
     }
 
     @Override
@@ -786,11 +977,27 @@ public class MobilityServiceImpl implements MobilityService {
             return Page.empty(PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
         }
         long windowMillis = Math.max(15, Math.min(request.getTimeWindowMinutes(), 180)) * 60_000L;
-        return carpoolRepo.findJourneyOffers(user.getCommunity().getId(), request.getJourneyType(), request.getHubCode(), request.getDirection(),
-                        request.getArea(), request.getTravelAt().minusMillis(windowMillis),
-                        request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
-                        PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))))
-                .map(offer -> toCarpoolDto(offer, false));
+        Page<MobilityCarpoolOffer> raw = carpoolRepo.findJourneyOffersWithScope(
+                user.getCommunity().getId(), request.isAllowCrossCommunity(),
+                request.getJourneyType(), request.getHubCode(), request.getDirection(),
+                request.getArea(), request.getTravelAt().minusMillis(windowMillis),
+                request.getTravelAt().plusMillis(windowMillis), request.getSeats(), request.getLuggageCount(),
+                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
+        double maxDetour = request.getMaxDetourKm() != null ? request.getMaxDetourKm() : 5.0;
+        List<MobilityCarpoolOfferDto> ranked = raw.getContent().stream()
+                .map(offer -> {
+                    MobilityCarpoolOfferDto dto = toCarpoolDto(offer, false);
+                    dto.setRouteDetourKm(computeRouteDetourKm(offer,
+                            request.getPickupLat(), request.getPickupLng(),
+                            request.getDestLat(), request.getDestLng()));
+                    return dto;
+                })
+                .filter(dto -> dto.getRouteDetourKm() == null
+                        || dto.getRouteDetourKm() <= Math.min(maxDetour, dto.getMaxDetourKm() != null ? dto.getMaxDetourKm() : maxDetour))
+                .sorted(java.util.Comparator.comparing(
+                        dto -> dto.getRouteDetourKm() != null ? dto.getRouteDetourKm() : 999.0))
+                .toList();
+        return new org.springframework.data.domain.PageImpl<>(ranked, raw.getPageable(), ranked.size());
     }
 
     @Override
@@ -822,6 +1029,11 @@ public class MobilityServiceImpl implements MobilityService {
                 .origin(req.getOrigin().trim()).destination(req.getDestination().trim()).departureTime(departure)
                 .daysOfWeek(req.getDaysOfWeek().trim().toUpperCase()).seatCapacity((short) req.getSeatCapacity())
                 .luggageCapacity((short) req.getLuggageCapacity()).pricePerSeat(req.getPricePerSeat() == null ? BigDecimal.ZERO : req.getPricePerSeat())
+                .originLat(req.getOriginLat()).originLng(req.getOriginLng())
+                .destLat(req.getDestLat()).destLng(req.getDestLng())
+                .maxDetourKm(req.getMaxDetourKm() != null ? req.getMaxDetourKm() : 5.0)
+                .allowCrossCommunity(Boolean.TRUE.equals(req.getAllowCrossCommunity()))
+                .autoGenerate(req.getAutoGenerate() == null || Boolean.TRUE.equals(req.getAutoGenerate()))
                 .status("ACTIVE").build());
         return toJourneySlotDto(slot);
     }
@@ -858,9 +1070,24 @@ public class MobilityServiceImpl implements MobilityService {
         }
         proposal.setRespondedAt(Instant.now());
         if (accept) {
+            MobilityAirportRideRequest req = proposal.getRequest();
+            if (req.isParentConsentRequired() && !"APPROVED".equalsIgnoreCase(req.getGuardianConsentStatus())) {
+                throw new ResponseStatusException(HttpStatus.PRECONDITION_REQUIRED,
+                        "Guardian consent approval is required before confirming this school journey");
+            }
             JoinCarpoolRequest join = new JoinCarpoolRequest();
-            join.setSeats(proposal.getRequest().getSeats());
+            join.setSeats(req.getSeats());
+            join.setGuardianName(req.getGuardianName());
+            join.setGuardianPhone(req.getGuardianPhone());
             joinCarpoolOffer(user, proposal.getOffer().getId(), join);
+            if ("APPROVED".equalsIgnoreCase(req.getGuardianConsentStatus())) {
+                carpoolBookingRepo.findByOfferIdAndUserId(proposal.getOffer().getId(), user.getId())
+                        .ifPresent(b -> {
+                            b.setGuardianConsentStatus("APPROVED");
+                            b.setGuardianConsentedAt(req.getGuardianConsentedAt());
+                            carpoolBookingRepo.save(b);
+                        });
+            }
             proposal.setStatus("ACCEPTED");
         } else {
             proposal.setStatus("DECLINED");
@@ -1000,13 +1227,192 @@ public class MobilityServiceImpl implements MobilityService {
         driverRepo.save(driver);
     }
 
-    // ── Dispatch (simple nearest-driver) ─────────────────────────
+    @Override
+    @Transactional(readOnly = true)
+    public List<MobilityServiceZoneDto> getAllServiceZonesOps(AppUser ops) {
+        if (ops.getCommunity() == null || ops.getCommunity().getId() == null) {
+            return List.of();
+        }
+        return serviceZoneRepo.findByCommunityIdOrderByNameAsc(ops.getCommunity().getId())
+                .stream().map(this::toServiceZoneDto).toList();
+    }
+
+    @Override
+    public MobilityServiceZoneDto createServiceZone(AppUser ops, ServiceZoneRequest req) {
+        Community community = requireCommunity(ops);
+        MobilityServiceZone zone = serviceZoneRepo.save(MobilityServiceZone.builder()
+                .community(community)
+                .name(req.getName().trim())
+                .centerLat(req.getCenterLat())
+                .centerLng(req.getCenterLng())
+                .radiusKm(req.getRadiusKm())
+                .active(req.getActive() == null || Boolean.TRUE.equals(req.getActive()))
+                .build());
+        return toServiceZoneDto(zone);
+    }
+
+    @Override
+    public MobilityServiceZoneDto updateServiceZone(AppUser ops, Long zoneId, ServiceZoneRequest req) {
+        MobilityServiceZone zone = findZoneInOpsCommunity(ops, zoneId);
+        zone.setName(req.getName().trim());
+        zone.setCenterLat(req.getCenterLat());
+        zone.setCenterLng(req.getCenterLng());
+        zone.setRadiusKm(req.getRadiusKm());
+        if (req.getActive() != null) {
+            zone.setActive(req.getActive());
+        }
+        return toServiceZoneDto(serviceZoneRepo.save(zone));
+    }
+
+    @Override
+    public MobilityServiceZoneDto updateServiceZoneStatus(AppUser ops, Long zoneId, boolean active) {
+        MobilityServiceZone zone = findZoneInOpsCommunity(ops, zoneId);
+        zone.setActive(active);
+        return toServiceZoneDto(serviceZoneRepo.save(zone));
+    }
+
+    @Override
+    public MobilityDriverDto opsAssignDriverServiceZone(AppUser ops, Long driverId, Long serviceZoneId) {
+        MobilityDriver driver = driverRepo.findById(driverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+        MobilityServiceZone zone = serviceZoneId != null ? findZoneInOpsCommunity(ops, serviceZoneId) : null;
+        driver.setServiceZone(zone);
+        return toDriverDto(driverRepo.save(driver));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MobilityOpsAnalyticsDto getOpsAnalytics(AppUser ops) {
+        Long communityId = ops.getCommunity() != null ? ops.getCommunity().getId() : null;
+        List<MobilityTrip> trips = communityId != null
+                ? tripRepo.findByCommunityId(communityId)
+                : tripRepo.findAll();
+
+        long totalTrips = trips.size();
+        long completedTrips = trips.stream().filter(t -> t.getStatus() == MobilityTripStatus.COMPLETED).count();
+        long cancelledTrips = trips.stream().filter(t -> t.getStatus() == MobilityTripStatus.CANCELLED).count();
+        long activeTrips = trips.stream().filter(t -> activeStatuses().contains(t.getStatus())).count();
+        double cancelRate = totalTrips > 0 ? Math.round((cancelledTrips * 10000.0) / totalTrips) / 100.0 : 0.0;
+
+        BigDecimal grossRevenue = BigDecimal.ZERO;
+        BigDecimal cashRevenue = BigDecimal.ZERO;
+        BigDecimal onlineRevenue = BigDecimal.ZERO;
+        BigDecimal platformFeeTotal = BigDecimal.ZERO;
+        BigDecimal pendingSettlement = BigDecimal.ZERO;
+        BigDecimal settledTotal = BigDecimal.ZERO;
+        BigDecimal refundedTotal = BigDecimal.ZERO;
+        long slaMet = 0;
+
+        for (MobilityTrip t : trips) {
+            if (t.getRefundAmount() != null) {
+                refundedTotal = refundedTotal.add(t.getRefundAmount());
+            }
+            if (t.getStatus() == MobilityTripStatus.COMPLETED) {
+                BigDecimal fare = t.getFinalFare() != null ? t.getFinalFare() : t.getQuotedTotal();
+                if (fare == null) fare = BigDecimal.ZERO;
+                grossRevenue = grossRevenue.add(fare);
+                if ("CASH".equalsIgnoreCase(t.getPaymentMethod())) {
+                    cashRevenue = cashRevenue.add(fare);
+                } else {
+                    onlineRevenue = onlineRevenue.add(fare);
+                }
+                if (t.getPlatformFee() != null) platformFeeTotal = platformFeeTotal.add(t.getPlatformFee());
+                BigDecimal net = tripNetOrGross(t);
+                if (t.isSettled()) settledTotal = settledTotal.add(net);
+                else pendingSettlement = pendingSettlement.add(net);
+
+                if (t.getCompletedAt() != null && t.getRequestedAt() != null
+                        && java.time.Duration.between(t.getRequestedAt(), t.getCompletedAt()).toMinutes() <= 45) {
+                    slaMet++;
+                }
+            }
+        }
+        double slaPct = completedTrips > 0 ? Math.round((slaMet * 10000.0) / completedTrips) / 100.0 : 100.0;
+
+        List<MobilityDriver> drivers = driverRepo.findAll().stream()
+                .filter(d -> communityId == null || (d.getUser() != null && d.getUser().getCommunity() != null
+                        && communityId.equals(d.getUser().getCommunity().getId())))
+                .toList();
+        long approvedDrivers = drivers.stream().filter(d -> d.getStatus() == MobilityDriverStatus.APPROVED).count();
+        long onlineDrivers = drivers.stream()
+                .filter(d -> d.getStatus() == MobilityDriverStatus.APPROVED && "ONLINE".equalsIgnoreCase(d.getAvailability()))
+                .count();
+        double avgRating = drivers.isEmpty() ? 0.0
+                : Math.round(drivers.stream()
+                        .mapToDouble(d -> d.getAvgRating() != null ? d.getAvgRating().doubleValue() : 0.0)
+                        .average().orElse(0.0) * 100.0) / 100.0;
+
+        List<MobilityCarpoolOffer> offers = communityId != null
+                ? carpoolRepo.findByCommunityId(communityId)
+                : carpoolRepo.findAll();
+        long activeOffers = offers.stream().filter(o -> "ACTIVE".equals(o.getStatus()) || "FULL".equals(o.getStatus())).count();
+        long totalSeats = offers.stream().mapToLong(MobilityCarpoolOffer::getTotalSeats).sum();
+        long bookedSeats = offers.stream().mapToLong(o -> Math.max(0, o.getTotalSeats() - o.getAvailableSeats())).sum();
+        double utilPct = totalSeats > 0 ? Math.round((bookedSeats * 10000.0) / totalSeats) / 100.0 : 0.0;
+
+        return MobilityOpsAnalyticsDto.builder()
+                .totalTrips(totalTrips)
+                .activeTrips(activeTrips)
+                .completedTrips(completedTrips)
+                .cancelledTrips(cancelledTrips)
+                .cancellationRatePercent(cancelRate)
+                .grossRevenue(grossRevenue)
+                .cashRevenue(cashRevenue)
+                .onlineRevenue(onlineRevenue)
+                .platformFeeTotal(platformFeeTotal)
+                .pendingSettlementTotal(pendingSettlement)
+                .settledTotal(settledTotal)
+                .refundedTotal(refundedTotal)
+                .totalDrivers(drivers.size())
+                .approvedDrivers(approvedDrivers)
+                .onlineDrivers(onlineDrivers)
+                .avgDriverRating(avgRating)
+                .completedWithinSlaPercent(slaPct)
+                .activeCarpoolOffers(activeOffers)
+                .carpoolSeatsTotal(totalSeats)
+                .carpoolSeatsBooked(bookedSeats)
+                .carpoolUtilizationPercent(utilPct)
+                .build();
+    }
+
+    @Override
+    public BigDecimal settleDriverEarnings(AppUser ops, Long driverId) {
+        MobilityDriver driver = driverRepo.findById(driverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+        List<MobilityTrip> unsettled = tripRepo.findByDriverIdOrderByRequestedAtDesc(driver.getId()).stream()
+                .filter(t -> t.getStatus() == MobilityTripStatus.COMPLETED && !t.isSettled())
+                .toList();
+        Instant now = Instant.now();
+        BigDecimal totalSettled = BigDecimal.ZERO;
+        for (MobilityTrip t : unsettled) {
+            BigDecimal net = tripNetOrGross(t);
+            t.setSettled(true);
+            t.setSettledAt(now);
+            if (t.getDriverPayout() == null || t.getDriverPayout().compareTo(BigDecimal.ZERO) == 0) {
+                t.setDriverPayout(net);
+            }
+            tripRepo.save(t);
+            totalSettled = totalSettled.add(net);
+        }
+        return totalSettled;
+    }
+
+    // ── Dispatch (zone-preferred nearest-driver) ─────────────────
 
     private void dispatchToNearestDriver(MobilityTrip trip) {
         List<MobilityDriver> online = driverRepo.findOnlineApprovedDrivers();
         if (online.isEmpty()) {
             trip.setStatus(MobilityTripStatus.NO_DRIVER_FOUND);
             return;
+        }
+        if (trip.getServiceZone() != null) {
+            Long zoneId = trip.getServiceZone().getId();
+            List<MobilityDriver> zoneDrivers = online.stream()
+                    .filter(d -> d.getServiceZone() == null || zoneId.equals(d.getServiceZone().getId()))
+                    .toList();
+            if (!zoneDrivers.isEmpty()) {
+                online = zoneDrivers;
+            }
         }
 
         // Fast path: consult Redis GEO index for nearest online driver
@@ -1063,6 +1469,89 @@ public class MobilityServiceImpl implements MobilityService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────
+
+    private Community requireCommunity(AppUser user) {
+        if (user.getCommunity() == null || user.getCommunity().getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found");
+        }
+        return communityRepo.findById(user.getCommunity().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Community not found"));
+    }
+
+    private MobilityServiceZone findZoneInOpsCommunity(AppUser ops, Long zoneId) {
+        MobilityServiceZone zone = serviceZoneRepo.findById(zoneId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service zone not found"));
+        if (ops.getCommunity() != null && ops.getCommunity().getId() != null
+                && !zone.getCommunity().getId().equals(ops.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Service zone belongs to another community");
+        }
+        return zone;
+    }
+
+    private MobilityServiceZone resolveZoneForCommunity(AppUser user, Long serviceZoneId) {
+        if (serviceZoneId == null) return null;
+        MobilityServiceZone zone = serviceZoneRepo.findById(serviceZoneId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service zone not found"));
+        if (user.getCommunity() == null || !zone.getCommunity().getId().equals(user.getCommunity().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Service zone belongs to another community");
+        }
+        return zone;
+    }
+
+    private MobilityServiceZone resolveAndEnforceServiceZone(
+            Long communityId, double pickupLat, double pickupLng, double destLat, double destLng) {
+        List<MobilityServiceZone> activeZones = serviceZoneRepo.findByCommunityIdAndActiveTrueOrderByNameAsc(communityId);
+        if (activeZones.isEmpty()) {
+            return null;
+        }
+        MobilityServiceZone pickupZone = activeZones.stream()
+                .filter(z -> matchingEngine.calculateDistanceKm(pickupLat, pickupLng, z.getCenterLat(), z.getCenterLng())
+                        <= z.getRadiusKm().doubleValue())
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Pickup location is outside your community's active service zones"));
+
+        boolean destCovered = activeZones.stream()
+                .anyMatch(z -> matchingEngine.calculateDistanceKm(destLat, destLng, z.getCenterLat(), z.getCenterLng())
+                        <= z.getRadiusKm().doubleValue());
+        if (!destCovered) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Dropoff location is outside your community's active service zones");
+        }
+        return pickupZone;
+    }
+
+    private Double computeRouteDetourKm(MobilityCarpoolOffer offer, Double pickupLat, Double pickupLng, Double destLat, Double destLng) {
+        double detour = 0.0;
+        boolean calculated = false;
+        if (pickupLat != null && pickupLng != null && offer.getOriginLat() != null && offer.getOriginLng() != null) {
+            detour += matchingEngine.calculateDistanceKm(pickupLat, pickupLng, offer.getOriginLat(), offer.getOriginLng());
+            calculated = true;
+        }
+        if (destLat != null && destLng != null && offer.getDestLat() != null && offer.getDestLng() != null) {
+            detour += matchingEngine.calculateDistanceKm(destLat, destLng, offer.getDestLat(), offer.getDestLng());
+            calculated = true;
+        }
+        return calculated ? Math.round(detour * 100.0) / 100.0 : null;
+    }
+
+    private BigDecimal tripNetOrGross(MobilityTrip t) {
+        if (t.getDriverPayout() != null && t.getDriverPayout().compareTo(BigDecimal.ZERO) > 0) {
+            return t.getDriverPayout();
+        }
+        return t.getFinalFare() != null ? t.getFinalFare() : (t.getQuotedTotal() != null ? t.getQuotedTotal() : BigDecimal.ZERO);
+    }
+
+    private MobilityServiceZoneDto toServiceZoneDto(MobilityServiceZone zone) {
+        return MobilityServiceZoneDto.builder()
+                .id(zone.getId())
+                .name(zone.getName())
+                .centerLat(zone.getCenterLat())
+                .centerLng(zone.getCenterLng())
+                .radiusKm(zone.getRadiusKm())
+                .active(zone.isActive())
+                .build();
+    }
 
     private MobilityTrip findTripForUser(AppUser user, Long tripId) {
         MobilityTrip trip = tripRepo.findById(tripId)
@@ -1153,6 +1642,16 @@ public class MobilityServiceImpl implements MobilityService {
                 .distanceKm(t.getDistanceKm() != null ? t.getDistanceKm().doubleValue() : 0)
                 .etaMinutes(t.getEtaMinutes() != null ? t.getEtaMinutes() : 0)
                 .paymentMethod(t.getPaymentMethod())
+                .paymentStatus(t.getPaymentStatus())
+                .paymentOrderId(t.getPaymentOrderId())
+                .paymentRef(t.getPaymentRef())
+                .gateway(t.getGateway())
+                .refundStatus(t.getRefundStatus())
+                .refundAmount(t.getRefundAmount())
+                .receiptNumber(t.getReceiptNumber())
+                .paidAt(t.getPaidAt())
+                .serviceZoneId(t.getServiceZone() != null ? t.getServiceZone().getId() : null)
+                .serviceZoneName(t.getServiceZone() != null ? t.getServiceZone().getName() : null)
                 .passengerRating(t.getPassengerRating())
                 .requestedAt(t.getRequestedAt())
                 .completedAt(t.getCompletedAt())
@@ -1170,6 +1669,8 @@ public class MobilityServiceImpl implements MobilityService {
                 .availability(d.getAvailability())
                 .avgRating(d.getAvgRating())
                 .totalTrips(d.getTotalTrips())
+                .serviceZoneId(d.getServiceZone() != null ? d.getServiceZone().getId() : null)
+                .serviceZoneName(d.getServiceZone() != null ? d.getServiceZone().getName() : null)
                 .createdAt(d.getCreatedAt())
                 .vehicles(vehicles)
                 .build();
@@ -1231,6 +1732,15 @@ public class MobilityServiceImpl implements MobilityService {
                 .vehicleModel(o.getVehicleModel())
                 .vehicleNumber(o.getVehicleNumber())
                 .status(o.getStatus())
+                .originLat(o.getOriginLat())
+                .originLng(o.getOriginLng())
+                .destLat(o.getDestLat())
+                .destLng(o.getDestLng())
+                .maxDetourKm(o.getMaxDetourKm())
+                .allowCrossCommunity(o.isAllowCrossCommunity())
+                .parentConsentRequired(o.isParentConsentRequired())
+                .communityId(o.getCommunity() != null ? o.getCommunity().getId() : null)
+                .communityName(o.getCommunity() != null ? o.getCommunity().getName() : null)
                 .build();
     }
 
@@ -1246,7 +1756,14 @@ public class MobilityServiceImpl implements MobilityService {
                 .airportCode(r.getAirportCode()).hubCode(r.getHubCode()).contextName(r.getContextName())
                 .area(r.getArea()).travelAt(r.getTravelAt()).timeWindowMinutes(r.getTimeWindowMinutes())
                 .seats(r.getSeats()).luggageCount(r.getLuggageCount()).flightNumber(r.getFlightNumber())
-                .terminal(r.getTerminal()).status(r.getStatus()).createdAt(r.getCreatedAt()).build();
+                .terminal(r.getTerminal()).status(r.getStatus())
+                .pickupLat(r.getPickupLat()).pickupLng(r.getPickupLng())
+                .destLat(r.getDestLat()).destLng(r.getDestLng())
+                .maxDetourKm(r.getMaxDetourKm()).allowCrossCommunity(r.isAllowCrossCommunity())
+                .autoReserve(r.isAutoReserve()).parentConsentRequired(r.isParentConsentRequired())
+                .guardianName(r.getGuardianName()).guardianPhone(r.getGuardianPhone())
+                .guardianConsentStatus(r.getGuardianConsentStatus()).guardianConsentedAt(r.getGuardianConsentedAt())
+                .createdAt(r.getCreatedAt()).build();
     }
 
     private JourneySlotDto toJourneySlotDto(MobilityJourneySlot s) {
@@ -1254,7 +1771,11 @@ public class MobilityServiceImpl implements MobilityService {
                 .hubCode(s.getHubCode()).origin(s.getOrigin()).destination(s.getDestination())
                 .departureTime(s.getDepartureTime().toString()).daysOfWeek(s.getDaysOfWeek())
                 .seatCapacity(s.getSeatCapacity()).luggageCapacity(s.getLuggageCapacity())
-                .pricePerSeat(s.getPricePerSeat()).status(s.getStatus()).build();
+                .pricePerSeat(s.getPricePerSeat()).status(s.getStatus())
+                .originLat(s.getOriginLat()).originLng(s.getOriginLng())
+                .destLat(s.getDestLat()).destLng(s.getDestLng())
+                .maxDetourKm(s.getMaxDetourKm()).allowCrossCommunity(s.isAllowCrossCommunity())
+                .autoGenerate(s.isAutoGenerate()).build();
     }
 
     private JourneyMatchProposalDto toJourneyMatchProposalDto(MobilityJourneyMatch match) {
@@ -1270,7 +1791,12 @@ public class MobilityServiceImpl implements MobilityService {
         AppUser passenger = booking.getUser();
         return JourneyBookingDto.builder().id(booking.getId()).offerId(booking.getOffer().getId())
                 .userId(passenger.getId()).userName(passenger.getFullName()).seats(booking.getSeats())
-                .status(booking.getStatus()).bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer(), true))
+                .status(booking.getStatus())
+                .totalAmount(booking.getTotalAmount()).paymentStatus(booking.getPaymentStatus())
+                .paymentOrderId(booking.getPaymentOrderId())
+                .guardianConsentStatus(booking.getGuardianConsentStatus())
+                .guardianName(booking.getGuardianName()).guardianPhone(booking.getGuardianPhone())
+                .bookedAt(booking.getBookedAt()).offer(toCarpoolDto(booking.getOffer(), true))
                 .offerOwner(offerOwner).build();
     }
 }

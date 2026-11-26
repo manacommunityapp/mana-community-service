@@ -13,4 +13,5 @@ public interface MobilityCarpoolBookingRepository extends JpaRepository<Mobility
     Optional<MobilityCarpoolBooking> findFirstByOfferIdAndStatusOrderByBookedAtAsc(Long offerId, String status);
     Page<MobilityCarpoolBooking> findByUserIdOrderByBookedAtDesc(Long userId, Pageable pageable);
     List<MobilityCarpoolBooking> findByOfferIdAndStatusOrderByBookedAtAsc(Long offerId, String status);
+    boolean existsByOfferIdAndUserIdAndStatus(Long offerId, Long userId, String status);
 }
