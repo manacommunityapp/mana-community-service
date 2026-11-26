@@ -14,6 +14,26 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
 
     Optional<VisitorPass> findByPassCode(String passCode);
 
+    Optional<VisitorPass> findByCommunityIdAndIdempotencyKey(Long communityId, String idempotencyKey);
+
+    Optional<VisitorPass> findByIdempotencyKey(String idempotencyKey);
+
+    @Query("""
+           SELECT v FROM VisitorPass v
+           WHERE v.status = :status
+             AND (v.resident.id = :residentId
+                  OR (:communityId IS NOT NULL
+                      AND :flatNumber IS NOT NULL
+                      AND v.community.id = :communityId
+                      AND LOWER(TRIM(v.flatNumber)) = LOWER(TRIM(:flatNumber))))
+           ORDER BY v.createdAt DESC
+           """)
+    List<VisitorPass> findPendingForResidentOrFlat(
+            @Param("residentId") Long residentId,
+            @Param("communityId") Long communityId,
+            @Param("flatNumber") String flatNumber,
+            @Param("status") VisitorPass.PassStatus status);
+
     /** Looks up a pass by the SHA-256 hash of its OTP. Never pass the plain OTP here. */
     Optional<VisitorPass> findByOtpHash(String otpHash);
 

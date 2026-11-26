@@ -27,6 +27,10 @@ public class VisitorPass {
     @Column(name = "pass_code", nullable = false, unique = true, length = 12)
     private String passCode;
 
+    /** Client-supplied UUID ensuring retried walk-ins return the existing PENDING record. */
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
     @Column(name = "visitor_name", nullable = false, length = 100)
     private String visitorName;
 

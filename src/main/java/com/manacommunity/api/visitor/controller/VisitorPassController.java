@@ -139,7 +139,12 @@ public class VisitorPassController {
     @PreAuthorize("hasAuthority('Manage Gate')")
     public ResponseEntity<VisitorPassResponse> createWalkIn(
             @Valid @RequestBody VisitorPassRequest req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyHeader,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if ((req.getIdempotencyKey() == null || req.getIdempotencyKey().isBlank())
+                && idempotencyHeader != null && !idempotencyHeader.isBlank()) {
+            req.setIdempotencyKey(idempotencyHeader.trim());
+        }
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(visitorPassService.createWalkIn(req, user, user.getCommunity()));
@@ -153,7 +158,7 @@ public class VisitorPassController {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
         boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
-        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+        if (!isGuard && !visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.approvePass(id, user));
@@ -193,7 +198,7 @@ public class VisitorPassController {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
         boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
-        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+        if (!isGuard && !visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
@@ -207,7 +212,7 @@ public class VisitorPassController {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
         boolean isGuard = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("Manage Gate"));
-        if (!isGuard && pass.getResidentId() != null && !pass.getResidentId().equals(user.getId())) {
+        if (!isGuard && !visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));

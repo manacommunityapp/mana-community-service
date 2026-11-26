@@ -303,4 +303,78 @@ class VisitorPassServiceTest {
         assertThat(resp.getStatus()).isEqualTo("APPROVED");
         verify(auditLogRepo).save(argThat(log -> "RESIDENT_APPROVED".equals(log.getAction())));
     }
+
+    @Test
+    @DisplayName("createWalkIn returns existing PENDING pass on idempotencyKey retry without firing duplicate notifications")
+    void createWalkIn_idempotentRetry_returnsExistingWithoutDuplicateNotification() {
+        VisitorPass existing = VisitorPass.builder()
+                .id(401L)
+                .passCode("ABCD1234")
+                .idempotencyKey("walkin-uuid-001")
+                .visitorName("Plumber Ramesh")
+                .flatNumber("A-101")
+                .status(PassStatus.PENDING)
+                .resident(resident)
+                .community(community)
+                .build();
+
+        when(repo.findByCommunityIdAndIdempotencyKey(1L, "walkin-uuid-001"))
+                .thenReturn(Optional.of(existing));
+
+        VisitorPassRequest req = new VisitorPassRequest();
+        req.setVisitorName("Plumber Ramesh");
+        req.setFlatNumber("A-101");
+        req.setIdempotencyKey("walkin-uuid-001");
+
+        VisitorPassResponse resp = service.createWalkIn(req, guard, community);
+
+        assertThat(resp.getId()).isEqualTo(401L);
+        assertThat(resp.getStatus()).isEqualTo("PENDING");
+        verify(repo, never()).save(any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("createWalkIn fans out VisitorArrived notifications to ALL active residents of the flat")
+    void createWalkIn_flatFanout_notifiesAllFlatResidentsAndPublishesOutbox() {
+        AppUser coResident = AppUser.builder().id(11L).fullName("Priya Resident").flatNo("A-101").community(community).build();
+        when(userRepo.findByCommunityIdAndFlatNoQuery(1L, "A-101"))
+                .thenReturn(List.of(resident, coResident));
+        when(repo.save(any(VisitorPass.class))).thenAnswer(inv -> {
+            VisitorPass p = inv.getArgument(0);
+            p.setId(402L);
+            return p;
+        });
+
+        VisitorPassRequest req = new VisitorPassRequest();
+        req.setVisitorName("Swiggy Delivery");
+        req.setFlatNumber("A-101");
+        req.setPurpose("Food Order");
+        req.setIdempotencyKey("walkin-uuid-002");
+
+        VisitorPassResponse resp = service.createWalkIn(req, guard, community);
+
+        assertThat(resp.getStatus()).isEqualTo("PENDING");
+        assertThat(resp.getOtpOnCreation()).isNotBlank();
+        verify(domainEventPublisher).publish(eq("VISITOR_PASS"), eq("402"), eq("VisitorArrived"), any(), eq(1L));
+        verify(notificationService).createNotification(eq(10L), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(notificationService).createNotification(eq(11L), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("isResidentAuthorizedForPass permits co-residents of the same flat and rejects unrelated flats")
+    void isResidentAuthorizedForPass_allowsSameFlatCoResident() {
+        AppUser coResident = AppUser.builder().id(11L).fullName("Co-Resident").flatNo(" a-101 ").community(community).build();
+        AppUser neighbor = AppUser.builder().id(12L).fullName("Neighbor").flatNo("B-202").community(community).build();
+
+        VisitorPassResponse pass = VisitorPassResponse.builder()
+                .id(500L)
+                .residentId(10L)
+                .communityId(1L)
+                .flatNumber("A-101")
+                .build();
+
+        assertThat(service.isResidentAuthorizedForPass(coResident, pass)).isTrue();
+        assertThat(service.isResidentAuthorizedForPass(neighbor, pass)).isFalse();
+    }
 }

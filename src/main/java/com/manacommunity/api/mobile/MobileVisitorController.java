@@ -81,7 +81,7 @@ public class MobileVisitorController {
             @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
-        if (!user.getId().equals(pass.getResidentId())) {
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.approvePass(id, user));
@@ -94,7 +94,7 @@ public class MobileVisitorController {
             @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
-        if (!user.getId().equals(pass.getResidentId())) {
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.leaveAtGate(id, user));
@@ -107,7 +107,7 @@ public class MobileVisitorController {
             @PathVariable Long id) {
         AppUser user = loggedInUserService.resolve(principal);
         VisitorPassResponse pass = visitorPassService.getById(id);
-        if (!user.getId().equals(pass.getResidentId())) {
+        if (!visitorPassService.isResidentAuthorizedForPass(user, pass)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(visitorPassService.rejectPass(id, user.getFullName()));

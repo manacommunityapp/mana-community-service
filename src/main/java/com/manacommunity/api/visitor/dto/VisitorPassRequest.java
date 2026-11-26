@@ -21,4 +21,5 @@ public class VisitorPassRequest {
     private String gate;
     private String guard;
     private String visitorPhoto; // Base64 or URL
+    private String idempotencyKey; // Client UUID preventing duplicate walk-in alerts on packet-loss retry
 }

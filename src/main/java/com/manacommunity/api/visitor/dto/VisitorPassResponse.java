@@ -21,6 +21,7 @@ public class VisitorPassResponse {
 
     private Long id;
     private String passCode;
+    private String idempotencyKey;
     private String visitorName;
     /** Masked phone for security guards (98****10); full for resident/admin. */
     private String visitorPhone;
