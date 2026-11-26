@@ -8,6 +8,7 @@ import com.manacommunity.api.model.NotificationType;
 import com.manacommunity.api.model.NotificationCategory;
 import com.manacommunity.api.model.ReferenceType;
 import com.manacommunity.api.model.NotificationPriority;
+import com.manacommunity.api.exception.InvalidStateTransitionException;
 import com.manacommunity.api.visitor.dto.VisitorPassRequest;
 import com.manacommunity.api.visitor.dto.VisitorPassResponse;
 import com.manacommunity.api.visitor.entity.VisitorPass;
@@ -16,6 +17,8 @@ import com.manacommunity.api.visitor.repository.VisitorPassRepository;
 import com.manacommunity.api.visitor.repository.VisitorAuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +42,9 @@ public class VisitorPassService {
     private final com.manacommunity.api.platform.outbox.DomainEventPublisher domainEventPublisher;
     private final com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
     private final com.manacommunity.api.visitor.repository.GroupInviteRepository groupInviteRepo;
+
+    @Autowired(required = false)
+    private SimpMessagingTemplate messagingTemplate;
 
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
@@ -203,49 +209,99 @@ public class VisitorPassService {
         return response;
     }
 
+    private static final Set<VisitorPass.PassStatus> APPROVE_ALLOWED_SOURCES =
+            Set.of(VisitorPass.PassStatus.PENDING);
+    private static final Set<VisitorPass.PassStatus> REJECT_ALLOWED_SOURCES =
+            Set.of(VisitorPass.PassStatus.PENDING, VisitorPass.PassStatus.EXPECTED);
+
     @Transactional
     public VisitorPassResponse approvePass(Long id, AppUser resident) {
-        VisitorPass pass = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
-
-        pass.setStatus(VisitorPass.PassStatus.APPROVED);
-        VisitorPass saved = repo.save(pass);
-
-        writeAudit(saved.getId(), saved.getVisitorName(), "RESIDENT_APPROVED",
-                "Resident (" + (resident != null ? resident.getFullName() : "User") + ")",
+        String actor = "Resident (" + (resident != null ? resident.getFullName() : "User") + ")";
+        return transitionPassStatusAtomically(
+                id,
+                APPROVE_ALLOWED_SOURCES,
+                VisitorPass.PassStatus.APPROVED,
+                "RESIDENT_APPROVED",
+                actor,
                 "Walk-in request APPROVED by resident.");
-
-        return toResponse(saved);
     }
 
     @Transactional
     public VisitorPassResponse leaveAtGate(Long id, AppUser resident) {
-        VisitorPass pass = repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
-
-        pass.setStatus(VisitorPass.PassStatus.LEAVE_AT_GATE);
-        VisitorPass saved = repo.save(pass);
-
-        writeAudit(saved.getId(), saved.getVisitorName(), "LEAVE_AT_GATE",
-                "Resident (" + (resident != null ? resident.getFullName() : "User") + ")",
+        String actor = "Resident (" + (resident != null ? resident.getFullName() : "User") + ")";
+        return transitionPassStatusAtomically(
+                id,
+                APPROVE_ALLOWED_SOURCES,
+                VisitorPass.PassStatus.LEAVE_AT_GATE,
+                "LEAVE_AT_GATE",
+                actor,
                 "Resident instructed security to hold parcel at gate desk.");
-
-        return toResponse(saved);
     }
 
     @Transactional
     public VisitorPassResponse rejectPass(Long id, String performer) {
+        String actor = performer != null ? performer : "System";
+        return transitionPassStatusAtomically(
+                id,
+                REJECT_ALLOWED_SOURCES,
+                VisitorPass.PassStatus.REJECTED,
+                "REJECTED",
+                actor,
+                "Visitor pass REJECTED / CANCELLED.");
+    }
+
+    /**
+     * Performs a distributed concurrency-safe Compare-and-Swap (CAS) transition on a visitor pass.
+     * Guarantees that if two residents in the same flat tap Approve and Deny on the same
+     * millisecond across separate servers, PostgreSQL row-level locking commits one winner
+     * and the losing request receives HTTP 409 Conflict via {@link InvalidStateTransitionException}.
+     */
+    private VisitorPassResponse transitionPassStatusAtomically(
+            Long id,
+            Set<VisitorPass.PassStatus> allowedSourceStates,
+            VisitorPass.PassStatus targetStatus,
+            String auditAction,
+            String actor,
+            String auditNote) {
         VisitorPass pass = repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
 
-        pass.setStatus(VisitorPass.PassStatus.REJECTED);
-        VisitorPass saved = repo.save(pass);
+        VisitorPass.PassStatus expectedStatus = pass.getStatus();
+        if (!allowedSourceStates.contains(expectedStatus)) {
+            throw new InvalidStateTransitionException("VisitorPass", expectedStatus.name(), targetStatus.name());
+        }
 
-        writeAudit(saved.getId(), saved.getVisitorName(), "REJECTED",
-                performer != null ? performer : "System",
-                "Visitor pass REJECTED / CANCELLED.");
+        int updated = repo.compareAndSwapStatus(id, expectedStatus, targetStatus, LocalDateTime.now());
+        if (updated == 0) {
+            VisitorPass latest = repo.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Pass not found: " + id));
+            throw new InvalidStateTransitionException(
+                    "VisitorPass",
+                    latest.getStatus() != null ? latest.getStatus().name() : "UNKNOWN",
+                    targetStatus.name());
+        }
 
-        return toResponse(saved);
+        pass.setStatus(targetStatus);
+        writeAudit(pass.getId(), pass.getVisitorName(), auditAction, actor, auditNote);
+        VisitorPassResponse response = toResponse(pass);
+        broadcastPassDecision(pass, response, actor);
+        return response;
+    }
+
+    private void broadcastPassDecision(VisitorPass pass, VisitorPassResponse response, String decidedBy) {
+        if (messagingTemplate == null || pass.getCommunity() == null) return;
+        try {
+            Map<String, Object> event = Map.of(
+                    "passId", pass.getId(),
+                    "status", pass.getStatus().name(),
+                    "flatNumber", pass.getFlatNumber() != null ? pass.getFlatNumber() : "",
+                    "decidedBy", decidedBy,
+                    "pass", response
+            );
+            messagingTemplate.convertAndSend("/topic/community." + pass.getCommunity().getId() + ".visitors", event);
+        } catch (Exception ex) {
+            log.warn("Failed to broadcast visitor decision STOMP event for pass {}: {}", pass.getId(), ex.getMessage());
+        }
     }
 
     @Transactional

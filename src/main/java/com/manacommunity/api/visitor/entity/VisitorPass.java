@@ -19,6 +19,11 @@ public class VisitorPass {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @Column(name = "pass_code", nullable = false, unique = true, length = 12)
     private String passCode;
 

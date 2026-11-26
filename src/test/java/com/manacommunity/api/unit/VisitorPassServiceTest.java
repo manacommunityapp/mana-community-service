@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -190,6 +191,8 @@ class VisitorPassServiceTest {
                 .community(community)
                 .build();
         when(repo.findById(108L)).thenReturn(Optional.of(pass));
+        when(repo.compareAndSwapStatus(eq(108L), eq(PassStatus.PENDING), eq(PassStatus.LEAVE_AT_GATE), any()))
+                .thenReturn(1);
 
         VisitorPassResponse resp = service.leaveAtGate(108L, resident);
 
@@ -227,5 +230,77 @@ class VisitorPassServiceTest {
         assertThat(resp.getPassCode()).isEqualTo("GRP-EVENT-99");
         assertThat(resp.getPassType()).isEqualTo("EVENT_GUEST");
         assertThat(resp.getPurpose()).isEqualTo("Holi Celebration");
+    }
+
+    @Test
+    @DisplayName("approvePass throws 409 InvalidStateTransitionException when concurrent Deny wins the CAS row lock")
+    void approvePass_concurrentRaceLost_throwsConflict409() {
+        VisitorPass initialPending = VisitorPass.builder()
+                .id(301L)
+                .visitorName("Rohan Delivery")
+                .status(PassStatus.PENDING)
+                .resident(resident)
+                .community(community)
+                .build();
+        VisitorPass committedRejected = VisitorPass.builder()
+                .id(301L)
+                .visitorName("Rohan Delivery")
+                .status(PassStatus.REJECTED)
+                .resident(resident)
+                .community(community)
+                .build();
+
+        // First read sees PENDING; after losing CAS row lock (returns 0), reload sees REJECTED from co-resident
+        when(repo.findById(301L)).thenReturn(Optional.of(initialPending), Optional.of(committedRejected));
+        when(repo.compareAndSwapStatus(eq(301L), eq(PassStatus.PENDING), eq(PassStatus.APPROVED), any()))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> service.approvePass(301L, resident))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidStateTransitionException.class)
+                .hasMessageContaining("Cannot transition VisitorPass from REJECTED to APPROVED");
+
+        verify(auditLogRepo, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("rejectPass throws 409 InvalidStateTransitionException if co-resident already APPROVED the walk-in pass")
+    void rejectPass_afterAlreadyApproved_throwsConflict409() {
+        VisitorPass alreadyApproved = VisitorPass.builder()
+                .id(302L)
+                .visitorName("Plumber Visit")
+                .status(PassStatus.APPROVED)
+                .resident(resident)
+                .community(community)
+                .build();
+
+        when(repo.findById(302L)).thenReturn(Optional.of(alreadyApproved));
+
+        assertThatThrownBy(() -> service.rejectPass(302L, "Co-Resident"))
+                .isInstanceOf(com.manacommunity.api.exception.InvalidStateTransitionException.class)
+                .hasMessageContaining("Cannot transition VisitorPass from APPROVED to REJECTED");
+
+        verify(repo, never()).compareAndSwapStatus(any(), any(), any(), any());
+        verify(auditLogRepo, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("approvePass commits atomically via compareAndSwapStatus and records audit log")
+    void approvePass_casSuccess_transitionsAndWritesAudit() {
+        VisitorPass pass = VisitorPass.builder()
+                .id(303L)
+                .visitorName("Cab Driver")
+                .status(PassStatus.PENDING)
+                .resident(resident)
+                .community(community)
+                .build();
+
+        when(repo.findById(303L)).thenReturn(Optional.of(pass));
+        when(repo.compareAndSwapStatus(eq(303L), eq(PassStatus.PENDING), eq(PassStatus.APPROVED), any()))
+                .thenReturn(1);
+
+        VisitorPassResponse resp = service.approvePass(303L, resident);
+
+        assertThat(resp.getStatus()).isEqualTo("APPROVED");
+        verify(auditLogRepo).save(argThat(log -> "RESIDENT_APPROVED".equals(log.getAction())));
     }
 }

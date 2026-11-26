@@ -2,6 +2,7 @@ package com.manacommunity.api.visitor.repository;
 
 import com.manacommunity.api.visitor.entity.VisitorPass;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -82,4 +83,24 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
             @Param("communityId") Long communityId,
             @Param("statuses") List<VisitorPass.PassStatus> statuses,
             @Param("normalizedPlate") String normalizedPlate);
+
+    /**
+     * Atomic Compare-and-Swap (CAS) status transition executed under PostgreSQL
+     * row-level lock. Guarantees at most one concurrent pod/resident succeeds
+     * when Approve and Deny arrive at the exact same millisecond.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE VisitorPass v
+              SET v.status = :targetStatus,
+                  v.updatedAt = :updatedAt,
+                  v.version = COALESCE(v.version, 0) + 1
+            WHERE v.id = :id
+              AND v.status = :expectedStatus
+           """)
+    int compareAndSwapStatus(
+            @Param("id") Long id,
+            @Param("expectedStatus") VisitorPass.PassStatus expectedStatus,
+            @Param("targetStatus") VisitorPass.PassStatus targetStatus,
+            @Param("updatedAt") LocalDateTime updatedAt);
 }
