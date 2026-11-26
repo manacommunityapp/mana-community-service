@@ -10,6 +10,8 @@ import java.util.List;
 public interface WhitelistRepository extends JpaRepository<WhitelistEntry, Long> {
     List<WhitelistEntry> findByResidentId(Long residentId);
 
+    List<WhitelistEntry> findByCommunityIdAndIsActiveTrue(Long communityId);
+
     @Query("""
            SELECT w FROM WhitelistEntry w 
            WHERE w.community.id = :communityId 

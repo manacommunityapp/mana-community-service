@@ -84,4 +84,24 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Low-priority, bounded executor for 10,000+ resident community emergency/maintenance
+     * broadcasts. Completely isolated from notificationExecutor so broadcast storms
+     * never delay critical live visitor approvals or SOS alerts.
+     */
+    @Bean(name = "broadcastNotificationExecutor")
+    public Executor broadcastNotificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(1000);
+        executor.setThreadNamePrefix("broadcast-bulk-");
+        executor.setTaskDecorator(tenantAwareTaskDecorator);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }
