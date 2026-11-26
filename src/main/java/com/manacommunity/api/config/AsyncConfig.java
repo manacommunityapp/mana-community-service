@@ -11,6 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Arrays;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Configuration(proxyBeanMethods = false)
@@ -61,6 +62,25 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setTaskDecorator(tenantAwareTaskDecorator);
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Strict bulkhead executor for external delivery partner webhooks (Blinkit, Zomato, Swiggy).
+     * Uses AbortPolicy intentionally so webhook surges shed load at the edge (429 Retry-After)
+     * rather than blocking Tomcat servlet threads or starving resident visitor approvals.
+     */
+    @Bean(name = "partnerWebhookExecutor")
+    public Executor partnerWebhookExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("partner-webhook-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(15);
         executor.initialize();
         return executor;
     }

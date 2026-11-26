@@ -1,16 +1,24 @@
 package com.manacommunity.api.delivery.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.delivery.dto.*;
 import com.manacommunity.api.delivery.service.ExpressDeliveryPartnerService;
+import com.manacommunity.api.delivery.service.ExpressPartnerWebhookService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/partners/delivery")
@@ -20,6 +28,52 @@ import java.util.List;
 public class ExpressDeliveryPartnerController {
 
     private final ExpressDeliveryPartnerService service;
+    private final ExpressPartnerWebhookService webhookService;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
+
+    @PostMapping("/notify")
+    @Operation(
+            summary = "Async partner webhook ingestion (Fast-Ack 202)",
+            description = "Hardened webhook receiver for Blinkit, Zomato, and Swiggy with HMAC-SHA256 verification, replay window check, per-partner token bucket rate limiting (429 Retry-After), and isolated bulkhead async processing."
+    )
+    public ResponseEntity<PartnerWebhookAckResponse> notifyWebhook(
+            @RequestBody String rawPayload,
+            @RequestHeader(value = "X-Partner-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-Timestamp", required = false) String timestamp,
+            @RequestHeader(value = "X-Event-ID", required = false) String eventId,
+            @RequestHeader(value = "X-Signature", required = false) String signature) {
+
+        PartnerWebhookNotifyRequest request;
+        try {
+            request = objectMapper.readValue(rawPayload, PartnerWebhookNotifyRequest.class);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Malformed partner webhook JSON payload: " + ex.getMessage());
+        }
+
+        Set<ConstraintViolation<PartnerWebhookNotifyRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+
+        PartnerWebhookAckResponse ack = webhookService.acceptNotification(
+                rawPayload, request, partnerId, timestamp, eventId, signature);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ack);
+    }
+
+    @ExceptionHandler(ExpressPartnerWebhookService.PartnerRateLimitException.class)
+    public ResponseEntity<Map<String, Object>> handlePartnerRateLimit(
+            ExpressPartnerWebhookService.PartnerRateLimitException ex) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Retry-After", "5");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .headers(headers)
+                .body(Map.of(
+                        "errorCode", ex.getErrorCode(),
+                        "message", ex.getMessage(),
+                        "status", 429
+                ));
+    }
 
     @PostMapping("/express-entry")
     @Operation(summary = "Register rider dispatch", description = "Invoked by delivery platforms when order is out for delivery. Pre-approves rider gate pass.")
