@@ -97,6 +97,15 @@ public class VisitorPassController {
         return ResponseEntity.ok(maskPhoneForGuard(visitorPassService.getTodaysPasses(communityId)));
     }
 
+    @GetMapping("/qr-public-key")
+    @PreAuthorize("hasAuthority('Manage Gate')")
+    public ResponseEntity<Map<String, String>> getOfflineQrPublicKey() {
+        return ResponseEntity.ok(Map.of(
+                "algorithm", "Ed25519",
+                "publicKeyBase64", visitorPassService.getOfflineQrPublicKeyBase64()
+        ));
+    }
+
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('View Visitors')")
     public ResponseEntity<List<VisitorPassResponse>> getMyPasses(

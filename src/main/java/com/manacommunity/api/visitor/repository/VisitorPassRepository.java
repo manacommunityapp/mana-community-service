@@ -1,6 +1,7 @@
 package com.manacommunity.api.visitor.repository;
 
 import com.manacommunity.api.visitor.entity.VisitorPass;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -123,4 +124,38 @@ public interface VisitorPassRepository extends JpaRepository<VisitorPass, Long> 
             @Param("expectedStatus") VisitorPass.PassStatus expectedStatus,
             @Param("targetStatus") VisitorPass.PassStatus targetStatus,
             @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
+     * Keyset cursor lookup of IDs eligible for DPDP retention (zero heap bloat from Base64 photos).
+     */
+    @Query("""
+           SELECT v.id FROM VisitorPass v
+            WHERE (:communityId IS NULL OR v.community.id = :communityId)
+              AND v.createdAt < :cutoff
+              AND v.status IN :terminalStatuses
+              AND v.id > :cursorId
+              AND (:includeAlreadyRedacted = true OR COALESCE(v.visitorPhone, '') != 'REDACTED')
+            ORDER BY v.id ASC
+           """)
+    List<Long> findRetentionCandidateIds(
+            @Param("communityId") Long communityId,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("terminalStatuses") List<VisitorPass.PassStatus> terminalStatuses,
+            @Param("cursorId") Long cursorId,
+            @Param("includeAlreadyRedacted") boolean includeAlreadyRedacted,
+            Pageable pageable);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE VisitorPass v
+              SET v.visitorPhone = 'REDACTED',
+                  v.visitorPhoto = null,
+                  v.vehicleNumber = null
+            WHERE v.id IN :ids
+           """)
+    int anonymizePassBatch(@Param("ids") List<Long> ids);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM VisitorPass v WHERE v.id IN :ids")
+    int deletePassBatch(@Param("ids") List<Long> ids);
 }

@@ -46,6 +46,9 @@ public class VisitorPassService {
     @Autowired(required = false)
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired(required = false)
+    private com.manacommunity.api.visitor.security.OfflineQrTokenService offlineQrTokenService;
+
     @Transactional(readOnly = true)
     public List<VisitorPassResponse> getCommunityPasses(Long communityId) {
         return repo.findByCommunityIdOrderByCreatedAtDesc(communityId)
@@ -907,11 +910,20 @@ public class VisitorPassService {
 
     private String generateEncryptedToken(String code, AppUser user) {
         try {
+            if (offlineQrTokenService != null) {
+                Long commId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : 0L;
+                String flat = user != null ? user.getFlatNo() : "N/A";
+                return offlineQrTokenService.signToken(commId, code, flat, 43_200L);
+            }
             String raw = "VISITOR:" + code + "|FLAT:" + (user != null ? user.getFlatNo() : "N/A") + "|GEN:" + System.currentTimeMillis();
             return Base64.getEncoder().encodeToString(raw.getBytes());
         } catch (Exception e) {
             return "TOKEN-" + code;
         }
+    }
+
+    public String getOfflineQrPublicKeyBase64() {
+        return offlineQrTokenService != null ? offlineQrTokenService.getPublicKeyBase64() : "";
     }
 
     /**
