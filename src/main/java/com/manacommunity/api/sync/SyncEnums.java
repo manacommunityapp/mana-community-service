@@ -3,6 +3,7 @@ package com.manacommunity.api.sync;
 public class SyncEnums {
     public enum SyncEntityType {
         VISITOR_PASS,
+        EXPRESS_DELIVERY,
         PARKING_ENTRY,
         SOS_TRIGGER,
         HELPDESK_TICKET,
