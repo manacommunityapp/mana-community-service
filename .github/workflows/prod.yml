@@ -41,24 +41,6 @@ jobs:
           source: "deploy/backend.service,deploy/deploy-backend.sh"
           target: "/tmp"
 
-      - name: Deploy Application with Auto-Rollback
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
-          username: ${{ secrets.DEV_LIGHTSAIL_USER }}
-          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
-          script: |
-            # Deploy systemd service definition
-            sudo cp /tmp/deploy/backend.service /etc/systemd/system/backend.service
-            sudo systemctl daemon-reload
-            sudo systemctl enable backend
 
-            # Make deploy script executable and execute safe deployment with auto-rollback
-            chmod +x /tmp/deploy/deploy-backend.sh
-            sudo /tmp/deploy/deploy-backend.sh prod "/tmp/target/*.jar"
-            DEPLOY_STATUS=$?
-
-            # Cleanup staging files
-            rm -rf /tmp/target /tmp/deploy
 
             exit $DEPLOY_STATUS
