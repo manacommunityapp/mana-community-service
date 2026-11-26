@@ -273,6 +273,8 @@ public class SecurityConfig { // BUG FIX: was package-private
                 .requestMatchers("/api/dev/sqs/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
+                // Express Entry Delivery Partner APIs (Zomato, Swiggy, Blinkit, Zepto, Amazon)
+                .requestMatchers("/api/v1/partners/delivery/**").permitAll()
                 // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
                 .requestMatchers("/api/insurance/webhooks/**").permitAll()
                 // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
