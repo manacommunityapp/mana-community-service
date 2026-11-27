@@ -76,6 +76,20 @@ public class SosIncident {
     @Builder.Default
     private int slaTargetSeconds = 180; // 3 minutes default
 
+    @Column(name = "idempotency_key", unique = true, length = 64)
+    private String idempotencyKey;
+
+    @Column(name = "ingest_channel", nullable = false, length = 24)
+    @Builder.Default
+    private String ingestChannel = "HTTP"; // HTTP, COMPACT_2G, SMS_FALLBACK
+
+    @Column(name = "siren_override", nullable = false)
+    @Builder.Default
+    private boolean sirenOverride = false;
+
+    @Column(name = "nearest_guard_id")
+    private Long nearestGuardId;
+
     @Column(name = "triggered_at", nullable = false)
     private LocalDateTime triggeredAt;
 
