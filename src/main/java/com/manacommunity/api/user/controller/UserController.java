@@ -102,15 +102,11 @@ public class UserController {
 
     @GetMapping("/search")
     public ResponseEntity<java.util.List<UserResponse>> searchUsers(
-            @RequestParam(required = false) Long communityId,
             @RequestParam String query,
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser loggedInUser = loggedInUserService.resolve(principal);
-        Long targetCommunityId = communityId;
+        Long targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
         boolean isAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN) || loggedInUser.hasRole(ROLE_COMMUNITY_ADMIN) || loggedInUser.hasRole(ROLE_ADMIN);
-        if (!loggedInUser.hasRole(ROLE_SUPER_ADMIN)) {
-            targetCommunityId = loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null;
-        }
         if (targetCommunityId == null) {
             return ResponseEntity.ok(java.util.Collections.emptyList());
         }
@@ -167,11 +163,11 @@ public class UserController {
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String kycStatus,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
@@ -226,8 +222,8 @@ public class UserController {
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN','COMMUNITY_ADMIN')")
     public ResponseEntity<com.manacommunity.api.user.dto.UserStatsResponse> getUserStats(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser loggedInUser = loggedInUserService.resolve(principal);
         boolean isSuperAdmin = loggedInUser.hasRole(ROLE_SUPER_ADMIN);
         Long targetCommunityId = isSuperAdmin ? communityId : (loggedInUser.getCommunity() != null ? loggedInUser.getCommunity().getId() : null);
@@ -410,6 +406,19 @@ public class UserController {
     }
 
     /**
+     * Updates the currently authenticated user's profile (/api/users/me).
+     */
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<UserResponse> updateCurrentProfile(
+            @RequestBody UpdateUserRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser loggedInUser = loggedInUserService.resolve(principal);
+        return updateUser(loggedInUser.getId(), req, principal);
+    }
+
+    /**
      * Updates an existing user by ID (used for self profile update fallback or admin user update).
      */
     @PutMapping("/{id}")
@@ -516,6 +525,7 @@ public class UserController {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
             user.setFailedLoginAttempts(0);
             user.setLockedUntil(null);
+            user.setTokenInvalidatedBefore(java.time.LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
         }
 
         if (req.getTower() != null) user.setTower(req.getTower());

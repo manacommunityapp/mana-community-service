@@ -14,15 +14,15 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping({"/api/events", "/events"})
 @RequiredArgsConstructor
 public class EventMealController {
 
     private final EventMealService mealService;
     private final LoggedInUserService loggedInUserService;
 
-    @GetMapping("/{eventId}/meals")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
+    @GetMapping({"/{eventId}/meals", "/{eventId}/meals/my-preference", "/{eventId}/meals/preference"})
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','FOOD_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('View Events')")
     public ResponseEntity<MealRegistrationResponse> getUserMeals(
             @PathVariable Long eventId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -30,8 +30,8 @@ public class EventMealController {
         return ResponseEntity.ok(mealService.getUserMeals(eventId, user.getId()));
     }
 
-    @PostMapping("/{eventId}/meals")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
+    @PostMapping({"/{eventId}/meals", "/{eventId}/meals/preference", "/{eventId}/meals/my-preference"})
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','FOOD_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('View Events')")
     public ResponseEntity<MealRegistrationResponse> saveMeals(
             @PathVariable Long eventId,
             @RequestBody MealRegistrationRequest req,
@@ -41,7 +41,7 @@ public class EventMealController {
     }
 
     @GetMapping("/{eventId}/meals/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','FOOD_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','FOOD_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('View Events')")
     public ResponseEntity<MealSummaryResponse> getMealSummary(
             @PathVariable Long eventId) {
         return ResponseEntity.ok(mealService.getMealSummary(eventId));

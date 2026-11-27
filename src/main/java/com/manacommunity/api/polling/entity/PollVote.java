@@ -37,6 +37,16 @@ public class PollVote {
     @JoinColumn(name = "voter_id", nullable = false)
     private AppUser voter;
 
+    @Column(name = "flat_id")
+    private Long flatId;
+
+    @Column(name = "weight_applied", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal weightApplied = java.math.BigDecimal.ONE;
+
+    @Column(name = "eligibility_snapshot", length = 500)
+    private String eligibilitySnapshot;
+
     @Column(name = "voted_at", nullable = false, updatable = false)
     private LocalDateTime votedAt;
 

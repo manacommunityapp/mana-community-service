@@ -247,37 +247,47 @@ public class MediaService {
     // ── Read ─────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public MediaResponse getById(UUID externalId) {
-        MediaObject media = mediaRepo.findByExternalIdAndDeletedFalse(externalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Media", "id", externalId.toString()));
-        return toResponse(media);
+    public MediaResponse getById(UUID externalId, Long communityId) {
+        return toResponse(findActive(externalId, communityId));
     }
 
     @Transactional(readOnly = true)
-    public Page<MediaResponse> getByModule(MediaModule module, String moduleId, Pageable pageable) {
-        return mediaRepo.findByModuleAndModuleIdAndDeletedFalseOrderByUploadedAtDesc(module, moduleId, pageable)
-                .map(this::toResponse);
+    public Page<MediaResponse> getByModule(MediaModule module, String moduleId,
+                                           Long communityId, Pageable pageable) {
+        Page<MediaObject> page = communityId == null
+                ? mediaRepo.findByModuleAndModuleIdAndDeletedFalseOrderByUploadedAtDesc(
+                        module, moduleId, pageable)
+                : mediaRepo.findByModuleAndModuleIdAndCommunityIdAndDeletedFalseOrderByUploadedAtDesc(
+                        module, moduleId, communityId, pageable);
+        return page.map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<MediaResponse> getActiveByModule(MediaModule module, String moduleId) {
-        return mediaRepo.findByModuleAndModuleIdAndDeletedFalseAndStatusOrderBySortOrderAscUploadedAtDesc(
+    public List<MediaResponse> getActiveByModule(MediaModule module, String moduleId, Long communityId) {
+        List<MediaObject> rows = communityId == null
+                ? mediaRepo.findByModuleAndModuleIdAndDeletedFalseAndStatusOrderBySortOrderAscUploadedAtDesc(
                         module, moduleId, MediaStatus.ACTIVE)
-                .stream().map(this::toResponse).toList();
+                : mediaRepo.findByModuleAndModuleIdAndCommunityIdAndDeletedFalseAndStatusOrderBySortOrderAscUploadedAtDesc(
+                        module, moduleId, communityId, MediaStatus.ACTIVE);
+        return rows.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<MediaResponse> getByModuleAndSubContext(MediaModule module, String moduleId, String subContext) {
-        return mediaRepo.findByModuleAndModuleIdAndSubContextAndDeletedFalseAndStatus(
+    public List<MediaResponse> getByModuleAndSubContext(MediaModule module, String moduleId,
+                                                        Long communityId, String subContext) {
+        List<MediaObject> rows = communityId == null
+                ? mediaRepo.findByModuleAndModuleIdAndSubContextAndDeletedFalseAndStatus(
                         module, moduleId, subContext, MediaStatus.ACTIVE)
-                .stream().map(this::toResponse).toList();
+                : mediaRepo.findByModuleAndModuleIdAndCommunityIdAndSubContextAndDeletedFalseAndStatus(
+                        module, moduleId, communityId, subContext, MediaStatus.ACTIVE);
+        return rows.stream().map(this::toResponse).toList();
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     @Transactional
-    public void softDelete(UUID externalId, Long deletedBy) {
-        MediaObject media = findActive(externalId);
+    public void softDelete(UUID externalId, Long communityId, Long deletedBy) {
+        MediaObject media = findActive(externalId, communityId);
         media.setDeleted(true);
         media.setStatus(MediaStatus.DELETED);
         media.setDeletedBy(deletedBy);
@@ -311,11 +321,10 @@ public class MediaService {
     }
 
     @Transactional
-    public MediaResponse restore(UUID externalId, Long restoredBy) {
-        MediaObject media = mediaRepo.findByExternalIdAndDeletedFalse(externalId)
-                .or(() -> mediaRepo.findByExternalIdAndDeletedFalse(externalId))
-                .orElseThrow(() -> new ResourceNotFoundException("Media", "id", externalId.toString()));
-        // Allow restoring deleted items
+    public MediaResponse restore(UUID externalId, Long communityId, Long restoredBy) {
+        // Must match soft-deleted rows — the previous lookup filtered DeletedFalse twice,
+        // so a deleted item could never actually be found here.
+        MediaObject media = findIncludingDeleted(externalId, communityId);
         media.setDeleted(false);
         media.setStatus(MediaStatus.ACTIVE);
         media.setDeletedBy(null);
@@ -328,8 +337,8 @@ public class MediaService {
     // ── Approval workflow ─────────────────────────────────────────────────────
 
     @Transactional
-    public MediaResponse approve(UUID externalId, Long approverId) {
-        MediaObject media = findActive(externalId);
+    public MediaResponse approve(UUID externalId, Long communityId, Long approverId) {
+        MediaObject media = findActive(externalId, communityId);
         media.setStatus(MediaStatus.ACTIVE);
         media.setApprovedBy(approverId);
         media.setApprovedAt(OffsetDateTime.now());
@@ -339,8 +348,8 @@ public class MediaService {
     }
 
     @Transactional
-    public MediaResponse reject(UUID externalId, String reason, Long approverId) {
-        MediaObject media = findActive(externalId);
+    public MediaResponse reject(UUID externalId, Long communityId, String reason, Long approverId) {
+        MediaObject media = findActive(externalId, communityId);
         media.setStatus(MediaStatus.REJECTED);
         media.setRejectionReason(reason);
         media.setApprovedBy(approverId);
@@ -352,8 +361,23 @@ public class MediaService {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private MediaObject findActive(UUID externalId) {
-        return mediaRepo.findByExternalIdAndDeletedFalse(externalId)
+    /**
+     * Resolve a live media row, scoped to the caller's community.
+     * A null communityId means an unscoped platform-admin lookup.
+     * Missing and cross-tenant both raise not-found so foreign ids are never confirmed.
+     */
+    private MediaObject findActive(UUID externalId, Long communityId) {
+        return (communityId == null
+                ? mediaRepo.findByExternalIdAndDeletedFalse(externalId)
+                : mediaRepo.findByExternalIdAndCommunityIdAndDeletedFalse(externalId, communityId))
+                .orElseThrow(() -> new ResourceNotFoundException("Media", "id", externalId.toString()));
+    }
+
+    /** As {@link #findActive} but also matches soft-deleted rows; used by restore. */
+    private MediaObject findIncludingDeleted(UUID externalId, Long communityId) {
+        return (communityId == null
+                ? mediaRepo.findByExternalId(externalId)
+                : mediaRepo.findByExternalIdAndCommunityId(externalId, communityId))
                 .orElseThrow(() -> new ResourceNotFoundException("Media", "id", externalId.toString()));
     }
 

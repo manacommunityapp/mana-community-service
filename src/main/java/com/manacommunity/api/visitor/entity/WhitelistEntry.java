@@ -45,4 +45,14 @@ public class WhitelistEntry extends BaseAuditEntity {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("visitorName")
+    public String getVisitorName() {
+        return name;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("visitorPhone")
+    public String getVisitorPhone() {
+        return phone;
+    }
 }

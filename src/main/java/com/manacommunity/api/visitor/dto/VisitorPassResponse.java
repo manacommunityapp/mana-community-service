@@ -1,5 +1,6 @@
 package com.manacommunity.api.visitor.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,6 +21,7 @@ public class VisitorPassResponse {
 
     private Long id;
     private String passCode;
+    private String idempotencyKey;
     private String visitorName;
     /** Masked phone for security guards (98****10); full for resident/admin. */
     private String visitorPhone;
@@ -47,4 +49,9 @@ public class VisitorPassResponse {
      * This field is always {@code null} on all subsequent reads.
      */
     private String otpOnCreation;
+
+    @JsonProperty("otp")
+    public String getOtp() {
+        return otpOnCreation;
+    }
 }

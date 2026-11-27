@@ -7,11 +7,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("homeServiceReportController")
 @RequestMapping("/api/v1/home-services/reports")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceReportController {
     private final HomeServiceReportService reportService;
 
@@ -21,7 +22,8 @@ public class HomeServiceReportController {
     }
 
     @GetMapping
-    public ResponseEntity<List<HomeServiceReportEntity>> getReports(@RequestParam(defaultValue = "comm-mana-1") String communityId) {
+    public ResponseEntity<List<HomeServiceReportEntity>> getReports(@AuthenticationPrincipal UserPrincipal principal) {
+        String communityId = String.valueOf(principal.getCommunityId());
         return ResponseEntity.ok(reportService.getCommunityReports(communityId));
     }
 }

@@ -75,6 +75,20 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
     private final MeterRegistry meterRegistry;
     private final NotificationManagementService notificationService;
     private final SportsAuctionWebSocketService auctionWs;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsAuctionCacheService auctionCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.ratelimit.AuctionBidRateLimiter bidRateLimiter;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.sqs.AuctionNotificationSqsHandler auctionNotificationSqsHandler;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsAnalyticsCacheService analyticsCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsDashboardCacheService dashboardCacheService;
 
     @Override
     public List<SportsAuctionConfig> getConfigsBySportAndCommunity(Long sportId, Long communityId) {
@@ -332,6 +346,16 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         config.setStatus(newStatus);
         SportsAuctionConfig savedConfig = configRepo.save(config);
 
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(configId);
+        }
+        if (analyticsCacheService != null) {
+            analyticsCacheService.invalidateAll();
+        }
+        if (dashboardCacheService != null) {
+            dashboardCacheService.invalidateAll();
+        }
+
         auctionWs.broadcastStatusChange(configId, oldStatus.name(), newStatus.name());
 
         // Audit the lifecycle transitions only (start / end / pause), not every save.
@@ -367,6 +391,13 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
     @Override
     @Transactional(readOnly = true)
     public PlayerWithBidResponse getCurrentPlayer(Long configId) {
+        if (auctionCacheService != null) {
+            return auctionCacheService.getCurrentPlayer(configId, () -> loadCurrentPlayerFromDb(configId));
+        }
+        return loadCurrentPlayerFromDb(configId);
+    }
+
+    private PlayerWithBidResponse loadCurrentPlayerFromDb(Long configId) {
         SportsAuctionConfig config = configRepo.findById(configId).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsAuctionConfig", configId));
 
         // First check if a player is already in SELLING state
@@ -414,6 +445,14 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         if (config.getStatus() !=  SportsAuctionConfig.AuctionStatus.LIVE  &&
                 config.getStatus() != SportsAuctionConfig.AuctionStatus.ACTIVE)
             throw new AuctionStateException("Auction is not LIVE");
+
+        // Per-team bid rate limit (prevents double-click / scripted flooding)
+        if (bidRateLimiter != null && !bidRateLimiter.tryAcquireSportsBid(req.configId(), req.teamId())) {
+            throw new com.manacommunity.api.exception.ManaCommunityException(
+                    "Please wait a moment before placing another bid for this team.",
+                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                    "BID_RATE_LIMIT");
+        }
 
         // Lock player row to serialize all bids on the same player
         SportsAuctionPlayer player = playerRepo.findByIdForUpdate(req.playerId()).orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsAuctionPlayer", req.playerId()));
@@ -463,6 +502,10 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         log.info("Bid placed: player={} team={} amount={}", player.getPlayerName(),
             team.getTeamName(), req.bidAmount());
         SportsAuctionBid saved = bidRepo.save(bid);
+
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(config.getId());
+        }
         // Metric: count every accepted bid (after all validation passed). Tagged with
         // RTM vs normal so the live-auction bid rate is visible in Grafana / alarms.
         meterRegistry.counter("auction.bids.placed",
@@ -477,12 +520,15 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
         try {
             if (previousLeader != null && previousLeader.getOwnerUser() != null
                     && !previousLeader.getId().equals(team.getId())) {
+                Long prevOwnerId = previousLeader.getOwnerUser().getId();
                 notificationService.createNotification(
-                        previousLeader.getOwnerUser().getId(), NotificationType.BID_OUTBID, NotificationCategory.AUCTION,
+                        prevOwnerId, NotificationType.BID_OUTBID, NotificationCategory.AUCTION,
                         "Outbid on " + player.getPlayerName(),
                         team.getTeamName() + " bid ₹" + req.bidAmount(),
                         null, ReferenceType.AUCTION_PLAYER, player.getId(),
                         NotificationPriority.HIGH, null, null);
+                publishAuctionPush("OUTBID", config.getId(), player.getPlayerName(),
+                        team.getTeamName(), req.bidAmount(), List.of(prevOwnerId));
             }
         } catch (Exception e) {
             log.warn("Failed to persist outbid notification", e);
@@ -540,6 +586,12 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
 
         log.info("SOLD: {} → {} for ₹{}", player.getPlayerName(), team.getTeamName(), soldPrice);
         SportsAuctionPlayer savedPlayer = playerRepo.save(player);
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(player.getConfig().getId());
+        }
+        if (analyticsCacheService != null) {
+            analyticsCacheService.invalidateAll();
+        }
         auditService.record(
             com.manacommunity.api.security.AuditAction.PLAYER_SOLD,
             com.manacommunity.api.security.AuditModule.AUCTION,
@@ -549,12 +601,15 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
 
         try {
             if (team.getOwnerUser() != null && team.getOwnerUser().getId() != null) {
+                Long ownerId = team.getOwnerUser().getId();
                 notificationService.createNotification(
-                        team.getOwnerUser().getId(), NotificationType.PLAYER_SOLD, NotificationCategory.AUCTION,
+                        ownerId, NotificationType.PLAYER_SOLD, NotificationCategory.AUCTION,
                         player.getPlayerName() + " sold to " + team.getTeamName(),
                         "Acquired for ₹" + soldPrice + " | Budget remaining: ₹" + team.getRemainingBudget(),
                         null, ReferenceType.AUCTION_PLAYER, player.getId(),
                         NotificationPriority.HIGH, null, null);
+                publishAuctionPush("PLAYER_SOLD", player.getConfig().getId(), player.getPlayerName(),
+                        team.getTeamName(), soldPrice, List.of(ownerId));
             }
         } catch (Exception e) {
             log.warn("Failed to persist player-sold notification", e);
@@ -568,6 +623,19 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
                 player.getCategory(), player.getPlayerRole()));
 
         return savedPlayer;
+    }
+
+    private void publishAuctionPush(String type, Long auctionId, String playerName,
+                                  String teamName, Long amount, List<Long> recipientUserIds) {
+        if (sqsMessagePublisher == null || sqsProperties == null) return;
+        var payload = new com.manacommunity.api.sports.sqs.AuctionNotificationSqsHandler.AuctionPushPayload(
+                type, auctionId, playerName, teamName, amount, recipientUserIds);
+        sqsMessagePublisher.publishAfterCommit(
+                sqsProperties.getQueues().getAuctionNotifications(),
+                type,
+                payload,
+                auctionNotificationSqsHandler != null ? () -> auctionNotificationSqsHandler.deliverPush(payload) : null
+        );
     }
 
     // ── PASS PLAYER ───────────────────────────────────────────────
@@ -592,6 +660,9 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             .performedBy(userRepo.getReferenceById(adminUserId)).build());
 
         SportsAuctionPlayer saved = playerRepo.save(player);
+        if (auctionCacheService != null) {
+            auctionCacheService.invalidate(config.getId());
+        }
 
         auctionWs.broadcastPlayerPassed(config.getId(),
             new SportsAuctionWebSocketService.PlayerPassedPayload(
@@ -604,6 +675,13 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
     @Override
     @Transactional(readOnly = true)
     public SportsAuctionStatsResponse getAuctionStats(Long configId) {
+        if (auctionCacheService != null) {
+            return auctionCacheService.getAuctionStats(configId, () -> loadAuctionStatsFromDb(configId));
+        }
+        return loadAuctionStatsFromDb(configId);
+    }
+
+    private SportsAuctionStatsResponse loadAuctionStatsFromDb(Long configId) {
         SportsAuctionConfig config = configRepo.findById(configId)
                 .orElseThrow(() -> new com.manacommunity.api.exception.ResourceNotFoundException("SportsAuctionConfig", configId));
 
@@ -810,6 +888,10 @@ public class SportsAuctionServiceImpl implements SportsAuctionService {
             picked.getInnings(), picked.getBestBowling(),
             picked.getCricheroesId(), picked.getCricheroesUrl(), picked.getVerifiedAt()
         );
+
+        if (auctionCacheService != null) {
+            auctionCacheService.setCurrentPlayer(configId, response);
+        }
 
         auctionWs.broadcastPlayerPicked(configId, response);
 

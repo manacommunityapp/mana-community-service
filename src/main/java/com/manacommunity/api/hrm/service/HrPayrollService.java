@@ -9,6 +9,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,6 +19,12 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class HrPayrollService {
+
+    private static final BigDecimal PF_RATE = new BigDecimal("0.12");
+    private static final BigDecimal PF_CAP = new BigDecimal("1800.00");
+    private static final BigDecimal ESI_THRESHOLD = new BigDecimal("21000.00");
+    private static final BigDecimal ESI_EMP_RATE = new BigDecimal("0.0075");
+    private static final BigDecimal ESI_EMR_RATE = new BigDecimal("0.0325");
 
     private final HrPayrollRunRepository payrollRunRepository;
     private final HrPayslipRepository payslipRepository;
@@ -52,7 +60,9 @@ public class HrPayrollService {
             .filter(d -> d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY)
             .count();
 
-        double totalGross = 0, totalDeductions = 0, totalNet = 0;
+        BigDecimal totalGross = BigDecimal.ZERO;
+        BigDecimal totalDeductions = BigDecimal.ZERO;
+        BigDecimal totalNet = BigDecimal.ZERO;
         for (HrEmployee emp : employees) {
             HrSalaryStructure structure = salaryStructureRepository
                 .findFirstByEmployeeIdAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(emp.getId(), periodEnd)
@@ -66,24 +76,29 @@ public class HrPayrollService {
                     !a.getAttendanceStatus().name().equals("HOLIDAY"))
                 .count();
             int paidDays = (int) Math.min(attendedDays, workingDays);
-            double ratio = workingDays > 0 ? (double) paidDays / workingDays : 1.0;
+            BigDecimal ratio = workingDays > 0
+                ? BigDecimal.valueOf(paidDays).divide(BigDecimal.valueOf(workingDays), 6, RoundingMode.HALF_UP)
+                : BigDecimal.ONE;
 
-            double basic = structure.getBasicMonthly() * ratio;
-            double hra = structure.getHraMonthly() * ratio;
-            double da = structure.getDaMonthly() * ratio;
-            double special = structure.getSpecialAllowanceMonthly() * ratio;
-            double other = structure.getOtherAllowancesMonthly() * ratio;
-            double gross = basic + hra + da + special + other;
+            BigDecimal basic = prorate(structure.getBasicMonthly(), ratio);
+            BigDecimal hra = prorate(structure.getHraMonthly(), ratio);
+            BigDecimal da = prorate(structure.getDaMonthly(), ratio);
+            BigDecimal special = prorate(structure.getSpecialAllowanceMonthly(), ratio);
+            BigDecimal other = prorate(structure.getOtherAllowancesMonthly(), ratio);
+            BigDecimal gross = basic.add(hra).add(da).add(special).add(other);
 
             // India-statutory deductions — rates subject to regulatory validation before production use
-            double pfEmp = Math.min(basic * 0.12, 1800);
-            double pfEmr = Math.min(basic * 0.12, 1800);
-            double esiEmp = gross <= 21000 ? gross * 0.0075 : 0;
-            double esiEmr = gross <= 21000 ? gross * 0.0325 : 0;
-            double pt = structure.getProfessionalTaxMonthly();
-            double tds = structure.getTdsMonthly() * ratio;
-            double totalDed = pfEmp + esiEmp + pt + tds;
-            double net = gross - totalDed;
+            BigDecimal pfEmp = basic.multiply(PF_RATE).setScale(2, RoundingMode.HALF_UP).min(PF_CAP);
+            BigDecimal pfEmr = basic.multiply(PF_RATE).setScale(2, RoundingMode.HALF_UP).min(PF_CAP);
+            BigDecimal esiEmp = gross.compareTo(ESI_THRESHOLD) <= 0
+                ? gross.multiply(ESI_EMP_RATE).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal esiEmr = gross.compareTo(ESI_THRESHOLD) <= 0
+                ? gross.multiply(ESI_EMR_RATE).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal pt = structure.getProfessionalTaxMonthly() != null
+                ? structure.getProfessionalTaxMonthly().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal tds = prorate(structure.getTdsMonthly(), ratio);
+            BigDecimal totalDed = pfEmp.add(esiEmp).add(pt).add(tds);
+            BigDecimal net = gross.subtract(totalDed);
 
             HrPayslip payslip = payslipRepository.findByEmployeeIdAndPayrollRunId(emp.getId(), runId)
                 .orElseGet(() -> HrPayslip.builder()
@@ -108,9 +123,9 @@ public class HrPayrollService {
             payslip.setNetSalary(net);
             payslipRepository.save(payslip);
 
-            totalGross += gross;
-            totalDeductions += totalDed;
-            totalNet += net;
+            totalGross = totalGross.add(gross);
+            totalDeductions = totalDeductions.add(totalDed);
+            totalNet = totalNet.add(net);
         }
 
         run.setStatus("PROCESSED");
@@ -184,5 +199,12 @@ public class HrPayrollService {
     public HrSalaryComponent saveComponent(Long orgId, HrSalaryComponent component) {
         component.setOrganizationId(orgId);
         return componentRepository.save(component);
+    }
+
+    private BigDecimal prorate(BigDecimal amount, BigDecimal ratio) {
+        if (amount == null) {
+            return BigDecimal.ZERO;
+        }
+        return amount.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
     }
 }

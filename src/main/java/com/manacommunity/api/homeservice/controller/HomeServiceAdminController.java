@@ -9,18 +9,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("homeServiceAdminController")
 @RequestMapping("/api/v1/home-services/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'COMMUNITY_ADMIN')")
 public class HomeServiceAdminController {
     private final HomeServiceAdminService adminService;
     private final HomeServiceWorkerService workerService;
 
     @GetMapping("/analytics")
-    public ResponseEntity<AdminAnalyticsDto> getAnalytics(@RequestParam(defaultValue = "comm-mana-1") String communityId) {
+    public ResponseEntity<AdminAnalyticsDto> getAnalytics(@AuthenticationPrincipal UserPrincipal principal) {
+        String communityId = String.valueOf(principal.getCommunityId());
         return ResponseEntity.ok(adminService.getAnalytics(communityId));
     }
 

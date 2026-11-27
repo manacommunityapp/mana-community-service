@@ -33,11 +33,43 @@ public class JewelleryPhotoWorker {
     private final JewelleryPhotoJobRepository photoJobRepo;
     private final JewelleryProductAssetRepository assetRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
+    private static final String QUEUE_KEY = "queue:jewellery:jobs";
+    private long lastDbPollTime = 0L;
+    private static final long DB_SWEEP_INTERVAL_MS = 60_000L;
+
     /**
      * Poll and process queued photo jobs.
      */
     @Scheduled(fixedDelayString = "${app.jewellery.tryon.poll-ms:5000}")
+    @Transactional
     public void processQueue() {
+        if (redisTemplate != null) {
+            try {
+                String jobIdStr = redisTemplate.opsForList().rightPop(QUEUE_KEY);
+                if (jobIdStr != null) {
+                    Long jobId = Long.valueOf(jobIdStr);
+                    photoJobRepo.findById(jobId).ifPresent(job -> {
+                        if ("QUEUED".equals(job.getStatus())) {
+                            handleJob(job);
+                        }
+                    });
+                    return;
+                }
+            } catch (Exception e) {
+                log.debug("Redis queue pop failed: {}", e.getMessage());
+            }
+
+            // Only sweep PostgreSQL if 60 seconds have elapsed since last sweep
+            long now = System.currentTimeMillis();
+            if (now - lastDbPollTime < DB_SWEEP_INTERVAL_MS) {
+                return;
+            }
+            lastDbPollTime = now;
+        }
+
         List<JewelleryPhotoJob> queued = photoJobRepo.findTop10ByStatusOrderByCreatedAtAsc("QUEUED");
         if (queued.isEmpty()) {
             return;

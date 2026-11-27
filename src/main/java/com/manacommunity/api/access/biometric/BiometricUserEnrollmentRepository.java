@@ -10,5 +10,6 @@ import java.util.Optional;
 public interface BiometricUserEnrollmentRepository extends JpaRepository<BiometricUserEnrollment, Long> {
     Optional<BiometricUserEnrollment> findByUserId(Long userId);
     Optional<BiometricUserEnrollment> findByFaceEmbeddingHash(String faceEmbeddingHash);
+    Optional<BiometricUserEnrollment> findByCommunityIdAndUserId(Long communityId, Long userId);
     List<BiometricUserEnrollment> findByCommunityId(Long communityId);
 }

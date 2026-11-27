@@ -22,4 +22,11 @@ public class CreateCarpoolOfferRequest {
     private String flightNumber;
     private String terminal;
     @Min(0) private int luggageCapacity;
+    private Double originLat;
+    private Double originLng;
+    private Double destLat;
+    private Double destLng;
+    @DecimalMin("0.5") @DecimalMax("50.0") private Double maxDetourKm;
+    private Boolean allowCrossCommunity;
+    private Boolean parentConsentRequired;
 }

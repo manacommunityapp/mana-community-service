@@ -10,6 +10,7 @@ public class DriverEarningsSummaryDto {
     private BigDecimal weekEarnings;
     private BigDecimal monthEarnings;
     private BigDecimal pendingSettlement;
+    private BigDecimal settledEarnings;
     private int todayTrips;
     private int totalTrips;
 }

@@ -5,16 +5,18 @@ import com.manacommunity.api.cfbos.billing.service.BillingService;
 import com.manacommunity.api.cfbos.charge.dto.PropertyContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController("cfbosBillingController")
 @RequestMapping("/api/cfbos/billing")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('Manage Finance') or hasAuthority('Admin') or hasAuthority('Finance Admin')")
 public class BillingController {
     private final BillingService billingService;
 
-    @PostMapping("/runs")
+    @PostMapping({"/runs", "/runs/generate"})
     public ResponseEntity<BillingRunResponse> executeBillingRun(
             @RequestBody BillingRunRequest request,
             @RequestParam(required = false) List<PropertyContext> properties) {

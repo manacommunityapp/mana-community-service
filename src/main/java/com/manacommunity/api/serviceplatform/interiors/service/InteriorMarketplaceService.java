@@ -4,8 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.manacommunity.api.commerce.core.dto.CommerceCheckoutRequest;
 import com.manacommunity.api.commerce.core.dto.CommerceOrderDto;
+import com.manacommunity.api.commerce.core.dto.CommerceOrderItemDto;
 import com.manacommunity.api.commerce.core.model.CommerceChannel;
 import com.manacommunity.api.commerce.core.service.CommerceCoreService;
+import com.manacommunity.api.commerce.core.model.CommerceProduct;
+import com.manacommunity.api.commerce.core.repository.CommerceProductRepository;
 import com.manacommunity.api.exception.ResourceNotFoundException;
 import com.manacommunity.api.media.entity.MediaModule;
 import com.manacommunity.api.media.entity.MediaObject;
@@ -26,9 +29,21 @@ import com.manacommunity.api.serviceplatform.entity.enums.WorkOrderStatus;
 import com.manacommunity.api.serviceplatform.interiors.dto.InteriorProjectDtos.*;
 import com.manacommunity.api.serviceplatform.interiors.entity.InteriorProjectInvitation;
 import com.manacommunity.api.serviceplatform.interiors.entity.InteriorSavedDesigner;
+import com.manacommunity.api.serviceplatform.interiors.entity.InteriorSavedInspiration;
+import com.manacommunity.api.serviceplatform.interiors.entity.InteriorChangeRequest;
+import com.manacommunity.api.serviceplatform.interiors.entity.InteriorPaymentMilestone;
+import com.manacommunity.api.serviceplatform.interiors.entity.InteriorPaymentEvent;
+import com.manacommunity.api.serviceplatform.interiors.entity.ServiceProviderCredential;
+import com.manacommunity.api.serviceplatform.interiors.entity.ServiceProviderCredentialAudit;
 import com.manacommunity.api.serviceplatform.interiors.entity.InteriorQuoteLineItem;
 import com.manacommunity.api.serviceplatform.interiors.repository.InteriorProjectInvitationRepository;
 import com.manacommunity.api.serviceplatform.interiors.repository.InteriorSavedDesignerRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.InteriorSavedInspirationRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.InteriorChangeRequestRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.InteriorPaymentMilestoneRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.InteriorPaymentEventRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.ServiceProviderCredentialRepository;
+import com.manacommunity.api.serviceplatform.interiors.repository.ServiceProviderCredentialAuditRepository;
 import com.manacommunity.api.serviceplatform.interiors.repository.InteriorQuoteLineItemRepository;
 import com.manacommunity.api.serviceplatform.pricing.entity.ServiceQuote;
 import com.manacommunity.api.serviceplatform.pricing.repository.ServiceQuoteRepository;
@@ -43,6 +58,17 @@ import com.manacommunity.api.serviceplatform.review.service.ReviewService;
 import com.manacommunity.api.serviceplatform.service.ServiceProviderService;
 import com.manacommunity.api.serviceplatform.service.ServiceRequestService;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.payments.dto.CreateOrderRequest;
+import com.manacommunity.api.payments.dto.PaymentOrderResponse;
+import com.manacommunity.api.payments.entity.RazorpayOrder;
+import com.manacommunity.api.payments.repository.RazorpayOrderRepository;
+import com.manacommunity.api.payments.service.RazorpayPaymentService;
+import com.manacommunity.api.payments.dto.CashfreeCreateOrderRequest;
+import com.manacommunity.api.payments.dto.CashfreeOrderResponse;
+import com.manacommunity.api.payments.entity.CashfreeOrder;
+import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
+import com.manacommunity.api.payments.service.CashfreePaymentService;
+import org.springframework.beans.factory.ObjectProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -71,6 +97,17 @@ public class InteriorMarketplaceService {
     private final ServiceReviewRepository reviewRepository;
     private final InteriorProjectInvitationRepository invitationRepository;
     private final InteriorSavedDesignerRepository savedDesignerRepository;
+    private final InteriorSavedInspirationRepository inspirationRepository;
+    private final InteriorChangeRequestRepository changeRequestRepository;
+    private final InteriorPaymentMilestoneRepository paymentMilestoneRepository;
+    private final InteriorPaymentEventRepository paymentEventRepository;
+    private final ServiceProviderCredentialRepository credentialRepository;
+    private final ServiceProviderCredentialAuditRepository credentialAuditRepository;
+    private final CommerceProductRepository productRepository;
+    private final RazorpayOrderRepository razorpayOrderRepository;
+    private final ObjectProvider<RazorpayPaymentService> razorpayPaymentService;
+    private final CashfreeOrderRepository cashfreeOrderRepository;
+    private final ObjectProvider<CashfreePaymentService> cashfreePaymentService;
     private final MediaRepository mediaRepository;
     private final CommerceCoreService commerceCoreService;
     private final ServiceProviderService providerService;
@@ -317,6 +354,291 @@ public class InteriorMarketplaceService {
         savedDesignerRepository.deleteByUserIdAndProviderId(userId, providerId);
     }
 
+    @Transactional(readOnly = true)
+    public List<InspirationResponse> listInspirations(Long userId) {
+        return inspirationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream().map(this::toInspiration).toList();
+    }
+
+    @Transactional
+    public InspirationResponse saveInspiration(Long userId, InspirationRequest request) {
+        ServiceRequest project = null;
+        if (request.projectId()!=null) {
+            project=requestRepository.findById(request.projectId()).orElseThrow(() -> new ResourceNotFoundException("InteriorProject",request.projectId()));
+            if (!"interior-works".equals(project.getCategory().getSlug()) || !Objects.equals(project.getRequester().getId(),userId)) {
+                throw new UnauthorizedActionException("You can only link inspiration to your own interiors project");
+            }
+        }
+        String sourceUrl=request.sourceUrl().trim();
+        InteriorSavedInspiration saved = inspirationRepository.findByUserIdAndSourceUrl(userId, sourceUrl)
+                .orElseGet(() -> InteriorSavedInspiration.builder().userId(userId).sourceUrl(sourceUrl).build());
+        saved.setServiceRequest(project);
+        saved.setImageUrl(request.imageUrl());
+        saved.setTitle(request.title());
+        saved.setNotes(request.notes());
+        saved.setTags(request.tags());
+        return toInspiration(inspirationRepository.save(saved));
+    }
+
+    @Transactional
+    public void removeInspiration(Long id, Long userId) {
+        InteriorSavedInspiration saved = inspirationRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("SavedInspiration", id));
+        inspirationRepository.delete(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChangeRequestResponse> listChangeRequests(Long requestId, Long userId, Long communityId) {
+        memberProject(requestId, userId, communityId);
+        return changeRequestRepository.findByServiceRequestIdOrderByCreatedAtDesc(requestId).stream().map(this::toChangeRequest).toList();
+    }
+
+    @Transactional
+    public ChangeRequestResponse createChangeRequest(Long requestId, Long userId, Long communityId, ChangeRequestCreate input) {
+        ServiceRequest project = memberProject(requestId, userId, communityId);
+        if (project.getAssignedProvider() == null) throw new IllegalStateException("A designer must be assigned before requesting scope changes");
+        if (input.proposedStartDate() != null && input.proposedEndDate() != null && input.proposedEndDate().isBefore(input.proposedStartDate())) {
+            throw new IllegalArgumentException("Proposed end date must be on or after the proposed start date");
+        }
+        InteriorChangeRequest request = InteriorChangeRequest.builder().serviceRequest(project).proposedBy(userId)
+                .description(input.description().trim()).scopeDelta(input.scopeDelta()).priceDelta(input.priceDelta())
+                .proposedStartDate(input.proposedStartDate()).proposedEndDate(input.proposedEndDate()).build();
+        return toChangeRequest(changeRequestRepository.save(request));
+    }
+
+    @Transactional
+    public ChangeRequestResponse decideChangeRequest(Long requestId, Long changeId, Long userId, Long communityId, ChangeDecision decision) {
+        ServiceRequest project = memberProject(requestId, userId, communityId);
+        InteriorChangeRequest request = changeRequestRepository.lockByIdAndServiceRequestId(changeId, requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorChangeRequest", changeId));
+        if (!"PENDING".equals(request.getStatus())) throw new IllegalStateException("This change request has already been decided");
+        if (Objects.equals(request.getProposedBy(), userId)) throw new UnauthorizedActionException("A requester cannot decide their own change request");
+        String next = decision.decision().toUpperCase(Locale.ROOT);
+        if (!Set.of("APPROVED", "REJECTED").contains(next)) throw new IllegalArgumentException("Decision must be APPROVED or REJECTED");
+        request.setStatus(next);
+        request.setDecisionNote(decision.note());
+        request.setDecidedBy(userId);
+        request.setDecidedAt(java.time.LocalDateTime.now());
+        if ("APPROVED".equals(next)) {
+            if (request.getPriceDelta() != null) {
+                BigDecimal updated = zeroIfNull(project.getEstimatedCost()).add(request.getPriceDelta());
+                if (updated.signum() < 0) throw new IllegalArgumentException("A change cannot reduce the project price below zero");
+                project.setEstimatedCost(updated);
+            }
+            if (request.getProposedStartDate() != null) project.setPreferredDate(request.getProposedStartDate());
+            if (request.getProposedEndDate() != null && project.getAssignedProvider() != null) {
+                workOrderRepository.findByServiceRequestId(requestId).ifPresent(order -> {
+                    if (order.getScheduledEnd() != null && order.getScheduledEnd().toLocalDate().isBefore(request.getProposedEndDate())) {
+                        order.setScheduledEnd(java.time.LocalDateTime.of(request.getProposedEndDate(),order.getScheduledEnd().toLocalTime()));
+                        workOrderRepository.save(order);
+                    }
+                });
+            }
+            Map<String,Object> details = new LinkedHashMap<>(readDetails(project.getCustomFieldValues()));
+            if (request.getScopeDelta() != null && !request.getScopeDelta().isBlank()) {
+                String existing = stringValue(details,"projectScope");
+                details.put("projectScope", existing.isBlank() ? request.getScopeDelta() : existing + "\n\nApproved change: " + request.getScopeDelta());
+                project.setDescription(String.valueOf(details.get("projectScope")));
+            }
+            project.setCustomFieldValues(writeJson(details));
+            requestRepository.save(project);
+        }
+        return toChangeRequest(changeRequestRepository.save(request));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentMilestoneResponse> listPaymentMilestones(Long requestId, Long userId, Long communityId) {
+        memberProject(requestId,userId,communityId);
+        return paymentMilestoneRepository.findByServiceRequestIdOrderByDueDateAscIdAsc(requestId).stream().map(this::toPaymentMilestone).toList();
+    }
+
+    @Transactional
+    public PaymentMilestoneResponse addPaymentMilestone(Long requestId, Long userId, Long communityId, PaymentMilestoneCreate input) {
+        ServiceRequest project = memberProject(requestId,userId,communityId);
+        ServiceProvider provider = project.getAssignedProvider();
+        if (provider == null) throw new IllegalStateException("A designer must be assigned before creating a payment schedule");
+        BigDecimal scheduled = paymentMilestoneRepository.findByServiceRequestIdOrderByDueDateAscIdAsc(requestId).stream()
+                .map(InteriorPaymentMilestone::getAmount).reduce(BigDecimal.ZERO,BigDecimal::add);
+        if (project.getEstimatedCost() != null && scheduled.add(input.amount()).compareTo(project.getEstimatedCost()) > 0) {
+            throw new IllegalArgumentException("Payment milestones cannot exceed the accepted project quote");
+        }
+        InteriorPaymentMilestone milestone = InteriorPaymentMilestone.builder().serviceRequest(project).provider(provider)
+                .title(input.title().trim()).description(input.description()).amount(input.amount()).dueDate(input.dueDate())
+                .invoiceReference(input.invoiceReference()).invoiceUrl(input.invoiceUrl()).build();
+        return toPaymentMilestone(paymentMilestoneRepository.save(milestone));
+    }
+
+    @Transactional
+    public PaymentCheckoutResponse createMilestoneCheckout(Long requestId, Long milestoneId, AppUser user, Long communityId) {
+        ownedProject(requestId,user.getId(),communityId);
+        InteriorPaymentMilestone milestone = paymentMilestoneRepository.lockByIdAndServiceRequestId(milestoneId,requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorPaymentMilestone",milestoneId));
+        if (!Set.of("SCHEDULED","PAYMENT_PENDING").contains(milestone.getStatus())) throw new IllegalStateException("This payment milestone cannot be paid in its current state");
+        String description="Interior project milestone: " + milestone.getTitle();
+        CashfreePaymentService cashfree=cashfreePaymentService.getIfAvailable();
+        if(cashfree!=null){
+            CashfreeCreateOrderRequest request=new CashfreeCreateOrderRequest();
+            request.setAmount(milestone.getAmount()); request.setReferenceType("INTERIORS_MILESTONE");
+            request.setReferenceId(milestone.getId()); request.setDescription(description);
+            CashfreeOrderResponse order=cashfree.createOrder(request,user,user.getCommunity());
+            milestone.setPaymentGateway("CASHFREE"); milestone.setCashfreeManaOrderId(order.getManaOrderId());
+            milestone.setStatus("PAYMENT_PENDING"); paymentMilestoneRepository.save(milestone);
+            return new PaymentCheckoutResponse("CASHFREE",order.getManaOrderId(),order.getAmount(),order.getCurrency(),
+                    order.getPaymentSessionId(),order.getAppId(),null);
+        }
+        RazorpayPaymentService razorpay=razorpayPaymentService.getIfAvailable();
+        if(razorpay==null) throw new IllegalStateException("Online payments are not enabled");
+        CreateOrderRequest request=new CreateOrderRequest();
+        request.setAmount(milestone.getAmount()); request.setReferenceType("INTERIORS_MILESTONE");
+        request.setReferenceId(milestone.getId()); request.setDescription(description);
+        PaymentOrderResponse order=razorpay.createOrder(request,user,user.getCommunity());
+        milestone.setPaymentGateway("RAZORPAY"); milestone.setRazorpayOrderId(order.getRazorpayOrderId());
+        milestone.setStatus("PAYMENT_PENDING"); paymentMilestoneRepository.save(milestone);
+        return new PaymentCheckoutResponse("RAZORPAY",order.getRazorpayOrderId(),order.getAmount(),order.getCurrency(),
+                null,null,order.getKeyId());
+    }
+
+    @Transactional
+    public PaymentMilestoneResponse authorizeMilestone(Long requestId, Long milestoneId, String gatewayName, String orderId,
+            String paymentId, Long userId, Long communityId) {
+        ownedProject(requestId,userId,communityId);
+        InteriorPaymentMilestone milestone = paymentMilestoneRepository.lockByIdAndServiceRequestId(milestoneId,requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorPaymentMilestone",milestoneId));
+        String gateway=gatewayName.toUpperCase(Locale.ROOT);
+        String expectedOrder="CASHFREE".equals(gateway)?milestone.getCashfreeManaOrderId():milestone.getRazorpayOrderId();
+        if (!"PAYMENT_PENDING".equals(milestone.getStatus()) || !Objects.equals(milestone.getPaymentGateway(),gateway) || !Objects.equals(expectedOrder,orderId)) {
+            throw new IllegalStateException("The milestone has no matching payment awaiting verification");
+        }
+        if("CASHFREE".equals(gateway)){
+            CashfreePaymentService cashfree=cashfreePaymentService.getIfAvailable();
+            if(cashfree==null) throw new IllegalStateException("Cashfree payments are not enabled");
+            cashfree.verifyPayment(orderId);
+            CashfreeOrder paid=cashfreeOrderRepository.findByManaOrderId(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("PaymentOrder",orderId));
+            if(!validMilestonePayment(paid.getStatus(),paid.getUser().getId(),paid.getReferenceType(),paid.getReferenceId(),paid.getAmount(),userId,milestoneId,milestone.getAmount()))
+                throw new UnauthorizedActionException("The gateway payment does not match this project milestone");
+        }else if("RAZORPAY".equals(gateway)){
+            RazorpayOrder paid = razorpayOrderRepository.findByRazorpayOrderId(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("PaymentOrder",orderId));
+            if (!validMilestonePayment(paid.getStatus(),paid.getUser().getId(),paid.getReferenceType(),paid.getReferenceId(),paid.getAmount(),userId,milestoneId,milestone.getAmount())
+                    || !Objects.equals(paid.getRazorpayPaymentId(),paymentId)) {
+                throw new UnauthorizedActionException("The gateway payment does not match this project milestone");
+            }
+            milestone.setRazorpayPaymentId(paymentId);
+        }else{
+            throw new IllegalArgumentException("Unsupported payment gateway");
+        }
+        milestone.setAuthorizedAt(java.time.LocalDateTime.now());
+        milestone.setStatus("AUTHORIZED");
+        savePaymentEvent(milestone,userId,"AUTHORIZED",gateway+":"+orderId);
+        return toPaymentMilestone(paymentMilestoneRepository.save(milestone));
+    }
+
+    @Transactional
+    public PaymentMilestoneResponse releaseMilestone(Long requestId, Long milestoneId, Long userId, Long communityId, PaymentRelease release) {
+        ownedProject(requestId,userId,communityId);
+        InteriorPaymentMilestone milestone = paymentMilestoneRepository.lockByIdAndServiceRequestId(milestoneId,requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorPaymentMilestone",milestoneId));
+        if (!"AUTHORIZED".equals(milestone.getStatus())) throw new IllegalStateException("Only an authorized milestone payment can be released");
+        milestone.setStatus("RELEASED");
+        milestone.setReleasedAt(java.time.LocalDateTime.now());
+        milestone.setPayoutReference(release == null ? null : release.payoutReference());
+        savePaymentEvent(milestone,userId,"RELEASED",milestone.getPayoutReference());
+        return toPaymentMilestone(paymentMilestoneRepository.save(milestone));
+    }
+
+    @Transactional
+    public PaymentMilestoneResponse linkMilestoneInvoice(Long requestId, Long milestoneId, Long userId, Long communityId, PaymentInvoiceLink input) {
+        ServiceRequest project = memberProject(requestId,userId,communityId);
+        InteriorPaymentMilestone milestone = paymentMilestoneRepository.findByIdAndServiceRequestId(milestoneId,requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorPaymentMilestone",milestoneId));
+        if (!Objects.equals(project.getRequester().getId(),userId) && !Objects.equals(milestone.getProvider().getUser().getId(),userId)) {
+            throw new UnauthorizedActionException("Only the project parties can attach its invoice");
+        }
+        milestone.setInvoiceReference(input.invoiceReference());
+        milestone.setInvoiceUrl(input.invoiceUrl());
+        return toPaymentMilestone(paymentMilestoneRepository.save(milestone));
+    }
+
+    @Transactional
+    public CredentialResponse submitCredential(Long userId, CredentialCreate input) {
+        ServiceProvider provider = providerRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProvider",userId));
+        MediaObject evidence=mediaRepository.findByExternalIdAndDeletedFalse(input.evidenceMediaId())
+                .orElseThrow(() -> new ResourceNotFoundException("CredentialEvidence",input.evidenceMediaId().toString()));
+        if (evidence.getModule()!=MediaModule.INTERIORS || !String.valueOf(provider.getId()).equals(evidence.getModuleId())
+                || !Objects.equals(evidence.getUploadedBy(),userId)) {
+            throw new UnauthorizedActionException("Credential evidence must be uploaded by you to your provider profile");
+        }
+        ServiceProviderCredential credential=credentialRepository.save(ServiceProviderCredential.builder().provider(provider)
+                .credentialType(input.credentialType().trim()).credentialLevel(input.credentialLevel().trim())
+                .issuer(input.issuer()).credentialNumber(input.credentialNumber()).evidenceMediaId(input.evidenceMediaId())
+                .submittedBy(userId).build());
+        credentialAuditRepository.save(ServiceProviderCredentialAudit.builder().credential(credential).actorUserId(userId)
+                .action("SUBMITTED").toStatus("PENDING").note("Credential evidence submitted").build());
+        return toCredential(credential);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CredentialResponse> listMyCredentials(Long userId) {
+        ServiceProvider provider=providerRepository.findByUserId(userId).orElseThrow(() -> new ResourceNotFoundException("ServiceProvider",userId));
+        return credentialRepository.findByProviderIdOrderByCreatedAtDesc(provider.getId()).stream().map(this::toCredential).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CredentialResponse> listPendingCredentials() {
+        return credentialRepository.findByStatusOrderByCreatedAtAsc("PENDING").stream().map(this::toCredential).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CredentialAuditResponse> credentialAudit(Long credentialId, Long userId) {
+        ServiceProviderCredential credential=credentialRepository.findByIdAndProviderUserId(credentialId,userId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProviderCredential",credentialId));
+        return credentialAuditRepository.findByCredentialIdOrderByCreatedAtAsc(credential.getId()).stream()
+                .map(a -> new CredentialAuditResponse(a.getId(),a.getActorUserId(),a.getAction(),a.getFromStatus(),a.getToStatus(),a.getNote(),a.getCreatedAt())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CredentialAuditResponse> credentialAuditForReview(Long credentialId) {
+        if (!credentialRepository.existsById(credentialId)) throw new ResourceNotFoundException("ServiceProviderCredential",credentialId);
+        return credentialAuditRepository.findByCredentialIdOrderByCreatedAtAsc(credentialId).stream()
+                .map(a -> new CredentialAuditResponse(a.getId(),a.getActorUserId(),a.getAction(),a.getFromStatus(),a.getToStatus(),a.getNote(),a.getCreatedAt())).toList();
+    }
+
+    @Transactional
+    public CredentialResponse reviewCredential(Long credentialId, Long reviewerId, CredentialReview input) {
+        ServiceProviderCredential credential=credentialRepository.lockById(credentialId)
+                .orElseThrow(() -> new ResourceNotFoundException("ServiceProviderCredential",credentialId));
+        if (!"PENDING".equals(credential.getStatus())) throw new IllegalStateException("Credential has already been reviewed");
+        String decision=input.decision().toUpperCase(Locale.ROOT);
+        if (!Set.of("APPROVED","REJECTED").contains(decision)) throw new IllegalArgumentException("Decision must be APPROVED or REJECTED");
+        credential.setStatus(decision); credential.setReviewedBy(reviewerId); credential.setReviewNote(input.note());
+        credential.setReviewedAt(java.time.LocalDateTime.now());
+        credentialAuditRepository.save(ServiceProviderCredentialAudit.builder().credential(credential).actorUserId(reviewerId)
+                .action("REVIEWED").fromStatus("PENDING").toStatus(decision).note(input.note()).build());
+        if ("APPROVED".equals(decision)) {
+            String existing=credential.getProvider().getVerifiedCredentialLevel();
+            if (credentialRank(credential.getCredentialLevel())>=credentialRank(existing)) {
+                credential.getProvider().setVerifiedCredentialLevel(credential.getCredentialLevel());
+                credential.getProvider().setCredentialsVerifiedAt(java.time.LocalDateTime.now());
+            }
+            providerRepository.save(credential.getProvider());
+        }
+        return toCredential(credentialRepository.save(credential));
+    }
+
+    private int credentialRank(String level) {
+        if(level==null) return 0;
+        return switch(level.trim().toUpperCase(Locale.ROOT)) {
+            case "STUDENT","ENTRY" -> 1;
+            case "ASSOCIATE" -> 2;
+            case "LICENSED" -> 3;
+            case "CERTIFIED","PROFESSIONAL" -> 4;
+            case "SENIOR" -> 5;
+            case "MASTER","CHARTERED" -> 6;
+            default -> 1;
+        };
+    }
+
     @Transactional
     public ProjectResponse updateProjectAttachments(Long requestId, Long userId, Long communityId, ProjectAttachmentsRequest request) {
         ServiceRequest project = ownedProject(requestId, userId, communityId);
@@ -353,6 +675,26 @@ public class InteriorMarketplaceService {
     }
 
     @Transactional
+    public CommerceOrderDto checkoutProjectBoq(Long requestId, AppUser buyer, Long communityId) {
+        ServiceRequest project=ownedProject(requestId,buyer.getId(),communityId);
+        if (project.getAssignedProvider()==null) throw new IllegalStateException("Accept a designer quote before ordering its BOQ materials");
+        ServiceQuote accepted=quoteRepository.findByServiceRequestIdAndProviderId(requestId,project.getAssignedProvider().getId())
+                .filter(quote -> "ACCEPTED".equals(quote.getStatus()))
+                .orElseThrow(() -> new IllegalStateException("The accepted designer quote is unavailable"));
+        List<InteriorQuoteLineItem> lines=quoteLineItemRepository.findByQuoteIdOrderByPositionAsc(accepted.getId()).stream()
+                .filter(line -> line.getCatalogProductId()!=null && line.getProcurementQuantity()!=null).toList();
+        if (lines.isEmpty()) throw new IllegalStateException("The accepted BOQ has no catalog products mapped for procurement");
+        CommerceCheckoutRequest checkout=new CommerceCheckoutRequest();
+        checkout.setChannel(CommerceChannel.MARKETPLACE);
+        checkout.setChannelReferenceId("INTERIORS_PROJECT_"+requestId);
+        checkout.setFulfillmentType("CLUBHOUSE_PICKUP");
+        checkout.setPaymentMethod("UPI");
+        checkout.setItems(lines.stream().map(line -> CommerceOrderItemDto.builder()
+                .productId(String.valueOf(line.getCatalogProductId())).quantity(line.getProcurementQuantity()).build()).toList());
+        return commerceCoreService.checkout(buyer,checkout);
+    }
+
+    @Transactional
     public ProjectResponse approveMilestone(Long requestId, String milestoneId, Long userId, Long communityId) {
         ServiceRequest project = ownedProject(requestId, userId, communityId);
         WorkOrder workOrder = workOrderRepository.findByServiceRequestId(requestId)
@@ -383,6 +725,54 @@ public class InteriorMarketplaceService {
             throw new UnauthorizedActionException("You cannot access this interiors project");
         }
         return request;
+    }
+
+    private ServiceRequest memberProject(Long requestId, Long userId, Long communityId) {
+        ServiceRequest request=requestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("InteriorProject",requestId));
+        boolean owner=Objects.equals(request.getRequester().getId(),userId);
+        boolean assignedDesigner=request.getAssignedProvider()!=null && request.getAssignedProvider().getUser()!=null
+                && Objects.equals(request.getAssignedProvider().getUser().getId(),userId);
+        if (!"interior-works".equals(request.getCategory().getSlug()) || (!owner && !assignedDesigner)
+                || request.getCommunity()==null || !Objects.equals(request.getCommunity().getId(),communityId)) {
+            throw new UnauthorizedActionException("You cannot access this interiors project");
+        }
+        return request;
+    }
+
+    private void savePaymentEvent(InteriorPaymentMilestone milestone,Long actorId,String event,String reference) {
+        paymentEventRepository.save(InteriorPaymentEvent.builder().milestone(milestone).actorUserId(actorId)
+                .eventType(event).reference(reference).build());
+    }
+
+    private boolean validMilestonePayment(String status,Long paidBy,String refType,Long refId,BigDecimal paidAmount,
+            Long userId,Long milestoneId,BigDecimal expectedAmount){
+        return "PAID".equals(status) && Objects.equals(paidBy,userId) && "INTERIORS_MILESTONE".equals(refType)
+                && Objects.equals(refId,milestoneId) && paidAmount!=null && paidAmount.compareTo(expectedAmount)==0;
+    }
+
+    private InspirationResponse toInspiration(InteriorSavedInspiration saved) {
+        return new InspirationResponse(saved.getId(),saved.getServiceRequest()==null?null:saved.getServiceRequest().getId(),
+                saved.getSourceUrl(),saved.getImageUrl(),saved.getTitle(),saved.getNotes(),saved.getTags(),saved.getCreatedAt(),saved.getUpdatedAt());
+    }
+
+    private ChangeRequestResponse toChangeRequest(InteriorChangeRequest request) {
+        return new ChangeRequestResponse(request.getId(),request.getServiceRequest().getId(),request.getProposedBy(),request.getDescription(),
+                request.getScopeDelta(),request.getPriceDelta(),request.getProposedStartDate(),request.getProposedEndDate(),request.getStatus(),
+                request.getDecisionNote(),request.getDecidedBy(),request.getDecidedAt(),request.getCreatedAt());
+    }
+
+    private PaymentMilestoneResponse toPaymentMilestone(InteriorPaymentMilestone milestone) {
+        return new PaymentMilestoneResponse(milestone.getId(),milestone.getServiceRequest().getId(),milestone.getProvider().getId(),
+                milestone.getTitle(),milestone.getDescription(),milestone.getAmount(),milestone.getDueDate(),milestone.getStatus(),milestone.getPaymentGateway(),
+                milestone.getRazorpayOrderId(),milestone.getRazorpayPaymentId(),milestone.getCashfreeManaOrderId(),milestone.getAuthorizedAt(),milestone.getReleasedAt(),
+                milestone.getPayoutReference(),milestone.getInvoiceReference(),milestone.getInvoiceUrl());
+    }
+
+    private CredentialResponse toCredential(ServiceProviderCredential credential) {
+        return new CredentialResponse(credential.getId(),credential.getProvider().getId(),credential.getCredentialType(),credential.getCredentialLevel(),
+                credential.getIssuer(),credential.getCredentialNumber(),credential.getEvidenceMediaId(),credential.getStatus(),credential.getSubmittedBy(),
+                credential.getReviewedBy(),credential.getReviewNote(),credential.getReviewedAt(),credential.getCreatedAt());
     }
 
     private ProjectResponse toProject(ServiceRequest request, Long providerId) {
@@ -431,7 +821,8 @@ public class InteriorMarketplaceService {
         }
         List<QuoteLineItemResponse> lineItems = quoteLineItemRepository.findByQuoteIdOrderByPositionAsc(quote.getId()).stream()
                 .map(item -> new QuoteLineItemResponse(item.getId(), item.getCategory(), item.getDescription(), item.getQuantity(),
-                        item.getUnit(), item.getUnitPrice(), item.getMarginPercent(), item.getTaxPercent(), item.getLineTotal(), item.getPosition()))
+                        item.getUnit(), item.getUnitPrice(), item.getMarginPercent(), item.getTaxPercent(), item.getLineTotal(), item.getPosition(),
+                        item.getCatalogProductId(),item.getProcurementQuantity()))
                 .toList();
         return new QuoteResponse(quote.getId(), quote.getServiceRequest().getId(), quote.getProvider().getId(), providerName,
                 quote.getQuotedAmount(), quote.getEstimatedDurationDays(), quote.getMaterialAllowance(), quote.getLaborAmount(),
@@ -450,9 +841,18 @@ public class InteriorMarketplaceService {
             BigDecimal margin = base.multiply(marginPercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
             BigDecimal taxable = base.add(margin);
             BigDecimal tax = taxable.multiply(taxPercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            if (item.catalogProductId()!=null) {
+                CommerceProduct product=productRepository.findById(item.catalogProductId())
+                        .orElseThrow(() -> new ResourceNotFoundException("CommerceProduct",item.catalogProductId()));
+                if (!product.isActive()) throw new IllegalArgumentException("A mapped procurement product is inactive");
+                if (item.procurementQuantity()==null) throw new IllegalArgumentException("Mapped BOQ items require an integer procurement quantity");
+            } else if (item.procurementQuantity()!=null) {
+                throw new IllegalArgumentException("A procurement quantity requires a catalog product mapping");
+            }
             result.add(InteriorQuoteLineItem.builder().category(item.category().trim()).description(item.description().trim())
                     .quantity(quantity).unit(item.unit().trim()).unitPrice(item.unitPrice()).marginPercent(marginPercent)
-                    .taxPercent(taxPercent).lineTotal(taxable.add(tax)).position(position).build());
+                    .taxPercent(taxPercent).lineTotal(taxable.add(tax)).position(position)
+                    .catalogProductId(item.catalogProductId()).procurementQuantity(item.procurementQuantity()).build());
         }
         return result;
     }
@@ -462,7 +862,8 @@ public class InteriorMarketplaceService {
                 .filter(this::isInteriorOffering).toList();
         return new DesignerProfile(provider.getId(), provider.getUserId(), provider.getUserName(), provider.getProviderType(),
                 provider.getBusinessName(), provider.getBio(), provider.getProfileImageUrl(), provider.getVerificationStatus(),
-                provider.getAvgRating(), provider.getTotalJobsCompleted(), provider.getServiceAreas(), provider.getPortfolio(), offerings);
+                provider.getAvgRating(), provider.getTotalJobsCompleted(), provider.getServiceAreas(), provider.getPortfolio(),
+                provider.getVerifiedCredentialLevel(),provider.getCredentialsVerifiedAt(),offerings);
     }
 
     private List<ServiceCategory> interiorCategories() {

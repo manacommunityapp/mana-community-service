@@ -2,7 +2,8 @@ package com.manacommunity.api.notification.service;
 
 import com.manacommunity.api.exception.SmsRateLimitException;
 import com.manacommunity.api.notification.config.SmsProperties;
-import lombok.RequiredArgsConstructor;
+import com.manacommunity.platform.ratelimit.RedisSlidingWindowRateLimiter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -11,19 +12,34 @@ import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory sliding-window rate limiter (no Redis dependency).
+ * Distributed sliding-window SMS rate limiter backed by Redis + Lua when available,
+ * with automatic fallback to an in-memory sliding window when Redis is unavailable.
  * Buckets: per-phone, per-user, per-IP — each keyed independently.
  */
 @Component
-@RequiredArgsConstructor
 public class SmsRateLimiter {
 
-    private final SmsProperties smsProperties;
+    private static final String REDIS_KEY_PREFIX = "sms:rl:";
+    private static final long WINDOW_MILLIS = 60_000L; // 1 minute
 
-    /** key → timestamps of recent requests within the window */
+    private final SmsProperties smsProperties;
+    private final RedisSlidingWindowRateLimiter redisSlidingWindow;
+
+    /** Fallback in-memory buckets: key → timestamps of recent requests within the window */
     private final ConcurrentHashMap<String, Deque<Instant>> windows = new ConcurrentHashMap<>();
 
-    private static final long WINDOW_MILLIS = 60_000L; // 1 minute
+    /** Convenience constructor for unit tests without Redis. */
+    public SmsRateLimiter(SmsProperties smsProperties) {
+        this(smsProperties, null);
+    }
+
+    @Autowired
+    public SmsRateLimiter(
+            SmsProperties smsProperties,
+            @Autowired(required = false) RedisSlidingWindowRateLimiter redisSlidingWindow) {
+        this.smsProperties = smsProperties;
+        this.redisSlidingWindow = redisSlidingWindow;
+    }
 
     /** Check & record a phone-based attempt. Throws SmsRateLimitException if over limit. */
     public void checkPhone(String normalizedPhone) {
@@ -47,6 +63,19 @@ public class SmsRateLimiter {
     }
 
     private void check(String key, int limit) {
+        if (redisSlidingWindow != null) {
+            Boolean allowed = redisSlidingWindow.tryAcquire(REDIS_KEY_PREFIX + key, WINDOW_MILLIS, limit);
+            if (allowed != null) {
+                if (!allowed) {
+                    throw new SmsRateLimitException(key);
+                }
+                return;
+            }
+        }
+        checkInMemory(key, limit);
+    }
+
+    private void checkInMemory(String key, int limit) {
         Instant now = Instant.now();
         Instant cutoff = now.minusMillis(WINDOW_MILLIS);
 
@@ -63,7 +92,7 @@ public class SmsRateLimiter {
         }
     }
 
-    /** Periodic cleanup of stale keys to avoid unbounded map growth. */
+    /** Periodic cleanup of stale in-memory fallback keys to avoid unbounded map growth. */
     public void evictStale() {
         Instant cutoff = Instant.now().minusMillis(WINDOW_MILLIS);
         windows.entrySet().removeIf(entry -> {

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/volunteers")
+@RequestMapping({"/api/events/volunteers", "/events/volunteers", "/api/events/{eventId}/volunteers", "/events/{eventId}/volunteers"})
 @RequiredArgsConstructor
 public class EventVolunteerController {
 
@@ -25,10 +25,12 @@ public class EventVolunteerController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('View Events')")
     public ResponseEntity<List<EventVolunteerResponse>> getAll(
-            @RequestParam(required = false) Long eventId,
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
+            @RequestParam(name = "eventId", required = false) Long queryEventId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long eventId = pathEventId != null ? pathEventId : queryEventId;
         if (eventId != null) {
             return ResponseEntity.ok(volunteerService.getByEvent(eventId));
         }
@@ -38,37 +40,41 @@ public class EventVolunteerController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('Create Event')")
     public ResponseEntity<EventVolunteerResponse> create(
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
             @Valid @RequestBody EventVolunteerRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (req.getEventId() == null && pathEventId != null) {
+            req.setEventId(pathEventId);
+        }
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(volunteerService.create(req, user.getCommunity()));
+                .body(volunteerService.create(req, user != null ? user.getCommunity() : null));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventVolunteerResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventVolunteerRequest req) {
         return ResponseEntity.ok(volunteerService.update(id, req));
     }
 
-    @PutMapping("/{id}/check-in")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('Create Event')")
+    @RequestMapping(value = "/{id}/check-in", method = {RequestMethod.PUT, RequestMethod.POST})
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('Create Event')")
     public ResponseEntity<EventVolunteerResponse> checkIn(@PathVariable Long id) {
         return ResponseEntity.ok(volunteerService.checkIn(id));
     }
 
-    @PutMapping("/{id}/check-out")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('Create Event')")
+    @RequestMapping(value = "/{id}/check-out", method = {RequestMethod.PUT, RequestMethod.POST})
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('Create Event')")
     public ResponseEntity<EventVolunteerResponse> checkOut(@PathVariable Long id) {
         return ResponseEntity.ok(volunteerService.checkOut(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         volunteerService.delete(id);
         return ResponseEntity.noContent().build();

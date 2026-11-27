@@ -285,6 +285,9 @@ public class RolePermissionServiceImpl implements RolePermissionService {
             for (Role r : user.getUserRoles()) {
                 if (r != null && r.getName() != null) {
                     List<String> rolePerms = activeRolePerms.get(r.getName().toUpperCase());
+                    if (rolePerms == null || rolePerms.isEmpty()) {
+                        rolePerms = com.manacommunity.api.constants.PermissionConstants.getPermissionsForRole(r.getName().toUpperCase());
+                    }
                     if (rolePerms != null) {
                         effective.addAll(rolePerms);
                     }
@@ -298,6 +301,9 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 String trimmed = rStr.trim().toUpperCase();
                 if (!trimmed.isEmpty()) {
                     List<String> rolePerms = activeRolePerms.get(trimmed);
+                    if (rolePerms == null || rolePerms.isEmpty()) {
+                        rolePerms = com.manacommunity.api.constants.PermissionConstants.getPermissionsForRole(trimmed);
+                    }
                     if (rolePerms != null) {
                         effective.addAll(rolePerms);
                     }

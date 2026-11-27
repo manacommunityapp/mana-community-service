@@ -2,8 +2,10 @@ package com.manacommunity.api.finance.central.controller;
 
 import com.manacommunity.api.finance.central.dto.CentralFinanceSummaryResponse;
 import com.manacommunity.api.finance.central.service.CentralFinanceDashboardService;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,7 +23,8 @@ public class CentralFinanceDashboardController {
      * GET /api/finance/central/summary?communityId={id}
      */
     @GetMapping("/summary")
-    public ResponseEntity<CentralFinanceSummaryResponse> getSummary(@RequestParam Long communityId) {
+    public ResponseEntity<CentralFinanceSummaryResponse> getSummary(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(centralDashboardService.getSummary(communityId));
     }
 }

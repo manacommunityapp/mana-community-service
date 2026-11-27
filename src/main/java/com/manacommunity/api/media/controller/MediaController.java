@@ -52,6 +52,7 @@ import java.util.UUID;
 public class MediaController {
 
     private final MediaService mediaService;
+    private final com.manacommunity.api.user.service.LoggedInUserService loggedInUserService;
 
     // ── Upload ────────────────────────────────────────────────────────────────
 
@@ -93,8 +94,11 @@ public class MediaController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a single media item by its external UUID")
-    public ResponseEntity<MediaResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(mediaService.getById(id));
+    public ResponseEntity<MediaResponse> getById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        return ResponseEntity.ok(mediaService.getById(id, communityScope(principal)));
     }
 
     @GetMapping("/module/{module}/{moduleId}")
@@ -103,10 +107,11 @@ public class MediaController {
             @PathVariable MediaModule module,
             @PathVariable String moduleId,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
         return ResponseEntity.ok(mediaService.getByModule(
-                module, moduleId,
+                module, moduleId, communityScope(principal),
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadedAt"))));
     }
 
@@ -114,9 +119,11 @@ public class MediaController {
     @Operation(summary = "All active media for a module entity (no pagination)")
     public ResponseEntity<List<MediaResponse>> getActiveByModule(
             @PathVariable MediaModule module,
-            @PathVariable String moduleId) {
+            @PathVariable String moduleId,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        return ResponseEntity.ok(mediaService.getActiveByModule(module, moduleId));
+        return ResponseEntity.ok(
+                mediaService.getActiveByModule(module, moduleId, communityScope(principal)));
     }
 
     @GetMapping("/module/{module}/{moduleId}/context/{subContext}")
@@ -124,9 +131,11 @@ public class MediaController {
     public ResponseEntity<List<MediaResponse>> getByModuleAndSubContext(
             @PathVariable MediaModule module,
             @PathVariable String moduleId,
-            @PathVariable String subContext) {
+            @PathVariable String subContext,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        return ResponseEntity.ok(mediaService.getByModuleAndSubContext(module, moduleId, subContext));
+        return ResponseEntity.ok(mediaService.getByModuleAndSubContext(
+                module, moduleId, communityScope(principal), subContext));
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -138,7 +147,7 @@ public class MediaController {
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        mediaService.softDelete(id, resolveUserId(principal));
+        mediaService.softDelete(id, communityScope(principal), resolveUserId(principal));
         return ResponseEntity.noContent().build();
     }
 
@@ -148,7 +157,8 @@ public class MediaController {
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        return ResponseEntity.ok(mediaService.restore(id, resolveUserId(principal)));
+        return ResponseEntity.ok(
+                mediaService.restore(id, communityScope(principal), resolveUserId(principal)));
     }
 
     // ── Approval workflow ─────────────────────────────────────────────────────
@@ -159,7 +169,8 @@ public class MediaController {
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        return ResponseEntity.ok(mediaService.approve(id, resolveUserId(principal)));
+        return ResponseEntity.ok(
+                mediaService.approve(id, communityScope(principal), resolveUserId(principal)));
     }
 
     @PostMapping("/{id}/reject")
@@ -169,14 +180,39 @@ public class MediaController {
             @RequestParam String reason,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        return ResponseEntity.ok(mediaService.reject(id, reason, resolveUserId(principal)));
+        return ResponseEntity.ok(mediaService.reject(
+                id, communityScope(principal), reason, resolveUserId(principal)));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Long resolveUserId(UserPrincipal principal) {
-        // Fallback to -1L for mock-auth dev mode; real auth always sets a valid principal
-        if (principal == null) return -1L;
+        // Previously fell back to -1L, which silently stamped rows with a non-existent
+        // uploader and left them without recoverable ownership. Every /api/media route
+        // now requires authentication, so a null principal is a misconfiguration.
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        }
         return principal.getId();
+    }
+
+    /**
+     * Tenant scope for media lookups: {@code null} for a SUPER_ADMIN (platform-wide),
+     * otherwise the caller's community id. {@code media_objects.community_id} is
+     * NOT NULL, so a non-super-admin without a community can match nothing and is
+     * rejected rather than silently falling back to an unscoped query.
+     */
+    private Long communityScope(UserPrincipal principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Authentication required");
+        }
+        var ctx = loggedInUserService.resolveContext(principal);
+        if (ctx.superAdmin()) return null;
+        Long communityId = ctx.communityId();
+        if (communityId == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "No community associated with this account");
+        }
+        return communityId;
     }
 }

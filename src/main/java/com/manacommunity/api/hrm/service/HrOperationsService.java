@@ -91,6 +91,10 @@ public class HrOperationsService {
         return taskRepository.findByAssignedToId(employeeId);
     }
 
+    public Page<HrTask> getOrgTasks(Long orgId, Pageable pageable) {
+        return taskRepository.findByOrganizationId(orgId, pageable);
+    }
+
     @Transactional
     public HrAnnouncement createAnnouncement(Long orgId, HrAnnouncement announcement, Long createdBy) {
         announcement.setOrganizationId(orgId);

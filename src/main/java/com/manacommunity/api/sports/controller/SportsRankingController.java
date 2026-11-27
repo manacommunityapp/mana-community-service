@@ -29,9 +29,9 @@ public class SportsRankingController {
     @GetMapping
     public ResponseEntity<List<SportsPlayerRankingResponse>> list(
             @RequestParam Long sportId,
-            @RequestParam Long communityId,
             @RequestParam(defaultValue = "CURRENT") String season,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_PLAYER_POOL);
         return ResponseEntity.ok(rankingService.listBySportAndCommunity(sportId, communityId, season));
     }
@@ -39,9 +39,9 @@ public class SportsRankingController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<SportsPlayerRankingResponse>> listForUser(
             @PathVariable Long userId,
-            @RequestParam Long communityId,
             @RequestParam(defaultValue = "CURRENT") String season,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_MAIN, VIEW_PLAYER_POOL);
         return ResponseEntity.ok(rankingService.listByUserAndCommunity(userId, communityId, season));
     }

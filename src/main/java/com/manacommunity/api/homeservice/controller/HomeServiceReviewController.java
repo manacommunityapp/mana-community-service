@@ -11,7 +11,6 @@ import java.util.List;
 @RestController("homeServiceReviewController")
 @RequestMapping("/api/v1/home-services/reviews")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceReviewController {
     private final HomeServiceReviewService reviewService;
 

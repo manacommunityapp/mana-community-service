@@ -8,18 +8,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController("homeServiceWorkerGatePassController")
 @RequestMapping("/api/v1/home-services/gate-passes")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceWorkerGatePassController {
     private final HomeServiceWorkerGatePassService gatePassService;
 
     @GetMapping("/worker/{workerId}")
     public ResponseEntity<WorkerGatePassRecordEntity> getGatePass(
-            @PathVariable String workerId,
-            @RequestParam(defaultValue = "comm-mana-1") String communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String workerId
+) {
+        String communityId = String.valueOf(principal.getCommunityId());
         return ResponseEntity.ok(gatePassService.getGatePass(workerId, communityId));
     }
 

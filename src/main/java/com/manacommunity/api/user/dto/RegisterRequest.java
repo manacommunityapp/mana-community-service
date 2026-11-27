@@ -1,5 +1,6 @@
 package com.manacommunity.api.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -17,22 +18,35 @@ import java.time.LocalDate;
 @Data
 public class RegisterRequest {
     @NotBlank
+    @JsonAlias({"name"})
     String fullName;
+
     @NotBlank
     String email;
+
     @NotBlank
     @Pattern(regexp = "\\d{10}", message = "Phone number must be exactly 10 digits")
+    @JsonAlias({"mobile"})
     String phone;
-    @NotBlank
+
+    
+    @JsonAlias({"communityCode"})
     String inviteCode;
+
     @NotBlank
     String password;
+
     LocalDate dateOfBirth;
+
     @NotBlank
-    String gender; // MALE / FEMALE / OTHER
-    @NotBlank
+    String gender = "OTHER"; // MALE / FEMALE / OTHER (defaults to OTHER for backward compatibility)
+
+    
+    @JsonAlias({"flatNumber"})
     String flatNo;
-    @NotBlank
+
+    
+    @JsonAlias({"tower"})
     String block;  // A, B, C, D — mandatory; validated against community_block_config
     String userType;        // OWNER / TENANT / Owner / Tenant
     String occupancyStatus; // Owner / Tenant / Staff
@@ -68,4 +82,22 @@ public class RegisterRequest {
      * the Aadhaar Act 2016 (UIDAI regulations).
      */
     String aadharNumber;
+
+    /**
+     * Sanitizes phone input by stripping formatting and standard country prefix (+91, 0)
+     * so that inputs like "+91 98765 43210" normalize to 10 digits before validation.
+     */
+    public void setPhone(String rawPhone) {
+        if (rawPhone != null) {
+            String digits = rawPhone.replaceAll("[^0-9]", "");
+            if (digits.length() == 12 && digits.startsWith("91")) {
+                digits = digits.substring(2);
+            } else if (digits.length() == 11 && digits.startsWith("0")) {
+                digits = digits.substring(1);
+            }
+            this.phone = digits;
+        } else {
+            this.phone = null;
+        }
+    }
 }

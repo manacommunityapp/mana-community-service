@@ -46,6 +46,12 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
     private final WhatsAppProvider whatsAppProvider;
     private final SimpMessagingTemplate messagingTemplate;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
     @Override
     @Transactional
     public List<UnifiedNotificationResult> handleDomainEvent(DomainEvent event) {
@@ -200,6 +206,8 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
     }
 
     private ChannelDeliveryReport dispatchToChannel(AppUser user, UnifiedNotificationRequest request, NotificationChannel channel) {
+        boolean asyncCapable = request.getStrategy() != DeliveryStrategy.FALLBACK_CASCADE
+                && sqsMessagePublisher != null && sqsProperties != null;
         try {
             switch (channel) {
                 case IN_APP -> {
@@ -214,17 +222,38 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
                     return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("Sent via WebSocket STOMP").build();
                 }
                 case PUSH -> {
+                    if (asyncCapable) {
+                        var pushPayload = new com.manacommunity.api.notification.sqs.NotificationEventsSqsHandler.UnifiedPushPayload(
+                                user.getId(), request.getTitle(), request.getBody(), request.getData(), "default");
+                        sqsMessagePublisher.publishAfterCommit(
+                                sqsProperties.getQueues().getNotificationEvents(),
+                                "UNIFIED_PUSH_DISPATCH",
+                                pushPayload,
+                                () -> pushService.sendToUser(user.getId(), request.getTitle(), request.getBody(), request.getData(), "default"));
+                        return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("Queued for Expo Push via SQS").build();
+                    }
                     pushService.sendToUser(user.getId(), request.getTitle(), request.getBody(), request.getData(), "default");
                     return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("Dispatched to Expo Push").build();
                 }
                 case EMAIL -> {
                     if (user.getEmail() != null && !user.getEmail().isBlank()) {
-                        emailService.send(EmailMessage.builder()
+                        EmailMessage emailMsg = EmailMessage.builder()
                                 .to(user.getEmail())
                                 .toName(user.getFullName())
                                 .subject(request.getTitle())
                                 .htmlBody("<p>" + request.getBody() + "</p>")
-                                .build());
+                                .build();
+                        if (asyncCapable) {
+                            var emailPayload = new com.manacommunity.api.email.sqs.EmailDispatchSqsHandler.EmailDispatchPayload(
+                                    emailMsg.to(), emailMsg.toName(), emailMsg.subject(), emailMsg.htmlBody(), null, null);
+                            sqsMessagePublisher.publishAfterCommit(
+                                    sqsProperties.getQueues().getEmailDispatch(),
+                                    "GENERIC_EMAIL",
+                                    emailPayload,
+                                    () -> emailService.send(emailMsg));
+                            return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("Email queued via SQS for " + user.getEmail()).build();
+                        }
+                        emailService.send(emailMsg);
                         return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("Email queued for " + user.getEmail()).build();
                     }
                     return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.FAILED).message("No email registered").build();
@@ -246,10 +275,25 @@ public class UnifiedNotificationServiceImpl implements UnifiedNotificationServic
                 }
                 case WHATSAPP -> {
                     if (user.getPhone() != null && !user.getPhone().isBlank()) {
+                        Map<String, String> params = Map.of("title", request.getTitle(), "body", request.getBody());
+                        if (asyncCapable) {
+                            var waPayload = new com.manacommunity.api.notification.sqs.NotificationEventsSqsHandler.UnifiedWhatsAppPayload(
+                                    user.getPhone(), "community_alert", params);
+                            sqsMessagePublisher.publishAfterCommit(
+                                    sqsProperties.getQueues().getNotificationEvents(),
+                                    "UNIFIED_WHATSAPP_DISPATCH",
+                                    waPayload,
+                                    () -> whatsAppProvider.sendTemplateMessage(WhatsAppTemplateRequest.builder()
+                                            .recipientPhone(user.getPhone())
+                                            .templateName("community_alert")
+                                            .parameters(params)
+                                            .build()));
+                            return ChannelDeliveryReport.builder().channel(channel).status(DeliveryStatus.DELIVERED).message("WhatsApp message queued via SQS").build();
+                        }
                         var res = whatsAppProvider.sendTemplateMessage(WhatsAppTemplateRequest.builder()
                                 .recipientPhone(user.getPhone())
                                 .templateName("community_alert")
-                                .parameters(Map.of("title", request.getTitle(), "body", request.getBody()))
+                                .parameters(params)
                                 .build());
                         return ChannelDeliveryReport.builder().channel(channel).status(res.isSuccess() ? DeliveryStatus.DELIVERED : DeliveryStatus.FAILED).providerMessageId(res.getProviderMessageId()).message("WhatsApp message dispatched").build();
                     }

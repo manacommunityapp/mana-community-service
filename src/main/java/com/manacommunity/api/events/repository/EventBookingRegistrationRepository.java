@@ -42,6 +42,9 @@ public interface EventBookingRegistrationRepository extends JpaRepository<EventB
 
     long countByCommunityId(Long communityId);
 
+    long countByCommunityIdAndCheckedInTrueAndStatusNot(Long communityId, String status);
+    long countByCommunityIdAndStatusNot(Long communityId, String status);
+
     /** True when the user already has a non-cancelled booking for the given activityId. */
     boolean existsByUserIdAndActivityIdAndStatusNot(Long userId, String activityId, String status);
 

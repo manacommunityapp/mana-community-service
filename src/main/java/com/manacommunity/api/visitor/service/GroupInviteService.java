@@ -51,4 +51,17 @@ public class GroupInviteService {
                 .phone(g.getPhone()).vehicleNumber(g.getVehicleNumber()).build());
         return repo.save(invite);
     }
+
+    public GroupInvite checkInGuest(Long inviteId, Long guestId) {
+        GroupInvite invite = repo.findById(inviteId).orElseThrow(() -> new IllegalArgumentException("Group invite not found: " + inviteId));
+        if (invite.getGuests() != null) {
+            for (GroupGuest g : invite.getGuests()) {
+                if (g.getId().equals(guestId)) {
+                    g.setIsCheckedIn(true);
+                    break;
+                }
+            }
+        }
+        return repo.save(invite);
+    }
 }

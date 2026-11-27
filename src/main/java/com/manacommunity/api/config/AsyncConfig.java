@@ -1,15 +1,20 @@
 package com.manacommunity.api.config;
 
 import com.manacommunity.api.config.tenant.TenantAwareTaskDecorator;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.Arrays;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
-@Configuration
+@Slf4j
+@Configuration(proxyBeanMethods = false)
 @EnableAsync
 public class AsyncConfig implements AsyncConfigurer {
 
@@ -23,6 +28,14 @@ public class AsyncConfig implements AsyncConfigurer {
     @Override
     public Executor getAsyncExecutor() {
         return smsAsyncExecutor();
+    }
+
+    @Override
+    public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
+        return (throwable, method, params) -> {
+            log.error("[Async] Uncaught exception in async method '{}' with parameters {}: {}",
+                    method.toGenericString(), Arrays.toString(params), throwable.getMessage(), throwable);
+        };
     }
 
     @Bean(name = "smsAsyncExecutor")
@@ -49,6 +62,45 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setTaskDecorator(tenantAwareTaskDecorator);
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Strict bulkhead executor for external delivery partner webhooks (Blinkit, Zomato, Swiggy).
+     * Uses AbortPolicy intentionally so webhook surges shed load at the edge (429 Retry-After)
+     * rather than blocking Tomcat servlet threads or starving resident visitor approvals.
+     */
+    @Bean(name = "partnerWebhookExecutor")
+    public Executor partnerWebhookExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("partner-webhook-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(15);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Low-priority, bounded executor for 10,000+ resident community emergency/maintenance
+     * broadcasts. Completely isolated from notificationExecutor so broadcast storms
+     * never delay critical live visitor approvals or SOS alerts.
+     */
+    @Bean(name = "broadcastNotificationExecutor")
+    public Executor broadcastNotificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(1000);
+        executor.setThreadNamePrefix("broadcast-bulk-");
+        executor.setTaskDecorator(tenantAwareTaskDecorator);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
         executor.initialize();
         return executor;
     }

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/cultural-events")
+@RequestMapping({"/api/events/cultural-events", "/events/cultural-events"})
 public class CulturalEventController {
 
     private final CulturalEventService service;
@@ -41,7 +41,7 @@ public class CulturalEventController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventCulturalEvent> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody EventCulturalEvent body) {
@@ -51,7 +51,7 @@ public class CulturalEventController {
     }
 
     @PutMapping("/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<EventCulturalEvent> update(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
@@ -62,7 +62,7 @@ public class CulturalEventController {
     }
 
     @DeleteMapping("/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN') or hasAuthority('Manage Event Forms')")
     public ResponseEntity<Void> delete(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {

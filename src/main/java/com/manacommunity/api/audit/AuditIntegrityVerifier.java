@@ -12,14 +12,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuditIntegrityVerifier {
 
-    private static final String DEFAULT_HMAC_SECRET = "mana-audit-tamper-resistant-immutable-secret-key-2026";
     private static final String GENESIS_PREV_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private final AuditLogRepository auditLogRepository;
+    private final String hmacSecret;
+
+    public AuditIntegrityVerifier(
+            AuditLogRepository auditLogRepository,
+            @org.springframework.beans.factory.annotation.Value("${app.audit.hmac-secret:mana-audit-tamper-resistant-immutable-secret-key-2026}") String hmacSecret) {
+        this.auditLogRepository = auditLogRepository;
+        this.hmacSecret = hmacSecret;
+    }
 
     @Transactional(readOnly = true)
     public AuditVerificationResult verifyChain(String tenantId) {
@@ -76,7 +82,7 @@ public class AuditIntegrityVerifier {
                     logEntry.getCorrelationId(), logEntry.getIpAddress()
             );
 
-            String expectedRecordHash = TamperResistantAuditService.hmacSha256Hex(DEFAULT_HMAC_SECRET, expectedPrevHash + "::" + canonicalPayload);
+            String expectedRecordHash = TamperResistantAuditService.hmacSha256Hex(hmacSecret, expectedPrevHash + "::" + canonicalPayload);
             if (!expectedRecordHash.equals(logEntry.getRecordHash())) {
                 anomalies.add("Tampered row content at Seq=" + currentSeq + ": Content altered in database!");
                 return AuditVerificationResult.builder()

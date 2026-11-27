@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
+    Page<AuditLog> findByTenantIdOrderByCreatedAtDesc(String tenantId, Pageable pageable);
+
     /** Paged search with optional module / action / userId filters (any may be null). */
     @Query("""
             SELECT a FROM AuditLog a

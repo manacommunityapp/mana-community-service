@@ -56,12 +56,28 @@ public class RecommendationService {
 
     public static List<Recommendation> rank(List<ProductCatalogPort.Candidate> candidates, List<Rule> rules,
                                             Map<Long, Map<String, BigDecimal>> attrs, int limit) {
-        return candidates.stream()
+        List<Recommendation> scored = candidates.stream()
                 .map(c -> score(c, rules, attrs.getOrDefault(c.productId(), Map.of())))
                 .filter(r -> r.score() > 0)
                 .sorted(Comparator.comparingDouble(Recommendation::score).reversed()
                         .thenComparing(Recommendation::productId))
                 .limit(limit)
+                .toList();
+
+        if (!scored.isEmpty()) {
+            return scored;
+        }
+
+        // Graceful fallback when products do not yet have explicit product_fit_attributes rows
+        return candidates.stream()
+                .limit(limit)
+                .map(c -> new Recommendation(
+                        c.productId(),
+                        c.name(),
+                        c.price(),
+                        0.5,
+                        "Curated for your proportions"
+                ))
                 .toList();
     }
 

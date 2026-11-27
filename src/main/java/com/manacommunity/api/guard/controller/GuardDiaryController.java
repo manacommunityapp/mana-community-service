@@ -17,7 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/guard/diary")
+@RequestMapping({"/api/guard/diary", "/api/guards/diary", "/api/guard/handover"})
 @RequiredArgsConstructor
 public class GuardDiaryController {
 

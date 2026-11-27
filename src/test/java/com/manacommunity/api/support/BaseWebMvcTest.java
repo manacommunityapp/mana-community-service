@@ -52,7 +52,37 @@ public abstract class BaseWebMvcTest {
     protected com.manacommunity.api.security.CookieAuthHelper cookieAuthHelper;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.security.RsaKeyService rsaKeyService;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     protected com.manacommunity.api.ops.OpsMetricsCollector opsMetricsCollector;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.api.platform.idempotency.IdempotencyInterceptor idempotencyInterceptor;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.platform.ratelimit.RateLimitInterceptor rateLimitInterceptor;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected com.manacommunity.platform.ratelimit.DistributedRateLimitService distributedRateLimitService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setupBaseWebMvc() throws Exception {
+        if (idempotencyInterceptor != null) {
+            org.mockito.Mockito.when(idempotencyInterceptor.preHandle(
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+        }
+        if (rateLimitInterceptor != null) {
+            org.mockito.Mockito.when(rateLimitInterceptor.preHandle(
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+        }
+    }
 
     protected String toJson(Object obj) throws Exception {
         return objectMapper.writeValueAsString(obj);

@@ -20,6 +20,12 @@ public class PollRequest {
 
     private boolean anonymous;
 
+    private String votingMode; // ONE_FLAT_ONE_VOTE, UDS_AREA_WEIGHTED, SHARE_CERTIFICATE
+
+    private Integer excludeDefaultersOverDays;
+
+    private Boolean ownersOnly;
+
     @NotEmpty
     private List<String> options;
 }

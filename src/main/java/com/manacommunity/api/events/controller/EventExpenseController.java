@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/expenses")
+@RequestMapping({"/api/events/expenses", "/events/expenses", "/api/events/{eventId}/expenses", "/events/{eventId}/expenses"})
 @RequiredArgsConstructor
 public class EventExpenseController {
 
@@ -25,31 +25,37 @@ public class EventExpenseController {
     private final LoggedInUserService loggedInUserService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','USER','RESIDENT') or hasAuthority('View Events')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','USER','RESIDENT','OWNER','TENANT','MEMBER') or hasAuthority('View Events')")
     public ResponseEntity<List<EventExpenseResponse>> getAll(
-            @RequestParam(required = false) Long eventId,
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
+            @RequestParam(name = "eventId", required = false) Long queryEventId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long eventId = pathEventId != null ? pathEventId : queryEventId;
         if (eventId != null) {
             return ResponseEntity.ok(expenseService.getByEvent(eventId));
         }
         AppUser user = loggedInUserService.resolve(principal);
-        Long communityId = user.getCommunity() != null ? user.getCommunity().getId() : null;
+        Long communityId = user != null && user.getCommunity() != null ? user.getCommunity().getId() : null;
         if (communityId == null) return ResponseEntity.ok(List.of());
         return ResponseEntity.ok(expenseService.getByCommunity(communityId));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventExpenseResponse> create(
+            @PathVariable(name = "eventId", required = false) Long pathEventId,
             @Valid @RequestBody EventExpenseRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (req.getEventId() == null && pathEventId != null) {
+            req.setEventId(pathEventId);
+        }
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(expenseService.create(req, user, user.getCommunity()));
+                .body(expenseService.create(req, user, user != null ? user.getCommunity() : null));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<EventExpenseResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EventExpenseRequest req) {
@@ -57,7 +63,7 @@ public class EventExpenseController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN') or hasAuthority('Create Event')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','SUPER_ADMIN','EVENT_ADMIN','EVENTS_ADMIN') or hasAuthority('Create Event')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         expenseService.delete(id);
         return ResponseEntity.noContent().build();

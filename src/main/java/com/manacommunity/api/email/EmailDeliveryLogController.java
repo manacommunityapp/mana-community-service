@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.manacommunity.api.user.security.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 /**
  * Admin-only endpoint for querying the email delivery log and managing dispatches.
@@ -42,15 +44,16 @@ public class EmailDeliveryLogController {
      */
     @GetMapping("/delivery-log")
     public ResponseEntity<Page<EmailDeliveryLogDto>> getDeliveryLog(
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String templateType,
-            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) String recipient,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
+        Long communityId = principal.getCommunityId();
 
         int safeSize = Math.min(size, 200);
         PageRequest pageable = PageRequest.of(page, safeSize, Sort.by(Sort.Direction.DESC, "sentAt"));
@@ -79,8 +82,9 @@ public class EmailDeliveryLogController {
      */
     @GetMapping("/delivery-log/summary")
     public ResponseEntity<Map<String, Object>> getSummary(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "7") int days) {
+        Long communityId = principal.getCommunityId();
 
         LocalDateTime since = LocalDateTime.now().minusDays(days);
 
@@ -223,8 +227,10 @@ public class EmailDeliveryLogController {
      */
     @GetMapping("/system-templates")
     public ResponseEntity<Map<String, Object>> getTemplates(
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) Long communityId) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String category
+) {
+        Long communityId = principal.getCommunityId();
 
         List<EmailTemplateInfo> templates = Arrays.stream(EmailTemplate.values())
                 .filter(t -> category == null || t.category().name().equalsIgnoreCase(category))

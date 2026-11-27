@@ -14,6 +14,11 @@ import com.manacommunity.api.parking.repository.ParkingVisitorPassRepository;
 import com.manacommunity.api.parking.repository.ResidentVehicleRepository;
 import com.manacommunity.api.repository.CommunityRepository;
 import com.manacommunity.api.user.model.AppUser;
+import com.manacommunity.api.visitor.entity.VisitorPass;
+import com.manacommunity.api.visitor.entity.VisitorPass.PassStatus;
+import com.manacommunity.api.visitor.entity.WhitelistEntry;
+import com.manacommunity.api.visitor.repository.VisitorPassRepository;
+import com.manacommunity.api.visitor.repository.WhitelistRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -43,6 +48,8 @@ class AnprGateServiceTest {
     @Mock AnprGateEventRepository eventRepository;
     @Mock ResidentVehicleRepository vehicleRepository;
     @Mock ParkingVisitorPassRepository visitorPassRepository;
+    @Mock VisitorPassRepository communityVisitorPassRepository;
+    @Mock WhitelistRepository whitelistRepository;
     @Mock CommunityRepository communityRepository;
     @Mock SimpMessagingTemplate messagingTemplate;
     @Spy  AnprPlateNormalizer normalizer;
@@ -165,6 +172,55 @@ class AnprGateServiceTest {
             AnprWebhookResponse response = anprGateService.processWebhook(1L, payload("DL01CX9999", 0.88));
 
             assertThat(response.barrierAction()).isEqualTo(BarrierAction.HOLD);
+        }
+
+        @Test
+        @DisplayName("Should OPEN barrier when plate matches active community visitor pass")
+        void shouldOpenForCommunityVisitorPass() {
+            VisitorPass pass = VisitorPass.builder()
+                    .id(55L)
+                    .visitorName("Deepak Sharma")
+                    .vehicleNumber("KA05MB9999")
+                    .status(PassStatus.APPROVED)
+                    .expectedAt(LocalDateTime.now().plusHours(4))
+                    .build();
+
+            when(vehicleRepository.findByCommunityIdAndNumberPlate(1L, "KA05MB9999"))
+                    .thenReturn(Optional.empty());
+            when(visitorPassRepository.findByCommunityIdAndStatus(1L, "ACTIVE"))
+                    .thenReturn(List.of());
+            when(communityVisitorPassRepository.findActiveByCommunityAndNormalizedVehicle(eq(1L), any(), eq("KA05MB9999")))
+                    .thenReturn(List.of(pass));
+
+            AnprWebhookResponse response = anprGateService.processWebhook(1L, payload("KA05MB9999", 0.93));
+
+            assertThat(response.barrierAction()).isEqualTo(BarrierAction.OPEN);
+            assertThat(response.matchedResidentName()).isEqualTo("Deepak Sharma");
+        }
+
+        @Test
+        @DisplayName("Should OPEN barrier when plate matches active whitelist entry")
+        void shouldOpenForWhitelistEntry() {
+            WhitelistEntry entry = WhitelistEntry.builder()
+                    .id(12L)
+                    .name("Daily Milk Delivery")
+                    .vehicleNumber("KA03HH1111")
+                    .isActive(true)
+                    .build();
+
+            when(vehicleRepository.findByCommunityIdAndNumberPlate(1L, "KA03HH1111"))
+                    .thenReturn(Optional.empty());
+            when(visitorPassRepository.findByCommunityIdAndStatus(1L, "ACTIVE"))
+                    .thenReturn(List.of());
+            when(communityVisitorPassRepository.findActiveByCommunityAndNormalizedVehicle(any(), any(), any()))
+                    .thenReturn(List.of());
+            when(whitelistRepository.findActiveByCommunityAndNormalizedVehicle(1L, "KA03HH1111"))
+                    .thenReturn(List.of(entry));
+
+            AnprWebhookResponse response = anprGateService.processWebhook(1L, payload("KA03HH1111", 0.91));
+
+            assertThat(response.barrierAction()).isEqualTo(BarrierAction.OPEN);
+            assertThat(response.matchedResidentName()).isEqualTo("Daily Milk Delivery");
         }
     }
 

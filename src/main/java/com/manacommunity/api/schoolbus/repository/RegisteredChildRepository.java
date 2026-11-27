@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface RegisteredChildRepository extends JpaRepository<RegisteredChild, Long> {
     List<RegisteredChild> findByParentIdAndStatus(Long parentId, String status);
+    List<RegisteredChild> findByCommunityIdAndStatus(Long communityId, String status);
 }

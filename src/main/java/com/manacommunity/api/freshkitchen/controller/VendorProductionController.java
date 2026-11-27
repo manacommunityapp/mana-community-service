@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/vendor", "/vendor"})
+@RequestMapping({"/api/v1/vendor", "/api/vendor", "/vendor"})
 @RequiredArgsConstructor
 public class VendorProductionController {
 
@@ -37,7 +37,7 @@ public class VendorProductionController {
         return ResponseEntity.ok(capacityService.getCapacityForDate(date));
     }
 
-    @PostMapping("/production-capacity")
+    @RequestMapping(value = "/production-capacity", method = {RequestMethod.POST, RequestMethod.PUT})
     @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<VendorCapacityDto> setCapacity(
             @Valid @RequestBody VendorCapacityDto request) {

@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 
 @Slf4j
@@ -165,8 +166,13 @@ public class AuthServiceImpl implements AuthService {
         otpService.assertEmailVerified(email);
 
         // 1. Verify Community Invite Code
-        Community community = communityRepository.findByInviteCode(request.getInviteCode())
-                .orElseThrow(() -> new InvalidInviteCodeException(request.getInviteCode()));
+        // The invite code is optional: without one the user registers as an unlinked
+        // account (community == null) and can join a community later.
+        final String inviteCode = request.getInviteCode() == null ? "" : request.getInviteCode().trim();
+        Community community = inviteCode.isEmpty()
+                ? null
+                : communityRepository.findByInviteCode(inviteCode)
+                        .orElseThrow(() -> new InvalidInviteCodeException(inviteCode));
 
         // 2. Duplicate email / phone check (both are UNIQUE in DB)
         if (userRepository.existsByEmailIgnoreCase(email))
@@ -179,21 +185,29 @@ public class AuthServiceImpl implements AuthService {
         //     This ensures the submitted block/flat actually exists in this community's
         //     layout before we check if it is already taken (non-APARTMENT communities
         //     with no block config skip this step automatically).
-        try {
-            blockConfigService.validateBlockAndFlat(
-                    community.getId(),
-                    request.getBlock(),
-                    request.getFlatNo()
-            );
-        } catch (IllegalArgumentException ex) {
-            throw new ManaCommunityException(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+        if (community != null) {
+            if (request.getBlock() == null || request.getBlock().isBlank()
+                    || request.getFlatNo() == null || request.getFlatNo().isBlank()) {
+                throw new ManaCommunityException(
+                        "Block and flat number are required when joining a community.",
+                        HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+            }
+            try {
+                blockConfigService.validateBlockAndFlat(
+                        community.getId(),
+                        request.getBlock(),
+                        request.getFlatNo()
+                );
+            } catch (IllegalArgumentException ex) {
+                throw new ManaCommunityException(ex.getMessage(), HttpStatus.BAD_REQUEST, "INVALID_UNIT");
+            }
         }
 
         // 2d. Now that the flat is confirmed valid, check it is not already taken
         //     (one registration per flat per community).
-        boolean unitExists = userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
-                community.getId(), request.getBlock().trim(), request.getFlatNo().trim()
-        );
+        boolean unitExists = community != null
+                && userRepository.existsByCommunityIdAndBlockIgnoreCaseAndFlatNoIgnoreCase(
+                        community.getId(), request.getBlock().trim(), request.getFlatNo().trim());
         if (unitExists) {
             throw new ManaCommunityException(
                     "Block " + request.getBlock().trim().toUpperCase() + " Flat " +
@@ -208,7 +222,7 @@ public class AuthServiceImpl implements AuthService {
                 email,
                 request.getFullName(),
                 request.getPhone(),
-                community.getName()
+                community != null ? community.getName() : null
         ));
 
         // 3. Mock Aadhaar masking
@@ -285,20 +299,20 @@ public class AuthServiceImpl implements AuthService {
                 saved.getId(),
                 com.manacommunity.api.model.NotificationType.SIGNUP_SUCCESS,
                 com.manacommunity.api.model.NotificationCategory.GENERAL,
-                "Welcome to " + community.getName() + "!",
+                community != null ? "Welcome to " + community.getName() + "!" : "Welcome to Mana Community!",
                 "Your registration is complete. Welcome aboard, " + saved.getFullName() + "!",
                 null,
                 null,
                 null,
                 com.manacommunity.api.model.NotificationPriority.NORMAL,
                 null,
-                community.getId()
+                community != null ? community.getId() : null
         );
 
         // Send welcome email — failure is swallowed so it never breaks registration
         try {
             java.util.Map<String, Object> vars = emailSupport.baseVars(saved.getFullName());
-            vars.put("communityName", community.getName());
+            vars.put("communityName", community != null ? community.getName() : "Mana Community");
             vars.put("block", saved.getBlock());
             vars.put("flatNo", saved.getFlatNo());
             vars.put("actionUrl", emailSupport.props().getBaseUrl());
@@ -306,7 +320,7 @@ public class AuthServiceImpl implements AuthService {
             emailService.send(new com.manacommunity.api.email.EmailMessage(
                     saved.getEmail(),
                     saved.getFullName(),
-                    "Welcome to " + community.getName() + "! 🎉",
+                    "Welcome to " + (community != null ? community.getName() : "Mana Community") + "! 🎉",
                     html
             ));
         } catch (Exception ex) {
@@ -422,6 +436,12 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Session is no longer valid. Please log in again.",
                     HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
+        if (user.getTokenInvalidatedBefore() != null
+                && jwtTokenProvider.isIssuedBefore(refreshToken, user.getTokenInvalidatedBefore())) {
+            auditLog.record(AuditLogService.Action.TOKEN_REFRESH_FAILED, user.getId(), user.getEmail());
+            throw new ManaCommunityException("Session invalidated due to password change. Please log in again.",
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALIDATED");
+        }
 
         auditLog.record(AuditLogService.Action.TOKEN_REFRESH, user.getId(), user.getEmail());
         // Rotation: issue a brand-new access + refresh pair on every refresh.
@@ -518,20 +538,16 @@ public class AuthServiceImpl implements AuthService {
             throw new ManaCommunityException("Email address is required", HttpStatus.BAD_REQUEST, "INVALID_EMAIL");
         }
         String email = rawEmail.trim().toLowerCase();
-        AppUser user = userRepository.findByEmailIgnoreCase(email).orElseThrow(() ->
-                new ManaCommunityException("No account found with email address: " + email,
-                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
-
-        if (Boolean.FALSE.equals(user.getIsActive())) {
-            throw new ManaCommunityException("This account has been deactivated. Please contact your community administrator.",
-                    HttpStatus.FORBIDDEN, "ACCOUNT_INACTIVE");
-        }
-
-        com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(user.getEmail(), user.getFullName());
-        if (!otpResp.success()) {
-            throw new ManaCommunityException(otpResp.message() != null ? otpResp.message() : "Failed to send verification code.",
-                    HttpStatus.BAD_REQUEST, "OTP_SEND_FAILED");
-        }
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            if (Boolean.TRUE.equals(user.getIsActive())) {
+                com.manacommunity.api.dto.otp.OtpResponse otpResp = otpService.send(user.getEmail(), user.getFullName());
+                if (!otpResp.success()) {
+                    log.warn("Failed to send password reset OTP to userId={}", user.getId());
+                }
+            } else {
+                log.warn("Password reset requested for inactive account userId={}", user.getId());
+            }
+        });
     }
 
     @Override
@@ -566,11 +582,15 @@ public class AuthServiceImpl implements AuthService {
                 user.getCommunity() != null ? user.getCommunity().getName() : null
         ));
 
-        // Update password and clear lockout / failure attempts
+        // Update password, clear lockout / failure attempts, and revoke all prior JWTs
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
         userRepository.save(user);
+
+        // Security hardening: Invalidate all active sessions across devices
+        sessionService.endSession(user.getId());
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());
         auditService.record(
@@ -632,6 +652,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setTokenInvalidatedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
         userRepository.save(user);
 
         auditLog.record(AuditLogService.Action.PASSWORD_CHANGED, user.getId(), user.getEmail());

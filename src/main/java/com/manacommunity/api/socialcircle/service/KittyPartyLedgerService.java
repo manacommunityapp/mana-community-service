@@ -493,7 +493,9 @@ public class KittyPartyLedgerService {
 
         authorizationService.assertFinanceRole(contribution.getCycle().getCircle().getId(), verifier.getId());
 
-        String newStatus = request.getPaymentStatus() != null ? request.getPaymentStatus() : "VERIFIED";
+        String newStatus = (request != null && request.getPaymentStatus() != null)
+                ? request.getPaymentStatus()
+                : "VERIFIED";
         contribution.setPaymentStatus(newStatus);
         contribution.setVerifiedBy(verifier);
         contribution.setVerifiedAt(LocalDateTime.now());
@@ -518,25 +520,33 @@ public class KittyPartyLedgerService {
 
         authorizationService.assertFinanceRole(cycle.getCircle().getId(), adminUser.getId());
 
-        KittyPartyRotation rotation = rotationRepository.findByCycleIdAndPeriodNumber(cycleId, request.getPeriodNumber())
-                .orElseThrow(() -> new IllegalArgumentException("Rotation not found for period " + request.getPeriodNumber()));
+        int targetPeriod = (request != null && request.getPeriodNumber() != null)
+                ? request.getPeriodNumber()
+                : computeCurrentPeriod(cycle);
+        String payoutRef = (request != null && request.getExternalPayoutRef() != null && !request.getExternalPayoutRef().isBlank())
+                ? request.getExternalPayoutRef().trim()
+                : "DISBURSED-" + LocalDate.now();
+        String receiptUrl = (request != null) ? request.getPayoutReceiptUrl() : null;
+
+        KittyPartyRotation rotation = rotationRepository.findByCycleIdAndPeriodNumber(cycleId, targetPeriod)
+                .orElseThrow(() -> new IllegalArgumentException("Rotation not found for period " + targetPeriod));
 
         rotation.setRotationStatus("DISBURSED");
         rotation.setDisbursedAt(LocalDateTime.now());
-        rotation.setExternalPayoutRef(request.getExternalPayoutRef());
-        rotation.setPayoutReceiptUrl(request.getPayoutReceiptUrl());
+        rotation.setExternalPayoutRef(payoutRef);
+        rotation.setPayoutReceiptUrl(receiptUrl);
         rotationRepository.save(rotation);
 
         recordAuditLog(
                 cycle, cycle.getCircle(),
                 "PAYOUT_DISBURSED",
                 adminUser,
-                "Disbursed Period " + request.getPeriodNumber() + " payout to beneficiary " + rotation.getBeneficiaryUser().getFullName() + " with ref " + request.getExternalPayoutRef(),
-                "{\"periodNumber\":" + request.getPeriodNumber() + ",\"beneficiaryUserId\":" + rotation.getBeneficiaryUser().getId() + ",\"ref\":\"" + request.getExternalPayoutRef() + "\"}",
+                "Disbursed Period " + targetPeriod + " payout to beneficiary " + rotation.getBeneficiaryUser().getFullName() + " with ref " + payoutRef,
+                "{\"periodNumber\":" + targetPeriod + ",\"beneficiaryUserId\":" + rotation.getBeneficiaryUser().getId() + ",\"ref\":\"" + payoutRef + "\"}",
                 idempotencyKey
         );
 
-        log.info("Recorded disbursement for cycle {} period {} to user {}", cycleId, request.getPeriodNumber(), rotation.getBeneficiaryUser().getId());
+        log.info("Recorded disbursement for cycle {} period {} to user {}", cycleId, targetPeriod, rotation.getBeneficiaryUser().getId());
     }
 
     // =========================================================================

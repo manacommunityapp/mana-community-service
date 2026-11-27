@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
@@ -25,12 +26,20 @@ public class MobilityJourneySlot {
     @Column(name = "destination", nullable = false, columnDefinition = "TEXT") private String destination;
     @Column(name = "departure_time", nullable = false) private LocalTime departureTime;
     @Column(name = "days_of_week", nullable = false, length = 40) private String daysOfWeek;
-    @Column(name = "seat_capacity", nullable = false) private short seatCapacity = 4;
-    @Column(name = "luggage_capacity", nullable = false) private short luggageCapacity = 0;
-    @Column(name = "price_per_seat", nullable = false, precision = 7, scale = 2) private BigDecimal pricePerSeat = BigDecimal.ZERO;
-    @Column(nullable = false, length = 20) private String status = "ACTIVE";
-    @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
-    @Column(name = "updated_at", nullable = false) private Instant updatedAt = Instant.now();
+    @Builder.Default @Column(name = "seat_capacity", nullable = false) private short seatCapacity = 4;
+    @Builder.Default @Column(name = "luggage_capacity", nullable = false) private short luggageCapacity = 0;
+    @Builder.Default @Column(name = "price_per_seat", nullable = false, precision = 7, scale = 2) private BigDecimal pricePerSeat = BigDecimal.ZERO;
+    @Builder.Default @Column(nullable = false, length = 20) private String status = "ACTIVE";
+    @Column(name = "origin_lat") private Double originLat;
+    @Column(name = "origin_lng") private Double originLng;
+    @Column(name = "dest_lat") private Double destLat;
+    @Column(name = "dest_lng") private Double destLng;
+    @Builder.Default @Column(name = "max_detour_km", nullable = false) private Double maxDetourKm = 5.0;
+    @Builder.Default @Column(name = "allow_cross_community", nullable = false) private boolean allowCrossCommunity = false;
+    @Builder.Default @Column(name = "auto_generate", nullable = false) private boolean autoGenerate = true;
+    @Column(name = "last_generated_date") private LocalDate lastGeneratedDate;
+    @Builder.Default @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
+    @Builder.Default @Column(name = "updated_at", nullable = false) private Instant updatedAt = Instant.now();
 
     @PreUpdate void onUpdate() { updatedAt = Instant.now(); }
 }

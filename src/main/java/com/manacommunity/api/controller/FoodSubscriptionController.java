@@ -50,7 +50,7 @@ public class FoodSubscriptionController {
         return ResponseEntity.ok(subscriptionService.createSubscription(request, user));
     }
 
-    @PutMapping("/subscriptions/{id}/pause")
+    @RequestMapping(value = "/subscriptions/{id}/pause", method = {RequestMethod.PUT, RequestMethod.PATCH})
     public ResponseEntity<MealSubscriptionResponse> pauseSubscription(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {
@@ -58,7 +58,7 @@ public class FoodSubscriptionController {
         return ResponseEntity.ok(subscriptionService.pauseSubscription(id, user.getId()));
     }
 
-    @PutMapping("/subscriptions/{id}/resume")
+    @RequestMapping(value = "/subscriptions/{id}/resume", method = {RequestMethod.PUT, RequestMethod.PATCH})
     public ResponseEntity<MealSubscriptionResponse> resumeSubscription(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id) {

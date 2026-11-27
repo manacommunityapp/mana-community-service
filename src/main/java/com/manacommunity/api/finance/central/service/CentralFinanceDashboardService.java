@@ -72,9 +72,11 @@ public class CentralFinanceDashboardService {
                         SocietyExpense.ApprovalStatus.PENDING_CHECKER,
                         SocietyExpense.ApprovalStatus.PENDING_APPROVER));
 
-        // ── Finance module invoices (global totals) ───────────────────────────
-        BigDecimal financeOutstanding = safeSum(financeInvoiceRepository.sumOutstandingReceivables());
-        long financeInvoiceCount = financeInvoiceRepository.count();
+        // ── Finance module invoices (community-scoped) ────────────────────────
+        // count() was platform-wide, so one community's dashboard reported every
+        // community's invoice total.
+        BigDecimal financeOutstanding = safeSum(financeInvoiceRepository.sumOutstandingReceivables(communityId));
+        long financeInvoiceCount = financeInvoiceRepository.countByCommunityId(communityId);
 
         // ── Cross-module rollups ───────────────────────────────────────────────
         BigDecimal maintenanceCollected = cfbos.getTotalCollected() != null ? cfbos.getTotalCollected() : BigDecimal.ZERO;

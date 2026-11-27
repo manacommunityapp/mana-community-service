@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping({"/api/v1/daily-basket", "/daily-basket"})
+@RequestMapping({"/api/v1/daily-basket", "/api/daily-basket", "/daily-basket"})
 @RequiredArgsConstructor
 public class DailyBasketController {
 
@@ -94,8 +94,14 @@ public class DailyBasketController {
     }
 
     @GetMapping("/orders/lookup")
-    public ResponseEntity<DeliveryPassDto> lookupOrder(@RequestParam String query) {
-        return ResponseEntity.ok(dailyBasketService.lookupOrderByTokenOrNumber(query));
+    public ResponseEntity<DeliveryPassDto> lookupOrder(
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "tokenOrNumber", required = false) String tokenOrNumber) {
+        String lookupKey = (query != null && !query.isBlank()) ? query : tokenOrNumber;
+        if (lookupKey == null || lookupKey.isBlank()) {
+            throw new com.manacommunity.api.exception.InvalidInputException("Order number or QR token is required for lookup.");
+        }
+        return ResponseEntity.ok(dailyBasketService.lookupOrderByTokenOrNumber(lookupKey));
     }
 
     @PostMapping("/handover/verify")

@@ -42,6 +42,18 @@ public class StoredFile {
     @Column(name = "uploaded_by")
     private Long uploadedBy;
 
+    /**
+     * Owning community (tenant). Added in V506 and back-filled from
+     * {@code app_user.community_id} via {@code uploaded_by}.
+     *
+     * <p>Nullable: rows uploaded without an authenticated user — or by a user who has
+     * since been removed, or who belongs to no community — have no derivable tenant.
+     * Those rows stay NULL and are SUPER_ADMIN-only, see
+     * {@code FileStorageController#canAccess}.
+     */
+    @Column(name = "community_id")
+    private Long communityId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

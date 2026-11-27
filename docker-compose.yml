@@ -112,6 +112,20 @@ services:
     networks:
       - mana-net
 
+  # ── LocalStack (Local AWS SQS, S3 emulation) ───────────────────────
+  # Start individually via: docker compose up -d localstack
+  localstack:
+    image: localstack/localstack:latest
+    container_name: mana-localstack
+    ports:
+      - "4566:4566"            # LocalStack Edge port for SQS
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=eu-north-1
+    restart: unless-stopped
+    networks:
+      - mana-net
+
 volumes:
   pgdata:
   ollama-models:

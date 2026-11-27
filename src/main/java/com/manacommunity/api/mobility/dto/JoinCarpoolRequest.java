@@ -6,4 +6,7 @@ import lombok.Data;
 @Data
 public class JoinCarpoolRequest {
     @Min(1) private int seats = 1;
+    private String paymentMethod;
+    private String guardianName;
+    private String guardianPhone;
 }

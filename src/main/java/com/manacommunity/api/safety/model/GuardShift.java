@@ -8,10 +8,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "guard_shift", indexes = {
-        @Index(name = "idx_guard_shift_guard", columnList = "guard_id"),
-        @Index(name = "idx_guard_shift_community", columnList = "community_id"),
-        @Index(name = "idx_guard_shift_status", columnList = "status")
+@Table(name = "safety_guard_shift", indexes = {
+        @Index(name = "idx_safety_guard_shift_guard", columnList = "guard_id"),
+        @Index(name = "idx_safety_guard_shift_community", columnList = "community_id"),
+        @Index(name = "idx_safety_guard_shift_status", columnList = "status")
 })
 @Data
 @Builder

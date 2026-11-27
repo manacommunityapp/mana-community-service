@@ -179,6 +179,11 @@ public class AppUser {
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
 
+    // Tokens issued prior to this instant are rejected on authentication and refresh (V137 / OWASP ASVS 3.3.1).
+    @NotAudited
+    @Column(name = "token_invalidated_before")
+    private LocalDateTime tokenInvalidatedBefore;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

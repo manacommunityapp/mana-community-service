@@ -4,8 +4,11 @@ import com.manacommunity.api.academy.entity.AcademyEnrollment;
 import com.manacommunity.api.academy.entity.AcademyProgram;
 import com.manacommunity.api.academy.repository.AcademyEnrollmentRepository;
 import com.manacommunity.api.academy.repository.AcademyProgramRepository;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,9 +31,10 @@ public class AcademyController {
 
     @GetMapping("/programs")
     public ResponseEntity<List<AcademyProgram>> getPrograms(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String status) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
         if (category != null && !category.isBlank()) {
             return ResponseEntity.ok(programRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category));
         }
@@ -40,11 +44,51 @@ public class AcademyController {
         return ResponseEntity.ok(programRepo.findByCommunityIdOrderByCreatedAtDesc(communityId));
     }
 
+    @PostMapping("/programs")
+    @Transactional
+    public ResponseEntity<AcademyProgram> createProgram(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody AcademyProgram program) {
+        if (program.getCommunityId() == null) {
+            program.setCommunityId(principal != null && principal.getCommunityId() != null ? principal.getCommunityId() : 1L);
+        }
+        if (program.getStatus() == null) {
+            program.setStatus("OPEN");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(programRepo.save(program));
+    }
+
     @GetMapping("/programs/{id}")
     public ResponseEntity<AcademyProgram> getProgram(@PathVariable Long id) {
         return programRepo.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/programs/{id}")
+    @Transactional
+    public ResponseEntity<AcademyProgram> updateProgram(@PathVariable Long id, @RequestBody AcademyProgram req) {
+        return programRepo.findById(id).map(p -> {
+            if (req.getTitle() != null) p.setTitle(req.getTitle());
+            if (req.getDescription() != null) p.setDescription(req.getDescription());
+            if (req.getCategory() != null) p.setCategory(req.getCategory());
+            if (req.getStatus() != null) p.setStatus(req.getStatus());
+            if (req.getInstructorName() != null) p.setInstructorName(req.getInstructorName());
+            if (req.getMaxSeats() > 0) p.setMaxSeats(req.getMaxSeats());
+            if (req.getFee() != null) p.setFee(req.getFee());
+            if (req.getScheduleText() != null) p.setScheduleText(req.getScheduleText());
+            return ResponseEntity.ok(programRepo.save(p));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/programs/{id}")
+    @Transactional
+    public ResponseEntity<Void> deleteProgram(@PathVariable Long id) {
+        if (programRepo.existsById(id)) {
+            programRepo.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PostMapping("/programs/{programId}/enroll")
@@ -95,7 +139,8 @@ public class AcademyController {
     }
 
     @GetMapping("/instructors")
-    public ResponseEntity<List<Map<String, Object>>> getInstructors(@RequestParam Long communityId) {
+    public ResponseEntity<List<Map<String, Object>>> getInstructors(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
         return ResponseEntity.ok(List.of());
     }
 
@@ -124,7 +169,8 @@ public class AcademyController {
     }
 
     @GetMapping("/admin/stats")
-    public ResponseEntity<Map<String, Object>> adminStats(@RequestParam Long communityId) {
+    public ResponseEntity<Map<String, Object>> adminStats(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
         return ResponseEntity.ok(Map.of(
                 "totalPrograms", programRepo.count(),
                 "activePrograms", programRepo.countByCommunityIdAndStatus(communityId, "OPEN"),
@@ -149,7 +195,8 @@ public class AcademyController {
     }
 
     @GetMapping("/admin/programs/pending")
-    public ResponseEntity<List<AcademyProgram>> pendingPrograms(@RequestParam Long communityId) {
+    public ResponseEntity<List<AcademyProgram>> pendingPrograms(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal != null ? principal.getCommunityId() : null;
         return ResponseEntity.ok(programRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, "PENDING_APPROVAL"));
     }
 

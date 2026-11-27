@@ -25,6 +25,9 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     private final CommunityModuleRepository communityModuleRepo;
     private final CommunityRepository communityRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
     private static final long MODULES_CACHE_TTL_MS = 300_000L; // 5 minutes
     private record CachedModules(long timestamp, List<String> modules) {}
     private final java.util.concurrent.ConcurrentHashMap<Long, CachedModules> enabledModulesCache = new java.util.concurrent.ConcurrentHashMap<>();
@@ -63,6 +66,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
     @Transactional
     public CommunityModuleResponse toggleModule(Long communityId, String moduleKey, boolean enabled) {
         enabledModulesCache.remove(communityId);
+        evictRedisCache(communityId);
         Community community = communityRepo.findById(communityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Community", communityId));
 
@@ -113,6 +117,7 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
 
         log.info("Bulk-updated {} modules for community {}", results.size(), request.communityId());
         enabledModulesCache.remove(request.communityId());
+        evictRedisCache(request.communityId());
         return results;
     }
 
@@ -173,6 +178,16 @@ public class CommunityModuleServiceImpl implements CommunityModuleService {
             }
         }
         return sb.toString();
+    }
+
+    private void evictRedisCache(Long communityId) {
+        if (redisTemplate != null && communityId != null) {
+            try {
+                redisTemplate.delete("community:modules:" + communityId);
+            } catch (Exception e) {
+                log.debug("Failed to evict Redis cache for community {}: {}", communityId, e.getMessage());
+            }
+        }
     }
 
     private CommunityModuleResponse toResponse(CommunityModule cm) {

@@ -2,6 +2,7 @@ package com.manacommunity.api.hrm.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -19,8 +20,8 @@ public class HrTravelRequest {
     @Column(name = "travel_from", nullable = false) private LocalDate travelFrom;
     @Column(name = "travel_to", nullable = false) private LocalDate travelTo;
     @Column(name = "mode_of_travel", length = 50) private String modeOfTravel;
-    @Column(name = "estimated_cost") private Double estimatedCost;
-    @Column(name = "advance_requested") @Builder.Default private Double advanceRequested = 0.0;
+    @Column(name = "estimated_cost", precision = 14, scale = 2) private BigDecimal estimatedCost;
+    @Column(name = "advance_requested", precision = 14, scale = 2) @Builder.Default private BigDecimal advanceRequested = BigDecimal.ZERO;
     @Column(name = "status", nullable = false, length = 20) @Builder.Default private String status = "PENDING";
     @Column(name = "approved_by") private Long approvedBy;
     @Column(name = "approved_at") private LocalDateTime approvedAt;

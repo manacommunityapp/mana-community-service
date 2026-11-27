@@ -9,6 +9,7 @@ import com.manacommunity.api.transactioncore.entity.TransactionIntent;
 import com.manacommunity.api.transactioncore.enums.PaymentRail;
 import com.manacommunity.api.transactioncore.repository.TransactionIntentRepository;
 import com.manacommunity.api.transactioncore.service.ManaTransactionCoreService;
+import com.manacommunity.api.trip.p2p.service.TripP2PCollectService;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +32,7 @@ public class PaymentWebhookReconciliationService {
     private final ManaTransactionCoreService transactionCoreService;
     /** Used for durable webhook idempotency — checks the DB unique index on webhook_event_id. */
     private final RazorpayOrderRepository razorpayOrderRepository;
+    private final TripP2PCollectService tripP2PCollectService;
 
     public boolean isEventProcessed(String eventId) {
         if (eventId == null || eventId.trim().isEmpty()) {
@@ -75,6 +77,15 @@ public class PaymentWebhookReconciliationService {
             String eventName = payload != null && payload.containsKey("event") ? String.valueOf(payload.get("event")) : null;
             if ("payment.captured".equals(eventName) || "order.paid".equals(eventName)) {
                 handleRazorpayPaymentCaptured(payload);
+            }
+            // P2P UPI Collect: dispatch after main payment-order handling (no-op if not a P2P payment)
+            String p2pPaymentId = extractRazorpayPaymentId(payload);
+            if (p2pPaymentId != null && eventName != null) {
+                try {
+                    tripP2PCollectService.handleCollectCallback(p2pPaymentId, eventName);
+                } catch (Exception p2pEx) {
+                    log.warn("[TripP2P] Webhook callback error for paymentId={}: {}", p2pPaymentId, p2pEx.getMessage());
+                }
             }
             markEventProcessed(eventId);
             return true;
@@ -165,6 +176,21 @@ public class PaymentWebhookReconciliationService {
         } else {
             log.info("[WebhookMatch] No TransactionIntent found for orderId={} paymentId={}. Checking CFBOS...",
                     orderId, paymentId);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractRazorpayPaymentId(Map<String, Object> payload) {
+        if (payload == null || !payload.containsKey("payload")) return null;
+        try {
+            Map<String, Object> payloadData = (Map<String, Object>) payload.get("payload");
+            if (payloadData == null) return null;
+            Map<String, Object> paymentWrapper = (Map<String, Object>) payloadData.get("payment");
+            Map<String, Object> paymentEntity = paymentWrapper != null
+                    ? (Map<String, Object>) paymentWrapper.get("entity") : null;
+            return paymentEntity != null ? (String) paymentEntity.get("id") : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 

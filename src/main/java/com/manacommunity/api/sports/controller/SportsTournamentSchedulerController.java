@@ -54,6 +54,18 @@ public class SportsTournamentSchedulerController {
     private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.manacommunity.api.sports.scheduler.SportsLiveScoringService liveScoringService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.websocket.SportsMatchRedisPublisher redisPublisher;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsLiveScoreCacheService liveScoreCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsAnalyticsCacheService analyticsCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.sports.service.SportsDashboardCacheService dashboardCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG CRUD — save / update (without schedule generation)
@@ -189,8 +201,8 @@ public class SportsTournamentSchedulerController {
     @GetMapping("/events")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getEventsForDropdown(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null) {
             AppUser user = loggedInUserService.resolve(principal);
             if (user != null && user.getCommunity() != null) {
@@ -274,8 +286,8 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping("/tournaments")
     public ResponseEntity<List<Map<String, Object>>> getTournamentsForDropdown(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null) {
             AppUser currentUser = loggedInUserService.resolve(principal);
             if (currentUser != null && currentUser.getCommunity() != null) {
@@ -380,8 +392,8 @@ public class SportsTournamentSchedulerController {
      */
     @GetMapping
     public ResponseEntity<List<SportsTournamentConfig>> list(
-            @RequestParam(required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         AppUser user = loggedInUserService.resolve(principal);
         Long targetCommunityId = communityId;
         if (!user.hasRole(ROLE_SUPER_ADMIN)) {
@@ -408,6 +420,20 @@ public class SportsTournamentSchedulerController {
             @AuthenticationPrincipal UserPrincipal principal) {
         log.info("Recording match result matchId={}", req.matchId());
         SportsTournamentScheduleResponse response = schedulerService.advanceBracket(req);
+        if (analyticsCacheService != null) {
+            analyticsCacheService.invalidateAll();
+        }
+        if (dashboardCacheService != null) {
+            dashboardCacheService.invalidateAll();
+        }
+        if (sqsMessagePublisher != null && sqsProperties != null && req.matchId() != null && feedService != null) {
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getSportsEvents(),
+                    "MATCH_RESULT_FEED_POST",
+                    Map.of("matchId", req.matchId()),
+                    () -> feedService.publishCompletedMatchPost(req.matchId())
+            );
+        }
         if (feedService != null) {
             feedService.broadcastLiveFeedUpdate();
         }
@@ -424,6 +450,27 @@ public class SportsTournamentSchedulerController {
         log.info("Seeding knockout from groups configId={}", configId);
         schedulerService.seedKnockoutFromGroups(configId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /api/tournament/{configId}/seed-knockout-async
+     * Enqueues knockout seeding via SQS ({@code mana-sports-events}).
+     */
+    @PostMapping("/{configId}/seed-knockout-async")
+    @PreAuthorize("hasAnyRole('ADMIN','SPORTS_ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Map<String, Object>> seedKnockoutAsync(@PathVariable Long configId) {
+        log.info("Enqueuing async knockout seeding configId={}", configId);
+        if (sqsMessagePublisher != null && sqsProperties != null) {
+            sqsMessagePublisher.publish(
+                    sqsProperties.getQueues().getSportsEvents(),
+                    "SEED_KNOCKOUT_FROM_GROUPS",
+                    Map.of("configId", configId),
+                    () -> schedulerService.seedKnockoutFromGroups(configId)
+            );
+        } else {
+            schedulerService.seedKnockoutFromGroups(configId);
+        }
+        return ResponseEntity.accepted().body(Map.of("status", "QUEUED", "configId", configId));
     }
 
     /**
@@ -640,10 +687,17 @@ public class SportsTournamentSchedulerController {
         if (feedService != null) {
             feedService.broadcastLiveFeedUpdate();
         }
-        if (messagingTemplate != null && liveScoringService != null) {
+        if (liveScoringService != null) {
             try {
                 SportsLiveMatchStateResponse liveState = liveScoringService.getMatchState(matchId);
-                messagingTemplate.convertAndSend("/topic/match/" + matchId + "/state", liveState);
+                if (liveScoreCacheService != null) {
+                    liveScoreCacheService.setLiveSnapshot(matchId, liveState);
+                }
+                if (redisPublisher != null) {
+                    redisPublisher.publishEvent(liveState, matchId);
+                } else if (messagingTemplate != null) {
+                    messagingTemplate.convertAndSend("/topic/match/" + matchId + "/state", liveState);
+                }
             } catch (Exception ex) {
                 log.warn("Failed to broadcast live match state for toss on matchId={}: {}", matchId, ex.getMessage());
             }

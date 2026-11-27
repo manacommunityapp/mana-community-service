@@ -53,6 +53,7 @@ public class HomeServiceBookingService {
                 .price(request.getPrice())
                 .status(HomeServiceBookingStatus.REQUESTED)
                 .notes(request.getNotes())
+                .completionOtp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000)))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -68,6 +69,9 @@ public class HomeServiceBookingService {
         booking.setStatus(newStatus);
         if (cancellationReason != null) {
             booking.setCancellationReason(cancellationReason);
+        }
+        if (booking.getCompletionOtp() == null || booking.getCompletionOtp().isBlank()) {
+            booking.setCompletionOtp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000)));
         }
         booking.setUpdatedAt(LocalDateTime.now());
 
@@ -95,6 +99,13 @@ public class HomeServiceBookingService {
     public HomeServiceBookingEntity completeWithOtp(String bookingId, String otp) {
         HomeServiceBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new HomeServiceNotFoundException("Booking not found: " + bookingId));
+
+        if (booking.getCompletionOtp() != null && !booking.getCompletionOtp().isBlank()) {
+            if (otp == null || !booking.getCompletionOtp().trim().equals(otp.trim())) {
+                throw new IllegalArgumentException("Invalid completion OTP. Verification failed.");
+            }
+        }
+
         booking.setStatus(HomeServiceBookingStatus.COMPLETED);
         booking.setUpdatedAt(LocalDateTime.now());
         return bookingRepository.save(booking);

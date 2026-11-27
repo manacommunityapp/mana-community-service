@@ -74,7 +74,7 @@ public class KittyPartyLedgerController {
     @PostMapping("/contributions/{contributionId}/verify")
     public ResponseEntity<Map<String, Object>> verifyContribution(
             @PathVariable Long contributionId,
-            @RequestBody VerifyContributionRequest request,
+            @RequestBody(required = false) VerifyContributionRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
@@ -86,7 +86,7 @@ public class KittyPartyLedgerController {
     @PostMapping("/cycles/{cycleId}/disburse")
     public ResponseEntity<Map<String, Object>> disbursePayout(
             @PathVariable Long cycleId,
-            @Valid @RequestBody DisbursePayoutRequest request,
+            @RequestBody(required = false) DisbursePayoutRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal principal
     ) {

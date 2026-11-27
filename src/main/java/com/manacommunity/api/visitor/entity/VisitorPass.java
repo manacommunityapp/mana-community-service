@@ -19,8 +19,17 @@ public class VisitorPass {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @Column(name = "pass_code", nullable = false, unique = true, length = 12)
     private String passCode;
+
+    /** Client-supplied UUID ensuring retried walk-ins return the existing PENDING record. */
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
 
     @Column(name = "visitor_name", nullable = false, length = 100)
     private String visitorName;

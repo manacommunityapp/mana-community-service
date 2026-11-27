@@ -47,4 +47,10 @@ public class GroupInviteController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(groupInviteService.addGuest(id, guest, loggedInUserService.resolve(principal)));
     }
+
+    @PutMapping("/{id}/guests/{guestId}/check-in")
+    public ResponseEntity<GroupInvite> checkInGuest(@PathVariable Long id,
+                                                    @PathVariable Long guestId) {
+        return ResponseEntity.ok(groupInviteService.checkInGuest(id, guestId));
+    }
 }

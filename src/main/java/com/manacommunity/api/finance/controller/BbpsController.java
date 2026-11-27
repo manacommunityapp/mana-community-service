@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -39,11 +40,13 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * All responses are deterministic mocks. Wire to Setu or Razorpay
  * BillPay once BBPS aggregator credentials are provisioned.
+ *
+ * Disabled in production profile (!prod) until a licensed aggregator is provisioned.
  */
 @Slf4j
+@Profile("!prod")
 @RestController
 @RequestMapping("/api/v1/bbps")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class BbpsController {
 
@@ -51,7 +54,7 @@ public class BbpsController {
     private final UnifiedPaymentOrderService   paymentOrderService;
     private final BbpsBillFetchRepository      billFetchRepository;
 
-    // ── Inner DTOs ────────────────────────────────────────────────
+    // â”€â”€ Inner DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class BillerDto {
@@ -106,116 +109,116 @@ public class BbpsController {
         private BigDecimal amount;
     }
 
-    // ── Static biller catalogue ───────────────────────────────────
+    // â”€â”€ Static biller catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<BillerDto> ELECTRICITY_BILLERS = List.of(
-        BillerDto.builder().id("BESCOM").name("BESCOM – Bangalore Electricity Supply Company")
-            .shortName("BESCOM").category("ELECTRICITY").icon("⚡").state("Karnataka")
+        BillerDto.builder().id("BESCOM").name("BESCOM â€“ Bangalore Electricity Supply Company")
+            .shortName("BESCOM").category("ELECTRICITY").icon("âš¡").state("Karnataka")
             .consumerIdLabel("RR Number (Consumer Account No.)").consumerIdHint("e.g. 9123456789")
             .consumerIdLength(10).build(),
-        BillerDto.builder().id("TSSPDCL").name("TSSPDCL – Telangana Southern Power Distribution")
-            .shortName("TSSPDCL").category("ELECTRICITY").icon("⚡").state("Telangana")
+        BillerDto.builder().id("TSSPDCL").name("TSSPDCL â€“ Telangana Southern Power Distribution")
+            .shortName("TSSPDCL").category("ELECTRICITY").icon("âš¡").state("Telangana")
             .consumerIdLabel("Service Number (CA Number)").consumerIdHint("e.g. 0012345678")
             .consumerIdLength(10).build(),
-        BillerDto.builder().id("TATA_POWER_MUMBAI").name("Tata Power – Mumbai Distribution")
-            .shortName("Tata Power").category("ELECTRICITY").icon("⚡").state("Maharashtra")
+        BillerDto.builder().id("TATA_POWER_MUMBAI").name("Tata Power â€“ Mumbai Distribution")
+            .shortName("Tata Power").category("ELECTRICITY").icon("âš¡").state("Maharashtra")
             .consumerIdLabel("Consumer Number").consumerIdHint("e.g. 4001234567")
             .consumerIdLength(10).build(),
-        BillerDto.builder().id("ADANI_ELECTRICITY").name("Adani Electricity – Mumbai")
-            .shortName("Adani").category("ELECTRICITY").icon("⚡").state("Maharashtra")
+        BillerDto.builder().id("ADANI_ELECTRICITY").name("Adani Electricity â€“ Mumbai")
+            .shortName("Adani").category("ELECTRICITY").icon("âš¡").state("Maharashtra")
             .consumerIdLabel("Consumer Account Number").consumerIdHint("e.g. 100023456").build(),
-        BillerDto.builder().id("MSEDCL").name("MSEDCL – Maharashtra State Electricity")
-            .shortName("MSEDCL").category("ELECTRICITY").icon("⚡").state("Maharashtra")
+        BillerDto.builder().id("MSEDCL").name("MSEDCL â€“ Maharashtra State Electricity")
+            .shortName("MSEDCL").category("ELECTRICITY").icon("âš¡").state("Maharashtra")
             .consumerIdLabel("Consumer Number").consumerIdHint("e.g. 020012345678").build(),
-        BillerDto.builder().id("TNEB").name("TNEB – Tamil Nadu Electricity Board")
-            .shortName("TNEB").category("ELECTRICITY").icon("⚡").state("Tamil Nadu")
+        BillerDto.builder().id("TNEB").name("TNEB â€“ Tamil Nadu Electricity Board")
+            .shortName("TNEB").category("ELECTRICITY").icon("âš¡").state("Tamil Nadu")
             .consumerIdLabel("Consumer Number (EB No.)").consumerIdHint("e.g. 001234567890").build(),
-        BillerDto.builder().id("BSES_RAJDHANI").name("BSES Rajdhani – South & West Delhi")
-            .shortName("BSES Rajdhani").category("ELECTRICITY").icon("⚡").state("Delhi")
+        BillerDto.builder().id("BSES_RAJDHANI").name("BSES Rajdhani â€“ South & West Delhi")
+            .shortName("BSES Rajdhani").category("ELECTRICITY").icon("âš¡").state("Delhi")
             .consumerIdLabel("Consumer Account Number (CA)").consumerIdHint("e.g. 50012345678").build(),
-        BillerDto.builder().id("BSES_YAMUNA").name("BSES Yamuna – East & Central Delhi")
-            .shortName("BSES Yamuna").category("ELECTRICITY").icon("⚡").state("Delhi")
+        BillerDto.builder().id("BSES_YAMUNA").name("BSES Yamuna â€“ East & Central Delhi")
+            .shortName("BSES Yamuna").category("ELECTRICITY").icon("âš¡").state("Delhi")
             .consumerIdLabel("Consumer Account Number (CA)").consumerIdHint("e.g. 30012345678").build()
     );
 
     private static final List<BillerDto> GAS_BILLERS = List.of(
-        BillerDto.builder().id("MGL").name("MGL – Mahanagar Gas Limited").shortName("MGL").category("GAS").icon("🔥").state("Maharashtra").consumerIdLabel("Business Partner (BP) Number").consumerIdHint("e.g. 200012345").build(),
-        BillerDto.builder().id("IGL").name("IGL – Indraprastha Gas Limited").shortName("IGL").category("GAS").icon("🔥").state("Delhi").consumerIdLabel("BP Number").consumerIdHint("e.g. 100009876").build()
+        BillerDto.builder().id("MGL").name("MGL â€“ Mahanagar Gas Limited").shortName("MGL").category("GAS").icon("ðŸ”¥").state("Maharashtra").consumerIdLabel("Business Partner (BP) Number").consumerIdHint("e.g. 200012345").build(),
+        BillerDto.builder().id("IGL").name("IGL â€“ Indraprastha Gas Limited").shortName("IGL").category("GAS").icon("ðŸ”¥").state("Delhi").consumerIdLabel("BP Number").consumerIdHint("e.g. 100009876").build()
     );
 
     private static final List<BillerDto> WATER_BILLERS = List.of(
-        BillerDto.builder().id("BWSSB").name("BWSSB – Bangalore Water Supply").shortName("BWSSB").category("WATER").icon("💧").state("Karnataka").consumerIdLabel("Consumer ID").consumerIdHint("e.g. 1234567890").consumerIdLength(10).build(),
-        BillerDto.builder().id("MCGM_WATER").name("MCGM – Mumbai Water Supply").shortName("MCGM").category("WATER").icon("💧").state("Maharashtra").consumerIdLabel("Consumer Number").consumerIdHint("e.g. 010123456789").build(),
-        BillerDto.builder().id("HMWSSB").name("HMWSSB – Hyderabad Metro Water").shortName("HMWSSB").category("WATER").icon("💧").state("Telangana").consumerIdLabel("Service Connection No.").consumerIdHint("e.g. HYD2012345").build(),
-        BillerDto.builder().id("DJB").name("DJB – Delhi Jal Board").shortName("DJB").category("WATER").icon("💧").state("Delhi").consumerIdLabel("K Number").consumerIdHint("e.g. K-1234567").build(),
-        BillerDto.builder().id("CMWSSB").name("CMWSSB – Chennai Metro Water").shortName("CMWSSB").category("WATER").icon("💧").state("Tamil Nadu").consumerIdLabel("Consumer ID").consumerIdHint("e.g. 12345678").build()
+        BillerDto.builder().id("BWSSB").name("BWSSB â€“ Bangalore Water Supply").shortName("BWSSB").category("WATER").icon("ðŸ’§").state("Karnataka").consumerIdLabel("Consumer ID").consumerIdHint("e.g. 1234567890").consumerIdLength(10).build(),
+        BillerDto.builder().id("MCGM_WATER").name("MCGM â€“ Mumbai Water Supply").shortName("MCGM").category("WATER").icon("ðŸ’§").state("Maharashtra").consumerIdLabel("Consumer Number").consumerIdHint("e.g. 010123456789").build(),
+        BillerDto.builder().id("HMWSSB").name("HMWSSB â€“ Hyderabad Metro Water").shortName("HMWSSB").category("WATER").icon("ðŸ’§").state("Telangana").consumerIdLabel("Service Connection No.").consumerIdHint("e.g. HYD2012345").build(),
+        BillerDto.builder().id("DJB").name("DJB â€“ Delhi Jal Board").shortName("DJB").category("WATER").icon("ðŸ’§").state("Delhi").consumerIdLabel("K Number").consumerIdHint("e.g. K-1234567").build(),
+        BillerDto.builder().id("CMWSSB").name("CMWSSB â€“ Chennai Metro Water").shortName("CMWSSB").category("WATER").icon("ðŸ’§").state("Tamil Nadu").consumerIdLabel("Consumer ID").consumerIdHint("e.g. 12345678").build()
     );
 
     private static final List<BillerDto> BROADBAND_BILLERS = List.of(
-        BillerDto.builder().id("JIO_FIBER").name("Jio Fiber – Reliance Jio").shortName("Jio Fiber").category("BROADBAND").icon("📡").state("All India").consumerIdLabel("Account Number / Mobile").consumerIdHint("e.g. 10-digit Jio number").build(),
-        BillerDto.builder().id("AIRTEL_BROADBAND").name("Airtel Xstream Fiber").shortName("Airtel").category("BROADBAND").icon("📡").state("All India").consumerIdLabel("Airtel Account Number").consumerIdHint("e.g. 123456789012").build(),
-        BillerDto.builder().id("ACT_BROADBAND").name("ACT Fibernet").shortName("ACT").category("BROADBAND").icon("📡").state("Multi").consumerIdLabel("Subscriber ID").consumerIdHint("e.g. ACT12345678").build(),
-        BillerDto.builder().id("BSNL_BROADBAND").name("BSNL Bharat Fiber / FTTH").shortName("BSNL").category("BROADBAND").icon("📡").state("All India").consumerIdLabel("CA Number / Landline Number").consumerIdHint("e.g. 01112345678").build()
+        BillerDto.builder().id("JIO_FIBER").name("Jio Fiber â€“ Reliance Jio").shortName("Jio Fiber").category("BROADBAND").icon("ðŸ“¡").state("All India").consumerIdLabel("Account Number / Mobile").consumerIdHint("e.g. 10-digit Jio number").build(),
+        BillerDto.builder().id("AIRTEL_BROADBAND").name("Airtel Xstream Fiber").shortName("Airtel").category("BROADBAND").icon("ðŸ“¡").state("All India").consumerIdLabel("Airtel Account Number").consumerIdHint("e.g. 123456789012").build(),
+        BillerDto.builder().id("ACT_BROADBAND").name("ACT Fibernet").shortName("ACT").category("BROADBAND").icon("ðŸ“¡").state("Multi").consumerIdLabel("Subscriber ID").consumerIdHint("e.g. ACT12345678").build(),
+        BillerDto.builder().id("BSNL_BROADBAND").name("BSNL Bharat Fiber / FTTH").shortName("BSNL").category("BROADBAND").icon("ðŸ“¡").state("All India").consumerIdLabel("CA Number / Landline Number").consumerIdHint("e.g. 01112345678").build()
     );
 
     private static final List<BillerDto> DTH_BILLERS = List.of(
-        BillerDto.builder().id("TATA_PLAY").name("Tata Play (formerly Tata Sky)").shortName("Tata Play").category("DTH").icon("📺").state("All India").consumerIdLabel("Subscriber ID (RM ID)").consumerIdHint("e.g. 1234567890").consumerIdLength(10).build(),
-        BillerDto.builder().id("DISH_TV").name("Dish TV").shortName("Dish TV").category("DTH").icon("📺").state("All India").consumerIdLabel("VC Number").consumerIdHint("e.g. 01234567890").consumerIdLength(11).build(),
-        BillerDto.builder().id("AIRTEL_DTH").name("Airtel Digital TV").shortName("Airtel DTH").category("DTH").icon("📺").state("All India").consumerIdLabel("Customer ID").consumerIdHint("e.g. 3012345678").consumerIdLength(10).build(),
-        BillerDto.builder().id("SUN_DIRECT").name("Sun Direct DTH").shortName("Sun Direct").category("DTH").icon("📺").state("South").consumerIdLabel("Smart Card Number").consumerIdHint("e.g. 1234567890123").consumerIdLength(13).build(),
-        BillerDto.builder().id("D2H").name("D2H (Videocon D2H)").shortName("D2H").category("DTH").icon("📺").state("All India").consumerIdLabel("Customer ID").consumerIdHint("e.g. 123456789").build()
+        BillerDto.builder().id("TATA_PLAY").name("Tata Play (formerly Tata Sky)").shortName("Tata Play").category("DTH").icon("ðŸ“º").state("All India").consumerIdLabel("Subscriber ID (RM ID)").consumerIdHint("e.g. 1234567890").consumerIdLength(10).build(),
+        BillerDto.builder().id("DISH_TV").name("Dish TV").shortName("Dish TV").category("DTH").icon("ðŸ“º").state("All India").consumerIdLabel("VC Number").consumerIdHint("e.g. 01234567890").consumerIdLength(11).build(),
+        BillerDto.builder().id("AIRTEL_DTH").name("Airtel Digital TV").shortName("Airtel DTH").category("DTH").icon("ðŸ“º").state("All India").consumerIdLabel("Customer ID").consumerIdHint("e.g. 3012345678").consumerIdLength(10).build(),
+        BillerDto.builder().id("SUN_DIRECT").name("Sun Direct DTH").shortName("Sun Direct").category("DTH").icon("ðŸ“º").state("South").consumerIdLabel("Smart Card Number").consumerIdHint("e.g. 1234567890123").consumerIdLength(13).build(),
+        BillerDto.builder().id("D2H").name("D2H (Videocon D2H)").shortName("D2H").category("DTH").icon("ðŸ“º").state("All India").consumerIdLabel("Customer ID").consumerIdHint("e.g. 123456789").build()
     );
 
     private static final List<BillerDto> FASTAG_BILLERS = List.of(
-        BillerDto.builder().id("NHAI_ONE").name("NHAI – National Highways Authority (One FASTag)").shortName("NHAI").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. KA01AB1234").build(),
-        BillerDto.builder().id("HDFC_FASTAG").name("HDFC Bank FASTag").shortName("HDFC FASTag").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. MH02CD5678").build(),
-        BillerDto.builder().id("SBI_FASTAG").name("SBI FASTag – State Bank of India").shortName("SBI FASTag").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. DL03EF9012").build(),
-        BillerDto.builder().id("ICICI_FASTAG").name("ICICI Bank FASTag").shortName("ICICI FASTag").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. TN04GH3456").build(),
-        BillerDto.builder().id("PAYTM_FASTAG").name("Paytm Payments Bank FASTag").shortName("Paytm FASTag").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. KA05IJ7890").build(),
-        BillerDto.builder().id("AXIS_FASTAG").name("Axis Bank FASTag").shortName("Axis FASTag").category("FASTAG").icon("🚗").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. GJ06KL2345").build()
+        BillerDto.builder().id("NHAI_ONE").name("NHAI â€“ National Highways Authority (One FASTag)").shortName("NHAI").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. KA01AB1234").build(),
+        BillerDto.builder().id("HDFC_FASTAG").name("HDFC Bank FASTag").shortName("HDFC FASTag").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. MH02CD5678").build(),
+        BillerDto.builder().id("SBI_FASTAG").name("SBI FASTag â€“ State Bank of India").shortName("SBI FASTag").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. DL03EF9012").build(),
+        BillerDto.builder().id("ICICI_FASTAG").name("ICICI Bank FASTag").shortName("ICICI FASTag").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. TN04GH3456").build(),
+        BillerDto.builder().id("PAYTM_FASTAG").name("Paytm Payments Bank FASTag").shortName("Paytm FASTag").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. KA05IJ7890").build(),
+        BillerDto.builder().id("AXIS_FASTAG").name("Axis Bank FASTag").shortName("Axis FASTag").category("FASTAG").icon("ðŸš—").state("All India").consumerIdLabel("Vehicle Registration Number").consumerIdHint("e.g. GJ06KL2345").build()
     );
 
     private static final List<BillerDto> MUNICIPAL_TAX_BILLERS = List.of(
-        BillerDto.builder().id("GHMC").name("GHMC – Greater Hyderabad Municipal Corporation").shortName("GHMC").category("MUNICIPAL_TAX").icon("🏛").state("Telangana").consumerIdLabel("PTIN (Property Tax ID No.)").consumerIdHint("e.g. 123456789").build(),
-        BillerDto.builder().id("BBMP").name("BBMP – Bruhat Bengaluru Mahanagara Palike").shortName("BBMP").category("MUNICIPAL_TAX").icon("🏛").state("Karnataka").consumerIdLabel("PID Number / Application ID").consumerIdHint("e.g. 1234567890").build(),
-        BillerDto.builder().id("BMC").name("BMC – Brihanmumbai Municipal Corporation").shortName("BMC").category("MUNICIPAL_TAX").icon("🏛").state("Maharashtra").consumerIdLabel("Property Account Number").consumerIdHint("e.g. 0123456789").build(),
-        BillerDto.builder().id("MCD").name("MCD – Municipal Corporation of Delhi").shortName("MCD").category("MUNICIPAL_TAX").icon("🏛").state("Delhi").consumerIdLabel("Property ID / UPIC No.").consumerIdHint("e.g. D0123456").build(),
-        BillerDto.builder().id("PCMC").name("PCMC – Pimpri-Chinchwad Municipal Corporation").shortName("PCMC").category("MUNICIPAL_TAX").icon("🏛").state("Maharashtra").consumerIdLabel("Property Number").consumerIdHint("e.g. PCM/1234/567").build(),
-        BillerDto.builder().id("NMMC").name("NMMC – Navi Mumbai Municipal Corporation").shortName("NMMC").category("MUNICIPAL_TAX").icon("🏛").state("Maharashtra").consumerIdLabel("Assessment Number").consumerIdHint("e.g. 12345678").build(),
-        BillerDto.builder().id("CMC_CHENNAI").name("Greater Chennai Corporation").shortName("Chennai Corp").category("MUNICIPAL_TAX").icon("🏛").state("Tamil Nadu").consumerIdLabel("Zone-Division-Bill No.").consumerIdHint("e.g. 1-2-12345678").build()
+        BillerDto.builder().id("GHMC").name("GHMC â€“ Greater Hyderabad Municipal Corporation").shortName("GHMC").category("MUNICIPAL_TAX").icon("ðŸ›").state("Telangana").consumerIdLabel("PTIN (Property Tax ID No.)").consumerIdHint("e.g. 123456789").build(),
+        BillerDto.builder().id("BBMP").name("BBMP â€“ Bruhat Bengaluru Mahanagara Palike").shortName("BBMP").category("MUNICIPAL_TAX").icon("ðŸ›").state("Karnataka").consumerIdLabel("PID Number / Application ID").consumerIdHint("e.g. 1234567890").build(),
+        BillerDto.builder().id("BMC").name("BMC â€“ Brihanmumbai Municipal Corporation").shortName("BMC").category("MUNICIPAL_TAX").icon("ðŸ›").state("Maharashtra").consumerIdLabel("Property Account Number").consumerIdHint("e.g. 0123456789").build(),
+        BillerDto.builder().id("MCD").name("MCD â€“ Municipal Corporation of Delhi").shortName("MCD").category("MUNICIPAL_TAX").icon("ðŸ›").state("Delhi").consumerIdLabel("Property ID / UPIC No.").consumerIdHint("e.g. D0123456").build(),
+        BillerDto.builder().id("PCMC").name("PCMC â€“ Pimpri-Chinchwad Municipal Corporation").shortName("PCMC").category("MUNICIPAL_TAX").icon("ðŸ›").state("Maharashtra").consumerIdLabel("Property Number").consumerIdHint("e.g. PCM/1234/567").build(),
+        BillerDto.builder().id("NMMC").name("NMMC â€“ Navi Mumbai Municipal Corporation").shortName("NMMC").category("MUNICIPAL_TAX").icon("ðŸ›").state("Maharashtra").consumerIdLabel("Assessment Number").consumerIdHint("e.g. 12345678").build(),
+        BillerDto.builder().id("CMC_CHENNAI").name("Greater Chennai Corporation").shortName("Chennai Corp").category("MUNICIPAL_TAX").icon("ðŸ›").state("Tamil Nadu").consumerIdLabel("Zone-Division-Bill No.").consumerIdHint("e.g. 1-2-12345678").build()
     );
 
     private static final List<BillerDto> CREDIT_CARD_BILLERS = List.of(
-        BillerDto.builder().id("HDFC_CC").name("HDFC Bank Credit Card").shortName("HDFC").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build(),
-        BillerDto.builder().id("SBI_CC").name("SBI Card – State Bank Credit").shortName("SBI Card").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 5425 2334 3010 9903").consumerIdLength(16).build(),
-        BillerDto.builder().id("ICICI_CC").name("ICICI Bank Credit Card").shortName("ICICI").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4000 0566 5566 5556").consumerIdLength(16).build(),
-        BillerDto.builder().id("AXIS_CC").name("Axis Bank Credit Card").shortName("Axis").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 5425 2334 3010 9903").consumerIdLength(16).build(),
-        BillerDto.builder().id("KOTAK_CC").name("Kotak Mahindra Bank Credit Card").shortName("Kotak").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build(),
-        BillerDto.builder().id("AMEX_CC").name("American Express India").shortName("Amex").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Card Number (15 digits)").consumerIdHint("e.g. 3714 496353 98431").consumerIdLength(15).build(),
-        BillerDto.builder().id("INDUSIND_CC").name("IndusInd Bank Credit Card").shortName("IndusInd").category("CREDIT_CARD").icon("💳").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build()
+        BillerDto.builder().id("HDFC_CC").name("HDFC Bank Credit Card").shortName("HDFC").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build(),
+        BillerDto.builder().id("SBI_CC").name("SBI Card â€“ State Bank Credit").shortName("SBI Card").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 5425 2334 3010 9903").consumerIdLength(16).build(),
+        BillerDto.builder().id("ICICI_CC").name("ICICI Bank Credit Card").shortName("ICICI").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4000 0566 5566 5556").consumerIdLength(16).build(),
+        BillerDto.builder().id("AXIS_CC").name("Axis Bank Credit Card").shortName("Axis").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 5425 2334 3010 9903").consumerIdLength(16).build(),
+        BillerDto.builder().id("KOTAK_CC").name("Kotak Mahindra Bank Credit Card").shortName("Kotak").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build(),
+        BillerDto.builder().id("AMEX_CC").name("American Express India").shortName("Amex").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Card Number (15 digits)").consumerIdHint("e.g. 3714 496353 98431").consumerIdLength(15).build(),
+        BillerDto.builder().id("INDUSIND_CC").name("IndusInd Bank Credit Card").shortName("IndusInd").category("CREDIT_CARD").icon("ðŸ’³").state("All India").consumerIdLabel("Credit Card Number (16 digits)").consumerIdHint("e.g. 4111 1111 1111 1111").consumerIdLength(16).build()
     );
 
     private static final List<BillerDto> EDUCATION_BILLERS = List.of(
-        BillerDto.builder().id("CBSE").name("CBSE – Central Board of Secondary Education").shortName("CBSE").category("EDUCATION").icon("🎓").state("All India").consumerIdLabel("Application / Roll Number").consumerIdHint("e.g. 3012345678").build(),
-        BillerDto.builder().id("DU").name("Delhi University Fee Portal").shortName("DU").category("EDUCATION").icon("🎓").state("Delhi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. DU2024001234").build(),
-        BillerDto.builder().id("BITS").name("BITS Pilani – Fee Payment").shortName("BITS Pilani").category("EDUCATION").icon("🎓").state("Rajasthan").consumerIdLabel("Student ID (BITS ID)").consumerIdHint("e.g. 2024A7PS1234G").build(),
-        BillerDto.builder().id("AMITY").name("Amity University Fee Portal").shortName("Amity").category("EDUCATION").icon("🎓").state("Multi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. A2024123456").build(),
-        BillerDto.builder().id("VTU").name("VTU – Visvesvaraya Technological University").shortName("VTU").category("EDUCATION").icon("🎓").state("Karnataka").consumerIdLabel("USN (University Seat Number)").consumerIdHint("e.g. 1RV21CS001").build(),
-        BillerDto.builder().id("SCHOOL_GENERIC").name("School Fee Payment (Generic)").shortName("School Fee").category("EDUCATION").icon("🎓").state("All India").consumerIdLabel("Admission / Roll Number").consumerIdHint("e.g. 2024-12345").build()
+        BillerDto.builder().id("CBSE").name("CBSE â€“ Central Board of Secondary Education").shortName("CBSE").category("EDUCATION").icon("ðŸŽ“").state("All India").consumerIdLabel("Application / Roll Number").consumerIdHint("e.g. 3012345678").build(),
+        BillerDto.builder().id("DU").name("Delhi University Fee Portal").shortName("DU").category("EDUCATION").icon("ðŸŽ“").state("Delhi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. DU2024001234").build(),
+        BillerDto.builder().id("BITS").name("BITS Pilani â€“ Fee Payment").shortName("BITS Pilani").category("EDUCATION").icon("ðŸŽ“").state("Rajasthan").consumerIdLabel("Student ID (BITS ID)").consumerIdHint("e.g. 2024A7PS1234G").build(),
+        BillerDto.builder().id("AMITY").name("Amity University Fee Portal").shortName("Amity").category("EDUCATION").icon("ðŸŽ“").state("Multi").consumerIdLabel("Enrollment Number").consumerIdHint("e.g. A2024123456").build(),
+        BillerDto.builder().id("VTU").name("VTU â€“ Visvesvaraya Technological University").shortName("VTU").category("EDUCATION").icon("ðŸŽ“").state("Karnataka").consumerIdLabel("USN (University Seat Number)").consumerIdHint("e.g. 1RV21CS001").build(),
+        BillerDto.builder().id("SCHOOL_GENERIC").name("School Fee Payment (Generic)").shortName("School Fee").category("EDUCATION").icon("ðŸŽ“").state("All India").consumerIdLabel("Admission / Roll Number").consumerIdHint("e.g. 2024-12345").build()
     );
 
     private static final List<BillerDto> LPG_BILLERS = List.of(
-        BillerDto.builder().id("HP_GAS").name("HP Gas – Hindustan Petroleum LPG").shortName("HP Gas").category("LPG").icon("🟢").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. HP123456789").build(),
-        BillerDto.builder().id("BHARAT_GAS").name("Bharat Gas – BPCL LPG").shortName("Bharat Gas").category("LPG").icon("🔵").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. BG987654321").build(),
-        BillerDto.builder().id("INDANE_GAS").name("Indane Gas – IOCL LPG").shortName("Indane Gas").category("LPG").icon("🔴").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. IG456789012").build()
+        BillerDto.builder().id("HP_GAS").name("HP Gas â€“ Hindustan Petroleum LPG").shortName("HP Gas").category("LPG").icon("ðŸŸ¢").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. HP123456789").build(),
+        BillerDto.builder().id("BHARAT_GAS").name("Bharat Gas â€“ BPCL LPG").shortName("Bharat Gas").category("LPG").icon("ðŸ”µ").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. BG987654321").build(),
+        BillerDto.builder().id("INDANE_GAS").name("Indane Gas â€“ IOCL LPG").shortName("Indane Gas").category("LPG").icon("ðŸ”´").state("All India").consumerIdLabel("LPG Consumer ID").consumerIdHint("e.g. IG456789012").build()
     );
 
     private static final List<BillerDto> LANDLINE_BILLERS = List.of(
-        BillerDto.builder().id("BSNL_LANDLINE").name("BSNL Landline / PSTN").shortName("BSNL").category("LANDLINE").icon("☎").state("All India").consumerIdLabel("Telephone Number").consumerIdHint("e.g. 01123456789").build(),
-        BillerDto.builder().id("MTNL_DELHI").name("MTNL Delhi – Landline").shortName("MTNL Delhi").category("LANDLINE").icon("☎").state("Delhi").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 01123456789").build(),
-        BillerDto.builder().id("MTNL_MUMBAI").name("MTNL Mumbai – Landline").shortName("MTNL Mumbai").category("LANDLINE").icon("☎").state("Maharashtra").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 02223456789").build(),
-        BillerDto.builder().id("AIRTEL_LANDLINE").name("Airtel Landline / Broadband").shortName("Airtel").category("LANDLINE").icon("☎").state("All India").consumerIdLabel("Airtel Account Number").consumerIdHint("e.g. 123456789012").build(),
-        BillerDto.builder().id("ACT_LANDLINE").name("ACT Fibernet – Voice").shortName("ACT").category("LANDLINE").icon("☎").state("Multi").consumerIdLabel("Subscriber ID").consumerIdHint("e.g. ACT12345678").build()
+        BillerDto.builder().id("BSNL_LANDLINE").name("BSNL Landline / PSTN").shortName("BSNL").category("LANDLINE").icon("â˜Ž").state("All India").consumerIdLabel("Telephone Number").consumerIdHint("e.g. 01123456789").build(),
+        BillerDto.builder().id("MTNL_DELHI").name("MTNL Delhi â€“ Landline").shortName("MTNL Delhi").category("LANDLINE").icon("â˜Ž").state("Delhi").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 01123456789").build(),
+        BillerDto.builder().id("MTNL_MUMBAI").name("MTNL Mumbai â€“ Landline").shortName("MTNL Mumbai").category("LANDLINE").icon("â˜Ž").state("Maharashtra").consumerIdLabel("Telephone / Account Number").consumerIdHint("e.g. 02223456789").build(),
+        BillerDto.builder().id("AIRTEL_LANDLINE").name("Airtel Landline / Broadband").shortName("Airtel").category("LANDLINE").icon("â˜Ž").state("All India").consumerIdLabel("Airtel Account Number").consumerIdHint("e.g. 123456789012").build(),
+        BillerDto.builder().id("ACT_LANDLINE").name("ACT Fibernet â€“ Voice").shortName("ACT").category("LANDLINE").icon("â˜Ž").state("Multi").consumerIdLabel("Subscriber ID").consumerIdHint("e.g. ACT12345678").build()
     );
 
     private static final Map<String, List<BillerDto>> BILLER_CATALOGUE = Map.ofEntries(
@@ -232,7 +235,7 @@ public class BbpsController {
         Map.entry("LANDLINE",      LANDLINE_BILLERS)
     );
 
-    // ── Endpoints ─────────────────────────────────────────────────
+    // â”€â”€ Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/billers")
     public ResponseEntity<List<BillerDto>> getBillers(@RequestParam(defaultValue = "ELECTRICITY") String category) {
@@ -327,7 +330,7 @@ public class BbpsController {
         AppUser user = loggedInUserService.resolve(principal);
         Long communityId = user.getCommunity().getId();
 
-        // Create a tracked payment_order — referenced in webhook/callback to mark PAID
+        // Create a tracked payment_order â€” referenced in webhook/callback to mark PAID
         String idempotencyKey = "BBPS-" + request.getBillNumber() + "-" + user.getId();
         PaymentOrder paymentOrder = paymentOrderService.createOrder(
             CreatePaymentOrderRequest.builder()
@@ -375,7 +378,7 @@ public class BbpsController {
     }
 
     /**
-     * UPI intent callback — called by the mobile app after UPI app returns.
+     * UPI intent callback â€” called by the mobile app after UPI app returns.
      * Marks the payment_order SUCCESS and the bill fetch record PAID.
      * NOTE: Real BBPS aggregator (Setu/Razorpay BillPay) will call a separate
      * webhook instead. Wire that webhook once credentials are provisioned.

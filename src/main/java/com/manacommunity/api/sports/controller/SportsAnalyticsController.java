@@ -35,11 +35,11 @@ public class SportsAnalyticsController {
 
     @GetMapping
     public ResponseEntity<SportsAnalyticsResponse> getAnalytics(
-            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) Long sportId,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_ANALYTICS);
         validateDateRange(fromDate, toDate);
         AppUser user = loggedInUserService.resolve(principal);
@@ -51,11 +51,11 @@ public class SportsAnalyticsController {
 
     @GetMapping("/overview")
     public ResponseEntity<SportsAnalyticsResponse.OverviewMetrics> getOverview(
-            @RequestParam(required = false) Long communityId,
             @RequestParam(required = false) Long sportId,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate,
             @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         permissionCheckService.requireAnyPermission(principal, VIEW_SPORTS_ANALYTICS);
         validateDateRange(fromDate, toDate);
         AppUser user = loggedInUserService.resolve(principal);

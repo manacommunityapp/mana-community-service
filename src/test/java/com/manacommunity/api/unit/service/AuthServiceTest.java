@@ -56,6 +56,7 @@ class AuthServiceTest {
     @Mock com.manacommunity.api.service.NotificationManagementService notificationService;
     @Mock com.manacommunity.api.security.RsaKeyService rsaKeyService;
     @Mock com.manacommunity.api.security.CaptchaVerificationService captchaVerificationService;
+    @Mock com.manacommunity.api.privacy.ConsentRecordRepository consentRecordRepository;
 
     @InjectMocks AuthServiceImpl authService;
 
@@ -111,7 +112,7 @@ class AuthServiceTest {
             when(blockConfigService.validateBlockAndFlat(anyLong(), any(), any())).thenReturn(true);
             when(passwordEncoder.encode(req.getPassword())).thenReturn("hashed");
             when(roleRepository.findByNameIgnoreCaseAndCommunityId(anyString(), anyLong())).thenReturn(Optional.of(role));
-            when(jwtTokenProvider.generateToken(any())).thenReturn("mock-token-tenant");
+            when(jwtTokenProvider.generateToken(any(), any())).thenReturn("mock-token-tenant");
             when(jwtTokenProvider.generateRefreshToken(any())).thenReturn("mock-refresh-tenant");
             when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> {
                 AppUser u = inv.getArgument(0);
@@ -288,6 +289,53 @@ class AuthServiceTest {
             assertThatThrownBy(() -> authService.loginUser(TestDataBuilder.loginRequest("9876543210", "p")))
                     .isInstanceOf(ManaCommunityException.class)
                     .hasMessage("Mobile number not found. Please check and try again.");
+        }
+    }
+
+    @Nested
+    @DisplayName("tokenInvalidation")
+    class TokenInvalidation {
+
+        @Test
+        @DisplayName("changePassword stamps tokenInvalidatedBefore and clears lockout")
+        void changePasswordStampsInvalidation() {
+            AppUser user = TestDataBuilder.adminUser();
+            user.setPasswordHash("old-hash");
+            user.setFailedLoginAttempts(2);
+
+            com.manacommunity.api.user.dto.ChangePasswordRequest req =
+                    new com.manacommunity.api.user.dto.ChangePasswordRequest();
+            req.setCurrentPassword("OldPass@123");
+            req.setNewPassword("StrongPass@987!");
+            req.setConfirmPassword("StrongPass@987!");
+
+            when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("OldPass@123", "old-hash")).thenReturn(true);
+            when(passwordEncoder.encode("StrongPass@987!")).thenReturn("new-hash");
+
+            authService.changePassword(user.getId(), req);
+
+            assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+            assertThat(user.getFailedLoginAttempts()).isZero();
+            assertThat(user.getTokenInvalidatedBefore()).isNotNull();
+            verify(userRepository).save(user);
+        }
+
+        @Test
+        @DisplayName("refreshToken rejects tokens issued before tokenInvalidatedBefore")
+        void refreshTokenRejectsInvalidatedSession() {
+            AppUser user = TestDataBuilder.adminUser();
+            user.setTokenInvalidatedBefore(java.time.LocalDateTime.now());
+
+            when(jwtTokenProvider.validateToken("old-refresh")).thenReturn(true);
+            when(jwtTokenProvider.isRefreshToken("old-refresh")).thenReturn(true);
+            when(jwtTokenProvider.getUserId("old-refresh")).thenReturn(user.getId());
+            when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+            when(jwtTokenProvider.isIssuedBefore("old-refresh", user.getTokenInvalidatedBefore())).thenReturn(true);
+
+            assertThatThrownBy(() -> authService.refreshToken("old-refresh"))
+                    .isInstanceOf(ManaCommunityException.class)
+                    .hasMessageContaining("password change");
         }
     }
 }

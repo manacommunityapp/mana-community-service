@@ -16,6 +16,7 @@ import com.manacommunity.api.payments.entity.CashfreeOrder;
 import com.manacommunity.api.payments.exception.PaymentGatewayException;
 import com.manacommunity.api.payments.exception.PaymentVerificationException;
 import com.manacommunity.api.payments.repository.CashfreeOrderRepository;
+import com.manacommunity.api.payments.service.PaymentAmountResolver;
 import com.manacommunity.api.market.bazaar.listener.MarketBazaarPaymentListener.CashfreePaymentSucceededEvent;
 import com.manacommunity.api.transactioncore.event.GatewayPaymentCapturedEvent;
 import com.manacommunity.api.security.AuditAction;
@@ -34,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import com.manacommunity.api.platform.outbox.DomainEventPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -85,10 +87,24 @@ public class CashfreePaymentService {
     private final SportsEventRegistrationRepository regRepository;
     private final MobilityTripRepository mobilityTripRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DomainEventPublisher domainEventPublisher;
     private final org.springframework.beans.factory.ObjectProvider<com.manacommunity.api.groupbuying.service.GroupBuyPaymentConfirmationService> groupBuyPaymentConfirmationService;
     private final com.manacommunity.api.commerce.core.repository.CommerceOrderRepository commerceOrderRepository;
+    private final PaymentAmountResolver            amountResolver;
 
     @Lazy @Autowired private UnifiedNotificationService notificationService;
+
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsMessagePublisher sqsMessagePublisher;
+
+    @Autowired(required = false)
+    private com.manacommunity.platform.sqs.SqsProperties sqsProperties;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler paymentEventsSqsHandler;
+
+    @Autowired(required = false)
+    private com.manacommunity.api.mobility.service.MobilityPaymentCallbackService mobilityPaymentCallbackService;
 
     /** Returns a checkout order only to its payer, including its session credentials. */
     @Transactional(readOnly = true)
@@ -106,6 +122,13 @@ public class CashfreePaymentService {
      * <p>The internal record is saved BEFORE calling Cashfree so there is always
      * an audit trail. If the gateway call fails the record status stays "CREATED"
      * and can be retried.
+     *
+     * <p>The payable amount is derived server-side from {@code (referenceType,
+     * referenceId)} by {@link PaymentAmountResolver}. {@code req.getAmount()} is
+     * advisory only and is never used to price the gateway order (except for the one
+     * documented client-priced reference type, which the resolver logs loudly) — a
+     * patched client sending {@code amount: 1} for a ₹12,000 order would otherwise
+     * have ₹1 collected.
      */
     @Transactional
     public CashfreeOrderResponse createOrder(
@@ -116,10 +139,19 @@ public class CashfreePaymentService {
 
         String manaOrderId = "MANA-" + System.currentTimeMillis() + "-" + user.getId();
 
+        // Server-side price authority. Throws rather than falling back to req.getAmount().
+        PaymentAmountResolver.ResolvedAmount resolved = amountResolver.resolve(
+                req.getReferenceType(),
+                req.getReferenceId(),
+                community != null ? community.getId() : null,
+                user.getId(),
+                req.getAmount());
+        BigDecimal payableAmount = resolved.amount();
+
         // Persist the local record first.
         CashfreeOrder entity = CashfreeOrder.builder()
                 .manaOrderId(manaOrderId)
-                .amount(req.getAmount())
+                .amount(payableAmount)
                 .currency(properties.getCurrency())
                 .status("CREATED")
                 .referenceType(req.getReferenceType())
@@ -146,7 +178,7 @@ public class CashfreePaymentService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("order_id", manaOrderId);
-        body.put("order_amount", req.getAmount());
+        body.put("order_amount", payableAmount);
         body.put("order_currency", properties.getCurrency());
         body.put("customer_details", customerDetails);
         body.put("order_meta", orderMeta);
@@ -179,8 +211,9 @@ public class CashfreePaymentService {
             auditService.record(AuditAction.PAYMENT_ORDER_CREATED, AuditModule.PAYMENT,
                     "CashfreeOrder", String.valueOf(saved.getId()));
 
-            log.info("Cashfree order created: manaOrderId={} cfOrderId={} amount=₹{} userId={} ref={}:{}",
-                    manaOrderId, cfOrderId, req.getAmount(), user.getId(),
+            log.info("Cashfree order created: manaOrderId={} cfOrderId={} amount=₹{} (serverDerived={}) "
+                            + "userId={} ref={}:{}",
+                    manaOrderId, cfOrderId, payableAmount, resolved.serverDerived(), user.getId(),
                     req.getReferenceType(), req.getReferenceId());
 
             return toResponse(saved, true);
@@ -364,21 +397,18 @@ public class CashfreePaymentService {
                         "CashfreeOrder", String.valueOf(order.getId()), prev, "PAID");
                 log.info("Webhook PAYMENT_SUCCESS: order {} PAID via cfPaymentId={}", manaOrderId, cfPaymentId);
 
-                eventPublisher.publishEvent(new GatewayPaymentCapturedEvent(
+                GatewayPaymentCapturedEvent cashfreeCaptured = new GatewayPaymentCapturedEvent(
                         GatewayPaymentCapturedEvent.Gateway.CASHFREE,
-                        manaOrderId,
-                        cfPaymentId,
-                        order.getAmount(),
-                        "INR",
-                        "Cashfree payment captured: " + manaOrderId,
-                        order.getId()
-                ));
+                        manaOrderId, cfPaymentId, order.getAmount(), "INR",
+                        "Cashfree payment captured: " + manaOrderId, order.getId());
+                eventPublisher.publishEvent(cashfreeCaptured);
+                domainEventPublisher.publish("PAYMENT_ORDER", String.valueOf(order.getId()),
+                        "GatewayPaymentCaptured", cashfreeCaptured,
+                        order.getCommunity() != null ? order.getCommunity().getId() : null);
 
-                // Wire to business workflows based on referenceType.
-                dispatchBusinessConfirmation(order);
-
-                // Notify the payer.
-                dispatchPaymentNotification(order, true);
+                // Wire to business workflows & notify the payer asynchronously via SQS after commit.
+                enqueueBusinessConfirmation(order);
+                enqueuePaymentNotification(order, true);
             }
         }, () -> log.warn("Webhook PAYMENT_SUCCESS: no local order for manaOrderId={}", manaOrderId));
     }
@@ -402,7 +432,7 @@ public class CashfreePaymentService {
                 order.setWebhookEventId(eventId);
                 orderRepository.save(order);
                 log.info("Webhook PAYMENT_FAILED: order {} FAILED: {}", manaOrderId, errorDesc);
-                dispatchPaymentNotification(order, false);
+                enqueuePaymentNotification(order, false);
             }
         });
     }
@@ -501,6 +531,13 @@ public class CashfreePaymentService {
         switch (order.getReferenceType()) {
             case "SPORTS_REGISTRATION" -> confirmSportsRegistration(order);
             case "GROUP_BUY_ORDER" -> confirmGroupBuyOrder(order);
+            case "MOBILITY_TRIP", "MOBILITY_CARPOOL" -> {
+                if (mobilityPaymentCallbackService != null) {
+                    mobilityPaymentCallbackService.confirmPayment(
+                            order.getReferenceType(), order.getReferenceId(),
+                            order.getManaOrderId(), order.getCfPaymentId(), "CASHFREE");
+                }
+            }
             case "MARKET_STALL_BOOKING" -> {
                 if (order.getUser() != null) {
                     eventPublisher.publishEvent(new CashfreePaymentSucceededEvent(order.getReferenceType(), order.getReferenceId(), order.getUser().getId(), order.getAmount()));
@@ -554,6 +591,51 @@ public class CashfreePaymentService {
     }
 
     // ─── Notification Dispatch ────────────────────────────────────────────────
+
+    private void enqueueBusinessConfirmation(CashfreeOrder order) {
+        if (order.getReferenceType() == null) return;
+        if (sqsMessagePublisher != null && sqsProperties != null && paymentEventsSqsHandler != null) {
+            var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.CashfreeBusinessConfirmationPayload(
+                    order.getManaOrderId(),
+                    order.getCfPaymentId(),
+                    order.getPaymentMethod(),
+                    order.getAmount(),
+                    order.getUser() != null ? order.getUser().getId() : null,
+                    order.getReferenceType(),
+                    order.getReferenceId()
+            );
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getPaymentEvents(),
+                    "CASHFREE_BUSINESS_CONFIRMATION",
+                    payload,
+                    () -> dispatchBusinessConfirmation(order)
+            );
+        } else {
+            dispatchBusinessConfirmation(order);
+        }
+    }
+
+    private void enqueuePaymentNotification(CashfreeOrder order, boolean success) {
+        if (order.getUser() == null) return;
+        if (sqsMessagePublisher != null && sqsProperties != null && paymentEventsSqsHandler != null) {
+            var payload = new com.manacommunity.api.payments.sqs.PaymentEventsSqsHandler.PaymentNotificationPayload(
+                    order.getUser().getId(),
+                    order.getManaOrderId(),
+                    "CASHFREE",
+                    order.getAmount(),
+                    success,
+                    order.getFailureReason()
+            );
+            sqsMessagePublisher.publishAfterCommit(
+                    sqsProperties.getQueues().getPaymentEvents(),
+                    "PAYMENT_NOTIFICATION",
+                    payload,
+                    () -> paymentEventsSqsHandler.deliverPaymentNotification(payload)
+            );
+        } else {
+            dispatchPaymentNotification(order, success);
+        }
+    }
 
     private void dispatchPaymentNotification(CashfreeOrder order, boolean success) {
         if (order.getUser() == null) return;

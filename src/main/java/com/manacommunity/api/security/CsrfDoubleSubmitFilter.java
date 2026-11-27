@@ -55,7 +55,7 @@ public class CsrfDoubleSubmitFilter extends OncePerRequestFilter {
         }
 
         String uri = request.getRequestURI();
-        if (uri.equals("/api/auth/login") || uri.equals("/api/auth/register")) {
+        if (uri.equals("/api/auth/login") || uri.equals("/api/auth/register") || uri.equals("/api/frontend-logs")) {
             chain.doFilter(request, response);
             return;
         }

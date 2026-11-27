@@ -2,10 +2,13 @@ package com.manacommunity.api.config;
 
 import com.manacommunity.api.security.JwtTokenProvider;
 import com.manacommunity.api.security.StompSubscriptionInterceptor;
+import com.manacommunity.platform.websocket.StompSecurityChannelInterceptor;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -42,6 +45,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtTokenProvider jwtTokenProvider;
     private final Environment environment;
     private final StompSubscriptionInterceptor stompSubscriptionInterceptor;
+    private final StompSecurityChannelInterceptor stompSecurityChannelInterceptor;
+    private ThreadPoolTaskScheduler heartbeatScheduler;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private List<String> allowedOrigins;
@@ -50,10 +55,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private boolean mockAuthEnabled;
 
     public WebSocketConfig(JwtTokenProvider jwtTokenProvider, Environment environment,
-                           StompSubscriptionInterceptor stompSubscriptionInterceptor) {
+                           StompSubscriptionInterceptor stompSubscriptionInterceptor,
+                           StompSecurityChannelInterceptor stompSecurityChannelInterceptor) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.environment = environment;
         this.stompSubscriptionInterceptor = stompSubscriptionInterceptor;
+        this.stompSecurityChannelInterceptor = stompSecurityChannelInterceptor;
     }
 
     @PostConstruct
@@ -74,9 +81,24 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic", "/queue");
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("ws-heartbeat-");
+        scheduler.initialize();
+        this.heartbeatScheduler = scheduler;
+
+        registry.enableSimpleBroker("/topic", "/queue")
+                .setTaskScheduler(scheduler)
+                .setHeartbeatValue(new long[]{10000L, 10000L});
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
+    }
+
+    @PreDestroy
+    void shutdownHeartbeatScheduler() {
+        if (heartbeatScheduler != null) {
+            heartbeatScheduler.shutdown();
+        }
     }
 
     @Override
@@ -91,7 +113,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
                 return message;
             }
-        }, stompSubscriptionInterceptor);
+        }, stompSubscriptionInterceptor, stompSecurityChannelInterceptor);
     }
 
     /** Resolves a user id from the CONNECT Authorization header and attaches it as the session principal. */

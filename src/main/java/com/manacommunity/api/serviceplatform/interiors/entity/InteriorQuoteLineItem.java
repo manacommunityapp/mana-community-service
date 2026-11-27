@@ -44,4 +44,10 @@ public class InteriorQuoteLineItem {
 
     @Column(nullable = false)
     private Integer position;
+
+    @Column(name = "catalog_product_id")
+    private Long catalogProductId;
+
+    @Column(name = "procurement_quantity")
+    private Integer procurementQuantity;
 }

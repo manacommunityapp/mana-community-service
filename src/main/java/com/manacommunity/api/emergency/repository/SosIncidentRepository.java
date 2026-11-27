@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SosIncidentRepository extends JpaRepository<SosIncident, Long> {
 
@@ -15,6 +16,8 @@ public interface SosIncidentRepository extends JpaRepository<SosIncident, Long> 
             Long communityId, List<SosIncident.IncidentStatus> statuses);
 
     Page<SosIncident> findByCommunityIdOrderByTriggeredAtDesc(Long communityId, Pageable pageable);
+
+    Optional<SosIncident> findByIdempotencyKey(String idempotencyKey);
 
     List<SosIncident> findByResidentIdOrderByTriggeredAtDesc(Long residentId);
 

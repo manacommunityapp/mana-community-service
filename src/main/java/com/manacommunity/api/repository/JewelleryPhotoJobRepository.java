@@ -23,6 +23,6 @@ public interface JewelleryPhotoJobRepository extends JpaRepository<JewelleryPhot
     List<JewelleryPhotoJob> findExpiredJobs(LocalDateTime now);
 
     @Modifying
-    @Query("UPDATE JewelleryPhotoJob j SET j.status = 'EXPIRED' WHERE j.expiresAt < :now AND j.status NOT IN ('DELETION_PENDING', 'EXPIRED', 'FAILED')")
+    @Query("UPDATE JewelleryPhotoJob j SET j.status = 'EXPIRED', j.sourceObjectKey = null WHERE j.status = 'DELETION_PENDING' OR (j.expiresAt < :now AND j.status NOT IN ('EXPIRED', 'FAILED'))")
     int markExpiredJobs(LocalDateTime now);
 }

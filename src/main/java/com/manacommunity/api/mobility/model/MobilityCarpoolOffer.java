@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "mobility_carpool_offer", indexes = {
@@ -84,6 +85,36 @@ public class MobilityCarpoolOffer {
 
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE";
+
+    @Column(name = "origin_lat")
+    private Double originLat;
+
+    @Column(name = "origin_lng")
+    private Double originLng;
+
+    @Column(name = "dest_lat")
+    private Double destLat;
+
+    @Column(name = "dest_lng")
+    private Double destLng;
+
+    @Builder.Default
+    @Column(name = "max_detour_km", nullable = false)
+    private Double maxDetourKm = 5.0;
+
+    @Builder.Default
+    @Column(name = "allow_cross_community", nullable = false)
+    private boolean allowCrossCommunity = false;
+
+    @Column(name = "source_slot_id")
+    private Long sourceSlotId;
+
+    @Column(name = "scheduled_date")
+    private LocalDate scheduledDate;
+
+    @Builder.Default
+    @Column(name = "parent_consent_required", nullable = false)
+    private boolean parentConsentRequired = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();

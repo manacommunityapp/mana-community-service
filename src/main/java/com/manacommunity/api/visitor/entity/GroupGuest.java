@@ -31,4 +31,9 @@ public class GroupGuest {
     @Column(name = "is_checked_in")
     @Builder.Default
     private Boolean isCheckedIn = false;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("checkedIn")
+    public Boolean getCheckedIn() {
+        return isCheckedIn;
+    }
 }

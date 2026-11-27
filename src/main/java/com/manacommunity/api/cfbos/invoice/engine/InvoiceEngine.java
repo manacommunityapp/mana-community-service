@@ -20,6 +20,7 @@ import com.manacommunity.api.cfbos.shared.sequence.service.DocumentSequenceServi
 import com.manacommunity.api.cfbos.tax.dto.GstCalculationResult;
 import com.manacommunity.api.cfbos.tax.engine.TaxEngine;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InvoiceEngine {
@@ -193,7 +195,9 @@ public class InvoiceEngine {
                                 .build()
                 );
                 invoice.setJournalEntryId(jEntry.getId());
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                log.error("Failed to post journal entry for invoice {}: {}", invoiceNumber, ex.getMessage(), ex);
+            }
 
             invoices.add(invoiceRepository.save(invoice));
         }

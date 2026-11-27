@@ -1,35 +1,23 @@
 package com.manacommunity.api;
 
-import org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration;
-import org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration;
-import org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration;
-import org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration;
-import org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration;
-import org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration;
-import org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
-
-// Spring AI 1.0.0 targets Boot 3.x and references RestClientAutoConfiguration
-// which was relocated in Boot 4. Exclude all AI auto-configs until Spring AI
-// releases a Boot-4-compatible version.
+// All Spring AI auto-configuration exclusions are handled via spring.autoconfigure.exclude
+// in application.yaml using string-based class names, which safely skips missing or
+// non-auto-configuration classes. Do NOT put Spring AI classes in this annotation's
+// exclude={} — that requires the class to be a registered @AutoConfiguration, which
+// several Spring AI 1.x classes are not (e.g. OllamaApiAutoConfiguration).
+// @EntityScan and @EnableJpaRepositories live in JpaAuditingConfig so @WebMvcTest
+// slices can load without instantiating JPA repositories or entityManagerFactory.
 @EnableAsync
 @EnableScheduling
 @SpringBootApplication(
-    nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class,
-    exclude = {
-        OllamaChatAutoConfiguration.class,
-        OllamaEmbeddingAutoConfiguration.class,
-        ChatClientAutoConfiguration.class,
-        ChatMemoryAutoConfiguration.class,
-        ToolCallingAutoConfiguration.class,
-        ChatObservationAutoConfiguration.class,
-        EmbeddingObservationAutoConfiguration.class,
-    }
+    scanBasePackages = "com.manacommunity",
+    nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class
 )
 public class ManaCommunityServiceApplication {
 

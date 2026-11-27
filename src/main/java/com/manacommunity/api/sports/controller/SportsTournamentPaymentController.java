@@ -177,21 +177,33 @@ public class SportsTournamentPaymentController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Parses the payment status. Never defaults to PAID: an absent value means the
+     * money has not been collected yet (UNPAID), and an unrecognised value is a bad
+     * request (HTTP 400) rather than a silently recorded payment.
+     */
     private SportsTournamentPlayerPayment.PaymentStatus parsePaymentStatus(String s) {
-        if (s == null) return SportsTournamentPlayerPayment.PaymentStatus.PAID;
+        if (s == null || s.isBlank()) {
+            return SportsTournamentPlayerPayment.PaymentStatus.UNPAID;
+        }
         try {
             return SportsTournamentPlayerPayment.PaymentStatus.valueOf(s.trim().toUpperCase());
-        } catch (Exception e) {
-            return SportsTournamentPlayerPayment.PaymentStatus.PAID;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown paymentStatus '" + s + "'. Allowed values: "
+                    + java.util.Arrays.toString(SportsTournamentPlayerPayment.PaymentStatus.values()));
         }
     }
 
+    /** Parses the payment mode; an unrecognised value is rejected, never defaulted. */
     private SportsTournamentPlayerPayment.PaymentMode parsePaymentMode(String s) {
-        if (s == null) return SportsTournamentPlayerPayment.PaymentMode.UPI;
+        if (s == null || s.isBlank()) {
+            return null;
+        }
         try {
             return SportsTournamentPlayerPayment.PaymentMode.valueOf(s.trim().toUpperCase());
-        } catch (Exception e) {
-            return SportsTournamentPlayerPayment.PaymentMode.UPI;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown paymentMode '" + s + "'. Allowed values: "
+                    + java.util.Arrays.toString(SportsTournamentPlayerPayment.PaymentMode.values()));
         }
     }
 

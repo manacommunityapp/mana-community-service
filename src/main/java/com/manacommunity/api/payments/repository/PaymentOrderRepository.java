@@ -26,6 +26,8 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     List<PaymentOrder> findByReferenceTypeAndReferenceId(
             PaymentReferenceType referenceType, Long referenceId);
 
+    Page<PaymentOrder> findByCommunityId(Long communityId, Pageable pageable);
+
     Page<PaymentOrder> findByCommunityIdAndStatus(
             Long communityId, PaymentOrderStatus status, Pageable pageable);
 
@@ -35,6 +37,32 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
 
     long countByCommunityIdAndStatusAndCreatedAtBetween(
             Long communityId, PaymentOrderStatus status, OffsetDateTime from, OffsetDateTime to);
+
+    long countByCreatedAtBetween(OffsetDateTime from, OffsetDateTime to);
+
+    long countByStatusAndCreatedAtBetween(PaymentOrderStatus status, OffsetDateTime from, OffsetDateTime to);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentOrder p " +
+           "WHERE p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
+           "AND p.createdAt BETWEEN :from AND :to")
+    BigDecimal sumSuccessfulAmountBetween(@Param("from") OffsetDateTime from,
+                                          @Param("to") OffsetDateTime to);
+
+    @Query("SELECT COALESCE(SUM(p.refundedAmount), 0) FROM PaymentOrder p " +
+           "WHERE p.updatedAt BETWEEN :from AND :to")
+    BigDecimal sumRefundedAmountBetween(@Param("from") OffsetDateTime from,
+                                        @Param("to") OffsetDateTime to);
+
+    @Query("SELECT COUNT(p) FROM PaymentOrder p WHERE p.refundedAmount > 0 " +
+           "AND p.createdAt BETWEEN :from AND :to")
+    long countOrdersWithRefundBetween(@Param("from") OffsetDateTime from,
+                                      @Param("to") OffsetDateTime to);
+
+    @Query("SELECT p.referenceType, COUNT(p), COALESCE(SUM(p.amount), 0), COUNT(DISTINCT p.payerUserId) FROM PaymentOrder p " +
+           "WHERE p.status = com.manacommunity.api.payments.model.PaymentOrderStatus.SUCCESS " +
+           "AND p.createdAt BETWEEN :from AND :to GROUP BY p.referenceType")
+    List<Object[]> successfulAnalyticsGroupByReferenceType(@Param("from") OffsetDateTime from,
+                                                          @Param("to") OffsetDateTime to);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentOrder p " +
            "WHERE p.communityId = :communityId AND p.status = :status " +

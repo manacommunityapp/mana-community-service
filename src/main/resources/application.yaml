@@ -6,11 +6,66 @@ logging:
   file:
     name: logs/mana-service.log
 
+mana:
+  business:
+    # Set to the contracted payout SLA in calendar days. Zero leaves overdue counts unavailable.
+    vendor-settlement-sla-days: ${MANA_BUSINESS_VENDOR_SETTLEMENT_SLA_DAYS:0}
+  # ── Mana platform secrets (field encryption + KYC ID pepper) ────────────
+  # Both default to EMPTY on purpose. The fail-fast / fail-closed logic in the
+  # code keys off "not set", so never commit a value here — set the environment
+  # variable instead.
+  encryption:
+    # AES-256-GCM key for field-level encryption of sensitive columns
+    # (health data, emergency contacts), read by
+    # com.manacommunity.api.security.FieldEncryptionService.
+    # Base64-encoded 32-byte key, or a raw 16/24/32-character secret.
+    # [REQUIRED IN PRODUCTION] If unset, the service falls back to a built-in
+    # development key under the dev/test/local/default profiles and REFUSES TO
+    # START under any other profile (notably prod).
+    field-key: ${MANA_ENCRYPTION_FIELD_KEY:}
+  kyc:
+    # Server-wide pepper used as the HMAC-SHA256 key that re-protects the
+    # client-side SHA-256 of a government ID number before it is stored
+    # (com.manacommunity.api.kyc.service.KycIdNumberProtector). The client digest
+    # alone is not a confidentiality control: a 12-digit Aadhaar has only 10^12
+    # candidates, so plain digests can be enumerated offline.
+    # Use a long random secret (>= 32 bytes of entropy).
+    # [REQUIRED IN PRODUCTION] If unset, KYC ID submission is REFUSED with
+    # HTTP 503 and an ERROR log; the bare client digest is never stored as a
+    # fallback. Rotating this value makes existing id_number_hash rows
+    # unmatchable, so rotation means re-collecting the ID numbers.
+    id-pepper: ${MANA_KYC_ID_PEPPER:}
+
 spring:
   application:
     name: mana-community-service
   main:
     allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      # Only list classes registered in AutoConfiguration.imports — OllamaApiAutoConfiguration is a plain @Configuration
+      # and must NOT appear here (causes IllegalStateException: not auto-configuration class)
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+      - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
+      - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration
+      - org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration
+      - org.springframework.ai.model.embedding.observation.autoconfigure.EmbeddingObservationAutoConfiguration
+
+  # ── Redis (distributed rate limiting, WS session tracking) ───────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 500ms
+      connect-timeout: 500ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
 
   # ── Flyway Database Migrations ─────────────────────────────────────────
   flyway:
@@ -104,9 +159,16 @@ management:
       # Stamp every metric with the app name so multiple services are separable
       # in one Prometheus/Grafana instance.
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY:1.0}
+    propagation:
+      type: W3C
 
 # ── Application-level email notification settings ───────────────────────
 app:
+  audit:
+    hmac-secret: ${APP_AUDIT_HMAC_SECRET:mana-audit-tamper-resistant-immutable-secret-key-2026}
   flyway:
     repair-on-startup: ${APP_FLYWAY_REPAIR_ON_STARTUP:true}
     out-of-order: ${APP_FLYWAY_OUT_OF_ORDER:true}
@@ -146,6 +208,28 @@ app:
     enabled: ${RECHARGE_ENABLED:false}
     provider: ${RECHARGE_PROVIDER:MOCK}          # JUSPAY | RAZORPAY_BILLPAY | MOCK
     upi-vpa: ${RECHARGE_UPI_VPA:recharge@manapay}  # VPA used in UPI intent URLs
+
+  sqs:
+    # Set APP_SQS_ENABLED=true in prod/staging once SQS queues are provisioned.
+    # When false (default), publishers transparently execute the async in-process fallback.
+    enabled: ${APP_SQS_ENABLED:false}
+    region: ${SQS_REGION:eu-north-1}
+    access-key: ${SQS_ACCESS_KEY:}
+    secret-key: ${SQS_SECRET_KEY:}
+    endpoint: ${SQS_ENDPOINT:}
+    poll-delay-ms: ${SQS_POLL_DELAY_MS:2000}
+    max-messages-per-poll: ${SQS_MAX_MESSAGES:10}
+    wait-time-seconds: ${SQS_WAIT_SECONDS:10}
+    queues:
+      sms-dispatch: ${SQS_QUEUE_SMS_DISPATCH:mana-sms-dispatch}
+      notification-events: ${SQS_QUEUE_NOTIFICATION_EVENTS:mana-notification-events}
+      sports-events: ${SQS_QUEUE_SPORTS_EVENTS:mana-sports-events}
+      auction-notifications: ${SQS_QUEUE_AUCTION_NOTIFICATIONS:mana-auction-notifications}
+      iot-alerts: ${SQS_QUEUE_IOT_ALERTS:mana-iot-alerts}
+      mobility-events: ${SQS_QUEUE_MOBILITY_EVENTS:mana-mobility-events}
+      group-order-notifications: ${SQS_QUEUE_GROUP_ORDER_NOTIFICATIONS:mana-grouporder-notifications}
+      external-sync: ${SQS_QUEUE_EXTERNAL_SYNC:mana-external-sync}
+      report-jobs: ${SQS_QUEUE_REPORT_JOBS:mana-report-jobs}
 
   mail:
     # Set to true to enable email delivery via AWS SES.
@@ -332,6 +416,7 @@ app:
   # CORS Configuration for React Frontend
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://manacommunityhub.com,https://www.manacommunityhub.com,https://dev.manacommunityhub.com,http://localhost:5173,http://localhost:3000}
+
 
 # ── AI Chat Agent (Ollama — free, runs locally) ──────────────────────
 # Connection settings for the Ollama model. Only takes effect when

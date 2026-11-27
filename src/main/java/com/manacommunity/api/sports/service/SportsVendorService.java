@@ -12,7 +12,13 @@ public interface SportsVendorService {
 
     FacilityResponse getFacilityById(Long id);
 
+    FacilityResponse createFacility(FacilityResponse req);
+
+    FacilityResponse updateFacility(Long id, FacilityResponse req);
+
     List<CourtResponse> getCourts(Long facilityId);
+
+    CourtResponse createCourt(Long facilityId, CourtResponse req);
 
     List<SlotResponse> getSlots(Long courtId, LocalDate date);
 

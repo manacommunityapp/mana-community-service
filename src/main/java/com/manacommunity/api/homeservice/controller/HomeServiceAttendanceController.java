@@ -14,7 +14,6 @@ import java.util.List;
 @RestController("homeServiceAttendanceController")
 @RequestMapping("/api/v1/home-services/attendance")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HomeServiceAttendanceController {
     private final HomeServiceAttendanceAndBillingService attendanceService;
 

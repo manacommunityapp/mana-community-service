@@ -14,14 +14,13 @@ import java.util.List;
 
 /**
  * Personal Loan stub controller.
- * GET  /api/v1/loans/offers      — browse loan offers
- * GET  /api/v1/loans/my-loans    — active loans for the user
- * POST /api/v1/loans/apply       — submit a loan application
+ * GET  /api/v1/loans/offers      â€” browse loan offers
+ * GET  /api/v1/loans/my-loans    â€” active loans for the user
+ * POST /api/v1/loans/apply       â€” submit a loan application
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/loans")
-@CrossOrigin(origins = "*")
 public class LoanController {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -73,30 +72,30 @@ public class LoanController {
         private String status;
     }
 
-    // ── Loan offers ────────────────────────────────────────────────
+    // â”€â”€ Loan offers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static final List<LoanOfferDto> LOAN_OFFERS = List.of(
-        LoanOfferDto.builder().id("PHONEPE_CREDIT").lender("PhonePe Credit Line").lenderIcon("💜").type("PERSONAL")
+        LoanOfferDto.builder().id("PHONEPE_CREDIT").lender("PhonePe Credit Line").lenderIcon("ðŸ’œ").type("PERSONAL")
             .minAmount(1000).maxAmount(500000).interestRateMin(10.99).interestRateMax(23.99)
             .maxTenureMonths(36).processingFeePct(0.0).disbursalTime("Instant")
             .features(List.of("Zero processing fee", "Instant disbursal", "Flexible repayment")).preApproved(true).build(),
-        LoanOfferDto.builder().id("BAJAJ_PERSONAL").lender("Bajaj Finserv Personal Loan").lenderIcon("💼").type("PERSONAL")
+        LoanOfferDto.builder().id("BAJAJ_PERSONAL").lender("Bajaj Finserv Personal Loan").lenderIcon("ðŸ’¼").type("PERSONAL")
             .minAmount(200000).maxAmount(5000000).interestRateMin(11.00).interestRateMax(26.00)
             .maxTenureMonths(60).processingFeePct(2.0).disbursalTime("24 Hours")
-            .features(List.of("No collateral", "Up to ₹50L", "60 month tenure")).preApproved(false).build(),
-        LoanOfferDto.builder().id("HDFC_PERSONAL").lender("HDFC Bank Personal Loan").lenderIcon("🏦").type("PERSONAL")
+            .features(List.of("No collateral", "Up to â‚¹50L", "60 month tenure")).preApproved(false).build(),
+        LoanOfferDto.builder().id("HDFC_PERSONAL").lender("HDFC Bank Personal Loan").lenderIcon("ðŸ¦").type("PERSONAL")
             .minAmount(50000).maxAmount(4000000).interestRateMin(10.50).interestRateMax(24.00)
             .maxTenureMonths(60).processingFeePct(2.5).disbursalTime("4 Hours")
             .features(List.of("Pre-approved offers", "10.50% onwards", "Quick disbursement")).preApproved(false).build(),
-        LoanOfferDto.builder().id("ICICI_PERSONAL").lender("ICICI Bank Instant Loan").lenderIcon("🔷").type("PERSONAL")
+        LoanOfferDto.builder().id("ICICI_PERSONAL").lender("ICICI Bank Instant Loan").lenderIcon("ðŸ”·").type("PERSONAL")
             .minAmount(50000).maxAmount(5000000).interestRateMin(10.85).interestRateMax(19.00)
             .maxTenureMonths(72).processingFeePct(2.25).disbursalTime("3 Seconds")
             .features(List.of("3-second disbursal", "Minimal docs", "72 month tenure")).preApproved(false).build(),
-        LoanOfferDto.builder().id("KREDITBEE").lender("KreditBee Personal Loan").lenderIcon("🐝").type("PERSONAL")
+        LoanOfferDto.builder().id("KREDITBEE").lender("KreditBee Personal Loan").lenderIcon("ðŸ").type("PERSONAL")
             .minAmount(1000).maxAmount(300000).interestRateMin(15.00).interestRateMax(29.95)
             .maxTenureMonths(24).processingFeePct(3.0).disbursalTime("10 Minutes")
-            .features(List.of("₹1K to ₹3L", "Low eligibility bar", "Paperless process")).preApproved(false).build(),
-        LoanOfferDto.builder().id("STASHFIN").lender("StashFin Credit Line").lenderIcon("💳").type("PERSONAL")
+            .features(List.of("â‚¹1K to â‚¹3L", "Low eligibility bar", "Paperless process")).preApproved(false).build(),
+        LoanOfferDto.builder().id("STASHFIN").lender("StashFin Credit Line").lenderIcon("ðŸ’³").type("PERSONAL")
             .minAmount(5000).maxAmount(500000).interestRateMin(11.99).interestRateMax(59.99)
             .maxTenureMonths(36).processingFeePct(2.0).disbursalTime("Instant")
             .features(List.of("Credit line model", "Pay only on use", "Revolving credit")).preApproved(false).build()
@@ -109,7 +108,7 @@ public class LoanController {
         return (int) Math.round(emi);
     }
 
-    // ── Endpoints ─────────────────────────────────────────────────
+    // â”€â”€ Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/offers")
     public ResponseEntity<List<LoanOfferDto>> getOffers() {

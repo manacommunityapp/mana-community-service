@@ -4,8 +4,10 @@ import com.manacommunity.api.governance.dto.GovernanceDtos;
 import com.manacommunity.api.governance.dto.GovernanceDtos.*;
 import com.manacommunity.api.governance.entity.*;
 import com.manacommunity.api.governance.repository.*;
+import com.manacommunity.api.user.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,10 +25,14 @@ public class GovernanceController {
     private final GovernanceResolutionRepository resolutionRepo;
     private final GovernanceVaultDocumentRepository vaultRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.governance.service.AgmQuorumService agmQuorumService;
+
     // ── Stats ─────────────────────────────────────────────────────────────────
 
     @GetMapping("/stats")
-    public ResponseEntity<StatsDto> getStats(@RequestParam Long communityId) {
+    public ResponseEntity<StatsDto> getStats(@AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(StatsDto.builder()
                 .upcomingMeetings(meetingRepo.countByCommunityIdAndStatus(communityId, "SCHEDULED"))
                 .activeProposals(proposalRepo.countByCommunityIdAndStatus(communityId, "OPEN"))
@@ -42,8 +48,9 @@ public class GovernanceController {
 
     @GetMapping("/meetings")
     public ResponseEntity<List<MeetingDto>> getMeetings(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String type) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceMeeting> list = (type != null && !type.isBlank())
                 ? meetingRepo.findByCommunityIdAndTypeOrderByMeetingDateDesc(communityId, type)
                 : meetingRepo.findByCommunityIdOrderByMeetingDateDesc(communityId);
@@ -78,12 +85,70 @@ public class GovernanceController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/meetings/{id}/register-proxy")
+    public ResponseEntity<AgmAttendanceLedger> registerProxy(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long ownerUserId = body.containsKey("ownerUserId")
+                ? Long.valueOf(body.get("ownerUserId").toString())
+                : principal.getUserId();
+        Long proxyHolderUserId = Long.valueOf(body.get("proxyHolderUserId").toString());
+        return ResponseEntity.ok(agmQuorumService.registerProxy(id, flatId, ownerUserId, proxyHolderUserId));
+    }
+
+    @PostMapping("/meetings/{id}/checkin")
+    public ResponseEntity<Map<String, Object>> checkInAgm(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long userId = body.containsKey("userId")
+                ? Long.valueOf(body.get("userId").toString())
+                : principal.getUserId();
+        String role = body.getOrDefault("attendeeRole", "OWNER").toString();
+        String mode = body.getOrDefault("attendanceMode", "IN_PERSON_QR").toString();
+        return ResponseEntity.ok(agmQuorumService.checkIn(id, flatId, userId, role, mode));
+    }
+
+    @PostMapping("/meetings/{id}/revoke-proxy")
+    public ResponseEntity<Map<String, Object>> revokeProxy(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long flatId = Long.valueOf(body.get("flatId").toString());
+        Long ownerUserId = body.containsKey("ownerUserId")
+                ? Long.valueOf(body.get("ownerUserId").toString())
+                : principal.getUserId();
+        return ResponseEntity.ok(agmQuorumService.revokeProxy(id, flatId, ownerUserId));
+    }
+
+    @GetMapping("/meetings/{id}/quorum")
+    public ResponseEntity<Map<String, Object>> getLiveQuorum(@PathVariable Long id) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(agmQuorumService.getLiveQuorumStatus(id));
+    }
+
+    @PostMapping("/resolutions/{id}/open-voting")
+    public ResponseEntity<GovernanceResolution> openResolutionVoting(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        if (agmQuorumService == null) return ResponseEntity.notFound().build();
+        Long meetingId = Long.valueOf(body.get("meetingId").toString());
+        return ResponseEntity.ok(agmQuorumService.openResolutionVoting(id, meetingId));
+    }
+
     // ── Proposals ─────────────────────────────────────────────────────────────
 
     @GetMapping("/proposals")
     public ResponseEntity<List<ProposalDto>> getProposals(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceProposal> list = (category != null && !category.isBlank() && !category.equals("ALL"))
                 ? proposalRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category)
                 : proposalRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -113,8 +178,9 @@ public class GovernanceController {
 
     @GetMapping("/ballots")
     public ResponseEntity<List<BallotDto>> getBallots(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceBallot> list = (status != null && !status.isBlank())
                 ? ballotRepo.findByCommunityIdAndStatusOrderByCreatedAtDesc(communityId, status)
                 : ballotRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);
@@ -138,8 +204,9 @@ public class GovernanceController {
 
     @GetMapping("/resolutions")
     public ResponseEntity<List<ResolutionDto>> getResolutions(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
+        Long communityId = principal.getCommunityId();
         return ResponseEntity.ok(resolutionRepo.findByCommunityIdOrderByPassedOnDesc(communityId)
                 .stream().map(this::toResolutionDto).toList());
     }
@@ -148,8 +215,9 @@ public class GovernanceController {
 
     @GetMapping("/vault")
     public ResponseEntity<List<VaultDocumentDto>> getVault(
-            @RequestParam Long communityId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String category) {
+        Long communityId = principal.getCommunityId();
         List<GovernanceVaultDocument> list = (category != null && !category.isBlank())
                 ? vaultRepo.findByCommunityIdAndCategoryOrderByCreatedAtDesc(communityId, category)
                 : vaultRepo.findByCommunityIdOrderByCreatedAtDesc(communityId);

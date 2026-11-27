@@ -88,6 +88,14 @@ public class MwWorkforcePoolService {
         return applicationRepo.save(app);
     }
 
+    @Transactional
+    public void withdrawApplication(Long listingId, Long manaUserId) {
+        applicationRepo.findByListingIdAndManaUserId(listingId, manaUserId).ifPresent(app -> {
+            app.setStatus("WITHDRAWN");
+            applicationRepo.save(app);
+        });
+    }
+
     public List<MwPoolApplication> getMyApplications(Long manaUserId) {
         return applicationRepo.findByManaUserId(manaUserId);
     }

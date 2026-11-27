@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events/pooja-registrations")
+@RequestMapping({"/api/events/pooja-registrations", "/events/pooja-registrations"})
 public class EventPoojaUserRegistrationController {
 
     private final EventPoojaUserRegistrationService service;
@@ -54,9 +54,9 @@ public class EventPoojaUserRegistrationController {
         }
         boolean isAdmin = caller != null && (
                 caller.hasRole("ADMIN") || caller.hasRole("SUPER_ADMIN") ||
-                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") ||
+                caller.hasRole("COMMUNITY_ADMIN") || caller.hasRole("EVENT_ADMIN") || caller.hasRole("EVENTS_ADMIN") ||
                 caller.hasRole("ROLE_ADMIN") || caller.hasRole("ROLE_SUPER_ADMIN") ||
-                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN"));
+                caller.hasRole("ROLE_COMMUNITY_ADMIN") || caller.hasRole("ROLE_EVENT_ADMIN") || caller.hasRole("ROLE_EVENTS_ADMIN"));
         // #3: When admin registers on behalf of a member, resolve the target user
         AppUser effectiveUser = caller;
         if (adminOverride && isAdmin && targetUserId != null) {
@@ -75,7 +75,7 @@ public class EventPoojaUserRegistrationController {
      * POST /api/events/pooja-registrations/admin-create
      */
     @PostMapping("/admin-create")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<EventPoojaUserRegistration> adminCreateRegistration(
             @RequestBody @Valid AdminPoojaRegistrationRequest req,
             @AuthenticationPrincipal UserPrincipal principal,
@@ -104,12 +104,11 @@ public class EventPoojaUserRegistrationController {
      * GET /api/events/pooja-registrations/admin/user-search?q=Ramesh&communityId=3
      */
     @GetMapping("/admin/user-search")
-    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','COMMUNITY_ADMIN','EVENT_ADMIN','EVENTS_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<AppUser>> searchUsers(
             @RequestParam(value = "q", defaultValue = "") String query,
-            @RequestParam(value = "communityId", required = false) Long communityId,
             @AuthenticationPrincipal UserPrincipal principal) {
-
+        Long communityId = principal.getCommunityId();
         if (communityId == null && principal != null && principal.getCommunityId() != null) {
             communityId = principal.getCommunityId();
         }
@@ -141,9 +140,9 @@ public class EventPoojaUserRegistrationController {
         }
         boolean isAdmin = user != null && (
                 user.hasRole("ADMIN") || user.hasRole("SUPER_ADMIN") ||
-                user.hasRole("COMMUNITY_ADMIN") || user.hasRole("EVENT_ADMIN") ||
+                user.hasRole("COMMUNITY_ADMIN") || user.hasRole("EVENT_ADMIN") || user.hasRole("EVENTS_ADMIN") ||
                 user.hasRole("ROLE_ADMIN") || user.hasRole("ROLE_SUPER_ADMIN") ||
-                user.hasRole("ROLE_COMMUNITY_ADMIN") || user.hasRole("ROLE_EVENT_ADMIN"));
+                user.hasRole("ROLE_COMMUNITY_ADMIN") || user.hasRole("ROLE_EVENT_ADMIN") || user.hasRole("ROLE_EVENTS_ADMIN"));
         if (!isAdmin && user != null) {
             return ResponseEntity.ok(service.getMyRegistrations(user, communityId));
         }

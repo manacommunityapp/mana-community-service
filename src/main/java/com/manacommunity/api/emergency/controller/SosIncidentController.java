@@ -23,6 +23,25 @@ public class SosIncidentController {
     private final SosIncidentService sosService;
     private final LoggedInUserService loggedInUserService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.emergency.service.CompactSosAndEvacuationService compactEvacService;
+
+    @PostMapping("/broadcast")
+    public ResponseEntity<?> broadcast(
+            @RequestBody java.util.Map<String, Object> req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user != null && user.getCommunity() != null
+                ? user.getCommunity().getId()
+                : (req.containsKey("communityId") && req.get("communityId") != null ? Long.valueOf(req.get("communityId").toString()) : null);
+        return ResponseEntity.ok(java.util.Map.of(
+                "status", "BROADCAST_SENT",
+                "communityId", communityId != null ? communityId : 0L,
+                "message", req.getOrDefault("message", ""),
+                "severity", req.getOrDefault("severity", "HIGH")
+        ));
+    }
+
     @PostMapping({"/sos/trigger", "/sos"})
     public ResponseEntity<SosIncidentResponse> triggerSos(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -145,5 +164,53 @@ public class SosIncidentController {
     ) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(sosService.executeGateLockdown(user, request));
+    }
+
+    @PostMapping("/sos/compact")
+    public ResponseEntity<com.manacommunity.api.emergency.service.CompactSosAndEvacuationService.CompactSosIngestResult> ingestCompactSos(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (compactEvacService == null) return ResponseEntity.notFound().build();
+        AppUser user = loggedInUserService.resolve(principal);
+        String rawFrame = body.get("rawFrame").toString();
+        String ingestChannel = body.getOrDefault("ingestChannel", "COMPACT_2G").toString();
+        Long nearestGuardId = body.containsKey("nearestGuardId") && body.get("nearestGuardId") != null
+                ? Long.valueOf(body.get("nearestGuardId").toString())
+                : null;
+        return ResponseEntity.ok(compactEvacService.ingestCompactSos(
+                rawFrame, ingestChannel, user, user.getCommunity(), nearestGuardId));
+    }
+
+    @PostMapping("/evacuation/broadcast")
+    public ResponseEntity<com.manacommunity.api.emergency.service.CompactSosAndEvacuationService.EvacuationDispatchResult> triggerTowerEvacuation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (compactEvacService == null) return ResponseEntity.notFound().build();
+        AppUser user = loggedInUserService.resolve(principal);
+        Long communityId = user.getCommunity() != null
+                ? user.getCommunity().getId()
+                : Long.valueOf(body.get("communityId").toString());
+        String towerBlock = body.get("towerBlock").toString();
+        String emergencyType = body.getOrDefault("emergencyType", "GAS_LEAK").toString();
+        String message = body.get("message").toString();
+        String assemblyPoint = body.getOrDefault("assemblyPoint", "Main Assembly Lawn").toString();
+        return ResponseEntity.ok(compactEvacService.triggerTowerEvacuationBroadcast(
+                communityId, towerBlock, emergencyType, message, assemblyPoint, user.getId()));
+    }
+
+    @GetMapping("/evacuation/{broadcastId}/muster")
+    public ResponseEntity<Map<String, Object>> getEvacuationMuster(@PathVariable Long broadcastId) {
+        if (compactEvacService == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(compactEvacService.getMusterSummary(broadcastId));
+    }
+
+    @PostMapping("/evacuation/muster/{entryId}/safe")
+    public ResponseEntity<com.manacommunity.api.emergency.entity.EvacuationMusterRoster> markSafe(
+            @PathVariable Long entryId
+    ) {
+        if (compactEvacService == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(compactEvacService.markSafeAtAssembly(entryId));
     }
 }

@@ -45,9 +45,6 @@ class VisitorControllerSliceTest extends BaseWebMvcTest {
     @MockitoBean
     private com.manacommunity.api.privacy.PiiMaskingService piiMaskingService;
 
-    @MockitoBean
-    private com.manacommunity.api.security.CookieAuthHelper cookieAuthHelper;
-
     private AppUser mockUser;
     private Community community;
     private VisitorPassResponse samplePass;

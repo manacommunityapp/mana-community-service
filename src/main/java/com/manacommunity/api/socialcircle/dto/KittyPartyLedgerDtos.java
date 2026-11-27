@@ -66,10 +66,8 @@ public class KittyPartyLedgerDtos {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class DisbursePayoutRequest {
-        @NotNull(message = "Period number is required")
         private Integer periodNumber;
 
-        @NotBlank(message = "External payout reference (UTR) is required")
         private String externalPayoutRef;
 
         private String payoutReceiptUrl;

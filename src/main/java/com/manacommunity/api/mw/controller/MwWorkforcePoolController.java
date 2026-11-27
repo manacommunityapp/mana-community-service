@@ -30,7 +30,7 @@ public class MwWorkforcePoolController {
 
     // ── Employer: listings ────────────────────────────────────────────────────
 
-    @PostMapping("/orgs/{orgId}/listings")
+    @PostMapping({"/orgs/{orgId}/listings", "/{orgId}/listings"})
     public ResponseEntity<MwPoolListing> createListing(
             @PathVariable Long orgId,
             @Valid @RequestBody CreatePoolListingRequest req,
@@ -40,7 +40,7 @@ public class MwWorkforcePoolController {
         return ResponseEntity.ok(poolService.createListing(orgId, user.getId(), req));
     }
 
-    @GetMapping("/orgs/{orgId}/listings")
+    @GetMapping({"/orgs/{orgId}/listings", "/{orgId}/listings"})
     public ResponseEntity<List<MwPoolListing>> getOrgListings(
             @PathVariable Long orgId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -49,7 +49,7 @@ public class MwWorkforcePoolController {
         return ResponseEntity.ok(poolService.getOrgListings(orgId));
     }
 
-    @PatchMapping("/orgs/{orgId}/listings/{listingId}/close")
+    @RequestMapping(value = {"/orgs/{orgId}/listings/{listingId}/close", "/{orgId}/listings/{listingId}/close"}, method = {RequestMethod.PATCH, RequestMethod.PUT})
     public ResponseEntity<MwPoolListing> closeListing(
             @PathVariable Long orgId,
             @PathVariable Long listingId,
@@ -59,7 +59,7 @@ public class MwWorkforcePoolController {
         return ResponseEntity.ok(poolService.closeListing(orgId, listingId));
     }
 
-    @GetMapping("/orgs/{orgId}/listings/{listingId}/applications")
+    @GetMapping({"/orgs/{orgId}/listings/{listingId}/applications", "/{orgId}/listings/{listingId}/applications"})
     public ResponseEntity<List<MwPoolApplication>> getListingApplications(
             @PathVariable Long orgId,
             @PathVariable Long listingId,
@@ -69,7 +69,7 @@ public class MwWorkforcePoolController {
         return ResponseEntity.ok(poolService.getListingApplications(orgId, listingId));
     }
 
-    @PostMapping("/orgs/{orgId}/applications/{applicationId}/respond")
+    @RequestMapping(value = {"/orgs/{orgId}/applications/{applicationId}/respond", "/{orgId}/applications/{applicationId}"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<MwPoolApplication> respondToApplication(
             @PathVariable Long orgId,
             @PathVariable Long applicationId,
@@ -118,6 +118,15 @@ public class MwWorkforcePoolController {
             @AuthenticationPrincipal UserPrincipal principal) {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(poolService.applyToListing(listingId, user.getId(), req));
+    }
+
+    @DeleteMapping("/listings/{listingId}/apply")
+    public ResponseEntity<Void> withdrawApplication(
+            @PathVariable Long listingId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        poolService.withdrawApplication(listingId, user.getId());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/my-applications")

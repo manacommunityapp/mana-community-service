@@ -167,6 +167,27 @@ public class CposCrmController {
         return ResponseEntity.ok(crmService.approveCommission(user, id));
     }
 
+    @RequestMapping(value = "/commissions/{id}/payout", method = {RequestMethod.POST, RequestMethod.PUT})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposBrokerCommissionDto> payoutCommission(
+            @PathVariable Long id,
+            @RequestBody(required = false) CposBrokerPayoutRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(crmService.payoutCommission(user, id, req));
+    }
+
+    @PostMapping("/commissions/{id}/reject")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CposBrokerCommissionDto> rejectCommission(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        String reason = body != null ? body.getOrDefault("reason", "Rejected by Admin") : "Rejected by Admin";
+        return ResponseEntity.ok(crmService.rejectCommission(user, id, reason));
+    }
+
     // ── Portal Inbound Integration ─────────────────────────────────────────
 
     @GetMapping("/integrations")

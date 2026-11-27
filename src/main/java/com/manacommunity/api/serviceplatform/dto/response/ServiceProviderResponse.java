@@ -26,6 +26,8 @@ public class ServiceProviderResponse {
     private String serviceAreas;
     private String certifications;
     private String portfolio;
+    private String verifiedCredentialLevel;
+    private LocalDateTime credentialsVerifiedAt;
     private List<ServiceOfferingResponse> offerings;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -153,8 +153,13 @@ public class SecurityConfig { // BUG FIX: was package-private
                 : List.of();
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "X-Idempotency-Key"));
-        config.setExposedHeaders(Arrays.asList("Authorization"));
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization", "Content-Type", "X-Requested-With", "Accept",
+                "X-Idempotency-Key", "X-XSRF-TOKEN", "X-Community-ID",
+                "X-Correlation-Id", "X-Correlation-ID", "X-Platform",
+                "traceparent", "tracestate", "baggage"
+        ));
+        config.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie", "X-Correlation-Id", "traceparent"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -216,9 +221,9 @@ public class SecurityConfig { // BUG FIX: was package-private
         // BUG FIX: Updated to Spring Security 6 lambda DSL (non-deprecated)
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // CSRF is disabled because this is a stateless, token-authenticated API (no
-            // session cookies are used for auth), so CSRF tokens add no protection. If
-            // cookie-based auth is ever introduced, re-enable CSRF.
+            // CSRF protection for cookie-authenticated web sessions is enforced by
+            // CsrfDoubleSubmitFilter (Double-Submit Cookie Pattern with XSRF-TOKEN).
+            // We disable Spring Security's internal CSRF mechanism to avoid duplicate token repositories.
             .csrf(csrf -> csrf.disable())
             // Stateless: never create or rely on an HTTP session — mitigates session
             // fixation / hijacking and keeps the API horizontally scalable.
@@ -265,8 +270,11 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Seeding endpoints stay SUPER_ADMIN-only.
                 .requestMatchers("/api/admin/seed/**").hasRole(ROLE_SUPER_ADMIN)
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/dev/sqs/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN)
                 // Payment Webhooks from external gateways (Razorpay, Stripe, Cashfree)
                 .requestMatchers("/api/finance/webhooks/**", "/api/payments/webhooks/**", "/api/v1/payments/webhooks/**", "/api/payments/razorpay/webhook").permitAll()
+                // Express Entry Delivery Partner APIs (Zomato, Swiggy, Blinkit, Zepto, Amazon)
+                .requestMatchers("/api/v1/partners/delivery/**").permitAll()
                 // Insurance partner webhooks: authenticity is enforced by HMAC signature in InsuranceWebhookService.
                 .requestMatchers("/api/insurance/webhooks/**").permitAll()
                 // CRM portal inbound webhook: authenticated by X-Portal-Key header in CposCrmController.
@@ -285,24 +293,43 @@ public class SecurityConfig { // BUG FIX: was package-private
                 // Communities: only the public GET endpoints used by the registration form
                 // (list all communities, filter by type, and per-community public info) are open.
                 // Communities: public GET endpoints for listing, filtering, looking up communities and registration
-                .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/communities", "/api/communities/**", "/api/v1/communities/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/community", "/api/community/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/analytics/events", "/api/analytics/events").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/frontend-logs").permitAll()
                 .requestMatchers("/api/admin/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/email/templates/assets/**").permitAll()
                 .requestMatchers("/api/email/**").hasAnyRole(ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPORTS_ADMIN)
                 .requestMatchers("/api/tournament/**").authenticated()
                 // AI Chat Agent — requires authentication; the controller itself
                 // validates community membership and active status.
-                // Public file and media streaming (allows browsers to load images in <img> tags without Authorization headers)
-                .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/media/**").permitAll()
+                // File and media streaming REQUIRES a valid token. These paths serve
+                // KYC documents, payment screenshots and private galleries keyed by
+                // sequential integer ids, so anonymous access let anyone enumerate and
+                // download every tenant's files. Browsers can no longer load these URLs
+                // from a bare <img src> — the frontend must fetch them with the
+                // Authorization header (or use a presigned S3 URL).
+                .requestMatchers(HttpMethod.GET, "/api/files/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/media/**").authenticated()
                 // Health Directory & Public Camps / Triage
                 .requestMatchers(HttpMethod.GET, "/api/health/providers/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/health/specialties/**").permitAll()
                 // Mana Fresh & Kitchen: Public GET endpoints for city serviceability and catalog browsing
                 .requestMatchers(HttpMethod.GET, "/api/v1/fresh/cities", "/api/v1/fresh/service-zones", "/api/v1/fresh/serviceability").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/fresh-kitchen/products/**", "/api/v1/fresh-kitchen/batters", "/api/v1/fresh-kitchen/combos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/fresh-kitchen/products/**", "/fresh-kitchen/batters", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh/products", "/api/v1/fresh/products/**",
+                        "/api/fresh/products", "/api/fresh/products/**",
+                        "/fresh/products", "/fresh/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/fresh-kitchen/products", "/api/v1/fresh-kitchen/products/**",
+                        "/api/fresh-kitchen/products", "/api/fresh-kitchen/products/**",
+                        "/fresh-kitchen/products", "/fresh-kitchen/products/**",
+                        "/api/v1/fresh-kitchen/batters", "/api/fresh-kitchen/batters", "/fresh-kitchen/batters",
+                        "/api/v1/fresh-kitchen/combos", "/api/v1/fresh-kitchen/combos/**",
+                        "/api/fresh-kitchen/combos", "/api/fresh-kitchen/combos/**",
+                        "/fresh-kitchen/combos", "/fresh-kitchen/combos/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        "/api/v1/wellness-basket/plans", "/api/wellness-basket/plans", "/wellness-basket/plans").permitAll()
                 .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                 .anyRequest().authenticated()
             );

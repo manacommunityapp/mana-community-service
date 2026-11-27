@@ -24,9 +24,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.manacommunity.api.finance.entity.GeneralLedgerEntry;
+import com.manacommunity.api.finance.repository.GeneralLedgerEntryRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +56,7 @@ public class CposCrmServiceImpl {
     private final SmsProvider smsProvider;
     private final CposCrmDripSequenceRepository dripSequenceRepo;
     private final CposCrmDripStepRepository dripStepRepo;
+    private final GeneralLedgerEntryRepository generalLedgerRepo;
 
     // ── RBAC helpers ──────────────────────────────────────────────────────
 
@@ -547,6 +551,84 @@ public class CposCrmServiceImpl {
         return toCommissionDto(commissionRepo.save(bc));
     }
 
+    @Transactional
+    public CposBrokerCommissionDto payoutCommission(AppUser user, Long commissionId, CposBrokerPayoutRequest req) {
+        CposBrokerCommission bc = commissionRepo.findById(commissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commission not found: " + commissionId));
+
+        bc.setStatus("PAID");
+        bc.setPaidAt(LocalDateTime.now());
+        if (req != null) {
+            bc.setPaymentReference(req.getPaymentReference() != null && !req.getPaymentReference().isBlank()
+                    ? req.getPaymentReference() : "UTR-BC-" + System.currentTimeMillis());
+            bc.setPaymentMethod(req.getPaymentMethod() != null && !req.getPaymentMethod().isBlank()
+                    ? req.getPaymentMethod() : "NEFT");
+        } else {
+            bc.setPaymentReference("UTR-BC-" + System.currentTimeMillis());
+            bc.setPaymentMethod("NEFT");
+        }
+
+        String vNum = "VOUCH-BC-" + commissionId + "-" + (System.currentTimeMillis() % 100000);
+        bc.setGlVoucherNumber(vNum);
+
+        CposBrokerCommission saved = commissionRepo.save(bc);
+
+        // Auto double-entry General Ledger posting:
+        // Dr 5050 - Brokerage Commission Expense
+        // Cr 1010 - Operating Bank Account
+        try {
+            Long commId = user.getCommunity() != null ? user.getCommunity().getId()
+                    : (bc.getBroker() != null && bc.getBroker().getCommunity() != null ? bc.getBroker().getCommunity().getId() : 1L);
+            BigDecimal amount = bc.getCommissionLakhs() != null
+                    ? bc.getCommissionLakhs().multiply(new BigDecimal("100000"))
+                    : BigDecimal.ZERO;
+
+            String brokerName = bc.getBroker() != null ? bc.getBroker().getBrokerName() : "Broker";
+            String leadName = bc.getLead() != null ? bc.getLead().getLeadName() : "Deal";
+
+            GeneralLedgerEntry dr = GeneralLedgerEntry.builder()
+                    .communityId(commId)
+                    .entryDate(LocalDate.now())
+                    .voucherNumber(vNum)
+                    .accountCode("5050")
+                    .accountName("Brokerage & Channel Partner Commission")
+                    .debit(amount)
+                    .credit(BigDecimal.ZERO)
+                    .description("Broker payout to " + brokerName + " for deal " + leadName + " (" + bc.getPaymentReference() + ")")
+                    .referenceType("BROKER_COMMISSION")
+                    .referenceId(String.valueOf(commissionId))
+                    .build();
+
+            GeneralLedgerEntry cr = GeneralLedgerEntry.builder()
+                    .communityId(commId)
+                    .entryDate(LocalDate.now())
+                    .voucherNumber(vNum)
+                    .accountCode("1010")
+                    .accountName("Operating Bank Account")
+                    .debit(BigDecimal.ZERO)
+                    .credit(amount)
+                    .description("Bank disbursement (" + bc.getPaymentMethod() + " / " + bc.getPaymentReference() + ") to " + brokerName)
+                    .referenceType("BROKER_COMMISSION")
+                    .referenceId(String.valueOf(commissionId))
+                    .build();
+
+            generalLedgerRepo.save(dr);
+            generalLedgerRepo.save(cr);
+        } catch (Exception ex) {
+            // Non-blocking for GL logging
+        }
+
+        return toCommissionDto(saved);
+    }
+
+    @Transactional
+    public CposBrokerCommissionDto rejectCommission(AppUser user, Long commissionId, String reason) {
+        CposBrokerCommission bc = commissionRepo.findById(commissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commission not found: " + commissionId));
+        bc.setStatus("REJECTED");
+        return toCommissionDto(commissionRepo.save(bc));
+    }
+
     // ── Mappers ───────────────────────────────────────────────────────────
 
     private CposCrmLeadDto toLeadDto(CposCrmLead l) {
@@ -664,6 +746,10 @@ public class CposCrmServiceImpl {
                 .commissionRate(bc.getCommissionRate())
                 .commissionLakhs(bc.getCommissionLakhs())
                 .status(bc.getStatus())
+                .paidAt(bc.getPaidAt())
+                .paymentReference(bc.getPaymentReference())
+                .paymentMethod(bc.getPaymentMethod())
+                .glVoucherNumber(bc.getGlVoucherNumber())
                 .createdAt(bc.getCreatedAt())
                 .build();
     }

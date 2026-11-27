@@ -135,6 +135,19 @@ public class RolePermissionController {
     }
 
     /**
+     * GET /api/roles/{role}/permissions
+     * Returns the active permission keys for the specified role.
+     */
+    @GetMapping("/{role}/permissions")
+    public ResponseEntity<List<String>> getRolePermissions(
+            @PathVariable String role,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Long communityId = resolveCommunityId(principal);
+        Map<String, List<String>> all = rolePermissionService.getAllRolePermissions(communityId);
+        return ResponseEntity.ok(all.getOrDefault(role, List.of()));
+    }
+
+    /**
      * PUT /api/roles/{role}/permissions
      * Overwrites permissions for a role (no userId) or for a specific user override (userId provided).
      */

@@ -87,4 +87,24 @@ public class VmsWorkOrderController {
         AppUser user = loggedInUserService.resolve(principal);
         return ResponseEntity.ok(workOrderService.assignVendor(id, vendorId, user.getCommunity().getId()));
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('Manage Work Orders')")
+    public ResponseEntity<WorkOrderResponse> update(
+            @PathVariable Long id,
+            @RequestBody WorkOrderRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        return ResponseEntity.ok(workOrderService.update(id, req, user.getCommunity().getId()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('Manage Work Orders')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        workOrderService.delete(id, user.getCommunity().getId());
+        return ResponseEntity.noContent().build();
+    }
 }

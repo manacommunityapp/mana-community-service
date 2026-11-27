@@ -10,10 +10,15 @@ import com.manacommunity.api.visitor.entity.VisitorPass;
 import com.manacommunity.api.visitor.repository.VisitorPassRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,6 +33,12 @@ public class DataRetentionService {
     private final MarketOrderRepository marketOrderRepo;
     private final PrivacyAuditService privacyAuditService;
     private final AuditService auditService;
+
+    private static final int RETENTION_BATCH_SIZE = 2000;
+    private static final long RETENTION_BATCH_PAUSE_MS = 50L;
+
+    @Autowired(required = false)
+    private PlatformTransactionManager transactionManager;
 
     @Transactional(readOnly = true)
     public List<DataRetentionPolicyDto> getPolicies(Long communityId) {
@@ -61,10 +72,10 @@ public class DataRetentionService {
 
     /**
      * Executes data retention enforcement once daily at 2:00 AM.
-     * Iterates all active retention policies and dispatches to the correct enforcer.
+     * Deliberately non-transactional at the top level: each 2,000-row chunk runs inside
+     * its own short-lived REQUIRES_NEW transaction to avoid DB lock contention and replication lag.
      */
     @Scheduled(cron = "0 0 2 * * ?")
-    @Transactional
     public void executeRetentionEnforcement() {
         log.info("Starting automated data retention enforcement job...");
         List<DataRetentionPolicy> activePolicies = policyRepo.findByIsActiveTrue();
@@ -83,43 +94,76 @@ public class DataRetentionService {
         log.info("Completed automated data retention enforcement.");
     }
 
-    // ── Visitor Logs ───────────────────────────────────────────────────────────
+    // ── Visitor Logs (Keyset-Chunked & Lock-Free Batches) ───────────────────────
 
-    private void enforceVisitorLogRetention(DataRetentionPolicy policy) {
+    public int enforceVisitorLogRetention(DataRetentionPolicy policy) {
         int days = policy.getRetentionPeriodDays();
         LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+        boolean isDelete = "DELETE".equalsIgnoreCase(policy.getActionOnExpiry());
+        List<VisitorPass.PassStatus> terminalStatuses = List.of(
+                VisitorPass.PassStatus.CHECKED_OUT,
+                VisitorPass.PassStatus.EXPIRED,
+                VisitorPass.PassStatus.REJECTED
+        );
 
-        List<VisitorPass> oldPasses = visitorPassRepo.findAll().stream()
-                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isBefore(cutoff))
-                .filter(p -> p.getStatus() == VisitorPass.PassStatus.CHECKED_OUT
-                          || p.getStatus() == VisitorPass.PassStatus.EXPIRED
-                          || p.getStatus() == VisitorPass.PassStatus.REJECTED)
-                .toList();
+        long cursorId = 0L;
+        int totalAffected = 0;
 
-        if (oldPasses.isEmpty()) return;
+        while (true) {
+            final long batchCursor = cursorId;
+            List<Long> batchIds = visitorPassRepo.findRetentionCandidateIds(
+                    policy.getCommunityId(),
+                    cutoff,
+                    terminalStatuses,
+                    batchCursor,
+                    isDelete,
+                    PageRequest.of(0, RETENTION_BATCH_SIZE)
+            );
+            if (batchIds == null || batchIds.isEmpty()) break;
 
-        log.info("Enforcing retention for {} visitor passes older than {} days (action: {})",
-                oldPasses.size(), days, policy.getActionOnExpiry());
+            int affectedInBatch = executeBatchTransaction(() ->
+                    isDelete
+                            ? visitorPassRepo.deletePassBatch(batchIds)
+                            : visitorPassRepo.anonymizePassBatch(batchIds));
 
-        for (VisitorPass pass : oldPasses) {
-            if ("DELETE".equalsIgnoreCase(policy.getActionOnExpiry())) {
-                visitorPassRepo.delete(pass);
-            } else {
-                // ANONYMIZE — remove contact & photo, keep pass record for audit
-                pass.setVisitorPhone("REDACTED");
-                pass.setVisitorPhoto(null);
-                pass.setVehicleNumber(null);
-                visitorPassRepo.save(pass);
-            }
+            totalAffected += affectedInBatch;
+            cursorId = batchIds.get(batchIds.size() - 1);
+
+            if (batchIds.size() < RETENTION_BATCH_SIZE) break;
+            pauseBetweenBatches();
         }
 
-        privacyAuditService.record(
-                AuditAction.DELETE_PERSONAL_DATA.name(),
-                "VISITOR_PASS_BATCH",
-                "COUNT:" + oldPasses.size(),
-                policy.getCommunityId(),
-                "Retention policy enforcement: " + policy.getDataCategory()
-        );
+        if (totalAffected > 0) {
+            log.info("Enforced DPDP retention for {} visitor passes older than {} days (action: {})",
+                    totalAffected, days, policy.getActionOnExpiry());
+
+            privacyAuditService.record(
+                    AuditAction.DELETE_PERSONAL_DATA.name(),
+                    "VISITOR_PASS_BATCH",
+                    "COUNT:" + totalAffected,
+                    policy.getCommunityId(),
+                    "Retention policy enforcement: " + policy.getDataCategory()
+            );
+        }
+        return totalAffected;
+    }
+
+    private int executeBatchTransaction(java.util.function.IntSupplier action) {
+        if (transactionManager == null) {
+            return action.getAsInt();
+        }
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        Integer res = template.execute(status -> action.getAsInt());
+        return res != null ? res : 0;
+    }
+
+    private void pauseBetweenBatches() {
+        try {
+            Thread.sleep(RETENTION_BATCH_PAUSE_MS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // ── Marketplace Orders ─────────────────────────────────────────────────────

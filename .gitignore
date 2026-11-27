@@ -48,6 +48,7 @@ src/main/resources/application-local.yaml
 src/main/resources/application-local.properties
 **/application-local.yaml
 **/application-local.properties
+.sqs-mock/
 
 /.mvn/jvm.config
 scripts/db/restore_users_from_audit.sql

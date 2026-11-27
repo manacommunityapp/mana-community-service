@@ -90,7 +90,18 @@ public class HrOperationsController {
         return ResponseEntity.ok(operationsService.getEmployeeAssets(employeeId));
     }
 
-    // Tasks
+    @GetMapping("/organizations/{orgId}/tasks")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<HrTask>> getTasks(
+            @PathVariable Long orgId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        AppUser user = loggedInUserService.resolve(principal);
+        employeeService.resolveAndVerifyMembership(orgId, user.getId());
+        return ResponseEntity.ok(operationsService.getOrgTasks(orgId, PageRequest.of(page, size)));
+    }
+
     @PostMapping("/organizations/{orgId}/tasks")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HrTask> createTask(

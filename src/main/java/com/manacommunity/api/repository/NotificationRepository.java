@@ -16,11 +16,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** Paginated feed: all non-dismissed notifications for a user, newest first. */
     Page<Notification> findByUserIdAndDismissedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    /** Deduplication check to prevent duplicate notifications for the same reference event. */
+    boolean existsByUserIdAndReferenceTypeAndReferenceIdAndType(Long userId, com.manacommunity.api.model.ReferenceType referenceType, Long referenceId, com.manacommunity.api.model.NotificationType type);
+
     /**
      * Dedicated projection query for UI notification dropdown & feed preview.
      * Selects only the 12 columns required for rendering, omitting metadata, channel logs, and lazy relations.
      */
-    @Query("""
+    @Query(value = """
         SELECT new com.manacommunity.api.dto.NotificationSummaryResponse(
             n.id,
             n.type,
@@ -38,7 +41,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         FROM Notification n
         WHERE n.user.id = :userId AND n.dismissed = false
         ORDER BY n.createdAt DESC
-    """)
+    """,
+    countQuery = "SELECT count(n) FROM Notification n WHERE n.user.id = :userId AND n.dismissed = false")
     Page<com.manacommunity.api.dto.NotificationSummaryResponse> findSummaryByUserId(@Param("userId") Long userId, Pageable pageable);
 
     // ── Analytics queries ─────────────────────────────────────────────────

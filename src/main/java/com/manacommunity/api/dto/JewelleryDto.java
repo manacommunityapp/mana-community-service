@@ -87,6 +87,7 @@ public class JewelleryDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateProductRequest {
+        private String sku;
         @NotBlank private String name;
         @NotBlank private String category;
         @NotBlank private String material;
@@ -95,12 +96,18 @@ public class JewelleryDto {
         private String description;
         private String huid;
         private String tags;
+        private List<String> imageUrls;
+        private String tryOnAssetUrl;
         private BigDecimal goldRatePerGram;
         private BigDecimal makingCharges;
         private BigDecimal stoneCost;
         @NotNull @DecimalMin("0.01") private BigDecimal totalPrice;
         private BigDecimal gstPercent;
         @NotNull @Min(0) private Integer stockQuantity;
+        private String status;
+        private Integer dropLengthMm;
+        private Integer sizeMm;
+        private BigDecimal necklaceLengthIn;
         private Map<String, Object> stoneDetails;
     }
 
@@ -175,6 +182,9 @@ public class JewelleryDto {
         private Long vendorId;
         private String vendorName;
         private String shopAddress;
+        private Long customerId;
+        private String customerName;
+        private String customerPhone;
         private String date;
         private String time;
         private String purpose;

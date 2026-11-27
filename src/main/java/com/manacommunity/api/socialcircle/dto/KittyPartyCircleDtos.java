@@ -110,4 +110,19 @@ public class KittyPartyCircleDtos {
     public static class JoinRequestPayload {
         private String requestMessage;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JoinRequestResponse {
+        private Long id;
+        private Long circleId;
+        private Long userId;
+        private String fullName;
+        private String phone;
+        private String requestMessage;
+        private String status;
+        private LocalDateTime createdAt;
+    }
 }

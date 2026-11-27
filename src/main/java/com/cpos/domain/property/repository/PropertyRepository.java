@@ -21,7 +21,7 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
     List<Property> findByTenantIdAndPropertyStatusAndIsDeletedFalse(UUID tenantId, String propertyStatus);
 
-    @Query("SELECT p FROM Property p WHERE p.tenantId = :tenantId AND p.communityId = :communityId " +
+    @Query("SELECT p FROM Property p WHERE (:tenantId IS NULL OR p.tenantId = :tenantId) AND p.communityId = :communityId " +
            "AND (:type IS NULL OR p.propertyTypeCode = :type) " +
            "AND (:status IS NULL OR p.occupancyStatus = :status) " +
            "AND p.isDeleted = false")
