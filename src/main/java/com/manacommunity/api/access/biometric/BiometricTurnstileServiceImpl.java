@@ -36,6 +36,9 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
     private final SimpMessagingTemplate messagingTemplate;
     private final com.manacommunity.api.hrm.service.TimeGuardEvaluatorService timeGuardEvaluatorService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private BiometricEdgeSyncService edgeSyncService;
+
     @Override
     @Transactional
     public VerifyFaceResult verifyFace(VerifyFaceRequest request) {
@@ -135,7 +138,10 @@ public class BiometricTurnstileServiceImpl implements BiometricTurnstileService 
         if (request.getTimeWindowEnd() != null) enrollment.setTimeWindowEnd(request.getTimeWindowEnd());
         if (request.getAllowedDays() != null) enrollment.setAllowedDays(request.getAllowedDays());
 
-        enrollmentRepository.save(enrollment);
+        BiometricUserEnrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        if (edgeSyncService != null) {
+            edgeSyncService.publishEnrollmentDelta(savedEnrollment, null);
+        }
         log.info("Biometric face enrollment registered for user {} ({})", user.getId(), request.getPersonName());
     }
 

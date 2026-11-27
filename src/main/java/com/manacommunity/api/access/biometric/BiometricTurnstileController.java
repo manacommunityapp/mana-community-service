@@ -21,6 +21,12 @@ public class BiometricTurnstileController {
     private final BiometricTurnstileService turnstileService;
     private final ConsentGuard consentGuard;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private BiometricEdgeSyncService edgeSyncService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AntiPassbackService antiPassbackService;
+
     @PostMapping("/verify-face")
     public ResponseEntity<VerifyFaceResult> verifyFace(@Valid @RequestBody VerifyFaceRequest request) {
         return ResponseEntity.ok(turnstileService.verifyFace(request));
@@ -84,6 +90,45 @@ public class BiometricTurnstileController {
             @RequestParam BiometricEnums.TurnstileStatus status) {
         turnstileService.setTurnstileStatus(principal.getCommunityId(), turnstileId, status);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/deltas/{communityId}")
+    public ResponseEntity<List<BiometricEdgeDelta>> getEdgeDeltas(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long communityId,
+            @RequestParam(defaultValue = "0") long sinceVersion) {
+        requireSameCommunity(principal, communityId);
+        if (edgeSyncService == null) return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(edgeSyncService.getDeltasSince(communityId, sinceVersion));
+    }
+
+    @PostMapping("/revoke/{userId}")
+    public ResponseEntity<java.util.Map<String, Object>> revokeBiometricKillSwitch(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long userId,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        if (edgeSyncService == null) return ResponseEntity.notFound().build();
+        String reason = body != null ? body.get("reason") : null;
+        return ResponseEntity.ok(edgeSyncService.revokeAndBroadcastKillSwitch(principal.getCommunityId(), userId, reason));
+    }
+
+    @PostMapping("/apb-swipe")
+    public ResponseEntity<AntiPassbackService.ApbSwipeResult> evaluateApbSwipe(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody java.util.Map<String, Object> body) {
+        if (antiPassbackService == null) return ResponseEntity.notFound().build();
+        Long communityId = body.containsKey("communityId")
+                ? Long.valueOf(body.get("communityId").toString())
+                : principal.getCommunityId();
+        String zoneId = body.getOrDefault("zoneId", "CLUBHOUSE_GYM").toString();
+        String credentialId = body.get("credentialId").toString();
+        String direction = body.getOrDefault("direction", "ENTRY").toString();
+        String turnstileId = body.getOrDefault("turnstileId", "TURNSTILE_1").toString();
+        int irPersonsDetected = body.containsKey("irPersonsDetected")
+                ? Integer.parseInt(body.get("irPersonsDetected").toString())
+                : 1;
+        return ResponseEntity.ok(antiPassbackService.evaluateSwipe(
+                communityId, zoneId, credentialId, direction, turnstileId, irPersonsDetected, java.time.LocalDateTime.now()));
     }
 
     /** Tenant isolation: callers may only read data for their own community. */

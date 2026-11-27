@@ -27,6 +27,9 @@ public class SmartDeviceController {
     private final SmartDeviceService deviceService;
     private final LoggedInUserService loggedInUserService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.devices.service.OfflineSmartLockPinService offlineSmartLockPinService;
+
     // ── Registry ──────────────────────────────────────────────────────────
 
     @GetMapping
@@ -131,6 +134,45 @@ public class SmartDeviceController {
         AppUser user = loggedInUserService.resolve(principal);
         deviceService.revokeOtp(otpId, user.getId());
         return ResponseEntity.ok(ApiResponse.ok(Map.of("status", "revoked")));
+    }
+
+    @PostMapping("/{id}/offline-pin")
+    public ResponseEntity<ApiResponse<com.manacommunity.api.devices.service.OfflineSmartLockPinService.OfflinePinDescriptor>> generateOfflinePin(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (offlineSmartLockPinService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiResponse.error("Offline PIN service unavailable"));
+        }
+        AppUser user = loggedInUserService.resolve(principal);
+        String visitorName = body.getOrDefault("visitorName", "Visitor").toString();
+        java.time.Instant validFrom = body.containsKey("validFrom")
+                ? java.time.Instant.parse(body.get("validFrom").toString())
+                : java.time.Instant.now();
+        java.time.Instant validUntil = body.containsKey("validUntil")
+                ? java.time.Instant.parse(body.get("validUntil").toString())
+                : validFrom.plusSeconds(7200);
+        boolean singleUse = !body.containsKey("singleUse") || Boolean.parseBoolean(body.get("singleUse").toString());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(
+                offlineSmartLockPinService.generateTimeBoundPin(id, user.getId(), visitorName, validFrom, validUntil, singleUse)
+        ));
+    }
+
+    @PostMapping("/{id}/verify-offline-pin")
+    public ResponseEntity<ApiResponse<com.manacommunity.api.devices.service.OfflineSmartLockPinService.OfflineVerificationResult>> verifyOfflinePin(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        if (offlineSmartLockPinService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiResponse.error("Offline PIN service unavailable"));
+        }
+        String masterSecretHex = body.get("masterSecretHex").toString();
+        String pinCode = body.get("pinCode").toString();
+        java.time.Instant checkTime = body.containsKey("checkTime")
+                ? java.time.Instant.parse(body.get("checkTime").toString())
+                : java.time.Instant.now();
+        return ResponseEntity.ok(ApiResponse.ok(
+                offlineSmartLockPinService.verifyOnOfflineLockFirmware(masterSecretHex, id, pinCode, checkTime, null)
+        ));
     }
 
     // ── Helper ────────────────────────────────────────────────────────────

@@ -69,6 +69,16 @@ public class BiometricUserEnrollment {
     private LocalDateTime expirationDate;
 
     @Builder.Default
+    @Column(name = "sync_version", nullable = false)
+    private Long syncVersion = 1L;
+
+    @Column(name = "embedding_vector_b64", columnDefinition = "TEXT")
+    private String embeddingVectorB64;
+
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
+    @Builder.Default
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

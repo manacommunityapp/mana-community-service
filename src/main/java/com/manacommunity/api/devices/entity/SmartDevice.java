@@ -52,7 +52,18 @@ public class SmartDevice {
     private Instant lastHeartbeat;
 
     @Column(name = "accessible_by", nullable = false, length = 50)
+    @Builder.Default
     private String accessibleBy = "FM_ONLY";
+
+    @Column(name = "master_secret_hex", length = 128)
+    private String masterSecretHex;
+
+    @Column(name = "rtc_drift_seconds", nullable = false)
+    @Builder.Default
+    private int rtcDriftSeconds = 0;
+
+    @Column(name = "last_rtc_sync_at")
+    private Instant lastRtcSyncAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
