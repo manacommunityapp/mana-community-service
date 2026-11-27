@@ -18,6 +18,9 @@ public class HsBookingController {
 
     private final HsBookingService bookingService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.manacommunity.api.homeservices.service.SlotContentionPricingService slotPricingService;
+
     @GetMapping("/pending")
     public ResponseEntity<List<HsBooking>> communityPending(@AuthenticationPrincipal UserPrincipal p) {
         return ResponseEntity.ok(bookingService.communityPending(p.getCommunityId()));
@@ -48,5 +51,39 @@ public class HsBookingController {
     public ResponseEntity<HsBooking> cancel(@PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal p) {
         return ResponseEntity.ok(bookingService.cancel(id, p.getUserId(), p.getCommunityId()));
+    }
+
+    @PostMapping("/quote-dynamic")
+    public ResponseEntity<com.manacommunity.api.homeservices.service.SlotContentionPricingService.DynamicPriceQuote> quoteDynamicPrice(
+            @RequestBody Map<String, Object> body) {
+        if (slotPricingService == null) return ResponseEntity.notFound().build();
+        java.math.BigDecimal base = new java.math.BigDecimal(body.get("basePrice").toString());
+        boolean weekend = Boolean.parseBoolean(body.getOrDefault("isWeekend", false).toString());
+        int utilPct = Integer.parseInt(body.getOrDefault("zoneUtilizationPct", 50).toString());
+        boolean cluster = Boolean.parseBoolean(body.getOrDefault("sameCommunityCluster", false).toString());
+        return ResponseEntity.ok(slotPricingService.calculateDynamicPrice(base, weekend, utilPct, cluster));
+    }
+
+    @PostMapping("/slots/{slotId}/hold")
+    public ResponseEntity<com.manacommunity.api.homeservices.entity.HsWorkerAvailability> holdSlot(
+            @PathVariable Long slotId,
+            @RequestBody Map<String, String> body) {
+        if (slotPricingService == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(slotPricingService.acquireCheckoutHold(
+                slotId, body.get("holdToken"), java.time.Instant.now()));
+    }
+
+    @PostMapping("/slots/{slotId}/confirm")
+    public ResponseEntity<HsBooking> confirmHeldSlot(
+            @PathVariable Long slotId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal p) {
+        if (slotPricingService == null) return ResponseEntity.notFound().build();
+        String holdToken = body.get("holdToken").toString();
+        String flat = body.getOrDefault("flatNumber", "A-101").toString();
+        String cat = body.getOrDefault("category", "APPLIANCE").toString();
+        java.math.BigDecimal quoted = new java.math.BigDecimal(body.getOrDefault("quotedPrice", "499.00").toString());
+        return ResponseEntity.ok(slotPricingService.confirmHeldSlotBooking(
+                slotId, holdToken, p.getCommunityId(), p.getUserId(), flat, cat, quoted, java.time.Instant.now()));
     }
 }

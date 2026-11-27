@@ -15,5 +15,9 @@ public class HsWorkerAvailability {
     @Column(name = "available_date", nullable = false) private LocalDate availableDate;
     @Column(name = "slot_start", nullable = false) private LocalTime slotStart;
     @Column(name = "slot_end", nullable = false) private LocalTime slotEnd;
-    @Column(name = "is_booked", nullable = false) private Boolean isBooked = false;
+    @Builder.Default @Column(name = "is_booked", nullable = false) private Boolean isBooked = false;
+    @Version @Builder.Default @Column(nullable = false) private Long version = 0L;
+    @Column(name = "hold_token", length = 64) private String holdToken;
+    @Column(name = "hold_expires_at") private java.time.Instant holdExpiresAt;
+    @Builder.Default @Column(name = "travel_buffer_minutes", nullable = false) private Integer travelBufferMinutes = 15;
 }
